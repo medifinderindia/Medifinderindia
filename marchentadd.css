@@ -1,0 +1,276 @@
+:root {
+    --primary: rgb(177, 7, 7);
+    --accent: #130301;
+    --primary-light: #1c82aa;
+    --primary-gradient: linear-gradient(135deg, #e53935, #b71c1c);
+    --bg-light: #f8fafc;
+    --surface: #ffffff;
+    --surface-glass: rgba(255, 255, 255, 0.85);
+    --border: #edf2f7;
+    --text-main: #2d3748;
+    --text-muted: #718096;
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.02);
+    --shadow-md: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+}
+
+body { 
+    background: var(--bg-light); 
+    padding-bottom: 85px; /* বটম ন্যাভ যেন ফর্মের সাবমিট বাটন ঢেকে না ফেলে */
+    color: var(--text-main); 
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Premium Header Area --- */
+.top-bar { 
+    display: flex; 
+    align-items: center; 
+      background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 14px 20px; 
+    border-bottom: 1px solid var(--border); 
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+}
+.logo-area { display: flex; align-items: center; gap: 10px; }
+.logo-area img { height: 38px; width: auto; object-fit: contain; }
+.logo-area h1 { font-size: 1.25rem; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; }
+.logo-area .highlight { color: var(--accent); }
+
+/* --- Layout Structure --- */
+.content-body { padding: 20px; max-width: 650px; margin: 0 auto; }
+.form-container { 
+    background: var(--surface); 
+    padding: 28px; 
+    border-radius: 20px; 
+    border: 1px solid var(--border); 
+    box-shadow: var(--shadow-md); 
+}
+
+/* --- Premium Form Progress Steps --- */
+.form-steps { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.step { font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; }
+.step.active { color: var(--primary); }
+.step-num { 
+    width: 26px; 
+    height: 26px; 
+    border-radius: 50%; 
+    background: #f1f5f9; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 11px; 
+    font-weight: 700;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+}
+.step.active .step-num { 
+    background: var(--primary); 
+    color: white; 
+    box-shadow: 0 4px 10px rgba(211, 47, 47, 0.25);
+}
+.step-line { flex: 1; height: 2px; background: #f1f5f9; margin: 0 12px; border-radius: 2px; }
+.step-line.active { background: var(--primary); }
+
+/* --- Step Panel Control --- */
+.step-panel { display: none; }
+.step-panel.active { display: block; animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* --- Premium Input Form Fields --- */
+.form-group { margin-bottom: 22px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #4a5568; }
+.section-label { font-size: 14px !important; color: #1a202c !important; margin-bottom: 12px !important; }
+
+.form-group input, .form-group select, textarea { 
+    width: 100%; 
+    padding: 12px 16px; 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    outline: none; 
+    font-size: 14px; 
+    color: var(--text-main);
+    background: #f8fafc;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.form-group input:focus, .form-group select:focus, textarea:focus { 
+    border-color: var(--primary); 
+    box-shadow: 0 0 0 3px var(--primary-light); 
+    background: var(--surface);
+}
+textarea { resize: none; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* --- Fixed Multi-Photo Uploader Grid --- */
+.image-upload-grid {
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 4px;
+}
+.upload-box {
+    background: #f8fafc;
+    border: 2px dashed #e2e8f0;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    height: 90px;
+    padding: 5px;
+    transition: all 0.25s ease;
+}
+.upload-box:hover {
+    border-color: var(--primary);
+    background: #fff5f5;
+}
+.upload-box.main-box {
+    height: 190px; /* ডেক্সটপ ভিউতে মেইন ফটো চমৎকার বড় দেখাবে */
+    grid-row: span 2; 
+}
+.upload-box i { font-size: 18px; color: #a0aec0; transition: color 0.2s; }
+.upload-box.main-box i { font-size: 28px; color: var(--text-muted); }
+.upload-box p { font-size: 11px; color: #718096; text-align: center; margin-top: 6px; padding: 0 6px; font-weight: 500; }
+.upload-box.main-box p { font-size: 13px; }
+.upload-box img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: none; background: white; }
+.upload-box.has-img { border-style: solid; border-color: var(--primary); background: white; }
+
+/* --- Premium Actions & Footer Buttons --- */
+.form-footer { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    margin-top: 32px; 
+    border-top: 1px solid var(--border); 
+    padding-top: 22px; 
+    gap: 10px;
+}
+.btn-next, .btn-back { 
+    padding: 12px 22px; 
+    border-radius: 12px; 
+    border: none; 
+    font-weight: 600; 
+    font-size: 14px; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    transition: all 0.25s ease; 
+}
+.btn-next { 
+    background: var(--primary-gradient); 
+    color: white; 
+    box-shadow: 0 4px 12px rgba(211, 47, 47, 0.15);
+}
+.btn-next:hover { 
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(211, 47, 47, 0.25);
+}
+.btn-back { background: #f1f5f9; color: #4a5568; }
+.btn-back:hover:not(:disabled) { background: #e2e8f0; transform: translateY(-1px); }
+.btn-back:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Golden Amber Save Draft Button */
+.btn-draft {
+    background: #fffdf0;
+    border: 1px solid #ffcc00;
+    color: #b78a00; 
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+}
+.btn-draft:hover {
+    background: #fff9db;
+    border-color: #e6b800;
+    transform: translateY(-1px);
+}
+
+/* --- Glassmorphic Bottom Navigation --- */
+.bottom-nav { 
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    height: 68px; 
+    background: var(--surface-glass); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(226, 232, 240, 0.8); 
+    display: flex; 
+    justify-content: space-around; 
+    align-items: center; 
+    z-index: 1000; 
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
+}
+.nav-item { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    color: var(--text-muted); 
+    font-size: 10px; 
+    font-weight: 700; 
+    cursor: pointer; 
+    gap: 5px; 
+    width: 20%; 
+    transition: all 0.25s ease;
+    position: relative;
+}
+.nav-item i { font-size: 19px; transition: transform 0.2s ease; }
+.nav-item.active { color: var(--primary); }
+.nav-item.active i { transform: translateY(-2px); }
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    width: 4px;
+    height: 4px;
+    background: var(--primary);
+    border-radius: 50%;
+}
+
+/* --- Animations & Responsive Media Fixes --- */
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(8px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+@media (max-width: 768px) {
+    .image-upload-grid {
+        grid-template-columns: repeat(4, 1fr); /* মোবাইলে ৪টি বক্স পাশাপাশি সেট হবে */
+        gap: 8px;
+    }
+    .upload-box.main-box { 
+        height: 90px; 
+        grid-row: auto; 
+    }
+    .upload-box.main-box i { font-size: 18px; }
+    .upload-box.main-box p { font-size: 11px; }
+    
+    .form-container { padding: 18px; border-radius: 16px; }
+    .form-row { grid-template-columns: 1fr; gap: 0; } /* মোবাইলে ইনপুট রো গুলো নিচে নিচে নামবে */
+}
+
+@media (max-width: 480px) {
+    .form-steps { margin-bottom: 24px; }
+    .step span:not(.step-num) { display: none; } /* একদম ছোট স্ক্রিনে শুধু স্টেপ নম্বর দেখাবে, টেক্সট হাইড থাকবে */
+    .btn-draft span { display: none; } /* ছোট স্ক্রিনে ড্রাফট বাটনের লেখা লুকিয়ে আইকন রাখা হয়েছে স্পেস বাঁচাতে */
+    .btn-draft { padding: 12px 15px; }
+}

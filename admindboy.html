@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="description" content="MediFinder Admin - Rider Management, Fleet Tracking, Payouts, Service Zones">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta property="og:title" content="MediFinder Delivery Control">
+    <meta property="og:description" content="Manage riders, fleet, payouts, and service zones">
+    <meta property="og:type" content="website">
+    <title>MediFinder Admin - Enhanced Delivery & Network Control</title>
+    <link rel="stylesheet" href="admindboy.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet Map Library for Live Fleet Tracking -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+
+    <style>
+        /* Enhanced Dashboard Analytics Cards */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            margin-top: 20px;
+        }
+
+        .analytics-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .analytics-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .analytics-card.active-riders {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .analytics-card.merchants {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .analytics-card.total-orders {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .analytics-card.earnings {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .analytics-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .analytics-label {
+            font-size: 13px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .analytics-change {
+            font-size: 12px;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        /* Live Map Container */
+        #live-fleet-map {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        .map-controls {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .map-legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        /* Ledger Table Styles */
+        .ledger-container {
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .ledger-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .ledger-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .ledger-stat {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .ledger-stat-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .ledger-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        /* Outage Banner */
+        .outage-alert-banner {
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.5s ease;
+        }
+
+        .outage-alert-banner.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .outage-controls {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px dashed #ef4444;
+        }
+
+        .outage-controls h4 {
+            margin-top: 0;
+            color: #ef4444;
+        }
+
+        .outage-form-group {
+            margin-bottom: 12px;
+        }
+
+        .outage-form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #1e293b;
+        }
+
+        .outage-form-group input,
+        .outage-form-group textarea,
+        .outage-form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .outage-form-group textarea {
+            resize: vertical;
+        }
+
+        /* Enhanced Tab Navigation */
+        .enhanced-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 10px 16px;
+            background: #f1f5f9;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            color: #64748b;
+        }
+
+        .nav-tab.active {
+            background: var(--medi-brand);
+            color: white;
+            border-color: var(--medi-brand);
+        }
+
+        .nav-tab:hover {
+            border-color: var(--medi-brand);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <h2 class="logo-text"><span class="medi">MEDI</span><span class="finder">FINDER</span></h2>
+            <span class="admin-badge">Enhanced Control Panel</span>
+        </div>
+        <hr class="nav-divider">
+        <nav class="nav-menu">
+            <div class="nav-item" onclick="window.location.href='admin-dashboard.html'"><i class="fa-solid fa-chart-line"></i> Dashboard</div>
+            <div class="nav-item" onclick="switchToTab('network')"><i class="fa-solid fa-network-wired"></i> Network Area Control</div>
+            <div class="nav-item" onclick="switchToTab('fleet-tracking')"><i class="fa-solid fa-map"></i> Fleet Live Tracker</div>
+            <div class="nav-item" onclick="switchToTab('analytics')"><i class="fa-solid fa-chart-line"></i> Analytics & Metrics</div>
+            <div class="nav-item" onclick="switchToTab('payouts')"><i class="fa-solid fa-money-check-dollar"></i> Delivery Payouts</div>
+            <div class="nav-item" onclick="switchToTab('ledger')"><i class="fa-solid fa-book"></i> Earning Ledger</div>
+            <div class="nav-item" onclick="switchToTab('verification')"><i class="fa-solid fa-id-card"></i> Vehicle & License KYC</div>
+            <div class="nav-item" onclick="switchToTab('notifications')"><i class="fa-solid fa-message"></i> Push Delivery Alerts</div>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="role-btn user-btn" onclick="window.location.href='adminuser.html'"><i class="fa-solid fa-user"></i> User View</button>
+            <button class="role-btn merchant-btn" onclick="window.location.href='adminmarchent.html'"><i class="fa-solid fa-store"></i> Merchant View</button>
+            <button class="role-btn delivery-btn" onclick="window.location.href='admindboy.html'"><i class="fa-solid fa-truck"></i> Delivery Boy</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="welcome-hero">
+            <h1><i class="fa-solid fa-shield-heart" style="color: var(--medi-brand);"></i> Enhanced MediFinder Management Console</h1>
+            <p>Real-time Fleet Tracking • Live Analytics • Financial Ledger • Service Outage Control • Full Audit Trail</p>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 1: ANALYTICS & REAL-TIME METRICS -->
+        <!-- ============================================ -->
+        <div id="analytics-tab" class="tab-content active">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-chart-line"></i> Real-Time System Analytics</h2>
+                <p>Live metrics updating every 10 seconds from production database</p>
+            </div>
+
+            <div class="analytics-grid">
+                <div class="analytics-card active-riders">
+                    <div class="analytics-label">Active Riders Online</div>
+                    <div class="analytics-value" id="active-riders-count">0</div>
+                    <div class="analytics-change" id="active-riders-change">↑ +0 from last hour</div>
+                </div>
+
+                <div class="analytics-card merchants">
+                    <div class="analytics-label">Active Merchants</div>
+                    <div class="analytics-value" id="active-merchants-count">0</div>
+                    <div class="analytics-change" id="active-merchants-change">↑ +0 new today</div>
+                </div>
+
+                <div class="analytics-card total-orders">
+                    <div class="analytics-label">Total Orders Today</div>
+                    <div class="analytics-value" id="total-orders-count">0</div>
+                    <div class="analytics-change" id="total-orders-change">↑ +0 in last hour</div>
+                </div>
+
+                <div class="analytics-card earnings">
+                    <div class="analytics-label">Total Earnings</div>
+                    <div class="analytics-value" id="total-earnings-count">₹0</div>
+                    <div class="analytics-change" id="total-earnings-change">↑ ₹0 this hour</div>
+                </div>
+            </div>
+
+            <div class="card" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                <h3><i class="fa-solid fa-arrow-trend-up"></i> Live Service Performance</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <div style="padding: 15px; background: #f0f4ff; border-left: 4px solid #2563eb; border-radius: 6px;">
+                        <div style="font-size: 12px; color: #64748b; font-weight: 600;">AVG DELIVERY TIME</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #2563eb; margin: 8px 0;">32 min</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Last week avg: 35 min</div>
+                    </div>
+                    <div style="padding: 15px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 6px;">
+                        <div style="font-size: 12px; color: #64748b; font-weight: 600;">COMPLETION RATE</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #10b981; margin: 8px 0;">98.5%</div>
+                        <div style="font-size: 11px; color: #94a3b8;">↑ 1.2% vs last week</div>
+                    </div>
+                    <div style="padding: 15px; background: #fef3f2; border-left: 4px solid #ef4444; border-radius: 6px;">
+                        <div style="font-size: 12px; color: #64748b; font-weight: 600;">ACTIVE ZONES</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #ef4444; margin: 8px 0;">12 / 15</div>
+                        <div style="font-size: 11px; color: #94a3b8;">3 zones under maintenance</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 2: FLEET LIVE TRACKING MAP -->
+        <!-- ============================================ -->
+        <div id="fleet-tracking-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-map"></i> Live Fleet Geolocation Hub</h2>
+                <p>Real-time location tracking of all active delivery riders with live order status</p>
+            </div>
+
+            <div class="map-controls">
+                <button class="btn btn-primary" onclick="refreshFleetMap()"><i class="fa-solid fa-rotate"></i> Refresh Map</button>
+                <select id="filter-zone-select" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" onchange="filterFleetByZone()">
+                    <option value="">All Zones</option>
+                    <option value="approved">Only Active Zones</option>
+                    <option value="suspended">Only Suspended Zones</option>
+                </select>
+                <div style="flex: 1; text-align: right; font-size: 13px; color: #64748b;">
+                    Last Updated: <span id="map-last-updated">Just Now</span>
+                </div>
+            </div>
+
+            <div id="live-fleet-map"></div>
+
+            <div class="map-legend">
+                <div style="margin-bottom: 12px; font-weight: 600; color: #0f172a;">Map Legend</div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #10b981;"></div>
+                    <span>Active Rider (With Order)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #3b82f6;"></div>
+                    <span>Idle Rider (No Active Order)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #f97316;"></div>
+                    <span>Rider on Route</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #ef4444;"></div>
+                    <span>Zone Suspended</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #2563eb; font-size: 13px; color: #475569;">
+                <strong><i class="fa-solid fa-info-circle"></i> Live Tracking Features:</strong><br>
+                • Real-time rider location updates via GPS<br>
+                • Current delivery status and order details<br>
+                • Estimated delivery time for each order<br>
+                • Click on any marker to view rider details
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 3: SERVICE OUTAGE & ZONE CONTROL -->
+        <!-- ============================================ -->
+        <div id="network-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-network-wired"></i> Network & Service Area Registry</h2>
+                <p>Manage operational zones, enable/disable services, and broadcast outage alerts</p>
+            </div>
+
+            <div class="outage-alert-banner" id="global-outage-banner">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <i class="fa-solid fa-exclamation-triangle" style="font-size: 24px;"></i>
+                    <div style="flex: 1;">
+                        <strong>Service Alert:</strong> <span id="outage-message-display"></span>
+                    </div>
+                    <button style="background: rgba(255,255,255,0.3); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;" onclick="clearOutageAlert()">Clear</button>
+                </div>
+            </div>
+
+            <div class="outage-controls">
+                <h4><i class="fa-solid fa-triangle-exclamation"></i> Global Zone Outage Trigger Engine</h4>
+                <p style="color: #64748b; margin: 10px 0; font-size: 13px;">Temporarily disable any zone and broadcast custom message to users</p>
+                
+                <div class="outage-form-group">
+                    <label>Select Zone to Suspend (PIN Code)</label>
+                    <select id="outage-pin-select" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        <option value="">-- Choose a PIN Code --</option>
+                    </select>
+                </div>
+
+                <div class="outage-form-group">
+                    <label>Outage Reason / Message to Users</label>
+                    <textarea id="outage-message-input" placeholder="e.g., Heavy Rainfall - Delivery Paused Until 6 PM" rows="3"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-danger" onclick="triggerZoneOutage()"><i class="fa-solid fa-ban"></i> Suspend Zone Now</button>
+                    <button class="btn btn-success" onclick="resumeZoneService()"><i class="fa-solid fa-check-circle"></i> Resume Service</button>
+                </div>
+            </div>
+
+            <div class="card form-card">
+                <h3><i class="fa-solid fa-plus" style="color:var(--success-green)"></i> Add & Authorize New Operational PIN Code</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>PIN Code</label>
+                        <input type="text" id="net-pin" placeholder="e.g., 711101">
+                    </div>
+                    <div class="form-group">
+                        <label>District</label>
+                        <input type="text" id="net-dist" placeholder="e.g., Howrah">
+                    </div>
+                    <div class="form-group">
+                        <label>Police Station (P.S.)</label>
+                        <input type="text" id="net-ps" placeholder="e.g., Bally P.S.">
+                    </div>
+                    <div class="form-group">
+                        <label>Municipality / Corp</label>
+                        <input type="text" id="net-muni" placeholder="e.g., HMC">
+                    </div>
+                    <div class="form-group">
+                        <label>State</label>
+                        <input type="text" id="net-state" value="West Bengal">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="addNewZone()">Launch Zone Live</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>PIN & State</th>
+                            <th>Geographic Region Details</th>
+                            <th>Launch Date</th>
+                            <th>Live Riders</th>
+                            <th>Merchants</th>
+                            <th>Active Users</th>
+                            <th>Service Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="network-table-body"></tbody>
+                </table>
+            </div>
+
+            <div class="card preview-card" style="margin-top: 25px;">
+                <h3><i class="fa-solid fa-mobile-screen-button" style="color:var(--btn-active-bg)"></i> Live App Simulation Mode (User UI Check)</h3>
+                <div class="simulation-box">
+                    <input type="text" id="sim-pin" placeholder="Enter PIN to test (e.g., 721101)" style="width: 250px; padding:11px; border-radius:8px; border:1px solid #cbd5e1;">
+                    <button class="btn btn-primary" onclick="simulateUserOrder()">Check Availability</button>
+                </div>
+                <div id="simulation-output" class="sim-result-holder" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 4: PAYOUTS -->
+        <!-- ============================================ -->
+        <div id="payouts-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-money-check-dollar"></i> 10-Hour Shift Earning Settlement</h2>
+                <p>Instant settlement of rider earnings</p>
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Rider / Contact Info</th>
+                            <th>Duty Duration</th>
+                            <th>Earnings (Auto)</th>
+                            <th>Financial Destination</th>
+                            <th>Settlement Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payout-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 5: EARNING LEDGER & AUDIT HISTORY -->
+        <!-- ============================================ -->
+        <div id="ledger-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-book"></i> Financial Settlement Ledger & Audit Trail</h2>
+                <p>Complete history of all payments issued to riders and merchants</p>
+            </div>
+
+            <div class="ledger-container">
+                <div class="ledger-header">
+                    <h3 style="margin: 0;"><i class="fa-solid fa-history"></i> Complete Payout History</h3>
+                    <div>
+                        <input type="date" id="ledger-date-filter" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                        <button class="btn btn-primary" style="padding: 8px 16px; margin-left: 10px;" onclick="filterLedgerByDate()">Filter</button>
+                        <button class="btn btn-secondary" style="padding: 8px 16px; margin-left: 5px; background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;" onclick="exportLedgerCSV()">Download CSV</button>
+                    </div>
+                </div>
+
+                <div class="ledger-summary">
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">Total Payouts Issued</div>
+                        <div class="ledger-stat-value" id="ledger-total-payouts">0</div>
+                    </div>
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">Total Amount Settled</div>
+                        <div class="ledger-stat-value" id="ledger-total-amount">₹0</div>
+                    </div>
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">Avg Payout per Transaction</div>
+                        <div class="ledger-stat-value" id="ledger-avg-payout">₹0</div>
+                    </div>
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">Pending Settlements</div>
+                        <div class="ledger-stat-value" id="ledger-pending">0</div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="custom-table" style="font-size: 12px;">
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Rider/Merchant Name</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                                <th>Payment Method</th>
+                                <th>Status</th>
+                                <th>Settlement Date</th>
+                                <th>Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-table-body">
+                            <tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 30px;">Loading ledger data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 6: VERIFICATION -->
+        <!-- ============================================ -->
+        <div id="verification-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-id-card"></i> Rider Document Verification Center</h2>
+            </div>
+
+            <div class="kyc-grid" id="kyc-container"></div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- TAB 7: NOTIFICATIONS -->
+        <!-- ============================================ -->
+        <div id="notifications-tab" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-paper-plane"></i> Broadcast Alerts & Offers System</h2>
+            </div>
+
+            <div class="card">
+                <div class="form-group">
+                    <label>Target Segment Channel</label>
+                    <select id="rider-target" onchange="toggleRiderInput()">
+                        <option value="all">Broadcast Alert to All Active Riders</option>
+                        <option value="individual">Send to Single Targeted Rider (By Staff ID)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="rider-id-group" style="display: none;">
+                    <label>Targeted Rider Staff ID</label>
+                    <input type="text" id="rider-target-id" placeholder="e.g., DB-881">
+                </div>
+                <div class="form-group">
+                    <label>Notification Header / Offer Title</label>
+                    <input type="text" id="rider-title" placeholder="e.g., Extra ₹20 Per Order Active Tonight!">
+                </div>
+                <div class="form-group">
+                    <label>Message Content Instructions</label>
+                    <textarea id="rider-message" rows="4" placeholder="Write full internal message details..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="sendRiderNotification()"><i class="fa-solid fa-paper-plane"></i> Dispatch Live Rider Alert</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATUS POPUP (KEEP EXISTING) -->
+    <div id="status-popup" class="popup-modal" style="display: none;">
+        <div class="popup-content popup-content-sm">
+            <div style="margin-bottom: 20px;">
+                <i class="fa-solid fa-circle-check" style="font-size: 55px; color: var(--success-green);"></i>
+            </div>
+            <h2 id="status-popup-title" style="font-size: 20px; margin-bottom: 12px; color: var(--sidebar-bg); font-weight: 700;">Alert Sent Successfully!</h2>
+            <div id="status-popup-body" style="font-size: 14px; color: var(--text-muted); line-height: 1.6; text-align: left; background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #cbd5e1;"></div>
+            <button class="btn btn-primary" style="background: var(--sidebar-bg); width: 100%;" onclick="closeStatusPopup()">Done & Close</button>
+        </div>
+    </div>
+
+    <!-- Custom Logic Script -->
+    <script src="admindboy.js"></script>
+</body>
+</html>

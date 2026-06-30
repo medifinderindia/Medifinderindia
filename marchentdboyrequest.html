@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e02020">
+    <title>Delivery Requests - Medi Finder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="marchentdboyrequest.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+</head>
+<body>
+    <div class="container">
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="logo-area">
+                    <img src="1779304435608.png" alt="Logo">
+                    <h1>MEDI <span class="highlight">FINDER</span></h1>
+                </div>
+            </header>
+
+            <section class="content-body">
+                <div class="page-title">
+                    <h1>Delivery Dashboard</h1>
+                    <p>Broadcast configuration and rider auto-allocation node</p>
+                </div>
+
+                <div class="dispatch-card">
+                    <h3>Configure Broadcast</h3>
+                    
+                    <div class="form-group">
+                        <label>Order ID</label>
+                        <div class="order-verify-wrapper">
+                            <input type="text" id="orderIdSelect" placeholder="Enter Order ID (e.g., #ORD-98745)" value="#ORD-98745">
+                            <button type="button" class="verify-btn" id="btnVerifyOrder">
+                                <i class="fa-solid fa-shield-check"></i> <span id="verifyText">Verify</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Distance Calculation (Map)</label>
+                            <select id="distanceSelector">
+                                <option value="">Awaiting Verification...</option>
+                                <option value="12">12 KM (Local Node)</option>
+                                <option value="45">45 KM (Inter-District)</option>
+                                <option value="150">150 KM (Long Haul)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Auto Detected Fleet</label>
+                            <input type="text" id="autoVehicle" placeholder="Awaiting Verification..." readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Speed</label>
+                        <input type="text" id="deliverySpeed" placeholder="Awaiting Verification..." readonly>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Pickup From</label>
+                            <input type="text" id="pickupAddress" placeholder="Awaiting Verification..." readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Deliver To</label>
+                            <input type="text" id="deliveryAddress" placeholder="Awaiting Verification..." readonly>
+                        </div>
+                    </div>
+
+                    <div class="prescription-vault" id="prescriptionVaultSection" style="display: none;">
+                        <h4><i class="fa-solid fa-file-medical"></i> Customer Uploaded Prescription</h4>
+                        <div class="prescription-wrapper">
+                            <img id="customerRxImage" src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=600" alt="Customer Prescription">
+                            <div class="rx-watermark"><i class="fa-solid fa-prescription"></i> Rx Restricted Drug Node</div>
+                        </div>
+                    </div>
+
+                    <div class="ordered-product-preview" id="productPreviewArea" style="display: none;">
+                        <h4>Items in this Order</h4>
+                        <div class="item-mini-card">
+                            <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=150&auto=format&fit=crop" alt="Medicine Item" class="item-thumb">
+                            <div class="item-info">
+                                <h5>Paracetamol 650mg <span class="item-qty">x 2 Strips</span></h5>
+                                <p class="item-meta">Generic • Acme Pharmaceuticals</p>
+                                <p class="item-price">Total Cost: <strong>₹41.00</strong></p>
+                            </div>
+                        </div>
+
+                        <div class="verification-checkpoint-box" id="rxVerificationBox" style="display: none;">
+                            <div class="warning-alert-banner">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <span>This order contains **Rx-Required Medication**. Complete verification to broadcast.</span>
+                            </div>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="chkConfirmItems">
+                                <span class="checkmark"></span>
+                                <span class="label-text">I confirm that the medicine names and quantities packed perfectly match the customer's verified prescription.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="broadcast-btn" id="btnBroadcast" disabled>Broadcast To Fleet Pool</button>
+                </div>
+
+                <div class="rider-status-panel">
+                    <h4>Rider Acceptance Status</h4>
+                    <div class="status-container" id="riderStatusBox">
+                        <span class="status-badge inactive"><i class="fa-solid fa-circle-dot animate-pulse"></i> Published / Awaiting Verification</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="liability-modal" id="liabilityModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <i class="fa-solid fa-gavel"></i>
+                <h3>Legal Liability Notice</h3>
+            </div>
+            <div class="modal-body">
+                <p><strong>Attention Pharmacist:</strong> Dispensing incorrect medications or matching wrong counts violates drug distribution policies.</p>
+                <p>If you dispatch an incorrect medicine, the complete professional and legal liability rests <strong>solely on your shop/pharmacy node</strong>. Please double-check all assets before proceeding.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-modal-cancel" id="btnModalCancel">Cancel</button>
+                <button type="button" class="btn-modal-confirm" id="btnModalConfirm">OK, I Verified</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
+    </nav>
+
+    <script type="module" src="marchentscript.js"></script>
+</body>
+</html>

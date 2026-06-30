@@ -1,0 +1,799 @@
+/* --- ZOMATO / SWIGGY INSPIRED PREMIUM THEME VARIABLES --- */
+:root {
+    --primary: #e02020;
+    --primary-blue: #ff4747;
+    --accent: #1a1a2e;
+    --surface-light: #ffffff;
+    --app-bg: #f8f9fa;
+    --text-primary: #1a1a2e;
+    --text-muted: #747d8c;
+    --success-green: #2ed573;
+    --premium-gradient: linear-gradient(135deg, #e02020 0%, #ff4747 100%);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.08);
+    --radius-sm: 12px;
+    --radius-md: 18px;
+    --radius-lg: 24px;
+}
+
+/* --- RESET & GLOBAL CONFIG --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--app-bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Master Layout Framework */
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* --- PREMIUM TOP HEADER --- */
+.main-header { 
+    background: var(--surface-light); 
+    padding: 12px 20px; 
+    border-bottom: 1px solid #e5e7eb; 
+    box-shadow: var(--shadow-sm); 
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header-container { 
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* অ্যাকশন বাটন থাকলে দুপাশে থাকবে, জাভাস্ক্রিপ্ট ডাইনামিক ফিল্টার বা ট্যাগ ফ্রেন্ডলি */
+}
+
+.logo-side { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+}
+
+.brand-logo { 
+    height: 40px; 
+    width: 40px; 
+    object-fit: contain; 
+    background: #fff;
+    padding: 4px;
+    border-radius: 50%;
+}
+
+.logo-title { 
+    font-size: 1.25rem; 
+    font-weight: 800; 
+    color: rgb(151, 16, 16); 
+    letter-spacing: -0.5px; 
+    margin: 0; 
+}
+
+.red-accent { 
+    color: black; 
+}
+
+.sub-tag {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: block;
+    margin-top: -2px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.status-toggle-pill {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 8px 14px;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--success-green);
+    border-radius: 50%;
+    position: relative;
+}
+
+.pulse-dot.active::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: var(--success-green);
+    border-radius: 50%;
+    animation: pulseWave 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseWave {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+.status-txt {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #166534;
+}
+
+.batch-count-badge {
+    background-color: #f3f4f6;
+    padding: 8px 14px;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- MASTER DASHBOARD GRID SYSTEM --- */
+.dashboard-grid {
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr; /* Split screen layout for Desktop */
+    gap: 24px;
+    flex-grow: 1;
+}
+
+/* Section Card Component Style */
+.section-card {
+    background: var(--surface-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+.card-header-premium {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.title-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.red-bg { background: #fef2f2; }
+
+.title-block h3 {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.title-block p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.vehicle-pill {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.truck-mode { background-color: #eff6ff; color: #1d4ed8; }
+.van-mode { background-color: #fef3c7; color: #d97706; }
+.bike-mode { background-color: #ecfdf5; color: #047857; }
+
+/* --- LIVE MAP CANVASES CONTROL --- */
+.live-map-wrapper { 
+    padding: 16px;
+    background: var(--surface-light); 
+}
+
+#zomatoRealMap, .map-canvas { 
+    width: 100%; 
+    height: 380px; 
+    background-color: #eef2f7; 
+    border-radius: var(--radius-sm); 
+    position: relative; 
+    overflow: hidden; 
+    border: 1px solid #e5e7eb; 
+}
+
+/* Map SVG Path Route Overlay */
+.map-route-svg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+.animated-route-line {
+    stroke-dasharray: 6;
+    animation: dashRoute 30s linear infinite;
+}
+
+@keyframes dashRoute {
+    to { stroke-dashoffset: -1000; }
+}
+
+/* Map Interactive Markers Mapbox/Leaflet Custom Nodes */
+.premium-marker {
+    position: absolute;
+    z-index: 10;
+    transform: translate(-50%, -50%);
+}
+
+.marker-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    color: #fff;
+}
+
+.shop-node .marker-icon { background: var(--text-primary); }
+.user-node .marker-icon { background: var(--primary); }
+.secondary-node .marker-icon { background: #7c3aed; } 
+
+.vehicle-node .marker-icon {
+    background: #fff;
+    color: var(--success-green);
+    border: 2px solid var(--success-green);
+}
+
+.marker-pop {
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* Radar Wave Ring */
+.radar-wave {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border: 4px solid var(--success-green);
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    animation: waveExplode 1.6s infinite ease-out;
+    opacity: 0;
+    box-sizing: border-box;
+}
+
+@keyframes waveExplode {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(2.2); opacity: 0; }
+}
+
+.map-bottom-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #f1f5f9;
+}
+
+.info-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-meta .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.info-meta .value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.info-meta .value.emphasis {
+    color: var(--primary);
+}
+
+/* --- RIGHT QUEUE COMPONENT AREA --- */
+.queue-header {
+    margin-bottom: 16px;
+}
+
+.queue-header h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.counter-q {
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.85rem;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.queue-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.orders-scroll-area {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Zomato Premium Style Order Card */
+.zomato-order-card {
+    background: var(--surface-light);
+    border-radius: var(--radius-sm);
+    border: 1px solid #e5e7eb;
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.zomato-order-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.card-top-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.order-id-block .id-txt {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.order-id-block .timestamp-lbl {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 1px;
+}
+
+/* Premium Stopwatch Timer System */
+.premium-timer-pill, .timer-badge { 
+    background: #fff5f5; 
+    border: 1px solid #fee2e2; 
+    color: var(--primary); 
+    padding: 6px 12px; 
+    border-radius: 30px; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px; 
+    font-weight: 700; 
+    font-size: 0.88rem;
+    animation: alertPulse 1s infinite alternate; 
+}
+
+@keyframes alertPulse { 
+    from { opacity: 1; transform: scale(1); } 
+    to { opacity: 0.85; transform: scale(0.98); } 
+}
+
+.premium-timer-pill i {
+    animation: spinClock 4s linear infinite;
+}
+
+@keyframes spinClock {
+    100% { transform: rotate(360deg); }
+}
+
+/* Timeline Route Nodes Flow Layers */
+.route-timeline-flow {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 18px;
+}
+
+.route-timeline-flow::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: #e5e7eb;
+}
+
+.timeline-node {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+.timeline-node:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-node::after {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #cbd5e1;
+}
+
+.timeline-node.pickup-node::after {
+    background: var(--text-primary);
+    box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.2);
+}
+
+.timeline-node.drop-node::after {
+    background: var(--primary);
+    box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
+}
+
+.node-title-meta {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.node-main-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 1px;
+}
+
+.node-sub-addr {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Card CTA Action Buttons Row */
+.card-action-footer {
+    display: flex;
+    gap: 12px;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 14px;
+}
+
+.btn-secondary-action {
+    background: #f3f4f6;
+    color: var(--text-primary);
+    border: none;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-primary-action {
+    flex-grow: 1;
+    background: var(--premium-gradient);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.2);
+    transition: transform 0.1s, box-shadow 0.2s;
+}
+
+.btn-primary-action:active {
+    transform: scale(0.98);
+}
+
+/* Empty State Styling */
+.premium-empty-state {
+    text-align: center;
+    padding: 50px 24px;
+    background: #fff;
+    border-radius: var(--radius-sm);
+    border: 1px dashed #cbd5e1;
+}
+
+/* --- FIXED APP BOTTOM STICKY NAVIGATION --- */
+.bottom-nav {
+    position: fixed; 
+    bottom: 0; 
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%; 
+    max-width: 1400px; /* মেইন কন্টেনারের উইডথের সাথে ব্যালেন্স রাখার জন্য */
+    background: var(--surface-light);
+    display: flex; 
+    justify-content: space-around;
+    padding: 12px 0; 
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.04);
+    z-index: 1000;
+    border-top: 1px solid #e5e7eb; 
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    gap: 4px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.nav-item i {
+    font-size: 1.2rem;
+}
+
+.nav-item.active, .nav-item:hover {
+    color: var(--primary-blue);
+}
+
+/* --- INTERACTIVE OTP VERIFICATION POPUP MODAL --- */
+.otp-modal-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(15, 23, 42, 0.6); 
+    backdrop-filter: blur(4px);
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    z-index: 9999; 
+    transition: all 0.3s ease; 
+    padding: 20px;
+}
+
+.otp-modal-card { 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 20px; 
+    width: 100%; 
+    max-width: 400px; 
+    text-align: center; 
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+    animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.otp-header i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 12px;
+}
+
+.otp-header h3 {
+    font-size: 1.3rem;
+    color: #0f172a;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.otp-header p {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 20px;
+}
+
+.otp-input-field {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1.5rem;
+    letter-spacing: 8px;
+    text-align: center;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 20px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.otp-input-field:focus {
+    border-color: var(--primary);
+}
+
+.otp-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-modal-close {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-modal-submit {
+    flex: 2;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(230, 57, 70, 0.2);
+}
+
+.btn-modal-submit:hover {
+    background: #d62839;
+} 
+
+/* --- ANIMATED SUCCESS CHECKMARK SYSTEM --- */
+.success-checkmark { 
+    width: 80px; 
+    height: 80px; 
+    margin: 0 auto 20px; 
+    display: none; 
+}
+
+.check-icon { 
+    width: 80px; 
+    height: 80px; 
+    position: relative; /* Fixed typo from relative: position */
+    border-radius: 50%; 
+    box-sizing: content-box; 
+    border: 4px solid var(--success-green); 
+}
+
+.check-icon::after { 
+    content: ""; 
+    position: absolute; 
+    left: 28px; 
+    top: 46px; 
+    width: 16px; 
+    height: 32px; 
+    border: solid var(--success-green); 
+    border-width: 0 5px 5px 0; 
+    transform: rotate(45deg); 
+    transform-origin: left top; 
+    animation: checkmark 0.8s ease; 
+}
+
+@keyframes checkmark { 
+    0% { height: 0; width: 0; opacity: 0; } 
+    40% { height: 0; width: 16px; opacity: 1; } 
+    100% { height: 32px; width: 16px; opacity: 1; } 
+}
+
+/* --- UTILITY GLOBAL CLASSES --- */
+.hidden { 
+    display: none !important; 
+}
+
+/* --- RESPONSIVE FRAMEWORK MEDIA QUERIES --- */
+@media (max-width: 992px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Stacks Map & Queue vertically */
+        padding: 16px;
+        gap: 20px;
+    }
+
+    .main-header {
+        padding: 12px 16px;
+    }
+
+    #zomatoRealMap, .map-canvas {
+        height: 280px; 
+    }
+
+    .app-layout {
+        padding-bottom: 84px; /* Leaves room for fixed nav */
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-grid {
+        padding: 12px;
+        gap: 16px;
+    }
+    
+    .card-header-premium {
+        padding: 14px;
+    }
+    
+    .zomato-order-card {
+        padding: 14px;
+    }
+    
+    .otp-modal-card {
+        padding: 20px;
+    }
+}

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediFinder - Rider Profile Configuration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="delyvaryprofile.css?v=4">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="navbar">
+            <div class="logo-area">
+                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo">
+                <span class="logo-text">MEDI <span class="text-highlight">FINDER</span></span>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContentSection">
+            <div id="profileViewSegment">
+                <section class="profile-card-header">
+                    <div class="avatar-wrapper">
+                        <img id="avatarDisplayImage" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar Graphic">
+                        <label for="avatarFileUpload" class="camera-btn-trigger">
+                            <i class="fa-solid fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatarFileUpload" accept="image/*" onchange="processAvatarUpdate(event)" style="display:none;">
+                    </div>
+
+                    <div class="identity-group">
+                        <h2 id="profileDisplayName" class="tr-text" data-en="Rider Account" data-bn="রাইডার অ্যাকাউন্ট" data-hi="রাইডার অ্যাকাউন্ট">Rider Account</h2>
+                        <p id="profileDisplayUsername">@medifinder_rider</p>
+                        <button class="edit-basics-btn" onclick="triggerProfileNameEdit()">
+                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
+                        </button>
+                    </div>
+                </section>
+
+                <div class="menu-list-section">
+                    <h3 class="menu-group-title tr-text" data-en="Account Settings" data-bn="অ্যাকাউন্ট সেটিংস" data-hi="खाता सेटिंग">Account KYC </h3>
+                    
+                    <!-- Vehicle Verification -->
+                    <div class="menu-item-button" onclick="openSubPage('vehicleSetupPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box vehicle-icon"><i class="fa-solid fa-truck"></i></div>
+                            <span class="tr-text" data-en="Vehicle Verification" data-bn="যানবাহন যাচাইকরণ" data-hi="वाहन सत्यापन">Vehicle Verification</span>
+                        </div>
+                        <div class="status-indicator-dot" id="vehicleStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- Driving License Verification -->
+                    <div class="menu-item-button" onclick="openSubPage('licensePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-id-card"></i></div>
+                            <span class="tr-text" data-en="Driving License" data-bn="ড্রাইভিং লাইসেন্স" data-hi="ड्राइविंग लाइसेंस">Driving License</span>
+                        </div>
+                        <div class="status-indicator-dot" id="licenseStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- Bank & Payment -->
+                    <div class="menu-item-button" onclick="openSubPage('payoutConfigPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box bank-icon"><i class="fa-solid fa-bank"></i></div>
+                            <span class="tr-text" data-en="Bank & Payment" data-bn="ব্যাংক ও পেমেন্ট" data-hi="बैंक और भुगतान">Bank & Payment</span>
+                        </div>
+                        <div class="status-indicator-dot" id="payoutVerificationTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <h3 class="menu-group-title tr-text" data-en="Financial & Activity" data-bn="আর্থিক ও কার্যক্রম" data-hi="वित्तीय और गतिविधि">Setting</h3>
+
+                    <div class="menu-item-button" onclick="openSubPage('languagePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box language-icon"><i class="fa-solid fa-language"></i></div>
+                            <span class="tr-text" data-en="App Language" data-bn="অ্যাপের ভাষা পরিবর্তন" data-hi="ऐप की भाषा">App Language</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
+
+                    <div class="menu-item-button" onclick="openSubPage('supportPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box support-icon"><i class="fa-solid fa-headset"></i></div>
+                            <span class="tr-text" data-en="Support Desk" data-bn="সাপোর্ট ডেস্ক" data-hi="सहायता डेस्क">Support Desk</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="openSubPage('privacyPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
+                            <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="openSubPage('termsPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
+                            <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <button id="logoutBtn" class="logout-action-btn-premium" onclick="processGlobalLogout()">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <nav class="bottom-nav">
+            <a class="nav-item" href="delyvaryhome.html"><i class="fa-solid fa-house"></i><span>HOME</span></a>
+            <a class="nav-item" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
+            <a class="nav-item" href="delyvaryearning.html"><i class="fa-solid fa-wallet"></i><span>EARNING</span></a>
+            <a class="nav-item active" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
+        </nav>
+    </div>
+
+    <!-- SUB-PAGES -->
+    <div id="vehicleSetupPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('vehicleSetupPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Vehicle Verification</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium">
+                    <label>Active Transport Mode</label>
+                    <select id="vehicleTypeSelect">
+                        <option value="Motorcycle">Motorcycle / Scooter/ev</option>
+                        <option value="Van">Van</option>
+                        <option value="Truck">truck</option>
+                    </select>
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Registration Plate ID</label>
+                    <input type="text" id="vehiclePlateInput" placeholder="e.g., WB-24-XXXX">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Upload Plate Image</label>
+                    <input type="file" id="plateImageInput" accept="image/*">
+                </div>
+                <button class="action-btn-accent-premium" onclick="runOnlinePlateValidationCheck()">Save Vehicle Log</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="licensePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('licensePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Driving License</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium">
+                    <label>License Serial Number</label>
+                    <input type="text" id="licenseStringInput" placeholder="e.g., DL-1234567890">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Upload License Image</label>
+                    <input type="file" id="licenseImageInput" accept="image/*">
+                </div>
+                <button class="action-btn-accent-premium" onclick="runGovLicenseVerificationQuery()">Verify via Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="payoutConfigPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('payoutConfigPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Bank & Payment</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium">
+                    <label>Account Holder Name</label>
+                    <input type="text" id="bankAccountInput" placeholder="Full Name">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>IFSC Code</label>
+                    <input type="text" id="bankifscinput" placeholder="SBIN000XXXX">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>UPI ID</label>
+                    <input type="text" id="upiIdInput" placeholder="username@upi">
+                </div>
+                <button class="action-btn-accent-premium" onclick="verifyAndSubmitFinancials()">Secure Banking Routing</button>
+            </div>
+        </div>
+    </div>
+    
+<!-- ========================================== -->
+    <!-- MISSING SUB-PAGES (LANGUAGE, SUPPORT, PRIVACY, TERMS) -->
+    <!-- ========================================== -->
+
+    <!-- 🌐 Language Page -->
+    <div id="languagePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>App Language</h3>
+            </div>
+            <div class="sub-page-body" style="padding: 20px; text-align: center;">
+                <p style="margin-bottom: 20px; color: #64748b;">Select your preferred language for the terminal navigation.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="action-btn-accent-premium" onclick="setAppLanguage('en')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;">English (Global Default)</button>
+                    <button class="action-btn-accent-premium" onclick="setAppLanguage('bn')">Bengali (বাংলা)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🎧 Support Desk Page -->
+    <div id="supportPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Support Desk</h3>
+            </div>
+            <div class="sub-page-body" style="padding: 20px; text-align: center;">
+                <i class="fa-solid fa-headset" style="font-size: 3rem; color: #e02020; margin-bottom: 15px;"></i>
+                <h4>Immediate Rider Support Node</h4>
+                <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px; margin-bottom: 25px;">Direct links to get connected with dispatch team instantly.</p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <a href="tel:+919593625498" style="text-decoration: none; background: #e02020; color: #fff; padding: 12px; border-radius: 8px; font-weight: 600;"><i class="fa-solid fa-phone"></i> Call Emergency Helpline</a>
+                    <a href="mailto:support@medifinderindia.com" style="text-decoration: none; background: #f1f5f9; color: #334155; padding: 12px; border-radius: 8px; font-weight: 600; border: 1px solid #cbd5e1;"><i class="fa-solid fa-envelope"></i> Email Dispatch Desk</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔒 Privacy Policy Page -->
+    <div id="privacyPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('privacyPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Privacy Policy</h3>
+            </div>
+            <div class="sub-page-body" style="padding: 20px; text-align: left; max-height: 70vh; overflow-y: auto;">
+                <h4>1. GPS Telemetry Streams</h4>
+                <p style="color: #475569; font-size: 0.9rem; margin-bottom: 15px;">Your background location coordinate streams map directly to route distance estimations. Telemetry logging secures terminal payout data points.</p>
+                <h4>2. Account Attributes</h4>
+                <p style="color: #475569; font-size: 0.9rem;">Registered profile assets, cell indicators, and document parameters are private. Financial records are never exposed to outer marketing assets.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📜 Terms & Conditions Page -->
+    <div id="termsPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('termsPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Terms & Conditions</h3>
+            </div>
+            <div class="sub-page-body" style="padding: 20px; text-align: left; max-height: 70vh; overflow-y: auto;">
+                <h4>1. Safe Distribution Logistics</h4>
+                <p style="color: #475569; font-size: 0.9rem; margin-bottom: 15px;">Riders act as intermediate couriers routing medical parcels securely. Tampering with parcel security seals triggers immediate terminal bans.</p>
+                <h4>2. Payout Extraction Mandate</h4>
+                <p style="color: #475569; font-size: 0.9rem;">Wallet disbursals require active logging on the network node. Verification attributes must reflect true government identification credentials.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="prod-utils.js?v=2"></script>
+    <script src="delyvaryscript.js"></script>
+</body>
+</html>

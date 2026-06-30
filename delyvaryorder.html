@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Tracking | MediFinder</title>
+    <link rel="stylesheet" href="delyvaryorder.css?v=4">
+      <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* কল বাটনের জন্য প্রিমিয়াম স্টাইল */
+        .btn-call-user {
+            background: #2ec4b6;
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .btn-call-user:hover {
+            background: #249b90;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <header class="main-header"> 
+            <div class="header-container"> 
+                <div class="logo-side"> 
+                    <img src="1779304435608.png" alt="MediFinder Logo" class="brand-logo" onerror="this.src='https://via.placeholder.com/40/00b4d8/fff?text=MF'">
+                    <div>
+                        <h1 class="logo-title">MEDI <span class="red-accent">FINDER</span></h1>
+                        <span class="sub-tag">Rider Express</span>
+                    </div>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="status-toggle-pill">
+                        <div class="pulse-dot active"></div>
+                        <span class="status-txt">On Duty</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            
+            <section class="section-card">
+                <div class="card-header-premium">
+                    <div class="title-block">
+                        <div class="icon-wrap red-bg">
+                            <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
+                        </div>
+                        <div>
+                            <h3>Live Route Tracking</h3>
+                            <p>Realtime delivery navigation</p>
+                        </div>
+                    </div>
+                    <div id="vehiclePillBox" class="vehicle-pill bike-mode">
+                        <i id="vehiclePillIcon" class="fa-solid fa-motorcycle"></i> 
+                        <span id="vehiclePillText" style="text-transform: uppercase;">Bike</span>
+                    </div>
+                </div>
+
+                <div class="live-map-wrapper">
+                    <div id="zomatoRealMap"></div>
+                </div>
+                
+                <div class="map-bottom-bar" style="margin: 0 16px 16px 16px;">
+                    <div class="info-meta">
+                        <span class="label">Distance Left</span>
+                        <span class="value">2.4 km</span>
+                    </div>
+                    <div class="info-meta">
+                        <span class="label">Payment Status</span>
+                        <span class="value emphasis" id="paymentStatusValue">Loading...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="right-queue-area">
+                <div class="queue-header">
+                    <h2><i class="fa-solid fa-box"></i> Active Parcel <span class="counter-q" id="orderCount">0</span></h2>
+                    <p class="queue-hint">Tap on the card or timer to open OTP Verification</p>
+                </div>
+
+                <div id="activeOrdersContainer" class="orders-scroll-area">
+                    </div>
+            </section>
+
+        </main>
+
+        <div class="otp-modal-overlay hidden" id="otpModal">
+            <div class="otp-modal-card">
+                <div id="otpFormContent">
+                    <div class="otp-header">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <h3>Parcel Verification</h3>
+                        <p>Enter the 6-digit delivery code from customer</p>
+                    </div>
+                    <input type="text" id="otpInput" class="otp-input-field" placeholder="000000" maxlength="6" autocomplete="off">
+                    <div class="otp-actions">
+                        <button class="btn-modal-close" onclick="closeOtpModal()">Cancel</button>
+                        <button class="btn-modal-submit" onclick="verifyOtpCode()">Verify & Complete</button>
+                    </div>
+                </div>
+
+                <div class="success-checkmark" id="successCheckmark">
+                    <div class="check-icon"></div>
+                    <h3 style="margin-top: 20px; font-weight: 700; color: var(--success-green);">Verification Successful!</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Earnings credited to your wallet balance.</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <a class="nav-item" href="delyvaryhome.html"><i class="fa-solid fa-house"></i><span>HOME</span></a>
+            <a class="nav-item active" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
+            <a class="nav-item" href="delyvaryearning.html"><i class="fa-solid fa-wallet"></i><span>EARNING</span></a>
+            <a class="nav-item" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
+        </nav>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="prod-utils.js?v=2"></script>
+    <script src="delyvaryscript.js"></script>
+</body>
+</html>

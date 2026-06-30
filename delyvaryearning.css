@@ -1,0 +1,380 @@
+/* --- Core Configurations & Variables --- */
+:root {
+    --primary: #e02020;
+    --primary-light: #ff4747;
+    --dark: #1a1a2e;
+    --light-bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --text-main: #1a1a2e;
+    --text-muted: #747d8c;
+    --success: #2ed573;
+    --danger: #e02020;
+    --border-color: #f1f2f6;
+}
+
+/* Global Reset & Typography */
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: 'Inter', sans-serif; 
+}
+
+body { 
+    background: var(--light-bg); 
+    display: flex; 
+    justify-content: center; 
+    color: var(--text-main); 
+    min-height: 100vh;
+}
+
+/* Master App Container Layout */
+.app-container { 
+    width: 100%; 
+    max-width: 1200px; 
+    min-height: 100vh; 
+    padding-bottom: 100px; /* Leaves perfect safe space for fixed bottom navigation */
+    background: var(--light-bg);
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Top Navigation Header Module --- */
+.navbar { 
+    display: flex; 
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px; 
+    background: var(--card-bg); 
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04); 
+    position: sticky; /* Keeps header fixed at the top while scrolling */
+    top: 0;
+    z-index: 99;
+}
+
+.logo-area { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+}
+
+.app-logo { 
+    height: 38px; 
+    width: auto;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.logo-text { 
+    font-size: 1.25rem; 
+    font-weight: 800; 
+    color: #e02020; 
+}
+
+.text-highlight { 
+    color: #1a1a2e; 
+}
+
+.wallet-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: #fff5f5;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.wallet-badge:hover { 
+    background: #ffe8e8; 
+    color: #e02020; 
+}
+
+/* --- Main Content Sheet --- */
+.main-content { 
+    padding: 24px 20px; 
+    flex: 1;
+}
+
+/* Grid Dashboard Fluid Splitter Layout */
+.dashboard-metric-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Adjusted slightly for better smaller screen safety */
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* --- Premium Dashboard Metrics Cards --- */
+.earnings-summary-card {
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
+    border: 1px solid var(--border-color);
+}
+
+.card-top-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.label-heading { 
+    color: var(--text-muted); 
+    font-weight: 500; 
+    font-size: 0.9rem; 
+}
+
+.icon-circle-bg {
+    width: 36px; 
+    height: 36px; 
+    background: #e0f7fa; 
+    color: var(--primary);
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 1rem;
+}
+
+.earnings-summary-card h1 { 
+    font-size: 2.4rem; /* Balanced size for fluid design */
+    font-weight: 700; 
+    color: var(--dark); 
+    margin: 8px 0; 
+    letter-spacing: -0.5px; 
+}
+
+.summary-footer { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    margin-top: 4px; 
+}
+
+.payout-status-dot { 
+    width: 6px; 
+    height: 6px; 
+    background: var(--success); 
+    border-radius: 50%; 
+}
+
+.summary-footer small { 
+    color: var(--text-muted); 
+    font-size: 0.78rem; 
+    font-weight: 400; 
+}
+
+/* --- Premium SVG Graph System --- */
+.graph-box {
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    padding: 24px;
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
+    border: 1px solid var(--border-color);
+    min-height: 150px;
+}
+
+.graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.trend-title { 
+    font-weight: 600; 
+    font-size: 0.95rem; 
+    color: var(--dark); 
+}
+
+.trend-alert-status { 
+    font-size: 0.82rem; 
+    font-weight: 600; 
+    padding: 4px 10px; 
+    border-radius: 20px; 
+}
+
+/* Dynamic Vector Graph Modes */
+.trend-up { color: var(--success); }
+.trend-up .trend-alert-status { background: #d1fae5; color: #065f46; }
+
+.trend-down { color: var(--danger); }
+.trend-down .trend-alert-status { background: #fee2e2; color: #991b1b; }
+
+.sparkline-canvas {
+    width: 100%;
+    margin-top: auto;
+}
+
+.chart-svg { 
+    width: 100%; 
+    height: 65px; 
+    display: block;
+    overflow: visible;
+}
+
+/* --- Premium Recent History Module --- */
+.history-section {
+    background: var(--card-bg); 
+    border-radius: 16px; 
+    padding: 24px; 
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.section-subtitle { 
+    font-size: 1rem; 
+    font-weight: 700; 
+    color: var(--dark); 
+    letter-spacing: 0.2px;
+}
+
+.history-count { 
+    font-size: 0.8rem; 
+    background: #f1f5f9; 
+    color: var(--text-muted); 
+    font-weight: 600; 
+    padding: 2px 8px; 
+    border-radius: 6px; 
+}
+
+.history-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+}
+
+.history-item { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 14px 12px; 
+    border-radius: 12px;
+    transition: background 0.2s ease;
+}
+
+.history-item:hover { 
+    background: #f8fafc; 
+}
+
+.item-left-content { 
+    display: flex; 
+    align-items: center; 
+    gap: 14px; 
+}
+
+.delivery-success-icon {
+    width: 40px; 
+    height: 40px; 
+    background: #e8f8f5; 
+    color: var(--success);
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 1.1rem;
+}
+
+.item-details h4 { 
+    font-size: 0.95rem; 
+    font-weight: 600; 
+    color: var(--dark); 
+    margin-bottom: 2px; 
+}
+
+.item-details p { 
+    font-size: 0.8rem; 
+    color: var(--text-muted); 
+    display: flex; 
+    align-items: center; 
+    gap: 4px; 
+}
+
+.payout-amount-badge {
+    background: #e6f7f4;
+    padding: 6px 14px;
+    border-radius: 30px;
+}
+
+.payout-indicator { 
+    font-weight: 700; 
+    font-size: 0.95rem; 
+    color: var(--success); 
+}
+
+/* --- Fixed Bottom Navigation Bar Module --- */
+.bottom-nav { 
+    position: fixed; 
+    bottom: 0; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    width: 100%; 
+    max-width: 1200px; 
+    background: var(--card-bg); 
+    display: flex; 
+    justify-content: space-around; 
+    padding: 14px 0; 
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.04); 
+    z-index: 100; 
+    border-top: 1px solid var(--border-color);
+}
+
+.nav-item { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    color: #94a3b8; 
+    cursor: pointer; 
+    font-size: 0.75rem; 
+    font-weight: 600; 
+    text-decoration: none;
+    background: none;
+    border: none;
+    transition: color 0.2s ease;
+}
+
+.nav-item.active, 
+.nav-item:hover { 
+    color: #e02020; 
+}
+
+.nav-item i { 
+    font-size: 1.2rem; 
+    margin-bottom: 4px; 
+}
+
+/* --- Responsive Media Queries (Mobile Fixes) --- */
+@media (max-width: 576px) {
+    .navbar {
+        padding: 12px 16px;
+    }
+    .logo-text {
+        font-size: 1.1rem;
+    }
+    .earnings-summary-card h1 {
+        font-size: 2rem;
+    }
+    .main-content {
+        padding: 16px 12px;
+    }
+    .history-item {
+        padding: 10px 8px;
+    }
+}

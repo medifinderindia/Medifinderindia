@@ -1,0 +1,454 @@
+:root {
+    --primary-color: #e02020; 
+    --primary-hover: #c41c1c;
+    --accent-glow: rgba(224, 32, 32, 0.2);
+    --bg-gradient: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+    --card-bg: #ffffff;
+    --text-main: #23313a;
+    --text-muted: #70848f;
+    --border-color: #e2eaf0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background: var(--bg-gradient);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    padding-top: 60px;
+    overflow-y: auto;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+}
+
+/* Premium Logo Circle Layout */
+.logo-wrapper {
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: -55px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.logo-circle {
+    width: 100px;
+    height: 100px;
+    background: #ffffff;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(224, 32, 32, 0.18);
+    padding: 6px;
+    border: 4px solid #ffffff;
+}
+
+.logo-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+/* Auth Card Box */
+.auth-box {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 80px 24px 32px 24px;
+    box-shadow: 0 20px 40px rgba(224, 32, 32, 0.08);
+    width: 100%;
+}
+
+.auth-box h2 {
+    color: var(--text-main);
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.section-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 8px;
+}
+
+/* Role Selectors */
+.role-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.role-card {
+    flex: 1;
+    cursor: pointer;
+}
+
+.role-card input[type="radio"] {
+    display: none;
+}
+
+.role-content {
+    background: #f8fafc;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px 4px 8px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+}
+
+.role-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.role-icon-circle.user-role {
+    background: #e8f5e9;
+    color: #2ed573;
+}
+.role-icon-circle.merchant-role {
+    background: #fff3e0;
+    color: #ff9800;
+}
+.role-icon-circle.delivery-role {
+    background: #e3f2fd;
+    color: #2196f3;
+}
+
+.role-content span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.role-content small {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.role-card input[type="radio"]:checked + .role-content {
+    border-color: var(--primary-color);
+    background: rgba(224, 32, 32, 0.04);
+    box-shadow: 0 0 16px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+.role-card input[type="radio"]:checked + .role-content .role-icon-circle {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(224,32,32,0.3);
+}
+
+.role-card input[type="radio"]:checked + .role-content span {
+    color: var(--primary-color);
+}
+
+/* Input Styles */
+.input-group {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--text-main);
+    background: #f8fafc;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.input-group input:focus {
+    border-color: var(--primary-color);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px var(--accent-glow);
+}
+/*veryfy bottom*/
+.referral-section {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.referral-group {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.referral-group input {
+    flex: 1;
+    padding-right: 80px; /* বাটনের জন্য জায়গা রাখা */
+}
+
+.btn-verify {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #e31e24; /* মেডিকেল রেড থিম */
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.3s ease;
+}
+
+.btn-verify:hover {
+    background: #b81418;
+}
+
+.referral-message {
+    display: block;
+    font-size: 12px;
+    margin-top: 5px;
+    margin-left: 5px;
+    font-weight: 500;
+}
+
+/* Buttons */
+.btn-premium {
+    width: 100%;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(224, 32, 32, 0.2);
+}
+
+.btn-premium:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-premium.secondary {
+    background: #eef5f7;
+    color: var(--primary-color);
+    box-shadow: none;
+    margin-bottom: 12px;
+}
+
+.btn-premium.secondary:hover {
+    background: #e2eef2;
+}
+
+/* Divider */
+.divider {
+    text-align: center;
+    margin: 16px 0;
+    position: relative;
+}
+
+.divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 1px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
+.divider span {
+    background: var(--card-bg);
+    padding: 0 15px;
+    color: var(--text-muted);
+    font-size: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Social Buttons */
+.social-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.btn-social {
+    flex: 1;
+    background: #ffffff;
+    color: var(--text-main);
+    border: 1.5px solid var(--border-color);
+    padding: 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-social:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.btn-google img {
+    width: 18px;
+}
+
+.btn-phone i {
+    color: #2ecc71;
+}
+
+/* OTP Toggle Logic Animation Styles */
+.hidden-section {
+    display: none;
+}
+
+.otp-input-group {
+    margin-top: 12px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 15px;
+}
+
+.toggle-text {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 16px;
+}
+
+.toggle-text a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+/* ========================================== */
+/* ADMIN MODAL PREMIUM STYLES                 */
+/* ========================================== */
+.admin-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(35, 49, 58, 0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.admin-modal-box {
+    background: var(--card-bg);
+    width: 90%;
+    max-width: 400px;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 25px 50px rgba(224, 32, 32, 0.25);
+    animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.admin-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.admin-modal-header h3 {
+    font-size: 18px;
+    color: #e31e24; /* মেডিকেল বা অ্যালার্ট রেড */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.step-desc {
+    font-size: 13px;
+    color: var(--text-main);
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+/* ========================================== */
+/* DYNAMIC POLICY WRAPPER STYLES              */
+/* ========================================== */
+.policy-wrapper {
+    background: #f8fafc;
+    border: 1.5px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+}
+
+.policy-wrapper:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 8px var(--accent-glow);
+}

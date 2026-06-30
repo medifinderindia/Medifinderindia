@@ -1,0 +1,545 @@
+:root {
+    --primary: rgb(214, 11, 11);
+    --accent: #030c16;
+    --primary-light: #1c82aa;
+    --surface: #ffffff;
+    --bg-main: #f8fafc;
+    --border: #e2e8f0;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --radius-premium: 20px;
+    --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+    letter-spacing: -0.2px; 
+}
+
+body { 
+    background: var(--bg-main); 
+    padding-bottom: 90px; /* বটম ন্যাভ যেন কোনো সেটিংসে বাধা না দেয় */
+    color: var(--text-main); 
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Header Branding --- */
+.top-bar { 
+    display: flex; 
+    align-items: center; 
+      background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);
+    padding: 16px 24px; 
+    border-bottom: 1px solid var(--border); 
+    position: sticky; 
+    top: 0; 
+    z-index: 100; 
+}
+.logo-area
+ { display: flex; 
+    align-items: center;
+     gap: 12px;
+     }
+.logo-area img
+ { height: 38px; 
+    width: auto;
+     object-fit: contain;
+     }
+.logo-area h1 
+{ font-size: 18px;
+     font-weight: 800;
+ color: var(--primary); 
+}
+
+.logo-area .highlight { color: var(--accent); }
+
+.content-body { padding: 24px; max-width: 680px; margin: 0 auto; }
+
+/* --- Premium Profile Header Card --- */
+.profile-hero-card { 
+    background: linear-gradient(135deg, #ffffff 0%, #fdf8f8 100%); 
+    padding: 30px; 
+    border-radius: var(--radius-premium); 
+    border: 1px solid var(--border); 
+    box-shadow: var(--shadow-premium);
+    display: flex; 
+    align-items: center; 
+    gap: 24px; 
+    margin-bottom: 24px; 
+}
+.avatar-wrapper { position: relative; width: 85px; height: 85px; flex-shrink: 0; }
+.avatar-wrapper img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.cam-overlay-btn { 
+    position: absolute; bottom: -2px; right: -2px; 
+    background: var(--primary); color: white; border: none; 
+    width: 28px; height: 28px; border-radius: 50%; 
+    font-size: 12px; cursor: pointer; 
+    display: flex; align-items: center; justify-content: center; 
+    box-shadow: 0 2px 8px rgba(211,47,47,0.4); transition: transform 0.2s;
+}
+.cam-overlay-btn:hover { transform: scale(1.1); }
+
+.merchant-identity { display: flex; flex-direction: column; gap: 6px; }
+.name-edit-group { display: flex; align-items: center; gap: 10px; }
+.live-edit-name { 
+    font-size: 22px; font-weight: 700; color: #0f172a; 
+    border: none; background: transparent; outline: none; 
+    border-bottom: 2px dashed transparent; width: auto; max-width: 240px;
+    transition: all 0.2s;
+}
+.live-edit-name:focus { border-bottom-color: var(--primary); color: var(--primary); }
+.edit-indicator { color: var(--text-muted); font-size: 14px; }
+
+.uid-badge { 
+    align-self: flex-start; background: #f1f5f9; color: #475569; 
+    padding: 4px 10px; border-radius: 30px; font-size: 12px; font-weight: 600; 
+}
+
+/* --- Premium Settings Container --- */
+.premium-settings-grid { display: flex; flex-direction: column; gap: 20px; }
+.settings-glass-card { 
+    background: var(--surface); 
+    border: 1px solid var(--border); 
+    border-radius: var(--radius-premium); 
+    padding: 24px; 
+    box-shadow: var(--shadow-premium); 
+}
+.card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.settings-glass-card h3 { font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; }
+.settings-glass-card h3 i { color: var(--primary); font-size: 16px; }
+.live-status { font-size: 11px; background: #fff1f2; color: var(--primary); font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4; }
+
+/* --- Elegant Inputs --- */
+.form-group-premium { margin-bottom: 16px; }
+.form-group-premium label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-group-premium input, .premium-select { 
+    width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; 
+    border-radius: 12px; font-size: 14px; outline: none; 
+    background: #fdfdfd; transition: all 0.25s ease; color: #0f172a;
+}
+.form-group-premium input:focus, .premium-select:focus { 
+    border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); background: #ffffff;
+}
+.readonly-styled { background: #f1f5f9 !important; color: #64748b !important; font-weight: 500; }
+.form-row-premium { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* --- File Drop Zone --- */
+.premium-file-zone { 
+    border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; 
+    text-align: center; cursor: pointer; background: #f8fafc; transition: all 0.2s; 
+}
+.premium-file-zone:hover { border-color: var(--primary); background: #fff5f5; }
+.premium-file-zone i { font-size: 26px; color: var(--text-muted); margin-bottom: 8px; display: block; }
+.premium-file-zone span { font-size: 13px; color: #64748b; font-weight: 500; }
+
+/* --- Status Pills --- */
+.status-pill { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 30px; }
+.status-pill.unverified { background: #fef2f2; color: #ef4444; }
+.status-pill.verified { background: #f0fdf4; color: #22c55e; }
+
+/* --- NEW: Help Desk Accordion (সহায়তা কেন্দ্র) --- */
+.premium-accordion { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    margin-top: 5px; 
+}
+.help-item { 
+    background: #f8fafc; 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    overflow: hidden; 
+    transition: all 0.2s ease; 
+}
+.help-item summary { 
+    padding: 14px; 
+    font-size: 14px; 
+    font-weight: 600; 
+    color: #1e293b; 
+    cursor: pointer; 
+    outline: none; 
+    list-style: none; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+/* আইকন যোগ করার জন্য সিউডো এলিমেন্ট */
+.help-item summary::after { 
+    content: '\f078'; 
+    font-family: 'Font Awesome 6 Free'; 
+    font-weight: 900; 
+    font-size: 12px; 
+    color: var(--text-muted); 
+    transition: transform 0.2s ease; 
+}
+.help-item[open] summary::after { 
+    transform: rotate(180deg); 
+    color: var(--primary); 
+}
+.help-item p { 
+    padding: 0 14px 14px 14px; 
+    font-size: 13px; 
+    color: #475569; 
+    line-height: 1.5; 
+    background: #ffffff; 
+    border-top: 1px solid #f1f5f9; 
+}
+
+/* --- NEW: Terms & Conditions Box --- */
+.tc-scroller-box { 
+    background: #f8fafc; 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    padding: 14px; 
+    height: 140px; 
+    overflow-y: auto; 
+    font-size: 12px; 
+    line-height: 1.6; 
+    color: #475569; 
+}
+.tc-scroller-box h5 { 
+    font-size: 13px; 
+    font-weight: 700; 
+    color: #0f172a; 
+    margin-top: 12px; 
+    margin-bottom: 4px; 
+}
+.tc-scroller-box h5:first-child { margin-top: 0; }
+.tc-scroller-box p { margin-bottom: 8px; }
+
+.tc-consent-badge { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 11px; 
+    color: #b45309; 
+    background: #fffbeb; 
+    border: 1px dashed #fcd34d; 
+    padding: 10px; 
+    border-radius: 10px; 
+    margin-top: 12px; 
+    font-weight: 600; 
+}
+
+/* --- Buttons Custom Framework --- */
+.action-btn-premium { 
+    width: 100%; background: #0f172a; color: white; border: none; 
+    padding: 14px; border-radius: 12px; font-weight: 600; font-size: 14px; 
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; 
+}
+.action-btn-premium:hover { background: #1e293b; }
+.action-btn-premium.secondary { background: #f1f5f9; color: #0f172a; font-weight: 700; margin-top: 5px; }
+.action-btn-premium.secondary:hover { background: #e2e8f0; }
+
+/* --- Referral Graphics --- */
+.referral-premium-box { 
+    display: flex; justify-content: space-between; align-items: center; 
+    background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%); 
+    padding: 16px; border-radius: 14px; border: 1px dashed #cbd5e1; 
+}
+.referral-premium-box .code-zone { display: flex; flex-direction: column; }
+.referral-premium-box .label { font-size: 10px; font-weight: 800; color: var(--text-muted); }
+.referral-premium-box .code-text { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; }
+.claim-btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 10px rgba(211,47,47,0.2); }
+
+/* --- Support Cards Links --- */
+.support-premium-channels { display: flex; flex-direction: column; gap: 12px; }
+.channel-link { 
+    text-decoration: none; padding: 14px; border-radius: 12px; 
+    font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: transform 0.2s; 
+}
+.channel-link.phone { background: #f0fdf4; color: #16a34a; }
+.channel-link.email { background: #f0f9ff; color: #0284c7; }
+.channel-link:hover { transform: translateX(3px); }
+
+/* --- Logout System Custom Styling --- */
+.logout-premium-btn { 
+    width: 100%; background: #fff5f5; color: #dc2626; border: 1px solid #fee2e2; 
+    padding: 16px; border-radius: var(--radius-premium); font-weight: 700; 
+    font-size: 14px; cursor: pointer; transition: all 0.2s; margin-top: 10px; 
+}
+.logout-premium-btn:hover { background: #fef2f2; box-shadow: 0 4px 12px rgba(220,38,38,0.05); }
+
+/* --- Sticky Mobile Base Nav --- */
+.bottom-nav { 
+    position: fixed; bottom: 0; left: 0; right: 0; height: 68px; 
+    background: var(--surface); border-top: 1px solid var(--border); 
+    display: flex; justify-content: space-around; align-items: center; 
+    z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.03); 
+}
+.nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); font-size: 10px; font-weight: 700; cursor: pointer; gap: 4px; width: 20%; transition: color 0.2s; }
+.nav-item i { font-size: 20px; }
+.nav-item.active { color: var(--primary); }
+
+/* --- Responsive Adaptability --- */
+@media (max-width: 768px) {
+    .settings-glass-card { padding: 20px; }
+}
+
+@media (max-width: 480px) {
+    .content-body { padding: 16px; }
+    .profile-hero-card { padding: 20px; gap: 16px; flex-direction: column; text-align: center; }
+    .merchant-identity { align-items: center; }
+    .uid-badge { align-self: center; }
+    .form-row-premium { grid-template-columns: 1fr; gap: 0; }
+    .live-edit-name { font-size: 18px; text-align: center; }
+    .help-item summary { font-size: 13px; }
+    .referral-premium-box { flex-direction: column; gap: 12px; text-align: center; align-items: center; }
+}
+/* ==========================================================================
+   POPUP / MODAL NEW PAGE STYLES (ADDED FOR CLICK EFFECTS)
+   ========================================================================== */
+
+/* কার্ডগুলোকে ক্লিকেবল করার ইফেক্ট */
+.settings-glass-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-glass-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+/* কার্ডের ভেতরের সাধারণ এলিমেন্টে ক্লিক করলে যেন মডাল ট্রিগার না হয় */
+.settings-glass-card input, 
+.settings-glass-card select, 
+.settings-glass-card button, 
+.settings-glass-card details, 
+.settings-glass-card a {
+    cursor: auto;
+}
+
+/* ফুল স্ক্রিন ব্যাকগ্রাউন্ড মডাল */
+.custom-popup-modal {
+    display: none; 
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+/* মডাল শো করার ক্লাস */
+.custom-popup-modal.show {
+    display: flex;
+    opacity: 1;
+}
+
+/* পপআপ কন্টেন্ট বক্স (নতুন পেজ ভিউ) */
+.popup-content-box {
+    background: #ffffff;
+    width: 90%;
+    max-width: 550px;
+    max-height: 85vh;
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+    position: relative;
+    overflow-y: auto;
+    transform: scale(0.85);
+    transition: transform 0.3s ease;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #1f2937;
+}
+
+.custom-popup-modal.show .popup-content-box {
+    transform: scale(1);
+}
+
+/* বন্ধ করার গোল বাটন */
+.close-popup-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 24px;
+    color: #4b5563;
+    cursor: pointer;
+    border: none;
+    background: #f3f4f6;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+
+.close-popup-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+/* পপআপের ভেতরের ইউনিভার্সাল ফর্ম ডিজাইন */
+.popup-content-box h3 {
+    margin-top: 0;
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.popup-content-box hr {
+    border: 0;
+    border-top: 1px solid #e5e7eb;
+    margin: 15px 0;
+}
+
+.popup-section-desc {
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.popup-content-box label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #374151;
+}
+
+.popup-content-box input[type="text"],
+.popup-content-box input[type="number"],
+.popup-content-box input[type="email"],
+.popup-content-box input[type="tel"],
+.popup-content-box select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font-size: 15px;
+    box-sizing: border-box;
+    background-color: #fff;
+    color: #111827;
+    margin-bottom: 15px;
+}
+
+.popup-readonly {
+    background-color: #f3f4f6 !important;
+    color: #6b7280;
+}
+
+/* গ্রিড বা দুই কলামের লেআউট */
+.popup-form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.popup-form-col {
+    flex: 1;
+}
+
+/* পপআপের ভেতরের প্রিমিয়াম বাটনসমূহ */
+.popup-submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 15px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.popup-submit-btn:hover { background: #1d4ed8; }
+.success-btn { background: #16a34a; }
+.success-btn:hover { background: #15803d; }
+.secondary-btn { background: #4f46e5; }
+.secondary-btn:hover { background: #4338ca; }
+.dark-btn { background: #1f2937; }
+.dark-btn:hover { background: #111827; }
+
+/* ফাইল আপলোড জোন */
+.popup-file-zone {
+    border: 2px dashed #cbd5e1;
+    padding: 22px;
+    text-align: center;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #f8fafc;
+    transition: background 0.2s;
+    margin-bottom: 15px;
+}
+.popup-file-zone:hover { background: #f1f5f9; }
+.popup-file-zone i { font-size: 26px; color: #64748b; margin-bottom: 6px; }
+
+/* হেল্প ডেক্স অ্যাকোর্ডিয়ন */
+.popup-help-item {
+    background: #f9fafb;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    border: 1px solid #f3f4f6;
+}
+.popup-help-item summary { font-weight: 600; cursor: pointer; color: #1f2937; }
+.popup-help-item p { margin-top: 8px; color: #4b5563; font-size: 14px; line-height: 1.5; }
+
+/* টার্মস স্ক্রলার বক্স */
+.popup-tc-scroller {
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.popup-tc-scroller h5 { margin: 12px 0 4px 0; font-weight: 700; color: #111827; }
+.popup-tc-scroller p { margin-bottom: 10px; color: #4b5563; }
+.popup-tc-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* রেফারেল কোড বক্স */
+.popup-referral-box {
+    text-align: center;
+    background: #f0fdf4;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px dashed #4ade80;
+}
+.popup-ref-label { font-size: 12px; color: #16a34a; font-weight: 700; display: block; margin-bottom: 6px; }
+.popup-ref-code { font-size: 26px; font-weight: 800; color: #15803d; letter-spacing: 2px; }
+
+/* সাপোর্ট চ্যানেল লিঙ্ক */
+.popup-support-channels {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.popup-channel {
+    display: block;
+    text-decoration: none;
+    padding: 16px;
+    font-weight: 600;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 15px;
+    transition: transform 0.2s;
+}
+.popup-channel:hover { transform: scale(1.01); }
+.popup-channel.phone { background: #eff6ff; color: #1d4ed8; }
+.popup-channel.email { background: #fdf2f8; color: #be185d; }

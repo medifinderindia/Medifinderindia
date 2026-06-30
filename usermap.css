@@ -1,0 +1,358 @@
+/* Custom Variable Extensions Mapping Hooks */
+:root {
+    --primary-color: #e02020;
+    --primary-light: #ff4747;
+    --accent-color: #080000;
+    --bg-color: #f4f6f9;
+    --card-bg: #ffffff;
+    --text-color: #2f3542;
+    --text-muted: #747d8c;
+    --border-radius: 16px;
+    --shadow-sm: 0 4px 6px rgba(0,0,0,0.05);
+    --shadow-md: 0 10px 20px rgba(0,0,0,0.08);
+    --green-success: #2ed573;
+    --gold-premium: #ffa502;
+    --font-stack: 'Poppins', sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-stack);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+}
+
+/* Header Framework Constraints */
+header {
+    background: var(--card-bg);
+    height: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+    z-index: 10;
+}
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.logo img {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+}
+.logo h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin: 0;
+    letter-spacing: -0.5px ;
+}
+.logo h1 span {
+    color: var(--accent-color);
+}
+.user-location {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: #eaf4f8;
+    padding: 6px 12px;
+    border-radius: 20px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Responsive View Scroll Window Module Container */
+.map-container-section {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Premium Search Bar Architecture */
+.search-bar-container {
+    padding: 12px 16px;
+    background: var(--card-bg);
+}
+.search-bar {
+    display: flex;
+    align-items: center;
+    background: #f1f2f6;
+    border-radius: 12px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+.search-bar:focus-within {
+    background: #ffffff;
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+.search-icon {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+.search-bar input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 8px;
+    font-size: 0.85rem;
+    font-family: var(--font-stack);
+    outline: none;
+    color: var(--text-color);
+}
+.search-bar button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Hardware Accelerated Premium Map View Layer Constraints */
+.map-wrapper-premium {
+    position: relative;
+    height: 260px; /* Perfectly scaled for native mobile screen spaces */
+    min-height: 260px;
+    margin: 12px 16px;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    border: 2px solid white;
+    z-index: 5;
+}
+#map {
+    width: 100%;
+    height: 100%;
+}
+.locate-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 1000;
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: none;
+    padding: 10px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.locate-btn i {
+    color: var(--accent-color);
+}
+
+/* Dynamic Scrolling Results Content Box Styles */
+.results-container {
+    padding: 0 16px;
+    flex: 1;
+}
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.results-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0;
+}
+.count-badge {
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+.pharmacy-grid-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Premium Tata1mg Look Shop Grid Cards */
+.shop-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+    border-left: 5px solid var(--primary-color);
+    border-top: 1px solid #f1f2f6;
+    border-right: 1px solid #f1f2f6;
+    border-bottom: 1px solid #f1f2f6;
+}
+.shop-details h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+.shop-details p {
+    margin: 0 0 2px 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.stock-status {
+    font-size: 0.7rem !important;
+    font-weight: 700;
+    margin-top: 4px !important;
+}
+.stock-status.available {
+    color: var(--green-success) !important;
+}
+.visit-shop-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* Bottom Persistent Dock System bar framework */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--card-bg);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+    z-index: 1000;
+    border-top: 1px solid #e4e7eb;
+}
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    gap: 2px;
+}
+.nav-item i {
+    font-size: 1.15rem;
+}
+.nav-item.active {
+    color: var(--primary-color);
+}
+.hamburger-nav-item {
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px;
+}
+.hamburger-icon {
+    width: 40px; height: 40px; background: linear-gradient(135deg, #e02020, #ff4747);
+    border-radius: 12px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 4px; box-shadow: 0 4px 12px rgba(224,32,32,0.35);
+    transition: all 0.3s ease;
+}
+.hamburger-icon:active { transform: scale(0.92); }
+.hamburger-icon span { width: 18px; height: 2px; background: white; border-radius: 2px; transition: all 0.3s ease; }
+.hamburger-icon.open span:nth-child(1) { transform: rotate(45deg) translate(4px, 4px); }
+.hamburger-icon.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburger-icon.open span:nth-child(3) { transform: rotate(-45deg) translate(4px, -4px); }
+.hamburger-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 5000; display: none;
+    justify-content: center; align-items: flex-end; backdrop-filter: blur(4px);
+}
+.hamburger-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.hamburger-menu-panel {
+    background: var(--card-bg); width: 100%; max-width: 500px;
+    border-top-left-radius: 24px; border-top-right-radius: 24px;
+    max-height: 75vh; overflow-y: auto;
+    animation: slideUp 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.hamburger-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 20px 16px 20px; border-bottom: 1px solid #f1f2f6;
+}
+.hamburger-profile { display: flex; align-items: center; gap: 12px; }
+.hamburger-profile-pic {
+    width: 50px; height: 50px; border-radius: 50%; overflow: hidden;
+    border: 2.5px solid #e02020; box-shadow: 0 3px 10px rgba(224,32,32,0.25);
+}
+.hamburger-profile-pic img { width: 100%; height: 100%; object-fit: cover; }
+.hamburger-profile-info h3 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-color); }
+.hamburger-profile-info p { margin: 2px 0 0 0; font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.hamburger-profile-info p i { color: #e02020; }
+.hamburger-close-btn {
+    background: #f1f2f6; border: none; width: 36px; height: 36px; border-radius: 50%;
+    font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text-color); transition: all 0.2s ease;
+}
+.hamburger-close-btn:active { transform: scale(0.9); }
+.hamburger-menu-list { padding: 8px 0; }
+.hamburger-menu-item {
+    display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+    cursor: pointer; transition: all 0.2s ease;
+}
+.hamburger-menu-item:active { background: #f8f9fa; }
+.hamburger-menu-item i { width: 20px; text-align: center; font-size: 1.05rem; color: #e02020; }
+.hamburger-menu-item span { font-size: 0.88rem; font-weight: 600; color: var(--text-color); }
+.hamburger-menu-divider { height: 1px; background: #f1f2f6; margin: 4px 20px; }
+.logout-item i { color: #ff4d4d !important; }
+.logout-item span { color: #ff4d4d !important; }
+/* এক্সিস্টিং কোড সব আগের মতোই থাকবে, ফাইলের একদম নিচে শুধু এই কাস্টম আইকন স্টাইলগুলো অ্যাড করো */
+
+.custom-div-icon {
+    background: transparent;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.custom-div-icon i {
+    filter: drop-shadow(0px 3px 6px rgba(0,0,0,0.3));
+}
+
+.placeholder-text {
+    width: 100%;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 20px 0;
+}

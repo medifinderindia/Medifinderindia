@@ -1,0 +1,317 @@
+/* আপনার দেওয়া রিকোয়ারমেন্ট অনুযায়ী কালার কোড */
+:root {
+    --medi-color: #e02020;
+    --finder-color: #1a1a2e;
+    --medi-brand: #e02020;
+    --primary: #e02020;
+    --primary-light: #ff4747;
+    --bg-light: #f4f7f9;
+    --text-dark: #2c3e50;
+    --white: #ffffff;
+    --success: #10b981;
+    --danger: #ef4444;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    display: flex;
+    min-height: 100vh;
+}
+
+/* গোল লোগো ও সাইডবার ডিজাইন */
+.sidebar {
+    width: 280px;
+    background-color: var(--finder-color);
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    position: fixed;
+    height: 100vh;
+    box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+}
+
+/* আপনার চবির মতো গোল লোগো */
+.admin-logo {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--medi-color);
+}
+
+.logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+.logo-text .medi { color: var(--medi-color); }
+.logo-text .finder { color: #ffffff; }
+
+.nav-divider {
+    border: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 20px 0;
+}
+
+/* মেনু বাটন স্টাইলিং (লিংক ছাড়া ট্যাব পপআপ) */
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-grow: 1;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.7);
+    text-align: left;
+    padding: 14px 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.nav-item:hover, .nav-item.active {
+    background-color: var(--medi-color);
+    color: var(--white);
+    transform: translateX(5px);
+}
+
+/* নিচের ৩টি আসল নেভিগেশন বাটন */
+.sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+}
+
+.role-btn {
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.role-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+}
+
+.user-btn { background-color: #e2e8f0; color: #1e293b; }
+.merchant-btn { background-color: #ffedd5; color: #ea580c; }
+.delivery-btn { background-color: #dcfce7; color: #16a34a; }
+
+/* মেইন কন্টেন্ট এরিয়া ও পপআপ অ্যানিমেশন */
+.main-content {
+    margin-left: 280px;
+    padding: 40px;
+    width: calc(100% - 280px);
+}
+
+.dashboard-section {
+    display: none; /* প্রথমে সব বন্ধ থাকবে */
+}
+
+/* এই ক্লাস যোগ হলে পেজ রিলোড ছাড়া কন্টেন্ট ভেসে উঠবে (পপআপ এফেক্ট) */
+.active-section {
+    display: block;
+    animation: popupFade 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes popupFade {
+    from { opacity: 0; transform: scale(0.98) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.section-header {
+    margin-bottom: 30px;
+}
+
+.section-header h2 {
+    color: var(--finder-color);
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+
+.section-header p {
+    color: #7f8c8d;
+}
+
+/* কার্ড এবং ফর্মস */
+.card {
+    background-color: var(--white);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    margin-bottom: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #34495e;
+}
+
+input[type="text"], input[type="date"], select, textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #dcdde1;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--medi-color);
+}
+
+.button-group {
+    display: flex;
+    gap: 15px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.2s;
+}
+
+.btn-primary { background-color: #e02020; color: var(--white); }
+.btn-primary:hover { background-color: #c01c1c; }
+.btn-danger { background-color: var(--danger); color: var(--white); }
+.btn-danger:hover { background-color: #d32f2f; }
+
+/* অফার লাইভ প্রিভিউ ব্যানার */
+.preview-card {
+    background-color: #f8fafc;
+    border: 2px dashed #cbd5e1;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 10px 0 20px 0;
+}
+
+.status-hidden { background-color: #fee2e2; color: #ef4444; }
+.status-active { background-color: #dcfce7; color: #22c55e; }
+
+.mock-app-banner {
+    background: linear-gradient(135deg, #ff9f43, #ff5252);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(255, 82, 82, 0.3);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+    100% { transform: scale(1); }
+}
+
+/* টেবিল ডিজাইন */
+.table-container {
+    background-color: var(--white);
+    border-radius: 12px;
+    overflow-x: auto;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    min-width: 600px;
+}
+
+.custom-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    padding: 16px;
+    font-weight: 600;
+    border-bottom: 2px solid #edf2f7;
+}
+
+.custom-table td {
+    padding: 16px;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 15px;
+}
+
+.reason-tag {
+    background-color: #fff1f2;
+    color: #e11d48;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.refund-btn {
+    background-color: var(--success);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+
+.refund-btn:hover { background-color: #059669; }
+.refund-btn:disabled {
+    background-color: #cbd5e1;
+    cursor: not-allowed;
+}

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MediFinder - User Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="userprofile.css?v=4">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+</head>
+<body>
+    
+    <header class="app-header">
+        <div class="logo">
+            <img src="1779304435608.png" alt="MediFinder Logo">
+            <h1 id="lang-app-title">MEDI <span>FINDER</span></h1>
+        </div>
+    </header>
+
+    <main class="profile-screen">
+        <div class="profile-header-card">
+            <div class="image-container">
+                <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile Picture" id="profile-pic">
+                <label for="upload-photo" class="add-photo-btn">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+                <input type="file" id="upload-photo" accept="image/*" style="display: none;">
+            </div>
+            
+            <div class="user-info">
+                <h2 id="user-name">Guest User</h2>
+                <p id="user-username">@medi_user</p>
+                <!-- User ID from signup shown here -->
+                <p id="user-uid-display" style="font-size:0.72rem; color:#1c82aa; font-weight:700; margin:2px 0; background:#e8f4fd; padding:3px 10px; border-radius:20px; display:inline-block;">User ID: Loading...</p>
+                <button class="edit-btn" id="edit-profile-btn">
+                    <i class="fa-solid fa-pen-to-square"></i> <span id="lang-edit-name-btn">Edit Name</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="profile-menu-list">
+
+            <!-- MY BOX - Prescription History -->
+            <div class="menu-card-item" id="my-box-btn" style="background: linear-gradient(135deg, #fff5f5, #ffe8e8); border: 1px solid #ffcdd2;">
+                <div class="menu-icon" style="background: #ff4d4d; color: #fff;"><i class="fa-solid fa-box-archive"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-my-box">My Prescription Box</h3>
+                    <p>View & download all your uploaded prescriptions</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ff4d4d;"></i>
+            </div>
+            
+            <div class="menu-card-item">
+                <div class="menu-icon"><i class="fa-solid fa-location-dot"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-addr-title">Manage Delivery Addresses</h3>
+                    <p id="current-address">No primary address saved. Tap edit to update.</p>
+                </div>
+                <button class="action-circle-btn" id="add-address-btn"><i class="fa-solid fa-pencil"></i></button>
+            </div>
+
+            <div class="menu-card-item">
+                <div class="menu-icon"><i class="fa-solid fa-language"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-select-title">App Display Language</h3>
+                    <select id="language-select">
+                        <option value="en" selected>English</option>
+                        <option value="bn">বাংলা (Bengali)</option>
+                        <option value="hi">हिन्दी (Hindi)</option>
+                        <option value="rjb">রাজবংশী (Rajbangsi)</option>
+                        <option value="sat">संताली (Santali)</option>
+                        <option value="or">ଓଡ଼ିଆ (Odia)</option>
+                        <option value="te">తెలుగు (Telugu)</option>
+                        <option value="mr">मराठी (Marathi)</option>
+                        <option value="ta">தமிழ் (Tamil)</option>
+                        <option value="gu">ગુજરાતી (Gujarati)</option>
+                        <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                        <option value="ml">മലയാളം (Malayalam)</option>
+                        <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                        <option value="ur">اردو (Urdu)</option>
+                    </select>
+                </div>
+            </div> 
+
+            <div class="menu-card-item" id="manage-patients-trigger">
+                <div class="menu-icon"><i class="fa-solid fa-users-gear"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-patient-title">Manage Patients</h3>
+                    <p id="lang-patient-desc">Add or select profiles for regular medical orders</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="pill-reminders-trigger">
+                <div class="menu-icon"><i class="fa-solid fa-bell"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-pill-title">Pill Reminders</h3>
+                    <p id="lang-pill-desc">Set active scheduling alerts to take daily doses</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="refer-earn-btn">
+                <div class="menu-icon"><i class="fa-solid fa-gift"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-refer-title">Refer & Earn</h3>
+                    <p id="lang-refer-desc">Invite friends to unlock unique ₹100 shopping coupons</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item contact-hub-item">
+                <div class="menu-icon"><i class="fa-solid fa-headset"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-care-title">Customer Care Desk</h3>
+                    <div class="contact-actions-grid">
+                        <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                        <a href="mailto:medifinderindia@gmail.com?subject=MediFinder%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="help-desk-trigger">
+                <div class="menu-icon"><i class="fa-solid fa-circle-question"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-help-title">Help Desk</h3>
+                    <p id="lang-help-desc">Find diagnostic assistance or file complaints</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="terms-trigger" onclick="window.location.href='usert&amp;c.html'">
+                <div class="menu-icon"><i class="fa-solid fa-file-shield"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-terms-title">Terms & Conditions</h3>
+                    <p id="lang-terms-desc">Review licensing and operational usage guidelines</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item logout-item" id="logout-btn">
+                <div class="menu-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-logout-title">Logout Account</h3>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Name Modal -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-sheet-header">
+                <h3>Edit Profile Name</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div style="padding: 16px;">
+                <input type="text" id="new-name-input" placeholder="Enter your full name" style="width:100%;padding:12px;border-radius:8px;border:1px solid #ced4da;font-size:0.95rem;box-sizing:border-box;margin-bottom:14px;">
+                <div style="display:flex;gap:10px;">
+                    <button id="cancel-name" style="flex:1;padding:11px;border-radius:8px;border:1px solid #ccc;background:#f8f9fa;cursor:pointer;font-weight:600;">Cancel</button>
+                    <button id="save-name" style="flex:1;padding:11px;border-radius:8px;border:none;background:#ff4d4d;color:#fff;cursor:pointer;font-weight:600;">Save Name</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Address Modal - with saved address select dropdown -->
+    <div class="modal" id="address-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Manage Delivery Address</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner" style="padding:16px;">
+                <!-- Saved addresses dropdown - auto fills fields -->
+                <select id="saved-address-select" style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid #ced4da;font-size:0.85rem;box-sizing:border-box;margin-bottom:12px;background:#fff;color:#2f3542;">
+                    <option value="" disabled selected>-- Select a saved address --</option>
+                </select>
+
+                <input type="text" id="addr-house" placeholder="House / Flat / Building No." style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:10px;">
+                <input type="text" id="addr-village" placeholder="Area / Street / Colony / Village" style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:10px;">
+                <input type="number" id="addr-pincode" placeholder="6-digit PIN Code" style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:14px;">
+                <button id="save-address-btn" style="width:100%;padding:12px;border-radius:8px;border:none;background:#ff4d4d;color:#fff;cursor:pointer;font-weight:700;font-size:0.95rem;">Save Address</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Modal -->
+    <div class="modal" id="patient-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Manage Patient Profiles</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner">
+                <div id="patients-record-list" class="dynamic-records-grid"></div>
+                <div class="add-new-subform-box">
+                    <h4><i class="fa-solid fa-user-plus"></i> Register New Patient</h4>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <input type="text" id="pat-first-name" placeholder="First Name" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;">
+                        <input type="text" id="pat-last-name" placeholder="Last Name" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;">
+                    </div>
+                    <input type="number" id="pat-age" placeholder="Age in years" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                    <div class="gender-row">
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Male" checked><span>Male</span></label>
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Female"><span>Female</span></label>
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Other"><span>Other</span></label>
+                    </div>
+                    <button id="action-add-patient-btn" class="btn-pri full-width-btn" style="margin-top:10px;">Save Patient Record</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pill Reminder Modal -->
+    <div class="modal" id="reminder-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Medication Pill Reminders</h3>
+                <span class="modal-close-cross" id="close-reminder-modal">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner">
+                <div id="active-alarms-list" class="dynamic-records-grid"></div>
+                <div class="add-new-subform-box">
+                    <h4><i class="fa-solid fa-clock"></i> Schedule Intake Alarm</h4>
+                    <input type="text" id="alarm-med-name" placeholder="Medicine name (e.g., Tab. Paracetamol)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                    <input type="time" id="alarm-time" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                    <button id="action-save-alarm-btn" class="btn-pri full-width-btn" style="margin-top:10px;">Save Active Reminder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referral Modal -->
+    <div class="modal" id="referral-modal">
+        <div class="modal-content">
+            <div class="modal-sheet-header">
+                <h3>Refer friends, Earn ₹100!</h3>
+                <span class="modal-close-cross" id="close-referral-modal">&times;</span>
+            </div>
+            <div class="referral-dashboard-body">
+                <i class="fa-solid fa-gift mega-modal-icon"></i>
+                <p class="referral-description">Your permanent unique tracking validation sequence code is active below. Share it with a friend to unlock unique ₹100 shopping coupons.</p>
+                <div class="generated-token-row">
+                    <span id="referral-code-display">LOADING CODE...</span>
+                    <button id="copy-referral-btn" style="background:#1c82aa;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;"><i class="fa-solid fa-copy"></i> Copy</button>
+                </div>
+                <p id="referral-status-notice"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal" id="help-modal">
+        <div class="modal-content centered-text-box">
+            <i class="fa-solid fa-person-circle-exclamation status-icon-orange"></i>
+            <h3>Help Desk Channels</h3>
+            <p class="coming-soon-label">Coming Soon - Content Unavailable Currently</p>
+            <button class="btn-sec full-width-btn" id="close-help-modal">Dismiss Window</button>
+        </div>
+    </div>
+    <nav class="bottom-nav" id="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='userhome.html'">
+            <i class="fas fa-home"></i>
+            <span id="lang-nav-home">HOME</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usermap.html'">
+            <i class="fas fa-map-marked-alt"></i>
+            <span id="lang-nav-map">MAP</span>
+        </div>
+        <div class="hamburger-nav-item" id="hamburger-btn">
+            <div class="hamburger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="nav-item" onclick="window.location.href='userorder.html'">
+            <i class="fas fa-clipboard-list"></i>
+            <span id="lang-nav-order">ORDER</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usercart.html'">
+            <i class="fas fa-shopping-cart"></i>
+            <span id="lang-nav-cart">CART</span>
+        </div>
+    </nav>
+
+    <div class="hamburger-overlay" id="hamburger-overlay">
+        <div class="hamburger-menu-panel">
+            <div class="hamburger-header">
+                <div class="hamburger-profile">
+                    <div class="hamburger-profile-pic"><img src="1779304435608.png" alt="Profile"></div>
+                    <div class="hamburger-profile-info">
+                        <h3 id="hamburger-user-name">Guest User</h3>
+                        <p><i class="fa-solid fa-id-badge"></i> <span id="hamburger-user-id">MF000000</span></p>
+                    </div>
+                </div>
+                <button class="hamburger-close-btn" id="hamburger-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="hamburger-menu-list">
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html'"><i class="fa-solid fa-user-circle"></i><span>My Profile</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-divider"></div>
+                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="prod-utils.js?v=2"></script>
+    <script src="userscript.js?v=3"></script>
+</body>
+</html>

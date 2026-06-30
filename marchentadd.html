@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e02020">
+    <title>Add Medicine - Medi Finder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="marchentadd.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+</head>
+<body>
+    <div class="container">
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="logo-area">
+                    <img src="1779304435608.png" alt="Logo">
+                    <h1>MEDI <span class="highlight">FINDER</span></h1>
+                </div>
+            </header>
+
+            <section class="content-body">
+                <div class="form-container">
+                    <div class="form-steps">
+                        <div class="step active" id="ind-1"><span class="step-num">1</span> BASICS</div>
+                        <div class="step-line" id="line-1"></div>
+                        <div class="step" id="ind-2"><span class="step-num">2</span> INFO</div>
+                        <div class="step-line" id="line-2"></div>
+                        <div class="step" id="ind-3"><span class="step-num">3</span> ASSETS</div>
+                    </div>
+
+                    <form id="medicineForm" onsubmit="return false;">
+                        
+                        <div class="step-panel active" id="step-panel-1">
+                            <div class="form-group">
+                                <label class="section-label">Product Images (Upload up to 4 Photos)</label>
+                                <div class="image-upload-grid">
+                                    <div class="upload-box main-box" onclick="document.getElementById('fileInput1').click()">
+                                        <i class="fa-solid fa-camera-retro"></i>
+                                        <p>Main Photo</p>
+                                        <img id="imagePreview1" alt="Preview 1">
+                                        <input type="file" id="fileInput1" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview1')">
+                                    </div>
+                                    <div class="upload-box" onclick="document.getElementById('fileInput2').click()">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <p>Side / Back</p>
+                                        <img id="imagePreview2" alt="Preview 2">
+                                        <input type="file" id="fileInput2" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview2')">
+                                    </div>
+                                    <div class="upload-box" onclick="document.getElementById('fileInput3').click()">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <p>Composition</p>
+                                        <img id="imagePreview3" alt="Preview 3">
+                                        <input type="file" id="fileInput3" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview3')">
+                                    </div>
+                                    <div class="upload-box" onclick="document.getElementById('fileInput4').click()">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <p>Max Retail Price</p>
+                                        <img id="imagePreview4" alt="Preview 4">
+                                        <input type="file" id="fileInput4" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview4')">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Product Name</label>
+                                <input type="text" id="prodName" placeholder="Enter medicine name (e.g., Napa Extend)" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Composition / Salt Name</label>
+                                <input type="text" id="composition" placeholder="e.g., Paracetamol 500mg + Caffeine 65mg" required>
+                            </div>
+                        </div>
+
+                        <div class="step-panel" id="step-panel-2">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Category / Form</label>
+                                    <select id="dosageForm" required>
+                                        <option value="">Select Category</option>
+                                        <option value="Tablets">Tablets</option>
+                                        <option value="Capsules">Capsules</option>
+                                        <option value="Syrup">Syrup</option>
+                                        <option value="Injection">Injection</option>
+                                        <option value="Lotion">Lotion</option>
+                                        <option value="Ointment">Ointment</option>
+                                        <option value="Drops">Drops</option>
+                                        <option value="Inhaler">Inhaler</option>
+                                        <option value="Powder">Powder</option>
+                                        <option value="Gel">Gel</option>
+                                        <option value="Spray">Spray</option>
+                                        <option value="Baby Care">Baby Care</option>
+                                        <option value="Supplement">Supplement</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Strength / Power</label>
+                                    <input type="text" id="strength" placeholder="e.g., 650mg, 100ml, 5gm" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Pharmacy Manufacturer / Brand</label>
+                                    <input type="text" id="manufacturer" placeholder="Manufacturer name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Prescription Required?</label>
+                                    <select id="prescriptionReq" required>
+                                        <option value="No">No (OTC Drug)</option>
+                                        <option value="Yes">Yes (Rx Required)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Product Description</label>
+                                <textarea id="productDescription" rows="3" placeholder="Describe your product - uses, benefits, how to take, precautions..."></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>MFD Date</label>
+                                    <input type="date" id="mfdDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Expiry Date</label>
+                                    <input type="date" id="expiryDate" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Batch Number</label>
+                                    <input type="text" id="batchNumber" placeholder="Enter Batch No" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Storage Condition</label>
+                                    <select id="storageCondition">
+                                        <option value="Below 30°C">Store below 30°C</option>
+                                        <option value="Refrigerate">Refrigerate (2°C - 8°C)</option>
+                                        <option value="Protect from Light">Protect from direct sunlight</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-panel" id="step-panel-3">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Selling Price (INR)</label>
+                                    <input type="number" id="unitPrice" step="0.01" placeholder="₹ 0.00" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Drug Type</label>
+                                    <select id="drugType" required>
+                                        <option value="Branded">Branded Medicine</option>
+                                        <option value="Generic">Generic Medicine</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Stock Qty</label>
+                                    <input type="number" id="stockQty" placeholder="Total units available" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Unit Type</label>
+                                    <input type="text" id="unitType" placeholder="e.g., Strip, Pcs, Bottle" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Rack / Shelf Location</label>
+                                    <input type="text" id="rackLocation" placeholder="e.g., A-12, Shelf-3 (Optional)">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Short Description & Side Effects</label>
+                                <textarea id="sideEffects" rows="3" placeholder="Enter basic guidelines, dosage info or prominent side effects..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-footer">
+                            <button type="button" class="btn-back" id="btnBack" disabled>
+                                <i class="fa-solid fa-arrow-left"></i> Previous
+                            </button>
+                            
+                            <button type="button" class="btn-draft" id="btnDraft" title="Save details for later">
+                                <i class="fa-regular fa-bookmark"></i> Save Draft
+                            </button>
+                            
+                            <button type="button" class="btn-next" id="btnNext">
+                                Next <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
+        <div class="nav-item active" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
+    </nav>
+
+    <script>
+        function previewImage(input, previewId) {
+            const preview = document.getElementById(previewId);
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result; // target.getResult থেকে ঠিক করে target.result করা হলো
+                    preview.style.display = 'block';
+                    input.parentElement.classList.add('has-img');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+    <script src="marchentscript.js"></script>
+</body>
+</html>

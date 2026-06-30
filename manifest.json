@@ -1,0 +1,50 @@
+{
+  "name": "MediFinder - Medicine Delivery",
+  "short_name": "MediFinder",
+  "description": "Order medicines, healthcare products & essentials with fast delivery",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e02020",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["health", "medical", "pharmacy"],
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "favicon.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "MediFinder Home"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "url": "/userorder.html",
+      "icons": [{ "src": "favicon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Cart",
+      "short_name": "Cart",
+      "url": "/usercart.html",
+      "icons": [{ "src": "favicon.png", "sizes": "96x96" }]
+    }
+  ]
+}

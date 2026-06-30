@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin*
+Disallow: /admindboy*
+Disallow: /adminmarchent*
+Disallow: /adminuser*
+
+Sitemap: https://medifinder.in/sitemap.xml

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#e02020">
+    <title>Admin - Sponsored Products</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        :root { --primary: #e02020; --dark: #1a1a2e; }
+        body { background: #f0f2f5; }
+        .header { background: var(--dark); color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+        .header a { color: #fff; text-decoration: none; font-size: 18px; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: var(--dark); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-size: 13px; font-weight: 600; color: #555; }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .form-group textarea { resize: vertical; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-success { background: #28a745; color: #fff; }
+        .btn:hover { opacity: 0.9; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .actions { display: flex; gap: 8px; margin-top: 16px; }
+        .list-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; background: #fafafa; }
+        .list-item .gradient-preview { width: 60px; height: 60px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; flex-shrink: 0; }
+        .list-item .info { flex: 1; }
+        .list-item .info h4 { font-size: 14px; margin-bottom: 2px; }
+        .list-item .info p { font-size: 12px; color: #888; }
+        .list-item .item-actions { display: flex; gap: 6px; }
+        .toggle { position: relative; width: 40px; height: 22px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider { position: absolute; inset: 0; background: #ccc; border-radius: 22px; cursor: pointer; transition: 0.3s; }
+        .toggle .slider:before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .toggle input:checked + .slider { background: var(--primary); }
+        .toggle input:checked + .slider:before { transform: translateX(18px); }
+        .empty { text-align: center; padding: 40px; color: #999; }
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; z-index: 999; display: none; }
+        .toast.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="admin-dashboard.html"><i class="fas fa-arrow-left"></i></a>
+        <h1><i class="fas fa-star"></i> Sponsored Products Management</h1>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2 id="formTitle"><i class="fas fa-plus"></i> Add Sponsored Product</h2>
+            <form id="sponsoredForm">
+                <input type="hidden" id="editId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="spTitle" placeholder="e.g., Vitamin D3 Booster" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subtitle</label>
+                        <input type="text" id="spSubtitle" placeholder="e.g., 50% OFF on first order">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tag</label>
+                        <input type="text" id="spTag" placeholder="e.g., NEW LAUNCH" value="SPONSORED">
+                    </div>
+                    <div class="form-group">
+                        <label>Button Text</label>
+                        <input type="text" id="spBtnText" placeholder="e.g., Shop Now" value="Shop Now">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Button Link (URL)</label>
+                        <input type="text" id="spBtnAction" placeholder="e.g., product-detail.html?id=123">
+                    </div>
+                    <div class="form-group">
+                        <label>Sort Order</label>
+                        <input type="number" id="spSort" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Gradient</label>
+                        <select id="spGradient">
+                            <option value="linear-gradient(135deg, #ff6b6b, #ee5a24)">Red-Orange</option>
+                            <option value="linear-gradient(135deg, #6c5ce7, #a29bfe)">Purple</option>
+                            <option value="linear-gradient(135deg, #00b894, #55efc4)">Green</option>
+                            <option value="linear-gradient(135deg, #fdcb6e, #f39c12)">Gold</option>
+                            <option value="linear-gradient(135deg, #0984e3, #74b9ff)">Blue</option>
+                            <option value="linear-gradient(135deg, #e84393, #fd79a8)">Pink</option>
+                            <option value="linear-gradient(135deg, #2d3436, #636e72)">Dark</option>
+                            <option value="linear-gradient(135deg, #00cec9, #81ecec)">Teal</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Icon</label>
+                        <select id="spIcon">
+                            <option value="fa-solid fa-capsules">Capsules</option>
+                            <option value="fa-solid fa-baby">Baby</option>
+                            <option value="fa-solid fa-syringe">Syringe</option>
+                            <option value="fa-solid fa-heart-pulse">Heart</option>
+                            <option value="fa-solid fa-shield-halved">Shield</option>
+                            <option value="fa-solid fa-triangle-exclamation">Warning</option>
+                            <option value="fa-solid fa-file-prescription">Prescription</option>
+                            <option value="fa-solid fa-bolt">Lightning</option>
+                            <option value="fa-solid fa-fire">Fire</option>
+                            <option value="fa-solid fa-star">Star</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save</button>
+                    <button type="button" class="btn" style="background:#6c757d;color:#fff;" onclick="resetForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-list"></i> All Sponsored Products</h2>
+            <div id="productsList"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+        let db = null;
+        try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.error('Supabase init error:', e); }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        async function loadProducts() {
+            const { data } = await db.from('sponsored_products').select('*').order('sort_order');
+            const list = document.getElementById('productsList');
+            if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><p>No sponsored products yet</p></div>'; return; }
+            list.innerHTML = data.map(p => `
+                <div class="list-item">
+                    <div class="gradient-preview" style="background:${p.gradient}">
+                        <i class="${p.icon_class}"></i>
+                    </div>
+                    <div class="info">
+                        <h4>${p.tag} — ${p.title}</h4>
+                        <p>${p.subtitle} | Sort: ${p.sort_order} | ${p.is_active ? 'Active' : 'Inactive'}</p>
+                    </div>
+                    <div class="item-actions">
+                        <label class="toggle"><input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleActive('${p.id}', this.checked)"><span class="slider"></span></label>
+                        <button class="btn btn-primary btn-sm" onclick='editItem(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteItem('${p.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('sponsoredForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const obj = {
+                title: document.getElementById('spTitle').value,
+                subtitle: document.getElementById('spSubtitle').value,
+                tag: document.getElementById('spTag').value || 'SPONSORED',
+                gradient: document.getElementById('spGradient').value,
+                icon_class: document.getElementById('spIcon').value,
+                btn_text: document.getElementById('spBtnText').value,
+                btn_action: document.getElementById('spBtnAction').value,
+                sort_order: parseInt(document.getElementById('spSort').value) || 0,
+                is_active: true
+            };
+            if (id) {
+                await db.from('sponsored_products').update(obj).eq('id', id);
+                showToast('Updated!');
+            } else {
+                await db.from('sponsored_products').insert(obj);
+                showToast('Added!');
+            }
+            resetForm();
+            loadProducts();
+        });
+
+        function editItem(p) {
+            document.getElementById('editId').value = p.id;
+            document.getElementById('spTitle').value = p.title;
+            document.getElementById('spSubtitle').value = p.subtitle;
+            document.getElementById('spTag').value = p.tag;
+            document.getElementById('spBtnText').value = p.btn_text;
+            document.getElementById('spBtnAction').value = p.btn_action || '';
+            document.getElementById('spSort').value = p.sort_order;
+            document.getElementById('spGradient').value = p.gradient;
+            document.getElementById('spIcon').value = p.icon_class;
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Sponsored Product';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('sponsoredForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('spSort').value = '0';
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus"></i> Add Sponsored Product';
+        }
+
+        async function toggleActive(id, val) {
+            await db.from('sponsored_products').update({ is_active: val }).eq('id', id);
+            showToast(val ? 'Activated' : 'Deactivated');
+        }
+
+        async function deleteItem(id) {
+            if (!confirm('Delete this sponsored product?')) return;
+            await db.from('sponsored_products').delete().eq('id', id);
+            showToast('Deleted');
+            loadProducts();
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>

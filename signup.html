@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="Create your MediFinder account - Order medicines online">
+    <title>Medifinder-Sign Up</title>
+    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="auth-container">
+        <div class="logo-wrapper">
+            <div class="logo-circle">
+                <img src="1779304435608.png" alt="Medifinder Premium Logo">
+            </div>
+        </div>
+
+        <div class="auth-box">
+            <h2>Create Account</h2>
+            <p class="subtitle">Join Medifinder to search, connect, and care.</p>
+
+            <label class="section-label">Register As</label>
+            <div class="role-container">
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="user" checked>
+                    <div class="role-content"><i class="fa-solid fa-user"></i><span>User</span></div>
+                </label>
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="merchant">
+                    <div class="role-content"><i class="fa-solid fa-store"></i><span>Merchant</span></div>
+                </label>
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="delivery">
+                    <div class="role-content"><i class="fa-solid fa-truck"></i><span>Delivery</span></div>
+                </label>
+            </div>
+
+            <!-- dynamically updated link and terms policy wrapper -->
+            <div class="policy-wrapper" style="margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; text-align: left;">
+                <input type="checkbox" id="policy-agree-checkbox" style="margin-top: 4px; transform: scale(1.2); cursor: pointer;">
+                <label for="policy-agree-checkbox" style="font-size: 13px; color: var(--text-main); cursor: pointer; line-height: 1.4;">
+                    I agree to the <a id="dynamic-policy-link" href="usert&c.html" target="_blank" style="color: var(--primary-color); font-weight: 600; text-decoration: none;">User Policy</a>, Terms & Conditions, and Privacy Policy.
+                </label>
+            </div>
+
+            <form id="signup-form">
+                <div class="input-group">
+                    <i class="fa-solid fa-user input-icon"></i>
+                    <input type="text" id="signup-name" placeholder="Full Name" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="signup-email" placeholder="Email Address" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="phone" id="signup-phone" placeholder="Phone" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                    <input type="password" id="signup-password" placeholder="Password" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                    <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                </div>
+
+                <div class="referral-section">
+                    <div class="input-group referral-group">
+                        <i class="fa-solid fa-gift input-icon"></i>
+                        <input type="text" id="referral-code" placeholder="Referral Code (Optional)">
+                        <button type="button" id="verify-referral-btn" class="btn-verify">Verify</button>
+                    </div>
+                    <span id="referral-msg" class="referral-message"></span>
+                </div>
+
+                <button type="submit" class="btn-premium">Sign Up with Email</button>
+            </form>
+
+            <div class="divider"><span>Or Register With</span></div>
+
+            <div class="social-group">
+                <button type="button" class="btn-social btn-google" id="google-signup-btn">
+                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
+                </button>
+                <button type="button" class="btn-social btn-phone" id="phone-signup-toggle">
+                    <i class="fa-solid fa-phone"></i> Phone 
+                </button>
+            </div>
+
+            <div id="phone-signup-section" class="hidden-section">
+                <p class="subtitle" style="margin-bottom: 10px; margin-top:15px;">Enter phone with country code to get OTP.</p>
+                
+                <div class="input-group">
+                    <i class="fa-solid fa-user input-icon"></i>
+                    <input type="text" id="otp-name" placeholder="Your Full Name">
+                </div>
+                
+                <div class="input-group">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="phone-signup-number" placeholder="+9195936XXXXX">
+                </div>
+                <button type="button" class="btn-premium secondary" id="send-signup-otp-btn">Send Verification OTP</button>
+
+                <div class="input-group otp-input-group hidden-section" id="signup-otp-wrapper" style="margin-top: 15px;">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="text" id="signup-otp-code" placeholder="Enter 6-Digit OTP">
+                    
+                    <div class="otp-timer-container" style="display: flex; justify-content: space-between; font-size: 0.85rem; margin: 8px 0; padding: 0 5px; width:100%;">
+                        <span id="otp-timer-text" style="color: #666;">Resend available in: <b id="countdown-timer">60</b>s</span>
+                        <a href="#" id="resend-otp-link" style="color: #ff4747; text-decoration: none; display: none; font-weight: bold;">Resend OTP</a>
+                    </div>
+
+                    <button type="button" class="btn-premium" id="verify-signup-otp-btn">Verify & Create Account</button>
+                </div>
+            </div>
+
+            <p class="toggle-text">Already have an account? <a href="index.html">Log In</a></p>
+        </div>
+    </div>
+
+    <script src="prod-utils.js?v=2"></script>
+    <script src="supabase-config.js?v=4"></script>
+</body>
+</html>

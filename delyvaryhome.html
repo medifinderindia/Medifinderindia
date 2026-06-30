@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediFinder - Rider Home</title>
+    <link rel="stylesheet" href="delyvaryhome.css?v=4">
+      <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase CDN (একটি রাখলেই হবে, নিচেরটি লেটেস্ট) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Top Navbar -->
+        <header class="navbar">
+            <div class="logo-area">
+                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo" onerror="this.src='https://via.placeholder.com/40/00b4d8/fff?text=MF'">
+                <span class="logo-text">MEDI <span class="text-highlight">FINDER</span></span>
+            </div>
+            <div class="header-right" style="display:flex; align-items:center; gap:10px;">
+                <!-- NEW: On Duty / Off Duty switch button (toggles new-order visibility) -->
+                <button id="dutyToggleBtn" style="background: linear-gradient(135deg, #2ed573, #26de81); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:700; font-size:0.78rem; cursor:pointer; box-shadow: 0 3px 10px rgba(46,213,115,0.3);">
+                    <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#2ed573;display:inline-block"></span> On Duty</span>
+                </button>
+                <!-- এখানে অনক্লিক ফাংশনটি ঠিক রাখা হয়েছে -->
+                <button class="notification-btn" onclick="toggleNotifications()">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="noti-badge">2</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Notification Dropdown -->
+        <div id="notiDropdown" class="notification-dropdown hidden">
+            <p class="noti-item"><strong>New Voucher!</strong> You received a ₹1000 voucher.</p>
+            <p class="noti-item">New delivery route assigned near your location.</p>
+        </div>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2 class="section-title">Available Orders</h2>
+                <span class="live-pulse-tag"><span class="pulse-dot"></span> Live Updates</span>
+            </div>
+
+            <!-- ডাইনামিক বা স্ট্যাটিক অর্ডারের কন্টেইনার -->
+            <div class="orders-list" id="ordersContainer">
+                
+                <!-- Order Card 1 -->
+                <div class="order-card" id="order-MF-88341">
+                    <div class="card-header">
+                        <span class="vehicle-tag bike"><i class="fa-solid fa-motorcycle"></i> Bike Delivery</span>
+                        <span class="parcel-number">Parcel ID: #MF-88341</span>
+                        <span class="earnings-amount">₹30</span>
+                    </div>
+                    
+                    <div class="delivery-flow">
+                        <div class="flow-step">
+                            <div class="profile-wrapper">
+                        <img src="https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=120&auto=format&fit=crop" class="party-pic pharmacy-border">
+                                <span class="role-badge pickup">Pickup</span>
+                            </div>
+                            <div class="party-details">
+                                <h4 class="party-name">City Health Pharmacy</h4>
+                                <p class="party-address"><i class="fa-solid fa-location-dot"></i> 123 Health Ave</p>
+                            </div>
+                        </div>
+                        <div class="flow-line-connector"><div class="dots-line"></div></div>
+                        <div class="flow-step">
+                            <div class="profile-wrapper">
+                                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120" class="party-pic user-border">
+                                <span class="role-badge deliver">Deliver To</span>
+                            </div>
+                            <div class="party-details">
+                                <h4 class="party-name">Rahat Chowdhury</h4>
+                                <p class="party-address"><i class="fa-solid fa-house-chimney"></i> 456 Care Lane</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="distance-tag"><i class="fa-solid fa-route"></i> Distance: <strong>4.5 km</strong></div>
+                        <!-- এখানে অর্ডারের নির্দিষ্ট ID পাস করতে হবে -->
+                        <button class="btn-accept" onclick="acceptOrder('MF-88341')">Accept Request</button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a class="nav-item active" href="delyvaryhome.html"><i class="fa-solid fa-house"></i><span>HOME</span></a>
+            <a class="nav-item" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
+            <a class="nav-item" href="delyvaryearning.html"><i class="fa-solid fa-wallet"></i><span>EARNING</span></a>
+            <a class="nav-item" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
+        </nav>
+    </div>
+
+    <!-- জাভাস্ক্রিপ্ট ফাইল লোড করার আগে বা ভেতরে কোডটি সেট করো -->
+    <script src="prod-utils.js?v=2"></script>
+    <script src="delyvaryscript.js"></script>
+</body>
+</html>

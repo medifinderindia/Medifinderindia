@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="theme-color" content="#e02020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="MediFinder - Order medicines online with fast delivery.">
+<meta property="og:title" content="MediFinder - Product Details">
+<meta property="og:description" content="Order medicines online with fast delivery">
+<meta property="og:type" content="product">
+<title>MediFinder - Product Details</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="prod-utils.js?v=4"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#e02020;--primary-dark:#c41818;--dark:#1a1a2e;--green:#28a745;--blue:#1976d2;--gold:#ffc107;--bg:#f1f3f6;--card:#fff;--text:#212121;--text2:#666;--text3:#878787;--border:#e0e0e0;--shadow:0 1px 6px rgba(0,0,0,.1);--radius:8px}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:80px}
+a{text-decoration:none;color:inherit}
+.header{position:sticky;top:0;z-index:100;background:var(--primary);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 4px rgba(0,0,0,.15)}
+.back-btn{color:#fff;font-size:18px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
+.search-bar{flex:1;background:#fff;border-radius:20px;display:flex;align-items:center;padding:8px 14px;gap:8px;max-width:600px}
+.search-bar input{border:none;outline:none;flex:1;font-size:14px;font-family:inherit;color:var(--text);background:transparent}
+.search-bar .mic-icon{color:var(--text3);font-size:16px;cursor:pointer}
+.cart-btn{position:relative;color:#fff;font-size:20px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
+.cart-badge{position:absolute;top:-4px;right:-6px;background:var(--dark);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.breadcrumb{padding:10px 14px;font-size:12px;color:var(--text3);background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap}
+.breadcrumb span{cursor:pointer;color:var(--blue)}
+.breadcrumb span:hover{text-decoration:underline}
+.skeleton{animation:pulse 1.5s ease-in-out infinite;background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;border-radius:var(--radius)}
+@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skel-img{height:280px;width:100%;border-radius:var(--radius)}
+.skel-line{height:16px;margin:8px 0;border-radius:4px}
+.skel-line.w60{width:60%}
+.skel-line.w40{width:40%}
+.skel-line.w80{width:80%}
+.carousel-section{background:var(--card);padding:16px;display:flex;flex-direction:column;align-items:center;position:relative}
+.main-image-wrapper{width:100%;max-width:400px;height:280px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:var(--radius);position:relative;cursor:zoom-in;background:#fafafa}
+.main-image-wrapper img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .3s ease}
+.main-image-wrapper:hover img{transform:scale(1.5)}
+.image-badge{position:absolute;top:10px;left:10px;background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px}
+.wishlist-btn{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text3);transition:all .2s}
+.wishlist-btn.active{color:var(--primary);border-color:var(--primary)}
+.share-btn{position:absolute;top:54px;right:10px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text3)}
+.thumbnails{display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px}
+.thumb{width:56px;height:56px;border:2px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0;transition:border-color .2s}
+.thumb.active,.thumb:hover{border-color:var(--primary)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.product-info{background:var(--card);margin-top:8px;padding:16px}
+.product-name{font-size:18px;font-weight:700;color:var(--text);line-height:1.3}
+.rating-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.stars{display:flex;gap:1px}
+.stars i{color:var(--gold);font-size:13px}
+.rating-count{font-size:13px;color:var(--text3)}
+.sold-by{font-size:13px;color:var(--text3);margin-top:6px}
+.sold-by strong{color:var(--text);font-weight:600}
+.verified-badge{display:inline-flex;align-items:center;gap:3px;background:#e8f5e9;color:var(--green);font-size:11px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:4px}
+.price-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.price-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.current-price{font-size:26px;font-weight:800;color:var(--text)}
+.mrp{font-size:15px;color:var(--text3);text-decoration:line-through}
+.discount-badge{background:#e8f5e9;color:var(--green);font-size:13px;font-weight:700;padding:3px 8px;border-radius:4px}
+.tax-note{font-size:12px;color:var(--text3);margin-top:4px}
+.delivery-info{background:var(--card);margin-top:8px;padding:16px}
+.delivery-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.delivery-row i{font-size:18px;color:var(--primary);flex-shrink:0;margin-top:2px}
+.delivery-row .label{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px}
+.delivery-row .value{font-size:14px;font-weight:600;color:var(--text)}
+.delivery-row .sub{font-size:12px;color:var(--text3)}
+.express-badge{background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:6px}
+.change-link{color:var(--blue);font-size:12px;cursor:pointer;font-weight:600}
+.free-delivery{color:var(--green);font-weight:700}
+.section-header{font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-header i{color:var(--primary)}
+.offers-section{background:var(--card);margin-top:8px;padding:16px}
+.offer-card{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.offer-card:last-child{border-bottom:none}
+.offer-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:#fff}
+.offer-icon.bank{background:var(--blue)}
+.offer-icon.coupon{background:var(--green)}
+.offer-icon.wallet{background:#9c27b0}
+.offer-icon.cashback{background:var(--primary)}
+.offer-text{flex:1;font-size:13px;color:var(--text);line-height:1.4}
+.offer-text strong{font-weight:700}
+.tc-link{color:var(--blue);font-size:12px;cursor:pointer;margin-top:2px;display:inline-block}
+.details-section{background:var(--card);margin-top:8px;padding:16px}
+.detail-item{display:flex;padding:8px 0;border-bottom:1px solid var(--border)}
+.detail-item:last-child{border-bottom:none}
+.detail-label{width:140px;font-size:13px;color:var(--text3);flex-shrink:0}
+.detail-value{font-size:13px;color:var(--text);font-weight:500;flex:1}
+.description{font-size:14px;color:var(--text);line-height:1.6;margin-bottom:12px}
+.highlights{list-style:none;padding:0}
+.highlights li{font-size:13px;color:var(--text);padding:4px 0;display:flex;align-items:center;gap:8px}
+.highlights li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--primary);flex-shrink:0}
+.read-more{color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;padding:8px 0;font-family:inherit}
+.seller-section{background:var(--card);margin-top:8px;padding:16px}
+.seller-name{font-size:15px;font-weight:700;color:var(--blue)}
+.seller-rating{display:flex;align-items:center;gap:6px;margin-top:6px}
+.seller-rating i{color:var(--gold);font-size:13px}
+.seller-rating span{font-size:13px;color:var(--text)}
+.policy-item{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--text)}
+.policy-item i{color:var(--green);font-size:14px}
+.reviews-section{background:var(--card);margin-top:8px;padding:16px}
+.rating-summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
+.rating-overall{display:flex;flex-direction:column;align-items:center;gap:4px}
+.rating-big{font-size:36px;font-weight:800;color:var(--text)}
+.rating-bar-group{flex:1;min-width:150px}
+.rating-bar-row{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;color:var(--text3)}
+.rating-bar-row span:first-child{width:16px;text-align:right}
+.rating-bar{flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden}
+.rating-bar-fill{height:100%;background:var(--gold);border-radius:3px}
+.review-card{padding:14px 0;border-bottom:1px solid var(--border)}
+.review-card:last-child{border-bottom:none}
+.review-header{display:flex;align-items:center;gap:10px}
+.review-avatar{width:32px;height:32px;border-radius:50%;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.review-name{font-size:13px;font-weight:600}
+.review-stars i{color:var(--gold);font-size:11px}
+.review-date{font-size:11px;color:var(--text3)}
+.review-text{font-size:13px;color:var(--text);margin-top:8px;line-height:1.5}
+.review-helpful{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;color:var(--text3);cursor:pointer}
+.review-helpful:hover{color:var(--primary)}
+.see-all-btn{width:100%;padding:10px;margin-top:12px;border:1px solid var(--primary);background:transparent;color:var(--primary);font-size:14px;font-weight:600;border-radius:var(--radius);cursor:pointer;font-family:inherit}
+.similar-section{background:var(--card);margin-top:8px;padding:16px}
+.similar-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
+.similar-scroll::-webkit-scrollbar{height:4px}
+.similar-scroll::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
+.similar-card{min-width:150px;max-width:150px;border:1px solid var(--border);border-radius:var(--radius);padding:10px;flex-shrink:0;scroll-snap-align:start;transition:box-shadow .2s}
+.similar-card:hover{box-shadow:var(--shadow)}
+.similar-card img{width:100%;height:120px;object-fit:contain;border-radius:6px;background:#fafafa}
+.similar-card .name{font-size:12px;font-weight:600;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.similar-card .price{font-size:14px;font-weight:700;margin-top:4px;color:var(--text)}
+.similar-card .old-price{font-size:11px;color:var(--text3);text-decoration:line-through;margin-left:4px}
+.similar-card .rating-sm{font-size:11px;color:var(--text3);margin-top:2px}
+.similar-card .add-btn{width:100%;margin-top:8px;padding:6px;border:1px solid var(--primary);background:transparent;color:var(--primary);font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;font-family:inherit}
+.fbt-section{background:var(--card);margin-top:8px;padding:16px}
+.fbt-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.fbt-item:last-child{border-bottom:none}
+.fbt-item img{width:60px;height:60px;object-fit:contain;border-radius:6px;background:#fafafa;flex-shrink:0}
+.fbt-info{flex:1}
+.fbt-info .name{font-size:13px;font-weight:600}
+.fbt-info .price{font-size:14px;font-weight:700;color:var(--primary)}
+.fbt-add{padding:6px 12px;border:1px solid var(--primary);background:transparent;color:var(--primary);font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.fbt-total{display:flex;justify-content:space-between;padding:12px 0 0;font-size:14px;font-weight:700}
+.fbt-savings{color:var(--green)}
+.policies-section{background:var(--card);margin-top:8px;padding:16px}
+.policy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.policy-box{display:flex;align-items:flex-start;gap:10px;padding:12px;background:#fafafa;border-radius:var(--radius)}
+.policy-box i{font-size:20px;color:var(--primary);flex-shrink:0;margin-top:2px}
+.policy-box .title{font-size:12px;font-weight:700;color:var(--text)}
+.policy-box .desc{font-size:11px;color:var(--text3);margin-top:2px}
+.sticky-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+.qty-selector{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.qty-selector button{width:32px;height:32px;border:none;background:#fafafa;font-size:16px;cursor:pointer;font-weight:700;color:var(--text)}
+.qty-selector button:active{background:#eee}
+.qty-selector .qty{width:32px;text-align:center;font-size:14px;font-weight:700}
+.sticky-price{flex:1;text-align:right}
+.sticky-price .label{font-size:11px;color:var(--text3)}
+.sticky-price .amount{font-size:18px;font-weight:800}
+.add-cart-btn{padding:10px 16px;border:1px solid var(--primary);background:transparent;color:var(--primary);font-size:14px;font-weight:700;border-radius:var(--radius);cursor:pointer;font-family:inherit;white-space:nowrap}
+.buy-now-btn{padding:10px 20px;border:none;background:var(--primary);color:#fff;font-size:14px;font-weight:700;border-radius:var(--radius);cursor:pointer;font-family:inherit;white-space:nowrap}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;opacity:0;transition:all .3s ease;z-index:200;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.zoom-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:300;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.zoom-overlay.active{display:flex}
+.zoom-overlay img{max-width:90%;max-height:90%;object-fit:contain}
+.zoom-close{position:absolute;top:16px;right:16px;color:#fff;font-size:24px;cursor:pointer;background:none;border:none}
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.slide-up{animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* Swipe indicator */
+.swipe-indicator{display:flex;justify-content:center;gap:6px;margin-top:8px}
+.swipe-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s}
+.swipe-dot.active{background:var(--primary);transform:scale(1.3)}
+/* Image slide animation */
+.main-image-wrapper img{transition:transform .3s ease,opacity .2s ease}
+.img-slide-left{animation:slideLeft .3s ease}
+.img-slide-right{animation:slideRight .3s ease}
+@keyframes slideLeft{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideRight{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:translateX(0)}}
+/* Cart add bounce */
+.cart-bounce{animation:cartBounce .4s ease}
+@keyframes cartBounce{0%{transform:scale(1)}30%{transform:scale(1.3)}60%{transform:scale(.9)}100%{transform:scale(1)}}
+/* Ripple effect */
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.4);transform:scale(0);animation:rippleAnim .5s ease-out;pointer-events:none}
+@keyframes rippleAnim{to{transform:scale(4);opacity:0}}
+/* Add to cart success animation */
+.add-cart-btn.added{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important;transition:all .3s}
+/* Feedback section */
+.feedback-section{background:var(--card);margin-top:8px;padding:16px}
+.feedback-form{display:flex;flex-direction:column;gap:12px}
+.feedback-stars{display:flex;gap:4px;font-size:24px;cursor:pointer}
+.feedback-stars i{color:var(--border);transition:color .2s,transform .2s}
+.feedback-stars i.active{color:var(--gold);transform:scale(1.15)}
+.feedback-textarea{width:100%;min-height:80px;border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:14px;font-family:inherit;resize:vertical;transition:border-color .2s}
+.feedback-textarea:focus{outline:none;border-color:var(--primary)}
+.feedback-submit{padding:12px 24px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:transform .15s,opacity .15s}
+.feedback-submit:hover{opacity:.9}
+.feedback-submit:active{transform:scale(.97)}
+.feedback-thank{display:none;text-align:center;padding:20px;font-size:15px;font-weight:600;color:var(--green)}
+.feedback-thank i{font-size:40px;display:block;margin-bottom:8px}
+@media(min-width:768px){body{max-width:700px;margin:0 auto;padding-bottom:90px}.sticky-bar{max-width:700px;left:50%;transform:translateX(-50%)}.main-image-wrapper{height:380px}.product-name{font-size:20px}.current-price{font-size:30px}}
+@media(min-width:1024px){body{max-width:900px}}
+</style>
+</head>
+<body>
+<header class="header">
+  <button class="back-btn" onclick="history.back()" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+  <div class="search-bar">
+    <input type="text" placeholder="Search medicines, health products..." id="searchInput" readonly>
+    <i class="fas fa-microphone mic-icon"></i>
+  </div>
+  <button class="cart-btn" onclick="window.location.href='usercart.html'" aria-label="Cart">
+    <i class="fas fa-shopping-cart"></i>
+    <span class="cart-badge" id="cartBadge">0</span>
+  </button>
+</header>
+<div class="breadcrumb" id="breadcrumb"></div>
+<div id="skeleton">
+  <div style="background:#fff;padding:16px;margin-top:8px">
+    <div class="skeleton skel-img"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <div class="skeleton" style="width:56px;height:56px;border-radius:6px;flex-shrink:0"></div>
+      <div class="skeleton" style="width:56px;height:56px;border-radius:6px;flex-shrink:0"></div>
+      <div class="skeleton" style="width:56px;height:56px;border-radius:6px;flex-shrink:0"></div>
+    </div>
+  </div>
+  <div style="background:#fff;padding:16px;margin-top:8px">
+    <div class="skeleton skel-line w60" style="height:22px"></div>
+    <div class="skeleton skel-line w40" style="height:14px;margin-top:8px"></div>
+    <div class="skeleton skel-line w80" style="height:14px;margin-top:8px"></div>
+    <div class="skeleton" style="width:120px;height:32px;border-radius:4px;margin-top:12px"></div>
+  </div>
+  <div style="background:#fff;padding:16px;margin-top:8px">
+    <div class="skeleton skel-line w80" style="height:16px"></div>
+    <div class="skeleton skel-line w60" style="height:14px;margin-top:6px"></div>
+    <div class="skeleton skel-line w40" style="height:14px;margin-top:6px"></div>
+  </div>
+</div>
+<div id="mainContent" style="display:none">
+  <div class="carousel-section fade-in">
+    <div class="main-image-wrapper" id="mainImageWrapper">
+      <span class="image-badge" id="imageBadge" style="display:none">360 View</span>
+      <button class="wishlist-btn" id="wishlistBtn" onclick="toggleWishlist()"><i class="far fa-heart"></i></button>
+      <button class="share-btn" onclick="shareProduct()"><i class="fas fa-share-alt"></i></button>
+      <img id="mainImage" src="" alt="Product" onclick="openZoom()">
+    </div>
+    <div class="thumbnails" id="thumbnails"></div>
+    <div class="swipe-indicator" id="swipeIndicator"></div>
+  </div>
+  <div class="product-info fade-in">
+    <div class="product-name" id="productName"></div>
+    <div class="rating-row">
+      <div class="stars" id="ratingStars"></div>
+      <span class="rating-count" id="ratingCount"></span>
+    </div>
+    <div class="sold-by">Sold by: <strong id="sellerName"></strong>
+      <span class="verified-badge"><i class="fas fa-check-circle"></i> Verified</span>
+    </div>
+    <div class="price-section">
+      <div class="price-row">
+        <span class="current-price" id="currentPrice"></span>
+        <span class="mrp" id="mrpPrice"></span>
+        <span class="discount-badge" id="discountBadge"></span>
+      </div>
+      <div class="tax-note">Inclusive of all taxes</div>
+    </div>
+  </div>
+  <div class="delivery-info fade-in">
+    <div class="section-header"><i class="fas fa-truck"></i> Delivery</div>
+    <div class="delivery-row">
+      <i class="fas fa-shipping-fast"></i>
+      <div>
+        <div class="label">Delivery by</div>
+        <div class="value" id="deliveryDate">Tomorrow, 10AM - 2PM</div>
+        <div class="free-delivery" id="deliveryCharge">Free delivery</div>
+      </div>
+    </div>
+    <div class="delivery-row">
+      <i class="fas fa-bolt"></i>
+      <div>
+        <div class="label">Express Delivery</div>
+        <div class="value">Within 2 hours <span class="express-badge">EXPRESS</span></div>
+        <div class="sub">Order before 4PM for same-day delivery</div>
+      </div>
+    </div>
+    <div class="delivery-row">
+      <i class="fas fa-map-marker-alt"></i>
+      <div>
+        <div class="label">Delivering to</div>
+        <div class="value" id="deliveryLocation">Detecting location...</div>
+        <span class="change-link" onclick="detectLocation()">Change</span>
+      </div>
+    </div>
+  </div>
+  <div class="offers-section fade-in">
+    <div class="section-header"><i class="fas fa-tags"></i> Available Offers</div>
+    <div class="offer-card">
+      <div class="offer-icon bank"><i class="fas fa-university"></i></div>
+      <div><div class="offer-text"><strong>Bank Offer</strong> 10% off on HDFC Bank credit and debit cards. Min order Rs.500</div><span class="tc-link">T&C</span></div>
+    </div>
+    <div class="offer-card">
+      <div class="offer-icon coupon"><i class="fas fa-ticket-alt"></i></div>
+      <div><div class="offer-text"><strong>Coupon</strong> Use code <strong>MED10</strong> and get Rs.10 off on first order</div><span class="tc-link">T&C</span></div>
+    </div>
+    <div class="offer-card">
+      <div class="offer-icon wallet"><i class="fas fa-wallet"></i></div>
+      <div><div class="offer-text"><strong>Wallet Offer</strong> Pay with Paytm UPI and get Rs.20 cashback</div><span class="tc-link">T&C</span></div>
+    </div>
+    <div class="offer-card">
+      <div class="offer-icon cashback"><i class="fas fa-percent"></i></div>
+      <div><div class="offer-text"><strong>Cashback</strong> Get 5% cashback with MediFinder Wallet (max Rs.50)</div><span class="tc-link">T&C</span></div>
+    </div>
+  </div>
+  <div class="details-section fade-in">
+    <div class="section-header"><i class="fas fa-info-circle"></i> Product Details</div>
+    <p class="description" id="productDesc"></p>
+    <ul class="highlights" id="highlights"></ul>
+    <div id="detailTable"></div>
+    <button class="read-more" id="readMoreBtn" onclick="toggleDetails()">Read More <i class="fas fa-chevron-down"></i></button>
+  </div>
+  <div class="seller-section fade-in">
+    <div class="section-header"><i class="fas fa-store"></i> Seller Information</div>
+    <div class="seller-name" id="sellerLink"></div>
+    <div class="seller-rating"><i class="fas fa-star"></i><span id="sellerRatingText">4.2 out of 5</span></div>
+    <div class="policy-item"><i class="fas fa-file-invoice"></i> GST invoice available</div>
+    <div class="policy-item"><i class="fas fa-undo"></i> 7 days return policy</div>
+    <div class="policy-item"><i class="fas fa-shield-alt"></i> 100% genuine products</div>
+    <div style="margin-top:10px"><span class="change-link">View seller's other products</span></div>
+  </div>
+  <div class="reviews-section fade-in">
+    <div class="section-header"><i class="fas fa-star"></i> Ratings and Reviews</div>
+    <div class="rating-summary">
+      <div class="rating-overall">
+        <div class="rating-big" id="overallRating">4.3</div>
+        <div class="stars" id="overallStars"></div>
+        <div style="font-size:12px;color:var(--text3)" id="totalReviewsText"></div>
+      </div>
+      <div class="rating-bar-group">
+        <div class="rating-bar-row"><span>5</span><div class="rating-bar"><div class="rating-bar-fill" style="width:60%"></div></div><span>60%</span></div>
+        <div class="rating-bar-row"><span>4</span><div class="rating-bar"><div class="rating-bar-fill" style="width:25%"></div></div><span>25%</span></div>
+        <div class="rating-bar-row"><span>3</span><div class="rating-bar"><div class="rating-bar-fill" style="width:10%"></div></div><span>10%</span></div>
+        <div class="rating-bar-row"><span>2</span><div class="rating-bar"><div class="rating-bar-fill" style="width:3%"></div></div><span>3%</span></div>
+        <div class="rating-bar-row"><span>1</span><div class="rating-bar"><div class="rating-bar-fill" style="width:2%"></div></div><span>2%</span></div>
+      </div>
+    </div>
+    <div id="reviewsList"></div>
+    <button class="see-all-btn" onclick="showToast('All reviews coming soon')">See All Reviews</button>
+  </div>
+  <div class="fbt-section fade-in">
+    <div class="section-header"><i class="fas fa-shopping-basket"></i> Frequently Bought Together</div>
+    <div id="fbtList"></div>
+    <div class="fbt-total"><span>Total price for all items:</span><span id="fbtTotalPrice"></span></div>
+    <div class="fbt-savings" id="fbtSavings" style="font-size:12px;text-align:right;margin-top:4px"></div>
+  </div>
+  <div class="similar-section fade-in">
+    <div class="section-header"><i class="fas fa-th-large"></i> Similar Products</div>
+    <div class="similar-scroll" id="similarScroll"></div>
+  </div>
+  <div class="feedback-section fade-in">
+    <div class="section-header"><i class="fas fa-comment-dots"></i> Share Your Feedback</div>
+    <div class="feedback-form" id="feedbackForm">
+      <div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:6px">Rate this product</div>
+        <div class="feedback-stars" id="feedbackStars">
+          <i class="far fa-star" data-rating="1"></i>
+          <i class="far fa-star" data-rating="2"></i>
+          <i class="far fa-star" data-rating="3"></i>
+          <i class="far fa-star" data-rating="4"></i>
+          <i class="far fa-star" data-rating="5"></i>
+        </div>
+      </div>
+      <textarea class="feedback-textarea" id="feedbackText" placeholder="Write your review here... (optional)"></textarea>
+      <button class="feedback-submit" id="feedbackSubmit" onclick="submitFeedback()"><i class="fas fa-paper-plane"></i> Submit Feedback</button>
+    </div>
+    <div class="feedback-thank" id="feedbackThank">
+      <i class="fas fa-check-circle"></i>
+      Thank you for your feedback!
+    </div>
+  </div>
+  <div class="policies-section fade-in">
+    <div class="section-header"><i class="fas fa-shield-alt"></i> Delivery and Returns</div>
+    <div class="policy-grid">
+      <div class="policy-box"><i class="fas fa-truck"></i><div><div class="title">Free Delivery</div><div class="desc">Free delivery on orders above Rs.500</div></div></div>
+      <div class="policy-box"><i class="fas fa-bolt"></i><div><div class="title">Express Delivery</div><div class="desc">Get medicines within 2 hours</div></div></div>
+      <div class="policy-box"><i class="fas fa-map-marked-alt"></i><div><div class="title">Track Order</div><div class="desc">Real-time order tracking</div></div></div>
+      <div class="policy-box"><i class="fas fa-undo"></i><div><div class="title">7-Day Returns</div><div class="desc">Easy returns in original packaging</div></div></div>
+      <div class="policy-box"><i class="fas fa-file-prescription"></i><div><div class="title">Rx Policy</div><div class="desc">Prescription medicines non-returnable</div></div></div>
+      <div class="policy-box"><i class="fas fa-money-bill-wave"></i><div><div class="title">Refund</div><div class="desc">Refund within 3-5 business days</div></div></div>
+    </div>
+  </div>
+</div>
+<div class="sticky-bar slide-up" id="stickyBar">
+  <div class="qty-selector">
+    <button onclick="changeQty(-1)">&#8722;</button>
+    <span class="qty" id="qtyDisplay">1</span>
+    <button onclick="changeQty(1)">+</button>
+  </div>
+  <div class="sticky-price"><div class="label">Total</div><div class="amount" id="stickyPrice">Rs.0.00</div></div>
+  <button class="add-cart-btn" onclick="addToCart()">Add to Cart</button>
+  <button class="buy-now-btn" onclick="buyNow()">Buy Now</button>
+</div>
+<div class="zoom-overlay" id="zoomOverlay" onclick="closeZoom()">
+  <button class="zoom-close"><i class="fas fa-times"></i></button>
+  <img id="zoomImage" src="">
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+let supabase;
+try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { supabase = { from: () => ({ select: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }; }
+
+let product = { id:'', name:'', price:0, img:'', manufacturer:'', expiry:'', rating:0, desc:'', isRx:'false', category:'', stock:10, composition:'', dosageForm:'', strength:'' };
+let quantity = 1;
+let isWishlisted = false;
+let currentImageIndex = 0;
+let allImages = [];
+
+const SAMPLE_IMAGES = [
+  'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&h=400&fit=crop',
+  'https://images.unsplash.com/photo-1550572017-edd951b55104?w=400&h=400&fit=crop',
+  'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=400&h=400&fit=crop',
+  'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=400&h=400&fit=crop'
+];
+
+const SAMPLE_REVIEWS = [
+  { name:'Rahul S.', avatar:'R', rating:5, text:'Great medicine, works perfectly. Fast delivery and genuine product. Highly recommended for this condition.', date:'2 days ago', helpful:12 },
+  { name:'Priya M.', avatar:'P', rating:4, text:'Good quality medicine. Slight side effects initially but went away after 2 days. Packaging was good.', date:'1 week ago', helpful:8 },
+  { name:'Amit K.', avatar:'A', rating:5, text:'Best price online. Genuine product with proper packaging. Will order again from MediFinder.', date:'2 weeks ago', helpful:15 },
+  { name:'Sneha R.', avatar:'S', rating:3, text:'Average product. Took longer than expected to show results. Delivery was quick though.', date:'3 weeks ago', helpful:3 },
+  { name:'Vikram P.', avatar:'V', rating:5, text:'Doctor recommended this and MediFinder had the best price. Authentic product delivered safely.', date:'1 month ago', helpful:20 },
+  { name:'Ananya D.', avatar:'A', rating:4, text:'Effective medicine. Good packaging and fast delivery. The expiry date was well within range.', date:'1 month ago', helpful:7 }
+];
+
+const SAMPLE_SIMILAR = [
+  { id:'s1', name:'Paracetamol 500mg Tablets', price:45.00, mrp:65.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&h=200&fit=crop', rating:4.3, category:'Pain Relief' },
+  { id:'s2', name:'Vitamin D3 Capsules', price:189.00, mrp:299.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=200&h=200&fit=crop', rating:4.5, category:'Supplements' },
+  { id:'s3', name:'Cetirizine 10mg Tablets', price:35.00, mrp:55.00, img:'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=200&h=200&fit=crop', rating:4.2, category:'Allergy' },
+  { id:'s4', name:'Omeprazole 20mg Capsules', price:75.00, mrp:110.00, img:'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=200&h=200&fit=crop', rating:4.4, category:'Gastrointestinal' },
+  { id:'s5', name:'Metformin 500mg Tablets', price:55.00, mrp:85.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&h=200&fit=crop', rating:4.1, category:'Diabetes' },
+  { id:'s6', name:'Amlodipine 5mg Tablets', price:65.00, mrp:95.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=200&h=200&fit=crop', rating:4.6, category:'Cardiovascular' }
+];
+
+const SAMPLE_FBT = [
+  { name:'Digital Thermometer', price:199.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120&h=120&fit=crop' },
+  { name:'Hand Sanitizer 500ml', price:149.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=120&h=120&fit=crop' }
+];
+
+function parseParams(){
+  const p = new URLSearchParams(window.location.search);
+  product.id = p.get('id') || 'demo-001';
+  product.name = p.get('name') || 'Crocin Advance 500mg Tablet';
+  product.price = parseFloat(p.get('price')) || 35.00;
+  product.img = p.get('img') || SAMPLE_IMAGES[0];
+  product.manufacturer = p.get('manufacturer') || 'GlaxoSmithKline Pharmaceuticals';
+  product.expiry = p.get('expiry') || 'Dec 2027';
+  product.rating = parseFloat(p.get('rating')) || 4.3;
+  product.desc = p.get('desc') || 'Crocin Advance is a fast-acting pain relief tablet containing Paracetamol 500mg. It provides effective relief from headache, toothache, menstrual cramps, and body pain. Clinically proven formula that starts working in 30 minutes.';
+  product.isRx = p.get('isRx') || 'false';
+  product.category = p.get('category') || 'Pain Relief';
+  product.stock = parseInt(p.get('stock')) || 10;
+  product.composition = p.get('composition') || 'Paracetamol 500mg';
+  product.dosageForm = p.get('dosageForm') || 'Tablet';
+  product.strength = p.get('strength') || '500mg';
+  
+  // Fallback to localStorage if URL params missing
+  if (!p.get('name')) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('currentProduct'));
+      if (saved && saved.name) {
+        Object.assign(product, saved);
+      }
+    } catch(e) {}
+  }
+}
+
+function generateStars(rating, maxStars){
+  maxStars = maxStars || 5;
+  let html = '';
+  for(let i=1;i<=maxStars;i++){
+    if(i <= Math.floor(rating)) html += '<i class="fas fa-star"></i>';
+    else if(i - rating < 1 && i - rating > 0) html += '<i class="fas fa-star-half-alt"></i>';
+    else html += '<i class="far fa-star"></i>';
+  }
+  return html;
+}
+
+function renderProduct(){
+  document.getElementById('productName').textContent = product.name;
+  document.getElementById('ratingStars').innerHTML = generateStars(product.rating);
+  document.getElementById('ratingCount').textContent = product.rating + ' | 248 ratings';
+  document.getElementById('sellerName').textContent = product.manufacturer;
+  document.getElementById('currentPrice').textContent = 'Rs.' + product.price.toFixed(2);
+  const mrp = product.price * 1.3;
+  document.getElementById('mrpPrice').textContent = 'Rs.' + mrp.toFixed(2);
+  const disc = Math.round((1 - product.price/mrp)*100);
+  document.getElementById('discountBadge').textContent = disc + '% off';
+  document.getElementById('productDesc').textContent = product.desc;
+
+  allImages = [product.img, ...SAMPLE_IMAGES.slice(0,3)];
+  document.getElementById('mainImage').src = allImages[0];
+  document.getElementById('mainImage').alt = product.name;
+  if(allImages.length > 1) document.getElementById('imageBadge').style.display = 'block';
+  renderThumbnails();
+  renderHighlights();
+  renderDetailTable();
+  renderBreadcrumb();
+  renderOverallRating();
+  renderReviews();
+  renderFBT();
+  renderSimilar();
+  updateStickyPrice();
+}
+
+function renderThumbnails(){
+  const c = document.getElementById('thumbnails');
+  c.innerHTML = '';
+  allImages.forEach(function(src, i){
+    const div = document.createElement('div');
+    div.className = 'thumb' + (i===0?' active':'');
+    div.innerHTML = '<img src="'+src+'" alt="Thumb">';
+    div.onclick = function(){
+      switchImage(i, i > currentImageIndex ? 'left' : 'right');
+    };
+    c.appendChild(div);
+  });
+  renderSwipeIndicator();
+}
+
+function switchImage(newIndex, direction){
+  if(newIndex === currentImageIndex || newIndex < 0 || newIndex >= allImages.length) return;
+  const img = document.getElementById('mainImage');
+  img.classList.remove('img-slide-left','img-slide-right');
+  void img.offsetWidth;
+  img.classList.add(direction === 'left' ? 'img-slide-left' : 'img-slide-right');
+  img.src = allImages[newIndex];
+  currentImageIndex = newIndex;
+  document.querySelectorAll('.thumb').forEach(function(t,i){ t.classList.toggle('active', i === newIndex); });
+  document.querySelectorAll('.swipe-dot').forEach(function(d,i){ d.classList.toggle('active', i === newIndex); });
+}
+
+function renderSwipeIndicator(){
+  const c = document.getElementById('swipeIndicator');
+  if(!c) return;
+  c.innerHTML = '';
+  allImages.forEach(function(_, i){
+    const dot = document.createElement('div');
+    dot.className = 'swipe-dot' + (i===0?' active':'');
+    c.appendChild(dot);
+  });
+}
+
+function setupSwipeCarousel(){
+  const wrapper = document.getElementById('mainImageWrapper');
+  if(!wrapper) return;
+  let startX = 0, isDragging = false;
+  wrapper.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; isDragging = true; }, {passive:true});
+  wrapper.addEventListener('touchend', function(e){
+    if(!isDragging) return;
+    isDragging = false;
+    const diff = startX - e.changedTouches[0].clientX;
+    if(Math.abs(diff) > 50){
+      if(diff > 0 && currentImageIndex < allImages.length - 1) switchImage(currentImageIndex + 1, 'left');
+      else if(diff < 0 && currentImageIndex > 0) switchImage(currentImageIndex - 1, 'right');
+    }
+  }, {passive:true});
+}
+
+function renderHighlights(){
+  const c = document.getElementById('highlights');
+  const items = [
+    'Composition: ' + product.composition,
+    'Dosage Form: ' + product.dosageForm,
+    'Strength: ' + product.strength,
+    'Manufacturer: ' + product.manufacturer,
+    'Prescription Required: ' + (product.isRx === 'true' ? 'Yes' : 'No'),
+    'Storage: Store below 25C in a dry place',
+    'Shelf Life: 36 months',
+    'Pack Size: 15 tablets per strip'
+  ];
+  c.innerHTML = items.map(function(it){ return '<li>' + it + '</li>'; }).join('');
+}
+
+function renderDetailTable(){
+  const fields = [
+    ['Composition', product.composition],
+    ['Dosage Form', product.dosageForm],
+    ['Strength', product.strength],
+    ['Manufacturer', product.manufacturer],
+    ['Expiry Date', product.expiry],
+    ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Out of Stock'],
+    ['Category', product.category],
+    ['Prescription', product.isRx === 'true' ? 'Required' : 'Not Required']
+  ];
+  document.getElementById('detailTable').innerHTML = fields.map(function(f){
+    return '<div class="detail-item"><div class="detail-label">' + f[0] + '</div><div class="detail-value">' + f[1] + '</div></div>';
+  }).join('');
+}
+
+function renderBreadcrumb(){
+  document.getElementById('breadcrumb').innerHTML =
+    '<span onclick="window.location.href=\'userhome.html\'">Home</span> / ' +
+    '<span>' + product.category + '</span> / ' +
+    '<span style="color:var(--text)">' + product.name.substring(0,30) + '...</span>';
+}
+
+function renderOverallRating(){
+  document.getElementById('overallRating').textContent = product.rating;
+  document.getElementById('overallStars').innerHTML = generateStars(product.rating);
+  document.getElementById('totalReviewsText').textContent = '248 ratings, 86 reviews';
+}
+
+function renderReviews(){
+  const c = document.getElementById('reviewsList');
+  c.innerHTML = SAMPLE_REVIEWS.map(function(r){
+    return '<div class="review-card">' +
+      '<div class="review-header">' +
+        '<div class="review-avatar">' + r.avatar + '</div>' +
+        '<div><div class="review-name">' + r.name + '</div>' +
+        '<div class="review-stars">' + generateStars(r.rating) + '</div></div>' +
+        '<div class="review-date">' + r.date + '</div>' +
+      '</div>' +
+      '<div class="review-text">' + r.text + '</div>' +
+      '<div class="review-helpful" onclick="this.innerHTML=\'<i class=fa-thumbs-up></i> Helpful (' + (r.helpful+1) + ')\'"><i class="far fa-thumbs-up"></i> Helpful (' + r.helpful + ')</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderFBT(){
+  const c = document.getElementById('fbtList');
+  let total = product.price;
+  c.innerHTML = '<div class="fbt-item"><img src="' + product.img + '" alt=""><div class="fbt-info"><div class="name">' + product.name + '</div><div class="price">Rs.' + product.price.toFixed(2) + '</div></div></div>';
+  SAMPLE_FBT.forEach(function(f){
+    total += f.price;
+    c.innerHTML += '<div class="fbt-item"><img src="' + f.img + '" alt=""><div class="fbt-info"><div class="name">' + f.name + '</div><div class="price">Rs.' + f.price.toFixed(2) + '</div></div><button class="fbt-add" onclick="addFBTItem(this)">Add</button></div>';
+  });
+  document.getElementById('fbtTotalPrice').textContent = 'Rs.' + total.toFixed(2);
+  document.getElementById('fbtSavings').textContent = 'You save Rs.' + (total * 0.15).toFixed(2) + ' on this bundle';
+}
+
+function renderSimilar(){
+  const c = document.getElementById('similarScroll');
+  c.innerHTML = SAMPLE_SIMILAR.map(function(s){
+    const savings = Math.round((1 - s.price/s.mrp)*100);
+    return '<div class="similar-card">' +
+      '<img src="' + s.img + '" alt="' + s.name + '">' +
+      '<div class="name">' + s.name + '</div>' +
+      '<div class="rating-sm">' + generateStars(s.rating) + ' ' + s.rating + '</div>' +
+      '<div class="price">Rs.' + s.price.toFixed(2) + ' <span class="old-price">Rs.' + s.mrp.toFixed(2) + '</span></div>' +
+      '<button class="add-btn" onclick="addSimilarToCart(\'' + s.name + '\',' + s.price + ')">Add to Cart</button>' +
+    '</div>';
+  }).join('');
+}
+
+function changeQty(delta){
+  quantity = Math.max(1, Math.min(10, quantity + delta));
+  document.getElementById('qtyDisplay').textContent = quantity;
+  updateStickyPrice();
+}
+
+function updateStickyPrice(){
+  document.getElementById('stickyPrice').textContent = 'Rs.' + (product.price * quantity).toFixed(2);
+}
+
+function addToCart(){
+  let cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  const existing = cart.findIndex(function(c){ return c.id === product.id; });
+  if(existing >= 0){
+    cart[existing].qty += quantity;
+  } else {
+    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, manufacturer:product.manufacturer });
+  }
+  localStorage.setItem('medifinder_cart', JSON.stringify(cart));
+  updateCartBadge();
+  const btn = document.querySelector('.add-cart-btn');
+  if(btn){
+    btn.classList.add('added');
+    btn.innerHTML = '<i class="fas fa-check"></i> Added!';
+    setTimeout(function(){ btn.classList.remove('added'); btn.innerHTML = 'Add to Cart'; }, 1500);
+  }
+  const badge = document.getElementById('cartBadge');
+  if(badge){ badge.classList.add('cart-bounce'); setTimeout(function(){ badge.classList.remove('cart-bounce'); }, 400); }
+  showToast('Added to cart');
+}
+
+function buyNow(){
+  addToCart();
+  window.location.href = 'usercart.html?checkout=true';
+}
+
+function addSimilarToCart(name, price){
+  let cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  cart.push({ id:'sim-'+Date.now(), name:name, price:price, img:SAMPLE_IMAGES[0], qty:1, isRx:'false', manufacturer:'Generic' });
+  localStorage.setItem('medifinder_cart', JSON.stringify(cart));
+  updateCartBadge();
+  showToast('Added to cart');
+}
+
+function addFBTItem(btn){
+  btn.textContent = 'Added';
+  btn.style.background = 'var(--green)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--green)';
+  showToast('Added to cart');
+}
+
+function updateCartBadge(){
+  const cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  const total = cart.reduce(function(sum,c){ return sum + c.qty; }, 0);
+  document.getElementById('cartBadge').textContent = total;
+  document.getElementById('cartBadge').style.display = total > 0 ? 'flex' : 'none';
+}
+
+function toggleWishlist(){
+  isWishlisted = !isWishlisted;
+  const btn = document.getElementById('wishlistBtn');
+  if(isWishlisted){
+    btn.classList.add('active');
+    btn.innerHTML = '<i class="fas fa-heart"></i>';
+    showToast('Added to wishlist');
+  } else {
+    btn.classList.remove('active');
+    btn.innerHTML = '<i class="far fa-heart"></i>';
+    showToast('Removed from wishlist');
+  }
+}
+
+function shareProduct(){
+  if(navigator.share){
+    navigator.share({ title:product.name, text:'Check out ' + product.name + ' on MediFinder!', url:window.location.href }).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(window.location.href).then(function(){ showToast('Link copied!'); });
+  }
+}
+
+function openZoom(){
+  document.getElementById('zoomImage').src = allImages[currentImageIndex];
+  document.getElementById('zoomOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeZoom(){
+  document.getElementById('zoomOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function toggleDetails(){
+  const table = document.getElementById('detailTable');
+  const btn = document.getElementById('readMoreBtn');
+  if(table.style.maxHeight === '0px' || table.style.maxHeight === ''){
+    table.style.maxHeight = 'none';
+    btn.innerHTML = 'Show Less <i class="fas fa-chevron-up"></i>';
+  } else {
+    table.style.maxHeight = '0px';
+    table.style.overflow = 'hidden';
+    btn.innerHTML = 'Read More <i class="fas fa-chevron-down"></i>';
+  }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+function detectLocation(){
+  if(navigator.geolocation){
+    document.getElementById('deliveryLocation').textContent = 'Detecting...';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      document.getElementById('deliveryLocation').textContent = 'Current Location (' + pos.coords.latitude.toFixed(2) + ', ' + pos.coords.longitude.toFixed(2) + ')';
+    }, function(){
+      document.getElementById('deliveryLocation').textContent = 'Mumbai, Maharashtra 400001';
+    });
+  } else {
+    document.getElementById('deliveryLocation').textContent = 'Mumbai, Maharashtra 400001';
+  }
+}
+
+function loadSimilarFromSupabase(){
+  if(!supabase || !supabase.from) return;
+  supabase.from('products').select('*').eq('category', product.category).limit(6).then(function(res){
+    if(res.data && res.data.length > 0){
+      const c = document.getElementById('similarScroll');
+      c.innerHTML = res.data.map(function(s){
+        return '<div class="similar-card">' +
+          '<img src="' + (s.image_url || s.img || SAMPLE_IMAGES[0]) + '" alt="' + s.name + '">' +
+          '<div class="name">' + s.name + '</div>' +
+          '<div class="rating-sm">' + generateStars(s.rating || 4.0) + ' ' + (s.rating || 4.0) + '</div>' +
+          '<div class="price">Rs.' + (s.price || 0).toFixed(2) + '</div>' +
+          '<button class="add-btn" onclick="addSimilarToCart(\'' + s.name.replace(/'/g,"") + '\',' + (s.price||0) + ')">Add to Cart</button>' +
+        '</div>';
+      }).join('');
+    }
+  }).catch(function(){});
+}
+
+function setupFeedbackStars(){
+  const stars = document.querySelectorAll('#feedbackStars i');
+  let selectedRating = 0;
+  stars.forEach(function(star){
+    star.addEventListener('click', function(){
+      selectedRating = parseInt(star.dataset.rating);
+      stars.forEach(function(s){ s.classList.toggle('active', parseInt(s.dataset.rating) <= selectedRating); s.className = parseInt(s.dataset.rating) <= selectedRating ? 'fas fa-star active' : 'far fa-star'; });
+    });
+    star.addEventListener('mouseenter', function(){
+      const val = parseInt(star.dataset.rating);
+      stars.forEach(function(s){ if(parseInt(s.dataset.rating) <= val){ s.className = 'fas fa-star active'; } });
+    });
+    star.addEventListener('mouseleave', function(){
+      stars.forEach(function(s){ if(parseInt(s.dataset.rating) > selectedRating){ s.className = 'far fa-star'; } else { s.className = 'fas fa-star active'; } });
+    });
+  });
+}
+
+function submitFeedback(){
+  const rating = document.querySelectorAll('#feedbackStars i.active').length;
+  const text = document.getElementById('feedbackText').value.trim();
+  if(rating === 0){ showToast('Please select a rating', 'error'); return; }
+  document.getElementById('feedbackForm').style.display = 'none';
+  document.getElementById('feedbackThank').style.display = 'block';
+  if(supabase && supabase.from){
+    supabase.from('reviews').insert({ product_id: product.id, rating: rating, review_text: text, created_at: new Date().toISOString() }).then(function(){}).catch(function(){});
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  parseParams();
+  updateCartBadge();
+  setTimeout(function(){
+    document.getElementById('skeleton').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    renderProduct();
+    loadSimilarFromSupabase();
+    setupSwipeCarousel();
+    setupFeedbackStars();
+  }, 300);
+  detectLocation();
+});
+</script>
+</body>
+</html>

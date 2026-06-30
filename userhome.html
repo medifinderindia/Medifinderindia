@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>MediFinder - Medicine Delivery</title>
+    <meta name="description" content="Order medicines, healthcare products & essentials with fast delivery from trusted pharmacies.">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta property="og:title" content="MediFinder - Medicine Delivery">
+    <meta property="og:description" content="Order medicines & healthcare essentials with fast delivery">
+    <meta property="og:type" content="website">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="userhome.css?v=4">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <div class="top-bar" id="top-delivery-bar">
+        <div class="top-bar-scroll">
+            <span><i class="fa-solid fa-bolt animate-flash"></i> DELIVERY ON DOORSTEP IN 20+ MINUTES</span>
+            <span><i class="fa-solid fa-shield-halved animate-flash"></i> 100% GENUINE MEDICINES GUARANTEED</span>
+            <span><i class="fa-solid fa-truck-fast animate-flash"></i> FREE DELIVERY ON ORDERS ABOVE ₹499</span>
+            <span><i class="fa-solid fa-certificate animate-flash"></i> LICENCED PHARMACY VERIFIED</span>
+        </div>
+    </div>
+
+    <div id="user-app-banner" style="display: none; background: #ff4d4d; color: #fff; text-align: center; padding: 10px; font-weight: bold; font-size: 0.9rem;"></div>
+
+    <header>
+        <div class="logo">
+            <img src="1779304435608.png" alt="Logo">
+            <h1 id="lang-app-title">MEDI <span>FINDER</span></h1>
+        </div>
+        <div class="header-actions">
+            <div class="notification-container">
+                <button class="action-btn pulse-btn" id="notiBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge" id="noti-badge">2</span>
+                </button>
+                <div class="notification-dropdown" id="notiDropdown">
+                    <div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>
+                    <div class="dropdown-body" id="noti-dropdown-body">
+                        <div class="noti-item unread">
+                            <p>Your order for Paracetamol has been packed successfully!</p>
+                            <span>2 mins ago</span>
+                        </div>
+                        <div class="noti-item">
+                            <p>Get 20% OFF using coupon code MEDI20 on checkout.</p>
+                            <span>1 hour ago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content-scrollable" id="main-scroll">
+
+        <section class="truemeds-search-section">
+            <div class="truemeds-search-bar">
+                <div class="truemeds-avatar-wrapper">
+                    <div class="truemeds-avatar">
+                        <img src="1779304435608.png" alt="MediFinder">
+                    </div>
+                    <span class="truemads-verified-badge"><i class="fa-solid fa-check"></i></span>
+                </div>
+                <div class="truemeds-search-input-area">
+                    <input type="text" id="home-medicine-search" placeholder="Search medicines, health products..." autocomplete="off">
+                    <button id="clear-search-btn" class="truemads-clear-btn" style="display: none;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="truemads-mic-btn" id="voice-search-btn">
+                    <i class="fa-solid fa-microphone"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="quick-services-menu">
+            <div class="services-scroll" id="services-scroll">
+                <div class="service-item" data-service="lab">
+                    <div class="service-icon-wrapper lab"><i class="fa-solid fa-flask-vial"></i></div>
+                    <span>Lab Test</span>
+                </div>
+                <div class="service-item" data-service="instrument">
+                    <div class="service-icon-wrapper instrument"><i class="fa-solid fa-stethoscope"></i></div>
+                    <span>Medical Instrument</span>
+                </div>
+                <div class="service-item" data-service="nurse">
+                    <div class="service-icon-wrapper nurse"><i class="fa-solid fa-user-nurse"></i></div>
+                    <span>Nurse Booking</span>
+                </div>
+                <div class="service-item" data-service="doctor">
+                    <div class="service-icon-wrapper doctor"><i class="fa-solid fa-user-doctor"></i></div>
+                    <span>Doctor Consult</span>
+                </div>
+                <div class="service-item" data-service="checkup">
+                    <div class="service-icon-wrapper checkup"><i class="fa-solid fa-heart-pulse"></i></div>
+                    <span>Body Checkup</span>
+                </div>
+                <div class="service-item" data-service="ambulance">
+                    <div class="service-icon-wrapper ambulance"><i class="fa-solid fa-truck-medical"></i></div>
+                    <span>Call Ambulance</span>
+                </div>
+                <div class="service-item" data-service="coins">
+                    <div class="service-icon-wrapper coins"><i class="fa-solid fa-coins"></i></div>
+                    <span>Get Tablet Coin</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="auto-slider-section">
+            <div class="slider-container" id="home-slider">
+                <div class="slide active-slide" style="background: linear-gradient(135deg, #e02020, #ff6b6b);">
+                    <div class="slide-content">
+                        <span class="slide-tag">NEW LAUNCH</span>
+                        <h3>Vitamin D3 Booster 60K IU</h3>
+                        <p>50% OFF — Limited Time</p>
+                        <button class="slide-btn">Shop Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=300&fit=crop&auto=format" alt="Vitamin D3">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+                    <div class="slide-content">
+                        <span class="slide-tag">BESTSELLER</span>
+                        <h3>Baby Care Complete Kit</h3>
+                        <p>Flat 30% OFF + Free Delivery</p>
+                        <button class="slide-btn">Grab Deal <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop&auto=format" alt="Baby Care">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #00b894, #55efc4);">
+                    <div class="slide-content">
+                        <span class="slide-tag">TRENDING</span>
+                        <h3>Diabetes Care Glucometer</h3>
+                        <p>Starting from ₹299 only</p>
+                        <button class="slide-btn">Order Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=300&h=300&fit=crop&auto=format" alt="Glucometer">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #e17055, #fab1a0);">
+                    <div class="slide-content">
+                        <span class="slide-tag">HOT DEAL</span>
+                        <h3>Protein Powder 1kg</h3>
+                        <p>Buy 1 Get 1 Free</p>
+                        <button class="slide-btn">Grab Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1593095948071-474c5cc2ee7c?w=300&h=300&fit=crop&auto=format" alt="Protein">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #0984e3, #74b9ff);">
+                    <div class="slide-content">
+                        <span class="slide-tag">NEW LAUNCH</span>
+                        <h3>Immunity Booster Pack</h3>
+                        <p>₹199 Only — 30 Capsules</p>
+                        <button class="slide-btn">Try Free <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300&h=300&fit=crop&auto=format" alt="Immunity">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #d63031, #ff7675);">
+                    <div class="slide-content">
+                        <span class="slide-tag">EXCLUSIVE</span>
+                        <h3>Blood Pressure Monitor</h3>
+                        <p>₹899 — Free Home Delivery</p>
+                        <button class="slide-btn">Buy Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1559757175-5700dde675bc?w=300&h=300&fit=crop&auto=format" alt="BP Monitor">
+                    </div>
+                </div>
+            </div>
+            <div class="slider-dots" id="slider-dots"></div>
+        </section>
+
+        <section class="prescription-upload-section">
+            <div class="presc-card">
+                <div class="presc-icon-pulse">
+                    <i class="fa-solid fa-file-medical"></i>
+                </div>
+                <div class="presc-info">
+                    <h3>Order via Prescription</h3>
+                    <p>Upload doctor's slip, AI reads it & shows matching medicines instantly.</p>
+                </div>
+                <label for="presc-file-input" class="upload-presc-btn">
+                    <i class="fa-solid fa-camera"></i> Upload
+                </label>
+                <input type="file" id="presc-file-input" accept="image/*" style="display:none;">
+            </div>
+            <div id="uploaded-presc-badge" style="display:none; margin-top: 10px; background: #e3faf2; color: #2ed573; padding: 10px 14px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; text-align: center; border: 1px solid #2ed573;">
+                <i class="fa-solid fa-circle-check"></i> Prescription Uploaded Successfully
+            </div>
+        </section>
+
+        <section class="categories-section">
+            <h3 class="section-title"><i class="fa-solid fa-grid-2" style="color:var(--primary-color);"></i> Shop by Category</h3>
+            <div class="categories-grid-scroll">
+                <div class="category-item active" data-category="all">
+                    <div class="cat-icon-wrapper"><i class="fa-solid fa-border-all"></i></div>
+                    <span>All Items</span>
+                </div>
+                <div class="category-item" data-category="syrup">
+                    <div class="cat-icon-wrapper"><img src="IMG_20260523_000151.png" alt="Syrups"></div>
+                    <span>Syrups</span>
+                </div>
+                <div class="category-item" data-category="tablet">
+                    <div class="cat-icon-wrapper"><img src="1779474317874.png" alt="Tablets"></div>
+                    <span>Tablets</span>
+                </div>
+                <div class="category-item" data-category="lotion">
+                    <div class="cat-icon-wrapper"><img src="IMG_20260522_235829.png" alt="Lotion"></div>
+                    <span>Lotion</span>
+                </div>
+                <div class="category-item" data-category="baby">
+                    <div class="cat-icon-wrapper"><img src="IMG_20260522_235741.png" alt="Baby"></div>
+                    <span>Baby Care</span>
+                </div>
+                <div class="category-item" data-category="others">
+                    <div class="cat-icon-wrapper"><i class="fa-solid fa-ellipsis" style="color: #ff4d4d; font-size: 1.2rem;"></i></div>
+                    <span>Others</span>
+                </div>
+                <div class="category-item" data-category="food">
+                    <div class="cat-icon-wrapper"><i class="fa-solid fa-apple-whole" style="color: #2ed573; font-size: 1.2rem;"></i></div>
+                    <span>Food</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="products-showcase-section">
+            <div class="section-header-row">
+                <h3 class="section-title" id="products-section-heading">Essential Medicines</h3>
+                <span class="product-count-badge" id="product-count-badge">0 items</span>
+            </div>
+            
+            <div id="no-products-msg" style="display: none; text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem;">
+                <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #ccc; margin-bottom: 8px; display: block;"></i>
+                No matching medicines found.
+            </div>
+
+            <div class="products-grid" id="main-products-grid">
+                <div class="product-card" data-id="p1" data-category="tablet" data-name="Dolo 650mg Tablet" data-price="30" data-img="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400" data-expiry="12/2027" data-rating="4.7" data-manufacturer="Micro Labs" data-desc="Paracetamol 650mg for fever and body pain relief. Trusted by millions." data-is-rx="false" data-merchant-id="">
+                    <div class="badge-express"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400" alt="Dolo 650">
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Tablet</span>
+                        <h4>Dolo 650mg Tablet</h4>
+                        <p class="price">₹30.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order">BUY NOW</button>
+                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p2" data-category="syrup" data-name="Becosules Syrup" data-price="95" data-img="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400" data-expiry="06/2027" data-rating="4.5" data-manufacturer="Pfizer" data-desc="Vitamin B complex syrup for energy, immunity and daily nutrition support." data-is-rx="false" data-merchant-id="">
+                    <div class="badge-express"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400" alt="Becosules">
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Syrup</span>
+                        <h4>Becosules Syrup</h4>
+                        <p class="price">₹95.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order">BUY NOW</button>
+                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p3" data-category="lotion" data-name="Moisturizing Body Lotion" data-price="210" data-img="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400" data-expiry="09/2028" data-rating="4.6" data-manufacturer="Himalaya" data-desc="Daily moisturizing lotion for soft and smooth skin. Dermatologically tested." data-is-rx="false" data-merchant-id="">
+                    <div class="badge-express"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400" alt="Body Lotion">
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Lotion</span>
+                        <h4>Moisturizing Body Lotion</h4>
+                        <p class="price">₹210.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order">BUY NOW</button>
+                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p4" data-category="baby" data-name="Baby Diaper Rash Cream" data-price="175" data-img="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400" data-expiry="03/2028" data-rating="4.8" data-manufacturer="Johnson's" data-desc="Gentle diaper rash cream for babies. Zinc oxide formula protects sensitive skin." data-is-rx="false" data-merchant-id="">
+                    <div class="badge-express"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400" alt="Baby Cream">
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Baby Care</span>
+                        <h4>Baby Diaper Rash Cream</h4>
+                        <p class="price">₹175.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order">BUY NOW</button>
+                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="scroll-top-btn" id="scroll-top-btn">
+            <i class="fa-solid fa-arrow-up"></i>
+        </div>
+    </main>
+
+    <div id="product-detail-modal" class="modal">
+        <div class="modal-content product-view-sheet">
+            <div class="modal-top-header">
+                <span class="sheet-title"><i class="fa-solid fa-capsules" style="color:var(--primary-color);"></i> Product Details</span>
+                <button class="close-modal-btn" id="close-prod-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="modal-scroll-body">
+                <div class="product-images-slider">
+                    <img id="modal-main-img" src="" alt="Main Medicine Image">
+                </div>
+
+                <div class="product-main-details">
+                    <div class="title-row">
+                        <h2 id="modal-prod-name">Medicine Name</h2>
+                        <span class="express-delivery-badge" title="Express 20 Minute Delivery Verified">
+                            <i class="fa-solid fa-bolt"></i> 20+ Mins
+                        </span>
+                    </div>
+                    
+                    <p class="pharmacy-source"><i class="fa-solid fa-industry"></i> Manufacturer: <span id="modal-mfg-name">Loading...</span></p>
+                    
+                    <div class="rating-expiry-row">
+                        <span class="rating-tag"><i class="fa-solid fa-star"></i> <span id="modal-rating">0.0</span></span>
+                        <span class="expiry-tag"><i class="fa-solid fa-calendar-xmark"></i> Expiry: <span id="modal-expiry">00/0000</span></span>
+                    </div>
+
+                    <div class="modal-rating-input" id="modal-rating-section">
+                        <h4><i class="fa-solid fa-star" style="color:var(--gold-premium);"></i> Rate this product</h4>
+                        <div class="rating-stars-interactive" id="interactive-rating-stars">
+                            <i class="fa-regular fa-star" data-star="1"></i>
+                            <i class="fa-regular fa-star" data-star="2"></i>
+                            <i class="fa-regular fa-star" data-star="3"></i>
+                            <i class="fa-regular fa-star" data-star="4"></i>
+                            <i class="fa-regular fa-star" data-star="5"></i>
+                        </div>
+                        <p id="user-rating-text" style="font-size:0.75rem;color:var(--text-muted);margin:4px 0 0 0;">Tap to rate this medicine</p>
+                    </div>
+
+                    <div class="flipkart-delivery-status-box">
+                        <div class="delivery-row-line"><i class="fa-solid fa-location-dot"></i> <span id="modal-delivery-location">Calculating distance matrix...</span></div>
+                        <div class="delivery-row-line"><i class="fa-solid fa-truck-fast"></i> <span id="modal-delivery-eta">Estimating dynamic shipping window...</span></div>
+                    </div>
+
+                    <h3 class="modal-price" id="modal-price">₹0.00</h3>
+                    
+                    <div class="description-block">
+                        <h4><i class="fa-solid fa-circle-info" style="color:var(--primary-color);"></i> Product Overview</h4>
+                        <p id="modal-description">Medicine description data placeholder...</p>
+                    </div>
+
+                    <div class="medicine-details-block">
+                        <h4><i class="fa-solid fa-notes-medical" style="color:var(--primary-color);"></i> Medicine Information</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Composition</span><span class="detail-value" id="modal-composition">Active Pharma Ingredient</span></div>
+                            <div class="detail-item"><span class="detail-label">Storage</span><span class="detail-value">Store below 30°C</span></div>
+                            <div class="detail-item"><span class="detail-label">Side Effects</span><span class="detail-value">Nausea, Dizziness (rare)</span></div>
+                            <div class="detail-item"><span class="detail-label">Pack Size</span><span class="detail-value">1 Strip (10 tablets)</span></div>
+                        </div>
+                    </div>
+
+                    <div class="reviews-block">
+                        <h4><i class="fa-solid fa-comments" style="color:var(--primary-color);"></i> Verified Customer Reviews</h4>
+                        <div class="review-item">
+                            <div class="review-meta">
+                                <span class="reviewer-name">Rahul S.</span>
+                                <span class="review-stars"><i class="fa-solid fa-star"></i> 5/5</span>
+                            </div>
+                            <p class="review-text">Very good medicine, got authentic strip with safe 20-min express handling delivery.</p>
+                        </div>
+                        <div class="review-item">
+                            <div class="review-meta">
+                                <span class="reviewer-name">Priyanka D.</span>
+                                <span class="review-stars"><i class="fa-solid fa-star"></i> 4.5/5</span>
+                            </div>
+                            <p class="review-text">Long expiry date provided, fully satisfied with Tata 1mg grade service experience!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-sticky-actions">
+                <button class="add-to-cart-big-btn" id="modal-add-to-cart-action">
+                    <i class="fa-solid fa-shopping-cart"></i> ADD TO SHOPPING CART
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav" id="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='userhome.html'">
+            <i class="fas fa-home"></i>
+            <span id="lang-nav-home">HOME</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usermap.html'">
+            <i class="fas fa-map-marked-alt"></i>
+            <span id="lang-nav-map">MAP</span>
+        </div>
+        <div class="hamburger-nav-item" id="hamburger-btn">
+            <div class="hamburger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="nav-item" onclick="window.location.href='userorder.html'">
+            <i class="fas fa-clipboard-list"></i>
+            <span id="lang-nav-order">ORDER</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usercart.html'">
+            <i class="fas fa-shopping-cart"></i>
+            <span id="lang-nav-cart">CART</span>
+        </div>
+    </nav>
+
+    <!-- Hamburger Menu Overlay -->
+    <div class="hamburger-overlay" id="hamburger-overlay">
+        <div class="hamburger-menu-panel">
+            <div class="hamburger-header">
+                <div class="hamburger-profile">
+                    <div class="hamburger-profile-pic">
+                        <img src="1779304435608.png" alt="Profile">
+                    </div>
+                    <div class="hamburger-profile-info">
+                        <h3 id="hamburger-user-name">Guest User</h3>
+                        <p><i class="fa-solid fa-id-badge"></i> <span id="hamburger-user-id">MF000000</span></p>
+                    </div>
+                </div>
+                <button class="hamburger-close-btn" id="hamburger-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="hamburger-menu-list">
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html'">
+                    <i class="fa-solid fa-user-circle"></i>
+                    <span>My Profile</span>
+                </div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'">
+                    <i class="fa-solid fa-shopping-cart"></i>
+                    <span>My Cart</span>
+                </div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>My Orders</span>
+                </div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>Track on Map</span>
+                </div>
+                <div class="hamburger-menu-item">
+                    <i class="fa-solid fa-file-prescription"></i>
+                    <span>My Prescriptions</span>
+                </div>
+                <div class="hamburger-menu-item">
+                    <i class="fa-solid fa-tag"></i>
+                    <span>Offers & Coupons</span>
+                </div>
+                <div class="hamburger-menu-item">
+                    <i class="fa-solid fa-headset"></i>
+                    <span>Customer Support</span>
+                </div>
+                <div class="hamburger-menu-item">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>About MediFinder</span>
+                </div>
+                <div class="hamburger-menu-divider"></div>
+                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Logout</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="prod-utils.js?v=2"></script>
+    <script src="userscript.js?v=5"></script>
+    
+</body>
+</html>

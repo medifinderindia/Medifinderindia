@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediFinder - Driver Metrics</title>
+    <link rel="stylesheet" href="delyvaryearning.css?v=4">
+      <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* বাটন লক বা ডিজেবল থাকলে একটু আবছা দেখানোর স্টাইল */
+        .btn-locked {
+            background: #64748b !important;
+            cursor: not-allowed !important;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="navbar">
+            <div class="logo-area">
+                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo" onerror="this.src='https://via.placeholder.com/40/00b4d8/fff?text=MF'">
+                <span class="logo-text">MEDI <span class="text-highlight">FINDER</span></span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            
+            <div class="dashboard-metric-strip">
+                
+                <div class="earnings-summary-card">
+                    <div class="card-top-info">
+                        <p class="label-heading">Total Earnings Today</p>
+                        <div class="icon-circle-bg"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <!-- আজকের মোট ইনকাম ডিসপ্লে -->
+                    <h1 id="todayTotalEarnings">₹280</h1>
+                    <div class="summary-footer">
+                        <span class="payout-status-dot"></span>
+                        <!-- লাইভ একটিভ আওয়ার দেখানোর জন্য টেক্সট পরিবর্তন -->
+                        <small id="activeHoursTracker">Active Hours: Loading...</small>
+                    </div>
+                    
+                    <!-- ১০ ঘণ্টা লিমিটের অ্যাডমিন পে-আউট রিকোয়েস্ট বাটন[cite: 3] -->
+                    <button id="payoutRequestBtn" class="action-btn-accent-premium" onclick="handlePayoutRequest()" style="width: 100%; margin-top: 15px; background: #e63946; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s ease;">
+                        <i class="fa-solid fa-paper-plane"></i> Request Payout to Admin
+                    </button>
+                </div>
+
+                <div class="graph-box trend-up" id="trendGraphContainer">
+                    <div class="graph-header">
+                        <span class="trend-title">Profit Analysis</span>
+                        <div class="trend-alert-status">
+                            <i class="fa-solid fa-arrow-trend-up"></i> +12.4% vs yesterday
+                        </div>
+                    </div>
+                    
+                    <div class="sparkline-canvas">
+                        <svg viewBox="0 0 100 30" class="chart-svg" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+                                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,30 L0,22 Q15,8 35,18 T75,5 T100,2 L100,30 Z" fill="url(#graphGradient)"/>
+                            <path d="M0,22 Q15,8 35,18 T75,5 T100,2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- রিকোয়েস্ট অনুযায়ী লিডারবোর্ড সেকশনটি (leaderboard-section) এখান থেকে সম্পূর্ণ ডিলিট বা রিমুভ করা হয়েছে -->
+
+            <section class="history-section">
+                <div class="history-header">
+                    <h3 class="section-subtitle">Recent Run Completed History</h3>
+                    <span class="history-count">2 Orders</span>
+                </div>
+                
+                <div class="history-list">
+                    <div class="history-item">
+                        <div class="item-left-content">
+                            <div class="delivery-success-icon">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div class="item-details">
+                                <h4>Order #98765</h4>
+                                <p><i class="fa-regular fa-clock"></i> Completed at 4:15 PM</p>
+                            </div>
+                        </div>
+                        <div class="payout-amount-badge">
+                            <span class="payout-indicator">+₹50</span>
+                        </div>
+                    </div>
+
+                    <div class="history-item">
+                        <div class="item-left-content">
+                            <div class="delivery-success-icon">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div class="item-details">
+                                <h4>Order #98764</h4>
+                                <p><i class="fa-regular fa-clock"></i> Completed at 11:30 AM</p>
+                            </div>
+                        </div>
+                        <div class="payout-amount-badge">
+                            <span class="payout-indicator">+₹30</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- সম্পূর্ণ কার্যকরী গ্লোবাল বটম নেভিগেশন বার -->
+        <nav class="bottom-nav">
+            <a class="nav-item" href="delyvaryhome.html"><i class="fa-solid fa-house"></i><span>HOME</span></a>
+            <a class="nav-item" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
+            <a class="nav-item active" href="delyvaryearning.html"><i class="fa-solid fa-wallet"></i><span>EARNING</span></a>
+            <a class="nav-item" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
+        </nav>
+    </div>
+    
+    <script src="prod-utils.js?v=2"></script>
+    <script src="delyvaryscript.js"></script>
+</body>
+</html>

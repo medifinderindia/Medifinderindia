@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e02020">
+    <title>Medi Finder - Merchant Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="marchentprofile.css?v=4">
+    <link class="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script src="marchentscript.js"></script>
+</head>
+<body>
+    <div class="container">
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="logo-area">
+                    <img src="1779304435608.png" alt="Logo">
+                    <h1>MEDI <span class="highlight">FINDER</span></h1>
+                </div>
+            </header>
+
+            <section class="content-body">
+                <div class="profile-hero-card">
+                    <div class="avatar-wrapper">
+                        <img id="profileDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Merchant Avatar">
+                        <label for="avatarInput" class="cam-overlay-btn" title="Change Profile Image">
+                            <i class="fa-solid fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatarInput" accept="image/*" style="display:none;">
+                    </div>
+                    <div class="merchant-identity">
+                        <div class="name-edit-group">
+                            <input type="text" id="merchantNameInput" value="Niramoy Traders" class="live-edit-name" placeholder="Enter Owner/Shop Name">
+                            <i class="fa-solid fa-pen-to-square edit-indicator"></i>
+                        </div>
+                        <span class="uid-badge"><i class="fa-solid fa-fingerprint"></i> ID: #MT1001</span>
+                    </div>
+                </div>
+
+                <div class="premium-settings-grid">
+                    <div class="settings-glass-card" onclick="openPopup('storeCoreModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-store"></i> Store Core Setup</h3>
+                            <span class="live-status">Click to Open</span>
+                        </div>
+                        <p class="section-desc">Manage your registered official shop identity.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('licenseModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-file-shield"></i> Government License Hub</h3>
+                            <div id="verifyStatus" class="status-pill unverified">Unverified</div>
+                        </div>
+                        <p class="section-desc">Upload and verify your government drug license here.</p>
+                    </div>
+
+                    <!-- 🏦 নতুন ব্যাংক ডিটেইলস সেটিংস কার্ড -->
+                    <div class="settings-glass-card" onclick="openPopup('bankModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-bank"></i> Bank Settlement Accounts</h3>
+                            <span class="live-status" style="background:#e0f2fe; color:#0369a1;">Configure</span>
+                        </div>
+                        <p class="section-desc">Manage bank accounts, IFSC code, and settlement UPI IDs.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('geoModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-map-location-dot"></i> Geolocation & Address Mapping</h3>
+                        </div>
+                        <p class="section-desc">Configure shop location, pincode, and contact maps.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('helpModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-circle-question"></i> Help Desk & Merchant Guide</h3>
+                        </div>
+                        <p class="section-desc">Quick FAQ guide to solve operational issues instantly.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="window.location.href='marchentt&amp;c.html'">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-scale-balanced"></i> Terms & Regulatory Conditions</h3>
+                        </div>
+                        <p class="section-desc">Review drug policies, compliance, and system SLAs.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('langModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-language"></i> Terminal Language</h3>
+                        </div>
+                        <p class="section-desc">Switch terminal language between English, Bengali, or Hindi.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('referModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-gift"></i> Referral Pipeline</h3>
+                        </div>
+                        <p class="section-desc">Share code and claim bonus rewards from your pipeline.</p>
+                    </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('supportModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-headset"></i> Immediate Support Node</h3>
+                        </div>
+                        <p class="section-desc">Direct links to get connected via Call or Email support.</p>
+                    </div>
+                    
+                    <div class="settings-glass-card" onclick="window.handleTerminalLogout(event)" style="border-left: 4px solid #ef4444; cursor:pointer;">
+                        <div class="card-title-row">
+                            <h3 style="color:#ef4444;"><i class="fa-solid fa-right-from-bracket"></i> Logout</h3>
+                            <span class="live-status" style="background:#fee2e2; color:#ef4444;">Sign Out</span>
+                        </div>
+                        <p class="section-desc">Securely sign out of your merchant terminal session.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="storeCoreModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'storeCoreModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('storeCoreModal')">&times;</button>
+            <h3><i class="fa-solid fa-store"></i> Store Core Setup</h3>
+            <hr><br>
+            <div class="form-group-premium">
+                <label>Registered Shop Name</label>
+                <input type="text" id="shopNameInput" placeholder="Enter your official shop name">
+            </div>
+            <button class="popup-submit-btn" id="btnSaveStoreCore">Save Details</button>
+        </div>
+    </div>
+
+    <!-- 🏦 নতুন ব্যাংক অ্যাকাউন্ট সেটআপ মডাল পপআপ -->
+    <div id="bankModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'bankModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('bankModal')">&times;</button>
+            <h3><i class="fa-solid fa-bank"></i> Bank Settlement Details</h3>
+            <p class="popup-section-desc">Configure your payout bank parameters and virtual payment address (UPI).</p>
+            <hr><br>
+            <div class="form-group-premium">
+                <label>Bank Account Number</label>
+                <input type="text" id="bankNoInput" placeholder="e.g., 302104569871">
+            </div>
+            <div class="form-group-premium">
+                <label>IFSC Code</label>
+                <input type="text" id="bankIfscInput" placeholder="e.g., SBIN0001234" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group-premium">
+                <label>Settlement UPI ID</label>
+                <input type="text" id="bankUpiInput" placeholder="e.g., shopname@apl">
+            </div>
+            <div class="form-group-premium">
+                <label>Passbook / Cancelled Cheque Image</label>
+                <div class="popup-file-zone" id="bankImageUploadZone">
+                    <i class="fa-solid fa-money-check-dollar"></i><br>
+                    <span id="bankFileNameDisplay">Drop or click to upload bank document image</span>
+                    <input type="file" id="bankImageFile" accept="image/*" style="display:none;">
+                </div>
+            </div>
+            <button class="popup-submit-btn success-btn" id="btnSaveBankDetails">
+                <i class="fa-solid fa-floppy-disk"></i> Save Bank Account Assets
+            </button>
+        </div>
+    </div>
+
+    <div id="licenseModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'licenseModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('licenseModal')">&times;</button>
+            <h3><i class="fa-solid fa-file-shield"></i> Government License Hub</h3>
+            <p class="popup-section-desc">Upload your drug license to unlock product publishing and customer sales.</p>
+            <hr><br>
+            <div class="form-group-premium">
+                <label>License ID / Number</label>
+                <input type="text" id="licenseIdInput" placeholder="e.g., DL-98745-WB">
+            </div>
+            <div class="form-group-premium">
+                <label>Upload Document Image <span style="color:red;">*</span></label>
+                <div class="popup-file-zone" id="licenseUploadZone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i><br>
+                    <span id="fileNameDisplay">Drop or click to upload license file</span>
+                    <input type="file" id="licenseFile" accept="image/*,application/pdf" style="display:none;">
+                </div>
+            </div>
+            <button class="popup-submit-btn success-btn" id="btnVerifyLicense" style="opacity: 0.5; cursor: not-allowed;" disabled>
+                <i class="fa-solid fa-circle-check"></i> Run Online Verification Check
+            </button>
+        </div>
+    </div>
+
+    <div id="geoModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'geoModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('geoModal')">&times;</button>
+            <h3><i class="fa-solid fa-map-location-dot"></i> Geolocation & Address Config</h3>
+            <hr><br>
+            
+            <div class="popup-form-row">
+                <div class="popup-form-col">
+                    <label>Area Pin Code</label>
+                    <input type="number" id="pinCodeInput" placeholder="700001">
+                </div>
+                <div class="popup-form-col">
+                    <label>City</label>
+                    <input type="text" id="cityInput" placeholder="e.g., Kolkata">
+                </div>
+            </div>
+
+            <div class="popup-form-row">
+                <div class="popup-form-col">
+                    <label>District</label>
+                    <input type="text" id="districtInput" placeholder="e.g., North 24 Parganas">
+                </div>
+                <div class="popup-form-col">
+                    <label>State</label>
+                    <input type="text" id="stateInput" placeholder="e.g., West Bengal">
+                </div>
+            </div>
+
+            <div class="form-group-premium">
+                <label><i class="fa-solid fa-earth-asia"></i> Dynamic GPS Visual Map Node</label>
+                <div id="profileLiveMiniMap" style="width: 100%; height: 180px; border-radius: 10px; margin: 8px 0; border: 1px solid #cbd5e1; background: #f8fafc; z-index:1;"></div>
+            </div>
+
+            <div class="form-group-premium">
+                <label>Full Resolved Address Area</label>
+                <input type="text" id="autoAddress" placeholder="Full address will resolve here..." class="popup-readonly" readonly>
+            </div>
+            
+            <div style="display: flex; gap:10px; margin-top:15px;">
+                <button type="button" class="popup-submit-btn secondary-btn" id="btnDropMapPin" style="margin:0; flex:1;">
+                    <i class="fa-solid fa-location-crosshairs"></i> Get GPS Drop-Pin
+                </button>
+                <button type="button" class="popup-submit-btn" id="btnSaveGeoAddress" style="margin:0; flex:1; background:#2e7d32;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Location Details
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="helpModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'helpModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('helpModal')">&times;</button>
+            <h3><i class="fa-solid fa-circle-question"></i> Help Desk & Merchant Guide</h3>
+            <hr><br>
+            <div class="premium-accordion">
+                <details class="popup-help-item">
+                    <summary>How to add new medicine?</summary>
+                    <p>Go to the "ADD NEW" tab from the bottom navigation menu. Step 1: Upload medicine pictures, Step 2: Fill in composition, category & manufacturer details, Step 3: Enter stock quantity and unit pricing. Click Next to finish.</p>
+                </details>
+                <details class="popup-help-item">
+                    <summary>Why is my drug license showing unverified?</summary>
+                    <p>Once uploaded, our specialized internal verification node takes up to 24-48 business hours to verify your state-issued pharmacy registration number.</p>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <div id="langModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'langModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('langModal')">&times;</button>
+            <h3><i class="fa-solid fa-language"></i> Terminal Language</h3>
+            <hr><br>
+            <div class="form-group-premium">
+                <label>Select Language</label>
+                <select id="langSelect" class="premium-select">
+                    <option value="en">English (Global Default)</option>
+                    <option value="bn">Bengali (বাংলা)</option>
+                </select>
+            </div>
+            <button class="popup-submit-btn dark-btn">Apply Language</button>
+        </div>
+    </div>
+
+    <div id="referModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'referModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('referModal')">&times;</button>
+            <h3><i class="fa-solid fa-gift"></i> Referral Pipeline</h3>
+            <hr><br>
+            <div class="popup-referral-box">
+                <span class="popup-ref-label">YOUR REFERRAL CODE</span>
+                <span class="popup-ref-code" id="refCode">MEDIFIND786</span>
+                <br><br>
+                <button class="popup-submit-btn success-btn" id="btnGenRefer"><i class="fa-solid fa-wallet"></i> Claim ₹1000 Code</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="supportModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'supportModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('supportModal')">&times;</button>
+            <h3><i class="fa-solid fa-headset"></i> Immediate Support Node</h3>
+            <hr><br>
+            <div class="popup-support-channels">
+                <a href="tel:9593625498" class="popup-channel phone"><i class="fa-solid fa-phone-volume"></i> Call Helpline: +91 9593625498</a>
+                <a href="mailto:support@medifinderindia.com" class="popup-channel mail"><i class="fa-solid fa-message"></i> mail now</a>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item active" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
+    </nav>
+</body>
+</html>

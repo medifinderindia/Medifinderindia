@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="theme-color" content="#e02020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="MediFinder Merchant Customer Management">
+<title>Customers — MediFinder Merchant</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="prod-utils.js?v=4"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:rgba(224,32,32,.12);--accent:#1a1a2e;--bg:#0f0f1a;--card:rgba(26,26,46,.65);--card-border:rgba(224,32,32,.15);--glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.08);--text:#f0f0f5;--text-dim:rgba(240,240,245,.55);--text-mid:rgba(240,240,245,.75);--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;--gold:#ffd700;--radius:14px;--radius-sm:10px;--radius-xs:6px}
+html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+body{padding-bottom:80px}
+a{text-decoration:none;color:inherit}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(224,32,32,.3);border-radius:4px}
+
+/* Header */
+.header{position:fixed;top:0;left:0;right:0;height:60px; background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 16px;z-index:1000;gap:12px}
+.header-back{width:36px;height:36px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:14px;transition:all .2s}
+.header-back:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+.header-brand{display:flex;align-items:center;gap:8px;flex:1}
+.header .logo .brand-logo { 
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+.header-title{font-size:16px;font-weight:700;letter-spacing:-.3px;color: #b81a1a;}
+.header-title span{color:black}
+.header-notif{width:36px;height:36px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:14px;position:relative;transition:all .2s}
+.header-notif:hover{background:var(--primary-light);border-color:var(--primary)}
+.header-notif .badge{position:absolute;top:-3px;right:-3px;width:16px;height:16px;background:var(--primary);border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+
+/* Sidebar */
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;opacity:0;pointer-events:none;transition:opacity .3s}
+.sidebar-overlay.open{opacity:1;pointer-events:auto}
+.sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:rgba(15,15,26,.97);backdrop-filter:blur(24px);border-right:1px solid var(--glass-border);z-index:2001;transition:left .35s cubic-bezier(.4,0,.2,1);overflow-y:auto}
+.sidebar.open{left:0}
+.sidebar-header{padding:20px 16px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:12px}
+.sidebar-logo{width:40px;height:40px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff}
+.sidebar-brand{font-size:18px;font-weight:700}
+.sidebar-brand span{color:var(--primary)}
+.sidebar-close{margin-left:auto;width:32px;height:32px;border-radius:8px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:12px;transition:all .2s}
+.sidebar-close:hover{background:var(--primary-light);color:var(--primary)}
+.sidebar-nav{padding:12px 8px}
+.sidebar-link{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-sm);color:var(--text-mid);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:2px}
+.sidebar-link:hover{background:var(--glass);color:var(--text)}
+.sidebar-link.active{background:var(--primary-light);color:var(--primary);font-weight:600}
+.sidebar-link i{width:20px;text-align:center;font-size:15px}
+.sidebar-divider{height:1px;background:var(--glass-border);margin:8px 14px}
+.sidebar-logout{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-sm);color:var(--danger);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+.sidebar-logout:hover{background:rgba(239,68,68,.1)}
+
+/* Main */
+.main{padding-top:72px;padding-left:0;padding-right:0}
+.container{max-width:1200px;margin:0 auto;padding:0 16px}
+
+/* Section */
+.section{margin-bottom:24px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:16px;font-weight:700}
+.section-link{font-size:12px;color:var(--primary);font-weight:600;cursor:pointer}
+
+/* Stat Cards */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:-20px;right:-20px;width:60px;height:60px;border-radius:50%;background:var(--primary-light)}
+.stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:10px;position:relative;z-index:1}
+.stat-icon.red{background:rgba(224,32,32,.15);color:var(--primary)}
+.stat-icon.blue{background:rgba(59,130,246,.15);color:var(--info)}
+.stat-icon.green{background:rgba(34,197,94,.15);color:var(--success)}
+.stat-icon.gold{background:rgba(255,215,0,.15);color:var(--gold)}
+.stat-value{font-size:22px;font-weight:800;margin-bottom:2px;position:relative;z-index:1}
+.stat-label{font-size:11px;color:var(--text-dim);font-weight:500;position:relative;z-index:1}
+.stat-change{position:absolute;top:14px;right:14px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:1}
+.stat-change.up{background:rgba(34,197,94,.15);color:var(--success)}
+.stat-change.down{background:rgba(239,68,68,.15);color:var(--danger)}
+
+/* Search & Filters */
+.search-box{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.search-box i{color:var(--text-dim);font-size:14px}
+.search-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:inherit;font-size:14px}
+.search-box input::placeholder{color:var(--text-dim)}
+.filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px;-ms-overflow-style:none;scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-chip{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .2s;background:var(--glass);border:1px solid var(--glass-border);color:var(--text-mid)}
+.filter-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.filter-chip:hover:not(.active){border-color:rgba(224,32,32,.3)}
+.sort-row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.sort-row label{font-size:12px;color:var(--text-dim);white-space:nowrap}
+.sort-select{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-xs);padding:7px 12px;color:var(--text);font-family:inherit;font-size:12px;outline:none;cursor:pointer}
+.sort-select option{background:var(--accent);color:var(--text)}
+
+/* Customer Cards */
+.customer-list{display:flex;flex-direction:column;gap:10px}
+.customer-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;display:flex;gap:14px;cursor:pointer;transition:all .25s}
+.customer-card:hover{border-color:rgba(224,32,32,.3);transform:translateY(-1px)}
+.customer-avatar{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.customer-avatar.vip{background:linear-gradient(135deg,#ffd700,#f59e0b)}
+.customer-avatar.regular{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.customer-avatar.new{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.customer-avatar.inactive{background:linear-gradient(135deg,#6b7280,#4b5563)}
+.customer-info{flex:1;min-width:0}
+.customer-name{font-size:14px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.customer-contact{font-size:11px;color:var(--text-dim);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.customer-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.customer-meta-item{font-size:11px;color:var(--text-mid);display:flex;align-items:center;gap:4px}
+.customer-meta-item i{font-size:10px;color:var(--text-dim)}
+.customer-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge-new{background:rgba(59,130,246,.15);color:var(--info)}
+.badge-regular{background:rgba(34,197,94,.15);color:var(--success)}
+.badge-vip{background:rgba(255,215,0,.15);color:var(--gold)}
+.badge-inactive{background:rgba(107,114,128,.15);color:#9ca3af}
+.customer-actions{display:flex;flex-direction:column;gap:6px;justify-content:center;flex-shrink:0}
+.customer-action-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--glass-border);background:var(--glass);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-mid);font-size:13px;transition:all .2s}
+.customer-action-btn:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+
+/* Segment Chart */
+.segment-chart-wrap{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:20px;display:flex;align-items:center;gap:24px}
+.donut-chart{width:120px;height:120px;border-radius:50%;position:relative;flex-shrink:0}
+.donut-center{position:absolute;inset:20px;border-radius:50%;background:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-center .num{font-size:20px;font-weight:800}
+.donut-center .lbl{font-size:9px;color:var(--text-dim)}
+.segment-legend{flex:1;display:flex;flex-direction:column;gap:8px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.legend-label{flex:1;color:var(--text-mid)}
+.legend-val{font-weight:700}
+
+/* Analytics */
+.analytics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.analytics-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px}
+.analytics-card-title{font-size:11px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.analytics-card-value{font-size:20px;font-weight:800;margin-bottom:2px}
+.analytics-card-sub{font-size:11px;color:var(--text-dim)}
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:80px;margin-top:12px}
+.bar{flex:1;border-radius:4px 4px 0 0;min-height:4px;transition:height .5s;position:relative}
+.bar::after{content:attr(data-label);position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--text-dim);white-space:nowrap}
+.top-customer-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--glass-border)}
+.top-customer-row:last-child{border-bottom:none}
+.top-rank{width:22px;height:22px;border-radius:6px;background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-dim)}
+.top-rank.gold{background:rgba(255,215,0,.15);color:var(--gold)}
+.top-name{flex:1;font-size:12px;font-weight:600}
+.top-amount{font-size:12px;font-weight:700;color:var(--primary)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{background:var(--accent);width:100%;max-width:600px;max-height:90vh;border-radius:20px 20px 0 0;overflow:hidden;transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.2);margin:10px auto 0}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:12px}
+.modal-title{font-size:16px;font-weight:700;flex:1}
+.modal-close{width:32px;height:32px;border-radius:8px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:12px;transition:all .2s}
+.modal-close:hover{background:var(--primary-light);color:var(--primary)}
+.modal-body{flex:1;overflow-y:auto;padding:20px}
+.modal-section{margin-bottom:20px}
+.modal-section-title{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+
+/* Profile in modal */
+.profile-top{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.profile-avatar{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff}
+.profile-name{font-size:18px;font-weight:700;margin-bottom:2px}
+.profile-email{font-size:13px;color:var(--text-dim)}
+.profile-phone{font-size:13px;color:var(--text-dim);margin-top:2px}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.profile-stat{text-align:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);border:1px solid var(--glass-border)}
+.profile-stat-val{font-size:18px;font-weight:800;color:var(--primary)}
+.profile-stat-lbl{font-size:10px;color:var(--text-dim);margin-top:2px}
+
+/* Order table */
+.order-table{width:100%;border-collapse:collapse}
+.order-table th{font-size:10px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:8px 6px;text-align:left;border-bottom:1px solid var(--glass-border)}
+.order-table td{font-size:12px;padding:10px 6px;border-bottom:1px solid var(--glass-border);color:var(--text-mid)}
+.order-table tr:last-child td{border-bottom:none}
+.order-status{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.order-status.delivered{background:rgba(34,197,94,.15);color:var(--success)}
+.order-status.pending{background:rgba(245,158,11,.15);color:var(--warning)}
+.order-status.cancelled{background:rgba(239,68,68,.15);color:var(--danger)}
+.order-status.processing{background:rgba(59,130,246,.15);color:var(--info)}
+
+/* Notes */
+.notes-area{width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;min-height:60px}
+.notes-area:focus{border-color:var(--primary)}
+.notes-save{margin-top:8px;padding:8px 16px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .2s}
+.notes-save:hover{background:var(--primary-dark)}
+
+/* Message Modal */
+.msg-template-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.msg-template{padding:10px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);font-size:11px;color:var(--text-mid);cursor:pointer;transition:all .2s;text-align:center}
+.msg-template:hover{border-color:var(--primary);background:var(--primary-light)}
+.msg-template i{display:block;font-size:18px;margin-bottom:4px;color:var(--primary)}
+.msg-textarea{width:100%;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;min-height:100px}
+.msg-textarea:focus{border-color:var(--primary)}
+.msg-actions{display:flex;gap:8px;margin-top:12px}
+.btn{padding:10px 20px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-ghost{background:var(--glass);color:var(--text-mid);border:1px solid var(--glass-border)}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+
+/* Toast */
+.toast-container{position:fixed;top:72px;right:16px;z-index:5000;display:flex;flex-direction:column;gap:8px}
+.toast{background:rgba(26,26,46,.95);backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;gap:10px;min-width:260px;animation:toastIn .3s;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.success{border-left:3px solid var(--success)}
+.toast.error{border-left:3px solid var(--danger)}
+.toast.info{border-left:3px solid var(--info)}
+.toast i{font-size:16px}
+.toast.success i{color:var(--success)}
+.toast.error i{color:var(--danger)}
+.toast.info i{color:var(--info)}
+.toast-msg{font-size:13px;flex:1}
+.toast-close{cursor:pointer;color:var(--text-dim);font-size:12px}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
+
+/* Skeleton */
+.skeleton{background:linear-gradient(90deg,var(--glass) 25%,rgba(255,255,255,.08) 50%,var(--glass) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius-sm)}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton-card{height:100px;margin-bottom:10px;border-radius:var(--radius)}
+.skeleton-stat{height:90px;border-radius:var(--radius)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px}
+.empty-icon{font-size:48px;color:var(--text-dim);margin-bottom:12px}
+.empty-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.empty-desc{font-size:13px;color:var(--text-dim);margin-bottom:16px}
+
+/* Export buttons */
+.export-row{display:flex;gap:8px;margin-bottom:16px}
+.export-btn{padding:8px 14px;border-radius:var(--radius-xs);font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-mid);display:flex;align-items:center;gap:6px;transition:all .2s}
+.export-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:16px;background:var(--glass);border-radius:var(--radius-sm);border:1px solid var(--glass-border);overflow:hidden}
+.tab{flex:1;padding:10px 8px;text-align:center;font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer;transition:all .2s}
+.tab.active{background:var(--primary);color:#fff}
+.tab:hover:not(.active){color:var(--text)}
+
+/* Bottom Nav */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:68px;background:rgba(15,15,26,.95);backdrop-filter:blur(24px);border-top:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-around;z-index:1000;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 12px;border-radius:12px;transition:all .2s;position:relative}
+.nav-item i{font-size:18px;color:var(--text-dim);transition:color .2s}
+.nav-item span{font-size:10px;color:var(--text-dim);font-weight:500;transition:color .2s}
+.nav-item.active i,.nav-item.active span{color:var(--primary)}
+.nav-item.center-btn{width:52px;height:52px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;margin-top:-20px;box-shadow:0 4px 20px rgba(224,32,32,.4)}
+.nav-item.center-btn i{color:#fff;font-size:22px}
+.nav-item.center-btn span{display:none}
+
+/* Responsive */
+@media(min-width:768px){
+.main{padding-left:0}
+.stats-grid{grid-template-columns:repeat(4,1fr)}
+.analytics-grid{grid-template-columns:repeat(2,1fr)}
+.segment-chart-wrap{flex-direction:row}
+.modal{max-width:500px;border-radius:20px;margin-bottom:20px}
+}
+@media(min-width:1024px){
+.sidebar{width:260px}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-back" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
+  <div class="header-brand">
+    <div class="logo"><img src="1779304435608.png" class="brand-logo"></div>
+    <div class="header-title">MEDI<span>FINDER</span></div>
+  </div>
+  <div class="header-notif" onclick="showToast('No new notifications','info')">
+    <i class="fas fa-bell"></i>
+    <div class="badge" id="notifBadge" style="display:none">0</div>
+  </div>
+</header>
+
+<!-- Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">M</div>
+    <div class="sidebar-brand">MEDI<span>FINDER</span></div>
+    <div class="sidebar-close" onclick="toggleSidebar()"><i class="fas fa-xmark"></i></div>
+  </div>
+  <div class="sidebar-nav">
+    <a href="marchenthome.html" class="sidebar-link"><i class="fas fa-th-large"></i>Dashboard</a>
+    <a href="marchentorders.html" class="sidebar-link"><i class="fas fa-shopping-bag"></i>Orders</a>
+    <a href="marchentadd.html" class="sidebar-link"><i class="fas fa-pills"></i>Inventory</a>
+    <a href="marchentreturns.html" class="sidebar-link"><i class="fas fa-rotate-left"></i>Returns</a>
+    <a href="marchentanalytics.html" class="sidebar-link"><i class="fas fa-chart-line"></i>Analytics</a>
+    <a href="marchentpromotions.html" class="sidebar-link"><i class="fas fa-badge-percent"></i>Promotions</a>
+    <div class="sidebar-divider"></div>
+    <a href="marchentcustomers.html" class="sidebar-link active"><i class="fas fa-users"></i>Customers</a>
+    <a href="marchentprofile.html" class="sidebar-link"><i class="fas fa-user-circle"></i>Profile</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-logout" onclick="handleLogout()"><i class="fas fa-right-from-bracket"></i>Logout</div>
+  </div>
+</nav>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Main Content -->
+<main class="main">
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs" style="margin-top:4px">
+    <div class="tab active" data-tab="list" onclick="switchTab('list')">Customers</div>
+    <div class="tab" data-tab="analytics" onclick="switchTab('analytics')">Analytics</div>
+    <div class="tab" data-tab="segments" onclick="switchTab('segments')">Segments</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section" id="statsSection">
+    <div class="stats-grid" id="statsGrid">
+      <div class="skeleton skeleton-stat"></div>
+      <div class="skeleton skeleton-stat"></div>
+      <div class="skeleton skeleton-stat"></div>
+      <div class="skeleton skeleton-stat"></div>
+    </div>
+  </div>
+
+  <!-- Customer List Tab -->
+  <div id="tabList">
+    <!-- Export -->
+    <div class="export-row">
+      <div class="export-btn" onclick="exportCustomerCSV()"><i class="fas fa-file-csv"></i>Export Customers</div>
+      <div class="export-btn" onclick="exportAnalyticsCSV()"><i class="fas fa-chart-bar"></i>Export Analytics</div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" id="searchInput" placeholder="Search by name, email, or phone..." oninput="filterCustomers()">
+      <i class="fas fa-times" style="cursor:pointer;display:none" id="clearSearch" onclick="clearSearch()"></i>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-row" id="filterRow">
+      <div class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</div>
+      <div class="filter-chip" data-filter="new" onclick="setFilter('new')">New</div>
+      <div class="filter-chip" data-filter="regular" onclick="setFilter('regular')">Regular</div>
+      <div class="filter-chip" data-filter="vip" onclick="setFilter('vip')">VIP</div>
+      <div class="filter-chip" data-filter="inactive" onclick="setFilter('inactive')">Inactive</div>
+    </div>
+
+    <!-- Sort -->
+    <div class="sort-row">
+      <label>Sort by:</label>
+      <select class="sort-select" id="sortSelect" onchange="filterCustomers()">
+        <option value="name">Name</option>
+        <option value="spent">Total Spent</option>
+        <option value="orders">Orders</option>
+        <option value="lastOrder">Last Order Date</option>
+      </select>
+    </div>
+
+    <!-- Customer List -->
+    <div class="customer-list" id="customerList">
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+    </div>
+  </div>
+
+  <!-- Analytics Tab -->
+  <div id="tabAnalytics" style="display:none">
+    <div class="analytics-grid" id="analyticsGrid"></div>
+    <div class="section" style="margin-top:16px">
+      <div class="section-header"><div class="section-title">Top Customers by Revenue</div></div>
+      <div id="topCustomersList"></div>
+    </div>
+  </div>
+
+  <!-- Segments Tab -->
+  <div id="tabSegments" style="display:none">
+    <div class="segment-chart-wrap" id="segmentChart"></div>
+    <div class="section" style="margin-top:16px">
+      <div class="section-header"><div class="section-title">Segment Distribution</div></div>
+      <div id="segmentDetails"></div>
+    </div>
+    <!-- Bulk Message -->
+    <div class="section">
+      <div class="section-header"><div class="section-title">Bulk Message by Segment</div></div>
+      <div class="filter-row" style="margin-bottom:12px">
+        <div class="filter-chip" data-bulk="new" onclick="setBulkSegment('new')">New</div>
+        <div class="filter-chip" data-bulk="regular" onclick="setBulkSegment('regular')">Regular</div>
+        <div class="filter-chip" data-bulk="vip" onclick="setBulkSegment('vip')">VIP</div>
+        <div class="filter-chip" data-bulk="inactive" onclick="setBulkSegment('inactive')">Inactive</div>
+      </div>
+      <div id="bulkMessageArea" style="display:none">
+        <textarea class="msg-textarea" id="bulkMsgText" placeholder="Type your bulk message..."></textarea>
+        <div class="msg-actions" style="margin-top:8px">
+          <button class="btn btn-primary" onclick="sendBulkMessage()"><i class="fas fa-paper-plane"></i>&nbsp;Send to Segment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<!-- Customer Detail Modal -->
+<div class="modal-overlay" id="customerModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Customer Details</div>
+      <div class="modal-close" onclick="closeModal()"><i class="fas fa-xmark"></i></div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Message Modal -->
+<div class="modal-overlay" id="messageModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Send Message</div>
+      <div class="modal-close" onclick="closeMessageModal()"><i class="fas fa-xmark"></i></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-title">Quick Templates</div>
+        <div class="msg-template-grid">
+          <div class="msg-template" onclick="useTemplate('order')"><i class="fas fa-truck"></i>Order Status</div>
+          <div class="msg-template" onclick="useTemplate('thank')"><i class="fas fa-heart"></i>Thank You</div>
+          <div class="msg-template" onclick="useTemplate('promo')"><i class="fas fa-tag"></i>Promotion</div>
+          <div class="msg-template" onclick="useTemplate('feedback')"><i class="fas fa-star"></i>Feedback</div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Message</div>
+        <textarea class="msg-textarea" id="msgText" placeholder="Type your message..."></textarea>
+      </div>
+      <div class="msg-actions">
+        <button class="btn btn-primary" onclick="sendMessage()"><i class="fas fa-paper-plane"></i>&nbsp;Send Message</button>
+        <button class="btn btn-ghost" onclick="closeMessageModal()">Cancel</button>
+      </div>
+      <div class="modal-section" style="margin-top:16px">
+        <div class="modal-section-title">Communication History</div>
+        <div id="commHistory"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <a href="marchenthome.html" class="nav-item"><i class="fas fa-home"></i><span>HOME</span></a>
+  <a href="marchentorders.html" class="nav-item"><i class="fas fa-shopping-bag"></i><span>ORDERS</span></a>
+  <div class="nav-item center-btn" onclick="showToast('Add functionality','info')"><i class="fas fa-plus"></i></div>
+  <a href="marchentadd.html" class="nav-item"><i class="fas fa-pills"></i><span>INVENTORY</span></a>
+  <a href="marchentprofile.html" class="nav-item"><i class="fas fa-user"></i><span>PROFILE</span></a>
+</nav>
+
+<script>
+const SUPABASE_URL='https://rnpbglinkpsikeszcjcl.supabase.co';
+const SUPABASE_KEY='sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+const supabase=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+
+let allCustomers=[];
+let filteredCustomers=[];
+let currentFilter='all';
+let currentSort='name';
+let selectedCustomer=null;
+let selectedMsgCustomer=null;
+let bulkSegment=null;
+
+// Init
+document.addEventListener('DOMContentLoaded',async()=>{
+  try {
+    await new Promise(r => setTimeout(r, 200));
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.replace('index.html'); return; }
+    loadCustomers();
+  } catch (err) {
+    console.error('Init error:', err);
+    showToast('Session error', 'error');
+  }
+});
+
+// Sidebar
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// Tabs
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('tabList').style.display=tab==='list'?'block':'none';
+  document.getElementById('tabAnalytics').style.display=tab==='analytics'?'block':'none';
+  document.getElementById('tabSegments').style.display=tab==='segments'?'block':'none';
+  if(tab==='analytics') renderAnalytics();
+  if(tab==='segments') renderSegments();
+}
+
+// Toast
+function showToast(msg,type='info'){
+  const icons={success:'fa-check-circle',error:'fa-exclamation-circle',info:'fa-info-circle'};
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<i class="fas ${icons[type]}"></i><span class="toast-msg">${msg}</span><i class="fas fa-times toast-close" onclick="this.parentElement.remove()"></i>`;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(()=>{t.style.animation='toastOut .3s forwards';setTimeout(()=>t.remove(),300)},3500);
+}
+
+// Load Data
+async function loadCustomers(){
+  if(!supabase){
+    showSkeletons();
+    allCustomers=generateMockData();
+    processCustomers();
+    return;
+  }
+  try{
+    showSkeletons();
+    const {data:orders,error:ordErr}=await supabase.from('orders').select('id,customer_id,customer_name,customer_email,customer_phone,total,status,created_at').order('created_at',{ascending:false});
+    if(ordErr) throw ordErr;
+
+    const {data:profiles}=await supabase.from('profiles').select('id,full_name,email,phone,address,created_at');
+
+    const customerMap={};
+    (orders||[]).forEach(o=>{
+      const cid=o.customer_id||o.customer_email||'unknown';
+      if(!customerMap[cid]){
+        customerMap[cid]={
+          id:cid,
+          name:o.customer_name||'Unknown',
+          email:o.customer_email||'',
+          phone:o.customer_phone||'',
+          orders:[],
+          totalSpent:0,
+          totalOrders:0,
+          lastOrderDate:null,
+          firstOrderDate:null
+        };
+      }
+      customerMap[cid].orders.push(o);
+      customerMap[cid].totalSpent+=(o.total||0);
+      customerMap[cid].totalOrders++;
+      const oDate=new Date(o.created_at);
+      if(!customerMap[cid].lastOrderDate||oDate>customerMap[cid].lastOrderDate) customerMap[cid].lastOrderDate=oDate;
+      if(!customerMap[cid].firstOrderDate||oDate<customerMap[cid].firstOrderDate) customerMap[cid].firstOrderDate=oDate;
+    });
+
+    (profiles||[]).forEach(p=>{
+      if(customerMap[p.id]){
+        Object.assign(customerMap[p.id],{name:p.full_name||customerMap[p.id].name,email:p.email||customerMap[p.id].email,phone:p.phone||customerMap[p.id].phone,address:p.address});
+      }
+    });
+
+    allCustomers=Object.values(customerMap);
+    processCustomers();
+  }catch(e){
+    console.error('Load error:',e);
+    allCustomers=generateMockData();
+    processCustomers();
+    showToast('Loaded sample data','info');
+  }
+}
+
+function showSkeletons(){
+  document.getElementById('statsGrid').innerHTML='<div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div>';
+  document.getElementById('customerList').innerHTML='<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
+}
+
+function generateMockData(){
+  const names=['Priya Sharma','Rahul Verma','Anita Patel','Vikram Singh','Neha Gupta','Amit Kumar','Sonia Reddy','Deepak Joshi','Pooja Nair','Rajesh Iyer','Meera Das','Arjun Menon','Kavita Bose','Sanjay Rao','Divya Pillai','Arun Thakur','Rina Chatterjee','Manoj Sinha','Sunita Kaur','Vivek Pandey'];
+  const cities=['Mumbai','Delhi','Bangalore','Chennai','Hyderabad','Pune','Kolkata','Ahmedabad','Jaipur','Lucknow'];
+  const data=[];
+  const now=Date.now();
+  for(let i=0;i<names.length;i++){
+    const n=names[i];
+    const orders=Math.floor(Math.random()*15)+1;
+    const totalSpent=Math.floor(Math.random()*25000)+500;
+    const lastDays=Math.floor(Math.random()*120);
+    const firstDays=Math.floor(Math.random()*300)+30;
+    const oList=[];
+    for(let j=0;j<Math.min(orders,10);j++){
+      oList.push({
+        id:'ORD-'+String(1000+i*10+j),
+        total:Math.floor(totalSpent/orders*(.5+Math.random())),
+        status:['delivered','pending','processing','cancelled'][Math.floor(Math.random()*4)],
+        created_at:new Date(now-Math.floor(Math.random()*lastDays*864e5)).toISOString()
+      });
+    }
+    oList.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    data.push({
+      id:'cust-'+i,
+      name:n,
+      email:n.toLowerCase().replace(/\s/g,'.')+'@gmail.com',
+      phone:'+91 '+(7000000000+Math.floor(Math.random()*3000000000)),
+      address:Math.floor(Math.random()*200+1)+', '+cities[i%cities.length],
+      orders:oList,
+      totalSpent,totalOrders:orders,
+      lastOrderDate:new Date(now-lastDays*864e5),
+      firstOrderDate:new Date(now-firstDays*864e5)
+    });
+  }
+  return data;
+}
+
+function processCustomers(){
+  allCustomers.forEach(c=>{
+    c.segment=getSegment(c);
+    c.initials=c.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  });
+  filterCustomers();
+  renderStats();
+}
+
+function getSegment(c){
+  const daysSinceLast=c.lastOrderDate?Math.floor((Date.now()-c.lastOrderDate.getTime())/864e5):999;
+  if(daysSinceLast>=90) return 'inactive';
+  if(c.totalOrders>=6||c.totalSpent>=10000) return 'vip';
+  if(c.totalOrders>=2) return 'regular';
+  return 'new';
+}
+
+// Filter & Sort
+function setFilter(f){
+  currentFilter=f;
+  document.querySelectorAll('#filterRow .filter-chip').forEach(c=>c.classList.toggle('active',c.dataset.filter===f));
+  filterCustomers();
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('clearSearch').style.display='none';
+  filterCustomers();
+}
+
+function filterCustomers(){
+  const q=document.getElementById('searchInput').value.toLowerCase().trim();
+  document.getElementById('clearSearch').style.display=q?'block':'none';
+  let list=[...allCustomers];
+  if(currentFilter!=='all') list=list.filter(c=>c.segment===currentFilter);
+  if(q) list=list.filter(c=>c.name.toLowerCase().includes(q)||c.email.toLowerCase().includes(q)||c.phone.includes(q));
+  const sort=document.getElementById('sortSelect').value;
+  list.sort((a,b)=>{
+    if(sort==='name') return a.name.localeCompare(b.name);
+    if(sort==='spent') return b.totalSpent-a.totalSpent;
+    if(sort==='orders') return b.totalOrders-a.totalOrders;
+    if(sort==='lastOrder') return (b.lastOrderDate||0)-(a.lastOrderDate||0);
+    return 0;
+  });
+  filteredCustomers=list;
+  renderCustomerList();
+}
+
+// Render Stats
+function renderStats(){
+  const now=new Date();
+  const thisMonth=allCustomers.filter(c=>c.firstOrderDate&&c.firstOrderDate.getMonth()===now.getMonth()&&c.firstOrderDate.getFullYear()===now.getFullYear()).length;
+  const returning=allCustomers.filter(c=>c.totalOrders>=2).length;
+  const avgOrder=allCustomers.length?Math.round(allCustomers.reduce((s,c)=>s+c.totalSpent,0)/allCustomers.reduce((s,c)=>s+c.totalOrders,0)):0;
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-users"></i></div><div class="stat-value">${allCustomers.length}</div><div class="stat-label">Total Customers</div></div>
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-user-plus"></i></div><div class="stat-value">${thisMonth}</div><div class="stat-label">New This Month</div><div class="stat-change up"><i class="fas fa-arrow-up"></i> ${thisMonth>0?'+':''}${thisMonth}</div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-user-check"></i></div><div class="stat-value">${returning}</div><div class="stat-label">Returning</div></div>
+    <div class="stat-card"><div class="stat-icon gold"><i class="fas fa-indian-rupee-sign"></i></div><div class="stat-value">₹${avgOrder.toLocaleString('en-IN')}</div><div class="stat-label">Avg Order Value</div></div>`;
+}
+
+// Render Customer List
+function renderCustomerList(){
+  const list=filteredCustomers;
+  if(!list.length){
+    document.getElementById('customerList').innerHTML=`
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
+        <div class="empty-title">No Customers Found</div>
+        <div class="empty-desc">Try adjusting your search or filters</div>
+      </div>`;
+    return;
+  }
+  document.getElementById('customerList').innerHTML=list.map(c=>`
+    <div class="customer-card" onclick="openCustomerDetail('${c.id}')">
+      <div class="customer-avatar ${c.segment}">${c.initials}</div>
+      <div class="customer-info">
+        <div class="customer-name">${esc(c.name)}</div>
+        <div class="customer-contact"><i class="fas fa-envelope" style="margin-right:4px"></i>${esc(c.email)} &nbsp;<i class="fas fa-phone" style="margin-right:2px"></i>${esc(c.phone)}</div>
+        <div class="customer-meta">
+          <span class="customer-badge badge-${c.segment}">${c.segment}</span>
+          <span class="customer-meta-item"><i class="fas fa-shopping-bag"></i>${c.totalOrders} orders</span>
+          <span class="customer-meta-item"><i class="fas fa-indian-rupee-sign"></i>₹${c.totalSpent.toLocaleString('en-IN')}</span>
+          <span class="customer-meta-item"><i class="fas fa-calendar"></i>${c.lastOrderDate?formatDate(c.lastOrderDate):'N/A'}</span>
+        </div>
+      </div>
+      <div class="customer-actions">
+        <div class="customer-action-btn" title="View" onclick="event.stopPropagation();openCustomerDetail('${c.id}')"><i class="fas fa-eye"></i></div>
+        <div class="customer-action-btn" title="Message" onclick="event.stopPropagation();openMessageModal('${c.id}')"><i class="fas fa-comment"></i></div>
+      </div>
+    </div>`).join('');
+}
+
+// Customer Detail Modal
+function openCustomerDetail(id){
+  const c=allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  selectedCustomer=c;
+  document.getElementById('modalTitle').textContent=c.name;
+  const avgOrder=c.totalOrders?Math.round(c.totalSpent/c.totalOrders):0;
+  const daysSinceLast=c.lastOrderDate?Math.floor((Date.now()-c.lastOrderDate.getTime())/864e5):'-';
+  document.getElementById('modalBody').innerHTML=`
+    <div class="profile-top">
+      <div class="profile-avatar customer-avatar ${c.segment}" style="width:64px;height:64px;font-size:22px;border-radius:16px">${c.initials}</div>
+      <div>
+        <div class="profile-name">${esc(c.name)}</div>
+        <div class="profile-email"><i class="fas fa-envelope" style="margin-right:4px"></i>${esc(c.email)}</div>
+        <div class="profile-phone"><i class="fas fa-phone" style="margin-right:4px"></i>${esc(c.phone)}</div>
+        ${c.address?`<div class="profile-phone"><i class="fas fa-location-dot" style="margin-right:4px"></i>${esc(c.address)}</div>`:''}
+        <span class="customer-badge badge-${c.segment}" style="margin-top:6px">${c.segment.toUpperCase()}</span>
+      </div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="profile-stat-val">${c.totalOrders}</div><div class="profile-stat-lbl">Total Orders</div></div>
+      <div class="profile-stat"><div class="profile-stat-val">₹${c.totalSpent.toLocaleString('en-IN')}</div><div class="profile-stat-lbl">Total Spent</div></div>
+      <div class="profile-stat"><div class="profile-stat-val">₹${avgOrder.toLocaleString('en-IN')}</div><div class="profile-stat-lbl">Avg Order</div></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Order History (Last 10)</div>
+      <div style="overflow-x:auto">
+        <table class="order-table">
+          <thead><tr><th>Order ID</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            ${c.orders.slice(0,10).map(o=>`<tr>
+              <td style="font-weight:600;color:var(--text)">${esc(o.id)}</td>
+              <td>${formatDate(new Date(o.created_at))}</td>
+              <td style="font-weight:600">₹${(o.total||0).toLocaleString('en-IN')}</td>
+              <td><span class="order-status ${o.status}">${o.status}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Favorite Products</div>
+      <div style="font-size:12px;color:var(--text-mid)">${c.orders.length?getFavProducts(c):'No order data'}</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Notes</div>
+      <textarea class="notes-area" id="customerNotes" placeholder="Add notes about this customer...">${esc(c.notes||'')}</textarea>
+      <button class="notes-save" onclick="saveNotes('${c.id}')">Save Notes</button>
+    </div>
+    <div class="msg-actions">
+      <button class="btn btn-primary" onclick="openMessageModal('${c.id}')"><i class="fas fa-comment"></i>&nbsp;Send Message</button>
+      <button class="btn btn-ghost" onclick="closeModal();switchTab('list')"><i class="fas fa-list"></i>&nbsp;View All Customers</button>
+    </div>`;
+  document.getElementById('customerModal').classList.add('open');
+}
+
+function closeModal(){document.getElementById('customerModal').classList.remove('open')}
+
+function getFavProducts(c){
+  const counts={};
+  c.orders.forEach(o=>{
+    const name=o.product_name||o.name||('Product '+(Math.floor(Math.random()*10)+1));
+    counts[name]=(counts[name]||0)+1;
+  });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!sorted.length) return 'No product data available';
+  return sorted.map(([name,count])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--glass-border)"><span>${esc(name)}</span><span style="color:var(--primary);font-weight:600">${count}x</span></div>`).join('');
+}
+
+function saveNotes(id){
+  const c=allCustomers.find(x=>x.id===id);
+  if(c) c.notes=document.getElementById('customerNotes').value;
+  showToast('Notes saved','success');
+}
+
+// Message Modal
+function openMessageModal(id){
+  const c=allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  selectedMsgCustomer=c;
+  document.getElementById('msgText').value='';
+  document.getElementById('commHistory').innerHTML=renderCommHistory(c);
+  document.getElementById('messageModal').classList.add('open');
+  if(selectedCustomer) closeModal();
+}
+function closeMessageModal(){document.getElementById('messageModal').classList.remove('open')}
+
+function useTemplate(type){
+  const templates={
+    order:`Hi ${selectedMsgCustomer?.name||'Customer'}, your order is being processed. Track it in the MediFinder app. Thank you for choosing MediFinder!`,
+    thank:`Dear ${selectedMsgCustomer?.name||'Customer'}, thank you for choosing MediFinder! We value your trust. Enjoy 10% off your next order with code THANKYOU10.`,
+    promo:`Hi ${selectedMsgCustomer?.name||'Customer'}! Special offer just for you — Get 20% off on all medicines this week. Use code HEALTH20 at checkout. — MediFinder`,
+    feedback:`Dear ${selectedMsgCustomer?.name||'Customer'}, we'd love your feedback! Rate your last order in the app. Your opinion helps us serve you better. — MediFinder`
+  };
+  document.getElementById('msgText').value=templates[type]||'';
+}
+
+function sendMessage(){
+  const text=document.getElementById('msgText').value.trim();
+  if(!text){showToast('Please enter a message','error');return;}
+  if(selectedMsgCustomer){
+    if(!selectedMsgCustomer.commHistory) selectedMsgCustomer.commHistory=[];
+    selectedMsgCustomer.commHistory.unshift({text,date:new Date(),type:'sent'});
+  }
+  showToast('Message sent to '+selectedMsgCustomer?.name,'success');
+  closeMessageModal();
+}
+
+function renderCommHistory(c){
+  if(!c.commHistory||!c.commHistory.length) return '<div style="font-size:12px;color:var(--text-dim);padding:8px 0">No previous messages</div>';
+  return c.commHistory.slice(0,10).map(m=>`
+    <div style="padding:10px;background:var(--glass);border-radius:var(--radius-xs);margin-bottom:6px;border:1px solid var(--glass-border)">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px"><i class="fas fa-${m.type==='sent'?'arrow-up':'arrow-down'}" style="color:${m.type==='sent'?'var(--primary)':'var(--info)'}"></i>&nbsp;${m.type==='sent'?'Sent':'Received'} — ${formatDateTime(m.date)}</div>
+      <div style="font-size:12px;color:var(--text-mid)">${esc(m.text)}</div>
+    </div>`).join('');
+}
+
+// Analytics
+function renderAnalytics(){
+  const now=new Date();
+  const thisMonth=now.getMonth();
+  const newCust=allCustomers.filter(c=>c.firstOrderDate&&c.firstOrderDate.getMonth()===thisMonth).length;
+  const returningCust=allCustomers.filter(c=>c.totalOrders>=2).length;
+  const retention=allCustomers.length?Math.round(returningCust/allCustomers.length*100):0;
+  const repeatRate=allCustomers.length?Math.round(allCustomers.filter(c=>c.totalOrders>=2).length/allCustomers.length*100):0;
+  const topCities={};
+  allCustomers.forEach(c=>{const city=(c.address||'Unknown').split(',').pop().trim();topCities[city]=(topCities[city]||0)+1});
+  const sortedCities=Object.entries(topCities).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxCity=sortedCities.length?sortedCities[0][1]:1;
+
+  document.getElementById('analyticsGrid').innerHTML=`
+    <div class="analytics-card">
+      <div class="analytics-card-title">New vs Returning</div>
+      <div style="display:flex;gap:16px;margin-top:8px">
+        <div><div style="font-size:22px;font-weight:800;color:var(--info)">${newCust}</div><div style="font-size:10px;color:var(--text-dim)">New</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--success)">${returningCust}</div><div style="font-size:10px;color:var(--text-dim)">Returning</div></div>
+      </div>
+      <div class="bar-chart">
+        <div class="bar" style="height:${newCust?Math.max(newCust/returningCust*100,10):10}%;background:var(--info)" data-label="New"></div>
+        <div class="bar" style="height:100%;background:var(--success)" data-label="Returning"></div>
+      </div>
+    </div>
+    <div class="analytics-card">
+      <div class="analytics-card-title">Retention Rate</div>
+      <div class="analytics-card-value" style="color:var(--success)">${retention}%</div>
+      <div class="analytics-card-sub">Repeat Purchase: ${repeatRate}%</div>
+    </div>
+    <div class="analytics-card" style="grid-column:span 2">
+      <div class="analytics-card-title">Geographic Distribution</div>
+      <div style="margin-top:8px">
+        ${sortedCities.map(([city,count])=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:11px;width:80px;color:var(--text-mid)">${esc(city)}</span>
+            <div style="flex:1;height:20px;background:var(--glass);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${count/maxCity*100}%;background:linear-gradient(90deg,var(--primary),#ff4444);border-radius:4px;transition:width .5s"></div>
+            </div>
+            <span style="font-size:11px;font-weight:700;width:24px;text-align:right">${count}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  const topSorted=[...allCustomers].sort((a,b)=>b.totalSpent-a.totalSpent).slice(0,5);
+  document.getElementById('topCustomersList').innerHTML=topSorted.map((c,i)=>`
+    <div class="top-customer-row" onclick="openCustomerDetail('${c.id}')" style="cursor:pointer">
+      <div class="top-rank ${i===0?'gold':''}">${i+1}</div>
+      <div class="customer-avatar ${c.segment}" style="width:32px;height:32px;font-size:11px;border-radius:8px">${c.initials}</div>
+      <div class="top-name">${esc(c.name)}</div>
+      <div class="top-amount">₹${c.totalSpent.toLocaleString('en-IN')}</div>
+    </div>`).join('');
+}
+
+// Segments
+function renderSegments(){
+  const counts={new:0,regular:0,vip:0,inactive:0};
+  allCustomers.forEach(c=>counts[c.segment]++);
+  const total=allCustomers.length||1;
+  const colors={new:'#3b82f6',regular:'#22c55e',vip:'#ffd700',inactive:'#6b7280'};
+  const angles={};
+  let cum=0;
+  ['new','regular','vip','inactive'].forEach(k=>{
+    angles[k]={start:cum/total*360,end:(cum+counts[k])/total*360};
+    cum+=counts[k];
+  });
+  const gradParts=['new','regular','vip','inactive'].map(k=>`${colors[k]} ${angles[k].start}deg ${angles[k].end}deg`).join(',');
+  document.getElementById('segmentChart').innerHTML=`
+    <div class="donut-chart" style="background:conic-gradient(${gradParts})">
+      <div class="donut-center"><div class="num">${total}</div><div class="lbl">Total</div></div>
+    </div>
+    <div class="segment-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:${colors.new}"></div><span class="legend-label">New (0-1 orders)</span><span class="legend-val">${counts.new}</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:${colors.regular}"></div><span class="legend-label">Regular (2-5 orders)</span><span class="legend-val">${counts.regular}</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:${colors.vip}"></div><span class="legend-label">VIP (6+ or ₹10K+)</span><span class="legend-val">${counts.vip}</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:${colors.inactive}"></div><span class="legend-label">Inactive (90+ days)</span><span class="legend-val">${counts.inactive}</span></div>
+    </div>`;
+  document.getElementById('segmentDetails').innerHTML=['new','regular','vip','inactive'].map(seg=>{
+    const segCust=allCustomers.filter(c=>c.segment===seg).slice(0,5);
+    return `<div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;text-transform:uppercase;color:${colors[seg]}">${seg} (${counts[seg]})</div>
+      ${segCust.length?segCust.map(c=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--glass);border-radius:var(--radius-xs);margin-bottom:4px;cursor:pointer" onclick="openCustomerDetail('${c.id}')">
+          <div class="customer-avatar ${c.segment}" style="width:28px;height:28px;font-size:9px;border-radius:7px">${c.initials}</div>
+          <div style="flex:1;font-size:12px;font-weight:600">${esc(c.name)}</div>
+          <div style="font-size:11px;color:var(--text-dim)">${c.totalOrders} orders</div>
+        </div>`).join(''):'<div style="font-size:11px;color:var(--text-dim);padding:8px">No customers in this segment</div>'}
+    </div>`;
+  }).join('');
+}
+
+function setBulkSegment(seg){
+  bulkSegment=seg;
+  document.querySelectorAll('[data-bulk]').forEach(c=>c.classList.toggle('active',c.dataset.bulk===seg));
+  document.getElementById('bulkMessageArea').style.display='block';
+}
+
+function sendBulkMessage(){
+  const text=document.getElementById('bulkMsgText').value.trim();
+  if(!text){showToast('Please enter a message','error');return;}
+  if(!bulkSegment){showToast('Select a segment','error');return;}
+  const count=allCustomers.filter(c=>c.segment===bulkSegment).length;
+  showToast(`Message sent to ${count} ${bulkSegment} customers`,'success');
+  document.getElementById('bulkMsgText').value='';
+  document.getElementById('bulkMessageArea').style.display='none';
+}
+
+// Export
+function exportCustomerCSV(){
+  const headers=['Name','Email','Phone','Segment','Total Orders','Total Spent','Last Order'];
+  const rows=allCustomers.map(c=>[c.name,c.email,c.phone,c.segment,c.totalOrders,c.totalSpent,c.lastOrderDate?formatDate(c.lastOrderDate):'']);
+  downloadCSV(headers,rows,'medifinder_customers.csv');
+  showToast('Customer list exported','success');
+}
+
+function exportAnalyticsCSV(){
+  const headers=['Metric','Value'];
+  const counts={new:0,regular:0,vip:0,inactive:0};
+  allCustomers.forEach(c=>counts[c.segment]++);
+  const rows=[
+    ['Total Customers',allCustomers.length],
+    ['New',counts.new],['Regular',counts.regular],['VIP',counts.vip],['Inactive',counts.inactive],
+    ['Total Revenue',allCustomers.reduce((s,c)=>s+c.totalSpent,0)],
+    ['Avg Order Value',allCustomers.length?Math.round(allCustomers.reduce((s,c)=>s+c.totalSpent,0)/allCustomers.reduce((s,c)=>s+c.totalOrders,0)):0]
+  ];
+  downloadCSV(headers,rows,'medifinder_analytics.csv');
+  showToast('Analytics exported','success');
+}
+
+function downloadCSV(headers,rows,filename){
+  const csv=[headers,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Helpers
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function formatDate(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
+function formatDateTime(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function handleLogout(){showToast('Logged out','info');setTimeout(()=>window.location.href='marchenthome.html',800)}
+
+// Close modals on overlay click
+document.getElementById('customerModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+document.getElementById('messageModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMessageModal()});
+</script>
+</body>
+</html>

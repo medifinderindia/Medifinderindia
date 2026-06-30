@@ -1,0 +1,411 @@
+:root {
+    --primary: #e02020;
+    --accent: #1a1a2e;
+    --primary-light: #ff4747;
+    --primary-gradient: linear-gradient(135deg, #e53935, #b71c1c);
+    --bg-light: #f8fafc;
+    --surface: #ffffff;
+    --surface-glass: rgba(255, 255, 255, 0.85);
+    --text-main: #2d3748;
+    --text-muted: #718096;
+    --border: #edf2f7;
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.02);
+    --shadow-md: 0 10px 20px rgba(0,0,0,0.04);
+    --shadow-premium: 0 12px 24px cubic-bezier(0.4, 0, 0.2, 1) rgba(224, 32, 32, 0.1);
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+}
+
+body { 
+    background-color: var(--primary); 
+    color: var(--text-main); 
+    padding-bottom: 85px; /* বটম ন্যাভ যেন কনটেন্ট ঢেকে না ফেলে */
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Premium Header Area --- */
+.top-bar { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);; 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 14px 20px; 
+    border-bottom: 1px solid var(--border); 
+    position: sticky; 
+    top: 0; 
+    z-index: 100; 
+    box-shadow: var(--shadow-sm);
+}
+.logo-area { display: flex; align-items: center; gap: 10px; }
+.logo-area img { height: 38px; width: auto; object-fit: contain; }
+.logo-area h1 { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+.logo-area .highlight { color: #1a1a2e; }
+
+.header-actions { display: flex; gap: 12px; }
+
+/* Premium Header Notification Icons */
+.icon-btn { 
+    background: #f7fafc; 
+    border: 1px solid var(--border);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 18px; 
+    color: var(--text-main); 
+    cursor: pointer; 
+    position: relative; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.icon-btn:hover { 
+    color: var(--primary); 
+    background: var(--primary-light);
+    border-color: transparent;
+    transform: translateY(-1px);
+}
+.icon-btn .badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 1.5px solid var(--surface);
+}
+
+/* --- Content Body Layout --- */
+.content-body { padding: 20px; max-width: 1200px; margin: 0 auto; }
+.welcome-text h1 { font-size: 22px; font-weight: 700; color: #1a202c; }
+.welcome-text p { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+/* --- Premium Search & Filter Section --- */
+.filter-section { 
+    display: flex; 
+    gap: 12px; 
+    margin: 20px 0; 
+    align-items: center; 
+}
+.search-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+.search-box { 
+    position: relative; 
+    flex: 1; 
+}
+.search-box input { 
+    width: 100%; 
+    padding: 12px 16px 12px 42px; /* বামপাশে আইকনের জন্য জায়গা */
+    border: 1px solid var(--border); 
+    background: var(--surface);
+    border-radius: 12px; 
+    outline: none; 
+    font-size: 14px; 
+    color: var(--text-main);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    box-shadow: var(--shadow-sm);
+}
+.search-box input:focus { 
+    border-color: var(--primary); 
+    box-shadow: 0 0 0 3px var(--primary-light); 
+    background: var(--surface);
+}
+.search-box .search-icon { 
+    position: absolute; 
+    left: 15px; 
+    top: 50%; 
+    transform: translateY(-50%); 
+    color: var(--text-muted); 
+    font-size: 14px;
+    pointer-events: none;
+}
+
+/* Ultra-Premium Filter Button */
+.filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.25s ease;
+    box-shadow: var(--shadow-sm);
+}
+.filter-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: translateY(-1px);
+}
+
+/* Ultra-Premium Add Button */
+.add-btn { 
+    background: var(--primary-gradient); 
+    color: white; 
+    border: none; 
+    height: 45px;
+    padding: 0 22px; 
+    border-radius: 12px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 14px; 
+    white-space: nowrap; 
+    transition: all 0.25s ease; 
+    box-shadow: 0 4px 12px rgba(224, 32, 32, 0.2);
+}
+.add-btn:hover { 
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(224, 32, 32, 0.3);
+    opacity: 0.95;
+}
+
+/* --- Premium Medicine Grid & Cards --- */
+.medicine-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+    gap: 16px; 
+}
+.medicine-card { 
+    background: var(--surface); 
+    border-radius: 16px; 
+    border: 1px solid var(--border); 
+    padding: 14px; 
+    display: flex; 
+    gap: 14px; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    position: relative;
+    box-shadow: var(--shadow-sm);
+}
+.medicine-card:hover { 
+    transform: translateY(-3px); 
+    box-shadow: var(--shadow-md); 
+    border-color: rgba(224, 32, 32, 0.15);
+}
+
+/* Card Image Component */
+.card-image-area {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+}
+.med-image { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    border-radius: 12px; 
+    background: #f7fafc; 
+    border: 1px solid var(--border);
+}
+.stock-badge {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.stock-badge.in-stock { background: #e6fffa; color: #00a389; border: 1px solid #b2f5ea; }
+
+/* Card Content Area */
+.card-details { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+}
+.med-category {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.med-name { 
+    font-size: 15px; 
+    font-weight: 600; 
+    color: #1a202c; 
+    margin-top: 1px;
+    line-height: 1.3;
+}
+.med-company {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.card-meta { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-top: 8px; 
+    background: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.price-tag { 
+    font-size: 15px; 
+    color: var(--primary); 
+    font-weight: 700; 
+}
+.price-tag .currency { font-size: 13px; margin-right: 1px; }
+.price-tag .per-strip { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+.qty-status { font-size: 11px; color: #4a5568; font-weight: 500; }
+.qty-count { font-weight: 700; color: #2d3748; }
+
+/* Action Buttons inside Card */
+.card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: flex-end;
+}
+.action-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+.edit-action:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: transparent;
+}
+.delete-action {
+    padding: 6px 8px;
+    color: var(--text-muted);
+}
+.delete-action:hover {
+    background: #fff5f5;
+    color: #e02020;
+    border-color: transparent;
+}
+
+/* --- Ultra-Premium Glassmorphic Bottom Navigation --- */
+.bottom-nav { 
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    height: 68px; 
+    background: var(--surface-glass); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(226, 232, 240, 0.8); 
+    display: flex; 
+    justify-content: space-around; 
+    align-items: center; 
+    z-index: 1000; 
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
+    padding-bottom: env(safe-area-inset-bottom); /* iOS হোম বারের জন্য সেফটি */
+}
+.nav-item { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    color: var(--text-muted); 
+    font-size: 10px; 
+    font-weight: 700; 
+    text-decoration: none; 
+    cursor: pointer; 
+    gap: 5px; 
+    width: 20%; 
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.nav-item i { 
+    font-size: 19px; 
+    transition: transform 0.2s ease;
+}
+/* Active State with Premium Dot Underline Indicator */
+.nav-item.active { 
+    color: var(--primary); 
+}
+.nav-item.active i {
+    transform: translateY(-2px);
+    color: var(--primary);
+}
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    width: 4px;
+    height: 4px;
+    background: var(--primary);
+    border-radius: 50%;
+}
+.nav-item:not(.active):hover {
+    color: #1a202c;
+}
+
+/* --- Premium Mobile Responsive Fixes --- */
+@media (max-width: 768px) {
+    .filter-section { 
+        gap: 10px; 
+        margin: 18px 0;
+    }
+    .search-wrapper {
+        gap: 8px;
+    }
+    .search-box input {
+        padding: 11px 16px 11px 38px;
+        font-size: 13px;
+    }
+    .filter-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+    }
+    .add-btn { 
+        height: 42px;
+        padding: 0 16px; 
+        border-radius: 10px;
+        font-size: 13px;
+    }
+    .add-btn span {
+        display: none; /* মোবাইলে শুধু প্লাস আইকন দেখাবে টেক্সট হাইড হয়ে সুন্দর লাগবে */
+    }
+    .add-btn i {
+        font-size: 16px;
+        margin: 0;
+    }
+    .medicine-grid { 
+        grid-template-columns: 1fr; 
+        gap: 12px;
+    }
+    .medicine-card {
+        padding: 12px;
+    }
+}

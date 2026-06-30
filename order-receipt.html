@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Receipt - MediFinder</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#e02020">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="prod-utils.js?v=4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #f0f2f5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+        .receipt-wrapper { max-width: 420px; width: 100%; }
+        .receipt-card {
+            background: #fff; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1); margin-bottom: 16px;
+        }
+        .receipt-header {
+            background: #e02020; padding: 20px; text-align: center; color: #fff;
+            position: relative;
+        }
+        .receipt-header .shop-logo {
+            width: 60px; height: 60px; border-radius: 50%; background: #fff;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 10px; font-size: 28px; color: #e02020; font-weight: 900;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .receipt-header h1 { font-size: 20px; letter-spacing: 1px; margin-bottom: 4px; }
+        .receipt-header .shop-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+        .receipt-header .shop-info { font-size: 11px; opacity: 0.9; line-height: 1.4; }
+        .receipt-badge {
+            display: inline-block; background: rgba(255,255,255,0.2); padding: 3px 12px;
+            border-radius: 20px; font-size: 10px; font-weight: 600; margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+        .receipt-body { padding: 16px 20px; }
+        .receipt-title {
+            text-align: center; font-size: 14px; font-weight: 700; color: #333;
+            padding-bottom: 12px; border-bottom: 2px dashed #ddd; margin-bottom: 12px;
+        }
+        .receipt-title span { color: #e02020; }
+        .info-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 0; font-size: 12px;
+        }
+        .info-row .label { color: #6b7280; font-weight: 500; }
+        .info-row .value { color: #1a1a2e; font-weight: 600; text-align: right; max-width: 55%; }
+        .info-row .value.status-active { color: #2ed573; }
+        .info-row .value.status-pending { color: #f59e0b; }
+        .info-row .value.status-cancelled { color: #ef4444; }
+        .divider-dashed { border: none; border-top: 1px dashed #ddd; margin: 12px 0; }
+        .section-label {
+            font-size: 11px; font-weight: 700; color: #e02020; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+        .customer-details { font-size: 12px; line-height: 1.6; color: #333; }
+        .customer-details strong { display: block; font-size: 13px; color: #1a1a2e; }
+        .customer-details i { color: #e02020; width: 16px; }
+        .items-table-header {
+            display: grid; grid-template-columns: 2fr 30px 60px 60px;
+            gap: 4px; padding: 6px 0; font-size: 10px; font-weight: 700;
+            color: #6b7280; border-bottom: 1px solid #e5e7eb; text-transform: uppercase;
+        }
+        .items-table-header .right { text-align: right; }
+        .items-table-row {
+            display: grid; grid-template-columns: 2fr 30px 60px 60px;
+            gap: 4px; padding: 7px 0; font-size: 12px; border-bottom: 1px solid #f3f4f6;
+            align-items: center;
+        }
+        .items-table-row .item-name { font-weight: 600; color: #1a1a2e; }
+        .items-table-row .item-qty { text-align: center; color: #6b7280; }
+        .items-table-row .item-price { text-align: right; color: #6b7280; }
+        .items-table-row .item-total { text-align: right; font-weight: 600; color: #1a1a2e; }
+        .total-breakdown { margin-top: 8px; }
+        .total-breakdown .info-row { font-size: 12px; }
+        .total-breakdown .grand-total-row {
+            font-size: 15px; font-weight: 800; color: #e02020;
+            border-top: 2px solid #e02020; padding-top: 8px; margin-top: 8px;
+        }
+        .payment-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: 600;
+        }
+        .payment-badge.paid { background: #d1fae5; color: #065f46; }
+        .payment-badge.pending { background: #fef3c7; color: #92400e; }
+        .secure-code-section {
+            background: #f8f9fa; border-radius: 10px; padding: 12px; text-align: center;
+            margin-top: 12px;
+        }
+        .secure-code-section .code-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }
+        .secure-code-section .code-value {
+            font-size: 22px; font-weight: 900; color: #1a1a2e; letter-spacing: 4px;
+            font-family: 'Courier New', monospace; margin-top: 2px;
+        }
+        .barcode-section {
+            text-align: center; padding: 12px 0; margin-top: 8px;
+        }
+        .barcode-section canvas { width: 100%; max-width: 300px; height: 50px; }
+        .barcode-section .order-id-text { font-size: 11px; color: #6b7280; margin-top: 4px; letter-spacing: 2px; }
+        .receipt-footer {
+            padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;
+        }
+        .receipt-footer p { font-size: 11px; color: #6b7280; line-height: 1.5; }
+        .receipt-footer .footer-brand { font-size: 13px; font-weight: 700; color: #e02020; margin-bottom: 4px; }
+        .action-bar {
+            display: flex; gap: 10px; margin-top: 16px;
+        }
+        .action-bar button {
+            flex: 1; padding: 12px; border: none; border-radius: 12px;
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+        }
+        .action-bar button:active { opacity: 0.8; }
+        .print-btn { background: #e02020; color: #fff; }
+        .back-btn { background: #f3f4f6; color: #333; }
+        .loading-state { text-align: center; padding: 60px 20px; color: #6b7280; }
+        .loading-state i { font-size: 40px; color: #e02020; margin-bottom: 12px; }
+        .error-state { text-align: center; padding: 60px 20px; color: #ef4444; }
+        .error-state i { font-size: 40px; margin-bottom: 12px; }
+        .merchant-extra { font-size: 10px; color: #9ca3af; margin-top: 8px; text-align: center; }
+
+        @media print {
+            body { padding: 0; background: #fff; }
+            .receipt-wrapper { max-width: 100%; }
+            .receipt-card { box-shadow: none; border-radius: 0; }
+            .action-bar, .back-btn, .print-btn { display: none !important; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-wrapper" id="receipt-wrapper">
+        <div class="loading-state" id="loading-state">
+            <i class="fa-solid fa-receipt"></i>
+            <p>Loading receipt...</p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://rnpbglinkpsikeszcjcl.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ";
+        let supabase = null;
+        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) { console.error('Supabase init error:', e); }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('order_id');
+        const merchantId = urlParams.get('merchant_id');
+
+        function formatCurrency(amount) {
+            return '₹' + parseFloat(amount || 0).toFixed(2);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function formatTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function loadReceipt() {
+            const wrapper = document.getElementById('receipt-wrapper');
+            if (!orderId) {
+                wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-circle-exclamation"></i><p>Missing order ID. Use ?order_id=ORD-XXXX</p></div>`;
+                return;
+            }
+
+            try {
+                let order, merchant, merchantOrders = [];
+
+                // Fetch order by order_id (ORD-XXXX text)
+                const { data: orderData, error: orderErr } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('order_id', orderId)
+                    .single();
+
+                if (orderErr || !orderData) {
+                    wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-circle-exclamation"></i><p>Order not found: ${orderId}</p></div>`;
+                    return;
+                }
+                order = orderData;
+
+                // Fetch order_items separately (FK join broken due to TEXT vs UUID)
+                const { data: itemsData } = await supabase
+                    .from('order_items')
+                    .select('*')
+                    .eq('order_id', orderId);
+                if (itemsData) order.order_items = itemsData;
+
+                // Try to find merchant from order or order_items
+                let orderMerchantId = merchantId;
+                if (!orderMerchantId && order.merchant_id) orderMerchantId = order.merchant_id;
+                if (!orderMerchantId && order.order_items && order.order_items.length > 0) {
+                    const firstItem = order.order_items[0];
+                    if (firstItem.merchant_id) orderMerchantId = firstItem.merchant_id;
+                }
+
+                // Fetch merchant info
+                if (orderMerchantId) {
+                    const { data: merchData } = await supabase
+                        .from('merchants')
+                        .select('*')
+                        .eq('id', orderMerchantId)
+                        .single();
+                    if (merchData) merchant = merchData;
+                }
+
+                // Render receipt
+                renderReceipt(order, merchant);
+
+            } catch (e) {
+                wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-bug"></i><p>Error loading receipt. Please try again.</p></div>`;
+            }
+        }
+
+        function renderReceipt(order, merchant) {
+            const wrapper = document.getElementById('receipt-wrapper');
+            const items = order.order_items || [];
+            const isOldFormat = items.length === 0 && order.items_text;
+            const subtotal = items.reduce((s, i) => s + parseFloat(i.total_price || i.unit_price * i.quantity || 0), 0);
+            const total = parseFloat(order.total_amount || order.total || order.total_bill?.replace('₹', '') || subtotal || 0);
+            const delivery = parseFloat(order.delivery_fee || 0);
+            const tax = parseFloat(order.tax || 0);
+            const discount = parseFloat(order.discount || 0);
+            const statusClass = (order.status || 'active').toLowerCase();
+            const paymentStatus = (order.payment_status || 'pending').toLowerCase();
+
+            const shopName = merchant?.shop_name || merchant?.merchant_name || 'MediFinder Partner Store';
+            const shopPhone = merchant?.phone || '';
+            const shopAddress = merchant?.resolved_address || merchant?.address || '';
+            const shopCity = merchant?.city || '';
+            const shopPin = merchant?.pincode || '';
+            const shopFullAddr = [shopAddress, shopCity, shopPin].filter(Boolean).join(', ');
+
+            const customerName = order.customer_name || order.profiles?.full_name || order.user_name || 'Customer';
+            const customerPhone = order.customer_phone || order.user_phone || order.profiles?.phone || '';
+            const customerAddr = order.delivery_address || order.customer_address || order.address || '';
+            const paymentMethod = (order.payment_method || order.payment_mode || 'COD').toUpperCase();
+            const secureCode = order.delivery_secure_code || '';
+            const dateStr = order.date_string || formatDate(order.created_at);
+            const timeStr = order.created_at ? formatTime(order.created_at) : '';
+
+            // Build items HTML
+            let itemsHtml = '';
+            if (items.length > 0) {
+                itemsHtml = items.map((i, idx) => `
+                    <div class="items-table-row">
+                        <div class="item-name">${i.product_name || 'Item'}</div>
+                        <div class="item-qty">×${i.quantity || 1}</div>
+                        <div class="item-price">${formatCurrency(i.unit_price || 0)}</div>
+                        <div class="item-total">${formatCurrency(i.total_price || (i.quantity || 1) * (i.unit_price || 0))}</div>
+                    </div>
+                `).join('');
+            } else if (order.items_text) {
+                const parsedItems = order.items_text.split(', ').map((t, idx) => {
+                    const parts = t.split(' × ');
+                    return `<div class="items-table-row">
+                        <div class="item-name">${parts[0] || t}</div>
+                        <div class="item-qty">${parts[1] ? '×' + parts[1] : ''}</div>
+                        <div class="item-price">—</div>
+                        <div class="item-total">—</div>
+                    </div>`;
+                }).join('');
+                itemsHtml = parsedItems;
+            } else {
+                itemsHtml = '<div style="text-align:center;padding:10px;color:#6b7280;font-size:12px">No items detail available</div>';
+            }
+
+            wrapper.innerHTML = `
+                <div class="receipt-card">
+                    <div class="receipt-header">
+                        <div class="shop-logo">MF</div>
+                        <div class="shop-name">${shopName}</div>
+                        <div class="shop-info">${shopFullAddr ? shopFullAddr + '<br>' : ''}${shopPhone ? '📞 ' + shopPhone : ''}</div>
+                        <div class="receipt-badge"><i class="fa-regular fa-clock"></i> ${dateStr} ${timeStr}</div>
+                    </div>
+
+                    <div class="receipt-body">
+                        <div class="receipt-title">📋 <span>DELIVERY RECEIPT</span></div>
+
+                        <div class="info-row">
+                            <span class="label">Order ID</span>
+                            <span class="value">#${order.order_id || order.id?.slice(0, 8) || ''}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Payment</span>
+                            <span class="value">${paymentMethod} <span class="payment-badge ${paymentStatus}">${paymentStatus.toUpperCase()}</span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Status</span>
+                            <span class="value status-${statusClass}">${(order.status || 'Active').toUpperCase()}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Transit</span>
+                            <span class="value">${order.transit_mode || 'Bike'} <i class="fa-solid fa-truck"></i></span>
+                        </div>
+                        ${order.eta_minutes ? `<div class="info-row"><span class="label">ETA</span><span class="value">${order.eta_minutes} min</span></div>` : ''}
+
+                        <hr class="divider-dashed">
+
+                        <div class="section-label"><i class="fa-solid fa-location-dot"></i> DELIVER TO</div>
+                        <div class="customer-details">
+                            <strong>${customerName}</strong>
+                            <span><i class="fa-solid fa-phone"></i> ${customerPhone}</span><br>
+                            <span><i class="fa-solid fa-location-dot"></i> ${customerAddr}</span>
+                        </div>
+
+                        <hr class="divider-dashed">
+
+                        <div class="section-label"><i class="fa-solid fa-pills"></i> ORDER ITEMS</div>
+                        <div class="items-table-header">
+                            <span>Product</span>
+                            <span class="right">Qty</span>
+                            <span class="right">Price</span>
+                            <span class="right">Total</span>
+                        </div>
+                        ${itemsHtml}
+
+                        <div class="total-breakdown">
+                            <div class="info-row">
+                                <span class="label">Subtotal</span>
+                                <span class="value">${formatCurrency(subtotal)}</span>
+                            </div>
+                            ${delivery > 0 ? `<div class="info-row"><span class="label">Delivery Fee</span><span class="value">${formatCurrency(delivery)}</span></div>` : ''}
+                            ${tax > 0 ? `<div class="info-row"><span class="label">Tax</span><span class="value">${formatCurrency(tax)}</span></div>` : ''}
+                            ${discount > 0 ? `<div class="info-row"><span class="label">Discount</span><span class="value" style="color:#2ed573">-${formatCurrency(discount)}</span></div>` : ''}
+                            <div class="info-row grand-total-row">
+                                <span class="label">Grand Total</span>
+                                <span class="value">${formatCurrency(total)}</span>
+                            </div>
+                        </div>
+
+                        ${secureCode ? `
+                        <div class="secure-code-section">
+                            <div class="code-label"><i class="fa-solid fa-shield"></i> Delivery Secure Code</div>
+                            <div class="code-value">${secureCode}</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:4px">Share this code with delivery partner for verification</div>
+                        </div>` : ''}
+
+                        <div class="barcode-section no-print">
+                            <div style="font-family:'Courier New',monospace;font-size:20px;letter-spacing:6px;color:#333;font-weight:700">
+                                ${order.order_id || order.id || ''}
+                            </div>
+                            <div class="order-id-text">ORDER REFERENCE</div>
+                        </div>
+                    </div>
+
+                    <div class="receipt-footer">
+                        <div class="footer-brand">MEDI FINDER</div>
+                        <p>Thank you for your order!<br>Track your delivery status on MediFinder app.<br><span style="color:#e02020">💊 Your Health, Our Priority</span></p>
+                        <div class="merchant-extra">${shopName ? 'Powered by ' + shopName : 'MediFinder Delivery Service'}</div>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="back-btn" onclick="window.close()"><i class="fa-solid fa-arrow-left"></i> Close</button>
+                    <button class="print-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Receipt</button>
+                </div>
+            `;
+        }
+
+        loadReceipt();
+    </script>
+</body>
+</html>

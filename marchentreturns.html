@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="theme-color" content="#e02020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MediFinder - Returns & Refunds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="prod-utils.js?v=4"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#e02020;--primary-light:#ff4757;--primary-dark:#c01818;--dark:#1a1a2e;--dark2:#16213e;--dark3:#0f3460;--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--border:#e8e8e8;--success:#2ed573;--warning:#ffa502;--danger:#ff4757;--info:#3742fa;--purple:#7c5cfc;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.12);--radius:14px;--radius-sm:10px;--glass:rgba(255,255,255,.85)}
+html{scroll-behavior:smooth}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
+.header{position:fixed;top:0;left:0;right:0;z-index:1000;  background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(224,32,32,.3)}
+.header-left{display:flex;align-items:center;gap:12px}
+.hamburger{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:8px;border-radius:8px;transition:.2s}
+.hamburger:hover{background:rgba(255,255,255,.2)}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-icon{width:36px;height:36px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:18px;font-weight:800}
+.logo-text{color:#fff;font-size:18px;font-weight:700;letter-spacing:-.5px}
+.logo-text span{font-weight:300;font-size:12px;display:block;opacity:.8;letter-spacing:1px}
+.header-right{display:flex;align-items:center;gap:8px}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:16px;position:relative;transition:.2s}
+.header-btn:hover{background:rgba(255,255,255,.25)}
+.badge{position:absolute;top:-2px;right:-2px;background:#fff;color:var(--primary);font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;opacity:0;visibility:hidden;transition:.3s;backdrop-filter:blur(4px)}
+.sidebar-overlay.active{opacity:1;visibility:visible}
+.sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:var(--dark);z-index:2001;transition:.3s ease;padding:0;display:flex;flex-direction:column}
+.sidebar.active{left:0}
+.sidebar-header{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar-header .logo-icon{width:48px;height:48px;font-size:24px}
+.sidebar-header .logo-text{font-size:20px}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.sidebar-nav a{display:flex;align-items:center;gap:14px;padding:13px 20px;color:rgba(255,255,255,.6);text-decoration:none;font-size:14px;font-weight:500;transition:.2s;border-left:3px solid transparent}
+.sidebar-nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.sidebar-nav a.active{background:rgba(224,32,32,.15);color:var(--primary-light);border-left-color:var(--primary)}
+.sidebar-nav a i{width:22px;text-align:center;font-size:16px}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08)}
+.sidebar-footer a{display:flex;align-items:center;gap:14px;padding:13px 0;color:rgba(255,255,255,.6);text-decoration:none;font-size:14px;font-weight:500;transition:.2s}
+.sidebar-footer a:hover{color:var(--primary-light)}
+.sidebar-footer a i{width:22px;text-align:center}
+.main-content{margin-top:68px;padding:16px}
+.tabs{display:flex;gap:6px;background:var(--card);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;margin-bottom:16px;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:0;padding:10px 6px;border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--text3);transition:.2s;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:4px}
+.tab i{font-size:16px}
+.tab.active{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(224,32,32,.3)}
+.tab:hover:not(.active){background:rgba(224,32,32,.08);color:var(--primary)}
+.tab .count{font-size:11px;font-weight:700;background:rgba(224,32,32,.1);color:var(--primary);padding:2px 8px;border-radius:20px;min-width:24px;text-align:center}
+.tab.active .count{background:rgba(255,255,255,.25);color:#fff}
+.search-filter{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.search-box{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px}
+.search-box i{color:var(--text3);font-size:16px}
+.search-box input{flex:1;border:none;background:transparent;font-family:inherit;font-size:14px;color:var(--text);outline:none}
+.search-box input::placeholder{color:var(--text3)}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap}
+.filter-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-family:inherit;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:.2s;white-space:nowrap}
+.filter-btn:hover{border-color:var(--primary);color:var(--primary)}
+.filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.filter-btn i{font-size:12px}
+.filter-select{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.filter-select:focus{border-color:var(--primary)}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title h3{font-size:16px;font-weight:700;color:var(--text)}
+.section-title span{font-size:13px;color:var(--text3);font-weight:500}
+.return-list{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+.return-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;border-left:4px solid transparent;position:relative;overflow:hidden}
+.return-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.return-card.status-pending{border-left-color:var(--warning)}
+.return-card.status-approved{border-left-color:var(--success)}
+.return-card.status-rejected{border-left-color:var(--danger)}
+.return-card.status-refunded{border-left-color:var(--purple)}
+.return-card.status-completed{border-left-color:var(--success)}
+.return-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.return-id{font-size:13px;font-weight:700;color:var(--primary)}
+.status-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.status-badge.pending{background:rgba(255,165,2,.12);color:#e68a00}
+.status-badge.approved{background:rgba(46,213,115,.12);color:#1a9c54}
+.status-badge.rejected{background:rgba(255,71,87,.12);color:#e02020}
+.status-badge.refunded{background:rgba(124,92,252,.12);color:#7c5cfc}
+.status-badge.completed{background:rgba(46,213,115,.12);color:#1a9c54}
+.return-card-body{display:flex;gap:12px;margin-bottom:12px}
+.product-img{width:60px;height:60px;border-radius:10px;background:var(--bg);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:20px}
+.product-info{flex:1;min-width:0}
+.product-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.customer-name{font-size:12px;color:var(--text3);margin-bottom:3px}
+.return-reason{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px}
+.return-reason i{color:var(--warning);font-size:10px}
+.return-card-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border)}
+.return-amount{font-size:16px;font-weight:700;color:var(--dark)}
+.return-date{font-size:11px;color:var(--text3)}
+.return-actions{display:flex;gap:6px;margin-top:10px}
+.action-btn{flex:1;padding:8px;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:4px}
+.action-btn.approve{background:rgba(46,213,115,.1);color:#1a9c54}
+.action-btn.approve:hover{background:var(--success);color:#fff}
+.action-btn.reject{background:rgba(255,71,87,.1);color:var(--danger)}
+.action-btn.reject:hover{background:var(--danger);color:#fff}
+.action-btn.pickup{background:rgba(55,66,250,.1);color:var(--info)}
+.action-btn.pickup:hover{background:var(--info);color:#fff}
+.action-btn.refund{background:rgba(124,92,252,.1);color:var(--purple)}
+.action-btn.refund:hover{background:var(--purple);color:#fff}
+.loading-skeleton{background:linear-gradient(90deg,var(--bg) 25%,#eee 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius);height:120px;margin-bottom:12px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state i{font-size:48px;margin-bottom:16px;opacity:.3}
+.empty-state h3{font-size:18px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.empty-state p{font-size:14px;line-height:1.5}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:.3s;backdrop-filter:blur(4px)}
+.modal-overlay.active{opacity:1;visibility:visible}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:.3s;padding-bottom:env(safe-area-inset-bottom)}
+.modal-overlay.active .modal{transform:translateY(0)}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:12px auto}
+.modal-header{padding:0 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1}
+.modal-header h2{font-size:18px;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--bg);cursor:pointer;font-size:14px;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:.2s}
+.modal-close:hover{background:var(--danger);color:#fff}
+.modal-body{padding:20px}
+.detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-label{font-size:13px;color:var(--text3);font-weight:500}
+.detail-value{font-size:14px;font-weight:600;color:var(--text);text-align:right}
+.detail-section{margin:16px 0}
+.detail-section h4{font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.detail-section h4 i{color:var(--primary);font-size:14px}
+.photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--bg)}
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.timeline-item{position:relative;padding-bottom:16px}
+.timeline-item:last-child{padding-bottom:0}
+.timeline-dot{position:absolute;left:-20px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--primary);background:#fff;z-index:1}
+.timeline-item.completed .timeline-dot{background:var(--primary)}
+.timeline-item .time{font-size:11px;color:var(--text3);margin-bottom:2px}
+.timeline-item .event{font-size:13px;color:var(--text);font-weight:500}
+.modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:8px;position:sticky;bottom:0;background:var(--card)}
+.modal-footer .action-btn{padding:12px;font-size:14px;border-radius:var(--radius-sm)}
+.analytics-section{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.analytics-section h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.analytics-section h3 i{color:var(--primary)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat-card{background:var(--bg);border-radius:var(--radius-sm);padding:14px;text-align:center}
+.stat-card .value{font-size:24px;font-weight:800;color:var(--primary)}
+.stat-card .label{font-size:11px;color:var(--text3);font-weight:500;margin-top:4px}
+.chart-bar{margin-bottom:10px}
+.chart-bar .bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.chart-bar .bar-label span:first-child{color:var(--text2);font-weight:500}
+.chart-bar .bar-label span:last-child{color:var(--text3)}
+.chart-bar .bar-track{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.chart-bar .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--primary-light));transition:.5s}
+.policy-section{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.policy-section h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.policy-section h3 i{color:var(--primary)}
+.policy-item{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)}
+.policy-item:last-child{border-bottom:none}
+.policy-item label{font-size:13px;font-weight:500;color:var(--text2);flex:1}
+.policy-item input,.policy-item select{width:100px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;text-align:center;outline:none;transition:.2s}
+.policy-item input:focus,.policy-item select:focus{border-color:var(--primary)}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--dark);color:#fff;padding:12px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:.3s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-lg);max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+.toast.warning{background:var(--warning)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:1000}
+.bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;color:var(--text3);text-decoration:none;font-size:10px;font-weight:500;transition:.2s}
+.bottom-nav a i{font-size:18px}
+.bottom-nav a.active{color:var(--primary)}
+.bottom-nav a.add-btn{position:relative}
+.bottom-nav a.add-btn .add-circle{width:44px;height:44px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;margin-top:-20px;box-shadow:0 4px 12px rgba(224,32,32,.4)}
+.refund-tab{display:none}
+.refund-tab.active{display:block}
+.refund-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;border-left:4px solid var(--purple)}
+.refund-card .refund-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.refund-card .refund-id{font-weight:700;color:var(--purple);font-size:13px}
+.refund-card .refund-amount{font-size:18px;font-weight:800;color:var(--dark)}
+.refund-card .refund-meta{font-size:12px;color:var(--text3);margin-bottom:10px}
+.refund-progress{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.refund-progress .fill{height:100%;background:linear-gradient(90deg,var(--purple),#9b7cfc);border-radius:3px;transition:.5s}
+.toast-container{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{position:static;transform:none}
+.pull-to-refresh{position:fixed;top:68px;left:0;right:0;height:0;overflow:hidden;z-index:999;display:flex;align-items:center;justify-content:center;background:rgba(224,32,32,.1);transition:.3s}
+.pull-to-refresh.active{height:50px}
+.pull-to-refresh i{color:var(--primary);font-size:20px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.return-card{animation:fadeIn .3s ease forwards}
+.return-card:nth-child(2){animation-delay:.05s}
+.return-card:nth-child(3){animation-delay:.1s}
+.return-card:nth-child(4){animation-delay:.15s}
+.return-card:nth-child(5){animation-delay:.2s}
+.confirm-dialog{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:4000;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:.3s;backdrop-filter:blur(4px)}
+.confirm-dialog.active{opacity:1;visibility:visible}
+.confirm-box{background:var(--card);border-radius:var(--radius);padding:24px;width:calc(100% - 48px);max-width:360px;text-align:center;transform:scale(.9);transition:.3s}
+.confirm-dialog.active .confirm-box{transform:scale(1)}
+.confirm-box i{font-size:48px;margin-bottom:16px;color:var(--warning)}
+.confirm-box h3{font-size:18px;font-weight:700;margin-bottom:8px}
+.confirm-box p{font-size:14px;color:var(--text3);margin-bottom:20px;line-height:1.5}
+.confirm-actions{display:flex;gap:10px}
+.confirm-actions button{flex:1;padding:12px;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.confirm-actions .cancel-btn{background:var(--bg);color:var(--text2)}
+.confirm-actions .confirm-btn{background:var(--primary);color:#fff}
+.fab{position:fixed;bottom:80px;right:16px;width:52px;height:52px;background:var(--primary);border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font-size:22px;box-shadow:0 4px 16px rgba(224,32,32,.4);cursor:pointer;z-index:999;border:none;transition:.2s}
+.fab:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <div class="logo">
+      <div class="logo-icon">M</div>
+      <div class="logo-text">MEDI FINDER<span>MERCHANT PORTAL</span></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="header-btn" onclick="location.reload()"><i class="fas fa-sync-alt"></i></button>
+    <button class="header-btn" onclick="showToast('No new notifications','info')">
+      <i class="fas fa-bell"></i><span class="badge" id="notifBadge">3</span>
+    </button>
+  </div>
+</header>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo" style="cursor:pointer" onclick="toggleSidebar()">
+      <div class="logo-icon">M</div>
+      <div class="logo-text">MEDI FINDER<span style="opacity:.6;font-size:11px">Merchant Portal</span></div>
+    </div>
+  </div>
+  <div class="sidebar-nav">
+    <a href="marchenthome.html"><i class="fas fa-home"></i>Dashboard</a>
+    <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i>Orders</a>
+    <a href="marchentadd.html"><i class="fas fa-box"></i>Inventory</a>
+    <a href="marchentreturns.html" class="active"><i class="fas fa-undo-alt"></i>Returns</a>
+    <a href="marchentanalytics.html"><i class="fas fa-chart-bar"></i>Analytics</a>
+    <a href="marchentpromotions.html"><i class="fas fa-tag"></i>Promotions</a>
+    <a href="marchentcustomers.html"><i class="fas fa-users"></i>Customers</a>
+    <a href="marchentprofile.html"><i class="fas fa-user-circle"></i>Profile</a>
+  </div>
+  <div class="sidebar-footer">
+    <a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i>Logout</a>
+  </div>
+</nav>
+
+<main class="main-content">
+  <div class="tabs" id="mainTabs">
+    <button class="tab active" data-tab="returns" onclick="switchTab('returns')">
+      <i class="fas fa-undo-alt"></i>Returns<span class="count" id="returnCount">0</span>
+    </button>
+    <button class="tab" data-tab="refunds" onclick="switchTab('refunds')">
+      <i class="fas fa-money-bill-wave"></i>Refunds<span class="count" id="refundCount">0</span>
+    </button>
+    <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
+      <i class="fas fa-chart-pie"></i>Analytics
+    </button>
+    <button class="tab" data-tab="policy" onclick="switchTab('policy')">
+      <i class="fas fa-cog"></i>Policy
+    </button>
+  </div>
+
+  <div id="returnsTab">
+    <div class="tabs" id="statusTabs" style="margin-bottom:12px">
+      <button class="tab active" onclick="filterByStatus('all')">All<span class="count" id="allCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('pending')">Pending<span class="count" id="pendingCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('approved')">Approved<span class="count" id="approvedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('rejected')">Rejected<span class="count" id="rejectedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('refunded')">Refunded<span class="count" id="refundedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('completed')">Completed<span class="count" id="completedCount">0</span></button>
+    </div>
+
+    <div class="search-filter">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search by Order ID, Customer name..." oninput="handleSearch()">
+        <i class="fas fa-times" id="clearSearch" style="display:none;cursor:pointer;color:var(--text3)" onclick="clearSearch()"></i>
+      </div>
+      <div class="filter-row">
+        <select class="filter-select" id="reasonFilter" onchange="applyFilters()">
+          <option value="">All Reasons</option>
+          <option value="defective">Defective Product</option>
+          <option value="wrong_item">Wrong Item</option>
+          <option value="damaged">Damaged in Transit</option>
+          <option value="expired">Expired Product</option>
+          <option value="not_as_described">Not as Described</option>
+          <option value="quality_issue">Quality Issue</option>
+          <option value="changed_mind">Changed Mind</option>
+        </select>
+        <select class="filter-select" id="sortFilter" onchange="applyFilters()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="amount_high">Amount: High to Low</option>
+          <option value="amount_low">Amount: Low to High</option>
+        </select>
+        <button class="filter-btn" id="dateFilterBtn" onclick="toggleDateFilter()">
+          <i class="fas fa-calendar"></i>Date Range
+        </button>
+      </div>
+      <div id="dateFilterRow" style="display:none;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <input type="date" id="dateFrom" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;outline:none" onchange="applyFilters()">
+        <span style="align-self:center;color:var(--text3);font-size:12px">to</span>
+        <input type="date" id="dateTo" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;outline:none" onchange="applyFilters()">
+      </div>
+    </div>
+
+    <div class="section-title">
+      <h3>Return Requests</h3>
+      <span id="resultCount">0 results</span>
+    </div>
+    <div class="return-list" id="returnList">
+      <div class="loading-skeleton"></div>
+      <div class="loading-skeleton"></div>
+      <div class="loading-skeleton"></div>
+    </div>
+  </div>
+
+  <div id="refundsTab" class="refund-tab">
+    <div class="search-filter">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Search refunds..." id="refundSearch" oninput="filterRefunds()">
+      </div>
+    </div>
+    <div class="section-title">
+      <h3>Pending Refunds</h3>
+      <span id="pendingRefundCount">0 refunds</span>
+    </div>
+    <div id="refundList"></div>
+    <div class="section-title" style="margin-top:20px">
+      <h3>Refund History</h3>
+    </div>
+    <div id="refundHistory"></div>
+  </div>
+
+  <div id="analyticsTab" class="refund-tab">
+    <div class="analytics-section">
+      <h3><i class="fas fa-chart-line"></i>Return Overview</h3>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="value" id="totalReturnRate">0%</div><div class="label">Return Rate</div></div>
+        <div class="stat-card"><div class="value" id="totalRefundAmount">₹0</div><div class="label">Total Refunded</div></div>
+        <div class="stat-card"><div class="value" id="avgRefundTime">0d</div><div class="label">Avg. Resolution</div></div>
+        <div class="stat-card"><div class="value" id="topReasonCount">0</div><div class="label">Top Reason</div></div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <h3><i class="fas fa-chart-bar"></i>Return Reasons</h3>
+      <div id="reasonChart"></div>
+    </div>
+    <div class="analytics-section">
+      <h3><i class="fas fa-calendar-alt"></i>Monthly Trends</h3>
+      <div id="monthlyChart"></div>
+    </div>
+    <div class="analytics-section">
+      <h3><i class="fas fa-pills"></i>Top Returned Products</h3>
+      <div id="productChart"></div>
+    </div>
+  </div>
+
+  <div id="policyTab" class="refund-tab">
+    <div class="policy-section">
+      <h3><i class="fas fa-shield-alt"></i>Return Policy Settings</h3>
+      <div class="policy-item">
+        <label>Return Window (days)</label>
+        <input type="number" id="policyReturnWindow" value="7" min="1" max="90" onchange="savePolicy()">
+      </div>
+      <div class="policy-item">
+        <label>Auto-Approve Threshold (₹)</label>
+        <input type="number" id="policyAutoApprove" value="500" min="0" onchange="savePolicy()">
+      </div>
+      <div class="policy-item">
+        <label>Restocking Fee (%)</label>
+        <input type="number" id="policyRestockingFee" value="5" min="0" max="50" onchange="savePolicy()">
+      </div>
+      <div class="policy-item">
+        <label>Return Shipping</label>
+        <select id="policyShipping" onchange="savePolicy()">
+          <option value="merchant">Merchant Pays</option>
+          <option value="customer">Customer Pays</option>
+          <option value="shared">Shared</option>
+        </select>
+      </div>
+      <div class="policy-item">
+        <label>Refund Method</label>
+        <select id="policyRefundMethod" onchange="savePolicy()">
+          <option value="original">Original Payment</option>
+          <option value="wallet">Store Wallet</option>
+          <option value="bank">Bank Transfer</option>
+        </select>
+      </div>
+      <div class="policy-item">
+        <label>Allow Exchange</label>
+        <select id="policyExchange" onchange="savePolicy()">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="policy-item">
+        <label>Require Photo Proof</label>
+        <select id="policyPhoto" onchange="savePolicy()">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="policy-item">
+        <label>Medicine Return (Special)</label>
+        <select id="policyMedicine" onchange="savePolicy()">
+          <option value="restricted">Restricted</option>
+          <option value="allowed">Allowed</option>
+          <option value="never">Never</option>
+        </select>
+      </div>
+    </div>
+    <div class="policy-section">
+      <h3><i class="fas fa-bell"></i>Notification Settings</h3>
+      <div class="policy-item">
+        <label>Email on New Return</label>
+        <select id="policyEmailReturn" onchange="savePolicy()">
+          <option value="yes">Enabled</option>
+          <option value="no">Disabled</option>
+        </select>
+      </div>
+      <div class="policy-item">
+        <label>SMS Updates</label>
+        <select id="policySms" onchange="savePolicy()">
+          <option value="yes">Enabled</option>
+          <option value="no">Disabled</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="returnModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2>Return Details</h2>
+      <button class="modal-close" onclick="closeModal('returnModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2>Reject Return</h2>
+      <button class="modal-close" onclick="closeModal('rejectModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-section">
+        <h4><i class="fas fa-info-circle"></i>Select Rejection Reason</h4>
+        <select id="rejectReason" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none;margin-bottom:12px">
+          <option value="">Select reason...</option>
+          <option value="policy_violation">Against return policy</option>
+          <option value="late_request">Return window expired</option>
+          <option value="tampered">Product tampered/opened</option>
+          <option value="no_proof">Insufficient proof</option>
+          <option value="fraudulent">Suspected fraudulent</option>
+          <option value="other">Other</option>
+        </select>
+        <textarea id="rejectNote" placeholder="Additional notes (optional)" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none;resize:vertical;min-height:80px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="action-btn reject" onclick="closeModal('rejectModal')" style="flex:1">Cancel</button>
+      <button class="action-btn approve" onclick="confirmReject()" style="flex:1;background:var(--danger);color:#fff">Reject Return</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pickupModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2>Schedule Pickup</h2>
+      <button class="modal-close" onclick="closeModal('pickupModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-section">
+        <h4><i class="fas fa-truck"></i>Pickup Details</h4>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px">Pickup Date</label>
+          <input type="date" id="pickupDate" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px">Pickup Time Slot</label>
+          <select id="pickupSlot" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none">
+            <option value="morning">Morning (9 AM - 12 PM)</option>
+            <option value="afternoon">Afternoon (12 PM - 4 PM)</option>
+            <option value="evening">Evening (4 PM - 8 PM)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px">Pickup Address</label>
+          <textarea id="pickupAddress" placeholder="Enter pickup address" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none;resize:vertical;min-height:80px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="action-btn pickup" onclick="closeModal('pickupModal')" style="flex:1">Cancel</button>
+      <button class="action-btn approve" onclick="confirmPickup()" style="flex:1">Schedule Pickup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="refundModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h2>Process Refund</h2>
+      <button class="modal-close" onclick="closeModal('refundModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="refundModalBody"></div>
+    <div class="modal-footer">
+      <button class="action-btn refund" onclick="closeModal('refundModal')" style="flex:1">Cancel</button>
+      <button class="action-btn approve" onclick="confirmRefund()" style="flex:1;background:var(--purple);color:#fff">Process Refund</button>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-dialog" id="confirmDialog">
+  <div class="confirm-box">
+    <i class="fas fa-exclamation-triangle"></i>
+    <h3 id="confirmTitle">Confirm Action</h3>
+    <p id="confirmMessage">Are you sure you want to proceed?</p>
+    <div class="confirm-actions">
+      <button class="cancel-btn" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-btn" id="confirmBtn" onclick="executeConfirm()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<nav class="bottom-nav">
+  <a href="marchenthome.html"><i class="fas fa-home"></i>HOME</a>
+  <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i>ORDERS</a>
+  <a href="marchentadd.html" class="add-btn"><div class="add-circle"><i class="fas fa-plus"></i></div></a>
+  <a href="marchentadd.html"><i class="fas fa-box"></i>INVENTORY</a>
+  <a href="marchentprofile.html"><i class="fas fa-user"></i>PROFILE</a>
+</nav>
+
+<script>
+const SUPABASE_URL='https://rnpbglinkpsikeszcjcl.supabase.co';
+const SUPABASE_KEY='sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+let supabase,allReturns=[],filteredReturns=[],currentFilter='all',currentReturn=null,pendingRejectId=null,pendingRefundId=null,pendingPickupId=null,confirmCallback=null;
+let policy={returnWindow:7,autoApprove:500,restockingFee:5,shipping:'merchant',refundMethod:'original',exchange:'yes',photo:'yes',medicine:'restricted',emailReturn:'yes',sms:'yes'};
+
+function initSupabase(){try{supabase=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;if(!supabase){console.warn('Supabase SDK not loaded, using demo data');return false}return true}catch(e){console.error('Supabase init error:',e);return false}}
+
+function generateDemoReturns(){
+  const reasons=['defective','wrong_item','damaged','expired','not_as_described','quality_issue','changed_mind'];
+  const reasonLabels={defective:'Defective Product',wrong_item:'Wrong Item Delivered',damaged:'Damaged in Transit',expired:'Expired Product',not_as_described:'Not as Described',quality_issue:'Quality Issue',changed_mind:'Changed Mind'};
+  const statuses=['pending','pending','pending','approved','approved','rejected','refunded','completed'];
+  const products=['Paracetamol 500mg','Amoxicillin 250mg','Ibuprofen 400mg','Metformin 500mg','Omeprazole 20mg','Cetirizine 10mg','Azithromycin 500mg','Dolo 650','Crocin Advance','Panadol Extra'];
+  const customers=['Rahul Sharma','Priya Patel','Amit Kumar','Neha Gupta','Vikram Singh','Ananya Reddy','Rohan Mehta','Sneha Joshi','Karan Malhotra','Pooja Verma'];
+  const returns=[];
+  for(let i=1;i<=25;i++){
+    const daysAgo=Math.floor(Math.random()*30);
+    const date=new Date();date.setDate(date.getDate()-daysAgo);
+    const status=statuses[Math.floor(Math.random()*statuses.length)];
+    const reason=reasons[Math.floor(Math.random()*reasons.length)];
+    returns.push({
+      id:'RET'+String(i).padStart(4,'0'),
+      order_id:'ORD'+String(1000+Math.floor(Math.random()*9000)),
+      customer_name:customers[Math.floor(Math.random()*customers.length)],
+      product_name:products[Math.floor(Math.random()*products.length)],
+      product_image:null,
+      reason:reason,
+      reason_label:reasonLabels[reason],
+      description:'Customer reported issue with the delivered product. Requesting return and refund.',
+      amount:Math.floor(Math.random()*2000)+100,
+      status:status,
+      date_requested:date.toISOString(),
+      photos:[],
+      timeline:[
+        {time:date.toISOString(),event:'Return request submitted',completed:true},
+        {time:date.toISOString(),event:'Request acknowledged',completed:status!=='pending'},
+        {time:status==='approved'||status==='refunded'||status==='completed'?new Date(date.getTime()+86400000).toISOString():null,event:'Return approved',completed:status==='approved'||status==='refunded'||status==='completed'},
+        {time:status==='refunded'||status==='completed'?new Date(date.getTime()+172800000).toISOString():null,event:'Item received',completed:status==='refunded'||status==='completed'},
+        {time:status==='completed'?new Date(date.getTime()+259200000).toISOString():null,event:'Refund processed',completed:status==='completed'}
+      ].filter(t=>t.time)
+    });
+  }
+  return returns;
+}
+
+async function loadReturns(){
+  showLoading();
+  if(supabase){
+    try{
+      const{data,error}=await supabase.from('returns').select('*').order('date_requested',{ascending:false});
+      if(error)throw error;
+      allReturns=data||[];
+    }catch(e){
+      console.error('Load returns error:',e);
+      allReturns=generateDemoReturns();
+      showToast('Using demo data','warning');
+    }
+  }else{
+    allReturns=generateDemoReturns();
+  }
+  filteredReturns=[...allReturns];
+  updateCounts();
+  renderReturns();
+  loadAnalytics();
+  loadPolicy();
+  loadRefunds();
+  setupRealtime();
+}
+
+function showLoading(){
+  const list=document.getElementById('returnList');
+  list.innerHTML='<div class="loading-skeleton"></div><div class="loading-skeleton"></div><div class="loading-skeleton"></div>';
+}
+
+function updateCounts(){
+  const counts={all:allReturns.length,pending:0,approved:0,rejected:0,refunded:0,completed:0};
+  allReturns.forEach(r=>{if(counts[r.status]!==undefined)counts[r.status]++});
+  Object.keys(counts).forEach(k=>{
+    const el=document.getElementById(k+'Count');
+    if(el)el.textContent=counts[k];
+  });
+  const pendingRefunds=allReturns.filter(r=>r.status==='approved').length;
+  document.getElementById('refundCount').textContent=pendingRefunds;
+}
+
+function filterByStatus(status){
+  currentFilter=status;
+  document.querySelectorAll('#statusTabs .tab').forEach(t=>t.classList.remove('active'));
+  event.target.closest('.tab').classList.add('active');
+  applyFilters();
+}
+
+function handleSearch(){
+  const val=document.getElementById('searchInput').value;
+  document.getElementById('clearSearch').style.display=val?'block':'none';
+  applyFilters();
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('clearSearch').style.display='none';
+  applyFilters();
+}
+
+function toggleDateFilter(){
+  const row=document.getElementById('dateFilterRow');
+  row.style.display=row.style.display==='none'?'flex':'none';
+}
+
+function applyFilters(){
+  const search=document.getElementById('searchInput').value.toLowerCase();
+  const reason=document.getElementById('reasonFilter').value;
+  const sort=document.getElementById('sortFilter').value;
+  const dateFrom=document.getElementById('dateFrom').value;
+  const dateTo=document.getElementById('dateTo').value;
+  filteredReturns=allReturns.filter(r=>{
+    if(currentFilter!=='all'&&r.status!==currentFilter)return false;
+    if(search&&!r.order_id.toLowerCase().includes(search)&&!r.customer_name.toLowerCase().includes(search)&&!r.id.toLowerCase().includes(search)&&!r.product_name.toLowerCase().includes(search))return false;
+    if(reason&&r.reason!==reason)return false;
+    if(dateFrom&&new Date(r.date_requested)<new Date(dateFrom))return false;
+    if(dateTo&&new Date(r.date_requested)>new Date(dateTo+'T23:59:59'))return false;
+    return true;
+  });
+  if(sort==='newest')filteredReturns.sort((a,b)=>new Date(b.date_requested)-new Date(a.date_requested));
+  else if(sort==='oldest')filteredReturns.sort((a,b)=>new Date(a.date_requested)-new Date(b.date_requested));
+  else if(sort==='amount_high')filteredReturns.sort((a,b)=>b.amount-a.amount);
+  else if(sort==='amount_low')filteredReturns.sort((a,b)=>a.amount-b.amount);
+  document.getElementById('resultCount').textContent=filteredReturns.length+' results';
+  renderReturns();
+}
+
+function renderReturns(){
+  const list=document.getElementById('returnList');
+  if(!filteredReturns.length){
+    list.innerHTML='<div class="empty-state"><i class="fas fa-undo-alt"></i><h3>No Returns Found</h3><p>No return requests match your current filters.</p></div>';
+    return;
+  }
+  list.innerHTML=filteredReturns.map(r=>{
+    const date=new Date(r.date_requested).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    const imgHtml=r.product_image?`<img src="${r.product_image}" class="product-img" onerror="this.outerHTML='<div class=\\'product-img\\'><i class=\\'fas fa-pills\\'></i></div>'">`:`<div class="product-img"><i class="fas fa-pills"></i></div>`;
+    let actions='';
+    if(r.status==='pending'){
+      actions=`<div class="return-actions">
+        <button class="action-btn approve" onclick="event.stopPropagation();approveReturn('${r.id}')"><i class="fas fa-check"></i>Approve</button>
+        <button class="action-btn reject" onclick="event.stopPropagation();rejectReturn('${r.id}')"><i class="fas fa-times"></i>Reject</button>
+      </div>`;
+    }else if(r.status==='approved'){
+      actions=`<div class="return-actions">
+        <button class="action-btn pickup" onclick="event.stopPropagation();schedulePickup('${r.id}')"><i class="fas fa-truck"></i>Schedule Pickup</button>
+        <button class="action-btn refund" onclick="event.stopPropagation();processRefund('${r.id}')"><i class="fas fa-money-bill"></i>Refund</button>
+      </div>`;
+    }else if(r.status==='refunded'){
+      actions=`<div class="return-actions">
+        <button class="action-btn approve" onclick="event.stopPropagation();markCompleted('${r.id}')"><i class="fas fa-check-double"></i>Mark Complete</button>
+      </div>`;
+    }
+    return `<div class="return-card status-${r.status}" onclick="openReturnDetail('${r.id}')">
+      <div class="return-card-header">
+        <span class="return-id">${r.id} • ${r.order_id}</span>
+        <span class="status-badge ${r.status}">${r.status}</span>
+      </div>
+      <div class="return-card-body">
+        ${imgHtml}
+        <div class="product-info">
+          <div class="product-name">${r.product_name}</div>
+          <div class="customer-name"><i class="fas fa-user" style="margin-right:4px;font-size:10px"></i>${r.customer_name}</div>
+          <div class="return-reason"><i class="fas fa-exclamation-circle"></i>${r.reason_label||r.reason}</div>
+        </div>
+      </div>
+      <div class="return-card-footer">
+        <span class="return-amount">₹${r.amount.toLocaleString('en-IN')}</span>
+        <span class="return-date"><i class="fas fa-clock" style="margin-right:4px;font-size:10px"></i>${date}</span>
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+function openReturnDetail(id){
+  currentReturn=allReturns.find(r=>r.id===id);
+  if(!currentReturn)return;
+  const r=currentReturn;
+  const date=new Date(r.date_requested).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  const time=new Date(r.date_requested).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  let photosHtml='';
+  if(r.photos&&r.photos.length){
+    photosHtml=`<div class="detail-section"><h4><i class="fas fa-camera"></i>Customer Photos</h4><div class="photos-grid">${r.photos.map(p=>`<img src="${p}" onerror="this.style.display='none'">`).join('')}</div></div>`;
+  }else{
+    photosHtml=`<div class="detail-section"><h4><i class="fas fa-camera"></i>Customer Photos</h4><div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">No photos uploaded</div></div>`;
+  }
+  let timelineHtml=r.timeline.map(t=>{
+    const tDate=new Date(t.time).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+    const tTime=new Date(t.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="timeline-item ${t.completed?'completed':''}">
+      <div class="timeline-dot"></div>
+      <div class="time">${tDate} ${tTime}</div>
+      <div class="event">${t.event}</div>
+    </div>`;
+  }).join('');
+  const restockingAmount=Math.round(r.amount*policy.restockingFee/100);
+  const refundAmount=r.amount-restockingAmount;
+  document.getElementById('modalBody').innerHTML=`
+    <div class="detail-row"><span class="detail-label">Return ID</span><span class="detail-value">${r.id}</span></div>
+    <div class="detail-row"><span class="detail-label">Order ID</span><span class="detail-value">${r.order_id}</span></div>
+    <div class="detail-row"><span class="detail-label">Date Requested</span><span class="detail-value">${date} ${time}</span></div>
+    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="status-badge ${r.status}">${r.status}</span></span></div>
+    <div class="detail-section">
+      <h4><i class="fas fa-user"></i>Customer Information</h4>
+      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${r.customer_name}</span></div>
+      <div class="detail-row"><span class="detail-label">Customer ID</span><span class="detail-value">CUS${String(Math.floor(Math.random()*9000)+1000)}</span></div>
+    </div>
+    <div class="detail-section">
+      <h4><i class="fas fa-box"></i>Product Details</h4>
+      <div class="detail-row"><span class="detail-label">Product</span><span class="detail-value">${r.product_name}</span></div>
+      <div class="detail-row"><span class="detail-label">Category</span><span class="detail-value">Medicine</span></div>
+    </div>
+    <div class="detail-section">
+      <h4><i class="fas fa-info-circle"></i>Return Reason</h4>
+      <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">${r.reason_label||r.reason}</span></div>
+      <div style="padding:10px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--text2);line-height:1.5">${r.description||'No additional details provided.'}</div>
+    </div>
+    ${photosHtml}
+    <div class="detail-section">
+      <h4><i class="fas fa-receipt"></i>Pricing</h4>
+      <div class="detail-row"><span class="detail-label">Original Price</span><span class="detail-value">₹${r.amount.toLocaleString('en-IN')}</span></div>
+      <div class="detail-row"><span class="detail-label">Restocking Fee (${policy.restockingFee}%)</span><span class="detail-value">-₹${restockingAmount.toLocaleString('en-IN')}</span></div>
+      <div class="detail-row"><span class="detail-label">Refund Amount</span><span class="detail-value" style="color:var(--success);font-size:16px">₹${refundAmount.toLocaleString('en-IN')}</span></div>
+    </div>
+    <div class="detail-section">
+      <h4><i class="fas fa-clock"></i>Return Timeline</h4>
+      <div class="timeline">${timelineHtml}</div>
+    </div>`;
+  let footerHtml='';
+  if(r.status==='pending'){
+    footerHtml=`<button class="action-btn reject" onclick="closeModal('returnModal');rejectReturn('${r.id}')" style="flex:1"><i class="fas fa-times"></i>Reject</button>
+      <button class="action-btn approve" onclick="closeModal('returnModal');approveReturn('${r.id}')" style="flex:1"><i class="fas fa-check"></i>Approve</button>`;
+  }else if(r.status==='approved'){
+    footerHtml=`<button class="action-btn pickup" onclick="closeModal('returnModal');schedulePickup('${r.id}')" style="flex:1"><i class="fas fa-truck"></i>Pickup</button>
+      <button class="action-btn refund" onclick="closeModal('returnModal');processRefund('${r.id}')" style="flex:1"><i class="fas fa-money-bill"></i>Refund</button>`;
+  }else if(r.status==='refunded'){
+    footerHtml=`<button class="action-btn approve" onclick="closeModal('returnModal');markCompleted('${r.id}')" style="flex:1"><i class="fas fa-check-double"></i>Complete</button>`;
+  }else{
+    footerHtml=`<button class="action-btn" onclick="closeModal('returnModal')" style="flex:1;background:var(--bg);color:var(--text2)">Close</button>`;
+  }
+  document.getElementById('modalFooter').innerHTML=footerHtml;
+  openModal('returnModal');
+}
+
+async function approveReturn(id){
+  const r=allReturns.find(x=>x.id===id);if(!r)return;
+  const restockingAmount=Math.round(r.amount*policy.restockingFee/100);
+  const refundAmount=r.amount-restockingAmount;
+  if(r.amount<=policy.autoApprove){
+    showConfirm('Auto-Approve Return?',`This return is below the auto-approve threshold of ₹${policy.autoApprove}. The refund amount will be ₹${refundAmount.toLocaleString('en-IN')}.`,async()=>{
+      await updateReturnStatus(id,'approved','Return approved');
+    });
+  }else{
+    showConfirm('Approve Return?',`Approve return ${id}? Refund amount: ₹${refundAmount.toLocaleString('en-IN')}`,async()=>{
+      await updateReturnStatus(id,'approved','Return approved');
+    });
+  }
+}
+
+function rejectReturn(id){
+  pendingRejectId=id;
+  openModal('rejectModal');
+}
+
+async function confirmReject(){
+  const reason=document.getElementById('rejectReason').value;
+  const note=document.getElementById('rejectNote').value;
+  if(!reason){showToast('Please select a rejection reason','error');return}
+  await updateReturnStatus(pendingRejectId,'rejected',`Rejected: ${reason}${note?' - '+note:''}`);
+  closeModal('rejectModal');
+  document.getElementById('rejectReason').value='';
+  document.getElementById('rejectNote').value='';
+  pendingRejectId=null;
+}
+
+function schedulePickup(id){
+  pendingPickupId=id;
+  const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+  document.getElementById('pickupDate').value=tomorrow.toISOString().split('T')[0];
+  openModal('pickupModal');
+}
+
+async function confirmPickup(){
+  const date=document.getElementById('pickupDate').value;
+  const slot=document.getElementById('pickupSlot').value;
+  const address=document.getElementById('pickupAddress').value;
+  if(!date){showToast('Please select a pickup date','error');return}
+  await updateReturnStatus(pendingPickupId,'approved',`Pickup scheduled for ${date} (${slot})`);
+  closeModal('pickupModal');
+  pendingPickupId=null;
+  showToast('Pickup scheduled successfully','success');
+}
+
+function processRefund(id){
+  pendingRefundId=id;
+  const r=allReturns.find(x=>x.id===id);if(!r)return;
+  const restockingAmount=Math.round(r.amount*policy.restockingFee/100);
+  const refundAmount=r.amount-restockingAmount;
+  document.getElementById('refundModalBody').innerHTML=`
+    <div class="detail-row"><span class="detail-label">Return ID</span><span class="detail-value">${r.id}</span></div>
+    <div class="detail-row"><span class="detail-label">Customer</span><span class="detail-value">${r.customer_name}</span></div>
+    <div class="detail-row"><span class="detail-label">Original Amount</span><span class="detail-value">₹${r.amount.toLocaleString('en-IN')}</span></div>
+    <div class="detail-row"><span class="detail-label">Restocking Fee</span><span class="detail-value">-₹${restockingAmount.toLocaleString('en-IN')}</span></div>
+    <div class="detail-row"><span class="detail-label">Refund Amount</span><span class="detail-value" style="color:var(--purple);font-size:18px;font-weight:800">₹${refundAmount.toLocaleString('en-IN')}</span></div>
+    <div class="detail-section"><h4><i class="fas fa-credit-card"></i>Refund Method</h4>
+      <select id="refundMethod" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;outline:none">
+        <option value="original">Original Payment Method</option>
+        <option value="wallet">Store Wallet</option>
+        <option value="bank">Bank Transfer (NEFT/IMPS)</option>
+      </select>
+    </div>`;
+  openModal('refundModal');
+}
+
+async function confirmRefund(){
+  await updateReturnStatus(pendingRefundId,'refunded','Refund processed');
+  closeModal('refundModal');
+  pendingRefundId=null;
+}
+
+async function markCompleted(id){
+  showConfirm('Mark as Completed?', 'This will mark the return as fully completed.',async()=>{
+    await updateReturnStatus(id,'completed','Return completed');
+  });
+}
+
+async function updateReturnStatus(id,status,event){
+  const idx=allReturns.findIndex(r=>r.id===id);
+  if(idx===-1)return;
+  allReturns[idx].status=status;
+  allReturns[idx].timeline.push({time:new Date().toISOString(),event:event,completed:true});
+  if(supabase){
+    try{
+      await supabase.from('returns').update({status:status,timeline:allReturns[idx].timeline}).eq('id',id);
+    }catch(e){console.error('Update error:',e)}
+  }
+  updateCounts();
+  applyFilters();
+  loadRefunds();
+  loadAnalytics();
+  showToast(`Return ${id} ${status}`,'success');
+}
+
+function loadRefunds(){
+  const pending=allReturns.filter(r=>r.status==='approved');
+  const history=allReturns.filter(r=>r.status==='refunded'||r.status==='completed');
+  document.getElementById('pendingRefundCount').textContent=pending.length+' refunds';
+  const pendingList=document.getElementById('refundList');
+  if(!pending.length){
+    pendingList.innerHTML='<div class="empty-state" style="padding:24px"><i class="fas fa-check-circle" style="font-size:36px;color:var(--success)"></i><h3>All Clear</h3><p>No pending refunds</p></div>';
+  }else{
+    pendingList.innerHTML=pending.map(r=>{
+      const date=new Date(r.date_requested).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+      const restocking=Math.round(r.amount*policy.restockingFee/100);
+      const refundAmt=r.amount-restocking;
+      return `<div class="refund-card">
+        <div class="refund-header">
+          <span class="refund-id">${r.id} • ${r.order_id}</span>
+          <span class="status-badge approved">Awaiting</span>
+        </div>
+        <div class="refund-amount">₹${refundAmt.toLocaleString('en-IN')}</div>
+        <div class="refund-meta">${r.customer_name} • ${r.product_name} • ${date}</div>
+        <div class="refund-progress"><div class="fill" style="width:60%"></div></div>
+        <button class="action-btn refund" onclick="processRefund('${r.id}')" style="width:100%"><i class="fas fa-money-bill"></i>Process Refund</button>
+      </div>`;
+    }).join('');
+  }
+  const historyList=document.getElementById('refundHistory');
+  if(!history.length){
+    historyList.innerHTML='<div class="empty-state" style="padding:24px"><i class="fas fa-history"></i><h3>No History</h3><p>Processed refunds will appear here</p></div>';
+  }else{
+    historyList.innerHTML=history.map(r=>{
+      const date=new Date(r.date_requested).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+      return `<div class="refund-card" style="border-left-color:var(--success)">
+        <div class="refund-header">
+          <span class="refund-id" style="color:var(--success)">${r.id}</span>
+          <span class="status-badge ${r.status}">${r.status}</span>
+        </div>
+        <div class="refund-amount" style="color:var(--success)">₹${r.amount.toLocaleString('en-IN')}</div>
+        <div class="refund-meta">${r.customer_name} • ${r.product_name} • ${date}</div>
+        <div class="refund-progress"><div class="fill" style="width:100%;background:var(--success)"></div></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function filterRefunds(){
+  loadRefunds();
+}
+
+function loadAnalytics(){
+  const totalOrders=allReturns.length*15||1;
+  const totalReturns=allReturns.length;
+  const rate=((totalReturns/totalOrders)*100).toFixed(1);
+  const totalRefund=allReturns.filter(r=>r.status==='refunded'||r.status==='completed').reduce((s,r)=>s+r.amount,0);
+  document.getElementById('totalReturnRate').textContent=rate+'%';
+  document.getElementById('totalRefundAmount').textContent='₹'+totalRefund.toLocaleString('en-IN');
+  document.getElementById('avgRefundTime').textContent='2.3d';
+  const reasons={};
+  allReturns.forEach(r=>{reasons[r.reason_label||r.reason]=(reasons[r.reason_label||r.reason]||0)+1});
+  const sortedReasons=Object.entries(reasons).sort((a,b)=>b[1]-a[1]);
+  const maxReason=sortedReasons[0]?sortedReasons[0][1]:1;
+  document.getElementById('topReasonCount').textContent=sortedReasons[0]?sortedReasons[0][0]:'N/A';
+  document.getElementById('reasonChart').innerHTML=sortedReasons.map(([label,count])=>`
+    <div class="chart-bar">
+      <div class="bar-label"><span>${label}</span><span>${count} (${((count/allReturns.length)*100).toFixed(0)}%)</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(count/maxReason)*100}%"></div></div>
+    </div>`).join('');
+  const months={};
+  allReturns.forEach(r=>{
+    const d=new Date(r.date_requested);
+    const key=d.toLocaleString('en-IN',{month:'short',year:'numeric'});
+    months[key]=(months[key]||0)+1;
+  });
+  const monthEntries=Object.entries(months).slice(-6);
+  const maxMonth=Math.max(...monthEntries.map(e=>e[1]),1);
+  document.getElementById('monthlyChart').innerHTML=monthEntries.map(([label,count])=>`
+    <div class="chart-bar">
+      <div class="bar-label"><span>${label}</span><span>${count}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(count/maxMonth)*100}%"></div></div>
+    </div>`).join('');
+  const products={};
+  allReturns.forEach(r=>{products[r.product_name]=(products[r.product_name]||0)+1});
+  const sortedProducts=Object.entries(products).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxProd=sortedProducts[0]?sortedProducts[0][1]:1;
+  document.getElementById('productChart').innerHTML=sortedProducts.map(([name,count])=>`
+    <div class="chart-bar">
+      <div class="bar-label"><span>${name}</span><span>${count} returns</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(count/maxProd)*100}%;background:linear-gradient(90deg,var(--primary-dark),var(--primary-light))"></div></div>
+    </div>`).join('');
+}
+
+function loadPolicy(){
+  const saved=localStorage.getItem('medifinder_return_policy');
+  if(saved){try{policy={...policy,...JSON.parse(saved)}}catch(e){}}
+  document.getElementById('policyReturnWindow').value=policy.returnWindow;
+  document.getElementById('policyAutoApprove').value=policy.autoApprove;
+  document.getElementById('policyRestockingFee').value=policy.restockingFee;
+  document.getElementById('policyShipping').value=policy.shipping;
+  document.getElementById('policyRefundMethod').value=policy.refundMethod;
+  document.getElementById('policyExchange').value=policy.exchange;
+  document.getElementById('policyPhoto').value=policy.photo;
+  document.getElementById('policyMedicine').value=policy.medicine;
+  document.getElementById('policyEmailReturn').value=policy.emailReturn;
+  document.getElementById('policySms').value=policy.sms;
+}
+
+function savePolicy(){
+  policy.returnWindow=parseInt(document.getElementById('policyReturnWindow').value)||7;
+  policy.autoApprove=parseInt(document.getElementById('policyAutoApprove').value)||500;
+  policy.restockingFee=parseInt(document.getElementById('policyRestockingFee').value)||0;
+  policy.shipping=document.getElementById('policyShipping').value;
+  policy.refundMethod=document.getElementById('policyRefundMethod').value;
+  policy.exchange=document.getElementById('policyExchange').value;
+  policy.photo=document.getElementById('policyPhoto').value;
+  policy.medicine=document.getElementById('policyMedicine').value;
+  policy.emailReturn=document.getElementById('policyEmailReturn').value;
+  policy.sms=document.getElementById('policySms').value;
+  localStorage.setItem('medifinder_return_policy',JSON.stringify(policy));
+  showToast('Policy settings saved','success');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('#mainTabs .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`#mainTabs .tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('returnsTab').style.display=tab==='returns'?'block':'none';
+  document.getElementById('refundsTab').style.display=tab==='refunds'?'block':'none';
+  document.getElementById('analyticsTab').style.display=tab==='analytics'?'block':'none';
+  document.getElementById('policyTab').style.display=tab==='policy'?'block':'none';
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('active');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+
+function openModal(id){document.getElementById(id).classList.add('active');document.body.style.overflow='hidden'}
+function closeModal(id){document.getElementById(id).classList.remove('active');document.body.style.overflow=''}
+
+function showConfirm(title,msg,cb){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmMessage').textContent=msg;
+  confirmCallback=cb;
+  document.getElementById('confirmDialog').classList.add('active');
+}
+function closeConfirm(){document.getElementById('confirmDialog').classList.remove('active');confirmCallback=null}
+function executeConfirm(){if(confirmCallback)confirmCallback();closeConfirm()}
+
+function showToast(msg,type='info'){
+  const toast=document.getElementById('toast');
+  toast.className='toast '+type;
+  toast.innerHTML=`<i class="fas fa-${type==='success'?'check-circle':type==='error'?'exclamation-circle':type==='warning'?'exclamation-triangle':'info-circle'}"></i>${msg}`;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'),3000);
+}
+
+function setupRealtime(){
+  if(!supabase)return;
+  try{
+    supabase.channel('returns-realtime').on('postgres_changes',{event:'*',schema:'public',table:'returns'},payload=>{
+      console.log('Realtime update:',payload);
+      loadReturns();
+    }).subscribe();
+  }catch(e){console.error('Realtime error:',e)}
+}
+
+function handleLogout(){
+  showConfirm('Logout','Are you sure you want to logout?',()=>{
+    localStorage.removeItem('medifinder_session');
+    window.location.href='index.html';
+  });
+}
+
+document.addEventListener('DOMContentLoaded',async()=>{
+  initSupabase();
+  try {
+    await new Promise(r => setTimeout(r, 200));
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.replace('index.html'); return; }
+    }
+    loadReturns();
+    const minDate=new Date();minDate.setDate(minDate.getDate()+1);
+    document.getElementById('pickupDate').min=minDate.toISOString().split('T')[0];
+  } catch (err) {
+    console.error('Init error:', err);
+    showToast('Session error', 'error');
+  }
+});
+</script>
+</body>
+</html>

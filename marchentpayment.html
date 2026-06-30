@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#e02020">
+    <title>Payment Overview - Medi Finder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="marchentpayment.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+</head>
+<body>
+    <div class="container">
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="logo-area">
+                    <img src="1779304435608.png" alt="Logo">
+                    <h1>MEDI <span class="highlight">FINDER</span></h1>
+                </div>
+            </header>
+
+            <section class="content-body">
+                <div class="page-title">
+                    <h1>Payment Overview</h1>
+                    <p>Track your earnings, distributions, and graphical growth charts</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="card-icon-wrapper grey-bg">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">TOTAL RECEIVED</span>
+                            <div class="stat-value" id="totalReceivedDisplay">₹0</div>
+                        </div>
+                        <span class="mini-trend neutral" id="receivedTrend"><i class="fa-solid fa-minus"></i> Stable</span>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="card-icon-wrapper green-bg" id="profitIconWrapper">
+                            <i class="fa-solid fa-arrow-trend-up" id="profitIcon"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">TOTAL PROFIT (20%)</span>
+                            <div class="stat-value profit" id="totalProfitDisplay">₹0</div>
+                        </div>
+                        <span class="mini-trend positive" id="profitTrend"><i class="fa-solid fa-minus"></i> Stable</span>
+                    </div>
+                </div>
+
+                <div class="chart-section">
+                    <div class="chart-header">
+                        <div class="chart-title-area">
+                            <h3>Revenue Index</h3>
+                            <div class="live-pulse-badge">
+                                <span class="pulse-dot"></span> LIVE Market
+                            </div>
+                        </div>
+                        <select id="timeFilter">
+                            <option value="thisweek">This Week</option>
+                            <option value="thismonth" selected>This Month</option>
+                        </select>
+                    </div>
+                    
+                    <div class="trading-graph-container">
+                        <div class="graph-grid-lines">
+                            <div class="grid-line"><span id="gridMax">₹0</span></div>
+                            <div class="grid-line"><span id="gridMidHigh">₹0</span></div>
+                            <div class="grid-line"><span id="gridMid">₹0</span></div>
+                            <div class="grid-line"><span id="gridMin">₹0</span></div>
+                            <div class="grid-line"><span>0</span></div>
+                        </div>
+
+                        <div class="vector-graph-wrapper">
+                            <svg class="trading-svg" viewBox="0 0 500 200" preserveAspectRatio="none" id="tradingSvg">
+                                <defs>
+                                    <linearGradient id="chartGlow" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25" id="glowStart"/>
+                                        <stop offset="100%" stop-color="#22c55e" stop-opacity="0.00" id="glowEnd"/>
+                                    </linearGradient>
+                                </defs>
+                                
+                                <path d="M 0,200 L 500,200 Z" fill="url(#chartGlow)" id="chartGlowPath"/>
+                                
+                                <path d="M 0,200 L 500,200" fill="none" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" class="animate-path" id="chartTrendLine"/>
+                                
+                                <circle cx="0" cy="200" r="5" fill="#94a3b8" class="chart-pointer" id="chartPointerCircle"/>
+                                <circle cx="0" cy="200" r="12" fill="none" stroke="#94a3b8" stroke-width="1.5" class="chart-pointer-pulse" id="chartPointerPulse"/>
+                            </svg>
+                        </div>
+
+                        <div class="graph-x-labels" id="graphXLabels">
+                            <span>Point 1</span>
+                            <span>Point 2</span>
+                            <span>Point 3</span>
+                            <span>Point 4</span>
+                        </div>
+                    </div>
+                    
+                    <p class="graph-hint" id="graphHintText"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading real-time wallet analytics configuration...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
+    </nav>
+    <script type="module" src="marchentscript.js"></script>
+</body>
+</html>

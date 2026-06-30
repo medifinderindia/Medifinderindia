@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MediFinder-Order Tracking</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="userorder.css?v=4">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo">
+            <img src="1779304435608.png" alt="MediFinder Logo">
+            <h1>MEDI <span>FINDER</span></h1>
+        </div>
+    </header>
+
+    <div class="order-screen">
+        <header class="page-header">
+            <h2><i class="fa-solid fa-box-open"></i> My Orders</h2>
+            <p>Track your active shipments and view past invoices</p>
+        </header>
+
+        <div class="order-tabs">
+            <button class="tab-btn active" data-filter="active">Active Orders</button>
+            <button class="tab-btn" data-filter="completed">Order History</button>
+        </div>
+
+        <main class="order-section">
+            <div id="order-list" class="dynamic-order-list"></div>
+        </main>
+    </div>
+
+    <div id="tracking-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-map-location-dot"></i> Live Tracking</h3>
+                <span class="close-btn" id="close-tracking-modal">&times;</span>
+            </div>
+            <p id="modal-order-id" class="order-id-tag"></p>
+            
+            <div class="map-container">
+                </div>
+
+            <div class="timeline">
+                <div class="timeline-step" id="step-placed">
+                    <div class="circle"><i class="fa-solid fa-check"></i></div>
+                    <div class="text">Ordered</div>
+                </div>
+                <div class="timeline-step" id="step-shipping">
+                    <div class="circle"><i class="fa-solid fa-box-open"></i></div>
+                    <div class="text">Out for Delivery</div>
+                </div>
+                <div class="timeline-step" id="step-delivery">
+                    <div class="circle"><i class="fa-solid fa-house-medical"></i></div>
+                    <div class="text">Arrived</div>
+                </div>
+            </div>
+        </div>
+    </div> 
+
+    <nav class="bottom-nav" id="bottom-nav">
+        <div class="nav-item" onclick="window.location.href='userhome.html'">
+            <i class="fas fa-home"></i>
+            <span>HOME</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usermap.html'">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>MAP</span>
+        </div>
+        <div class="hamburger-nav-item" id="hamburger-btn">
+            <div class="hamburger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <div class="nav-item active" onclick="window.location.href='userorder.html'">
+            <i class="fas fa-clipboard-list"></i>
+            <span>ORDER</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='usercart.html'">
+            <i class="fas fa-shopping-cart"></i>
+            <span>CART</span>
+        </div>
+    </nav>
+
+    <div class="hamburger-overlay" id="hamburger-overlay">
+        <div class="hamburger-menu-panel">
+            <div class="hamburger-header">
+                <div class="hamburger-profile">
+                    <div class="hamburger-profile-pic"><img src="1779304435608.png" alt="Profile"></div>
+                    <div class="hamburger-profile-info">
+                        <h3 id="hamburger-user-name">Guest User</h3>
+                        <p><i class="fa-solid fa-id-badge"></i> <span id="hamburger-user-id">MF000000</span></p>
+                    </div>
+                </div>
+                <button class="hamburger-close-btn" id="hamburger-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="hamburger-menu-list">
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html'"><i class="fa-solid fa-user-circle"></i><span>My Profile</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-divider"></div>
+                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="prod-utils.js?v=2"></script>
+    <script src="userscript.js?v=3"></script>
+</body>
+</html>

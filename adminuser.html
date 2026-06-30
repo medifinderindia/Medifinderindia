@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="description" content="MediFinder Admin Panel - User Management, Orders, Offers, Refunds, Notifications">
+    <meta name="theme-color" content="#e02020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta property="og:title" content="MediFinder Admin Panel">
+    <meta property="og:description" content="Manage users, orders, offers, and refunds">
+    <meta property="og:type" content="website">
+    <title>MediFinder Admin Dashboard - Enhanced</title>
+    <link rel="stylesheet" href="adminuser.css?v=4">
+    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase SDK JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prod-utils.js?v=2"></script>
+
+    <style>
+        /* Enhanced Rx Audit Panel Styles */
+        .rx-audit-section {
+            margin-top: 20px;
+        }
+
+        .rx-card {
+            background: white;
+            border: 2px solid #fef3f2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .rx-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .rx-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .rx-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rx-badge.pending {
+            background: #fef3f2;
+            color: #ef4444;
+        }
+
+        .rx-badge.verified {
+            background: #f0fdf4;
+            color: #10b981;
+        }
+
+        .rx-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .rx-detail-item {
+            font-size: 13px;
+        }
+
+        .rx-detail-label {
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .rx-detail-value {
+            color: #0f172a;
+            font-weight: 500;
+        }
+
+        .rx-image-container {
+            margin-bottom: 15px;
+        }
+
+        .rx-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 8px;
+        }
+
+        .rx-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .rx-button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rx-button.approve {
+            background: #10b981;
+            color: white;
+        }
+
+        .rx-button.approve:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .rx-button.reject {
+            background: #ef4444;
+            color: white;
+        }
+
+        .rx-button.reject:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .rx-button.view {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .rx-button.view:hover {
+            background: #e2e8f0;
+        }
+
+        .rx-notes {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #2563eb;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .rx-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .rx-stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .rx-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .rx-stat-label {
+            font-size: 11px;
+            opacity: 0.9;
+            text-transform: uppercase;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            background: #f1f5f9;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            color: #64748b;
+        }
+
+        .tab-button.active {
+            background: var(--medi-brand);
+            color: white;
+            border-color: var(--medi-brand);
+        }
+
+        .tab-button:hover {
+            border-color: var(--medi-brand);
+        }
+
+        .tab-content-section {
+            display: none;
+        }
+
+        .tab-content-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <img src="1779304435608.png" alt="MediFinder Logo" class="admin-logo">
+            <h2 class="logo-text"><span class="medi">MEDI</span><span class="finder">FINDER</span></h2>
+        </div>
+        <hr class="nav-divider">
+        
+        <nav class="nav-menu">
+            <button class="nav-item" onclick="window.location.href='admin-dashboard.html'">
+                <i class="fa-solid fa-chart-line"></i> Dashboard
+            </button>
+            <button class="nav-item active" onclick="switchUserTab(event, 'offers')">
+                <i class="fa-solid fa-tags"></i> Offer Management
+            </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'all-orders')">
+                <i class="fa-solid fa-list"></i> All Orders
+            </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'orders')">
+                <i class="fa-solid fa-cart-shopping"></i> Order & Refunds
+            </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'rx-audit')">
+                <i class="fa-solid fa-prescription-bottle"></i> Rx Audit Gate
+            </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'notifications')">
+                <i class="fa-solid fa-bell"></i> Push Notifications
+            </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'users-list')">
+                <i class="fa-solid fa-users"></i> All Users
+            </button>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button class="role-btn user-btn" onclick="window.location.href='adminuser.html'">
+                <i class="fa-solid fa-user"></i> User View
+            </button>
+            <button class="role-btn merchant-btn" onclick="window.location.href='adminmarchent.html'">
+                <i class="fa-solid fa-store"></i> Merchant View
+            </button>
+            <button class="role-btn delivery-btn" onclick="window.location.href='admindboy.html'">
+                <i class="fa-solid fa-truck"></i> Delivery Boy
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <!-- १. অফার ম্যানেজমেন্ট সেকশন -->
+        <section id="offers-section" class="dashboard-section active-section tab-content-section active">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-tags"></i> Offer Management</h2>
+                <p>Set banners or discount offers for users. Leave empty to hide from app.</p>
+            </div>
+            
+            <div class="card">
+                <div class="form-group">
+                    <label for="offer-text">Offer Banner Text</label>
+                    <input type="text" id="offer-text" placeholder="e.g., Get 20% OFF on Life-Saving Drugs! Use Code: MEDI20">
+                </div>
+                <div class="form-group">
+                    <label for="offer-expiry">Expiry Date (Optional)</label>
+                    <input type="date" id="offer-expiry">
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="updateOffer()">Push & Activate Offer</button>
+                    <button class="btn btn-danger" onclick="clearOffer()">Clear & Hide Offer</button>
+                </div>
+            </div>
+
+            <div class="card preview-card">
+                <h3>Live App Preview Status:</h3>
+                <div id="live-offer-status" class="status-badge status-hidden">Hidden / Inactive</div>
+                <div id="app-offer-preview" class="mock-app-banner" style="display: none;">
+                    <i class="fa-solid fa-sparkles"></i> <span id="preview-text"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- २. অর্ডার ও রিফান্ড সেকশন -->
+        <section id="orders-section" class="dashboard-section tab-content-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-cart-shopping"></i> Cancelled Orders & Refunds</h2>
+                <p>Manage instant bank transfers for online-paid cancelled orders.</p>
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Amount Paid</th>
+                            <th>Cancellation Reason</th>
+                            <th>Payment Mode</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cancelled-orders-table">
+                        <!-- জাভাস্ক্রিপ্ট ডাইনামিক ডাটা এখানে আসবে -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ३. প্রেসক্রিপশন অডিট গেট (NEW FEATURE) -->
+        <section id="rx-audit-section" class="dashboard-section tab-content-section rx-audit-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-prescription-bottle-medical"></i> Prescription Verification & Audit Gate</h2>
+                <p>Verify and approve prescription-required medications from users. Reject if documentation is invalid.</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="rx-stats">
+                <div class="rx-stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="rx-stat-value" id="rx-pending-count">0</div>
+                    <div class="rx-stat-label">Pending Verification</div>
+                </div>
+                <div class="rx-stat-box" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                    <div class="rx-stat-value" id="rx-approved-count">0</div>
+                    <div class="rx-stat-label">Approved Today</div>
+                </div>
+                <div class="rx-stat-box" style="background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);">
+                    <div class="rx-stat-value" id="rx-rejected-count">0</div>
+                    <div class="rx-stat-label">Rejected Today</div>
+                </div>
+                <div class="rx-stat-box" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                    <div class="rx-stat-value" id="rx-compliance-percent">0%</div>
+                    <div class="rx-stat-label">Compliance Rate</div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="tab-button active" onclick="filterRxOrders('pending')">
+                    <i class="fa-solid fa-hourglass-start"></i> Pending Verification
+                </button>
+                <button class="tab-button" onclick="filterRxOrders('approved')">
+                    <i class="fa-solid fa-check-circle"></i> Approved Orders
+                </button>
+                <button class="tab-button" onclick="filterRxOrders('rejected')">
+                    <i class="fa-solid fa-circle-xmark"></i> Rejected Orders
+                </button>
+            </div>
+
+            <!-- Rx Orders Container -->
+            <div id="rx-orders-container">
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fa-solid fa-inbox"></i></div>
+                    <div class="empty-state-text">Loading prescription orders...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ४. নোটিফিকেশন সেকশন -->
+        <section id="notifications-section" class="dashboard-section tab-content-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-bell"></i> Send Notifications</h2>
+                <p>Send updates, alerts, or personal messages directly to devices.</p>
+            </div>
+
+            <div class="card">
+                <div class="form-group">
+                    <label for="notif-target">Notification Target</label>
+                    <select id="notif-target" onchange="toggleIndividualInput()">
+                        <option value="all">Broadcast to All Users</option>
+                        <option value="individual">Specific Single User</option>
+                    </select>
+                </div>
+                <div class="form-group" id="user-id-group" style="display: none;">
+                    <label for="user-id">Enter User Phone / ID</label>
+                    <input type="text" id="user-id" placeholder="e.g., +91 9876543210">
+                </div>
+                <div class="form-group">
+                    <label for="notif-title">Notification Title</label>
+                    <input type="text" id="notif-title" placeholder="e.g., Order Delayed or New Store Nearby!">
+                </div>
+                <div class="form-group">
+                    <label for="notif-message">Message Body</label>
+                    <textarea id="notif-message" rows="4" placeholder="Type your dynamic alert message here..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="sendNotification()"><i class="fa-solid fa-paper-plane"></i> Dispatch Notification</button>
+            </div>
+        </section>
+
+        <!-- ৫. ALL ORDERS (NEW) -->
+        <section id="all-orders-section" class="dashboard-section tab-content-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-list"></i> All Orders</h2>
+                <p>View and manage all orders across the platform in real-time.</p>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                <select id="order-status-filter" onchange="filterAllOrders()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px;">
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Picked Up">Picked Up</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+                <input type="text" id="order-search" placeholder="Search by Order ID, Customer..." oninput="filterAllOrders()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px; flex:1; min-width:200px;">
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Payment</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-orders-table">
+                        <tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Loading orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ৬. ALL USERS (NEW) -->
+        <section id="users-list-section" class="dashboard-section tab-content-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-users"></i> All Registered Users</h2>
+                <p>View all user profiles registered on the platform.</p>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <input type="text" id="user-search" placeholder="Search by name, email..." oninput="filterUsers()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px; width:100%; max-width:400px;">
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Address</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table">
+                        <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="adminuser.js"></script>
+</body>
+</html>
