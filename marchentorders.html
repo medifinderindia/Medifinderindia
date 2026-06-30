@@ -1,23 +1,23 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="MediFinder - Medical Delivery Order Management">
     <title>MediFinder - Orders</title>
-    <script>if('caches' in window){caches.keys().then(n=>n.forEach(n=>caches.delete(n)));}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
-    <script src="prod-utils.js?v=4" onerror="console.warn('prod-utils.js not found, skipping')"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{
@@ -26,7 +26,7 @@
             --primary-light:#ff4757;
             --dark:#1a1a2e;
             --dark2:#16213e;
-            --dark3:#0f3460;
+            --dark3:#e02020;
             --bg:#f5f5f5;
             --card:#ffffff;
             --text:#1a1a2e;
@@ -46,10 +46,10 @@
             --radius-lg:16px;
         }
         html{scroll-behavior:smooth}
-        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;overflow-x:hidden}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
         
         /* Header */
-        .header{position:fixed;top:0;left:0;right:0;z-index:1000;  background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(224,32,32,0.2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+        .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(26,26,46,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(224,32,32,0.2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
         .header-left{display:flex;align-items:center;gap:12px}
         .back-btn{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
         .back-btn:hover{background:rgba(224,32,32,0.3)}
@@ -185,7 +185,7 @@
         .modal-overlay.active{display:flex}
         .modal{background:var(--card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;animation:slideUp .3s ease}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1}
+        .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:sticky;top:0;background:var(--card);z-index:1}
         .modal-header h3{font-size:16px;font-weight:700;flex:1}
         .modal-close{width:32px;height:32px;border-radius:8px;border:none;background:#f3f4f6;color:var(--text);cursor:pointer;font-size:14px}
         .modal-body{padding:20px}
@@ -268,8 +268,8 @@
         .empty-state p{font-size:14px;color:var(--text-light);max-width:300px;margin:0 auto}
         
         /* Bottom Nav */
-        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(26,26,46,0.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.1);display:flex;z-index:1000;padding:6px 0 env(safe-area-inset-bottom,8px)}
-        .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;color:rgba(255,255,255,0.5);text-decoration:none;font-size:10px;font-weight:600;transition:all .2s;position:relative}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,0.08);display:flex;z-index:1000;padding:6px 0 env(safe-area-inset-bottom,8px)}
+        .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;color:rgba(0,0,0,0.4);text-decoration:none;font-size:10px;font-weight:600;transition:all .2s;position:relative}
         .nav-item i{font-size:20px}
         .nav-item.active{color:var(--primary)}
         .nav-item.add-btn{position:relative}
@@ -331,7 +331,7 @@
             </div>
         </div>
         <div class="header-right">
-            <button class="notif-btn" onclick="showToast('No new notifications','info')">
+            <button class="notif-btn" onclick="showMerchantNotifications()">
                 <i class="fas fa-bell"></i>
                 <span class="notif-badge" id="notifBadge">0</span>
             </button>
@@ -357,7 +357,7 @@
                 <i class="fas fa-shopping-bag"></i> Orders
             </a>
             <div class="sidebar-divider"></div>
-            <a class="sidebar-item" href="marchentadd.html">
+            <a class="sidebar-item" href="marchentinventory.html">
                 <i class="fas fa-boxes-stacked"></i> Inventory
             </a>
             <a class="sidebar-item" href="marchentreturns.html">
@@ -573,7 +573,7 @@
             <div class="add-icon"><i class="fas fa-plus"></i></div>
             <span>ADD</span>
         </a>
-        <a class="nav-item" href="marchentadd.html">
+        <a class="nav-item" href="marchentinventory.html">
             <i class="fas fa-boxes-stacked"></i>
             <span>INVENTORY</span>
         </a>
@@ -584,29 +584,15 @@
     </nav>
 
     <script>
-        // ===== HIDE LOADING (defined first so always available) =====
-        function hideLoading() {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) {
-                overlay.style.opacity = '0';
-                overlay.style.transition = 'opacity 0.3s';
-                setTimeout(() => overlay.remove(), 300);
-            }
-        }
-
-        // ===== SUPABASE INIT =====
-        const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+        // ===== SUPABASE INIT (URL & key from supabase-constants.js) =====
         let supabase = null;
         try {
             if (window.supabase && window.supabase.createClient) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
             } else {
-                console.error('Supabase SDK not loaded');
                 hideLoading();
             }
         } catch(e) {
-            console.error('Supabase init error:', e);
             hideLoading();
         }
 
@@ -629,31 +615,24 @@
             setTimeout(safeHideLoading, 8000);
             try {
                 await new Promise(r => setTimeout(r, 300));
-                if (!supabase) { console.error('No supabase client'); safeHideLoading(); return; }
+                if (!supabase) { safeHideLoading(); return; }
                 const { data: { session }, error: sessErr } = await supabase.auth.getSession();
-                if (sessErr) { console.error('Session error:', sessErr); safeHideLoading(); return; }
-                if (!session) { console.warn('No session, redirecting'); window.location.replace('index.html'); return; }
-                console.log('Session OK, user:', session.user?.email);
+                if (sessErr) { safeHideLoading(); return; }
+                if (!session) { window.location.replace('index.html'); return; }
 
                 const stored = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
                 merchantId = stored ? parseInt(stored) : null;
                 if (!merchantId || isNaN(merchantId)) {
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
-                        console.log('Looking up merchant for user:', user.id, user.email);
                         const { data: merchant, error: mErr } = await supabase.from('merchants').select('id').or(`auth_user_id.eq.${user.id},email.eq.${user.email}`).limit(1).maybeSingle();
-                        if (mErr) console.error('Merchant lookup error:', mErr);
                         if (merchant) {
                             merchantId = parseInt(merchant.id);
                             localStorage.setItem('merchantId', String(merchantId));
-                        } else {
-                            console.warn('No merchant record found for this user');
                         }
                     }
                 }
-                console.log('Merchant ID:', merchantId);
                 if (!merchantId || isNaN(merchantId)) {
-                    console.error('Cannot find merchant ID — showing empty state');
                     allOrders = [];
                     updateStats();
                     applyFilters();
@@ -664,7 +643,6 @@
                 setupRealtime();
                 safeHideLoading();
             } catch (err) {
-                console.error('Init error:', err);
                 safeHideLoading();
             }
         });
@@ -673,13 +651,11 @@
         async function loadOrders() {
             try {
                 showTableSkeleton(true);
-                if (!supabase) { console.error('No supabase client in loadOrders'); showTableSkeleton(false); return; }
+                if (!supabase) { showTableSkeleton(false); return; }
                 if (!merchantId || isNaN(merchantId)) {
-                    console.warn('No merchantId, attempting lookup...');
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
                         const { data: m, error: mErr } = await supabase.from('merchants').select('id').or(`auth_user_id.eq.${user.id},email.eq.${user.email}`).limit(1).maybeSingle();
-                        if (mErr) console.error('Merchant lookup error:', mErr);
                         if (m) {
                             merchantId = parseInt(m.id);
                             localStorage.setItem('merchantId', String(merchantId));
@@ -687,14 +663,12 @@
                     }
                 }
                 if (!merchantId || isNaN(merchantId)) {
-                    console.error('Could not find merchant ID');
                     allOrders = [];
                     updateStats();
                     applyFilters();
                     showTableSkeleton(false);
                     return;
                 }
-                console.log('Fetching orders for merchant:', merchantId);
                 let query = supabase
                     .from('orders')
                     .select('*')
@@ -703,11 +677,9 @@
 
                 const { data, error } = await query;
                 if (error) {
-                    console.error('Orders query error:', error);
                     throw error;
                 }
 
-                console.log('Orders loaded:', data?.length || 0);
                 allOrders = data || [];
 
                 // Fetch order_items for all orders in bulk
@@ -730,7 +702,6 @@
                 applyFilters();
                 showTableSkeleton(false);
             } catch (err) {
-                console.error('Load orders error:', err);
                 showTableSkeleton(false);
                 showToast('Failed to load orders', 'error');
             }
@@ -1056,23 +1027,34 @@
         // ===== BULK ACTIONS =====
         async function bulkAction(status) {
             if (selectedOrders.size === 0) return;
-            if (!confirm(`Are you sure you want to ${status === 'cancelled' ? 'reject' : status} ${selectedOrders.size} order(s)?`)) return;
+            showConfirmationModal(`Are you sure you want to ${status === 'cancelled' ? 'reject' : status} ${selectedOrders.size} order(s)?`, async () => {
+                try {
+                    const { error } = await supabase
+                        .from('orders')
+                        .update({ status, updated_at: new Date().toISOString() })
+                        .in('id', Array.from(selectedOrders));
 
-            try {
-                const { error } = await supabase
-                    .from('orders')
-                    .update({ status, updated_at: new Date().toISOString() })
-                    .in('id', Array.from(selectedOrders));
+                    if (error) throw error;
 
-                if (error) throw error;
-                showToast(`${selectedOrders.size} order(s) updated to ${status}`, 'success');
-                selectedOrders.clear();
-                updateSelectedCount();
-                await loadOrders();
-            } catch (err) {
-                console.error('Bulk action error:', err);
-                showToast('Failed to update orders', 'error');
-            }
+                    try {
+                        await supabase.from('merchant_notifications').insert([{
+                            merchant_id: merchantId,
+                            title: `Bulk ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                            message: `${selectedOrders.size} order(s) marked as ${status}.`,
+                            type: status === 'cancelled' ? 'warning' : 'info',
+                            category: 'order',
+                            is_read: false
+                        }]);
+                    } catch(e) { /* error */ }
+
+                    showToast(`${selectedOrders.size} order(s) updated to ${status}`, 'success');
+                    selectedOrders.clear();
+                    updateSelectedCount();
+                    await loadOrders();
+                } catch (err) {
+                    showToast('Failed to update orders', 'error');
+                }
+            });
         }
 
         // ===== ORDER ACTIONS =====
@@ -1088,43 +1070,112 @@
 
                 if (error) throw error;
 
-                // Deduct stock
-                if (order.order_items) {
-                    for (const item of order.order_items) {
-                        if (item.product_id) {
-                            await supabase.rpc('deduct_stock', {
-                                p_product_id: item.product_id,
-                                p_quantity: item.quantity || 1
-                            }).catch(() => {});
+                if (order.items_text) {
+                    const items = order.items_text.split(',').map(item => {
+                        const parts = item.split('|');
+                        return { name: (parts[0] || '').trim(), qty: parseInt(parts[1]) || 1 };
+                    });
+                    for (const item of items) {
+                        if (item.name) {
+                            try {
+                                const { data: med } = await supabase.from('medicines')
+                                    .select('id, stock_qty')
+                                    .eq('merchant_id', merchantId)
+                                    .ilike('product_name', item.name)
+                                    .single();
+                                if (med && med.stock_qty >= item.qty) {
+                                    await supabase.from('medicines')
+                                        .update({ stock_qty: med.stock_qty - item.qty })
+                                        .eq('id', med.id);
+                                }
+                            } catch (deductErr) {
+                            }
                         }
                     }
                 }
 
+                try {
+                    await supabase.from('merchant_notifications').insert([{
+                        merchant_id: merchantId,
+                        title: 'Order Accepted',
+                        message: `Order ${order?.order_id || orderId} accepted. Customer: ${order?.customer_name || order?.user_email || 'N/A'}. Items: ${order?.items_text || ''}`,
+                        type: 'success',
+                        category: 'order',
+                        is_read: false
+                    }]);
+                } catch(e) { /* error */ }
+
+                try {
+                    const ridersRes = await supabase.from('riders').select('id').eq('duty_status', 'online');
+                    if (ridersRes.data && ridersRes.data.length > 0) {
+                        const riderNotifs = ridersRes.data.map(r => ({
+                            rider_id: r.id,
+                            title: 'New Delivery Available',
+                            message: `Pickup: ${order?.address || 'Shop Address'} â†’ Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            type: 'info',
+                            broadcast_to: 'all',
+                            target: 'all',
+                            sent_by: 'system',
+                            is_read: false
+                        }));
+                        await supabase.from('rider_notifications').insert(riderNotifs);
+                    }
+                } catch(e) { /* error */ }
+
                 showToast('Order accepted successfully', 'success');
                 await loadOrders();
             } catch (err) {
-                console.error('Accept error:', err);
                 showToast('Failed to accept order', 'error');
             }
         }
 
         function cancelOrder(orderId) {
-            if (!confirm('Are you sure you want to cancel this order?')) return;
-            updateStatus(orderId, 'cancelled');
+            showConfirmationModal('Are you sure you want to cancel this order?', () => updateStatus(orderId, 'cancelled'));
         }
 
         async function updateStatus(orderId, status) {
             try {
+                const order = allOrders.find(o => o.id === orderId);
                 const { error } = await supabase
                     .from('orders')
                     .update({ status, updated_at: new Date().toISOString() })
                     .eq('id', orderId);
 
                 if (error) throw error;
+
+                try {
+                    await supabase.from('merchant_notifications').insert([{
+                        merchant_id: merchantId,
+                        title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                        message: `Order ${order?.order_id || orderId} marked as ${status}.`,
+                        type: status === 'cancelled' ? 'warning' : 'info',
+                        category: 'order',
+                        is_read: false
+                    }]);
+                } catch(e) { /* error */ }
+
+                if (status === 'shipped') {
+                    try {
+                        const ridersRes = await supabase.from('riders').select('id').eq('duty_status', 'online');
+                        if (ridersRes.data && ridersRes.data.length > 0) {
+                            const riderNotifs = ridersRes.data.map(r => ({
+                                rider_id: r.id,
+                                title: 'Order Ready for Pickup',
+                                message: `Pickup from: ${order?.address || 'Shop'} â†’ Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: â‚¹${order?.total_amount || 0}`,
+                                type: 'info',
+                                broadcast_to: 'all',
+                                target: 'all',
+                                sent_by: 'system',
+                                is_read: false
+                            }));
+                            await supabase.from('rider_notifications').insert(riderNotifs);
+                        }
+                    } catch(e) { /* error */ }
+                }
+
                 showToast(`Order marked as ${status}`, 'success');
                 await loadOrders();
             } catch (err) {
-                console.error('Update status error:', err);
                 showToast('Failed to update order', 'error');
             }
         }
@@ -1154,6 +1205,7 @@
         async function confirmReject() {
             if (!rejectOrderId || !selectedRejectReason) return;
             try {
+                const order = allOrders.find(o => o.id === rejectOrderId);
                 const { error } = await supabase
                     .from('orders')
                     .update({
@@ -1165,11 +1217,22 @@
                     .eq('id', rejectOrderId);
 
                 if (error) throw error;
+
+                try {
+                    await supabase.from('merchant_notifications').insert([{
+                        merchant_id: merchantId,
+                        title: 'Order Rejected',
+                        message: `Order ${order?.order_id || rejectOrderId} rejected. Reason: ${selectedRejectReason}. Customer: ${order?.customer_name || order?.user_email || 'N/A'}`,
+                        type: 'warning',
+                        category: 'order',
+                        is_read: false
+                    }]);
+                } catch(e) { /* error */ }
+
                 closeRejectModal();
                 showToast('Order rejected', 'success');
                 await loadOrders();
             } catch (err) {
-                console.error('Reject error:', err);
                 showToast('Failed to reject order', 'error');
             }
         }
@@ -1238,7 +1301,7 @@
                 <div class="modal-section">
                     <div class="modal-section-title">Prescription</div>
                     <div class="rx-badge" style="display:inline-flex;padding:6px 12px;font-size:12px">
-                        <i class="fas fa-prescription"></i> Prescription Required - ${order.prescription_verified ? '✅ Verified' : '⏳ Pending Verification'}
+                        <i class="fas fa-prescription"></i> Prescription Required - ${order.prescription_verified ? 'âœ… Verified' : 'â³ Pending Verification'}
                     </div>
                 </div>` : ''}
 
@@ -1249,7 +1312,7 @@
                             <div class="modal-item-img"><i class="fas fa-pills"></i></div>
                             <div class="modal-item-info">
                                 <div class="modal-item-name">${item.product_name || item.name || 'Medicine'}</div>
-                                <div class="modal-item-detail">Qty: ${item.quantity || 1} × ${formatCurrency(item.unit_price || item.price || 0)}</div>
+                                <div class="modal-item-detail">Qty: ${item.quantity || 1} Ã— ${formatCurrency(item.unit_price || item.price || 0)}</div>
                             </div>
                             <div class="modal-item-price">${formatCurrency((item.quantity || 1) * (item.unit_price || item.price || 0))}</div>
                         </div>
@@ -1423,10 +1486,10 @@
                     <div class="shop-header">
                         <div class="logo">MEDI FINDER</div>
                         <div class="sname">${shopName}</div>
-                        <div class="sinfo">${shopAddr}${shopPhone ? '<br>📞 ' + shopPhone : ''}</div>
+                        <div class="sinfo">${shopAddr}${shopPhone ? '<br>ðŸ“ž ' + shopPhone : ''}</div>
                     </div>
                     <div class="body">
-                        <div class="title">📋 <span>DELIVERY RECEIPT</span></div>
+                        <div class="title">ðŸ“‹ <span>DELIVERY RECEIPT</span></div>
                         <div class="info"><span class="lbl">Order</span><span class="val">#${id}</span></div>
                         <div class="info"><span class="lbl">Date</span><span class="val">${formatDate(order.created_at)}</span></div>
                         <div class="info"><span class="lbl">Payment</span><span class="val">${paymentMethod} [${paymentStatus}]</span></div>
@@ -1434,7 +1497,7 @@
                         <div class="info"><span class="lbl">Transit</span><span class="val">${order.transit_mode || 'Bike'}</span></div>
                         <div class="section">
                             <div class="sec-title">DELIVER TO</div>
-                            <div class="addr"><b>${customerName}</b>📞 ${customerPhone}<br>📍 ${customerAddr}</div>
+                            <div class="addr"><b>${customerName}</b>ðŸ“ž ${customerPhone}<br>ðŸ“ ${customerAddr}</div>
                         </div>
                         <div class="section">
                             <div class="sec-title">ORDER ITEMS</div>
@@ -1454,12 +1517,12 @@
                         </div>
                         ${secureCode ? `
                         <div class="secure-box">
-                            <div>🔒 Delivery Secure Code</div>
+                            <div>ðŸ”’ Delivery Secure Code</div>
                             <div class="code">${secureCode}</div>
                         </div>` : ''}
                     </div>
                     <div class="footer">
-                        <b>MEDI FINDER</b><br>Your Trusted Medical Delivery Partner<br>💊 Thank you for your order!<br>${shopName ? '📦 ' + shopName : ''}
+                        <b>MEDI FINDER</b><br>Your Trusted Medical Delivery Partner<br>ðŸ’Š Thank you for your order!<br>${shopName ? 'ðŸ“¦ ' + shopName : ''}
                     </div>
                 </div>
                 <script>window.onload=function(){window.print();window.close()}<\/script>
@@ -1510,27 +1573,36 @@
             }
         }
 
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.3s';
+                setTimeout(() => overlay.remove(), 300);
+            }
+        }
+
         // ===== REALTIME =====
         function setupRealtime() {
             try {
+                const filterStr = merchantId ? `merchant_id=eq.${merchantId}` : undefined;
                 subscription = supabase
                     .channel('orders-changes')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                        console.log('Realtime update:', payload.eventType);
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: filterStr }, (payload) => {
                         loadOrders();
                     })
                     .subscribe();
             } catch (err) {
-                console.error('Realtime setup error:', err);
             }
         }
 
         // ===== LOGOUT =====
         function handleLogout() {
-            if (!confirm('Are you sure you want to logout?')) return;
-            localStorage.clear();
-            if (subscription) supabase.removeChannel(subscription);
-            window.location.href = 'index.html';
+            showConfirmationModal('Are you sure you want to logout?', () => {
+                localStorage.clear();
+                if (subscription) supabase.removeChannel(subscription);
+                window.location.href = 'index.html';
+            });
         }
 
         // ===== CLOSE MODALS ON OVERLAY CLICK =====

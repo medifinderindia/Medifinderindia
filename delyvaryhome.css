@@ -12,11 +12,11 @@
     --border-color: #f1f2f6;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
 
 body { background: var(--light-bg); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
 
-.app-container { width: 100%; max-width: 1200px; min-height: 100vh; padding-bottom: 80px; background: var(--light-bg); display: flex; flex-direction: column; margin: 0 auto; }
+.app-container { width: 100%; max-width: 1200px; min-height: 100vh; padding-bottom: 100px; background: var(--light-bg); display: flex; flex-direction: column; margin: 0 auto; }
 
 /* --- NAVBAR --- */
 .navbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--card-bg); box-shadow: 0 2px 12px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 150; }

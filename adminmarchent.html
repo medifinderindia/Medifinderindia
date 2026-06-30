@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,13 +11,15 @@
     <meta property="og:description" content="Manage merchants, KYC verification, and payouts">
     <meta property="og:type" content="website">
     <title>MediFinder Admin - Enhanced Merchant Control</title>
-    <link rel="stylesheet" href="adminmarchent.css?v=4">
-    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="stylesheet" href="adminmarchent.css?v=12">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
 
     <style>
         /* Full Page Popups CSS */
@@ -98,7 +100,7 @@
         }
 
         .ledger-stat {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e02020 0%, #b71c1c 100%);
             color: white;
             padding: 15px;
             border-radius: 8px;
@@ -135,6 +137,12 @@
     </style>
 </head>
 <body>
+<script>localStorage.removeItem('admin_auth_in_progress');</script>
+
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.querySelector('.sidebar-overlay').classList.toggle('active');">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('open'); this.classList.remove('active');"></div>
 
     <div class="sidebar">
         <div class="logo-container">
@@ -149,6 +157,7 @@
             <button class="nav-item" onclick="openPopup('ledger-modal')"><i class="fa-solid fa-book"></i> Ledger & Audit</button>
             <button class="nav-item" onclick="openPopup('verification-modal')"><i class="fa-solid fa-id-card"></i> License Verify <span class="badge-count" id="verify-count" style="display:none;">0</span></button>
             <button class="nav-item" onclick="openPopup('notifications-modal')"><i class="fa-solid fa-bullhorn"></i> Merchant Alerts</button>
+            <button class="nav-item" onclick="window.location.href='adminsponsored.html'"><i class="fa-solid fa-star"></i> Sponsored Products</button>
         </nav>
         <div class="sidebar-footer">
             <button class="role-btn user-btn" onclick="location.href='adminuser.html'"><i class="fa-solid fa-user"></i> User View</button>
@@ -194,7 +203,7 @@
                         <tbody id="medicine-approval-table">
                             </tbody>
                     </table>
-                    <div id="medicine-empty-msg" class="no-data-msg">No pending or live medicines found in data streams.</div>
+                    <div id="medicine-empty-msg" class="no-data-msg" style="display:none">No pending or live medicines found in data streams.</div>
                 </div>
             </div>
         </div>
@@ -214,11 +223,11 @@
                     <input type="text" id="edit-med-name" disabled style="background: #f1f5f9; width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:600;">Original MRP (₹)</label>
+                    <label style="display:block; margin-bottom:5px; font-weight:600;">Original MRP (â‚¹)</label>
                     <input type="number" id="edit-med-mrp" oninput="calculateModalDiscount()" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:600;">New Selling Price (₹)</label>
+                    <label style="display:block; margin-bottom:5px; font-weight:600;">New Selling Price (â‚¹)</label>
                     <input type="number" id="edit-med-selling" oninput="calculateModalDiscount()" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
@@ -247,7 +256,7 @@
                         <thead>
                             <tr>
                                 <th>Order & Product ID</th>
-                                <th>Route (Pickup ➔ Drop)</th>
+                                <th>Route (Pickup âž” Drop)</th>
                                 <th>Merchant Price</th>
                                 <th>Payment Details</th>
                                 <th>Action</th>
@@ -256,7 +265,7 @@
                         <tbody id="payouts-table">
                             </tbody>
                     </table>
-                    <div id="payouts-empty-msg" class="no-data-msg">No pending payouts or completed routes found.</div>
+                    <div id="payouts-empty-msg" class="no-data-msg" style="display:none">No pending payouts or completed routes found.</div>
                 </div>
             </div>
         </div>
@@ -279,15 +288,15 @@
                         <div class="ledger-stat-label">Total Transactions</div>
                     </div>
                     <div class="ledger-stat" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
-                        <div class="ledger-stat-value" id="ledger-total-amount">₹0</div>
+                        <div class="ledger-stat-value" id="ledger-total-amount">â‚¹0</div>
                         <div class="ledger-stat-label">Total Settled</div>
                     </div>
                     <div class="ledger-stat" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
-                        <div class="ledger-stat-value" id="ledger-pending-amount">₹0</div>
+                        <div class="ledger-stat-value" id="ledger-pending-amount">â‚¹0</div>
                         <div class="ledger-stat-label">Pending Amount</div>
                     </div>
-                    <div class="ledger-stat" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);">
-                        <div class="ledger-stat-value" id="ledger-avg-settlement">₹0</div>
+                    <div class="ledger-stat" style="background: linear-gradient(135deg, #e02020 0%, #ef5350 100%);">
+                        <div class="ledger-stat-value" id="ledger-avg-settlement">â‚¹0</div>
                         <div class="ledger-stat-label">Avg Settlement</div>
                     </div>
                 </div>
@@ -347,7 +356,7 @@
                 </div>
                 <div id="verification-container">
                     </div>
-                <div id="verification-empty-msg" class="no-data-msg">No merchant records found.</div>
+                <div id="verification-empty-msg" class="no-data-msg" style="display:none">No merchant records found.</div>
             </div>
         </div>
     </div>
@@ -381,12 +390,12 @@
                         <label style="display:block; margin-bottom:5px; font-weight:600;">Notice / Offer Content</label>
                         <textarea id="merchant-notif-message" rows="5" placeholder="Write instructions or offer updates for merchants..." style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; font-family: inherit;"></textarea>
                     </div>
-                    <button class="btn btn-primary" onclick="sendMerchantNotification()" style="background:#2563eb; color:#fff; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; width:100%; font-size:15px;"><i class="fa-solid fa-paper-plane"></i> Dispatch Notice</button>
+                    <button class="btn btn-primary" onclick="sendMerchantNotification()" style="background:#e02020; color:#fff; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; width:100%; font-size:15px;"><i class="fa-solid fa-paper-plane"></i> Dispatch Notice</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="adminmarchent.js"></script>
+    <script src="adminmarchent.js?v=12"></script>
 </body>
 </html>

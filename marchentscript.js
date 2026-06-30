@@ -1086,6 +1086,9 @@ async function initProfilePage() {
     const bankFileNameDisplay = document.getElementById('bankFileNameDisplay');
     const btnSaveBankDetails = document.getElementById('btnSaveBankDetails');
 
+    globalLat = null;
+    globalLon = null;
+
     if (avatarInput) {
         avatarInput.addEventListener('change', async (e) => {
             if (e.target.files && e.target.files[0]) {
@@ -1395,12 +1398,14 @@ async function initProfilePage() {
         });
     }
 
+    await loadCurrentMerchantStatus();
 }
 
 // ==========================================
 // 🔐 六. GLOBAL FEATURES & LANGUAGE SWITCHER
 // ==========================================
 function initGlobalFeatures() {
+    const logoutBtn = document.getElementById('logoutActionBtn');
     const langSelect = document.getElementById('langSelect');
     const btnApplyLanguage = document.querySelector("#langModal .popup-submit-btn");
 
@@ -1419,6 +1424,15 @@ function initGlobalFeatures() {
         };
     }
 
+    if (logoutBtn) {
+        logoutBtn.replaceWith(logoutBtn.cloneNode(true));
+        const activeLogoutBtn = document.getElementById('logoutActionBtn');
+        activeLogoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.handleTerminalLogout(e);
+        });
+    }
 }
 
 function applyFullWebLanguage(lang) {
@@ -1428,10 +1442,10 @@ function applyFullWebLanguage(lang) {
         storeSetupDesc: document.querySelector('.settings-glass-card:nth-child(1) .section-desc'),
         licenseTitle: document.querySelector('.settings-glass-card:nth-child(2) h3'),
         licenseDesc: document.querySelector('.settings-glass-card:nth-child(2) .section-desc'),
-        geoTitle: document.querySelector('.settings-glass-card:nth-child(4) h3'),
-        geoDesc: document.querySelector('.settings-glass-card:nth-child(4) .section-desc'),
-        helpTitle: document.querySelector('.settings-glass-card:nth-child(5) h3'),
-        helpDesc: document.querySelector('.settings-glass-card:nth-child(5) .section-desc')
+        geoTitle: document.querySelector('.settings-glass-card:nth-child(3) h3'),
+        geoDesc: document.querySelector('.settings-glass-card:nth-child(3) .section-desc'),
+        helpTitle: document.querySelector('.settings-glass-card:nth-child(4) h3'),
+        helpDesc: document.querySelector('.settings-glass-card:nth-child(4) .section-desc')
     };
 
     if (lang === 'bn') {

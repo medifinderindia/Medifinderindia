@@ -15,8 +15,6 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="stylesheet" href="usercart.css?v=4">
-    <!-- Add this line to usercart.html <head> section -->
-<link rel="stylesheet" href="ANIMATION_STYLES.css?v=1">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <!-- Razorpay Standard Checkout SDK -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
@@ -143,11 +141,11 @@
                 <h3>Bill Summary</h3>
                 <div class="price-row"><span>Medicine Subtotal:</span><span id="bill-subtotal">₹0.00</span></div>
                 <div class="price-row text-green"><span>Coupon Discount:</span><span id="bill-discount">-₹0.00</span></div>
-                <div class="price-row"><span>Shipping Charges:</span><span id="bill-shipping">₹10.00</span></div>
+                <div class="price-row"><span>Shipping Charges:</span><span id="bill-shipping">₹20.00</span></div>
                 <div class="price-row"><span>Delivery Fees:</span><span id="bill-delivery">₹15.00</span></div>
                 <div class="price-row"><span>Secure Platform Fee:</span><span id="bill-platform">₹5.00</span></div>
-                <div class="price-row"><span>Order Processing Charge:</span><span id="bill-order-charge">₹.00</span></div>
-                <div class="price-row" id="cod-fee-row"><span>Cash On Delivery Handling Fee:</span><span id="bill-cod">₹.00</span></div>
+                <div class="price-row"><span>Order Processing Charge:</span><span id="bill-order-charge">₹10.00</span></div>
+                <div class="price-row" id="cod-fee-row"><span>Cash On Delivery Handling Fee:</span><span id="bill-cod">₹10.00</span></div>
                 <hr class="summary-divider">
                 <div class="price-row total-row"><span>Grand Estimated Total:</span><span id="bill-grand-total">₹0.00</span></div>
             </div>
@@ -158,39 +156,12 @@
 
     <div id="success-animation-modal" class="modal-overlay-view">
         <div class="modal-content success-box">
-            <div class="success-logo-badge">
-                <div class="success-logo-ring"></div>
-                <img src="favicon.png" alt="MediFinder">
-                <div class="success-check-mark"><i class="fa-solid fa-check"></i></div>
-            </div>
-
-            <h2 class="success-heading">Order Placed Successfully!</h2>
-            <p>Your secure medicine box has been handed over to our delivery agent for immediate transit handling.</p>
-
-            <div class="success-track-line">
-                <div class="success-track-step done">
-                    <div class="track-dot"><i class="fa-solid fa-check"></i></div>
-                    <span>Placed</span>
-                </div>
-                <div class="success-track-bar"></div>
-                <div class="success-track-step" id="track-step-packed">
-                    <div class="track-dot"><i class="fa-solid fa-box"></i></div>
-                    <span>Packed</span>
-                </div>
-                <div class="success-track-bar"></div>
-                <div class="success-track-step" id="track-step-transit">
-                    <div class="track-dot"><i class="fa-solid fa-truck"></i></div>
-                    <span>Out for Delivery</span>
-                </div>
-            </div>
-
             <div class="truck-animation-wrapper">
                 <i class="fa-solid fa-truck-moving animation-truck"></i>
                 <div class="road-line"></div>
             </div>
-
-            <div id="success-order-details"></div>
-
+            <h2>Order Dispatched Successfully!</h2>
+            <p>Your secure medicine box has been handed over to our delivery agent for immediate transit handling.</p>
             <button id="go-to-orders-after-success">Track Live Delivery Shipment</button>
         </div>
     </div>
@@ -211,11 +182,11 @@
                 <span></span>
             </div>
         </div>
-        <div class="nav-item" onclick="window.location.href='userorder.html'">
+        <div class="nav-item active" onclick="window.location.href='userorder.html'">
             <i class="fas fa-clipboard-list"></i>
             <span>ORDER</span>
         </div>
-        <div class="nav-item active" onclick="window.location.href='usercart.html'">
+        <div class="nav-item" onclick="window.location.href='usercart.html'">
             <i class="fas fa-shopping-cart"></i>
             <span>CART</span>
         </div>

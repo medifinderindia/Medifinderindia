@@ -1,8 +1,7 @@
-// ==========================================
+﻿// ==========================================
 // 1. Supabase Initialization & Core Setups
+// URL & key loaded from supabase-constants.js
 // ==========================================
-const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
 let supabaseClient = null;
 
 // ডেটা স্ট্রিম ভেরিয়েবলসমূহ
@@ -10,10 +9,11 @@ let pendingMedicines = [];
 let pendingPayouts = [];
 let onboardingMerchants = [];
 let merchantLedger = [];
+let currentKycFilter = 'all';
 
 // Supabase ক্লায়েন্ট ইনিশিয়ালাইজেশন
 if (typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     document.addEventListener("DOMContentLoaded", () => {
         updateDbStatus(true, "Connected to Supabase production network.");
         initializeAllDataStreams();
@@ -102,16 +102,21 @@ function initRealtimeMerchantStreams() {
 // ==========================================
 // 3. Medicine Approval Gateway Logic
 // ==========================================
+function esc(str) { return String(str || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 async function loadMedicineApprovals() {
     if (!supabaseClient) return;
-    
-    const { data, error } = await supabaseClient
-        .from('medicines')
-        .select('*')
-        .order('created_at', { ascending: false });
+    try {
+        const { data, error } = await supabaseClient
+            .from('medicines')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        pendingMedicines = data || [];
+        renderMedicinesTable();
+    } catch (e) {
 
-    if (!error && data) {
-        pendingMedicines = data;
+        pendingMedicines = [];
         renderMedicinesTable();
     }
 }
@@ -132,30 +137,32 @@ function renderMedicinesTable() {
 
     pendingMedicines.forEach((med) => {
         let discountPercent = 0;
-        if (med.mrp && med.selling_price && med.mrp > med.selling_price) {
-            discountPercent = Math.round(((med.mrp - med.selling_price) / med.mrp) * 100);
+        const medMrp = med.mrp || med.unit_price || 0;
+        const medPrice = med.selling_price || med.unit_price || 0;
+        if (medMrp && medPrice && medMrp > medPrice) {
+            discountPercent = Math.round(((medMrp - medPrice) / medMrp) * 100);
         }
 
         let statusBadgeClass = "status-hidden";
-        if (med.status === 'Approved' || med.status === 'Active') statusBadgeClass = "status-active";
+        if (med.is_rx) statusBadgeClass = "status-active";
 
         tableBody.innerHTML += `
             <tr>
                 <td>
-                    <div style="font-weight: 600; color: #1e293b;">${med.name}</div>
-                    <div style="font-size: 12px; color: #64748b;">ID: ${med.id} | Vol: ${med.dosage || 'N/A'}</div>
+                    <div style="font-weight: 600; color: #1e293b;">${med.product_name || med.name || 'Unnamed'}</div>
+                    <div style="font-size: 12px; color: #64748b;">ID: ${String(med.id).slice(0,8)} | ${med.dosage_form || med.category || 'N/A'}</div>
                 </td>
-                <td><span style="font-weight:500; color:#475569;">${med.shop_id || 'Unknown Shop'}</span></td>
-                <td>₹${med.mrp}</td>
-                <td><strong>₹${med.selling_price}</strong></td>
+                <td><span style="font-weight:500; color:#475569;">${med.merchant_id || 'N/A'}</span></td>
+                <td>₹${medMrp}</td>
+                <td><strong>₹${medPrice}</strong></td>
                 <td><span style="color:#10b981; font-weight:bold;">${discountPercent}% Off</span></td>
-                <td><span class="status-badge ${statusBadgeClass}">${med.status || 'Pending'}</span></td>
+                <td><span class="status-badge ${statusBadgeClass}">${med.is_rx ? 'Prescription' : 'OTC'}</span></td>
                 <td>
                     <div style="display:flex; gap:6px;">
-                        <button class="refund-btn" style="background:#10b981; padding: 6px 10px; font-size:13px;" onclick="approveMedicine('${med.id}')">
+                        <button class="refund-btn" style="background:#10b981; padding: 6px 10px; font-size:13px;" onclick="approveMedicine('${esc(med.id)}')">
                             <i class="fa-solid fa-check"></i> Approve
                         </button>
-                        <button class="refund-btn" style="background:#2563eb; padding: 6px 10px; font-size:13px;" onclick="openEditModal('${med.id}', '${med.name}', ${med.mrp}, ${med.selling_price})">
+                        <button class="refund-btn" style="background:#e02020; padding: 6px 10px; font-size:13px;" onclick="openEditModal('${esc(med.id)}', '${esc(med.product_name || med.name || '')}', ${medMrp}, ${medPrice})">
                             <i class="fa-solid fa-pen"></i> Edit
                         </button>
                     </div>
@@ -173,79 +180,85 @@ async function approveMedicine(id) {
         .eq('id', id);
 
     if (!error) {
-        alert("Medicine status set to 'Approved' live on app.");
+        showToast("Medicine status set to 'Approved' live on app.", "success");
         loadMedicineApprovals();
     } else {
-        alert("Error approving product: " + error.message);
+        showToast("Error approving product: " + error.message, "error");
     }
 }
 
 // এডিট মডাল কন্ট্রোল
 function openEditModal(id, name, mrp, selling) {
-    document.getElementById('edit-med-id').value = id;
-    document.getElementById('edit-med-name').value = name;
-    document.getElementById('edit-med-mrp').value = mrp;
-    document.getElementById('edit-med-selling').value = selling;
+    const editIdEl = document.getElementById('edit-med-id');
+    const editNameEl = document.getElementById('edit-med-name');
+    const editMrpEl = document.getElementById('edit-med-mrp');
+    const editSellingEl = document.getElementById('edit-med-selling');
+    if (editIdEl) editIdEl.value = id;
+    if (editNameEl) editNameEl.value = name;
+    if (editMrpEl) editMrpEl.value = mrp;
+    if (editSellingEl) editSellingEl.value = selling;
     calculateModalDiscount();
     openPopup('edit-modal');
 }
 
 function calculateModalDiscount() {
-    const mrp = parseFloat(document.getElementById('edit-med-mrp').value) || 0;
-    const selling = parseFloat(document.getElementById('edit-med-selling').value) || 0;
+    const mrpEl = document.getElementById('edit-med-mrp');
+    const sellingEl = document.getElementById('edit-med-selling');
+    const mrp = mrpEl ? parseFloat(mrpEl.value) || 0 : 0;
+    const selling = sellingEl ? parseFloat(sellingEl.value) || 0 : 0;
     const discountInput = document.getElementById('edit-med-discount');
     
-    if (mrp && selling && mrp > selling) {
-        const pct = Math.round(((mrp - selling) / mrp) * 100);
-        discountInput.value = `${pct}% Off calculated`;
-    } else {
-        discountInput.value = `0% / Invalid Price`;
+    if (discountInput) {
+        if (mrp && selling && mrp > selling) {
+            const pct = Math.round(((mrp - selling) / mrp) * 100);
+            discountInput.value = `${pct}% Off calculated`;
+        } else {
+            discountInput.value = `0% / Invalid Price`;
+        }
     }
 }
 
 async function saveModalEdits() {
     if (!supabaseClient) return;
-    const id = document.getElementById('edit-med-id').value;
-    const mrp = parseFloat(document.getElementById('edit-med-mrp').value);
-    const selling = parseFloat(document.getElementById('edit-med-selling').value);
+    const id = document.getElementById('edit-med-id')?.value;
+    if (!id) { showToast('No medicine selected for editing', "error"); return; }
+    const mrp = parseFloat(document.getElementById('edit-med-mrp')?.value || 0);
+    const selling = parseFloat(document.getElementById('edit-med-selling')?.value || 0);
 
     if (!mrp || !selling) {
-        alert('Please fill in valid prices');
+        showToast('Please fill in valid prices', "error");
         return;
     }
 
-    const { error } = await supabaseClient
-        .from('medicines')
-        .update({ mrp: mrp, selling_price: selling })
-        .eq('id', id);
-
-    if (!error) {
-        alert("Medicine prices updated successfully!");
+    try {
+        const { error } = await supabaseClient
+            .from('medicines')
+            .update({ mrp: mrp, selling_price: selling, unit_price: selling })
+            .eq('id', id);
+        if (error) throw error;
+        showToast("Medicine prices updated successfully!", "success");
         loadMedicineApprovals();
         closePopup('edit-modal');
-    } else {
-        alert("Error updating medicine: " + error.message);
+    } catch (e) {
+        showToast("Error updating medicine: " + e.message, "error");
     }
 }
 
 async function removeMedicineByModal() {
     if (!supabaseClient) return;
-    const id = document.getElementById('edit-med-id').value;
-    const confirm_remove = confirm("Permanently remove this medicine?");
-    if (!confirm_remove) return;
-
-    const { error } = await supabaseClient
-        .from('medicines')
-        .delete()
-        .eq('id', id);
-
-    if (!error) {
-        alert("Medicine removed from system.");
-        loadMedicineApprovals();
-        closePopup('edit-modal');
-    } else {
-        alert("Error removing medicine: " + error.message);
-    }
+    const id = document.getElementById('edit-med-id')?.value;
+    if (!id) { showToast('No medicine selected', "error"); return; }
+    showConfirmationModal("Permanently remove this medicine?", async () => {
+        try {
+            const { error } = await supabaseClient.from('medicines').delete().eq('id', id);
+            if (error) throw error;
+            showToast("Medicine removed from system.", "info");
+            loadMedicineApprovals();
+            closePopup('edit-modal');
+        } catch (e) {
+            showToast("Error removing medicine: " + e.message, "error");
+        }
+    });
 }
 
 // ==========================================
@@ -253,15 +266,18 @@ async function removeMedicineByModal() {
 // ==========================================
 async function loadMerchantPayouts() {
     if (!supabaseClient) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('merchant_payouts')
+            .select('*')
+            .neq('status', 'Settled')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        pendingPayouts = data || [];
+        renderPayoutsTable();
+    } catch (e) {
 
-    const { data, error } = await supabaseClient
-        .from('merchant_payouts')
-        .select('*')
-        .neq('status', 'Settled')
-        .order('created_at', { ascending: false });
-
-    if (!error && data) {
-        pendingPayouts = data;
+        pendingPayouts = [];
         renderPayoutsTable();
     }
 }
@@ -281,23 +297,24 @@ function renderPayoutsTable() {
     tableBody.innerHTML = "";
 
     pendingPayouts.forEach((payout, idx) => {
+        const payAmount = payout.amount || 0;
         tableBody.innerHTML += `
             <tr>
                 <td>
                     <div style="font-weight:600;">Order #${payout.order_id || 'N/A'}</div>
-                    <div style="font-size:12px; color:#64748b;">Merchant ID: ${payout.shop_id || 'Unknown'}</div>
+                    <div style="font-size:12px; color:#64748b;">Merchant ID: ${payout.merchant_id || payout.shop_id || 'Unknown'}</div>
                 </td>
                 <td>
-                    <div style="font-size:13px; font-weight:500;"><i class="fa-solid fa-shop" style="color:#2563eb;"></i> ${payout.pickup_address || 'Merchant Shop'}</div>
-                    <div style="font-size:13px; color:#64748b;"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> ${payout.drop_address || 'User Location'}</div>
+                    <div style="font-size:13px; font-weight:500;"><i class="fa-solid fa-shop" style="color:#e02020;"></i> Merchant Shop</div>
+                    <div style="font-size:13px; color:#64748b;"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> Delivery Location</div>
                 </td>
-                <td><span style="color:#0f172a; font-weight:700; font-size:16px;">₹${payout.amount}</span></td>
+                <td><span style="color:#0f172a; font-weight:700; font-size:16px;">₹${payAmount}</span></td>
                 <td>
                     <div style="font-weight:600; color:#059669;">${payout.payment_mode || 'Online Transfer'}</div>
-                    <div style="font-size:11px; color:#94a3b8;">Triggered: ${payout.created_at ? new Date(payout.created_at).toLocaleDateString() : 'Just Now'}</div>
+                    <div style="font-size:11px; color:#94a3b8;">Triggered: ${payout.settled_at ? new Date(payout.settled_at).toLocaleDateString() : 'Just Now'}</div>
                 </td>
                 <td>
-                    <button class="refund-btn" style="background:#059669;" onclick="clearMerchantPayout(${idx}, '${payout.id}', '${payout.amount}')">
+                    <button class="refund-btn" style="background:#059669;" onclick="clearMerchantPayout(${idx}, '${esc(payout.id)}', '${esc(payAmount)}')">
                         <i class="fa-solid fa-money-check-dollar"></i> Dispatch Bank Payout
                     </button>
                 </td>
@@ -307,24 +324,39 @@ function renderPayoutsTable() {
 }
 
 async function clearMerchantPayout(index, id, amount) {
-    const verification = prompt(`Type "RELEASE" to dispatch instant credit payment of ₹${amount} directly to merchant account:`);
+    const verification = await new Promise(resolve => {
+        const m = document.createElement('div');
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Dispatch Payment</h3>
+            <input type="text" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Type RELEASE to confirm">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.querySelector('#_pi').focus();
+        m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    });
     if (verification !== "RELEASE") {
-        alert("Financial transaction aborted safely.");
+        showToast("Financial transaction aborted safely.", "info");
         return;
     }
 
     if (supabaseClient) {
         const { error } = await supabaseClient
             .from('merchant_payouts')
-            .update({ status: 'Settled', settled_at: new Date().toISOString() })
+            .update({ status: 'Settled' })
             .eq('id', id);
 
         if (!error) {
-            alert("Success! High-speed reversal bank settlement accomplished.");
+            showToast("Success! High-speed reversal bank settlement accomplished.", "success");
             loadMerchantPayouts();
             loadMerchantLedger();
         } else {
-            alert("Payout processing network failure: " + error.message);
+            showToast("Payout processing network failure: " + error.message, "error");
         }
     }
 }
@@ -340,7 +372,7 @@ async function loadMerchantLedger() {
             .from('payout_history')
             .select('*')
             .eq('type', 'Merchant')
-            .order('created_at', { ascending: false });
+        ;
 
         if (!error && data) {
             merchantLedger = data;
@@ -348,7 +380,7 @@ async function loadMerchantLedger() {
             updateLedgerStats();
         }
     } catch (err) {
-        console.error("Ledger load error:", err);
+
     }
 }
 
@@ -390,16 +422,20 @@ function updateLedgerStats() {
     let pendingAmount = totalAmount - completedAmount;
     let avgSettlement = totalTrans > 0 ? Math.floor(totalAmount / totalTrans) : 0;
 
-    document.getElementById('ledger-total-trans').textContent = totalTrans;
-    document.getElementById('ledger-total-amount').textContent = '₹' + totalAmount.toLocaleString('en-IN');
-    document.getElementById('ledger-pending-amount').textContent = '₹' + pendingAmount.toLocaleString('en-IN');
-    document.getElementById('ledger-avg-settlement').textContent = '₹' + avgSettlement.toLocaleString('en-IN');
+    const ledgerTotalTrans = document.getElementById('ledger-total-trans');
+    const ledgerTotalAmount = document.getElementById('ledger-total-amount');
+    const ledgerPendingAmount = document.getElementById('ledger-pending-amount');
+    const ledgerAvgSettlement = document.getElementById('ledger-avg-settlement');
+    if (ledgerTotalTrans) ledgerTotalTrans.textContent = totalTrans;
+    if (ledgerTotalAmount) ledgerTotalAmount.textContent = '₹' + totalAmount.toLocaleString('en-IN');
+    if (ledgerPendingAmount) ledgerPendingAmount.textContent = '₹' + pendingAmount.toLocaleString('en-IN');
+    if (ledgerAvgSettlement) ledgerAvgSettlement.textContent = '₹' + avgSettlement.toLocaleString('en-IN');
 }
 
 function filterLedger() {
-    const dateFrom = document.getElementById('ledger-date-from').value;
-    const dateTo = document.getElementById('ledger-date-to').value;
-    const status = document.getElementById('ledger-status-filter').value;
+    const dateFrom = document.getElementById('ledger-date-from')?.value || '';
+    const dateTo = document.getElementById('ledger-date-to')?.value || '';
+    const status = document.getElementById('ledger-status-filter')?.value || '';
 
     let filtered = merchantLedger;
 
@@ -423,6 +459,7 @@ function filterLedger() {
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 30px;">No records match your filters.</td></tr>`;
+        renderFilteredStats(filtered);
         return;
     }
 
@@ -444,11 +481,28 @@ function filterLedger() {
             </tr>
         `;
     });
+    renderFilteredStats(filtered);
+}
+
+function renderFilteredStats(filtered) {
+    const totalTrans = filtered.length;
+    const totalAmount = filtered.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const completedAmount = filtered.filter(p => p.status === 'Completed').reduce((sum, item) => sum + (item.amount || 0), 0);
+    const pendingAmount = totalAmount - completedAmount;
+    const avgSettlement = totalTrans > 0 ? Math.floor(totalAmount / totalTrans) : 0;
+    const el1 = document.getElementById('ledger-total-trans');
+    const el2 = document.getElementById('ledger-total-amount');
+    const el3 = document.getElementById('ledger-pending-amount');
+    const el4 = document.getElementById('ledger-avg-settlement');
+    if (el1) el1.textContent = totalTrans;
+    if (el2) el2.textContent = '₹' + totalAmount.toLocaleString('en-IN');
+    if (el3) el3.textContent = '₹' + pendingAmount.toLocaleString('en-IN');
+    if (el4) el4.textContent = '₹' + avgSettlement.toLocaleString('en-IN');
 }
 
 function exportLedgerMerchant() {
     if (merchantLedger.length === 0) {
-        alert('No data to export');
+        showToast('No data to export', "info");
         return;
     }
 
@@ -472,24 +526,27 @@ function exportLedgerMerchant() {
 // ==========================================
 async function loadMerchantVerification() {
     if (!supabaseClient) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('merchant_kyc')
+            .select(`
+                id, 
+                license_img, 
+                license_no, 
+                verified, 
+                rejection_reason,
+                verified_at,
+                rejected_at,
+                created_at,
+                merchants(id, shop_name, merchant_name, phone, email, license_status)
+            `)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        onboardingMerchants = data || [];
+        renderVerificationCards();
+    } catch (e) {
 
-    const { data, error } = await supabaseClient
-        .from('merchant_kyc')
-        .select(`
-            id, 
-            license_img, 
-            license_no, 
-            verified, 
-            rejection_reason,
-            verified_at,
-            rejected_at,
-            created_at,
-            merchants(id, shop_name, owner_name, phone, address, email, license_status)
-        `)
-        .order('created_at', { ascending: false });
-
-    if (!error && data) {
-        onboardingMerchants = data;
+        onboardingMerchants = [];
         renderVerificationCards();
     }
 }
@@ -544,13 +601,13 @@ function renderVerificationCards() {
         } else if (isRejected) {
             statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${kyc.id}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
             </div>`;
         } else {
             statusBadge = '<span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-clock"></i> Pending</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
-                <button style="background:#ef4444; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="rejectKyc('${kyc.id}', '${kyc.merchants?.id || ''}')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${kyc.id}')"><i class="fa-solid fa-certificate"></i> Approve</button>
+                <button style="background:#ef4444; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="rejectKyc('${esc(kyc.id)}', '${esc(kyc.merchants?.id || '')}')"><i class="fa-solid fa-xmark"></i> Reject</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Approve</button>
             </div>`;
         }
 
@@ -561,7 +618,7 @@ function renderVerificationCards() {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
                     <div>
                         <h3 style="color:#0f172a; font-size:18px; margin:0 0 4px 0;">${kyc.merchants?.shop_name || 'Unnamed Pharmacy Store'}</h3>
-                        <p style="color:#64748b; font-size:14px; margin:2px 0;"><i class="fa-solid fa-user"></i> Owner: ${kyc.merchants?.owner_name || 'N/A'}</p>
+                        <p style="color:#64748b; font-size:14px; margin:2px 0;"><i class="fa-solid fa-user"></i> Owner: ${kyc.merchants?.merchant_name || 'N/A'}</p>
                         <p style="color:#64748b; font-size:14px; margin:2px 0;"><i class="fa-solid fa-phone"></i> ${kyc.merchants?.phone || 'N/A'}</p>
                         <p style="color:#64748b; font-size:14px; margin:2px 0;"><i class="fa-solid fa-envelope"></i> ${kyc.merchants?.email || 'N/A'}</p>
                     </div>
@@ -570,9 +627,9 @@ function renderVerificationCards() {
                         <div style="font-size:12px; font-weight:bold; color:#1e293b; margin-top:6px;">License: ${kyc.license_no || 'REG-PENDING'}</div>
                     </div>
                 </div>
-                <div style="background:#f8fafc; padding:12px; border-radius:6px; font-size:13px; color:#475569; margin-bottom:15px; border-left:3px solid #2563eb;">
+                <div style="background:#f8fafc; padding:12px; border-radius:6px; font-size:13px; color:#475569; margin-bottom:15px; border-left:3px solid #e02020;">
                     <strong>Drug License Proof:</strong> <br>
-                    <a href="${kyc.license_img || '#'}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;"><i class="fa-solid fa-file-pdf"></i> View Document</a>
+                    <a href="${kyc.license_img || '#'}" target="_blank" style="color:#e02020; text-decoration:underline; font-weight:600;"><i class="fa-solid fa-file-pdf"></i> View Document</a>
                 </div>
                 ${isRejected ? `<div style="background:#fef2f2; padding:10px; border-radius:6px; font-size:13px; color:#dc2626; margin-bottom:10px; border-left:3px solid #ef4444;"><strong>Rejection Reason:</strong> ${kyc.rejection_reason}</div>` : ''}
                 ${isVerified && kyc.verified_at ? `<div style="font-size:12px; color:#64748b;">Verified on: ${new Date(kyc.verified_at).toLocaleDateString('en-IN')}</div>` : ''}
@@ -584,39 +641,51 @@ function renderVerificationCards() {
 
 async function approveKyc(id) {
     if (!supabaseClient) return;
-    const check = confirm(`Approve this merchant's license and verify account?`);
-    if (!check) return;
+    showConfirmationModal(`Approve this merchant's license and verify account?`, async () => {
 
-    const { error } = await supabaseClient
-        .from('merchant_kyc')
-        .update({ verified: true, verified_at: new Date().toISOString() })
-        .eq('id', id);
+        const { data: kycRec, error: kycErr } = await supabaseClient
+            .from('merchant_kyc')
+            .update({ verified: true, verified_at: new Date().toISOString() })
+            .eq('id', id)
+            .select('merchant_id')
+            .single();
 
-    if (error) {
-        alert("Error: " + error.message);
-        return;
-    }
+        if (kycErr) {
+            showToast("Error: " + kycErr.message, "error");
+            return;
+        }
 
-    const { data: kycData } = await supabaseClient
-        .from('merchant_kyc')
-        .select('merchant_id')
-        .eq('id', id)
-        .single();
+        if (kycRec && kycRec.merchant_id) {
+            const { error: merErr } = await supabaseClient
+                .from('merchants')
+                .update({ license_status: 'Verified' })
+                .eq('id', kycRec.merchant_id);
+            if (merErr) { /* merchants update failed */ }
+        }
 
-    if (kycData && kycData.merchant_id) {
-        await supabaseClient
-            .from('merchants')
-            .update({ license_status: 'Verified', updated_at: new Date().toISOString() })
-            .eq('id', kycData.merchant_id);
-    }
-
-    alert("Merchant KYC approved successfully. Account is now verified.");
-    loadMerchantVerification();
+        showToast("Merchant KYC approved successfully. Account is now verified.", "success");
+        loadMerchantVerification();
+    });
 }
 
 async function rejectKyc(id, merchantId) {
     if (!supabaseClient) return;
-    const reason = prompt("Enter rejection reason (visible to merchant):");
+    const reason = await new Promise(resolve => {
+        const m = document.createElement('div');
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">KYC Rejection Reason</h3>
+            <input type="text" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter rejection reason (visible to merchant)">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.querySelector('#_pi').focus();
+        m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    });
     if (!reason) return;
 
     const { error } = await supabaseClient
@@ -625,22 +694,22 @@ async function rejectKyc(id, merchantId) {
         .eq('id', id);
 
     if (error) {
-        alert("Error: " + error.message);
+        showToast("Error: " + error.message, "error");
         return;
     }
 
     if (merchantId) {
-        await supabaseClient
+        const { error: merErr } = await supabaseClient
             .from('merchants')
-            .update({ license_status: 'Rejected', updated_at: new Date().toISOString() })
+            .update({ license_status: 'Rejected' })
             .eq('id', merchantId);
+        if (merErr) { /* merchants update failed */ }
     }
 
-    alert("Merchant KYC rejected. Merchant has been notified.");
+    showToast("Merchant KYC rejected. Merchant has been notified.", "info");
     loadMerchantVerification();
 }
 
-let currentKycFilter = 'all';
 function filterKyc(filter) {
     currentKycFilter = filter;
     document.querySelectorAll('.kyc-filter-btn').forEach(btn => {
@@ -659,7 +728,8 @@ function filterKyc(filter) {
 // 7. Merchant Alerts & Broadcast Logic
 // ==========================================
 function toggleMerchantInput() {
-    const target = document.getElementById('merchant-notif-target').value;
+    const targetEl = document.getElementById('merchant-notif-target');
+    const target = targetEl ? targetEl.value : '';
     const group = document.getElementById('merchant-id-group');
     if (group) {
         group.style.display = (target === 'individual') ? 'block' : 'none';
@@ -667,38 +737,60 @@ function toggleMerchantInput() {
 }
 
 async function sendMerchantNotification() {
-    const target = document.getElementById('merchant-notif-target').value;
-    const shopId = document.getElementById('merchant-target-id').value.trim();
-    const title = document.getElementById('merchant-notif-title').value.trim();
-    const message = document.getElementById('merchant-notif-message').value.trim();
+    const targetEl = document.getElementById('merchant-notif-target');
+    const shopIdEl = document.getElementById('merchant-target-id');
+    const titleEl = document.getElementById('merchant-notif-title');
+    const messageEl = document.getElementById('merchant-notif-message');
+
+    const target = targetEl ? targetEl.value : '';
+    const shopId = shopIdEl ? shopIdEl.value.trim() : '';
+    const title = titleEl ? titleEl.value.trim() : '';
+    const message = messageEl ? messageEl.value.trim() : '';
 
     if (!title || !message) {
-        alert("Alert notification headers and system message body cannot be blank!");
+        showToast("Alert notification headers and system message body cannot be blank!", "error");
         return;
     }
 
     if (target === 'individual' && !shopId) {
-        alert("Please map a target unique Merchant Shop ID!");
+        showToast("Please map a target unique Merchant Shop ID!", "error");
         return;
     }
 
     if (supabaseClient) {
-        const { error } = await supabaseClient.from('merchant_alerts').insert({
-            target_audience: target,
-            shop_id: target === 'individual' ? shopId : null,
+        let resolvedMerchantId = null;
+        if (target === 'individual' && shopId) {
+            try {
+                const { data: shopMerchant } = await supabaseClient.from('merchants').select('id').eq('shop_name', shopId).maybeSingle();
+                if (shopMerchant) {
+                    resolvedMerchantId = shopMerchant.id;
+                } else {
+                    const { data: byId } = await supabaseClient.from('merchants').select('id').eq('id', parseInt(shopId)).maybeSingle();
+                    if (byId) resolvedMerchantId = byId.id;
+                }
+            } catch (e) { /* resolve failed */ }
+        }
+
+        const insertData = {
+            merchant_id: resolvedMerchantId,
             title: title,
             message: message,
+            type: 'info',
+            category: 'admin',
+            is_read: false,
             created_at: new Date().toISOString()
-        });
+        };
+
+        const { error } = await supabaseClient.from('merchant_notifications').insert(insertData);
 
         if (!error) {
-            alert("Broadcast alert system pipeline successfully deployed!");
-            document.getElementById('merchant-notif-title').value = "";
-            document.getElementById('merchant-notif-message').value = "";
-            document.getElementById('merchant-target-id').value = "";
+            showToast("Broadcast alert system pipeline successfully deployed!", "success");
+            if (titleEl) titleEl.value = "";
+            if (messageEl) messageEl.value = "";
+            if (shopIdEl) shopIdEl.value = "";
             closePopup('notifications-modal');
         } else {
-            alert("Failed to broadcast alert message: " + error.message);
+            showToast("Failed to broadcast alert message: " + error.message, "error");
         }
     }
 }

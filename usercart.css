@@ -1,7 +1,7 @@
 :root {
     --primary-color: #e02020;
     --primary-light: #ff4747;
-    --accent-color: #130101;
+    --accent-color: #b71c1c;
     --bg-color: #f4f6f9;
     --card-bg: #ffffff;
     --text-color: #2f3542;
@@ -24,7 +24,7 @@
 
 body {
     margin: 0;
-    padding-bottom: 100px;
+    padding: 0;
     font-family: var(--font-stack);
     background-color: var(--bg-color);
     color: var(--text-color);
@@ -240,8 +240,8 @@ body {
 }
 .pay-option.active-option {
     border-color: var(--primary-color);
-    background: linear-gradient(135deg, #fff8f8 0%, #ffffff 100%);
-    box-shadow: 0 4px 14px rgba(224, 32, 32, 0.12);
+    background: #ffffff;
+    box-shadow: var(--shadow-sm);
 }
 .option-header-row {
     display: flex;
@@ -391,152 +391,46 @@ body {
 .success-box {
     background: var(--card-bg);
     border-radius: 24px;
-    padding: 28px 24px;
+    padding: 24px;
     text-align: center;
     width: 100%;
     max-width: 400px;
-    box-shadow: 0 20px 50px rgba(224, 32, 32, 0.18);
-    animation: successBoxPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    box-shadow: var(--shadow-md);
 }
-
-/* Centered logo badge with pulsing ring + check mark overlay */
-.success-logo-badge {
-    position: relative;
-    width: 88px;
-    height: 88px;
-    margin: 0 auto 14px auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.success-logo-ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(46,213,115,0.18) 0%, rgba(46,213,115,0) 70%);
-    animation: ringPulse 1.8s ease-out infinite;
-}
-.success-logo-badge img {
-    position: relative;
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    padding: 8px;
-    animation: logoPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
-}
-.success-check-mark {
-    position: absolute;
-    bottom: -4px;
-    right: -4px;
-    width: 28px;
-    height: 28px;
-    background: var(--green-success);
-    color: #fff;
-    border: 3px solid var(--card-bg);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    box-shadow: 0 4px 10px rgba(46,213,115,0.4);
-    animation: checkPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
-}
-
-.success-heading {
-    font-size: 1.25rem;
-    font-weight: 800;
+.success-box h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
     color: var(--text-color);
-    margin: 4px 0 6px 0;
-    opacity: 0;
-    animation: textRise 0.45s ease 0.35s forwards;
+    margin: 12px 0 6px 0;
 }
 .success-box p {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
-    line-height: 1.5;
-    margin-bottom: 18px;
-    opacity: 0;
-    animation: textRise 0.45s ease 0.45s forwards;
+    line-height: 1.4;
+    margin-bottom: 20px;
 }
-
-/* Order progress tracking line */
-.success-track-line {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 14px;
-    opacity: 0;
-    animation: textRise 0.45s ease 0.55s forwards;
-}
-.success-track-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-}
-.success-track-step span {
-    font-size: 0.62rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-.success-track-step.done span { color: var(--green-success); }
-.track-dot {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: #f1f2f6;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-}
-.success-track-step.done .track-dot {
-    background: var(--green-success);
-    color: #fff;
-}
-.success-track-bar {
-    flex: 1;
-    height: 2px;
-    background: #e4e7eb;
-    margin: 0 4px;
-    margin-bottom: 14px;
-    min-width: 16px;
-}
-
 #go-to-orders-after-success {
     width: 100%;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    background: var(--primary-color);
     color: white;
     border: none;
-    padding: 13px;
+    padding: 12px;
     border-radius: 12px;
-    font-weight: 700;
-    font-size: 0.88rem;
+    font-weight: 600;
+    font-size: 0.85rem;
     cursor: pointer;
-    box-shadow: 0 6px 16px rgba(224, 32, 32, 0.3);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-#go-to-orders-after-success:active {
-    transform: translateY(1px) scale(0.98);
-    box-shadow: 0 3px 10px rgba(224, 32, 32, 0.3);
 }
 
 /* Dispatch Animation Frame Track Line Setup */
 .truck-animation-wrapper {
     position: relative;
     width: 100%;
-    height: 56px;
+    height: 60px;
     overflow: hidden;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 .animation-truck {
-    font-size: 2.2rem;
+    font-size: 2.5rem;
     color: var(--primary-color);
     position: absolute;
     left: -50px;
@@ -546,11 +440,9 @@ body {
 .road-line {
     width: 100%;
     height: 3px;
-    background: linear-gradient(90deg, #dfe4ea 50%, transparent 50%);
-    background-size: 16px 100%;
+    background: #dfe4ea;
     position: absolute;
     bottom: 2px;
-    animation: roadMove 0.8s linear infinite;
 }
 @keyframes driveThrough {
     0% { left: -50px; }
@@ -558,54 +450,6 @@ body {
     50% { left: 45%; transform: scale(1.08); }
     55% { left: 48%; transform: scale(1); }
     100% { left: 100%; }
-}
-@keyframes roadMove {
-    0% { background-position: 0 0; }
-    100% { background-position: 16px 0; }
-}
-@keyframes successBoxPop {
-    from { opacity: 0; transform: scale(0.85) translateY(10px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes logoPop {
-    from { opacity: 0; transform: scale(0.4); }
-    to { opacity: 1; transform: scale(1); }
-}
-@keyframes checkPop {
-    from { opacity: 0; transform: scale(0); }
-    to { opacity: 1; transform: scale(1); }
-}
-@keyframes ringPulse {
-    0% { transform: scale(0.7); opacity: 1; }
-    100% { transform: scale(1.6); opacity: 0; }
-}
-@keyframes textRise {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Order details card inside success modal */
-#success-order-details {
-    margin-top: 4px;
-    margin-bottom: 18px;
-    background: #f8f9fa;
-    padding: 14px 16px;
-    border-radius: 10px;
-    border-left: 4px solid var(--primary-color);
-    text-align: left;
-    opacity: 0;
-    animation: textRise 0.45s ease 0.6s forwards;
-}
-#success-order-details p {
-    margin: 6px 0 !important;
-    font-size: 0.78rem !important;
-    color: #333 !important;
-    opacity: 1 !important;
-    animation: none !important;
-}
-#success-order-details strong {
-    color: var(--primary-color);
-    font-weight: 700;
 }
 
 /* Navigation System Bottom Menu Bar Dock layout rules */
@@ -715,64 +559,3 @@ body {
 .hamburger-menu-divider { height: 1px; background: #f1f2f6; margin: 4px 20px; }
 .logout-item i { color: var(--red-alert) !important; }
 .logout-item span { color: var(--red-alert) !important; }
-
-
-
-/* Toast notification styles */
-.toast {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    padding: 14px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 9999;
-    font-size: 14px;
-    font-weight: 500;
-    animation: toastSlideIn 0.3s ease forwards;
-}
-
-.toast-success {
-    background: #f0fdf4;
-    color: #10b981;
-    border: 1px solid #d1fae5;
-}
-
-.toast-error {
-    background: #fef2f2;
-    color: #ef4444;
-    border: 1px solid #fee2e2;
-}
-
-.toast-info {
-    background: #eff6ff;
-    color: #2563eb;
-    border: 1px solid #dbeafe;
-}
-
-@keyframes toastSlideIn {
-    from {
-        transform: translateX(-50%) translateY(100px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-    }
-}
-
-@keyframes toastSlideOut {
-    from {
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(-50%) translateY(100px);
-        opacity: 0;
-    }
-}

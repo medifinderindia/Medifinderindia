@@ -1,9 +1,19 @@
-// Supabase Configuration
-const SUPABASE_URL = "https://rnpbglinkpsikeszcjcl.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+﻿// Supabase Configuration (URL & key loaded from supabase-constants.js)
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let otpInterval;
+
+function formatPhoneToE164(phone) {
+    let formatted = phone.trim();
+    if (!formatted.startsWith('+')) {
+        if (formatted.startsWith('0')) {
+            formatted = '+91' + formatted.slice(1);
+        } else if (formatted.length === 10) {
+            formatted = '+91' + formatted;
+        }
+    }
+    return formatted;
+}
 
 // ==========================================
 // ডায়নামিক রোল পলিসি লিংক চেঞ্জার লজিক
@@ -38,7 +48,7 @@ function checkPolicyAgreement() {
         if(currentRole === 'merchant') roleName = "Merchant Policy";
         if(currentRole === 'delivery') roleName = "Delivery Partner Policy";
         
-        alert(`Failed: Please read and approve the ${roleName}, Terms & Conditions to proceed.`);
+        showToast(`Failed: Please read and approve the ${roleName}, Terms & Conditions to proceed.`, "error");
         return false;
     }
     return true;
@@ -57,12 +67,27 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         await handleOAuthUserRoleUpdate(session.user);
 
         if (event === "PASSWORD_RECOVERY") {
-            const newPassword = prompt("Enter your new secure password:");
+            const newPassword = await new Promise(resolve => {
+                const m = document.createElement('div');
+                m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+                m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+                    <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">New Password</h3>
+                    <input type="password" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter your new secure password">
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                        <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+                    </div>
+                </div>`;
+                document.body.appendChild(m);
+                m.querySelector('#_pi').focus();
+                m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+                m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+            });
             if (newPassword) {
                 supabaseClient.auth.updateUser({ password: newPassword }).then(({ error }) => {
-                    if (error) alert("Error updating password: " + error.message);
+                    if (error) showToast("Error updating password: " + error.message, "error");
                     else {
-                        alert("Password updated successfully! Please log in.");
+                        showToast("Password updated successfully! Please log in.", "success");
                         supabaseClient.auth.signOut();
                         window.location.href = "index.html";
                     }
@@ -107,7 +132,10 @@ async function handleOAuthUserRoleUpdate(user) {
     try {
         _lastRoleUpdated = savedRole;
         await supabaseClient.auth.updateUser({ data: { role: savedRole } });
-    } catch(e) { console.warn('Role update skipped:', e.message); }
+    } catch(e) { 
+
+        _lastRoleUpdated = '';
+    }
     _roleUpdateInProgress = false;
 }
 
@@ -121,7 +149,7 @@ async function redirectUserBasedOnRole(user) {
         return;
     }
 
-    let role = localStorage.getItem('selected_role') || user.user_metadata?.role || 'user';
+    let role = user.user_metadata?.role || localStorage.getItem('selected_role') || 'user';
 
     if (role === 'merchant') {
         localStorage.setItem('merchantSessionActive', 'true');
@@ -152,7 +180,7 @@ if (signupForm) {
         const role = document.querySelector('input[name="signup-role"]:checked').value;
 
         if (password !== confirmPassword) {
-            alert("Signup Failed: Passwords do not match! Please check your typing.");
+            showToast("Signup Failed: Passwords do not match! Please check your typing.", "error");
             return;
         }
 
@@ -161,7 +189,7 @@ if (signupForm) {
         // ✅ Admin email দিয়ে signup block করো
         const BLOCKED_ADMIN_EMAIL = "medifinderindia@gmail.com";
         if (email === BLOCKED_ADMIN_EMAIL) {
-            alert("Signup Failed: This email is not allowed for registration.");
+            showToast("Signup Failed: This email is not allowed for registration.", "error");
             return;
         }
 
@@ -174,29 +202,46 @@ if (signupForm) {
         });
 
         if (error) {
-            alert("Signup Failed! Reason: " + error.message);
+            showToast("Signup Failed! Reason: " + error.message, "error");
         } else {
             // ডাটাবেস ইনসার্ট লজিক এখানে শুরু হবে
-            if (role === 'merchant') {
-                const { error: dbError } = await supabaseClient
-                    .from('merchants')
-                    .insert([
-                        { 
+            if (data && data.user) {
+                try {
+                    await supabaseClient.from('profiles').upsert({
+                        id: data.user.id,
+                        email: email,
+                        phone: phone || '',
+                        full_name: name,
+                        role: role,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id', ignoreDuplicates: false });
+                } catch(e) {}
+
+                if (role === 'merchant') {
+                    const { error: dbError } = await supabaseClient
+                        .from('merchants')
+                        .insert([{ 
                             auth_user_id: data.user.id,
                             email: email,
                             merchant_name: name
-                        }
-                    ]);
-                
-                if (dbError) {
-                    console.error("Database Insert Error:", dbError);
-                } else {
-                    console.log("Merchant record created successfully!");
+                        }]);
+                    if (dbError) {}
+                }
+                if (role === 'delivery') {
+                    try {
+                        await supabaseClient.from('riders').upsert({
+                            auth_user_id: data.user.id,
+                            name: name || 'New Rider',
+                            phone: phone || '',
+                            status: 'offline'
+                        }, { onConflict: 'auth_user_id' });
+                    } catch(e) {}
                 }
             }
             // ডাটাবেস ইনসার্ট লজিক শেষ
             
-            alert("Signup Successful!");
+            showToast("Signup Successful!", "success");
         }
     });
 }
@@ -239,7 +284,7 @@ if (sendSignupOtpBtn) {
         const role = document.querySelector('input[name="signup-role"]:checked').value;
 
         if (!phone || !name) {
-            alert("Signup Failed: Please enter Name and Phone number first!");
+            showToast("Signup Failed: Please enter Name and Phone number first!", "error");
             return;
         }
 
@@ -253,9 +298,9 @@ if (sendSignupOtpBtn) {
         });
 
         if (error) {
-            alert("OTP Send Failed! Reason: " + error.message);
+            showToast("OTP Send Failed! Reason: " + error.message, "error");
         } else {
-            alert("OTP Sent Successfully!");
+            showToast("OTP Sent Successfully!", "success");
             document.getElementById('signup-otp-wrapper').classList.remove('hidden-section');
             startOTPTimer();
         }
@@ -270,9 +315,9 @@ if (resendOtpLink) {
         
         const { error } = await supabaseClient.auth.signInWithOtp({ phone: phone });
         if (error) {
-            alert("Resend OTP Failed! Reason: " + error.message);
+            showToast("Resend OTP Failed! Reason: " + error.message, "error");
         } else {
-            alert("A new OTP has been sent successfully!");
+            showToast("A new OTP has been sent successfully!", "success");
             startOTPTimer();
         }
     });
@@ -287,19 +332,12 @@ if (verifySignupOtpBtn) {
         const role = document.querySelector('input[name="signup-role"]:checked')?.value || 'user';
 
         if (!token || token.length < 4) {
-            alert("Please enter a valid OTP code!");
+            showToast("Please enter a valid OTP code!", "error");
             return;
         }
 
         // Format phone
-        let formattedPhone = phone.trim();
-        if (!formattedPhone.startsWith('+')) {
-            if (formattedPhone.startsWith('0')) {
-                formattedPhone = '+91' + formattedPhone.slice(1);
-            } else if (formattedPhone.length === 10) {
-                formattedPhone = '+91' + formattedPhone;
-            }
-        }
+        let formattedPhone = formatPhoneToE164(phone);
 
         verifySignupOtpBtn.disabled = true;
         verifySignupOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
@@ -311,7 +349,7 @@ if (verifySignupOtpBtn) {
         });
 
         if (error) {
-            alert("OTP Verification Failed! Reason: " + error.message);
+            showToast("OTP Verification Failed! Reason: " + error.message, "error");
             verifySignupOtpBtn.disabled = false;
             verifySignupOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify & Signup';
         } else {
@@ -356,7 +394,7 @@ if (verifySignupOtpBtn) {
                     }
                 }
             } catch (profileErr) {
-                console.error('Profile save error:', profileErr);
+
             }
 
             localStorage.setItem('selected_role', role);
@@ -391,7 +429,7 @@ if (loginForm) {
         const role = roleChecked ? roleChecked.value : 'user';
 
         if (email === "medifinderindia@gmail.com") {
-            alert("Login Failed: Admin access is restricted. Use the Admin Panel.");
+            showToast("Login Failed: Admin access is restricted. Use the Admin Panel.", "error");
             return;
         }
 
@@ -409,7 +447,7 @@ if (loginForm) {
         });
 
         if (error) {
-            alert("Login Failed! Reason: " + error.message);
+            showToast("Login Failed! Reason: " + error.message, "error");
             if (loginBtn) {
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
@@ -422,6 +460,7 @@ if (loginForm) {
                     await supabaseClient.from('profiles').upsert({
                         id: user.id,
                         email: user.email || email,
+                        phone: user.phone || '',
                         role: role,
                         updated_at: new Date().toISOString()
                     }, { onConflict: 'id', ignoreDuplicates: false });
@@ -445,7 +484,7 @@ if (loginForm) {
                         }, { onConflict: 'auth_user_id' });
                     }
                 }
-            } catch(e) { console.error('Profile update error:', e); }
+            } catch(e) {}
 
             // Redirect based on role
             if (role === 'merchant') {
@@ -480,7 +519,7 @@ if (sendResetLinkBtn) {
     sendResetLinkBtn.addEventListener('click', async () => {
         const email = document.getElementById('reset-email').value;
         if (!email) {
-            alert("Reset Failed: Please provide an email address.");
+            showToast("Reset Failed: Please provide an email address.", "error");
             return;
         }
 
@@ -488,9 +527,9 @@ if (sendResetLinkBtn) {
             redirectTo: window.location.origin + window.location.pathname
         });
 
-        if (error) alert("Reset Link Error: " + error.message);
+        if (error) showToast("Reset Link Error: " + error.message, "error");
         else {
-            alert("Password reset link sent to your email successfully!");
+            showToast("Password reset link sent to your email successfully!", "success");
             forgotModal.style.display = 'none';
         }
     });
@@ -503,25 +542,18 @@ if (sendOtpBtn) {
         
         const roleChecked = document.querySelector('input[name="login-role"]:checked');
         if (!roleChecked) {
-            alert("Login Failed: Please select a role first!");
+            showToast("Login Failed: Please select a role first!", "error");
             return;
         }
         localStorage.setItem('selected_role', roleChecked.value);
 
         if (!phone) {
-            alert("Login Failed: Please enter Phone number!");
+            showToast("Login Failed: Please enter Phone number!", "error");
             return;
         }
 
         // Format phone to E.164 if not already
-        let formattedPhone = phone.trim();
-        if (!formattedPhone.startsWith('+')) {
-            if (formattedPhone.startsWith('0')) {
-                formattedPhone = '+91' + formattedPhone.slice(1);
-            } else if (formattedPhone.length === 10) {
-                formattedPhone = '+91' + formattedPhone;
-            }
-        }
+        let formattedPhone = formatPhoneToE164(phone);
 
         sendOtpBtn.disabled = true;
         sendOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
@@ -529,7 +561,7 @@ if (sendOtpBtn) {
         const { data, error } = await supabaseClient.auth.signInWithOtp({ phone: formattedPhone });
 
         if (error) {
-            alert("Error sending OTP: " + error.message);
+            showToast("Error sending OTP: " + error.message, "error");
             sendOtpBtn.disabled = false;
             sendOtpBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send OTP';
         } else {
@@ -581,19 +613,12 @@ if (verifyOtpBtn) {
         const role = localStorage.getItem('selected_role') || 'user';
 
         if (!token || token.length < 4) {
-            alert("Please enter a valid OTP code!");
+            showToast("Please enter a valid OTP code!", "error");
             return;
         }
 
         // Format phone
-        let formattedPhone = phone.trim();
-        if (!formattedPhone.startsWith('+')) {
-            if (formattedPhone.startsWith('0')) {
-                formattedPhone = '+91' + formattedPhone.slice(1);
-            } else if (formattedPhone.length === 10) {
-                formattedPhone = '+91' + formattedPhone;
-            }
-        }
+        let formattedPhone = formatPhoneToE164(phone);
 
         verifyOtpBtn.disabled = true;
         verifyOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
@@ -605,7 +630,7 @@ if (verifyOtpBtn) {
         });
 
         if (error) {
-            alert("Verification Failed! Reason: " + error.message);
+            showToast("Verification Failed! Reason: " + error.message, "error");
             verifyOtpBtn.disabled = false;
             verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
         } else {
@@ -647,7 +672,7 @@ if (verifyOtpBtn) {
                     }
                 }
             } catch (profileErr) {
-                console.error('Profile save error:', profileErr);
+
             }
 
             // Store role and redirect
@@ -677,7 +702,7 @@ async function loginWithGoogle(roleValue) {
             redirectTo: window.location.origin + '/index.html'
         }
     });
-    if (error) alert("Google Auth Error: " + error.message);
+    if (error) showToast("Google Auth Error: " + error.message, "error");
 }
 
 const googleBtn = document.getElementById('google-btn');
@@ -686,7 +711,7 @@ if (googleBtn) {
         e.preventDefault();
         const roleChecked = document.querySelector('input[name="login-role"]:checked');
         if (!roleChecked) {
-            alert("Login Failed: Please select a role first!");
+            showToast("Login Failed: Please select a role first!", "error");
             return;
         }
         loginWithGoogle(roleChecked.value);
@@ -699,7 +724,7 @@ if (googleSignupBtn) {
         e.preventDefault();
         const roleChecked = document.querySelector('input[name="signup-role"]:checked');
         if (!roleChecked) {
-            alert("Signup Failed: Please select a role first!");
+            showToast("Signup Failed: Please select a role first!", "error");
             return;
         }
         loginWithGoogle(roleChecked.value);
@@ -720,22 +745,15 @@ if (loginResendOtp) {
         e.preventDefault();
         const phone = document.getElementById('phone-number').value;
         if (!phone) {
-            alert("Please enter your phone number first!");
+            showToast("Please enter your phone number first!", "error");
             return;
         }
 
-        let formattedPhone = phone.trim();
-        if (!formattedPhone.startsWith('+')) {
-            if (formattedPhone.startsWith('0')) {
-                formattedPhone = '+91' + formattedPhone.slice(1);
-            } else if (formattedPhone.length === 10) {
-                formattedPhone = '+91' + formattedPhone;
-            }
-        }
+        let formattedPhone = formatPhoneToE164(phone);
 
         const { error } = await supabaseClient.auth.signInWithOtp({ phone: formattedPhone });
         if (error) {
-            alert("Resend OTP Failed! Reason: " + error.message);
+            showToast("Resend OTP Failed! Reason: " + error.message, "error");
         } else {
             loginResendOtp.style.display = 'none';
             startLoginOTPTimer();
@@ -805,7 +823,7 @@ if (adminBtnStep1) {
         const enteredPassword = document.getElementById('admin-password').value;
 
         if (enteredPassword === ADMIN_SECRET_PASSWORD) {
-            alert("Password Verified! Sending OTP to Admin Email...");
+            showToast("Password Verified! Sending OTP to Admin Email...", "info");
             localStorage.setItem('admin_auth_in_progress', 'true');
             
             const { error } = await supabaseClient.auth.signInWithOtp({
@@ -813,13 +831,13 @@ if (adminBtnStep1) {
             });
 
             if (error) {
-                alert("Admin Verification Step 1 Failed: " + error.message);
+                showToast("Admin Verification Step 1 Failed: " + error.message, "error");
             } else {
                 document.getElementById('admin-step-1').classList.add('hidden-section');
                 document.getElementById('admin-step-2').classList.remove('hidden-section');
             }
         } else {
-            alert("Incorrect Password! Access Denied.");
+            showToast("Incorrect Password! Access Denied.", "error");
             if (adminModal) adminModal.style.display = 'none';
         }
     });
@@ -831,20 +849,20 @@ if (adminBtnStep2) {
         const emailToken = document.getElementById('admin-email-otp').value;
 
         if (!emailToken) {
-            alert("Verification Failed: Please enter the Email OTP!");
+            showToast("Verification Failed: Please enter the Email OTP!", "error");
             return;
         }
 
         const { data, error } = await supabaseClient.auth.verifyOtp({
             email: ADMIN_EMAIL,
             token: emailToken,
-            type: 'magiclink'
+            type: 'email'
         });
 
         if (error) {
-            alert("Email OTP Verification Failed: " + error.message);
+            showToast("Email OTP Verification Failed: " + error.message, "error");
         } else {
-            alert("Email OTP Verified! Now please input the Phone SMS Token code standard.");
+            showToast("Email OTP Verified! Now please input the Phone SMS Token code standard.", "info");
             
             await supabaseClient.auth.signOut(); 
 
@@ -853,7 +871,7 @@ if (adminBtnStep2) {
             });
 
             if (phoneError) {
-                alert("Error sending Phone OTP: " + phoneError.message);
+                showToast("Error sending Phone OTP: " + phoneError.message, "error");
             } else {
                 document.getElementById('admin-step-2').classList.add('hidden-section');
                 document.getElementById('admin-step-3').classList.remove('hidden-section');
@@ -868,7 +886,7 @@ if (adminBtnStep3) {
         const phoneToken = document.getElementById('admin-phone-otp').value;
 
         if (!phoneToken) {
-            alert("Verification Failed: Please enter the Phone OTP!");
+            showToast("Verification Failed: Please enter the Phone OTP!", "error");
             return;
         }
 
@@ -879,10 +897,9 @@ if (adminBtnStep3) {
         });
 
         if (error) {
-            alert("Phone OTP Verification Failed: " + error.message);
+            showToast("Phone OTP Verification Failed: " + error.message, "error");
         } else {
-            alert("💥 3-Step Verification Complete! Welcome Admin.");
-            localStorage.removeItem('admin_auth_in_progress');
+            showToast("3-Step Verification Complete! Welcome Admin.", "success");
             if (adminModal) adminModal.style.display = 'none';
             window.location.href = "adminuser.html";
         }

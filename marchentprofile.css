@@ -1,7 +1,7 @@
 :root {
-    --primary: rgb(214, 11, 11);
-    --accent: #030c16;
-    --primary-light: #1c82aa;
+    --primary: #e02020;
+    --accent: #1a1a2e;
+    --primary-light: #ff4747;
     --surface: #ffffff;
     --bg-main: #f8fafc;
     --border: #e2e8f0;
@@ -15,13 +15,13 @@
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
     letter-spacing: -0.2px; 
 }
 
 body { 
     background: var(--bg-main); 
-    padding-bottom: 90px; /* বটম ন্যাভ যেন কোনো সেটিংসে বাধা না দেয় */
+    padding-bottom: 100px; /* বটম ন্যাভ যেন কোনো সেটিংসে বাধা না দেয় */
     color: var(--text-main); 
     -webkit-tap-highlight-color: transparent;
 }
@@ -30,7 +30,7 @@ body {
 .top-bar { 
     display: flex; 
     align-items: center; 
-      background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);
+    background: var(--surface); 
     padding: 16px 24px; 
     border-bottom: 1px solid var(--border); 
     position: sticky; 
@@ -446,7 +446,7 @@ body {
 .popup-submit-btn {
     width: 100%;
     padding: 14px;
-    background: #2563eb;
+    background: var(--primary);
     color: #ffffff;
     border: none;
     border-radius: 12px;
@@ -463,7 +463,7 @@ body {
 .popup-submit-btn:hover { background: #1d4ed8; }
 .success-btn { background: #16a34a; }
 .success-btn:hover { background: #15803d; }
-.secondary-btn { background: #4f46e5; }
+.secondary-btn { background: var(--accent); }
 .secondary-btn:hover { background: #4338ca; }
 .dark-btn { background: #1f2937; }
 .dark-btn:hover { background: #111827; }

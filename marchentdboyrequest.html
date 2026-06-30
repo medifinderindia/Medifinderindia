@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,13 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#e02020">
     <title>Delivery Requests - Medi Finder</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="marchentdboyrequest.css?v=4">
-    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="stylesheet" href="marchentdboyrequest.css?v=12">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
 </head>
 <body>
     <div class="container">
@@ -36,7 +37,7 @@
                     <div class="form-group">
                         <label>Order ID</label>
                         <div class="order-verify-wrapper">
-                            <input type="text" id="orderIdSelect" placeholder="Enter Order ID (e.g., #ORD-98745)" value="#ORD-98745">
+                            <input type="text" id="orderIdSelect" placeholder="Enter Order ID (e.g., ORD-1001)" value="">
                             <button type="button" class="verify-btn" id="btnVerifyOrder">
                                 <i class="fa-solid fa-shield-check"></i> <span id="verifyText">Verify</span>
                             </button>
@@ -76,21 +77,13 @@
                     <div class="prescription-vault" id="prescriptionVaultSection" style="display: none;">
                         <h4><i class="fa-solid fa-file-medical"></i> Customer Uploaded Prescription</h4>
                         <div class="prescription-wrapper">
-                            <img id="customerRxImage" src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=600" alt="Customer Prescription">
+                            <img id="customerRxImage" src="" alt="Customer Prescription" style="display:none;">
                             <div class="rx-watermark"><i class="fa-solid fa-prescription"></i> Rx Restricted Drug Node</div>
                         </div>
                     </div>
 
                     <div class="ordered-product-preview" id="productPreviewArea" style="display: none;">
                         <h4>Items in this Order</h4>
-                        <div class="item-mini-card">
-                            <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=150&auto=format&fit=crop" alt="Medicine Item" class="item-thumb">
-                            <div class="item-info">
-                                <h5>Paracetamol 650mg <span class="item-qty">x 2 Strips</span></h5>
-                                <p class="item-meta">Generic • Acme Pharmaceuticals</p>
-                                <p class="item-price">Total Cost: <strong>₹41.00</strong></p>
-                            </div>
-                        </div>
 
                         <div class="verification-checkpoint-box" id="rxVerificationBox" style="display: none;">
                             <div class="warning-alert-banner">
@@ -139,10 +132,10 @@
         <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
         <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
         <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
-        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentinventory.html'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
         <div class="nav-item" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
     </nav>
 
-    <script type="module" src="marchentscript.js"></script>
+    <script src="marchentscript.js?v=12"></script>
 </body>
 </html>

@@ -18,13 +18,13 @@
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
 }
 
 body { 
-    background-color: var(--primary); 
+    background-color: var(--bg-light); 
     color: var(--text-main); 
-    padding-bottom: 85px; /* বটম ন্যাভ যেন কনটেন্ট ঢেকে না ফেলে */
+    padding-bottom: 100px; /* বটম ন্যাভ যেন কনটেন্ট ঢেকে না ফেলে */
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -33,7 +33,7 @@ body {
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);; 
+    background: var(--surface-glass); 
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     padding: 14px 20px; 
@@ -45,7 +45,7 @@ body {
 }
 .logo-area { display: flex; align-items: center; gap: 10px; }
 .logo-area img { height: 38px; width: auto; object-fit: contain; }
-.logo-area h1 { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+.logo-area h1 { font-size: 1.25rem; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; }
 .logo-area .highlight { color: #1a1a2e; }
 
 .header-actions { display: flex; gap: 12px; }

@@ -2,8 +2,8 @@
 /* --- CUSTOM CSS VARIABLES & GLOBAL CONFIG ---              */
 /* ========================================================= */
 :root {
-    --primary: #af0707;
-    --primary-light: #460303;
+    --primary: #e02020;
+    --primary-light: #ff4747;
     --primary-gradient: linear-gradient(135deg, #e02020, #ff4747);
     --dark: #1a1a2e;
     --dark-surface: #1a1a2e;
@@ -20,7 +20,7 @@
     margin: 0; 
     padding: 0; 
     box-sizing: border-box; 
-    font-family: 'Inter', sans-serif; 
+    font-family: 'Plus Jakarta Sans', sans-serif; 
 }
 
 body { 
@@ -39,7 +39,7 @@ body {
     width: 100%; 
     max-width: 100%; 
     min-height: 100vh; 
-    padding-bottom: 90px; 
+    padding-bottom: 100px; 
     position: relative; 
     background: var(--light-bg); 
     display: flex;
@@ -89,11 +89,11 @@ body {
 .logo-text { 
     font-size: 1.2rem; 
     font-weight: 800; 
-    color: rgb(122, 6, 6); 
+    color: var(--primary); 
 }
 
 .text-highlight { 
-    color: black; 
+    color: var(--primary); 
 }
 
 /* --- MAIN CONTENT CONTAINER --- */
@@ -106,7 +106,7 @@ body {
 
 /* --- PROFILE AVATAR HEADER CARD --- */
 .profile-card-header {
-    background: linear-gradient(135deg, #290303 0%, #ff4747 100%);
+    background: linear-gradient(135deg, #e02020 0%, #ff4747 100%);
     border-radius: 20px; 
     padding: 24px; 
     display: flex; 
@@ -437,13 +437,15 @@ input[type="text"]:focus, select:focus {
 }
 
 /* ========================================================= */
-/* --- STICKY FIXED NAVIGATION BAR (DESKTOP FIX) ---        */
+/* --- STICKY FIXED NAVIGATION BAR ---        */
 /* ========================================================= */
 .bottom-nav { 
     position: fixed; 
     bottom: 0; 
-    left: 0;
+    left: 50%;
+    transform: translateX(-50%);
     width: 100%; 
+    max-width: 1200px;
     background: var(--card-bg); 
     display: flex; 
     justify-content: space-around; 
@@ -451,14 +453,6 @@ input[type="text"]:focus, select:focus {
     box-shadow: 0 -4px 15px rgba(0,0,0,0.04); 
     z-index: 1000; 
     border-top: 1px solid var(--border-color); 
-}
-
-@media (min-width: 768px) {
-    .bottom-nav {
-        position: absolute; 
-        border-bottom-left-radius: 20px;
-        border-bottom-right-radius: 20px;
-    }
 }
 
 .nav-item { 

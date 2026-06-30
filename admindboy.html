@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,18 +11,21 @@
     <meta property="og:description" content="Manage riders, fleet, payouts, and service zones">
     <meta property="og:type" content="website">
     <title>MediFinder Admin - Enhanced Delivery & Network Control</title>
-    <link rel="stylesheet" href="admindboy.css?v=4">
-    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="stylesheet" href="admindboy.css?v=12">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Leaflet Map Library for Live Fleet Tracking -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <!-- Supabase CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
+    <script>localStorage.removeItem('admin_auth_in_progress');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
 
     <style>
         /* Enhanced Dashboard Analytics Cards */
@@ -35,7 +38,7 @@
         }
 
         .analytics-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e02020 0%, #b71c1c 100%);
             color: white;
             padding: 20px;
             border-radius: 10px;
@@ -49,19 +52,19 @@
         }
 
         .analytics-card.active-riders {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, #b71c1c 0%, #e57373 100%);
         }
 
         .analytics-card.merchants {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #c62828 0%, #ef5350 100%);
         }
 
         .analytics-card.total-orders {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            background: linear-gradient(135deg, #d32f2f 0%, #ff8a65 100%);
         }
 
         .analytics-card.earnings {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            background: linear-gradient(135deg, #e02020 0%, #ff5252 100%);
         }
 
         .analytics-value {
@@ -153,7 +156,7 @@
             background: #f8fafc;
             padding: 15px;
             border-radius: 8px;
-            border-left: 4px solid #2563eb;
+            border-left: 4px solid #e02020;
         }
 
         .ledger-stat-label {
@@ -282,6 +285,10 @@
 </head>
 <body>
 
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.querySelector('.sidebar-overlay').classList.toggle('active');">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('open'); this.classList.remove('active');"></div>
     <div class="sidebar">
         <div class="logo-container">
             <h2 class="logo-text"><span class="medi">MEDI</span><span class="finder">FINDER</span></h2>
@@ -297,6 +304,7 @@
             <div class="nav-item" onclick="switchToTab('ledger')"><i class="fa-solid fa-book"></i> Earning Ledger</div>
             <div class="nav-item" onclick="switchToTab('verification')"><i class="fa-solid fa-id-card"></i> Vehicle & License KYC</div>
             <div class="nav-item" onclick="switchToTab('notifications')"><i class="fa-solid fa-message"></i> Push Delivery Alerts</div>
+            <div class="nav-item" onclick="window.location.href='adminsponsored.html'"><i class="fa-solid fa-star"></i> Sponsored Products</div>
         </nav>
         <div class="sidebar-footer">
             <button class="role-btn user-btn" onclick="window.location.href='adminuser.html'"><i class="fa-solid fa-user"></i> User View</button>
@@ -308,7 +316,7 @@
     <div class="main-content">
         <div class="welcome-hero">
             <h1><i class="fa-solid fa-shield-heart" style="color: var(--medi-brand);"></i> Enhanced MediFinder Management Console</h1>
-            <p>Real-time Fleet Tracking • Live Analytics • Financial Ledger • Service Outage Control • Full Audit Trail</p>
+            <p>Real-time Fleet Tracking â€¢ Live Analytics â€¢ Financial Ledger â€¢ Service Outage Control â€¢ Full Audit Trail</p>
         </div>
 
         <!-- ============================================ -->
@@ -324,45 +332,45 @@
                 <div class="analytics-card active-riders">
                     <div class="analytics-label">Active Riders Online</div>
                     <div class="analytics-value" id="active-riders-count">0</div>
-                    <div class="analytics-change" id="active-riders-change">↑ +0 from last hour</div>
+                    <div class="analytics-change" id="active-riders-change">â†‘ +0 from last hour</div>
                 </div>
 
                 <div class="analytics-card merchants">
                     <div class="analytics-label">Active Merchants</div>
                     <div class="analytics-value" id="active-merchants-count">0</div>
-                    <div class="analytics-change" id="active-merchants-change">↑ +0 new today</div>
+                    <div class="analytics-change" id="active-merchants-change">â†‘ +0 new today</div>
                 </div>
 
                 <div class="analytics-card total-orders">
                     <div class="analytics-label">Total Orders Today</div>
                     <div class="analytics-value" id="total-orders-count">0</div>
-                    <div class="analytics-change" id="total-orders-change">↑ +0 in last hour</div>
+                    <div class="analytics-change" id="total-orders-change">â†‘ +0 in last hour</div>
                 </div>
 
                 <div class="analytics-card earnings">
                     <div class="analytics-label">Total Earnings</div>
-                    <div class="analytics-value" id="total-earnings-count">₹0</div>
-                    <div class="analytics-change" id="total-earnings-change">↑ ₹0 this hour</div>
+                    <div class="analytics-value" id="total-earnings-count">â‚¹0</div>
+                    <div class="analytics-change" id="total-earnings-change">â†‘ â‚¹0 this hour</div>
                 </div>
             </div>
 
             <div class="card" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                 <h3><i class="fa-solid fa-arrow-trend-up"></i> Live Service Performance</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                    <div style="padding: 15px; background: #f0f4ff; border-left: 4px solid #2563eb; border-radius: 6px;">
+                    <div style="padding: 15px; background: #f0f4ff; border-left: 4px solid #e02020; border-radius: 6px;">
                         <div style="font-size: 12px; color: #64748b; font-weight: 600;">AVG DELIVERY TIME</div>
-                        <div style="font-size: 24px; font-weight: 700; color: #2563eb; margin: 8px 0;">32 min</div>
-                        <div style="font-size: 11px; color: #94a3b8;">Last week avg: 35 min</div>
+                        <div id="avg-delivery-time" style="font-size: 24px; font-weight: 700; color: #e02020; margin: 8px 0;">â€” min</div>
+                        <div id="avg-delivery-time-sub" style="font-size: 11px; color: #94a3b8;">Last week avg: â€”</div>
                     </div>
                     <div style="padding: 15px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 6px;">
                         <div style="font-size: 12px; color: #64748b; font-weight: 600;">COMPLETION RATE</div>
-                        <div style="font-size: 24px; font-weight: 700; color: #10b981; margin: 8px 0;">98.5%</div>
-                        <div style="font-size: 11px; color: #94a3b8;">↑ 1.2% vs last week</div>
+                        <div id="completion-rate" style="font-size: 24px; font-weight: 700; color: #10b981; margin: 8px 0;">â€”%</div>
+                        <div id="completion-rate-sub" style="font-size: 11px; color: #94a3b8;">â€” vs last week</div>
                     </div>
                     <div style="padding: 15px; background: #fef3f2; border-left: 4px solid #ef4444; border-radius: 6px;">
                         <div style="font-size: 12px; color: #64748b; font-weight: 600;">ACTIVE ZONES</div>
-                        <div style="font-size: 24px; font-weight: 700; color: #ef4444; margin: 8px 0;">12 / 15</div>
-                        <div style="font-size: 11px; color: #94a3b8;">3 zones under maintenance</div>
+                        <div id="active-zones" style="font-size: 24px; font-weight: 700; color: #ef4444; margin: 8px 0;">â€” / â€”</div>
+                        <div id="active-zones-sub" style="font-size: 11px; color: #94a3b8;">â€” zones under maintenance</div>
                     </div>
                 </div>
             </div>
@@ -411,12 +419,12 @@
                 </div>
             </div>
 
-            <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #2563eb; font-size: 13px; color: #475569;">
+            <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #e02020; font-size: 13px; color: #475569;">
                 <strong><i class="fa-solid fa-info-circle"></i> Live Tracking Features:</strong><br>
-                • Real-time rider location updates via GPS<br>
-                • Current delivery status and order details<br>
-                • Estimated delivery time for each order<br>
-                • Click on any marker to view rider details
+                â€¢ Real-time rider location updates via GPS<br>
+                â€¢ Current delivery status and order details<br>
+                â€¢ Estimated delivery time for each order<br>
+                â€¢ Click on any marker to view rider details
             </div>
         </div>
 
@@ -569,11 +577,11 @@
                     </div>
                     <div class="ledger-stat">
                         <div class="ledger-stat-label">Total Amount Settled</div>
-                        <div class="ledger-stat-value" id="ledger-total-amount">₹0</div>
+                        <div class="ledger-stat-value" id="ledger-total-amount">â‚¹0</div>
                     </div>
                     <div class="ledger-stat">
                         <div class="ledger-stat-label">Avg Payout per Transaction</div>
-                        <div class="ledger-stat-value" id="ledger-avg-payout">₹0</div>
+                        <div class="ledger-stat-value" id="ledger-avg-payout">â‚¹0</div>
                     </div>
                     <div class="ledger-stat">
                         <div class="ledger-stat-label">Pending Settlements</div>
@@ -636,7 +644,7 @@
                 </div>
                 <div class="form-group">
                     <label>Notification Header / Offer Title</label>
-                    <input type="text" id="rider-title" placeholder="e.g., Extra ₹20 Per Order Active Tonight!">
+                    <input type="text" id="rider-title" placeholder="e.g., Extra â‚¹20 Per Order Active Tonight!">
                 </div>
                 <div class="form-group">
                     <label>Message Content Instructions</label>
@@ -660,6 +668,6 @@
     </div>
 
     <!-- Custom Logic Script -->
-    <script src="admindboy.js"></script>
+    <script src="admindboy.js?v=12"></script>
 </body>
 </html>

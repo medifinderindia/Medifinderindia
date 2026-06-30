@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta name="theme-color" content="#e02020">
@@ -14,18 +14,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="prod-utils.js?v=4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=12"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#e02020;--primary-dark:#b81818;--primary-light:#ff4444;--dark:#1a1a2e;--dark2:#16213e;--bg:#0f0f1a;--card:rgba(255,255,255,0.06);--card-border:rgba(224,32,32,0.15);--glass:rgba(255,255,255,0.08);--glass-border:rgba(255,255,255,0.1);--text:#ffffff;--text2:rgba(255,255,255,0.7);--text3:rgba(255,255,255,0.45);--success:#00c853;--warning:#ffc107;--danger:#ff1744;--info:#00b0ff;--radius:14px;--radius-sm:10px;--radius-xs:6px;--shadow:0 8px 32px rgba(0,0,0,0.4);--shadow-lg:0 16px 48px rgba(0,0,0,0.5)}
 html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;min-height:100vh;-webkit-tap-highlight-color:transparent}
-body{padding-bottom:90px}
+body{padding-bottom:100px}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--primary);border-radius:10px}
-.header{position:fixed;top:0;left:0;right:0;z-index:1000;  background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(15,15,26,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);padding:12px 16px;display:flex;align-items:center;gap:12px}
 .hamburger{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--card);border:1px solid var(--glass-border);cursor:pointer;color:var(--text);font-size:16px;flex-shrink:0}
 .hamburger.active .bar:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
 .hamburger .bar{display:block;width:20px;height:2px;background:var(--text);margin:4px auto;transition:all .3s}
@@ -193,7 +194,7 @@ body{padding-bottom:90px}
 <div class="sidebar-nav">
 <a class="nav-item" href="marchenthome.html"><i class="fas fa-home"></i>Dashboard</a>
 <a class="nav-item" href="marchentorders.html"><i class="fas fa-shopping-bag"></i>Orders</a>
-<a class="nav-item" href="marchentadd.html"><i class="fas fa-boxes-stacked"></i>Inventory</a>
+<a class="nav-item" href="marchentinventory.html"><i class="fas fa-boxes-stacked"></i>Inventory</a>
 <a class="nav-item" href="marchentreturns.html"><i class="fas fa-rotate-left"></i>Returns</a>
 <a class="nav-item" href="marchentanalytics.html"><i class="fas fa-chart-line"></i>Analytics</a>
 <a class="nav-item active" href="marchentpromotions.html"><i class="fas fa-tags"></i>Promotions</a>
@@ -388,17 +389,16 @@ body{padding-bottom:90px}
 <a class="bottom-nav-item" href="marchenthome.html"><i class="fas fa-home"></i><span>HOME</span></a>
 <a class="bottom-nav-item" href="marchentorders.html"><i class="fas fa-shopping-bag"></i><span>ORDERS</span></a>
 <div class="bottom-nav-item" onclick="openModal('discountModal')"><div class="add-btn"><i class="fas fa-plus"></i></div><span style="margin-top:4px">ADD</span></div>
-<a class="bottom-nav-item" href="marchentadd.html"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></a>
+<a class="bottom-nav-item" href="marchentinventory.html"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></a>
 <a class="bottom-nav-item" href="marchentprofile.html"><i class="fas fa-user"></i><span>PROFILE</span></a>
 </nav>
 
 <script>
-const SUPABASE_URL='https://rnpbglinkpsikeszcjcl.supabase.co';
-const SUPABASE_KEY='sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+// URL & key loaded from supabase-constants.js
 let supabase,sbProducts=[],sbDiscounts=[],sbCoupons=[],sbFlash=[],sbFeatured=[];
 let merchantId=localStorage.getItem('merchantId')||localStorage.getItem('merchant_id')||'';
 
-try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){console.error(e)}
+try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){/* error */}
 
 function toggleSidebar(){
 document.getElementById('sidebar').classList.toggle('open');
@@ -440,9 +440,9 @@ document.getElementById('tab-'+this.dataset.tab).classList.add('active');
 async function loadProducts(){
 try{
 if(!supabase)return;
-const{data,e}=await supabase.from('products').select('id,name,price,category,stock').eq('merchant_id',merchantId).order('name');
-if(!e&&data)sbProducts=data;
-}catch(e){console.error('Products load error:',e)}
+const{data,e}=await supabase.from('medicines').select('id,product_name,unit_price,category,stock_qty').eq('merchant_id',merchantId).order('product_name');
+if(!e&&data)sbProducts=data.map(p=>({id:p.id,name:p.product_name,price:p.unit_price,category:p.category,stock:p.stock_qty}));
+}catch(e){/* error */}
 }
 async function loadDiscounts(){
 try{
@@ -479,8 +479,8 @@ else renderFeatured([]);
 async function loadPriceProducts(){
 try{
 if(!supabase){renderPriceList([]);return}
-const{data,e}=await supabase.from('products').select('id,name,price,mrp,category,stock,updated_at').eq('merchant_id',merchantId).order('name');
-if(!e){renderPriceList(data||[])}
+const{data,e}=await supabase.from('medicines').select('id,product_name,unit_price,mrp,category,stock_qty,updated_at').eq('merchant_id',merchantId).order('product_name');
+if(!e){renderPriceList((data||[]).map(p=>({id:p.id,name:p.product_name,price:p.unit_price,mrp:p.mrp,category:p.category,stock:p.stock_qty,updated_at:p.updated_at})))}
 else renderPriceList([]);
 }catch(e){renderPriceList([])}
 }
@@ -490,8 +490,8 @@ const el=document.getElementById('discountsList');
 if(!discounts.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-tags"></i></div><div class="empty-title">No Discounts Yet</div><div class="empty-desc">Create your first discount to attract more customers</div><button class="btn btn-primary" onclick="openModal(\'discountModal\')"><i class="fas fa-plus"></i> Create Discount</button></div>';return}
 el.innerHTML=discounts.map(d=>{
 const st=getStatus(d.start_date,d.end_date);
-const productNames=Array.isArray(d.products)?d.products.map(p=>{const pr=sbProducts.find(x=>x.id===p);return pr?pr.name:'Product'}).slice(0,2):[];
-return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(d.name||'Untitled Discount')}</div><div class="discount-type-badge"><i class="fas fa-${d.discount_type==='percentage'?'percent':'indian-rupee-sign'}"></i>${(d.discount_type||'percentage').replace('_',' ')} — ${d.value||0}${d.discount_type==='percentage'?'%':''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(d.start_date)} — ${formatDate(d.end_date)}</span><span><i class="fas fa-shopping-cart"></i>Min: ${formatCurrency(d.min_order)}</span>${d.max_cap?`<span><i class="fas fa-arrow-up"></i>Max: ${formatCurrency(d.max_cap)}</span>`:''}</div>${productNames.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fas fa-box"></i> ${productNames.join(', ')}${d.products.length>2?' +'+(d.products.length-2)+' more':''}</div>`:''}<div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editDiscount('${d.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${d.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i> ${st.label==='Active'?'Pause':'Activate'}</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${d.id}','discount')"><i class="fas fa-trash"></i></button></div></div>`;
+const productNames=Array.isArray(d.applicable_products)?d.applicable_products.map(p=>{const pr=sbProducts.find(x=>x.id===p);return pr?pr.name:'Product'}).slice(0,2):[];
+return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(d.title||'Untitled Discount')}</div><div class="discount-type-badge"><i class="fas fa-${d.discount_type==='percentage'?'percent':'indian-rupee-sign'}"></i>${(d.discount_type||'percentage').replace('_',' ')} — ${d.discount_value||0}${d.discount_type==='percentage'?'%':''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(d.start_date)} — ${formatDate(d.end_date)}</span></div>${productNames.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fas fa-box"></i> ${productNames.join(', ')}${(d.applicable_products||[]).length>2?' +'+(d.applicable_products.length-2)+' more':''}</div>`:''}<div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editDiscount('${d.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${d.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i> ${st.label==='Active'?'Pause':'Activate'}</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${d.id}','discount')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -499,9 +499,9 @@ function renderCoupons(coupons){
 const el=document.getElementById('couponsList');
 if(!coupons.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-ticket"></i></div><div class="empty-title">No Coupons Yet</div><div class="empty-desc">Create coupon codes to boost sales</div><button class="btn btn-primary" onclick="openModal(\'couponModal\')"><i class="fas fa-plus"></i> Create Coupon</button></div>';return}
 el.innerHTML=coupons.map(c=>{
-const st=getStatus(c.start_date||c.created_at,c.end_date||c.expiry_date);
-const pct=c.usage_count||0, lim=c.max_uses||Infinity;
-return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(c.description||'Coupon')}</div><div class="coupon-code" onclick="copyCode('${esc(c.code)}')">${esc(c.code||'CODE')} <i class="fas fa-copy"></i></div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-percent"></i>${c.discount_type==='percentage'?c.value+'%':'₹'+c.value} off</span><span><i class="fas fa-receipt"></i>Used: ${pct}${lim<Infinity?'/'+lim:''}</span><span><i class="fas fa-calendar"></i>Exp: ${formatDate(c.end_date||c.expiry_date)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${lim<Infinity?Math.min(100,(pct/lim)*100):0}%"></div></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editCoupon('${c.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="copyCode('${esc(c.code)}')"><i class="fas fa-copy"></i> Copy</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${c.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i></button><button class="btn btn-sm btn-danger" onclick="deletePromo('${c.id}','coupon')"><i class="fas fa-trash"></i></button></div></div>`;
+const st=getStatus(c.start_date||c.created_at,c.end_date||c.end_date);
+const pct=c.used_count||0, lim=c.max_uses||Infinity;
+return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(c.description||'Coupon')}</div><div class="coupon-code" onclick="copyCode('${esc(c.code)}')">${esc(c.code||'CODE')} <i class="fas fa-copy"></i></div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-percent"></i>${c.discount_type==='percentage'?c.discount_value+'%':'₹'+c.discount_value} off</span><span><i class="fas fa-receipt"></i>Used: ${pct}${lim<Infinity?'/'+lim:''}</span><span><i class="fas fa-calendar"></i>Exp: ${formatDate(c.end_date||c.end_date)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${lim<Infinity?Math.min(100,(pct/lim)*100):0}%"></div></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editCoupon('${c.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="copyCode('${esc(c.code)}')"><i class="fas fa-copy"></i> Copy</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${c.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i></button><button class="btn btn-sm btn-danger" onclick="deletePromo('${c.id}','coupon')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -511,8 +511,8 @@ if(!sales.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"
 el.innerHTML=sales.map(f=>{
 const st=getStatus(f.start_date,f.end_date);
 const isLive=st.label==='Active';
-const productCount=Array.isArray(f.products)?f.products.length:0;
-return`<div class="card featured-card"><div class="card-header"><div><div class="card-title">${esc(f.name||'Flash Sale')}</div><div style="font-size:12px;color:var(--text2)">${f.value||0}% off on ${productCount} products</div></div><span class="badge ${st.cls}">${isLive?'LIVE':st.label}</span></div>${isLive?'<div class="flash-urgency"><i class="fas fa-circle"></i> Active Now</div>':''}<div class="card-meta"><span><i class="fas fa-clock"></i>${formatDateTime(f.start_date)} — ${formatDateTime(f.end_date)}</span>${f.budget?`<span><i class="fas fa-wallet"></i>Budget: ${formatCurrency(f.budget)}</span>`:''}</div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editFlash('${f.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${f.id}','flash')"><i class="fas fa-trash"></i></button></div></div>`;
+const productCount=Array.isArray(f.applicable_products)?f.applicable_products.length:0;
+return`<div class="card featured-card"><div class="card-header"><div><div class="card-title">${esc(f.title||'Flash Sale')}</div><div style="font-size:12px;color:var(--text2)">${f.discount_value||0}% off on ${productCount} products</div></div><span class="badge ${st.cls}">${isLive?'LIVE':st.label}</span></div>${isLive?'<div class="flash-urgency"><i class="fas fa-circle"></i> Active Now</div>':''}<div class="card-meta"><span><i class="fas fa-clock"></i>${formatDateTime(f.start_date)} — ${formatDateTime(f.end_date)}</span>${f.budget?`<span><i class="fas fa-wallet"></i>Budget: ${formatCurrency(f.budget)}</span>`:''}</div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editFlash('${f.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${f.id}','flash')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -524,8 +524,8 @@ document.getElementById('featuredBudget').textContent=formatCurrency(totalBudget
 if(!items.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-star"></i></div><div class="empty-title">No Featured Products</div><div class="empty-desc">Feature your top products for maximum visibility</div><button class="btn btn-primary" onclick="openModal(\'featuredModal\')"><i class="fas fa-plus"></i> Promote Products</button></div>';return}
 el.innerHTML=items.map(f=>{
 const st=getStatus(f.start_date,f.end_date);
-const prodNames=Array.isArray(f.products)?f.products.map(p=>{const pr=sbProducts.find(x=>x.id===p);return pr?pr.name:'Product'}):[];
-return`<div class="card featured-card"><div class="featured-tag"><i class="fas fa-star"></i> FEATURED</div><div class="card-header"><div><div class="card-title">${esc(f.name||'Featured Listing')}</div><div style="font-size:12px;color:var(--text2)">${prodNames.slice(0,3).join(', ')}${prodNames.length>3?' +'+(prodNames.length-3):''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(f.start_date)} — ${formatDate(f.end_date)}</span><span><i class="fas fa-wallet"></i>Budget: ${formatCurrency(f.budget)}</span></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="viewFeaturedStats('${f.id}')"><i class="fas fa-chart-simple"></i> Stats</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${f.id}','featured')"><i class="fas fa-trash"></i></button></div></div>`;
+const prodNames=Array.isArray(f.applicable_products)?f.applicable_products.map(p=>{const pr=sbProducts.find(x=>x.id===p);return pr?pr.name:'Product'}):[];
+return`<div class="card featured-card"><div class="featured-tag"><i class="fas fa-star"></i> FEATURED</div><div class="card-header"><div><div class="card-title">${esc(f.title||'Featured Listing')}</div><div style="font-size:12px;color:var(--text2)">${prodNames.slice(0,3).join(', ')}${prodNames.length>3?' +'+(prodNames.length-3):''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(f.start_date)} — ${formatDate(f.end_date)}</span><span><i class="fas fa-wallet"></i>Budget: ${formatCurrency(f.budget)}</span></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="viewFeaturedStats('${f.id}')"><i class="fas fa-chart-simple"></i> Stats</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${f.id}','featured')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -556,7 +556,7 @@ document.getElementById('promoROI').textContent='0%';
 function loadAnalytics(){
 let totalDisc=0, couponUses=0;
 sbDiscounts.forEach(d=>{totalDisc+=Number(d.total_savings||0)});
-sbCoupons.forEach(c=>{couponUses+=Number(c.usage_count||0)});
+sbCoupons.forEach(c=>{couponUses+=Number(c.used_count||0)});
 document.getElementById('totalDiscounts').textContent=formatCurrency(totalDisc);
 document.getElementById('promoRevenue').textContent=formatCurrency(totalDisc*2.5);
 document.getElementById('couponUses').textContent=couponUses;
@@ -575,15 +575,12 @@ async function saveDiscount(e){
 e.preventDefault();
 const editId=document.getElementById('editDiscountId').value;
 const payload={
-merchant_id:merchantId,type:'discount',name:document.getElementById('discountName').value,
-discount_type:document.getElementById('discountType').value,value:parseFloat(document.getElementById('discountValue').value),
-min_order:parseFloat(document.getElementById('discountMinOrder').value)||0,
-max_cap:parseFloat(document.getElementById('discountMaxCap').value)||null,
-products:getSelectedProducts('discountProducts'),
+merchant_id:merchantId,type:'discount',title:document.getElementById('discountName').value,
+discount_type:document.getElementById('discountType').value,discount_value:parseFloat(document.getElementById('discountValue').value),
+applicable_products:getSelectedProducts('discountProducts'),
 start_date:document.getElementById('discountStart').value,
 end_date:document.getElementById('discountEnd').value,
-usage_limit:parseInt(document.getElementById('discountUsage').value)||null,
-status:'active',total_savings:0
+status:'active'
 };
 try{
 if(!supabase){showToast('Database not connected','error');return}
@@ -602,15 +599,14 @@ const payload={
 merchant_id:merchantId,code:document.getElementById('couponCode').value.toUpperCase(),
 description:document.getElementById('couponDesc').value,
 discount_type:document.getElementById('couponType').value,
-value:parseFloat(document.getElementById('couponValue').value),
-min_order:parseFloat(document.getElementById('couponMinOrder').value)||0,
-max_cap:parseFloat(document.getElementById('couponMaxCap').value)||null,
-max_uses:parseInt(document.getElementById('couponMaxUses').value)||null,
+discount_value:parseFloat(document.getElementById('couponValue').value),
+min_order_amount:parseFloat(document.getElementById('couponMinOrder').value)||0,
+max_discount_amount:parseFloat(document.getElementById('couponMaxCap').value)||null,
+max_uses:parseInt(document.getElementById('couponMaxUses').value)||100,
 start_date:document.getElementById('couponStart').value,
-expiry_date:document.getElementById('couponExpiry').value,
 end_date:document.getElementById('couponExpiry').value,
-products:getSelectedProducts('couponProducts'),
-status:'active',usage_count:0
+applicable_products:getSelectedProducts('couponProducts'),
+is_active:true,used_count:0
 };
 try{
 if(!supabase){showToast('Database not connected','error');return}
@@ -626,12 +622,12 @@ async function saveFlashSale(e){
 e.preventDefault();
 const editId=document.getElementById('editFlashId').value;
 const payload={
-merchant_id:merchantId,type:'flash_sale',name:document.getElementById('flashName').value,
+merchant_id:merchantId,type:'flash_sale',title:document.getElementById('flashName').value,
 start_date:document.getElementById('flashStart').value,
 end_date:document.getElementById('flashEnd').value,
-value:parseFloat(document.getElementById('flashDiscount').value),
+discount_value:parseFloat(document.getElementById('flashDiscount').value),
 budget:parseFloat(document.getElementById('flashBudget').value)||null,
-products:getSelectedProducts('flashProducts'),
+applicable_products:getSelectedProducts('flashProducts'),
 status:'active'
 };
 try{
@@ -660,7 +656,7 @@ if(type==='percentage')newPrice=Math.round(prod.price*(1+val/100));
 else if(type==='flat')newPrice=prod.price+val;
 else newPrice=val;
 newPrice=Math.max(1,newPrice);
-await supabase.from('products').update({price:newPrice,mrp:prod.mrp||prod.price}).eq('id',pid);
+await supabase.from('medicines').update({unit_price:newPrice,mrp:prod.mrp||prod.price}).eq('id',pid);
 await supabase.from('price_history').insert([{product_id:pid,merchant_id:merchantId,new_price:newPrice,old_price:prod.price,change_type:type,change_value:type==='set'?newPrice-prod.price:val}]).then(()=>{});
 }
 showToast('Bulk price update applied!');
@@ -675,7 +671,7 @@ const days=parseInt(document.getElementById('featuredDuration').value);
 const start=new Date();const end=new Date();end.setDate(start.getDate()+days);
 const payload={
 merchant_id:merchantId,type:'featured',
-name:'Featured Listing',products:prodIds,
+title:'Featured Listing',applicable_products:prodIds,
 budget:parseFloat(document.getElementById('featuredBudget').value),
 start_date:start.toISOString(),end_date:end.toISOString(),
 status:'active'
@@ -694,16 +690,16 @@ const d=sbDiscounts.find(x=>x.id===id);if(!d)return;
 document.getElementById('editDiscountId').value=d.id;
 document.getElementById('discountName').value=d.name||'';
 document.getElementById('discountType').value=d.discount_type||'percentage';
-document.getElementById('discountValue').value=d.value||'';
-document.getElementById('discountMinOrder').value=d.min_order||'';
-document.getElementById('discountMaxCap').value=d.max_cap||'';
+document.getElementById('discountValue').value=d.discount_value||'';
+document.getElementById('discountMinOrder').value='';
+document.getElementById('discountMaxCap').value='';
 document.getElementById('discountStart').value=d.start_date?d.start_date.split('T')[0]:'';
 document.getElementById('discountEnd').value=d.end_date?d.end_date.split('T')[0]:'';
 document.getElementById('discountUsage').value=d.usage_limit||'';
 document.getElementById('discountModalTitle').textContent='Edit Discount';
 setTimeout(()=>{
 document.querySelectorAll('#discountProducts .product-option').forEach(el=>{
-if(d.products&&d.products.includes(el.dataset.id))el.classList.add('selected');
+if(d.applicable_products&&d.applicable_products.includes(el.dataset.id))el.classList.add('selected');
 });
 },100);
 openModal('discountModal');
@@ -714,16 +710,16 @@ document.getElementById('editCouponId').value=c.id;
 document.getElementById('couponCode').value=c.code||'';
 document.getElementById('couponDesc').value=c.description||'';
 document.getElementById('couponType').value=c.discount_type||'percentage';
-document.getElementById('couponValue').value=c.value||'';
-document.getElementById('couponMinOrder').value=c.min_order||'';
-document.getElementById('couponMaxCap').value=c.max_cap||'';
+document.getElementById('couponValue').value=c.discount_value||'';
+document.getElementById('couponMinOrder').value=c.min_order_amount||'';
+document.getElementById('couponMaxCap').value=c.max_discount_amount||'';
 document.getElementById('couponMaxUses').value=c.max_uses||'';
-document.getElementById('couponExpiry').value=(c.end_date||c.expiry_date)?(c.end_date||c.expiry_date).split('T')[0]:'';
+document.getElementById('couponExpiry').value=(c.end_date||c.end_date)?(c.end_date||c.end_date).split('T')[0]:'';
 document.getElementById('couponStart').value=c.start_date?c.start_date.split('T')[0]:'';
 document.getElementById('couponModalTitle').textContent='Edit Coupon';
 setTimeout(()=>{
 document.querySelectorAll('#couponProducts .product-option').forEach(el=>{
-if(c.products&&c.products.includes(el.dataset.id))el.classList.add('selected');
+if(c.applicable_products&&c.applicable_products.includes(el.dataset.id))el.classList.add('selected');
 });
 },100);
 openModal('couponModal');
@@ -734,12 +730,12 @@ document.getElementById('editFlashId').value=f.id;
 document.getElementById('flashName').value=f.name||'';
 document.getElementById('flashStart').value=f.start_date?f.start_date.slice(0,16):'';
 document.getElementById('flashEnd').value=f.end_date?f.end_date.slice(0,16):'';
-document.getElementById('flashDiscount').value=f.value||'';
+document.getElementById('flashDiscount').value=f.discount_value||'';
 document.getElementById('flashBudget').value=f.budget||'';
 document.getElementById('flashModalTitle').textContent='Edit Flash Sale';
 setTimeout(()=>{
 document.querySelectorAll('#flashProducts .product-option').forEach(el=>{
-if(f.products&&f.products.includes(el.dataset.id))el.classList.add('selected');
+if(f.applicable_products&&f.applicable_products.includes(el.dataset.id))el.classList.add('selected');
 });
 },100);
 openModal('flashModal');
@@ -751,19 +747,20 @@ try{
 const{e}=await supabase.from('promotions').update({status:newStatus}).eq('id',id);
 if(!e){
 // also try coupons table
-await supabase.from('coupons').update({status:newStatus}).eq('id',id);
+await supabase.from('coupons').update({is_active:newStatus==='active'}).eq('id',id);
 showToast('Status updated!');await refreshAll();
 }
 }catch(e){showToast('Error updating status','error')}
 }
 async function deletePromo(id,type){
-if(!confirm('Are you sure you want to delete this?'))return;
+showConfirmationModal('Are you sure you want to delete this?', async () => {
 if(!supabase)return;
 try{
 const table=type==='coupon'?'coupons':'promotions';
 const{e}=await supabase.from(table).delete().eq('id',id);
 if(!e){showToast('Deleted!');await refreshAll()}
 }catch(e){showToast('Error deleting','error')}
+});
 }
 function copyCode(code){
 navigator.clipboard.writeText(code).then(()=>showToast('Copied: '+code)).catch(()=>showToast('Failed to copy','error'));
@@ -777,12 +774,31 @@ function filterProducts(q){
 q=q.toLowerCase();
 loadPriceProducts().then(()=>{});
 }
-function quickPriceUpdate(id,name,current){
-const newPrice=prompt(`Update price for "${name}"\nCurrent: ₹${current}\nNew price:`);
+async function quickPriceUpdate(id,name,current){
+const newPrice=await new Promise(resolve=>{
+const modal=document.createElement('div');
+modal.className='modal active';
+modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+modal.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+<h3 style="margin:0 0 8px;font-size:1rem;color:#2f3542;">Update Price</h3>
+<p style="margin:0 0 4px;font-size:0.85rem;color:#57606f;">Product: ${esc(name)}</p>
+<p style="margin:0 0 12px;font-size:0.85rem;color:#57606f;">Current: ₹${current}</p>
+<input type="number" id="modalPromptInput" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter new price">
+<div style="display:flex;gap:10px;">
+<button onclick="this.closest('.modal').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+<button id="modalPromptOk" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+</div>
+</div>`;
+document.body.appendChild(modal);
+const input=modal.querySelector('#modalPromptInput');
+input.focus();
+modal.querySelector('#modalPromptOk').onclick=()=>{const v=input.value.trim();modal.remove();resolve(v||null);};
+modal.onclick=(e)=>{if(e.target===modal){modal.remove();resolve(null);}};
+});
 if(newPrice===null)return;
 const val=parseFloat(newPrice);
 if(isNaN(val)||val<=0){showToast('Invalid price','error');return}
-supabase.from('products').update({price:val}).eq('id',id).then(({e})=>{
+supabase.from('medicines').update({unit_price:val}).eq('id',id).then(({e})=>{
 if(!e){showToast('Price updated!');loadPriceProducts();loadProducts()}
 else showToast('Error updating price','error');
 });
@@ -793,7 +809,25 @@ renderPriceHistoryModal(id,name,!e?data:[]);
 });
 }
 function viewFeaturedStats(id){
-showToast('Stats view coming soon!');
+  try {
+    const promo = sbFeatured.find(p => p.id === id) || sbDiscounts.find(p => p.id === id) || sbFlash.find(p => p.id === id);
+    if (!promo) { showToast('Promotion not found', 'error'); return; }
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:400px;text-align:center;">' +
+      '<h3 style="margin:0 0 16px;font-size:1rem;color:#2f3542;">Promotion Stats</h3>' +
+      '<div style="text-align:left;font-size:0.85rem;color:#555;">' +
+      '<p><b>Name:</b> ' + (promo.name || promo.title || 'N/A') + '</p>' +
+      '<p><b>Type:</b> ' + (promo.type || 'N/A') + '</p>' +
+      '<p><b>Status:</b> ' + (promo.status || 'active') + '</p>' +
+      '<p><b>Created:</b> ' + (promo.created_at ? new Date(promo.created_at).toLocaleDateString('en-GB') : 'N/A') + '</p>' +
+      '</div>' +
+      '<button onclick="this.closest(\'.modal\').remove()" style="margin-top:14px;padding:10px 24px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">Close</button>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.onclick = function(e){ if(e.target === modal) modal.remove(); };
+  } catch(e) { showToast('Could not load stats', 'error'); }
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
 

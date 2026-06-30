@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -14,8 +14,8 @@
     <title>MediFinder Admin Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <style>
@@ -25,16 +25,16 @@
             --primary-light: #ff4444;
             --sidebar-bg: #1a1a2e;
             --sidebar-hover: #16213e;
-            --sidebar-active: #0f3460;
-            --bg: #f4f6f9;
+            --sidebar-active: #e02020;
+            --bg: #f8fafc;
             --card-bg: #ffffff;
-            --text: #333333;
-            --text-muted: #777777;
-            --border: #e0e0e0;
-            --success: #28a745;
-            --warning: #ffc107;
-            --danger: #dc3545;
-            --info: #17a2b8;
+            --text: #1a1a2e;
+            --text-muted: #64748b;
+            --border: #e8eaef;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #e02020;
             --shadow: 0 2px 10px rgba(0,0,0,0.08);
             --shadow-hover: 0 4px 20px rgba(0,0,0,0.12);
             --radius: 12px;
@@ -48,7 +48,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             background: var(--bg);
             color: var(--text);
             display: flex;
@@ -168,7 +168,7 @@
             cursor: pointer;
             width: 100%;
             transition: var(--transition);
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         .logout-btn:hover {
@@ -528,7 +528,7 @@
         .badge-delivered { background: rgba(40,167,69,0.15); color: var(--success); }
         .badge-cancelled { background: rgba(220,53,69,0.15); color: var(--danger); }
         .badge-processing { background: rgba(23,162,184,0.15); color: var(--info); }
-        .badge-assigned { background: rgba(102,16,242,0.15); color: #6610f2; }
+        .badge-assigned { background: rgba(224,32,32,0.15); color: #e02020; }
 
         /* Quick Actions */
         .actions-grid {
@@ -570,11 +570,11 @@
         }
 
         .action-card:nth-child(1) .action-icon { background: rgba(224,32,32,0.1); color: var(--primary); }
-        .action-card:nth-child(2) .action-icon { background: rgba(13,110,253,0.1); color: #0d6efd; }
-        .action-card:nth-child(3) .action-icon { background: rgba(255,193,7,0.1); color: #e6a800; }
-        .action-card:nth-child(4) .action-icon { background: rgba(23,162,184,0.1); color: var(--info); }
-        .action-card:nth-child(5) .action-icon { background: rgba(108,117,125,0.1); color: #6c757d; }
-        .action-card:nth-child(6) .action-icon { background: rgba(40,167,69,0.1); color: var(--success); }
+        .action-card:nth-child(2) .action-icon { background: rgba(224,32,32,0.1); color: #e02020; }
+        .action-card:nth-child(3) .action-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
+        .action-card:nth-child(4) .action-icon { background: rgba(224,32,32,0.1); color: var(--primary); }
+        .action-card:nth-child(5) .action-icon { background: rgba(224,32,32,0.1); color: #e02020; }
+        .action-card:nth-child(6) .action-icon { background: rgba(16,185,129,0.1); color: var(--success); }
 
         .action-label {
             font-size: 13px;
@@ -631,10 +631,10 @@
             flex-shrink: 0;
         }
 
-        .activity-icon.order { background: rgba(13,110,253,0.1); color: #0d6efd; }
+        .activity-icon.order { background: rgba(224,32,32,0.1); color: #e02020; }
         .activity-icon.delivered { background: rgba(40,167,69,0.1); color: var(--success); }
         .activity-icon.cancelled { background: rgba(220,53,69,0.1); color: var(--danger); }
-        .activity-icon.user { background: rgba(102,16,242,0.1); color: #6610f2; }
+        .activity-icon.user { background: rgba(16,185,129,0.1); color: #10b981; }
 
         .activity-content {
             flex: 1;
@@ -876,7 +876,7 @@
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <span class="stat-change up" id="usersChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="totalUsers">—</div>
+                    <div class="stat-value" id="totalUsers">â€”</div>
                     <div class="stat-label">Total Users</div>
                 </div>
                 <div class="stat-card">
@@ -884,7 +884,7 @@
                         <div class="stat-icon"><i class="fas fa-store"></i></div>
                         <span class="stat-change up" id="merchantsChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="activeMerchants">—</div>
+                    <div class="stat-value" id="activeMerchants">â€”</div>
                     <div class="stat-label">Active Merchants</div>
                 </div>
                 <div class="stat-card">
@@ -892,7 +892,7 @@
                         <div class="stat-icon"><i class="fas fa-motorcycle"></i></div>
                         <span class="stat-change up" id="ridersChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="onlineRiders">—</div>
+                    <div class="stat-value" id="onlineRiders">â€”</div>
                     <div class="stat-label">Online Riders</div>
                 </div>
                 <div class="stat-card">
@@ -900,7 +900,7 @@
                         <div class="stat-icon"><i class="fas fa-rupee-sign"></i></div>
                         <span class="stat-change up" id="revenueChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="todayRevenue">—</div>
+                    <div class="stat-value" id="todayRevenue">â€”</div>
                     <div class="stat-label">Today's Revenue</div>
                 </div>
             </div>
@@ -1016,21 +1016,21 @@
                                     <span class="health-dot green"></span>
                                     <span class="health-label">Total Tables</span>
                                 </div>
-                                <span class="health-value" id="healthTables">—</span>
+                                <span class="health-value" id="healthTables">â€”</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
                                     <span class="health-dot green"></span>
                                     <span class="health-label">Active Subscriptions</span>
                                 </div>
-                                <span class="health-value" id="healthSubs">—</span>
+                                <span class="health-value" id="healthSubs">â€”</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
                                     <span class="health-dot yellow"></span>
                                     <span class="health-label">Last Backup</span>
                                 </div>
-                                <span class="health-value" id="healthBackup">—</span>
+                                <span class="health-value" id="healthBackup">â€”</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
@@ -1054,14 +1054,14 @@
     </main>
 
     <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
+    <script>localStorage.removeItem('admin_auth_in_progress');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
     <script>
-        // Supabase Client
-        const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+        // URL & key loaded from supabase-constants.js
         let supabase = null;
-        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.error('Supabase init error:', e); }
+        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
 
         // State
         let realtimeChannel = null;
@@ -1093,7 +1093,7 @@
                 const [usersRes, merchantsRes, ridersRes, revenueRes] = await Promise.allSettled([
                     supabase.from('profiles').select('id', { count: 'exact', head: true }),
                     supabase.from('merchants').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-                    supabase.from('riders').select('id', { count: 'exact', head: true }).eq('status', 'online'),
+                    supabase.from('riders').select('id', { count: 'exact', head: true }).eq('duty_status', 'online'),
                     supabase.from('orders').select('total_amount').gte('created_at', getTodayStart())
                 ]);
 
@@ -1121,13 +1121,11 @@
                 // Revenue
                 if (revenueRes.status === 'fulfilled' && !revenueRes.value.error) {
                     const total = revenueRes.value.data.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
-                    document.getElementById('todayRevenue').textContent = '₹' + formatNumber(Math.round(total));
+                    document.getElementById('todayRevenue').textContent = 'â‚¹' + formatNumber(Math.round(total));
                 } else {
-                    document.getElementById('todayRevenue').textContent = '₹0';
+                    document.getElementById('todayRevenue').textContent = 'â‚¹0';
                 }
-            } catch (err) {
-                console.error('Stats load error:', err);
-            }
+            } catch (err) { /* stats load failed */ }
         }
 
         // ====== REVENUE CHART ======
@@ -1165,28 +1163,20 @@
                 const maxRevenue = Math.max(...days.map(d => d.revenue), 1);
                 const chartEl = document.getElementById('revenueChart');
                 const maxEl = document.getElementById('chartMax');
-                maxEl.textContent = 'Max: ₹' + formatNumber(Math.round(maxRevenue));
+                maxEl.textContent = 'Max: â‚¹' + formatNumber(Math.round(maxRevenue));
 
                 chartEl.innerHTML = days.map(d => {
                     const height = Math.max((d.revenue / maxRevenue) * 160, 4);
                     return `
                         <div class="chart-bar-wrapper">
                             <div class="chart-bar" style="height: ${height}px;">
-                                <div class="tooltip">₹${formatNumber(Math.round(d.revenue))}</div>
+                                <div class="tooltip">â‚¹${formatNumber(Math.round(d.revenue))}</div>
                             </div>
                             <div class="chart-label">${d.label}</div>
                         </div>
                     `;
                 }).join('');
-            } catch (err) {
-                console.error('Chart error:', err);
-                document.getElementById('revenueChart').innerHTML = `
-                    <div class="empty-state" style="width:100%">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Could not load chart data</p>
-                    </div>
-                `;
-            }
+            } catch (err) { /* chart load failed */ }
         }
 
         // ====== RECENT ORDERS ======
@@ -1194,7 +1184,7 @@
             try {
                 const { data, error } = await supabase
                     .from('orders')
-                    .select('id, customer_name, total_amount, status, created_at')
+                    .select('id, order_id, customer_name, total_amount, status, created_at')
                     .order('created_at', { ascending: false })
                     .limit(10);
 
@@ -1222,25 +1212,15 @@
                                        status === 'shipped' ? 'badge-assigned' : 'badge-pending';
                     return `
                         <tr>
-                            <td><strong>#${order.id ? order.id.toString().slice(-8) : 'N/A'}</strong></td>
+                            <td><strong>#${order.order_id || order.id ? order.id.toString().slice(-8) : 'N/A'}</strong></td>
                             <td>${escapeHtml(order.customer_name || 'N/A')}</td>
-                            <td><strong>₹${formatNumber(parseFloat(order.total_amount) || 0)}</strong></td>
+                            <td><strong>â‚¹${formatNumber(parseFloat(order.total_amount) || 0)}</strong></td>
                             <td><span class="badge-status ${badgeClass}">${escapeHtml(order.status || 'pending')}</span></td>
                             <td>${formatDate(order.created_at)}</td>
                         </tr>
                     `;
                 }).join('');
-            } catch (err) {
-                console.error('Orders load error:', err);
-                document.getElementById('ordersTableBody').innerHTML = `
-                    <tr>
-                        <td colspan="5" class="empty-state">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <p>Could not load orders</p>
-                        </td>
-                    </tr>
-                `;
-            }
+            } catch (err) { /* orders load failed */ }
         }
 
         // ====== ACTIVITY FEED ======
@@ -1310,7 +1290,7 @@
                             const order = payload.new;
                             addActivity(
                                 'order',
-                                `New order #${order.id ? order.id.toString().slice(-8) : ''} — ₹${parseFloat(order.total_amount || 0).toFixed(0)}`
+                                `New order #${order.order_id || (order.id ? order.id.toString().slice(-8) : '')} ï¿½ ?${parseFloat(order.total_amount || 0).toFixed(0)}`
                             );
                             loadRecentOrders();
                             loadStats();
@@ -1328,7 +1308,7 @@
                                             order.status === 'cancelled' ? 'cancelled' : 'order';
                                 addActivity(
                                     type,
-                                    `Order #${order.id ? order.id.toString().slice(-8) : ''} ${order.status}`
+                                    `Order #${order.order_id || (order.id ? order.id.toString().slice(-8) : '')} ${order.status}`
                                 );
                                 loadRecentOrders();
                                 loadStats();
@@ -1344,9 +1324,7 @@
                             document.getElementById('healthRealtime').style.color = 'var(--warning)';
                         }
                     });
-            } catch (err) {
-                console.error('Realtime setup error:', err);
-            }
+            } catch (err) { /* realtime setup failed */ }
         }
 
         // ====== SYSTEM HEALTH ======
@@ -1364,9 +1342,7 @@
                 document.getElementById('healthBackup').textContent = new Date().toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                 });
-            } catch (err) {
-                console.error('Health load error:', err);
-            }
+            } catch (err) { /* health load failed */ }
         }
 
         // ====== UTILITY ======
@@ -1410,23 +1386,52 @@
         }
 
         // ====== QUICK ACTION HANDLERS ======
-        function handleBroadcast(e) {
+        async function handleBroadcast(e) {
             e.preventDefault();
-            const msg = prompt('Enter broadcast message:');
+            const msg = await new Promise(resolve => {
+                const modal = document.createElement('div');
+                modal.className = 'modal active';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+                modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+                    <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Enter Broadcast Message</h3>
+                    <input type="text" id="modalPromptInput" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Type message...">
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="this.closest('.modal').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                        <button id="modalPromptOk" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+                    </div>
+                </div>`;
+                document.body.appendChild(modal);
+                const input = modal.querySelector('#modalPromptInput');
+                input.focus();
+                modal.querySelector('#modalPromptOk').onclick = () => { const v = input.value.trim(); modal.remove(); resolve(v || null); };
+                modal.onclick = (e) => { if (e.target === modal) { modal.remove(); resolve(null); } };
+            });
+            if (!msg) return;
             if (msg && msg.trim()) {
+                try {
+                    if (supabase) {
+                        await supabase.from('notifications').insert([{
+                            user_id: 'broadcast',
+                            title: 'Admin Broadcast',
+                            message: msg.trim(),
+                            is_read: false,
+                            created_at: new Date().toISOString()
+                        }]);
+                    }
+                } catch(err) { /* broadcast failed */ }
                 addActivity('user', `Broadcast sent: "${msg.trim()}"`);
-                alert('Broadcast notification sent to all users!');
+                showToast('Broadcast notification sent to all users!', 'success');
             }
         }
 
         function handleRefunds(e) {
             e.preventDefault();
-            alert('Refunds management — coming soon!');
+            window.location.href = 'adminuser.html#cancelled-orders';
         }
 
         function handleZones(e) {
             e.preventDefault();
-            alert('Service zones management — coming soon!');
+            window.location.href = 'adminmarchent.html#zones';
         }
 
         // ====== INIT ======

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,13 +12,15 @@
     <meta property="og:description" content="Manage users, orders, offers, and refunds">
     <meta property="og:type" content="website">
     <title>MediFinder Admin Dashboard - Enhanced</title>
-    <link rel="stylesheet" href="adminuser.css?v=4">
-    <link rel="icon" type="img/x-icon" href="favicon.png">
+    <link rel="stylesheet" href="adminuser.css?v=12">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Supabase SDK JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
 
     <style>
         /* Enhanced Rx Audit Panel Styles */
@@ -160,7 +162,7 @@
             background: #f8fafc;
             padding: 12px;
             border-radius: 6px;
-            border-left: 3px solid #2563eb;
+            border-left: 3px solid #e02020;
             margin-bottom: 15px;
             font-size: 13px;
             color: #475569;
@@ -174,7 +176,7 @@
         }
 
         .rx-stat-box {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e02020 0%, #b71c1c 100%);
             color: white;
             padding: 15px;
             border-radius: 8px;
@@ -249,6 +251,11 @@
 </head>
 <body>
 
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.querySelector('.sidebar-overlay').classList.toggle('active');">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('open'); this.classList.remove('active');"></div>
+
     <div class="sidebar">
         <div class="logo-container">
             <img src="1779304435608.png" alt="MediFinder Logo" class="admin-logo">
@@ -278,6 +285,9 @@
             <button class="nav-item" onclick="switchUserTab(event, 'users-list')">
                 <i class="fa-solid fa-users"></i> All Users
             </button>
+            <button class="nav-item" onclick="window.location.href='adminsponsored.html'">
+                <i class="fa-solid fa-star"></i> Sponsored Products
+            </button>
         </nav>
         
         <div class="sidebar-footer">
@@ -295,7 +305,7 @@
 
     <div class="main-content">
         
-        <!-- १. অফার ম্যানেজমেন্ট সেকশন -->
+        <!-- à¥§. à¦…à¦«à¦¾à¦° à¦®à§à¦¯à¦¾à¦¨à§‡à¦œà¦®à§‡à¦¨à§à¦Ÿ à¦¸à§‡à¦•à¦¶à¦¨ -->
         <section id="offers-section" class="dashboard-section active-section tab-content-section active">
             <div class="section-header">
                 <h2><i class="fa-solid fa-tags"></i> Offer Management</h2>
@@ -326,7 +336,7 @@
             </div>
         </section>
 
-        <!-- २. অর্ডার ও রিফান্ড সেকশন -->
+        <!-- à¥¨. à¦…à¦°à§à¦¡à¦¾à¦° à¦“ à¦°à¦¿à¦«à¦¾à¦¨à§à¦¡ à¦¸à§‡à¦•à¦¶à¦¨ -->
         <section id="orders-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-cart-shopping"></i> Cancelled Orders & Refunds</h2>
@@ -346,13 +356,13 @@
                         </tr>
                     </thead>
                     <tbody id="cancelled-orders-table">
-                        <!-- জাভাস্ক্রিপ্ট ডাইনামিক ডাটা এখানে আসবে -->
+                        <!-- à¦œà¦¾à¦­à¦¾à¦¸à§à¦•à§à¦°à¦¿à¦ªà§à¦Ÿ à¦¡à¦¾à¦‡à¦¨à¦¾à¦®à¦¿à¦• à¦¡à¦¾à¦Ÿà¦¾ à¦à¦–à¦¾à¦¨à§‡ à¦†à¦¸à¦¬à§‡ -->
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <!-- ३. প্রেসক্রিপশন অডিট গেট (NEW FEATURE) -->
+        <!-- à¥©. à¦ªà§à¦°à§‡à¦¸à¦•à§à¦°à¦¿à¦ªà¦¶à¦¨ à¦…à¦¡à¦¿à¦Ÿ à¦—à§‡à¦Ÿ (NEW FEATURE) -->
         <section id="rx-audit-section" class="dashboard-section tab-content-section rx-audit-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-prescription-bottle-medical"></i> Prescription Verification & Audit Gate</h2>
@@ -361,7 +371,7 @@
 
             <!-- Stats Cards -->
             <div class="rx-stats">
-                <div class="rx-stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="rx-stat-box" style="background: linear-gradient(135deg, #e02020 0%, #b71c1c 100%);">
                     <div class="rx-stat-value" id="rx-pending-count">0</div>
                     <div class="rx-stat-label">Pending Verification</div>
                 </div>
@@ -381,13 +391,13 @@
 
             <!-- Tab Navigation -->
             <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="tab-button active" onclick="filterRxOrders('pending')">
+                <button class="tab-button active" onclick="filterRxOrders('pending', event)">
                     <i class="fa-solid fa-hourglass-start"></i> Pending Verification
                 </button>
-                <button class="tab-button" onclick="filterRxOrders('approved')">
+                <button class="tab-button" onclick="filterRxOrders('approved', event)">
                     <i class="fa-solid fa-check-circle"></i> Approved Orders
                 </button>
-                <button class="tab-button" onclick="filterRxOrders('rejected')">
+                <button class="tab-button" onclick="filterRxOrders('rejected', event)">
                     <i class="fa-solid fa-circle-xmark"></i> Rejected Orders
                 </button>
             </div>
@@ -401,7 +411,7 @@
             </div>
         </section>
 
-        <!-- ४. নোটিফিকেশন সেকশন -->
+        <!-- à¥ª. à¦¨à§‹à¦Ÿà¦¿à¦«à¦¿à¦•à§‡à¦¶à¦¨ à¦¸à§‡à¦•à¦¶à¦¨ -->
         <section id="notifications-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-bell"></i> Send Notifications</h2>
@@ -432,7 +442,7 @@
             </div>
         </section>
 
-        <!-- ৫. ALL ORDERS (NEW) -->
+        <!-- à§«. ALL ORDERS (NEW) -->
         <section id="all-orders-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-list"></i> All Orders</h2>
@@ -443,10 +453,10 @@
                 <select id="order-status-filter" onchange="filterAllOrders()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px;">
                     <option value="all">All Status</option>
                     <option value="pending">Pending</option>
-                    <option value="Accepted">Accepted</option>
-                    <option value="Picked Up">Picked Up</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Cancelled">Cancelled</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="picked_up">Picked Up</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
                 </select>
                 <input type="text" id="order-search" placeholder="Search by Order ID, Customer..." oninput="filterAllOrders()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px; flex:1; min-width:200px;">
             </div>
@@ -471,7 +481,7 @@
             </div>
         </section>
 
-        <!-- ৬. ALL USERS (NEW) -->
+        <!-- à§¬. ALL USERS (NEW) -->
         <section id="users-list-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-users"></i> All Registered Users</h2>
@@ -502,6 +512,7 @@
 
     </div>
 
-    <script src="adminuser.js"></script>
+    <script>localStorage.removeItem('admin_auth_in_progress');</script>
+    <script src="adminuser.js?v=12"></script>
 </body>
 </html>

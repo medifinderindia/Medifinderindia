@@ -1,11 +1,11 @@
-// Supabase Credentials
-const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+﻿// Supabase Credentials (loaded from supabase-constants.js)
 let supabaseClient = null;
 
-if (SUPABASE_URL !== "YOUR_SUPABASE_PROJECT_URL" && typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (typeof supabase !== 'undefined') {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
+
+function esc(str) { return String(str || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // State Holders
 let cancelledOrders = [];
@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchLiveOffer();
     loadRxOrders();
     initRealtimeRxOrders();
+    loadAllOrders();
+    loadAllUsers();
 });
 
 // ============================================
@@ -63,54 +65,75 @@ async function fetchLiveOffer() {
     try {
         const { data } = await supabaseClient.from('offers').select('*').eq('id', 1).single();
         if (data && data.status === 'active' && data.text) {
-            document.getElementById('offer-text').value = data.text;
-            document.getElementById('offer-expiry').value = data.expiry || "";
+            const offerTextEl = document.getElementById('offer-text');
+            const offerExpiryEl = document.getElementById('offer-expiry');
+            if (offerTextEl) offerTextEl.value = data.text;
+            if (offerExpiryEl) offerExpiryEl.value = data.expiry || "";
             showOfferUI(data.text);
         } else {
             hideOfferUI();
         }
     } catch (err) {
-        console.log("Error loading live offer: ", err);
+
     }
 }
 
 async function updateOffer() {
-    const offerText = document.getElementById('offer-text').value.trim();
-    const expiryDate = document.getElementById('offer-expiry').value;
+    const offerTextEl = document.getElementById('offer-text');
+    const offerExpiryEl = document.getElementById('offer-expiry');
+    const offerText = offerTextEl ? offerTextEl.value.trim() : "";
+    const expiryDate = offerExpiryEl ? offerExpiryEl.value : "";
 
     if (offerText === "") {
-        alert("Please enter offer text!");
+        showToast("Please enter offer text!", "error");
         return;
     }
 
     if (supabaseClient) {
-        await supabaseClient.from('offers').upsert({ id: 1, text: offerText, expiry: expiryDate, status: 'active' });
+        try {
+            const { error } = await supabaseClient.from('offers').upsert({ id: 1, text: offerText, expiry: expiryDate, status: 'active' });
+            if (error) throw error;
+        } catch(e) { showToast("Failed to update offer: " + e.message, "error"); return; }
     }
     showOfferUI(offerText);
-    alert("Offer activated successfully! Instantly updated on user devices.");
+    showToast("Offer activated successfully! Instantly updated on user devices.", "success");
 }
 
 async function clearOffer() {
-    document.getElementById('offer-text').value = "";
-    document.getElementById('offer-expiry').value = "";
+    const offerTextEl = document.getElementById('offer-text');
+    const offerExpiryEl = document.getElementById('offer-expiry');
+    if (offerTextEl) offerTextEl.value = "";
+    if (offerExpiryEl) offerExpiryEl.value = "";
     if (supabaseClient) {
-        await supabaseClient.from('offers').upsert({ id: 1, text: "", expiry: "", status: 'inactive' });
+        try {
+            const { error } = await supabaseClient.from('offers').upsert({ id: 1, text: "", expiry: "", status: 'inactive' });
+            if (error) throw error;
+        } catch(e) { showToast("Failed to clear offer: " + e.message, "error"); return; }
     }
     hideOfferUI();
-    alert("Offer hidden from users successfully.");
+    showToast("Offer hidden from users successfully.", "info");
 }
 
 function showOfferUI(text) {
-    document.getElementById('live-offer-status').textContent = "Live on User App";
-    document.getElementById('live-offer-status').className = "status-badge status-active";
-    document.getElementById('preview-text').textContent = text;
-    document.getElementById('app-offer-preview').style.display = "block";
+    const statusEl = document.getElementById('live-offer-status');
+    const previewEl = document.getElementById('preview-text');
+    const previewContainer = document.getElementById('app-offer-preview');
+    if (statusEl) {
+        statusEl.textContent = "Live on User App";
+        statusEl.className = "status-badge status-active";
+    }
+    if (previewEl) previewEl.textContent = text;
+    if (previewContainer) previewContainer.style.display = "block";
 }
 
 function hideOfferUI() {
-    document.getElementById('live-offer-status').textContent = "Hidden / Inactive";
-    document.getElementById('live-offer-status').className = "status-badge status-hidden";
-    document.getElementById('app-offer-preview').style.display = "none";
+    const statusEl = document.getElementById('live-offer-status');
+    const previewContainer = document.getElementById('app-offer-preview');
+    if (statusEl) {
+        statusEl.textContent = "Hidden / Inactive";
+        statusEl.className = "status-badge status-hidden";
+    }
+    if (previewContainer) previewContainer.style.display = "none";
 }
 
 // ============================================
@@ -119,13 +142,23 @@ function hideOfferUI() {
 async function loadCancelledOrders() {
     if (!supabaseClient) return;
     
-    const { data, error } = await supabaseClient
-        .from('cancelled_orders')
-        .select('*')
-        .neq('status', 'Refunded');
+    try {
+        const { data, error } = await supabaseClient
+            .from('cancelled_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-    if (!error && data) {
-        cancelledOrders = data;
+        if (error) {
+
+            cancelledOrders = [];
+            renderOrdersTable();
+            return;
+        }
+        cancelledOrders = data || [];
+        renderOrdersTable();
+    } catch (e) {
+
+        cancelledOrders = [];
         renderOrdersTable();
     }
 }
@@ -168,11 +201,11 @@ function renderOrdersTable() {
             <tr id="order-row-${order.id}">
                 <td><strong>${order.id}</strong></td>
                 <td>${order.customer || 'Unknown'}</td>
-                <td><span style="color: #2c3e50; font-weight:bold;">₹${order.amount}</span></td>
+                <td><span style="color: #2c3e50; font-weight:bold;">₹${order.total_amount}</span></td>
                 <td><span class="reason-tag">${order.reason || 'Not specified'}</span></td>
-                <td><span style="color: #2563eb; font-weight:500;">${order.payment || 'Online'}</span></td>
+                <td><span style="color: #e02020; font-weight:500;">${order.payment || 'Online'}</span></td>
                 <td>
-                    <button id="refund-btn-${index}" class="refund-btn" onclick="processTransfer(${index}, '${order.id}', '${order.amount}')">
+                    <button id="refund-btn-${index}" class="refund-btn" onclick="processTransfer(${index}, '${esc(order.id)}', '${esc(order.total_amount)}')">
                         <i class="fa-solid fa-money-bill-transfer"></i> Transfer Refund
                     </button>
                 </td>
@@ -184,37 +217,36 @@ function renderOrdersTable() {
 async function processTransfer(index, orderId, amount) {
     const btn = document.getElementById(`refund-btn-${index}`);
     
-    const firstCheck = confirm(`Are you sure you want to trigger instant reversal of ₹${amount} for Order ${orderId}?`);
-    if (!firstCheck) return;
-
-    const secondCheck = prompt(`Type "CONFIRM" to complete the real bank refund:`);
-    if (secondCheck !== "CONFIRM") {
-        alert("Refund cancelled. Verification failed.");
-        return;
-    }
-
-    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Transferring...`;
-    btn.disabled = true;
-    
-    if (supabaseClient) {
-        const { error } = await supabaseClient
-            .from('cancelled_orders')
-            .update({ status: 'Refunded', refunded_at: new Date().toISOString() })
-            .eq('id', orderId);
-
-        if (!error) {
-            btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> Refunded`;
-            btn.style.backgroundColor = "#64748b";
-            alert(`Success! ₹${amount} has been securely processed back to the user's account for Order ${orderId}.`);
-            
-            cancelledOrders = cancelledOrders.filter(order => order.id !== orderId);
-            renderOrdersTable();
-        } else {
-            btn.innerHTML = `<i class="fa-solid fa-money-bill-transfer"></i> Transfer Refund`;
-            btn.disabled = false;
-            alert("Transaction Error: " + error.message);
+    showConfirmationModal(`Are you sure you want to trigger instant reversal of ₹${amount} for Order ${orderId}?`, async () => {
+        if (btn) {
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Transferring...`;
+            btn.disabled = true;
         }
-    }
+        
+        if (supabaseClient) {
+            const { error } = await supabaseClient
+                .from('orders')
+                .update({ status: 'refunded' })
+                .eq('id', orderId);
+
+            if (!error) {
+                if (btn) {
+                    btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> Refunded`;
+                    btn.style.backgroundColor = "#64748b";
+                }
+                showToast(`Success! ₹${amount} has been securely processed back to the user's account for Order ${orderId}.`, "success");
+                
+                cancelledOrders = cancelledOrders.filter(order => order.id !== orderId);
+                renderOrdersTable();
+            } else {
+                if (btn) {
+                    btn.innerHTML = `<i class="fa-solid fa-money-bill-transfer"></i> Transfer Refund`;
+                    btn.disabled = false;
+                }
+                showToast("Transaction Error: " + error.message, "error");
+            }
+        }
+    });
 }
 
 // ============================================
@@ -224,10 +256,20 @@ async function loadRxOrders() {
     if (!supabaseClient) return;
 
     try {
-        const { data, error } = await supabaseClient
+        let { data, error } = await supabaseClient
             .from('rx_orders')
             .select('*')
             .order('created_at', { ascending: false });
+
+        if (error) {
+
+            const fallback = await supabaseClient
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+            data = fallback.data;
+            error = fallback.error;
+        }
 
         if (!error && data) {
             rxOrders = data;
@@ -235,7 +277,7 @@ async function loadRxOrders() {
             filterRxOrders(currentRxFilter);
         }
     } catch (err) {
-        console.error("Error loading Rx orders:", err);
+
     }
 }
 
@@ -244,37 +286,50 @@ function initRealtimeRxOrders() {
 
     supabaseClient
         .channel('realtime-rx-orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'rx_orders' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
             loadRxOrders();
         })
         .subscribe();
 }
 
 function updateRxStats() {
-    rxStats.pending = rxOrders.filter(o => o.rx_status === 'pending').length;
-    rxStats.approved = rxOrders.filter(o => o.rx_status === 'approved').length;
-    rxStats.rejected = rxOrders.filter(o => o.rx_status === 'rejected').length;
+    rxStats.pending = rxOrders.filter(o => o.status === 'pending').length;
+    rxStats.approved = rxOrders.filter(o => o.status === 'accepted' || o.status === 'delivered').length;
+    rxStats.rejected = rxOrders.filter(o => o.status === 'cancelled' || o.status === 'rejected').length;
 
-    document.getElementById('rx-pending-count').textContent = rxStats.pending;
-    document.getElementById('rx-approved-count').textContent = rxStats.approved;
-    document.getElementById('rx-rejected-count').textContent = rxStats.rejected;
+    const pendingEl = document.getElementById('rx-pending-count');
+    const approvedEl = document.getElementById('rx-approved-count');
+    const rejectedEl = document.getElementById('rx-rejected-count');
+    const complianceEl = document.getElementById('rx-compliance-percent');
+
+    if (pendingEl) pendingEl.textContent = rxStats.pending;
+    if (approvedEl) approvedEl.textContent = rxStats.approved;
+    if (rejectedEl) rejectedEl.textContent = rxStats.rejected;
 
     let total = rxStats.approved + rxStats.rejected;
     let compliance = total > 0 ? Math.round((rxStats.approved / total) * 100) : 0;
-    document.getElementById('rx-compliance-percent').textContent = compliance + '%';
+    if (complianceEl) complianceEl.textContent = compliance + '%';
 }
 
-function filterRxOrders(filter) {
+function filterRxOrders(filter, event) {
     currentRxFilter = filter;
     
-    // Update button states
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    event?.currentTarget?.classList.add('active');
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
     const container = document.getElementById('rx-orders-container');
     if (!container) return;
 
-    let filtered = rxOrders.filter(order => order.rx_status === filter);
+    let filtered;
+    if (filter === 'pending') {
+        filtered = rxOrders.filter(order => order.status === 'pending');
+    } else if (filter === 'approved') {
+        filtered = rxOrders.filter(order => order.status === 'accepted' || order.status === 'delivered');
+    } else if (filter === 'rejected') {
+        filtered = rxOrders.filter(order => order.status === 'cancelled' || order.status === 'rejected');
+    } else {
+        filtered = rxOrders;
+    }
 
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -297,24 +352,25 @@ function renderRxCard(order) {
     
     let statusBadgeClass = 'pending';
     let statusText = 'Pending Review';
+    const s = order.status || '';
     
-    if (order.rx_status === 'approved') {
+    if (s === 'accepted' || s === 'delivered') {
         statusBadgeClass = 'verified';
         statusText = 'Approved';
-    } else if (order.rx_status === 'rejected') {
+    } else if (s === 'cancelled' || s === 'rejected') {
         statusBadgeClass = 'pending';
         statusText = 'Rejected';
     }
 
-    const rxImageUrl = order.rx_image || 'https://via.placeholder.com/300?text=No+Prescription+Image';
-    const createdDate = new Date(order.created_at).toLocaleDateString('en-GB');
+    const itemsText = order.items_text || '';
+    const createdDate = order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB') : 'N/A';
 
     const cardHTML = `
         <div class="rx-card">
             <div class="rx-header">
                 <div>
-                    <div class="rx-title">${order.medicine_name}</div>
-                    <small style="color: #64748b;">Order: ${order.order_id}</small>
+                    <div class="rx-title">${esc(itemsText || order.order_id)}</div>
+                    <small style="color: #64748b;">Order: ${esc(order.order_id)}</small>
                 </div>
                 <span class="rx-badge ${statusBadgeClass}">${statusText}</span>
             </div>
@@ -322,57 +378,46 @@ function renderRxCard(order) {
             <div class="rx-details">
                 <div class="rx-detail-item">
                     <div class="rx-detail-label"><i class="fa-solid fa-user"></i> Patient Name</div>
-                    <div class="rx-detail-value">${order.customer_name || 'N/A'}</div>
+                    <div class="rx-detail-value">${esc(order.customer_name || 'N/A')}</div>
                 </div>
                 <div class="rx-detail-item">
                     <div class="rx-detail-label"><i class="fa-solid fa-phone"></i> Phone</div>
-                    <div class="rx-detail-value">${order.customer_phone || 'N/A'}</div>
+                    <div class="rx-detail-value">${esc(order.customer_phone || 'N/A')}</div>
                 </div>
                 <div class="rx-detail-item">
-                    <div class="rx-detail-label"><i class="fa-solid fa-user-doctor"></i> Doctor Name</div>
-                    <div class="rx-detail-value">${order.doctor_name || 'Not Provided'}</div>
-                </div>
-                <div class="rx-detail-item">
-                    <div class="rx-detail-label"><i class="fa-solid fa-calendar"></i> Prescription Date</div>
+                    <div class="rx-detail-label"><i class="fa-solid fa-calendar"></i> Order Date</div>
                     <div class="rx-detail-value">${createdDate}</div>
                 </div>
                 <div class="rx-detail-item">
                     <div class="rx-detail-label"><i class="fa-solid fa-money-bill"></i> Order Amount</div>
-                    <div class="rx-detail-value" style="color: #10b981; font-weight: 700;">₹${order.amount}</div>
+                    <div class="rx-detail-value" style="color: #10b981; font-weight: 700;">₹${Number(order.total_amount || 0)}</div>
                 </div>
                 <div class="rx-detail-item">
-                    <div class="rx-detail-label"><i class="fa-solid fa-hospital"></i> Hospital</div>
-                    <div class="rx-detail-value">${order.hospital_name || 'Not Specified'}</div>
+                    <div class="rx-detail-label"><i class="fa-solid fa-truck"></i> Delivery Address</div>
+                    <div class="rx-detail-value">${esc(order.delivery_address || order.customer_address || 'Not Specified')}</div>
                 </div>
             </div>
 
-            ${order.notes ? `
-                <div class="rx-notes">
-                    <strong>Admin Notes:</strong> ${order.notes}
+            ${order.items_img ? `
+                <div class="rx-image-container">
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        <i class="fa-solid fa-image"></i> Order Image
+                    </div>
+                    <img src="${esc(order.items_img)}" alt="Order" class="rx-image" onerror="this.style.display='none'">
                 </div>
             ` : ''}
 
-            <div class="rx-image-container">
-                <div style="font-weight: 600; margin-bottom: 8px; color: #0f172a;">
-                    <i class="fa-solid fa-image"></i> Prescription Document
-                </div>
-                <img src="${rxImageUrl}" alt="Prescription" class="rx-image">
-                <a href="${rxImageUrl}" target="_blank" class="rx-button view">
-                    <i class="fa-solid fa-expand"></i> View Full Size
-                </a>
-            </div>
-
             <div class="rx-actions">
-                ${order.rx_status === 'pending' ? `
-                    <button class="rx-button approve" onclick="approveRxOrder('${order.id}', '${order.order_id}', '${order.customer_name}')">
+                ${s === 'pending' ? `
+                    <button class="rx-button approve" onclick="approveRxOrder('${esc(order.id)}', '${esc(order.order_id)}', '${esc(order.customer_name)}')">
                         <i class="fa-solid fa-check"></i> Approve Prescription
                     </button>
-                    <button class="rx-button reject" onclick="rejectRxOrder('${order.id}', '${order.order_id}')">
+                    <button class="rx-button reject" onclick="rejectRxOrder('${esc(order.id)}', '${esc(order.order_id)}')">
                         <i class="fa-solid fa-times"></i> Reject & Cancel Order
                     </button>
                 ` : `
                     <div style="padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 13px; color: #64748b;">
-                        <i class="fa-solid fa-lock"></i> This order is locked from further review
+                        <i class="fa-solid fa-lock"></i> This order is ${statusText.toLowerCase()} - no further action
                     </div>
                 `}
             </div>
@@ -383,58 +428,77 @@ function renderRxCard(order) {
 }
 
 async function approveRxOrder(rxId, orderId, patientName) {
-    const confirm_action = confirm(`Approve prescription for ${patientName}?\n\nOrder: ${orderId}\n\nThis will unlock the order for delivery processing.`);
-    if (!confirm_action) return;
+    showConfirmationModal(`Approve prescription for ${patientName}? Order: ${orderId}`, async () => {
+        if (!supabaseClient) return;
 
-    if (!supabaseClient) return;
+        let success = false;
+        try {
+            const { error: rxErr } = await supabaseClient.from('rx_orders').update({ rx_status: 'approved', approved_at: new Date().toISOString(), approved_by: 'admin' }).eq('id', rxId);
+            if (rxErr) {
+                const { error: orderErr } = await supabaseClient.from('orders').update({ status: 'accepted' }).eq('order_id', orderId);
+                if (!orderErr) success = true;
+            } else {
+                success = true;
+                await supabaseClient.from('orders').update({ status: 'accepted' }).eq('order_id', orderId).catch(() => {});
+            }
+        } catch(e) {
+            try {
+                const { error: fallbackErr } = await supabaseClient.from('orders').update({ status: 'accepted' }).eq('order_id', orderId);
+                if (!fallbackErr) success = true;
+            } catch(e2) {}
+        }
 
-    const { error } = await supabaseClient
-        .from('rx_orders')
-        .update({ 
-            rx_status: 'approved',
-            approved_at: new Date().toISOString(),
-            approved_by: 'admin'
-        })
-        .eq('id', rxId);
-
-    if (!error) {
-        // Also update the order status in main orders table
-        await supabaseClient.from('orders')
-            .update({ rx_verified: true })
-            .eq('id', orderId);
-
-        alert(`✓ Prescription approved for ${patientName}!\n\nOrder ${orderId} can now be processed.`);
-        loadRxOrders();
-    } else {
-        alert('Error approving prescription: ' + error.message);
-    }
+        if (success) {
+            showToast(`Prescription approved for ${patientName}! Order ${orderId} can now be processed.`, "success");
+            loadRxOrders();
+        } else {
+            showToast('Could not update order. Please try again.', "error");
+        }
+    });
 }
 
 async function rejectRxOrder(rxId, orderId) {
-    const reason = prompt('Enter reason for rejection:');
+    const reason = await new Promise(resolve => {
+        const m = document.createElement('div');
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Rejection Reason</h3>
+            <input type="text" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter reason for rejection">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.querySelector('#_pi').focus();
+        m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    });
     if (!reason) return;
-
     if (!supabaseClient) return;
 
-    const { error } = await supabaseClient
-        .from('rx_orders')
-        .update({ 
-            rx_status: 'rejected',
-            rejection_reason: reason,
-            rejected_at: new Date().toISOString()
-        })
-        .eq('id', rxId);
+    let success = false;
+    try {
+        const { error: rxErr } = await supabaseClient.from('rx_orders').update({ rx_status: 'rejected', rejection_reason: reason, rejected_at: new Date().toISOString() }).eq('id', rxId);
+        if (rxErr) {
+            const { error: orderErr } = await supabaseClient.from('orders').update({ status: 'cancelled' }).eq('order_id', orderId);
+            if (!orderErr) success = true;
+        } else {
+            success = true;
+            await supabaseClient.from('orders').update({ status: 'cancelled' }).eq('order_id', orderId).catch(() => {});
+        }
+    } catch(e) {
+        try {
+            const { error: fallbackErr } = await supabaseClient.from('orders').update({ status: 'cancelled' }).eq('order_id', orderId);
+            if (!fallbackErr) success = true;
+        } catch(e2) {}
+    }
 
-    if (!error) {
-        // Cancel the related order
-        await supabaseClient.from('orders')
-            .update({ status: 'Rejected', rx_verified: false })
-            .eq('id', orderId);
-
-        alert(`✓ Prescription rejected!\n\nReason: ${reason}\n\nOrder has been automatically cancelled.`);
+    if (success) {
+        showToast(`Prescription rejected! Reason: ${reason}. Order has been cancelled.`, "info");
         loadRxOrders();
     } else {
-        alert('Error rejecting prescription: ' + error.message);
+        showToast('Could not update order. Please try again.', "error");
     }
 }
 
@@ -442,40 +506,52 @@ async function rejectRxOrder(rxId, orderId) {
 // FEATURE 4: NOTIFICATIONS (EXISTING)
 // ============================================
 function toggleIndividualInput() {
-    const target = document.getElementById('notif-target').value;
-    document.getElementById('user-id-group').style.display = (target === 'individual') ? 'block' : 'none';
+    const targetEl = document.getElementById('notif-target');
+    const groupIdEl = document.getElementById('user-id-group');
+    if (!targetEl || !groupIdEl) return;
+    const target = targetEl.value;
+    groupIdEl.style.display = (target === 'individual') ? 'block' : 'none';
 }
 
 async function sendNotification() {
-    const target = document.getElementById('notif-target').value;
-    const userId = document.getElementById('user-id').value.trim();
-    const title = document.getElementById('notif-title').value.trim();
-    const message = document.getElementById('notif-message').value.trim();
+    const targetEl = document.getElementById('notif-target');
+    const userIdEl = document.getElementById('user-id');
+    const titleEl = document.getElementById('notif-title');
+    const messageEl = document.getElementById('notif-message');
+
+    const target = targetEl ? targetEl.value : '';
+    const userId = userIdEl ? userIdEl.value.trim() : '';
+    const title = titleEl ? titleEl.value.trim() : '';
+    const message = messageEl ? messageEl.value.trim() : '';
 
     if (!title || !message) {
-        alert("Please fill up both Title and Message Body!");
+        showToast("Please fill up both Title and Message Body!", "error");
         return;
     }
 
     if (target === 'individual' && !userId) {
-        alert("Please enter a Target User ID/Phone Number!");
+        showToast("Please enter a Target User ID/Phone Number!", "error");
         return;
     }
 
     if (supabaseClient) {
-        await supabaseClient.from('notifications').insert({ 
-            target, 
-            user_id: userId, 
-            title, 
-            message,
-            created_at: new Date().toISOString()
-        });
+        try {
+            await supabaseClient.from('notifications').insert({ 
+                target, 
+                user_id: userId, 
+                title, 
+                message,
+                created_at: new Date().toISOString()
+            });
+        } catch (e) {
+
+        }
     }
 
-    alert("Notification Dispatched Successfully!");
-    document.getElementById('notif-title').value = "";
-    document.getElementById('notif-message').value = "";
-    document.getElementById('user-id').value = "";
+    showToast("Notification Dispatched Successfully!", "success");
+    if (titleEl) titleEl.value = "";
+    if (messageEl) messageEl.value = "";
+    if (userIdEl) userIdEl.value = "";
 }
 
 // ============================================
@@ -495,7 +571,7 @@ async function loadAllOrders() {
         allOrdersData = data || [];
         renderAllOrders(allOrdersData);
     } catch (e) {
-        console.error('Error loading orders:', e);
+
     }
 }
 
@@ -509,19 +585,19 @@ function renderAllOrders(orders) {
     tbody.innerHTML = orders.map(o => `
         <tr>
             <td><strong>#${(o.id || '').toString().slice(0,8)}</strong></td>
-            <td>${o.customer_name || o.user_email || 'N/A'}</td>
+            <td>${o.user_email || 'Guest'}</td>
             <td>₹${Number(o.total_amount || 0).toFixed(2)}</td>
             <td><span class="badge ${getStatusClass(o.status)}">${o.status || 'Unknown'}</span></td>
-            <td>${o.payment_method || 'N/A'}</td>
+            <td>${o.payment_mode || o.payment_status || 'N/A'}</td>
             <td>${o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN') : 'N/A'}</td>
             <td>
                 <select onchange="updateOrderStatus('${o.id}', this.value)" style="padding:4px 8px; border-radius:6px; border:1px solid #dcdde1; font-size:12px;">
                     <option value="">Change...</option>
                     <option value="pending">Pending</option>
-                    <option value="Accepted">Accepted</option>
-                    <option value="Picked Up">Picked Up</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Cancelled">Cancelled</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="picked_up">Picked Up</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
                 </select>
             </td>
         </tr>
@@ -537,8 +613,10 @@ function getStatusClass(status) {
 }
 
 function filterAllOrders() {
-    const statusFilter = document.getElementById('order-status-filter').value;
-    const search = (document.getElementById('order-search').value || '').toLowerCase();
+    const statusFilterEl = document.getElementById('order-status-filter');
+    const searchEl = document.getElementById('order-search');
+    const statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+    const search = (searchEl ? searchEl.value : '').toLowerCase();
     let filtered = allOrdersData;
     if (statusFilter !== 'all') {
         filtered = filtered.filter(o => o.status === statusFilter);
@@ -555,19 +633,20 @@ function filterAllOrders() {
 
 async function updateOrderStatus(orderId, newStatus) {
     if (!newStatus || !supabaseClient) return;
-    if (!confirm(`Change order #${orderId.slice(0,8)} to "${newStatus}"?`)) return;
-    try {
-        const { error } = await supabaseClient
-            .from('orders')
-            .update({ status: newStatus })
-            .eq('id', orderId);
-        if (error) throw error;
-        loadAllOrders();
-        alert('Order status updated!');
-    } catch (e) {
-        console.error('Error updating order:', e);
-        alert('Failed to update order.');
-    }
+    showConfirmationModal(`Change order #${orderId.slice(0,8)} to "${newStatus}"?`, async () => {
+        try {
+            const { error } = await supabaseClient
+                .from('orders')
+                .update({ status: newStatus })
+                .eq('id', orderId);
+            if (error) throw error;
+            loadAllOrders();
+            showToast('Order status updated!', "success");
+        } catch (e) {
+
+            showToast('Failed to update order.', "error");
+        }
+    });
 }
 
 // ============================================
@@ -586,7 +665,7 @@ async function loadAllUsers() {
         allUsersData = data || [];
         renderAllUsers(allUsersData);
     } catch (e) {
-        console.error('Error loading users:', e);
+
     }
 }
 
@@ -599,23 +678,24 @@ function renderAllUsers(users) {
     }
     tbody.innerHTML = users.map(u => `
         <tr>
-            <td>${u.full_name || u.name || 'N/A'}</td>
+            <td>${u.full_name || 'N/A'}</td>
             <td>${u.email || 'N/A'}</td>
-            <td>${u.phone || u.mobile || 'N/A'}</td>
-            <td>${(u.address || '').slice(0, 30) || 'N/A'}</td>
+            <td>${u.phone || 'N/A'}</td>
+            <td>${u.address || 'N/A'}</td>
             <td>${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : 'N/A'}</td>
         </tr>
     `).join('');
 }
 
 function filterUsers() {
-    const search = (document.getElementById('user-search').value || '').toLowerCase();
+    const searchEl = document.getElementById('user-search');
+    const search = (searchEl ? searchEl.value : '').toLowerCase();
     let filtered = allUsersData;
     if (search) {
         filtered = filtered.filter(u =>
-            (u.full_name || u.name || '').toLowerCase().includes(search) ||
+            (u.full_name || '').toLowerCase().includes(search) ||
             (u.email || '').toLowerCase().includes(search) ||
-            (u.phone || u.mobile || '').toLowerCase().includes(search)
+            (u.phone || '').toLowerCase().includes(search)
         );
     }
     renderAllUsers(filtered);

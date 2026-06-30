@@ -1,9 +1,15 @@
-// ==========================================
+﻿// ==========================================
 // 1. Global Configuration & Supabase Initialization
+// URL & key loaded from supabase-constants.js
 // ==========================================
-const supabaseUrl = 'https://rnpbglinkpsikeszcjcl.supabase.co'; 
-const supabaseKey = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined')
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // Global Variables
 let activeOrderData = null; 
@@ -11,6 +17,7 @@ let map = null;
 let countdownTimer = null;
 let riderActiveMinutes = 600; 
 let currentRiderId = localStorage.getItem("riderId") || ""; 
+let cachedRiderPosition = null;
 
 // ✅ NEW: On Duty / Off Duty স্ট্যাটাস (সব পেজে localStorage দিয়ে সিঙ্ক থাকবে)
 let isOnDuty = localStorage.getItem("rider_duty_status") !== "off"; // ডিফল্ট = ON DUTY
@@ -20,16 +27,17 @@ let liveRiderMarker = null;
 
 // DOM Content Loaded Handler
 document.addEventListener("DOMContentLoaded", async () => {
+    if (!supabaseClient) return;
     try {
         // Wait a moment for Supabase SDK to hydrate session from localStorage
         await new Promise(r => setTimeout(r, 100));
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (error) {
-            console.warn("Session check warning:", error.message);
+
             // Don't redirect on session check errors - let the page load
         } else if (!window.location.pathname.includes("index.html") && !session) {
             // Only redirect if there's truly no session after waiting
-            console.warn("No session found, redirecting to login");
+
             window.location.replace("index.html");
             return;
         }
@@ -39,7 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             localStorage.setItem("userEmail", session.user.email);
         }
     } catch (secErr) {
-        console.error("Session check error (non-fatal):", secErr);
+
         // Don't redirect on errors - let the page load with limited functionality
     }
 
@@ -82,23 +90,55 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     if (document.getElementById("activeHoursTracker")) {
-        updateActiveHoursUI();
+        loadActiveHoursFromDB();
+    }
+
+    loadDeliveryNotifications();
+    if (window._notifInterval) clearInterval(window._notifInterval);
+    window._notifInterval = setInterval(loadDeliveryNotifications, 30000);
+
+    if (supabaseClient) {
+        if (window._riderNotifsChannel) supabaseClient.removeChannel(window._riderNotifsChannel);
+        window._riderNotifsChannel = supabaseClient
+            .channel('rider-notifs-realtime')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rider_notifications' }, payload => {
+                const n = payload.new;
+                const myId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
+                if (n.rider_id && String(n.rider_id) !== String(myId)) return;
+                const badge = document.getElementById('noti-badge');
+                if (badge) { const c = parseInt(badge.textContent) || 0; badge.textContent = c + 1; badge.style.display = 'inline-flex'; }
+                showToast(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`, 'info');
+            })
+            .subscribe();
     }
 });
 
 // ==========================================
 // 2. Map Engine: Always Visible, Dynamic Coordinates & Modes
 // ==========================================
-function initBaseTrackingMap() {
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return Math.round(R * c * 10) / 10;
+}
+
+async function initBaseTrackingMap() {
     const sessionOrder = localStorage.getItem("active_delivery_order");
     
-    let centerLat = 22.5726;
-    let centerLon = 88.3639;
+    let centerLat = 22.5726, centerLon = 88.3639; // fallback — real coords set by GPS
+    try {
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 }));
+        centerLat = pos.coords.latitude;
+        centerLon = pos.coords.longitude;
+    } catch(e) {}
 
     if (sessionOrder) {
         activeOrderData = JSON.parse(sessionOrder);
-        const pLat = activeOrderData.pharmacy_lat || 22.5726;
-        const pLon = activeOrderData.pharmacy_lon || 88.3639;
+        const pLat = activeOrderData.pharmacy_lat || 22.5726; // fallback — real coords set by GPS
+        const pLon = activeOrderData.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
         const uLat = activeOrderData.user_lat || 22.5850;
         const uLon = activeOrderData.user_lon || 88.4000;
         centerLat = (pLat + uLat) / 2;
@@ -123,6 +163,8 @@ function initBaseTrackingMap() {
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "1";
         }
+        // Listen for order status changes in real-time
+        listenToOrderUpdates(activeOrderData.order_id);
     } else {
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "0";
@@ -165,8 +207,8 @@ function updateMapVehiclePill(mode) {
 }
 
 function renderMapMarkers(order) {
-    const pLat = order.pharmacy_lat || 22.5726;
-    const pLon = order.pharmacy_lon || 88.3639;
+    const pLat = order.pharmacy_lat || 22.5726; // fallback — real coords set by GPS
+    const pLon = order.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
     const uLat = order.user_lat || 22.5850;
     const uLon = order.user_lon || 88.4000;
     const rLat = (pLat + uLat) / 2;
@@ -186,38 +228,96 @@ function renderMapMarkers(order) {
 // ==========================================
 // 3. Home Screen: Live Realtime Order Queries
 // ==========================================
+function listenToOrderUpdates(orderId) {
+    if (!supabaseClient) return;
+    if (window._orderUpdateChannel) {
+        supabaseClient.removeChannel(window._orderUpdateChannel);
+        window._orderUpdateChannel = null;
+    }
+    window._orderUpdateChannel = supabaseClient
+        .channel('delivery-order-' + orderId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `order_id=eq.${orderId}` }, (payload) => {
+            if (payload.new.status === 'cancelled') {
+                showToast("Order has been cancelled by the merchant.", "error");
+                localStorage.removeItem("active_delivery_order");
+                setTimeout(() => { window.location.href = "delyvaryhome.html"; }, 1500);
+            } else if (payload.new.status === 'delivered') {
+                showToast("Order marked as delivered!", "success");
+                localStorage.removeItem("active_delivery_order");
+                setTimeout(() => { window.location.href = "delyvaryearning.html"; }, 1500);
+            }
+        })
+        .subscribe();
+}
+
 function listenToAvailableOrders() {
+    if (!supabaseClient) return;
+    if (window._ordersChannel) {
+        supabaseClient.removeChannel(window._ordersChannel);
+        window._ordersChannel = null;
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+        cachedRiderPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    }, () => {}, { timeout: 5000, maximumAge: 60000 });
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    container.innerHTML = `<p class="no-orders-msg" style="text-align:center; color:#64748b; padding:20px;">No available orders currently. Waiting for requests...</p>`;
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#999;"><i class="fas fa-inbox" style="font-size:3rem;margin-bottom:12px;display:block;color:#ddd;"></i><p style="font-size:0.9rem;font-weight:600;">No orders available</p><p style="font-size:0.78rem;">New delivery requests will appear here</p></div>`;
 
     // ✅ NEW: পেজ লোড হওয়ার সাথে সাথেই বর্তমান pending অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
     fetchPendingOrdersSnapshot();
 
-    supabaseClient
+    window._ordersChannel = supabaseClient
         .channel('public:orders')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-            if (payload.new.status === 'pending') {
-                // ✅ NEW: Off-Duty থাকলে নতুন অর্ডার স্ক্রিনে দেখানো হবে না (ডেটা ও ব্যাটারি সাশ্রয়)
+            if (payload.new.status === 'pending' || payload.new.status === 'broadcasted') {
                 if (!isOnDuty) {
-                    console.log("Rider is OFF-DUTY. New order ignored to save data/battery.");
+
                     return;
                 }
                 renderAvailableOrder(payload.new);
-                // ✅ NEW: ব্রাউজার ব্যাকগ্রাউন্ডে থাকলেও নোটিফিকেশন পাঠানো হবে
                 fireNewOrderNotification(payload.new);
             }
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-            if (payload.eventType === 'UPDATE' && payload.new.status !== 'pending') {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+            if (payload.new.status === 'broadcasted' && !payload.new.rider_id) {
+                if (!isOnDuty) return;
+                if (!document.getElementById(`order-${payload.new.order_id}`)) {
+                    renderAvailableOrder(payload.new);
+                }
+            } else if (payload.new.status !== 'pending' && payload.new.status !== 'broadcasted') {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) card.remove();
                 checkIfOrdersEmpty();
             }
-            if (payload.eventType === 'DELETE') {
-                const card = document.getElementById(`order-${payload.old.order_id}`);
-                if (card) card.remove();
-                checkIfOrdersEmpty();
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, (payload) => {
+            const card = document.getElementById(`order-${payload.old.order_id}`);
+            if (card) card.remove();
+            checkIfOrdersEmpty();
+        })
+        .subscribe();
+
+    // Second channel: dedicated listener for new available orders (pending, no rider)
+    if (window._availableOrdersChannel) {
+        supabaseClient.removeChannel(window._availableOrdersChannel);
+        window._availableOrdersChannel = null;
+    }
+    window._availableOrdersChannel = supabaseClient
+        .channel('available-orders')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'orders'
+        }, (payload) => {
+            if (payload.new && payload.new.status === 'pending' && !payload.new.rider_id) {
+                if (!isOnDuty) {
+
+                    return;
+                }
+                if (!document.getElementById(`order-${payload.new.order_id}`)) {
+                    renderAvailableOrder(payload.new);
+                    fireNewOrderNotification(payload.new);
+                }
             }
         })
         .subscribe();
@@ -226,8 +326,25 @@ function listenToAvailableOrders() {
 function renderAvailableOrder(order) {
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    const noMsg = container.querySelector(".no-orders-msg");
-    if (noMsg) noMsg.remove();
+    const emptyState = container.querySelector("div[style*='text-align:center']");
+    if (emptyState && !emptyState.classList.contains("order-card")) emptyState.remove();
+
+    // Calculate distance if coords available
+    let distText = '';
+    if (order.pharmacy_lat && order.pharmacy_lon) {
+        if (cachedRiderPosition) {
+            const dist = haversineKm(cachedRiderPosition.lat, cachedRiderPosition.lon, order.pharmacy_lat, order.pharmacy_lon);
+            distText = `<span class="distance-info" style="font-size:0.75rem;color:#64748b;"><i class="fa-solid fa-location-dot"></i> ${dist ? dist + ' km away' : ''}</span>`;
+        } else {
+            navigator.geolocation.getCurrentPosition(pos => {
+                cachedRiderPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                const dist = haversineKm(pos.coords.latitude, pos.coords.longitude, order.pharmacy_lat, order.pharmacy_lon);
+                const distEl = document.querySelector(`#order-${order.order_id} .distance-info`);
+                if (distEl) distEl.innerText = dist ? `${dist} km away` : '';
+            }, () => {}, { timeout: 3000 });
+            distText = '<span class="distance-info" style="font-size:0.75rem;color:#64748b;"><i class="fa-solid fa-location-dot"></i> Calculating...</span>';
+        }
+    }
 
     const cardHtml = `
         <div class="order-card" id="order-${order.order_id}">
@@ -239,12 +356,13 @@ function renderAvailableOrder(order) {
             <div class="delivery-flow">
                 <div class="flow-step">
                     <div class="party-details">
-                        <h4 class="party-name">${order.pharmacy_name || 'Pharmacy Hub'}</h4>
+                        <h4 class="party-name">${escapeHtml(order.pharmacy_name) || 'Pharmacy Hub'}</h4>
+                        ${distText}
                     </div>
                 </div>
                 <div class="flow-step">
                     <div class="party-details">
-                        <h4 class="party-name">${order.user_name || 'Customer'}</h4>
+                        <h4 class="party-name">${escapeHtml(order.user_name) || 'Customer'}</h4>
                     </div>
                 </div>
             </div>
@@ -258,7 +376,7 @@ function renderAvailableOrder(order) {
 function checkIfOrdersEmpty() {
     const container = document.getElementById("ordersContainer");
     if (container && container.children.length === 0) {
-        container.innerHTML = `<p class="no-orders-msg" style="text-align:center; color:#64748b; padding:20px;">No available orders currently. Waiting for requests...</p>`;
+        container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#999;"><i class="fas fa-inbox" style="font-size:3rem;margin-bottom:12px;display:block;color:#ddd;"></i><p style="font-size:0.9rem;font-weight:600;">No orders available</p><p style="font-size:0.78rem;">New delivery requests will appear here</p></div>`;
     }
 }
 
@@ -266,22 +384,37 @@ function checkIfOrdersEmpty() {
 // 4. Delivery Management Routing Actions
 // ==========================================
 async function acceptOrder(orderId, orderObj) {
+    if (!supabaseClient) return;
     try {
+        let riderUuid = '';
+        let riderBigIntId = null;
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user?.id) {
+                riderUuid = session.user.id;
+                const { data: riderRow } = await supabaseClient.from('riders').select('id').eq('auth_user_id', riderUuid).maybeSingle();
+                if (riderRow) riderBigIntId = riderRow.id;
+            }
+        } catch(e) {}
+
+        const updatePayload = { status: 'accepted' };
+        if (riderBigIntId) updatePayload.rider_id = riderBigIntId;
+
         const { error } = await supabaseClient
             .from('orders')
-            .update({ status: 'accepted', rider_id: currentRiderId })
+            .update(updatePayload)
             .eq('order_id', orderId);
 
         if (error) throw error;
 
-        // ✅ NEW: লোকাল কপিতেও status আপডেট রাখা হলো, যাতে পিকআপ-স্টেপ UI সঠিক স্টেজ থেকে শুরু হয়
         orderObj.status = 'accepted';
+        orderObj.rider_id = riderBigIntId || riderUuid;
         localStorage.setItem("active_delivery_order", JSON.stringify(orderObj));
-        alert('Order Accepted Successfully!');
+        showToast("Order Accepted Successfully!", "success");
         window.location.href = "delyvaryorder.html";
     } catch (error) {
-        console.error(error);
-        alert('Failed to accept order or already assigned to another rider.');
+
+        showToast("Failed to accept order or already assigned to another rider.", "error");
     }
 }
 
@@ -375,28 +508,30 @@ function lockOtpButton(otpBtn, locked) {
 }
 
 async function markArrivedAtStore() {
+    if (!supabaseClient) return;
     try {
         await supabaseClient.from('orders').update({ status: 'arrived_at_store' }).eq('order_id', activeOrderData.order_id);
         activeOrderData.status = 'arrived_at_store';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
-        alert("Status updated: Arrived at Pharmacy. Please collect & pack the medicines.");
+        showToast("Status updated: Arrived at Pharmacy. Please collect & pack the medicines.", "success");
     } catch (err) {
-        console.error(err);
-        alert("Failed to update status. Please check your connection and try again.");
+
+        showToast("Failed to update status. Please check your connection and try again.", "error");
     }
 }
 
 async function markOrderPickedUp() {
+    if (!supabaseClient) return;
     try {
         await supabaseClient.from('orders').update({ status: 'picked_up' }).eq('order_id', activeOrderData.order_id);
         activeOrderData.status = 'picked_up';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
-        alert("Status updated: Order Picked Up. You can now head to the customer's location.");
+        showToast("Status updated: Order Picked Up. You can now head to the customer's location.", "success");
     } catch (err) {
-        console.error(err);
-        alert("Failed to update status. Please check your connection and try again.");
+
+        showToast("Failed to update status. Please check your connection and try again.", "error");
     }
 }
 
@@ -433,16 +568,17 @@ function renderDutyToggleUI() {
 }
 
 async function toggleDutyStatus() {
+    if (!supabaseClient) return;
     isOnDuty = !isOnDuty;
     localStorage.setItem("rider_duty_status", isOnDuty ? "on" : "off");
     renderDutyToggleUI();
 
     if (isOnDuty) {
-        alert("You are now ON DUTY. New delivery requests will be visible again.");
+        showToast("You are now ON DUTY. New delivery requests will be visible again.", "info");
         fetchPendingOrdersSnapshot();
         startLiveLocationTracking();
     } else {
-        alert("You are now OFF DUTY. New requests are paused to save battery & data.");
+        showToast("You are now OFF DUTY. New requests are paused to save battery & data.", "info");
         checkIfOrdersEmpty();
         stopLiveLocationTracking();
     }
@@ -453,11 +589,12 @@ async function toggleDutyStatus() {
             await supabaseClient.from('riders').update({ duty_status: isOnDuty ? 'online' : 'offline' }).eq('email', currentRiderEmail);
         }
     } catch (err) {
-        console.log("Duty status sync to riders table skipped:", err.message);
+
     }
 }
 
 async function fetchPendingOrdersSnapshot() {
+    if (!supabaseClient) return;
     if (!isOnDuty) return;
     const container = document.getElementById("ordersContainer");
     if (!container) return;
@@ -465,7 +602,7 @@ async function fetchPendingOrdersSnapshot() {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
-            .eq('status', 'pending');
+            .in('status', ['pending', 'broadcasted']);
         if (error) throw error;
         if (data && data.length > 0) {
             data.forEach(order => {
@@ -475,7 +612,7 @@ async function fetchPendingOrdersSnapshot() {
             });
         }
     } catch (err) {
-        console.error("Failed to fetch pending orders snapshot:", err.message);
+
     }
 }
 
@@ -484,7 +621,7 @@ async function fetchPendingOrdersSnapshot() {
 // ==========================================
 function startLiveLocationTracking() {
     if (!navigator.geolocation) {
-        console.warn("Geolocation not supported on this device/browser.");
+
         return;
     }
     if (!isOnDuty) return; // Off-Duty রাইডারের লোকেশন পাঠানো হবে না
@@ -496,7 +633,7 @@ function startLiveLocationTracking() {
             (position) => {
                 broadcastRiderLocation(position.coords.latitude, position.coords.longitude);
             },
-            (err) => { console.warn("Location fetch error:", err.message); },
+            (err) => {},
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
     }, 5000);
@@ -510,6 +647,7 @@ function stopLiveLocationTracking() {
 }
 
 async function broadcastRiderLocation(lat, lon) {
+    if (!supabaseClient) return;
     try {
         // riders টেবিলে লাইভ লোকেশন আপডেট (এডমিন/ট্র্যাকিং প্যানেলের জন্য, সবসময় অন-ডিউটিতে)
         let currentRiderEmail = localStorage.getItem('userEmail');
@@ -523,7 +661,8 @@ async function broadcastRiderLocation(lat, lon) {
         // সক্রিয় অর্ডার থাকলে orders টেবিলেও লাইভ পজিশন আপডেট (কাস্টমার/ফার্মেসি লাইভ দেখতে পারবে)
         const sessionOrder = localStorage.getItem("active_delivery_order");
         if (sessionOrder) {
-            const order = JSON.parse(sessionOrder);
+            let order;
+            try { order = JSON.parse(sessionOrder); } catch(e) { return; }
             await supabaseClient
                 .from('orders')
                 .update({ rider_lat: lat, rider_lon: lon, location_updated_at: new Date() })
@@ -532,7 +671,7 @@ async function broadcastRiderLocation(lat, lon) {
             updateLiveRiderMarkerOnMap(lat, lon);
         }
     } catch (err) {
-        console.error("Live location broadcast failed:", err.message);
+
     }
 }
 
@@ -546,7 +685,7 @@ function updateLiveRiderMarkerOnMap(lat, lon) {
             liveRiderMarker = L.marker([lat, lon], { icon: riderIcon }).addTo(map).bindPopup("<b>You (Live)</b>");
         }
     } catch (e) {
-        console.warn("Map marker live update skipped:", e.message);
+
     }
 }
 
@@ -557,7 +696,7 @@ function requestBrowserNotificationPermission() {
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
         Notification.requestPermission().then(perm => {
-            console.log("Browser notification permission:", perm);
+
         });
     }
 }
@@ -577,29 +716,41 @@ function fireNewOrderNotification(order) {
             window.location.href = "delyvaryhome.html";
         };
     } catch (e) {
-        console.warn("Notification dispatch failed:", e.message);
+
     }
 }
 
 
 function openOtpModal() {
-    document.getElementById("otpModal").classList.remove("hidden");
-    document.getElementById("otpFormContent").style.display = "block";
-    document.getElementById("successCheckmark").style.display = "none";
+    const otpModal = document.getElementById("otpModal");
+    const otpFormContent = document.getElementById("otpFormContent");
+    const successCheckmark = document.getElementById("successCheckmark");
+    if (!otpModal || !otpFormContent || !successCheckmark) return;
+    otpModal.classList.remove("hidden");
+    otpFormContent.style.display = "block";
+    successCheckmark.style.display = "none";
 }
 
 function closeOtpModal() {
-    document.getElementById("otpModal").classList.add("hidden");
+    const otpModal = document.getElementById("otpModal");
+    if (!otpModal) return;
+    otpModal.classList.add("hidden");
 }
 
 async function verifyOtpCode() {
-    const enteredOtp = document.getElementById("otpInput").value;
-    const correctOtp = activeOrderData.delivery_secure_code || activeOrderData.customer_otp || "123456"; 
-    
+    if (!supabaseClient) return;
+    if (!activeOrderData) { showToast('No active delivery order found.', 'error'); return; }
+    const otpInput = document.getElementById("otpInput");
+    const otpFormContent = document.getElementById("otpFormContent");
+    const successCheckmark = document.getElementById("successCheckmark");
+    if (!otpInput || !otpFormContent || !successCheckmark) return;
+    const enteredOtp = otpInput.value;
+    const correctOtp = activeOrderData.delivery_secure_code || activeOrderData.customer_otp;
+    if (!correctOtp) { showToast('No delivery code found for this order. Contact support.', 'error'); return; }
     if (enteredOtp === correctOtp) {
         clearInterval(countdownTimer);
-        document.getElementById("otpFormContent").style.display = "none";
-        document.getElementById("successCheckmark").style.display = "block";
+        otpFormContent.style.display = "none";
+        successCheckmark.style.display = "block";
 
         // Mark order as Delivered
         try {
@@ -608,15 +759,25 @@ async function verifyOtpCode() {
                 payment_status: 'Paid',
                 updated_at: new Date().toISOString()
             }).eq('order_id', activeOrderData.order_id);
-        } catch (err) { console.log(err); }
+        } catch (err) {}
 
         try {
+            let walletRiderId = null;
+            try {
+                const { data: { session: walletSession } } = await supabaseClient.auth.getSession();
+                if (walletSession?.user?.id) {
+                    const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', walletSession.user.id).maybeSingle();
+                    if (r) walletRiderId = r.id;
+                }
+            } catch(e) {}
+            if (!walletRiderId) {}
             await supabaseClient.from('riders_wallet').insert([{ 
+                rider_id: walletRiderId,
                 order_id: activeOrderData.order_id, 
                 amount_earned: activeOrderData.delivery_charge || 45, 
                 status: 'success', created_at: new Date() 
             }]);
-        } catch (err) { console.log(err); }
+        } catch (err) {}
 
         let localHistory = JSON.parse(localStorage.getItem("completed_history")) || [];
         localHistory.push({
@@ -626,7 +787,7 @@ async function verifyOtpCode() {
         });
         localStorage.setItem("completed_history", JSON.stringify(localHistory));
         
-        let todayEarned = parseInt(localStorage.getItem("today_earnings")) || 0;
+        let todayEarned = parseFloat(localStorage.getItem("today_earnings")) || 0;
         todayEarned += (activeOrderData.delivery_charge || 45);
         localStorage.setItem("today_earnings", todayEarned);
 
@@ -634,40 +795,67 @@ async function verifyOtpCode() {
 
         setTimeout(() => {
             closeOtpModal();
-            alert("Delivery Completed successfully! Payout added to Earning Wallet.");
+            showToast("Delivery Completed successfully! Payout added to Earning Wallet.", "success");
             window.location.href = "delyvaryearning.html";
         }, 2200);
     } else {
-        alert("Incorrect OTP Code! Please provide a valid transaction security code.");
+        showToast("Incorrect OTP Code! Please provide a valid transaction security code.", "error");
+        otpInput.value = "";
+        otpInput.focus();
     }
 }
 
 // ==========================================
 // 6. Metrics and Earnings Layout Controls
 // ==========================================
-function initEarningsPage() {
-    const todayEarned = localStorage.getItem("today_earnings") || 0;
-    document.getElementById("todayTotalEarnings").innerText = `₹${todayEarned}`;
+async function loadEarningsFromDB() {
+    if (!supabaseClient) return;    try {
+        if (!currentRiderId) return;
+        const { data: walletEntries } = await supabaseClient.from('riders_wallet')
+            .select('amount_earned, created_at, order_id')
+            .eq('rider_id', currentRiderId)
+            .order('created_at', { ascending: false });
+        if (walletEntries && walletEntries.length > 0) {
+            const today = new Date().toDateString();
+            const todayEarnings = walletEntries
+                .filter(e => new Date(e.created_at).toDateString() === today)
+                .reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
+            localStorage.setItem('today_earnings', todayEarnings.toString());
+            localStorage.setItem('completed_history', JSON.stringify(walletEntries.slice(0, 20).map(e => ({
+                amount: e.amount_earned,
+                date: new Date(e.created_at).toLocaleDateString('en-GB'),
+                orderId: e.order_id || ''
+            }))));
+        }
+    } catch (e) {}
+}
 
-    const historyList = document.querySelector(".history-list");
+async function initEarningsPage() {
+    await loadEarningsFromDB();
+    await loadActiveHoursFromDB();
+    const todayEarned = localStorage.getItem("today_earnings") || 0;
+    const todayTotalEarnings = document.getElementById("todayTotalEarnings");
+    if (todayTotalEarnings) todayTotalEarnings.innerText = `₹${todayEarned}`;
+
     const historyCount = document.querySelector(".history-count");
+    const earningList = document.getElementById("earning-history-list");
     const localHistory = JSON.parse(localStorage.getItem("completed_history")) || [];
 
     if (localHistory.length === 0) {
         if(historyCount) historyCount.innerText = "0 Orders";
-        if(historyList) historyList.innerHTML = `<p style="text-align:center; color:#64748b; padding:20px; width:100%;">No payment logs recorded in history today.</p>`;
+        if(earningList) earningList.innerHTML = `<p style="text-align:center; color:#64748b; padding:20px; width:100%;">No payment logs recorded in history today.</p>`;
     } else {
         if(historyCount) historyCount.innerText = `${localHistory.length} Orders`;
-        if(historyList) {
-            historyList.innerHTML = "";
+        if(earningList) {
+            earningList.innerHTML = "";
             localHistory.reverse().forEach(item => {
-                historyList.insertAdjacentHTML('beforeend', `
+                earningList.insertAdjacentHTML('beforeend', `
                     <div class="history-item">
                         <div class="item-left-content">
                             <div class="delivery-success-icon"><i class="fa-solid fa-circle-check" style="color:#10b981;"></i></div>
                             <div class="item-details">
-                                <h4>Order #${item.order_id}</h4>
-                                <p><i class="fa-regular fa-clock"></i> Completed at ${item.time}</p>
+                                <h4>Order #${item.orderId || item.order_id}</h4>
+                                <p><i class="fa-regular fa-clock"></i> Completed at ${item.time || item.date}</p>
                             </div>
                         </div>
                         <div class="payout-amount-badge"><span class="payout-indicator">+₹${item.amount}</span></div>
@@ -692,34 +880,51 @@ function updateGraphTrend() {
 }
 
 async function handlePayoutRequest() {
-    if (riderActiveMinutes < 600) {
-        const rem = 600 - riderActiveMinutes;
-        alert(`Access Denied! You must maintain active duty for 10 hours. You have ${Math.floor(rem/60)} hours remaining.`);
-        return;
-    }
-
-    const earningsText = document.getElementById("todayTotalEarnings").innerText;
-    const totalAmount = parseInt(earningsText.replace("₹", "")) || 0;
+    if (!supabaseClient) return;
+    const todayTotalEarnings = document.getElementById("todayTotalEarnings");
+    const payoutRequestBtn = document.getElementById("payoutRequestBtn");
+    if (!todayTotalEarnings || !payoutRequestBtn) return;
+    const earningsText = todayTotalEarnings.innerText;
+    const totalAmount = parseFloat(earningsText.replace("₹", "")) || 0;
 
     if (totalAmount <= 0) {
-        alert("You have zero wallet metrics to execute a payment extraction.");
+        showToast("No earnings to withdraw. Complete deliveries first.", "error");
         return;
     }
 
+    if (payoutRequestBtn) { payoutRequestBtn.disabled = true; payoutRequestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; }
+
     try {
-        await supabaseClient.from('admin_payout_requests').insert([{
-            rider_id: currentRiderId, total_payout_amount: totalAmount,
-            active_duty_hours: "10.0", request_status: 'pending', requested_at: new Date()
+        let riderUuid = currentRiderId;
+        let riderBigIntId = null;
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user?.id) {
+                riderUuid = session.user.id;
+                const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', riderUuid).maybeSingle();
+                if (r) riderBigIntId = r.id;
+            }
+        } catch(e) {}
+
+        const { error } = await supabaseClient.from('admin_payout_requests').insert([{
+            rider_id: riderBigIntId, total_payout_amount: totalAmount,
+            active_duty_hours: Math.floor(riderActiveMinutes / 60).toString(), 
+            request_status: 'pending', requested_at: new Date()
         }]);
 
-        localStorage.setItem("today_earnings", 0);
+        if (error) throw error;
+
+        // Reset local earnings
+        localStorage.setItem("today_earnings", "0");
         localStorage.setItem("completed_history", JSON.stringify([]));
-        localStorage.setItem("payout_requested_state", "true"); 
         
-        alert(`Success! Total earned amount of ₹${totalAmount} has been transferred for Admin approval. Disbursal confirmation is processed every evening.`);
+        showToast(`Payout of ₹${totalAmount} requested! Admin will review shortly.`, "success");
         initEarningsPage();
     } catch (err) {
-        alert("Payout request successfully synced to management node.");
+
+        showToast("Payout request failed. Please try again.", "error");
+    } finally {
+        if (payoutRequestBtn) { payoutRequestBtn.disabled = false; payoutRequestBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Request Payout to Admin'; }
     }
 }
 
@@ -727,6 +932,24 @@ function updateActiveHoursUI() {
     const hours = Math.floor(riderActiveMinutes / 60);
     const trackerText = document.getElementById("activeHoursTracker");
     if (trackerText) trackerText.innerText = `Active Duty: ${hours}h Today`;
+}
+
+async function loadActiveHoursFromDB() {
+    if (!supabaseClient) return;
+    try {
+        if (!currentRiderId) return;
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabaseClient.from('riders_wallet')
+            .select('created_at')
+            .eq('rider_id', currentRiderId)
+            .gte('created_at', today);
+        if (data && data.length > 0) {
+            riderActiveMinutes = Math.max(60, data.length * 30); // Estimate from deliveries
+        } else {
+            riderActiveMinutes = 0;
+        }
+        updateActiveHoursUI();
+    } catch(e) {}
 }
 
 // ==========================================
@@ -737,9 +960,12 @@ function processAvatarUpdate(event) {
     if (file) {
         const reader = new FileReader();
         reader.onload = async function(e) {
-            document.getElementById("avatarDisplayImage").src = e.target.result;
+            const avatarDisplayImage = document.getElementById("avatarDisplayImage");
+            if (avatarDisplayImage) {
+                avatarDisplayImage.src = e.target.result;
+            }
             localStorage.setItem("rider_avatar", e.target.result);
-            alert("Profile avatar image applied successfully!");
+            showToast("Profile avatar image applied successfully!", "success");
             
             await saveRiderProfileToDatabase();
         };
@@ -748,6 +974,7 @@ function processAvatarUpdate(event) {
 }
 
 async function saveRiderProfileToDatabase() {
+    if (!supabaseClient) return;
     let currentRiderEmail = localStorage.getItem('userEmail');
     if (!currentRiderEmail) return;
 
@@ -767,31 +994,35 @@ async function saveRiderProfileToDatabase() {
             }, { onConflict: 'email' });
 
         if (error) throw error;
-        console.log("Profile changes saved to Supabase successfully.");
+
     } catch (dbErr) {
-        console.error("Failed to upsert rider configurations:", dbErr.message);
+
     }
 }
 
 function verifyAndSubmitFinancials() {
-    const bankAccount = document.getElementById("bankAccountInput").value.trim();
-    const upiId = document.getElementById("upiIdInput").value.trim();
-    const ifsc = document.getElementById("bankifscinput").value.trim();
+    const bankAccountInput = document.getElementById("bankAccountInput");
+    const upiIdInput = document.getElementById("upiIdInput");
+    const bankifscinput = document.getElementById("bankifscinput");
+    if (!bankAccountInput || !upiIdInput || !bankifscinput) return;
+    const bankAccount = bankAccountInput.value.trim();
+    const upiId = upiIdInput.value.trim();
+    const ifsc = bankifscinput.value.trim();
 
     if (bankAccount === "" || upiId === "" || ifsc === "") {
-        alert("Please fill all bank details!");
+        showToast("Please fill all bank details!", "error");
         return;
     }
     
     saveRiderProfileToDatabase();
-    alert("Financial configurations saved!");
+    showToast("Financial configurations saved!", "success");
     closeSubPage('payoutConfigPage'); 
 }
 
 function setAppLanguage(lang) {
     localStorage.setItem("app_language", lang);
     applyInstantTranslation(lang);
-    alert(`Language updated to: ${lang.toUpperCase()}`);
+    showToast(`Language updated to: ${lang.toUpperCase()}`, "info");
     closeSubPage('languagePage');
 }
 
@@ -804,19 +1035,33 @@ function applyInstantTranslation(lang) {
 }
 
 async function sendKycToAdmin(type, payloadData) {
+    if (!supabaseClient) return;
     try {
-        await supabaseClient.from('admin_kyc_verifications').insert([{
-            rider_id: currentRiderId, kyc_type: type,
-            data_payload: payloadData, status: 'pending', submitted_at: new Date()
-        }]);
-    } catch (err) { console.log("KYC successfully pushed to Admin panel node."); }
+        const riderId = parseInt(currentRiderId) || 0;
+        const nameEl = document.getElementById("profileDisplayName");
+        const name = nameEl ? nameEl.innerText : '';
+        const insertPayload = {
+            rider_id: riderId,
+            name: name
+        };
+        if (type === 'Vehicle_Plate') {
+            insertPayload.plate_no = payloadData.plate || '';
+            insertPayload.vehicle_img = payloadData.plate_img || '';
+        } else if (type === 'License') {
+            insertPayload.license_no = payloadData.license_no || '';
+            insertPayload.license_img = payloadData.license_img || '';
+        }
+        await supabaseClient.from('rider_kyc').insert([insertPayload]);
+    } catch (err) {}
 }
 
 function runOnlinePlateValidationCheck() {
-    const plateInput = document.getElementById("vehiclePlateInput").value.trim();
+    const vehiclePlateInput = document.getElementById("vehiclePlateInput");
+    if (!vehiclePlateInput) return;
+    const plateInput = vehiclePlateInput.value.trim();
     const typeInput = document.getElementById("vehicleTypeSelector") ? document.getElementById("vehicleTypeSelector").value : "bike";
 
-    if (plateInput === "") { alert("Plate empty."); return; }
+    if (plateInput === "") { showToast("Plate empty.", "error"); return; }
 
     sendKycToAdmin('Vehicle_Plate', { plate: plateInput, vehicle_type: typeInput });
     saveRiderProfileToDatabase();
@@ -824,8 +1069,10 @@ function runOnlinePlateValidationCheck() {
 }
 
 function runGovLicenseVerificationQuery() {
-    const licenseInput = document.getElementById("licenseStringInput").value.trim();
-    if (licenseInput === "") { alert("License empty."); return; }
+    const licenseStringInput = document.getElementById("licenseStringInput");
+    if (!licenseStringInput) return;
+    const licenseInput = licenseStringInput.value.trim();
+    if (licenseInput === "") { showToast("License empty.", "error"); return; }
 
     sendKycToAdmin('Driver_License', { license: licenseInput });
     saveRiderProfileToDatabase();
@@ -841,42 +1088,68 @@ function closeSubPage(pageId) {
             document.body.style.overflow = 'auto';
         }
     } else {
-        console.warn(`Element with id "${pageId}" not found in the DOM.`);
+
     }
 }
 
-function toggleNotifications() { document.getElementById('notiDropdown').classList.toggle('hidden'); }
+function toggleNotifications() { const notiDropdown = document.getElementById('notiDropdown'); if (notiDropdown) notiDropdown.classList.toggle('hidden'); }
 
-function openSubPage(pageId) {
-    // Privacy বা Terms হলে সরাসরি dboyT&C.html-এ নিয়ে যাও
-    if (pageId === 'privacyPage' || pageId === 'termsPage') {
-        const section = pageId === 'privacyPage' ? 'privacy' : 'terms';
-        window.location.href = 'dboyT&C.html?section=' + section;
-        return;
-    }
-
-    // ১. আগে চেক করুন যে পেজে কোনো অ্যাক্টিভ সাব-পেজ খোলা আছে কি না, থাকলে সেটাকে সেফলি হাইড করুন
-    const activePage = document.querySelector('.sub-page-overlay:not(.hidden)');
-    if (activePage) {
-        activePage.classList.add('hidden');
-    }
-
-    // ২. এবার যেই বাটন টিপেছেন সেই আইডি-র উপাদানটি পেজে আছে কি না চেক করুন
-    const targetPage = document.getElementById(pageId);
-    if (targetPage) {
-        targetPage.classList.remove('hidden');
-        if (document.body) {
-            document.body.style.overflow = 'hidden';
+async function loadDeliveryNotifications() {
+    const badge = document.getElementById('noti-badge');
+    const dropdownBody = document.getElementById('notiDropdown');
+    if (!badge || !supabaseClient) return;
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session?.user) return;
+        const numericRiderId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
+        if (!numericRiderId) return;
+        const { data } = await supabaseClient.from('rider_notifications')
+            .select('id, title, message, created_at')
+            .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+            .eq('is_read', false)
+            .order('created_at', { ascending: false })
+            .limit(5);
+        if (data && data.length > 0) {
+            badge.textContent = data.length;
+            badge.style.display = 'inline-flex';
+            if (dropdownBody) {
+                const itemsHtml = data.map(n => `<div class="noti-item unread"><p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p><p>${escapeHtml(n.message) || ''}</p><span>${timeAgo(n.created_at)}</span></div>`).join('');
+                dropdownBody.innerHTML = `<div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>${itemsHtml}`;
+            }
+            await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('rider_id', parseInt(numericRiderId)).eq('is_read', false);
         }
-    } else {
-        // যদি এইচটিএমএল ফাইলে আইডিটি না থাকে (যেমন: languagePage, supportPage) তবে কনসোলে ওয়ার্নিং দেবে, ক্র্যাশ করবে না
-        console.warn(`Id: "${pageId}" ওয়ালা কোনো এলিমেন্ট HTML ফাইলে খুঁজে পাওয়া যায়নি!`);
-    }
+    } catch (e) {}
 }
+
+function timeAgo(dateStr) {
+    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return Math.floor(diff / 60) + ' mins ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
+    return Math.floor(diff / 86400) + ' days ago';
+}
+function openSubPage(pageId) { const el = document.getElementById(pageId); if (!el) return; el.classList.remove('hidden'); if(document.body) document.body.style.overflow = 'hidden'; }
 
 async function triggerProfileNameEdit() {
-    const newName = prompt("Enter your new system profile account name:");
-    if (newName) { 
+    const newName = await new Promise(resolve => {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Enter New Profile Name</h3>
+            <input type="text" id="modalPromptInput" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Type new name...">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('.modal').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="modalPromptOk" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+        const input = modal.querySelector('#modalPromptInput');
+        input.focus();
+        modal.querySelector('#modalPromptOk').onclick = () => { const v = input.value.trim(); modal.remove(); resolve(v || null); };
+        modal.onclick = (e) => { if (e.target === modal) { modal.remove(); resolve(null); } };
+    });
+    if (newName) {
         if (document.getElementById("profileDisplayName")) {
             document.getElementById("profileDisplayName").innerText = newName;
             await saveRiderProfileToDatabase();
@@ -885,18 +1158,18 @@ async function triggerProfileNameEdit() {
 }
 
 async function processGlobalLogout() {
-    const ok = confirm("Are you sure you want to logout?");
-    if (!ok) return;
-    try {
-        if (supabaseClient?.auth) await supabaseClient.auth.signOut();
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace("index.html");
-    } catch (err) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace("index.html");
-    }
+    showConfirmationModal("Are you sure you want to logout?", async () => {
+        try {
+            if (supabaseClient?.auth) await supabaseClient.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace("index.html");
+        } catch (err) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace("index.html");
+        }
+    });
 }
 
 // Bottom nav active state
@@ -934,7 +1207,7 @@ async function loadCurrentRiderProfileStatus() {
         if (error || !data) return;
 
         const riderProfile = data;
-        const rId = riderProfile.id || riderProfile.rider_id;
+        const rId = riderProfile.id;
         if (rId) {
             localStorage.setItem('riderId', rId);
             currentRiderId = rId; 
@@ -957,11 +1230,25 @@ async function loadCurrentRiderProfileStatus() {
             }
         }
 
+        if (document.getElementById("licenseStatusTag")) {
+            if (riderProfile.license_number) {
+                document.getElementById("licenseStatusTag").innerText = "Submitted";
+                document.getElementById("licenseStatusTag").style.background = "#fef3c7";
+                document.getElementById("licenseStatusTag").style.color = "#d97706";
+            }
+            if (riderProfile.is_verified) {
+                document.getElementById("licenseStatusTag").innerText = "Verified";
+                document.getElementById("licenseStatusTag").style.background = "#dcfce7";
+                document.getElementById("licenseStatusTag").style.color = "#16a34a";
+            }
+        }
+
         if (document.getElementById('profileDisplayName') && riderProfile.full_name) {
             document.getElementById('profileDisplayName').innerText = riderProfile.full_name;
         }
-        if (document.getElementById('profileDisplayUsername') && riderProfile.username) {
-            document.getElementById('profileDisplayUsername').innerText = `@${riderProfile.username}`;
+        if (document.getElementById('profileDisplayUsername')) {
+            const displayName = riderProfile.username || (session?.user?.email ? '@' + session.user.email.split('@')[0] : '@rider');
+            document.getElementById('profileDisplayUsername').innerText = displayName;
         }
         if (document.getElementById('vehicleTypeSelector') && riderProfile.vehicle_type) {
             document.getElementById('vehicleTypeSelector').value = riderProfile.vehicle_type;
@@ -985,12 +1272,11 @@ async function loadCurrentRiderProfileStatus() {
             document.getElementById("verificationStatus").innerText = riderProfile.status || "Pending";
         }
 
-        console.log("🎯 Rider profile elements populated successfully via Supabase Pipeline.");
     } catch (e) { 
-        console.error("Error running auto-populate engine for rider assets:", e.message); 
+
     }
 }
 
 async function loadCurrentMerchantStatus() {
-    console.log("Merchant callback initialized into Rider node environment safely.");
+
 }

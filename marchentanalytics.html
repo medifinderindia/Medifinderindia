@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta name="theme-color" content="#e02020">
@@ -13,30 +13,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="prod-utils.js?v=4"></script>
-<title>MediFinder — Merchant Analytics</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=12"></script>
+<title>MediFinder â€” Merchant Analytics</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:#ff4d4d;--dark:#1a1a2e;--dark2:#16213e;--dark3:#0f3460;--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--border:#e0e0e0;--success:#10b981;--warning:#f59e0b;--info:#3b82f6;--danger:#ef4444;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.12);--transition:all .3s ease}
+:root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:#ff4d4d;--dark:#1a1a2e;--dark2:#16213e;--dark3:#e02020;--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--text2:#64748b;--text3:#94a3b8;--border:#e8eaef;--success:#10b981;--warning:#f59e0b;--info:#e02020;--danger:#ef4444;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.12);--transition:all .3s ease}
 html{font-size:14px;scroll-behavior:smooth}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-bottom:80px}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-bottom:100px}
 a{text-decoration:none;color:inherit}
 button{cursor:pointer;border:none;outline:none;font-family:inherit}
 input,select{font-family:inherit;outline:none}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 
 /* Header */
-.header{position:sticky;top:0;z-index:100;  background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);padding:0 16px;display:flex;align-items:center;height:56px;gap:12px}
-.header .logo .brand-logo { 
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    object-fit: cover;
-}
+.header{position:sticky;top:0;z-index:100;background:var(--dark);color:#fff;padding:0 16px;display:flex;align-items:center;height:56px;gap:12px}
+.header .logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.1rem;letter-spacing:-.5px;white-space:nowrap}
 .header .logo i{color:var(--primary);font-size:1.3rem}
-.header .logo span{color:black}
+.header .logo span{color:var(--primary)}
 .header-actions{margin-left:auto;display:flex;align-items:center;gap:12px}
 .header-actions button{background:none;color:#fff;font-size:1.1rem;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transition:var(--transition)}
 .header-actions button:hover{background:rgba(255,255,255,.1)}
@@ -256,13 +252,13 @@ tr:hover td{background:rgba(224,32,32,.02)}
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <div class="brand"><i class="fas fa-truck"></i> MEDI<span>FINDER</span></div>
+    <div class="brand"><i class="fas fa-truck-medical"></i> MEDI<span>FINDER</span></div>
     <button class="sidebar-close" onclick="closeSidebar()"><i class="fas fa-times"></i></button>
   </div>
   <nav class="sidebar-nav">
     <a href="marchenthome.html"><i class="fas fa-th-large"></i> Dashboard</a>
     <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i> Orders</a>
-    <a href="marchentadd.html"><i class="fas fa-boxes-stacked"></i> Inventory</a>
+    <a href="marchentinventory.html"><i class="fas fa-boxes-stacked"></i> Inventory</a>
     <a href="marchentreturns.html"><i class="fas fa-rotate-left"></i> Returns</a>
     <a href="#" class="active"><i class="fas fa-chart-line"></i> Analytics</a>
     <a href="marchentpromotions.html"><i class="fas fa-tags"></i> Promotions</a>
@@ -291,10 +287,10 @@ tr:hover td{background:rgba(224,32,32,.02)}
 <!-- Header -->
 <header class="header">
   <button onclick="openSidebar()" style="background:none;color:#fff;font-size:1.2rem"><i class="fas fa-bars"></i></button>
-  <div class="logo"><img src="1779304435608.png" class="brand-logo"> MEDI<span>FINDER</span></div>
+  <div class="logo"><i class="fas fa-truck-medical"></i> MEDI<span>FINDER</span></div>
   <div class="header-actions">
     <a href="marchenthome.html" title="Back to Dashboard"><i class="fas fa-arrow-left"></i></a>
-    <button onclick="showToast('No new notifications','info')"><i class="fas fa-bell"></i><span class="badge" id="notifBadge">3</span></button>
+    <button onclick="showMerchantNotifications()"><i class="fas fa-bell"></i><span class="badge" id="notifBadge"></span></button>
   </div>
 </header>
 
@@ -316,7 +312,7 @@ tr:hover td{background:rgba(224,32,32,.02)}
   <div class="cards-grid fade-in">
     <div class="stat-card">
       <div class="label">Total Revenue</div>
-      <div class="value" id="totalRevenue">₹0</div>
+      <div class="value" id="totalRevenue">â‚¹0</div>
       <div class="change up" id="revenueChange"><i class="fas fa-arrow-up"></i> 0%</div>
       <div class="icon red"><i class="fas fa-indian-rupee-sign"></i></div>
     </div>
@@ -328,7 +324,7 @@ tr:hover td{background:rgba(224,32,32,.02)}
     </div>
     <div class="stat-card blue">
       <div class="label">Avg Order Value</div>
-      <div class="value" id="avgOrder">₹0</div>
+      <div class="value" id="avgOrder">â‚¹0</div>
       <div class="change up" id="avgChange"><i class="fas fa-arrow-up"></i> 0%</div>
       <div class="icon blue"><i class="fas fa-receipt"></i></div>
     </div>
@@ -354,7 +350,7 @@ tr:hover td{background:rgba(224,32,32,.02)}
       <div class="chart-area" id="salesChart" style="min-width:400px"></div>
     </div>
     <div class="chart-legend">
-      <span><span class="legend-dot" style="background:var(--primary)"></span> Revenue (₹)</span>
+      <span><span class="legend-dot" style="background:var(--primary)"></span> Revenue (â‚¹)</span>
       <span><span class="legend-dot" style="background:var(--info)"></span> Orders</span>
       <span><span class="legend-dot" style="background:var(--success)"></span> Items Sold</span>
     </div>
@@ -392,7 +388,7 @@ tr:hover td{background:rgba(224,32,32,.02)}
     <div class="donut-container" id="categoryChart">
       <div class="donut" id="donutChart">
         <div class="donut-center">
-          <div class="donut-total" id="donutTotal">₹0</div>
+          <div class="donut-total" id="donutTotal">â‚¹0</div>
           <div class="donut-sub">Total</div>
         </div>
       </div>
@@ -425,7 +421,7 @@ tr:hover td{background:rgba(224,32,32,.02)}
     </div>
     <div class="metric-row">
       <div><div class="m-label">Avg Customer Value</div><div class="m-sub">Lifetime spend per customer</div></div>
-      <div class="m-val" id="avgCustValue">₹0</div>
+      <div class="m-val" id="avgCustValue">â‚¹0</div>
     </div>
     <div class="section-title" style="margin-top:16px"><i class="fas fa-location-dot"></i> Top Cities</div>
     <div id="topCities">
@@ -472,10 +468,10 @@ tr:hover td{background:rgba(224,32,32,.02)}
       <h3><i class="fas fa-scale-balanced" style="color:var(--primary)"></i> Profit & Loss Summary</h3>
     </div>
     <div class="pnl-grid">
-      <div class="pnl-item"><span class="pnl-label">Gross Revenue</span><span class="pnl-val" id="pnlRevenue">₹0</span></div>
-      <div class="pnl-item"><span class="pnl-label">Cost of Goods (est. 60%)</span><span class="pnl-val" id="pnlCOGS" style="color:var(--danger)">-₹0</span></div>
-      <div class="pnl-item"><span class="pnl-label">Returns / Refunds</span><span class="pnl-val" id="pnlReturns" style="color:var(--warning)">-₹0</span></div>
-      <div class="pnl-item total"><span class="pnl-label">Net Profit</span><span class="pnl-val" id="pnlProfit">₹0</span></div>
+      <div class="pnl-item"><span class="pnl-label">Gross Revenue</span><span class="pnl-val" id="pnlRevenue">â‚¹0</span></div>
+      <div class="pnl-item"><span class="pnl-label">Cost of Goods (est. 60%)</span><span class="pnl-val" id="pnlCOGS" style="color:var(--danger)">-â‚¹0</span></div>
+      <div class="pnl-item"><span class="pnl-label">Returns / Refunds</span><span class="pnl-val" id="pnlReturns" style="color:var(--warning)">-â‚¹0</span></div>
+      <div class="pnl-item total"><span class="pnl-label">Net Profit</span><span class="pnl-val" id="pnlProfit">â‚¹0</span></div>
       <div class="pnl-item"><span class="pnl-label">Profit Margin</span><span class="pnl-val" id="pnlMargin" style="color:var(--success)">0%</span></div>
     </div>
   </div>
@@ -499,15 +495,14 @@ tr:hover td{background:rgba(224,32,32,.02)}
   <a href="marchenthome.html"><i class="fas fa-home"></i> HOME</a>
   <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i> ORDERS</a>
   <a href="marchentadd.html" class="add-btn"><i class="fas fa-plus"></i></a>
-  <a href="marchentadd.html"><i class="fas fa-boxes-stacked"></i> INVENTORY</a>
+  <a href="marchentinventory.html"><i class="fas fa-boxes-stacked"></i> INVENTORY</a>
   <a href="marchentprofile.html"><i class="fas fa-user"></i> PROFILE</a>
 </nav>
 
 <script>
-const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+// URL & key loaded from supabase-constants.js
 let supabase = null;
-try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.error('Supabase init error:', e); }
+try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
 
 let allOrders = [];
 let allItems = [];
@@ -518,12 +513,20 @@ let topSortField = 'revenue';
 let topSortAsc = false;
 let dateFrom = null;
 let dateTo = null;
+let merchantId = null;
+
+function getMerchantId() {
+  if (merchantId) return merchantId;
+  const stored = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+  if (stored) { merchantId = stored; return merchantId; }
+  return null;
+}
 
 // Utils
 function formatCurrency(n) {
-  if (n >= 1e7) return '₹' + (n/1e7).toFixed(2) + ' Cr';
-  if (n >= 1e5) return '₹' + (n/1e5).toFixed(2) + ' L';
-  return '₹' + Math.round(n).toLocaleString('en-IN');
+  if (n >= 1e7) return 'â‚¹' + (n/1e7).toFixed(2) + ' Cr';
+  if (n >= 1e5) return 'â‚¹' + (n/1e5).toFixed(2) + ' L';
+  return 'â‚¹' + Math.round(n).toLocaleString('en-IN');
 }
 function formatNumber(n) { return Math.round(n).toLocaleString('en-IN'); }
 function pctChange(curr, prev) {
@@ -613,21 +616,20 @@ function getPrevPeriodOrders(orders) {
 // Fetch Data
 async function fetchData() {
   try {
+    const mid = getMerchantId();
+    if (!mid) { showToast('Merchant session not found. Please log in again.', 'error'); return; }
     const [ordersRes, itemsRes, medsRes] = await Promise.all([
-      supabase.from('orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('order_items').select('*'),
-      supabase.from('medicines').select('*')
+      supabase.from('orders').select('*').eq('merchant_id', mid).order('created_at', { ascending: false }),
+      supabase.from('order_items').select('*').eq('merchant_id', mid),
+      supabase.from('medicines').select('*').eq('merchant_id', mid)
     ]);
     allOrders = ordersRes.data || [];
     allItems = itemsRes.data || [];
     allMedicines = medsRes.data || [];
     document.getElementById('notifBadge').textContent = Math.min(allOrders.length, 9);
   } catch (e) {
-    console.error('Fetch error:', e);
-    showToast('Error loading data. Using demo mode.', 'error');
-    generateDemoData();
+    showToast('Error loading data from database.', 'error');
   }
-  if (allOrders.length === 0) generateDemoData();
   filterAndRender();
 }
 
@@ -854,7 +856,7 @@ function renderCategoryChart(orders) {
   document.getElementById('donutTotal').textContent = formatCurrency(totalRev);
 
   if (cats.length === 0) {
-    document.getElementById('donutChart').innerHTML = '<div class="donut-center"><div class="donut-total">₹0</div><div class="donut-sub">No data</div></div>';
+    document.getElementById('donutChart').innerHTML = '<div class="donut-center"><div class="donut-total">â‚¹0</div><div class="donut-sub">No data</div></div>';
     document.getElementById('donutLegend').innerHTML = '';
     return;
   }
@@ -933,7 +935,7 @@ function renderCustomerInsights(orders) {
   document.getElementById('topCities').innerHTML = topCities.map(([city, data], i) =>
     `<div class="city-item">
       <div class="city-rank">${i+1}</div>
-      <div class="city-info"><div class="city-name">${city}</div><div class="city-orders">${data.orders} orders · ${formatCurrency(data.revenue)}</div></div>
+      <div class="city-info"><div class="city-name">${city}</div><div class="city-orders">${data.orders} orders Â· ${formatCurrency(data.revenue)}</div></div>
       <div class="city-pct">${((data.orders/orders.length)*100).toFixed(1)}%</div>
     </div>`
   ).join('') || '<div class="empty-state"><p>No city data</p></div>';
@@ -1062,7 +1064,6 @@ function exportCSV(type) {
     if (!session) { window.location.replace('index.html'); return; }
     await fetchData();
   } catch (err) {
-    console.error('Init error:', err);
     document.getElementById('loadingOverlay').classList.add('hidden');
     showToast('Failed to load data', 'error');
   }

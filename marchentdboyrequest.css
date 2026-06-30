@@ -1,7 +1,7 @@
 :root {
-      --primary: #1c82aa;
-    --accent: #083568;
-    --primary-light: #1c82aa;
+      --primary: #e02020;
+    --accent: #1a1a2e;
+    --primary-light: #ff4747;
     --primary-gradient: linear-gradient(135deg, #e53935, #b71c1c);
     --bg-light: #f8fafc;
     --surface: #ffffff;
@@ -17,12 +17,12 @@
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
 }
 
 body { 
     background: var(--bg-light); 
-    padding-bottom: 85px; /* বটম ন্যাভ যেন স্ক্রিনের মেইন কনটেন্ট আটকে না দেয় */
+    padding-bottom: 100px;
     color: var(--text-main); 
     -webkit-tap-highlight-color: transparent;
 }

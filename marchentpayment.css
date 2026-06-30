@@ -1,7 +1,7 @@
 :root {
-     --primary: #c40707;
-    --accent: #010911;
-    --primary-light: #f7120b;
+     --primary: #e02020;
+    --accent: #1a1a2e;
+    --primary-light: #ff4747;
     --primary-gradient: linear-gradient(135deg, #e53935, #b71c1c);
     --bg-light: #f8fafc;
     --surface: #ffffff;
@@ -24,7 +24,7 @@
 
 body { 
     background: var(--bg-light); 
-    padding-bottom: 85px; /* বটম ন্যাভ বার যেন কোনো ডেটা ঢেকে না ফেলে */
+    padding-bottom: 100px;
     color: var(--text-main); 
     -webkit-tap-highlight-color: transparent;
 }
@@ -33,7 +33,7 @@ body {
 .top-bar { 
     display: flex; 
     align-items: center; 
-    background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%); 
+    background: var(--surface-glass); 
     backdrop-filter: blur(12px); 
     -webkit-backdrop-filter: blur(12px);
     padding: 14px 20px; 

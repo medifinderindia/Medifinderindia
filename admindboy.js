@@ -1,8 +1,8 @@
-// ================= SUPABASE CLIENT INITIALIZATION =================
-const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
-
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+﻿// ================= SUPABASE CLIENT INITIALIZATION =================
+// URL & key loaded from supabase-constants.js
+const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined')
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
 
 // গ্লোবাল স্টেট হোল্ডার
 let serviceZones = [];
@@ -20,11 +20,19 @@ let analyticsData = {
     totalOrders: 0,
     totalEarnings: 0,
     lastHourOrders: 0,
-    lastHourEarnings: 0
+    lastHourEarnings: 0,
+    avgDeliveryTime: 0,
+    activeZones: 0,
+    totalZones: 0
 };
+let prevAnalyticsData = null;
 
 // App Initialization Setup
 document.addEventListener("DOMContentLoaded", () => {
+    if (!supabaseClient) {
+
+        return;
+    }
     fetchInitialData();
     setupRealtimeSubscriptions();
     initializeLiveMap();
@@ -59,6 +67,7 @@ function switchToTab(tabName) {
 
 // ================= INITIAL DATA FETCHING =================
 async function fetchInitialData() {
+    if (!supabaseClient) return;
     try {
         // ১. সার্ভিস জোন লোড
         let { data: zones } = await supabaseClient.from('service_zones').select('*').order('id', { ascending: false });
@@ -73,15 +82,16 @@ async function fetchInitialData() {
         if(kyc) { riderKYC = kyc; renderKYC(); }
 
         // ४. সক্রিয় রাইডার লোড
-        let { data: riders } = await supabaseClient.from('riders').select('*').eq('status', 'online');
+        let { data: riders } = await supabaseClient.from('riders').select('*').eq('duty_status', 'online');
         if(riders) { activeRiders = riders; updateFleetMap(); }
     } catch (err) {
-        console.error("Error fetching data:", err);
+
     }
 }
 
 // ================= REALTIME SUBSCRIPTIONS =================
 function setupRealtimeSubscriptions() {
+    if (!supabaseClient) return;
     supabaseClient.channel('custom-all-channel')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'service_zones' }, () => {
         fetchInitialData();
@@ -102,6 +112,8 @@ function setupRealtimeSubscriptions() {
 
 // ================= FEATURE 1: LIVE FLEET GEOLOCATION HUB =================
 function initializeLiveMap() {
+    const mapEl = document.getElementById('live-fleet-map');
+    if (!mapEl) return;
     // Siliguri, West Bengal centered map
     liveMap = L.map('live-fleet-map', {
         center: [26.5200, 88.4250],
@@ -115,109 +127,101 @@ function initializeLiveMap() {
         maxZoom: 19
     }).addTo(liveMap);
 
-    // Add a heatmap-style layer for zone coverage
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-        opacity: 0.2
-    }).addTo(liveMap);
-
     updateFleetMap();
 }
 
 async function updateFleetMap() {
-    if (!liveMap) return;
+    if (!liveMap || !supabaseClient) return;
+    try {
+        // Clear existing markers
+        Object.values(riderMarkers).forEach(marker => marker.remove());
+        riderMarkers = {};
 
-    // Clear existing markers
-    Object.values(riderMarkers).forEach(marker => marker.remove());
-    riderMarkers = {};
+        // Fetch active riders with their current locations
+        let { data: riders } = await supabaseClient
+            .from('riders')
+            .select('*')
+            .eq('duty_status', 'online');
 
-    // Fetch active riders with their current locations
-    let { data: riders } = await supabaseClient
-        .from('riders')
-        .select('*')
-        .eq('status', 'online');
+        if (!riders) return;
 
-    if (!riders) return;
-
-    riders.forEach(rider => {
-        if (rider.latitude && rider.longitude) {
-            // Determine marker color based on status
-            let markerColor = '#3b82f6'; // default idle
-            if (rider.has_active_order) {
-                markerColor = '#10b981'; // with order
-            } else if (rider.is_on_route) {
-                markerColor = '#f97316'; // on route
-            }
-
-            // Create custom marker
-            const markerHTML = `
-                <div style="
-                    width: 30px;
-                    height: 30px;
-                    background: ${markerColor};
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-weight: bold;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    border: 3px solid white;
-                ">
-                    <i class="fa-solid fa-motorcycle" style="font-size: 14px;"></i>
-                </div>
-            `;
-
-            const marker = L.marker([rider.latitude, rider.longitude], {
-                icon: L.divIcon({
-                    html: markerHTML,
-                    iconSize: [30, 30],
-                    className: 'rider-marker'
-                })
-            }).addTo(liveMap);
-
-            // Popup with rider details
-            marker.bindPopup(`
-                <div style="min-width: 200px; font-size: 12px;">
-                    <strong>${rider.name}</strong><br>
-                    ID: ${rider.id}<br>
-                    Status: ${rider.has_active_order ? 'On Delivery' : 'Idle'}<br>
-                    Phone: ${rider.phone || 'N/A'}<br>
-                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                        <small>Last Update: ${new Date(rider.updated_at).toLocaleTimeString()}</small>
+        riders.forEach(rider => {
+            if (rider.current_lat && rider.current_lon) {
+                let markerColor = '#3b82f6';
+                const markerHTML = `
+                    <div style="
+                        width: 30px;
+                        height: 30px;
+                        background: ${markerColor};
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: bold;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                        border: 3px solid white;
+                    ">
+                        <i class="fa-solid fa-motorcycle" style="font-size: 14px;"></i>
                     </div>
-                </div>
-            `);
+                `;
 
-            riderMarkers[rider.id] = marker;
-        }
-    });
+                const marker = L.marker([rider.current_lat, rider.current_lon], {
+                    icon: L.divIcon({
+                        html: markerHTML,
+                        iconSize: [30, 30],
+                        className: 'rider-marker'
+                    })
+                }).addTo(liveMap);
 
-    // Update last updated time
-    document.getElementById('map-last-updated').textContent = new Date().toLocaleTimeString();
+                marker.bindPopup(`
+                    <div style="min-width: 200px; font-size: 12px;">
+                        <strong>${rider.name || rider.email || 'N/A'}</strong><br>
+                        ID: ${rider.id}<br>
+                        Status: ${rider.duty_status || 'Active'}<br>
+                        Contact: ${rider.phone || rider.email || 'N/A'}<br>
+                    </div>
+                `);
+
+                riderMarkers[rider.id] = marker;
+            }
+        });
+
+        const mapUpdatedEl = document.getElementById('map-last-updated');
+        if (mapUpdatedEl) mapUpdatedEl.textContent = new Date().toLocaleTimeString();
+    } catch (e) {
+
+    }
 }
 
 function refreshFleetMap() {
     updateFleetMap();
-    alert('Fleet map refreshed with latest positions!');
+    showToast('Fleet map refreshed with latest positions!', "info");
 }
 
 function filterFleetByZone() {
-    const filterValue = document.getElementById('filter-zone-select').value;
+    const filterEl = document.getElementById('filter-zone-select');
+    const filterValue = filterEl ? filterEl.value : '';
     // Implementation would filter markers based on zone status
     updateFleetMap();
 }
 
 // ================= FEATURE 2: REAL-TIME ANALYTICS METRICS =================
 function startAnalyticsRefresh() {
+    if (!supabaseClient) return;
     // Update analytics every 10 seconds
     setInterval(updateLiveAnalytics, 10000);
     updateLiveAnalytics(); // Initial load
 }
 
 async function updateLiveAnalytics() {
+    if (!supabaseClient) return;
     try {
+        // Save previous snapshot for delta calculation
+        prevAnalyticsData = { ...analyticsData };
+
         // Active Riders
-        let { data: riders } = await supabaseClient.from('riders').select('id').eq('status', 'online');
+        let { data: riders } = await supabaseClient.from('riders').select('id').eq('duty_status', 'online');
         analyticsData.activeRiders = riders ? riders.length : 0;
 
         // Active Merchants
@@ -229,6 +233,12 @@ async function updateLiveAnalytics() {
             .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString());
         analyticsData.totalOrders = orders ? orders.length : 0;
 
+        // Delivered orders count
+        let { data: deliveredData } = await supabaseClient.from('orders').select('id')
+            .eq('status', 'delivered')
+            .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString());
+        analyticsData.deliveredOrders = deliveredData ? deliveredData.length : 0;
+
         // Total earnings
         let { data: earnings } = await supabaseClient.from('rider_payouts').select('amount');
         analyticsData.totalEarnings = earnings ? earnings.reduce((sum, e) => sum + (e.amount || 0), 0) : 0;
@@ -239,44 +249,138 @@ async function updateLiveAnalytics() {
             .gte('created_at', lastHourTime);
         analyticsData.lastHourOrders = lastHourOrders ? lastHourOrders.length : 0;
 
+        // Active zones count
+        let activeZoneCount = serviceZones.filter(z => z.status === 'approved').length;
+        let totalZoneCount = serviceZones.length;
+        analyticsData.activeZones = activeZoneCount;
+        analyticsData.totalZones = totalZoneCount;
+
+        // Avg delivery time from today's completed orders
+        let { data: completedOrders } = await supabaseClient.from('orders')
+            .select('created_at, updated_at')
+            .not('updated_at', 'is', null)
+            .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString());
+        if (completedOrders && completedOrders.length > 0) {
+            let totalMinutes = completedOrders.reduce((sum, o) => {
+                let diff = (new Date(o.updated_at) - new Date(o.created_at)) / 60000;
+                return sum + (isNaN(diff) ? 0 : diff);
+            }, 0);
+            analyticsData.avgDeliveryTime = Math.round(totalMinutes / completedOrders.length);
+        } else {
+            analyticsData.avgDeliveryTime = 0;
+        }
+
         // Render analytics
         renderAnalyticsCards();
     } catch (err) {
-        console.error("Analytics update error:", err);
+
     }
 }
 
 function renderAnalyticsCards() {
+    const activeRidersCountEl = document.getElementById('active-riders-count');
+    const activeRidersChangeEl = document.getElementById('active-riders-change');
+    const activeMerchantsCountEl = document.getElementById('active-merchants-count');
+    const activeMerchantsChangeEl = document.getElementById('active-merchants-change');
+    const totalOrdersCountEl = document.getElementById('total-orders-count');
+    const totalOrdersChangeEl = document.getElementById('total-orders-change');
+    const totalEarningsCountEl = document.getElementById('total-earnings-count');
+    const totalEarningsChangeEl = document.getElementById('total-earnings-change');
+
     // Active Riders
-    document.getElementById('active-riders-count').textContent = analyticsData.activeRiders;
-    let riderChange = Math.floor(Math.random() * 10) - 5; // Demo data
-    document.getElementById('active-riders-change').textContent = 
-        (riderChange >= 0 ? '↑' : '↓') + ` ${Math.abs(riderChange)} from last hour`;
+    if (activeRidersCountEl) activeRidersCountEl.textContent = analyticsData.activeRiders;
+    if (activeRidersChangeEl) {
+        if (prevAnalyticsData) {
+            let riderDelta = analyticsData.activeRiders - prevAnalyticsData.activeRiders;
+            activeRidersChangeEl.textContent = 
+                (riderDelta >= 0 ? '↑' : '↓') + ` ${Math.abs(riderDelta)} from last refresh`;
+        } else {
+            activeRidersChangeEl.textContent = '—';
+        }
+    }
 
     // Active Merchants
-    document.getElementById('active-merchants-count').textContent = analyticsData.activeMerchants;
-    let merchantChange = Math.floor(Math.random() * 5);
-    document.getElementById('active-merchants-change').textContent = 
-        `↑ +${merchantChange} new today`;
+    if (activeMerchantsCountEl) activeMerchantsCountEl.textContent = analyticsData.activeMerchants;
+    if (activeMerchantsChangeEl) {
+        if (prevAnalyticsData) {
+            let merchantDelta = analyticsData.activeMerchants - prevAnalyticsData.activeMerchants;
+            activeMerchantsChangeEl.textContent = 
+                (merchantDelta >= 0 ? '↑' : '↓') + ` ${Math.abs(merchantDelta)} from last refresh`;
+        } else {
+            activeMerchantsChangeEl.textContent = '—';
+        }
+    }
 
     // Total Orders
-    document.getElementById('total-orders-count').textContent = analyticsData.totalOrders;
-    document.getElementById('total-orders-change').textContent = 
-        `↑ +${analyticsData.lastHourOrders} in last hour`;
+    if (totalOrdersCountEl) totalOrdersCountEl.textContent = analyticsData.totalOrders;
+    if (totalOrdersChangeEl) {
+        if (prevAnalyticsData) {
+            let orderDelta = analyticsData.totalOrders - prevAnalyticsData.totalOrders;
+            totalOrdersChangeEl.textContent = 
+                orderDelta > 0 ? `↑ +${orderDelta} since last refresh` : '— No new orders';
+        } else {
+            totalOrdersChangeEl.textContent = 
+                `↑ +${analyticsData.lastHourOrders} in last hour`;
+        }
+    }
 
     // Total Earnings
-    document.getElementById('total-earnings-count').textContent = 
+    if (totalEarningsCountEl) totalEarningsCountEl.textContent = 
         '₹' + analyticsData.totalEarnings.toLocaleString('en-IN');
-    let hourlyEarnings = Math.floor(analyticsData.totalEarnings / 24);
-    document.getElementById('total-earnings-change').textContent = 
-        `↑ ₹${hourlyEarnings} this hour`;
+    if (totalEarningsChangeEl) {
+        if (prevAnalyticsData) {
+            let earningsDelta = analyticsData.totalEarnings - prevAnalyticsData.totalEarnings;
+            totalEarningsChangeEl.textContent = 
+                earningsDelta > 0 ? `↑ ₹${earningsDelta.toLocaleString('en-IN')} since last refresh` : '— No change';
+        } else {
+            let hourlyEarnings = Math.floor(analyticsData.totalEarnings / 24);
+            totalEarningsChangeEl.textContent = 
+                `↑ ₹${hourlyEarnings} est. this hour`;
+        }
+    }
+
+    // Completion Rate
+    let completionEl = document.getElementById('completion-rate');
+    let completionSubEl = document.getElementById('completion-rate-sub');
+        if (completionEl && analyticsData.totalOrders > 0) {
+        let deliveredCount = analyticsData.deliveredOrders || analyticsData.totalOrders;
+        let rate = Math.min(100, (deliveredCount / Math.max(analyticsData.totalOrders, 1)) * 100).toFixed(1);
+        completionEl.textContent = rate + '%';
+        if (completionSubEl) {
+            if (prevAnalyticsData) {
+                let rateDelta = (deliveredCount - (prevAnalyticsData.deliveredOrders || prevAnalyticsData.totalOrders || 0));
+                completionSubEl.textContent = rateDelta > 0 ? `↑ +${rateDelta} delivered since last refresh` : '— No change';
+            } else {
+                completionSubEl.textContent = '— Delivery rate';
+            }
+        }
+    }
+
+    // Service Performance (Live)
+    let avgTimeEl = document.getElementById('avg-delivery-time');
+    let avgTimeSubEl = document.getElementById('avg-delivery-time-sub');
+    if (avgTimeEl) {
+        avgTimeEl.textContent = analyticsData.avgDeliveryTime > 0 ? `${analyticsData.avgDeliveryTime} min` : '— min';
+        if (avgTimeSubEl) avgTimeSubEl.textContent = 'Based on today\'s deliveries';
+    }
+
+    let activeZonesEl = document.getElementById('active-zones');
+    let activeZonesSubEl = document.getElementById('active-zones-sub');
+    if (activeZonesEl) {
+        let total = analyticsData.totalZones || 0;
+        let active = analyticsData.activeZones || 0;
+        activeZonesEl.textContent = total > 0 ? `${active} / ${total}` : '— / —';
+        if (activeZonesSubEl) activeZonesSubEl.textContent = total - active > 0 ? `${total - active} zones under maintenance` : 'All zones active';
+    }
 }
 
 // ================= FEATURE 3: FINANCIAL SETTLEMENT LEDGER & AUDIT TRAIL =================
 async function loadPayoutLedger() {
+    if (!supabaseClient) return;
     try {
         let { data: ledger } = await supabaseClient.from('payout_history')
             .select('*')
+            .eq('type', 'Rider')
             .order('created_at', { ascending: false });
 
         if (ledger) {
@@ -285,7 +389,7 @@ async function loadPayoutLedger() {
             updateLedgerStats();
         }
     } catch (err) {
-        console.error("Ledger fetch error:", err);
+
     }
 }
 
@@ -324,14 +428,19 @@ function updateLedgerStats() {
     let avgPayout = totalPayouts > 0 ? Math.floor(totalAmount / totalPayouts) : 0;
     let pending = payoutLedger.filter(p => p.status !== 'Completed').length;
 
-    document.getElementById('ledger-total-payouts').textContent = totalPayouts;
-    document.getElementById('ledger-total-amount').textContent = '₹' + totalAmount.toLocaleString('en-IN');
-    document.getElementById('ledger-avg-payout').textContent = '₹' + avgPayout.toLocaleString('en-IN');
-    document.getElementById('ledger-pending').textContent = pending;
+    const el1 = document.getElementById('ledger-total-payouts');
+    const el2 = document.getElementById('ledger-total-amount');
+    const el3 = document.getElementById('ledger-avg-payout');
+    const el4 = document.getElementById('ledger-pending');
+    if (el1) el1.textContent = totalPayouts;
+    if (el2) el2.textContent = '₹' + totalAmount.toLocaleString('en-IN');
+    if (el3) el3.textContent = '₹' + avgPayout.toLocaleString('en-IN');
+    if (el4) el4.textContent = pending;
 }
 
 function filterLedgerByDate() {
-    const date = document.getElementById('ledger-date-filter').value;
+    const dateEl = document.getElementById('ledger-date-filter');
+    const date = dateEl ? dateEl.value : '';
     if (!date) {
         loadPayoutLedger();
         return;
@@ -372,7 +481,7 @@ function filterLedgerByDate() {
 
 function exportLedgerCSV() {
     if (payoutLedger.length === 0) {
-        alert('No data to export');
+        showToast('No data to export', "info");
         return;
     }
 
@@ -403,71 +512,77 @@ function updateOutageZoneSelector() {
 }
 
 async function triggerZoneOutage() {
-    const pin = document.getElementById('outage-pin-select').value;
-    const message = document.getElementById('outage-message-input').value.trim();
+    if (!supabaseClient) return;
+    const pinEl = document.getElementById('outage-pin-select');
+    const msgEl = document.getElementById('outage-message-input');
+    const pin = pinEl ? pinEl.value : '';
+    const message = msgEl ? msgEl.value.trim() : '';
 
     if (!pin) {
-        alert('Please select a PIN code to suspend');
+        showToast('Please select a PIN code to suspend', "error");
         return;
     }
 
     if (!message) {
-        alert('Please enter an outage message');
+        showToast('Please enter an outage message', "error");
         return;
     }
 
-    const confirm_trigger = confirm(`Suspend service for PIN ${pin}?\n\nMessage: "${message}"\n\nThis will appear immediately in user app.`);
-    if (!confirm_trigger) return;
+    showConfirmationModal(`Suspend service for PIN ${pin}?\n\nMessage: "${message}"\n\nThis will appear immediately in user app.`, async () => {
+        try {
+            // Update zone status
+            await supabaseClient.from('service_zones')
+                .update({ 
+                    status: 'suspended',
+                    outage_message: message,
+                    outage_start: new Date().toISOString()
+                })
+                .eq('pin', pin);
 
-    try {
-        // Update zone status
-        await supabaseClient.from('service_zones')
-            .update({ 
-                status: 'suspended',
-                outage_message: message,
-                outage_start: new Date().toISOString()
-            })
-            .eq('pin', pin);
+            // Show outage banner
+            showOutageAlert(message);
 
-        // Show outage banner
-        showOutageAlert(message);
+            // Clear form
+            const outagePinEl = document.getElementById('outage-pin-select');
+            const outageMsgEl = document.getElementById('outage-message-input');
+            if (outagePinEl) outagePinEl.value = '';
+            if (outageMsgEl) outageMsgEl.value = '';
 
-        // Clear form
-        document.getElementById('outage-pin-select').value = '';
-        document.getElementById('outage-message-input').value = '';
-
-        alert(`Zone ${pin} suspended successfully!\n\nUsers will see: "${message}"`);
-    } catch (err) {
-        alert('Error suspending zone: ' + err.message);
-    }
+            showToast(`Zone ${pin} suspended successfully! Users will see: "${message}"`, "success");
+        } catch (err) {
+            showToast('Error suspending zone: ' + err.message, "error");
+        }
+    });
 }
 
 async function resumeZoneService() {
-    const pin = document.getElementById('outage-pin-select').value;
+    if (!supabaseClient) return;
+    const pinEl = document.getElementById('outage-pin-select');
+    const pin = pinEl ? pinEl.value : '';
 
     if (!pin) {
-        alert('Please select a PIN code to resume');
+        showToast('Please select a PIN code to resume', "error");
         return;
     }
 
-    const confirm_resume = confirm(`Resume service for PIN ${pin}?`);
-    if (!confirm_resume) return;
+    showConfirmationModal(`Resume service for PIN ${pin}?`, async () => {
+        try {
+            await supabaseClient.from('service_zones')
+                .update({ 
+                    status: 'approved',
+                    outage_message: null,
+                    outage_start: null
+                })
+                .eq('pin', pin);
 
-    try {
-        await supabaseClient.from('service_zones')
-            .update({ 
-                status: 'approved',
-                outage_message: null,
-                outage_start: null
-            })
-            .eq('pin', pin);
-
-        clearOutageAlert();
-        alert(`Zone ${pin} service resumed!`);
-        document.getElementById('outage-pin-select').value = '';
-    } catch (err) {
-        alert('Error resuming service: ' + err.message);
-    }
+            clearOutageAlert();
+            showToast(`Zone ${pin} service resumed!`, "success");
+            const outagePinEl2 = document.getElementById('outage-pin-select');
+            if (outagePinEl2) outagePinEl2.value = '';
+        } catch (err) {
+            showToast('Error resuming service: ' + err.message, "error");
+        }
+    });
 }
 
 function showOutageAlert(message) {
@@ -500,7 +615,7 @@ function renderNetworkZones() {
 
     serviceZones.forEach((zone) => {
         let isAppr = zone.status === 'approved';
-        let launchDate = zone.created_at ? new Date(zone.created_at).toLocaleDateString('en-GB') : 'Live';
+        let launchDate = 'Live';
         tbody.innerHTML += `
             <tr>
                 <td><strong>${zone.pin}</strong><br><small style="color:#64748b;">${zone.state}</small></td>
@@ -508,7 +623,7 @@ function renderNetworkZones() {
                 <td>${launchDate}</td>
                 <td><i class="fa-solid fa-person-biking" style="color:var(--medi-brand);"></i> <strong>${zone.riders}</strong> Riders</td>
                 <td><i class="fa-solid fa-store" style="color:var(--warning-orange);"></i> <strong>${zone.merchants}</strong> Shops</td>
-                <td><i class="fa-solid fa-users" style="color:#2563eb;"></i> <strong>${zone.users}</strong> Users</td>
+                <td><i class="fa-solid fa-users" style="color:#e02020;"></i> <strong>${zone.users}</strong> Users</td>
                 <td><span class="badge ${isAppr ? 'active' : 'suspended'}">${isAppr ? 'Live & Active' : 'Service Stopped'}</span></td>
                 <td>
                     <button class="btn btn-small ${isAppr ? 'btn-danger' : 'btn-success'}" onclick="toggleZoneStatus('${zone.pin}', '${zone.status}')">
@@ -521,37 +636,52 @@ function renderNetworkZones() {
 }
 
 async function addNewZone() {
-    let pin = document.getElementById('net-pin').value.trim();
-    let dist = document.getElementById('net-dist').value.trim();
-    let ps = document.getElementById('net-ps').value.trim();
-    let muni = document.getElementById('net-muni').value.trim();
-    let state = document.getElementById('net-state').value;
+    if (!supabaseClient) return;
+    const pinEl = document.getElementById('net-pin');
+    const distEl = document.getElementById('net-dist');
+    const psEl = document.getElementById('net-ps');
+    const muniEl = document.getElementById('net-muni');
+    const stateEl = document.getElementById('net-state');
+    let pin = pinEl ? pinEl.value.trim() : '';
+    let dist = distEl ? distEl.value.trim() : '';
+    let ps = psEl ? psEl.value.trim() : '';
+    let muni = muniEl ? muniEl.value.trim() : '';
+    let state = stateEl ? stateEl.value : '';
 
-    if(!pin || !dist || !ps || !muni) { alert("Please complete all geographic parameters!"); return; }
+    if(!pin || !dist || !ps || !muni) { showToast("Please complete all geographic parameters!", "error"); return; }
 
     const { error } = await supabaseClient.from('service_zones').insert([
         { pin: pin, dist: dist, ps: ps, muni: muni, state: state, riders: 0, merchants: 0, users: 0, status: "approved" }
     ]);
 
     if(!error) {
-        document.getElementById('net-pin').value = "";
-        document.getElementById('net-dist').value = "";
-        document.getElementById('net-ps').value = "";
-        document.getElementById('net-muni').value = "";
-        alert(`Success! Area ${pin} added Live to Database.`);
+        if (pinEl) pinEl.value = "";
+        if (distEl) distEl.value = "";
+        if (psEl) psEl.value = "";
+        if (muniEl) muniEl.value = "";
+        if (stateEl) stateEl.value = "";
+        showToast(`Success! Area ${pin} added Live to Database.`, "success");
+        fetchInitialData();
     } else {
-        alert("Error adding zone: " + error.message);
+        showToast("Error adding zone: " + error.message, "error");
     }
 }
 
 async function toggleZoneStatus(pin, currentStatus) {
+    if (!supabaseClient) return;
     let nextStatus = currentStatus === 'approved' ? 'suspended' : 'approved';
     const { error } = await supabaseClient.from('service_zones').update({ status: nextStatus }).eq('pin', pin);
-    if(error) alert("Status update failed: " + error.message);
+    if (!error) {
+        showToast(`Zone ${pin} ${nextStatus === 'suspended' ? 'suspended' : 'reactivated'} successfully.`, "success");
+        fetchInitialData();
+    } else {
+        showToast("Status update failed: " + error.message, "error");
+    }
 }
 
 function simulateUserOrder() {
-    let inputPin = document.getElementById('sim-pin').value.trim();
+    const simPinEl = document.getElementById('sim-pin');
+    let inputPin = simPinEl ? simPinEl.value.trim() : '';
     let output = document.getElementById('simulation-output');
     if(!output) return;
     output.style.display = "block";
@@ -596,10 +726,11 @@ function renderPayouts() {
 }
 
 async function processRiderPay(riderId) {
-    let rider = riderPayouts.find(r => r.id === riderId);
+    if (!supabaseClient) return;
+    let rider = riderPayouts.find(r => String(r.id) === String(riderId));
     if(!rider) return;
 
-    if(confirm(`Confirm automated settlement of ₹${rider.amount} to ${rider.name}?`)) {
+    showConfirmationModal(`Confirm automated settlement of ₹${rider.amount} to ${rider.name}?`, async () => {
         let btn = document.getElementById(`pay-rider-${riderId}`);
         if(btn){
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing...`;
@@ -608,7 +739,7 @@ async function processRiderPay(riderId) {
 
         try {
             // Update payout status
-            const { error } = await supabaseClient.from('rider_payouts').update({ paid: true }).eq('id', riderId);
+            const { error } = await supabaseClient.from('rider_payouts').update({ paid: true, paid_at: new Date().toISOString() }).eq('id', riderId);
 
             // Log to ledger
             if (!error) {
@@ -622,25 +753,35 @@ async function processRiderPay(riderId) {
                     reference: riderId
                 });
 
+                if (rider.rider_id) {
+                    await supabaseClient.from('riders_wallet').insert({
+                        rider_id: rider.rider_id,
+                        order_id: 'PAYOUT-' + Date.now(),
+                        amount_earned: rider.amount,
+                        status: 'payout_processed',
+                        created_at: new Date().toISOString()
+                    });
+                }
+
                 if(btn) {
                     btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> Disbursed`;
                     btn.style.backgroundColor = "#64748b";
                 }
                 
                 loadPayoutLedger();
-                alert(`✓ ₹${rider.amount} transferred to ${rider.name}`);
+                showToast(`₹${rider.amount} transferred to ${rider.name}`, "success");
             } else {
-                alert("Payout Update Error: " + error.message);
+                showToast("Payout Update Error: " + error.message, "error");
                 fetchInitialData();
             }
         } catch(err) {
-            alert("Error: " + err.message);
+            showToast("Error: " + err.message, "error");
             if(btn) {
                 btn.innerHTML = `<i class="fa-solid fa-wallet"></i> Pay Now`;
                 btn.disabled = false;
             }
         }
-    }
+    });
 }
 
 // ================= EXISTING KYC SYSTEM (UNCHANGED) =================
@@ -655,8 +796,8 @@ function renderKYC() {
     }
 
     riderKYC.forEach((kyc) => {
-        let licenseImgSrc = kyc.license_img ? kyc.license_img : 'https://via.placeholder.com/150?text=No+Image+Found';
-        let plateImgSrc = kyc.plate_img ? kyc.plate_img : 'https://via.placeholder.com/150?text=No+Image+Found';
+        let licenseImgSrc = kyc.license_img ? kyc.license_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+        let plateImgSrc = kyc.plate_img ? kyc.plate_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
         container.innerHTML += `
             <div class="kyc-card">
@@ -687,24 +828,29 @@ function renderKYC() {
 }
 
 async function approveRiderKYC(riderId) {
+    if (!supabaseClient) return;
     let kycTarget = riderKYC.find(k => k.id === riderId);
     if(!kycTarget) return;
 
-    if(confirm("Are the vehicle plates and driver identification valid?")) {
-        const { error } = await supabaseClient.from('admin_kyc_verifications').update({ verified: true }).eq('id', riderId);
+    showConfirmationModal("Are the vehicle plates and driver identification valid?", async () => {
+        const { error } = await supabaseClient.from('rider_kyc').update({ verified: true }).eq('id', riderId);
         
         if(!error) {
-            alert(`KYC Approved for ${kycTarget.name}`);
+            if (kycTarget.rider_id) {
+                await supabaseClient.from('riders').update({ is_verified: true }).eq('id', kycTarget.rider_id);
+            }
+            showToast(`KYC Approved for ${kycTarget.name}`, "success");
             fetchInitialData();
         } else {
-            alert("KYC Approval Failed: " + error.message);
+            showToast("KYC Approval Failed: " + error.message, "error");
         }
-    }
+    });
 }
 
 // ================= EXISTING NOTIFICATIONS (UNCHANGED) =================
 function toggleRiderInput() {
-    const target = document.getElementById('rider-target').value;
+    const targetEl = document.getElementById('rider-target');
+    const target = targetEl ? targetEl.value : '';
     const idGroup = document.getElementById('rider-id-group');
     if(idGroup) {
         idGroup.style.display = target === 'individual' ? 'block' : 'none';
@@ -712,24 +858,34 @@ function toggleRiderInput() {
 }
 
 async function sendRiderNotification() {
-    const target = document.getElementById('rider-target').value;
-    const riderId = document.getElementById('rider-target-id').value;
-    const title = document.getElementById('rider-title').value.trim();
-    const msg = document.getElementById('rider-message').value.trim();
+    if (!supabaseClient) return;
+    const targetEl = document.getElementById('rider-target');
+    const riderIdEl = document.getElementById('rider-target-id');
+    const titleEl = document.getElementById('rider-title');
+    const msgEl = document.getElementById('rider-message');
 
-    if(!title || !msg) { alert("Notification Subject and Message are required!"); return; }
-    if(target === 'individual' && !riderId) { alert("Please specify the Rider Staff ID."); return; }
+    const target = targetEl ? targetEl.value : '';
+    const riderId = riderIdEl ? riderIdEl.value : '';
+    const title = titleEl ? titleEl.value.trim() : '';
+    const msg = msgEl ? msgEl.value.trim() : '';
+
+    if(!title || !msg) { showToast("Notification Subject and Message are required!", "error"); return; }
+    if(target === 'individual' && !riderId) { showToast("Please specify the Rider Staff ID.", "error"); return; }
 
     try {
-        await supabaseClient.from('rider_notifications').insert([{
+        const notifPayload = {
             title: title,
             message: msg,
-            target: target,
-            rider_id: target === 'individual' ? riderId : null,
-            sent_by: 'admin',
+            type: target === 'individual' ? 'individual' : 'broadcast',
+            broadcast_to: target === 'individual' ? 'individual' : 'all',
+            is_read: false,
             created_at: new Date().toISOString()
-        }]);
-    } catch(e) { console.error('Notification save error:', e); }
+        };
+        if (target === 'individual') {
+            notifPayload.rider_id = riderId;
+        }
+        await supabaseClient.from('rider_notifications').insert([notifPayload]);
+    } catch(e) {}
 
     const statusBody = document.getElementById('status-popup-body');
     const statusTitle = document.getElementById('status-popup-title');
@@ -746,9 +902,12 @@ async function sendRiderNotification() {
     
     showStatusPopup();
     
-    document.getElementById('rider-title').value = "";
-    document.getElementById('rider-message').value = "";
-    document.getElementById('rider-target-id').value = "";
+    const riderTitleEl = document.getElementById('rider-title');
+    const riderMsgEl = document.getElementById('rider-message');
+    const riderTargetIdEl = document.getElementById('rider-target-id');
+    if (riderTitleEl) riderTitleEl.value = "";
+    if (riderMsgEl) riderMsgEl.value = "";
+    if (riderTargetIdEl) riderTargetIdEl.value = "";
 }
 
 // ================= STATUS POPUP HELPERS =================

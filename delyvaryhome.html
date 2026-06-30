@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="bn">
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,14 +9,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediFinder - Rider Home</title>
-    <link rel="stylesheet" href="delyvaryhome.css?v=4">
+    <link rel="stylesheet" href="delyvaryhome.css?v=12">
       <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Supabase CDN (একটি রাখলেই হবে, নিচেরটি লেটেস্ট) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Supabase CDN (à¦à¦•à¦Ÿà¦¿ à¦°à¦¾à¦–à¦²à§‡à¦‡ à¦¹à¦¬à§‡, à¦¨à¦¿à¦šà§‡à¦°à¦Ÿà¦¿ à¦²à§‡à¦Ÿà§‡à¦¸à§à¦Ÿ) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
 </head>
 <body>
 
@@ -24,7 +25,7 @@
         <!-- Top Navbar -->
         <header class="navbar">
             <div class="logo-area">
-                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo" onerror="this.src='https://via.placeholder.com/40/00b4d8/fff?text=MF'">
+                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo" onerror="this.src='https://images.unsplash.com/photo-1631549916768-4f345e4e230f?w=400'">
                 <span class="logo-text">MEDI <span class="text-highlight">FINDER</span></span>
             </div>
             <div class="header-right" style="display:flex; align-items:center; gap:10px;">
@@ -32,18 +33,20 @@
                 <button id="dutyToggleBtn" style="background: linear-gradient(135deg, #2ed573, #26de81); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:700; font-size:0.78rem; cursor:pointer; box-shadow: 0 3px 10px rgba(46,213,115,0.3);">
                     <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#2ed573;display:inline-block"></span> On Duty</span>
                 </button>
-                <!-- এখানে অনক্লিক ফাংশনটি ঠিক রাখা হয়েছে -->
+                <!-- à¦à¦–à¦¾à¦¨à§‡ à¦…à¦¨à¦•à§à¦²à¦¿à¦• à¦«à¦¾à¦‚à¦¶à¦¨à¦Ÿà¦¿ à¦ à¦¿à¦• à¦°à¦¾à¦–à¦¾ à¦¹à§Ÿà§‡à¦›à§‡ -->
                 <button class="notification-btn" onclick="toggleNotifications()">
                     <i class="fa-solid fa-bell"></i>
-                    <span class="noti-badge">2</span>
+                    <span class="noti-badge" id="noti-badge" style="display:none;">0</span>
                 </button>
             </div>
         </header>
 
         <!-- Notification Dropdown -->
         <div id="notiDropdown" class="notification-dropdown hidden">
-            <p class="noti-item"><strong>New Voucher!</strong> You received a ₹1000 voucher.</p>
-            <p class="noti-item">New delivery route assigned near your location.</p>
+            <div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>
+            <div id="noti-dropdown-body">
+                <p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>
+            </div>
         </div>
 
         <!-- Main Content Area -->
@@ -53,48 +56,8 @@
                 <span class="live-pulse-tag"><span class="pulse-dot"></span> Live Updates</span>
             </div>
 
-            <!-- ডাইনামিক বা স্ট্যাটিক অর্ডারের কন্টেইনার -->
+            <!-- à¦¡à¦¾à¦‡à¦¨à¦¾à¦®à¦¿à¦• à¦¬à¦¾ à¦¸à§à¦Ÿà§à¦¯à¦¾à¦Ÿà¦¿à¦• à¦…à¦°à§à¦¡à¦¾à¦°à§‡à¦° à¦•à¦¨à§à¦Ÿà§‡à¦‡à¦¨à¦¾à¦° -->
             <div class="orders-list" id="ordersContainer">
-                
-                <!-- Order Card 1 -->
-                <div class="order-card" id="order-MF-88341">
-                    <div class="card-header">
-                        <span class="vehicle-tag bike"><i class="fa-solid fa-motorcycle"></i> Bike Delivery</span>
-                        <span class="parcel-number">Parcel ID: #MF-88341</span>
-                        <span class="earnings-amount">₹30</span>
-                    </div>
-                    
-                    <div class="delivery-flow">
-                        <div class="flow-step">
-                            <div class="profile-wrapper">
-                        <img src="https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=120&auto=format&fit=crop" class="party-pic pharmacy-border">
-                                <span class="role-badge pickup">Pickup</span>
-                            </div>
-                            <div class="party-details">
-                                <h4 class="party-name">City Health Pharmacy</h4>
-                                <p class="party-address"><i class="fa-solid fa-location-dot"></i> 123 Health Ave</p>
-                            </div>
-                        </div>
-                        <div class="flow-line-connector"><div class="dots-line"></div></div>
-                        <div class="flow-step">
-                            <div class="profile-wrapper">
-                                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120" class="party-pic user-border">
-                                <span class="role-badge deliver">Deliver To</span>
-                            </div>
-                            <div class="party-details">
-                                <h4 class="party-name">Rahat Chowdhury</h4>
-                                <p class="party-address"><i class="fa-solid fa-house-chimney"></i> 456 Care Lane</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card-footer">
-                        <div class="distance-tag"><i class="fa-solid fa-route"></i> Distance: <strong>4.5 km</strong></div>
-                        <!-- এখানে অর্ডারের নির্দিষ্ট ID পাস করতে হবে -->
-                        <button class="btn-accept" onclick="acceptOrder('MF-88341')">Accept Request</button>
-                    </div>
-                </div>
-
             </div>
         </main>
 
@@ -107,8 +70,8 @@
         </nav>
     </div>
 
-    <!-- জাভাস্ক্রিপ্ট ফাইল লোড করার আগে বা ভেতরে কোডটি সেট করো -->
-    <script src="prod-utils.js?v=2"></script>
-    <script src="delyvaryscript.js"></script>
+    <!-- à¦œà¦¾à¦­à¦¾à¦¸à§à¦•à§à¦°à¦¿à¦ªà§à¦Ÿ à¦«à¦¾à¦‡à¦² à¦²à§‹à¦¡ à¦•à¦°à¦¾à¦° à¦†à¦—à§‡ à¦¬à¦¾ à¦­à§‡à¦¤à¦°à§‡ à¦•à§‹à¦¡à¦Ÿà¦¿ à¦¸à§‡à¦Ÿ à¦•à¦°à§‹ -->
+    <script src="prod-utils.js?v=12"></script>
+    <script src="delyvaryscript.js?v=12"></script>
 </body>
 </html>

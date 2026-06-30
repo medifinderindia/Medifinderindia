@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,60 +6,150 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="theme-color" content="#e02020">
     <title>Admin - Sponsored Products</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        :root { --primary: #e02020; --dark: #1a1a2e; }
-        body { background: #f0f2f5; }
-        .header { background: var(--dark); color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
-        .header a { color: #fff; text-decoration: none; font-size: 18px; }
-        .header h1 { font-size: 18px; font-weight: 600; }
-        .container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
-        .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .card h2 { font-size: 18px; margin-bottom: 16px; color: var(--dark); }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-        .form-group { display: flex; flex-direction: column; gap: 4px; }
-        .form-group.full { grid-column: 1 / -1; }
-        .form-group label { font-size: 13px; font-weight: 600; color: #555; }
-        .form-group input, .form-group select, .form-group textarea { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-        .form-group textarea { resize: vertical; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-danger { background: #dc3545; color: #fff; }
-        .btn-success { background: #28a745; color: #fff; }
-        .btn:hover { opacity: 0.9; }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
-        .actions { display: flex; gap: 8px; margin-top: 16px; }
-        .list-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; background: #fafafa; }
-        .list-item .gradient-preview { width: 60px; height: 60px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; flex-shrink: 0; }
-        .list-item .info { flex: 1; }
-        .list-item .info h4 { font-size: 14px; margin-bottom: 2px; }
-        .list-item .info p { font-size: 12px; color: #888; }
-        .list-item .item-actions { display: flex; gap: 6px; }
-        .toggle { position: relative; width: 40px; height: 22px; }
-        .toggle input { opacity: 0; width: 0; height: 0; }
-        .toggle .slider { position: absolute; inset: 0; background: #ccc; border-radius: 22px; cursor: pointer; transition: 0.3s; }
-        .toggle .slider:before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
-        .toggle input:checked + .slider { background: var(--primary); }
-        .toggle input:checked + .slider:before { transform: translateX(18px); }
-        .empty { text-align: center; padding: 40px; color: #999; }
-        .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; z-index: 999; display: none; }
-        .toast.show { display: block; }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+        :root{--primary:#e02020;--primary-dark:#b71c1c;--primary-light:#ff4747;--sidebar-bg:#1a1a2e;--sidebar-hover:#16213e;--sidebar-active:#e02020;--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--text-muted:#64748b;--border:#e8eaef;--success:#10b981;--danger:#ef4444;--shadow:0 2px 12px rgba(0,0,0,0.08);--radius:12px}
+        body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+        a{text-decoration:none;color:inherit}
+
+        /* Sidebar */
+        .sidebar{width:260px;background:var(--sidebar-bg);color:#fff;position:fixed;top:0;left:0;height:100vh;z-index:1000;overflow-y:auto;transition:transform .3s ease;box-shadow:2px 0 15px rgba(0,0,0,0.2)}
+        .sidebar-header{padding:24px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+        .sidebar-logo{width:42px;height:42px;border-radius:10px;object-fit:cover}
+        .sidebar-brand{flex:1}
+        .sidebar-brand h2{font-size:16px;font-weight:700;letter-spacing:-0.3px;line-height:1.2}
+        .sidebar-brand h2 span{color:var(--primary-light)}
+        .sidebar-brand p{font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+        .sidebar-nav{padding:12px 0}
+        .sidebar-section{padding:8px 20px;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,0.3);margin-top:12px}
+        .sidebar-item{display:flex;align-items:center;gap:12px;padding:11px 20px;color:rgba(255,255,255,0.6);font-size:13px;font-weight:500;transition:all .2s;cursor:pointer;border-left:3px solid transparent}
+        .sidebar-item:hover{background:var(--sidebar-hover);color:#fff}
+        .sidebar-item.active{background:rgba(224,32,32,0.15);color:#fff;border-left-color:var(--primary)}
+        .sidebar-item i{width:20px;text-align:center;font-size:14px}
+        .sidebar-divider{height:1px;background:rgba(255,255,255,0.06);margin:8px 20px}
+        .sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08)}
+        .sidebar-footer .role-switch{display:flex;gap:6px}
+        .role-btn{flex:1;padding:8px 6px;border:none;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;transition:all .2s}
+        .role-btn.user-role{background:rgba(100,116,139,0.2);color:rgba(255,255,255,0.6)}
+        .role-btn.merchant-role{background:rgba(245,158,11,0.2);color:#f59e0b}
+        .role-btn.delivery-role{background:rgba(16,185,129,0.2);color:#10b981}
+        .role-btn:hover{transform:scale(1.05)}
+
+        /* Main */
+        .main{flex:1;margin-left:260px;padding:24px}
+        .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+        .topbar h1{font-size:22px;font-weight:700}
+        .topbar h1 i{color:var(--primary);margin-right:8px}
+        .mobile-toggle{display:none;background:var(--primary);color:#fff;border:none;width:40px;height:40px;border-radius:10px;font-size:18px;cursor:pointer}
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999}
+
+        /* Cards */
+        .card{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+        .card h2{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+        .card h2 i{color:var(--primary)}
+
+        /* Form */
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+        .form-group{display:flex;flex-direction:column;gap:4px}
+        .form-group.full{grid-column:1/-1}
+        .form-group label{font-size:12px;font-weight:600;color:var(--text-muted)}
+        .form-group input,.form-group select,.form-group textarea{padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;transition:border-color .2s;background:var(--bg)}
+        .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary)}
+        .form-group textarea{resize:vertical}
+        .actions{display:flex;gap:8px;margin-top:16px}
+
+        /* Buttons */
+        .btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+        .btn-primary{background:var(--primary);color:#fff}
+        .btn-primary:hover{background:var(--primary-dark)}
+        .btn-secondary{background:var(--text-muted);color:#fff}
+        .btn-secondary:hover{opacity:0.8}
+        .btn-danger{background:var(--danger);color:#fff}
+        .btn-danger:hover{opacity:0.8}
+        .btn-success{background:var(--success);color:#fff}
+        .btn-success:hover{opacity:0.8}
+        .btn-sm{padding:6px 12px;font-size:11px}
+
+        /* List */
+        .list-item{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:var(--card);transition:box-shadow .2s}
+        .list-item:hover{box-shadow:var(--shadow)}
+        .gradient-preview{width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0}
+        .list-info{flex:1}
+        .list-info h4{font-size:14px;font-weight:600;margin-bottom:2px}
+        .list-info p{font-size:12px;color:var(--text-muted)}
+        .list-actions{display:flex;gap:6px;align-items:center}
+        .empty{text-align:center;padding:40px;color:var(--text-muted)}
+        .empty i{font-size:40px;margin-bottom:10px;opacity:0.3}
+
+        /* Toggle */
+        .toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+        .toggle input{opacity:0;width:0;height:0}
+        .toggle .slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:0.3s}
+        .toggle .slider:before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.3s}
+        .toggle input:checked+.slider{background:var(--primary)}
+        .toggle input:checked+.slider:before{transform:translateX(18px)}
+
+        /* Toast */
+        .toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;display:flex;align-items:center;gap:8px}
+        .toast.show{opacity:1;transform:translateY(0)}
+
+        /* Responsive */
+        @media(max-width:768px){
+            .sidebar{transform:translateX(-100%)}
+            .sidebar.open{transform:translateX(0)}
+            .sidebar-overlay.open{display:block}
+            .main{margin-left:0}
+            .mobile-toggle{display:flex;align-items:center;justify-content:center}
+            .form-row{grid-template-columns:1fr}
+            .list-item{flex-wrap:wrap}
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <a href="admin-dashboard.html"><i class="fas fa-arrow-left"></i></a>
-        <h1><i class="fas fa-star"></i> Sponsored Products Management</h1>
-    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="1779304435608.png" alt="Logo" class="sidebar-logo">
+            <div class="sidebar-brand">
+                <h2>MEDI<span>FINDER</span></h2>
+                <p>Admin Panel</p>
+            </div>
+        </div>
+        <div class="sidebar-nav">
+            <div class="sidebar-section">Main</div>
+            <a class="sidebar-item" href="admin-dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a>
+            <a class="sidebar-item" href="adminuser.html"><i class="fas fa-users"></i> User Management</a>
+            <a class="sidebar-item" href="adminmarchent.html"><i class="fas fa-store"></i> Merchant Management</a>
+            <a class="sidebar-item" href="admindboy.html"><i class="fas fa-motorcycle"></i> Rider Management</a>
+            <div class="sidebar-section">Marketing</div>
+            <a class="sidebar-item active" href="adminsponsored.html"><i class="fas fa-star"></i> Sponsored Products</a>
+            <div class="sidebar-divider"></div>
+            <a class="sidebar-item" href="#" onclick="localStorage.removeItem('admin_auth_in_progress');window.location.replace('index.html')"><i class="fas fa-right-from-bracket"></i> Logout</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="role-switch">
+                <a class="role-btn user-role" href="adminuser.html">User View</a>
+                <a class="role-btn merchant-role" href="adminmarchent.html">Merchant View</a>
+                <a class="role-btn delivery-role" href="admindboy.html">Delivery Boy</a>
+            </div>
+        </div>
+    </nav>
 
-    <div class="container">
+    <main class="main">
+        <div class="topbar">
+            <button class="mobile-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <h1><i class="fas fa-star"></i> Sponsored Products</h1>
+        </div>
+
         <div class="card">
-            <h2 id="formTitle"><i class="fas fa-plus"></i> Add Sponsored Product</h2>
+            <h2 id="formTitle"><i class="fas fa-plus-circle"></i> Add Sponsored Product</h2>
             <form id="sponsoredForm">
                 <input type="hidden" id="editId">
                 <div class="form-row">
@@ -96,14 +186,14 @@
                     <div class="form-group">
                         <label>Gradient</label>
                         <select id="spGradient">
-                            <option value="linear-gradient(135deg, #ff6b6b, #ee5a24)">Red-Orange</option>
-                            <option value="linear-gradient(135deg, #6c5ce7, #a29bfe)">Purple</option>
-                            <option value="linear-gradient(135deg, #00b894, #55efc4)">Green</option>
-                            <option value="linear-gradient(135deg, #fdcb6e, #f39c12)">Gold</option>
-                            <option value="linear-gradient(135deg, #0984e3, #74b9ff)">Blue</option>
-                            <option value="linear-gradient(135deg, #e84393, #fd79a8)">Pink</option>
-                            <option value="linear-gradient(135deg, #2d3436, #636e72)">Dark</option>
-                            <option value="linear-gradient(135deg, #00cec9, #81ecec)">Teal</option>
+                            <option value="linear-gradient(135deg, #e02020, #ff6b6b)">Red</option>
+                            <option value="linear-gradient(135deg, #b71c1c, #e57373)">Dark Red</option>
+                            <option value="linear-gradient(135deg, #c62828, #ef5350)">Crimson</option>
+                            <option value="linear-gradient(135deg, #d32f2f, #ff8a65)">Orange-Red</option>
+                            <option value="linear-gradient(135deg, #1a1a2e, #2d3436)">Dark</option>
+                            <option value="linear-gradient(135deg, #f59e0b, #fbbf24)">Gold</option>
+                            <option value="linear-gradient(135deg, #10b981, #34d399)">Green</option>
+                            <option value="linear-gradient(135deg, #e02020, #b71c1c)">Brand Red</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -124,7 +214,7 @@
                 </div>
                 <div class="actions">
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save</button>
-                    <button type="button" class="btn" style="background:#6c757d;color:#fff;" onclick="resetForm()">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()"><i class="fas fa-times"></i> Cancel</button>
                 </div>
             </form>
         </div>
@@ -133,24 +223,30 @@
             <h2><i class="fas fa-list"></i> All Sponsored Products</h2>
             <div id="productsList"></div>
         </div>
-    </div>
+    </main>
 
     <div class="toast" id="toast"></div>
 
+    <script>localStorage.removeItem('admin_auth_in_progress');</script>
     <script>
-        const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+        // URL & key loaded from supabase-constants.js
         let db = null;
-        try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.error('Supabase init error:', e); }
+        try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
 
         function showToast(msg) {
             const t = document.getElementById('toast');
-            t.textContent = msg;
+            t.innerHTML = '<i class="fas fa-check-circle"></i> ' + msg;
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3000);
         }
 
         async function loadProducts() {
+            if (!db) return;
             const { data } = await db.from('sponsored_products').select('*').order('sort_order');
             const list = document.getElementById('productsList');
             if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><p>No sponsored products yet</p></div>'; return; }
@@ -159,11 +255,11 @@
                     <div class="gradient-preview" style="background:${p.gradient}">
                         <i class="${p.icon_class}"></i>
                     </div>
-                    <div class="info">
-                        <h4>${p.tag} — ${p.title}</h4>
-                        <p>${p.subtitle} | Sort: ${p.sort_order} | ${p.is_active ? 'Active' : 'Inactive'}</p>
+                    <div class="list-info">
+                        <h4>${p.tag} â€” ${p.title}</h4>
+                        <p>${p.subtitle} | Sort: ${p.sort_order} | ${p.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'}</p>
                     </div>
-                    <div class="item-actions">
+                    <div class="list-actions">
                         <label class="toggle"><input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleActive('${p.id}', this.checked)"><span class="slider"></span></label>
                         <button class="btn btn-primary btn-sm" onclick='editItem(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button>
                         <button class="btn btn-danger btn-sm" onclick="deleteItem('${p.id}')"><i class="fas fa-trash"></i></button>
@@ -174,6 +270,7 @@
 
         document.getElementById('sponsoredForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!db) return;
             const id = document.getElementById('editId').value;
             const obj = {
                 title: document.getElementById('spTitle').value,
@@ -215,19 +312,22 @@
             document.getElementById('sponsoredForm').reset();
             document.getElementById('editId').value = '';
             document.getElementById('spSort').value = '0';
-            document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus"></i> Add Sponsored Product';
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add Sponsored Product';
         }
 
         async function toggleActive(id, val) {
+            if (!db) return;
             await db.from('sponsored_products').update({ is_active: val }).eq('id', id);
             showToast(val ? 'Activated' : 'Deactivated');
         }
 
         async function deleteItem(id) {
-            if (!confirm('Delete this sponsored product?')) return;
-            await db.from('sponsored_products').delete().eq('id', id);
-            showToast('Deleted');
-            loadProducts();
+            showConfirmationModal('Delete this sponsored product?', async () => {
+                if (!db) return;
+                await db.from('sponsored_products').delete().eq('id', id);
+                showToast('Deleted');
+                loadProducts();
+            });
         }
 
         loadProducts();

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,17 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#e02020">
     <title>Medi Finder - Merchant Profile</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <link rel="stylesheet" href="marchentprofile.css?v=4">
-    <link class="icon" type="img/x-icon" href="favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <link rel="stylesheet" href="marchentprofile.css?v=12">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="prod-utils.js?v=2"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <script src="prod-utils.js?v=12"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
-    <script src="marchentscript.js"></script>
+    <script src="marchentscript.js?v=12"></script>
 </head>
 <body>
     <div class="container">
@@ -31,7 +32,7 @@
             <section class="content-body">
                 <div class="profile-hero-card">
                     <div class="avatar-wrapper">
-                        <img id="profileDisplay" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Merchant Avatar">
+                        <img id="profileDisplay" src="" alt="Merchant Avatar">
                         <label for="avatarInput" class="cam-overlay-btn" title="Change Profile Image">
                             <i class="fa-solid fa-camera"></i>
                         </label>
@@ -63,7 +64,7 @@
                         <p class="section-desc">Upload and verify your government drug license here.</p>
                     </div>
 
-                    <!-- 🏦 নতুন ব্যাংক ডিটেইলস সেটিংস কার্ড -->
+                    <!-- ðŸ¦ à¦¨à¦¤à§à¦¨ à¦¬à§à¦¯à¦¾à¦‚à¦• à¦¡à¦¿à¦Ÿà§‡à¦‡à¦²à¦¸ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸ à¦•à¦¾à¦°à§à¦¡ -->
                     <div class="settings-glass-card" onclick="openPopup('bankModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-bank"></i> Bank Settlement Accounts</h3>
@@ -86,7 +87,7 @@
                         <p class="section-desc">Quick FAQ guide to solve operational issues instantly.</p>
                     </div>
 
-                    <div class="settings-glass-card" onclick="window.location.href='marchentt&amp;c.html'">
+                    <div class="settings-glass-card" onclick="openPopup('tcModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-scale-balanced"></i> Terms & Regulatory Conditions</h3>
                         </div>
@@ -114,13 +115,9 @@
                         <p class="section-desc">Direct links to get connected via Call or Email support.</p>
                     </div>
                     
-                    <div class="settings-glass-card" onclick="window.handleTerminalLogout(event)" style="border-left: 4px solid #ef4444; cursor:pointer;">
-                        <div class="card-title-row">
-                            <h3 style="color:#ef4444;"><i class="fa-solid fa-right-from-bracket"></i> Logout</h3>
-                            <span class="live-status" style="background:#fee2e2; color:#ef4444;">Sign Out</span>
-                        </div>
-                        <p class="section-desc">Securely sign out of your merchant terminal session.</p>
-                    </div>
+                    <button type="button" class="menu-item logout-btn" id="logoutActionBtn">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span>
+                    </button>
                 </div>
             </section>
         </main>
@@ -139,7 +136,7 @@
         </div>
     </div>
 
-    <!-- 🏦 নতুন ব্যাংক অ্যাকাউন্ট সেটআপ মডাল পপআপ -->
+    <!-- ðŸ¦ à¦¨à¦¤à§à¦¨ à¦¬à§à¦¯à¦¾à¦‚à¦• à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ à¦¸à§‡à¦Ÿà¦†à¦ª à¦®à¦¡à¦¾à¦² à¦ªà¦ªà¦†à¦ª -->
     <div id="bankModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'bankModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('bankModal')">&times;</button>
@@ -263,6 +260,33 @@
         </div>
     </div>
 
+    <div id="tcModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'tcModal')">
+        <div class="popup-content-box" style="max-width: 500px;">
+            <button class="close-popup-btn" onclick="closePopup('tcModal')">&times;</button>
+            <h3 style="color: #ff4d4d;"><i class="fa-solid fa-scale-balanced"></i> Terms & Regulatory Conditions</h3>
+            <p style="font-size: 11px; color: #666; margin: -5px 0 10px 0;"><strong>Terminal Policy Version:</strong> 2.0 (June 2026)</p>
+            <hr>
+            <div class="popup-tc-scroller" style="max-height: 350px; overflow-y: auto; text-align: left; padding-right: 10px; font-size: 13px; line-height: 1.5; color: #333;">
+                
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-link"></i> 1. Intermediary Scope</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">MEDI FINDER operates strictly as a digital marketplace routing engine connecting independent pharmacies with consumers. We do not manufacture, possess, or retail medical inventories ourselves.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #ff4d4d; font-size: 14px;"><i class="fa-solid fa-triangle-exclamation"></i> 2. Product Disclaimers & Absolute Liability</h5>
+                <p style="margin: 0 0 10px 0; color: #555;"><strong>The merchant acknowledges that MEDI FINDER takes zero liability for medicine fulfillment errors.</strong> If any incorrect medicine, wrong chemical strength, expired product, or sub-standard drugs are packaged by your shop, the merchant profile holder will handle all legal consequences and damages independently.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-cloud-showers-heavy"></i> 3. Weather & Traffic Disclaimers</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Logistical turnaround speeds are heavily dependent on external situations. MEDI FINDER or its fleet operators accept no accountability for fulfillment delays caused by severe traffic blockages, floods, bad weather, or force majeure conditions.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-shield-halved"></i> 4. Government License Audit</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Partner shops must maintain legal compliance certificates. Listing illegal, habit-forming, or unapproved narcotic substances will terminate your system access metrics instantly and alert state pharmaceutical inspectors.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-user-lock"></i> 5. Privacy & GPS Telemetry Data</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Your registered telephone assets, database attributes, and precise Leaflet coordinates map inputs are highly secured. Coordinate streams are used exclusively to calculate distances for delivery distribution networks. No data records are sold out to marketing networks.</p>
+
+            </div>
+        </div>
+    </div>
+
     <div id="langModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'langModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('langModal')">&times;</button>
@@ -272,7 +296,7 @@
                 <label>Select Language</label>
                 <select id="langSelect" class="premium-select">
                     <option value="en">English (Global Default)</option>
-                    <option value="bn">Bengali (বাংলা)</option>
+                    <option value="bn">Bengali (à¦¬à¦¾à¦‚à¦²à¦¾)</option>
                 </select>
             </div>
             <button class="popup-submit-btn dark-btn">Apply Language</button>
@@ -288,7 +312,7 @@
                 <span class="popup-ref-label">YOUR REFERRAL CODE</span>
                 <span class="popup-ref-code" id="refCode">MEDIFIND786</span>
                 <br><br>
-                <button class="popup-submit-btn success-btn" id="btnGenRefer"><i class="fa-solid fa-wallet"></i> Claim ₹1000 Code</button>
+                <button class="popup-submit-btn success-btn" id="btnGenRefer"><i class="fa-solid fa-wallet"></i> Claim â‚¹1000 Code</button>
             </div>
         </div>
     </div>
@@ -309,8 +333,14 @@
         <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
         <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
         <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
-        <div class="nav-item" onclick="window.location.href='marchentorders.html#inventory'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
+        <div class="nav-item" onclick="window.location.href='marchentinventory.html'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
         <div class="nav-item active" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
     </nav>
+    <script>
+        (function() {
+            var c = localStorage.getItem('merchant_avatar');
+            if (c) { var el = document.getElementById('profileDisplay'); if (el) el.src = c; }
+        })();
+    </script>
 </body>
 </html>
