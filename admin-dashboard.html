@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -876,7 +876,7 @@
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <span class="stat-change up" id="usersChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="totalUsers">â€”</div>
+                    <div class="stat-value" id="totalUsers">—</div>
                     <div class="stat-label">Total Users</div>
                 </div>
                 <div class="stat-card">
@@ -884,7 +884,7 @@
                         <div class="stat-icon"><i class="fas fa-store"></i></div>
                         <span class="stat-change up" id="merchantsChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="activeMerchants">â€”</div>
+                    <div class="stat-value" id="activeMerchants">—</div>
                     <div class="stat-label">Active Merchants</div>
                 </div>
                 <div class="stat-card">
@@ -892,7 +892,7 @@
                         <div class="stat-icon"><i class="fas fa-motorcycle"></i></div>
                         <span class="stat-change up" id="ridersChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="onlineRiders">â€”</div>
+                    <div class="stat-value" id="onlineRiders">—</div>
                     <div class="stat-label">Online Riders</div>
                 </div>
                 <div class="stat-card">
@@ -900,7 +900,7 @@
                         <div class="stat-icon"><i class="fas fa-rupee-sign"></i></div>
                         <span class="stat-change up" id="revenueChange">+0%</span>
                     </div>
-                    <div class="stat-value" id="todayRevenue">â€”</div>
+                    <div class="stat-value" id="todayRevenue">—</div>
                     <div class="stat-label">Today's Revenue</div>
                 </div>
             </div>
@@ -1016,21 +1016,21 @@
                                     <span class="health-dot green"></span>
                                     <span class="health-label">Total Tables</span>
                                 </div>
-                                <span class="health-value" id="healthTables">â€”</span>
+                                <span class="health-value" id="healthTables">—</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
                                     <span class="health-dot green"></span>
                                     <span class="health-label">Active Subscriptions</span>
                                 </div>
-                                <span class="health-value" id="healthSubs">â€”</span>
+                                <span class="health-value" id="healthSubs">—</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
                                     <span class="health-dot yellow"></span>
                                     <span class="health-label">Last Backup</span>
                                 </div>
-                                <span class="health-value" id="healthBackup">â€”</span>
+                                <span class="health-value" id="healthBackup">—</span>
                             </div>
                             <div class="health-item">
                                 <div class="health-item-left">
@@ -1057,7 +1057,7 @@
     <script>localStorage.removeItem('admin_auth_in_progress');</script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
     <script>
         // URL & key loaded from supabase-constants.js
         let supabase = null;
@@ -1121,9 +1121,9 @@
                 // Revenue
                 if (revenueRes.status === 'fulfilled' && !revenueRes.value.error) {
                     const total = revenueRes.value.data.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
-                    document.getElementById('todayRevenue').textContent = 'â‚¹' + formatNumber(Math.round(total));
+                    document.getElementById('todayRevenue').textContent = '₹' + formatNumber(Math.round(total));
                 } else {
-                    document.getElementById('todayRevenue').textContent = 'â‚¹0';
+                    document.getElementById('todayRevenue').textContent = '₹0';
                 }
             } catch (err) { /* stats load failed */ }
         }
@@ -1163,14 +1163,14 @@
                 const maxRevenue = Math.max(...days.map(d => d.revenue), 1);
                 const chartEl = document.getElementById('revenueChart');
                 const maxEl = document.getElementById('chartMax');
-                maxEl.textContent = 'Max: â‚¹' + formatNumber(Math.round(maxRevenue));
+                maxEl.textContent = 'Max: ₹' + formatNumber(Math.round(maxRevenue));
 
                 chartEl.innerHTML = days.map(d => {
                     const height = Math.max((d.revenue / maxRevenue) * 160, 4);
                     return `
                         <div class="chart-bar-wrapper">
                             <div class="chart-bar" style="height: ${height}px;">
-                                <div class="tooltip">â‚¹${formatNumber(Math.round(d.revenue))}</div>
+                                <div class="tooltip">₹${formatNumber(Math.round(d.revenue))}</div>
                             </div>
                             <div class="chart-label">${d.label}</div>
                         </div>
@@ -1214,7 +1214,7 @@
                         <tr>
                             <td><strong>#${order.order_id || order.id ? order.id.toString().slice(-8) : 'N/A'}</strong></td>
                             <td>${escapeHtml(order.customer_name || 'N/A')}</td>
-                            <td><strong>â‚¹${formatNumber(parseFloat(order.total_amount) || 0)}</strong></td>
+                            <td><strong>₹${formatNumber(parseFloat(order.total_amount) || 0)}</strong></td>
                             <td><span class="badge-status ${badgeClass}">${escapeHtml(order.status || 'pending')}</span></td>
                             <td>${formatDate(order.created_at)}</td>
                         </tr>
@@ -1290,7 +1290,7 @@
                             const order = payload.new;
                             addActivity(
                                 'order',
-                                `New order #${order.order_id || (order.id ? order.id.toString().slice(-8) : '')} ï¿½ ?${parseFloat(order.total_amount || 0).toFixed(0)}`
+                                `New order #${order.order_id || (order.id ? order.id.toString().slice(-8) : '')} � ?${parseFloat(order.total_amount || 0).toFixed(0)}`
                             );
                             loadRecentOrders();
                             loadStats();

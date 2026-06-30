@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +12,7 @@
     <meta property="og:description" content="Manage users, orders, offers, and refunds">
     <meta property="og:type" content="website">
     <title>MediFinder Admin Dashboard - Enhanced</title>
-    <link rel="stylesheet" href="adminuser.css?v=12">
+    <link rel="stylesheet" href="adminuser.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -20,7 +20,7 @@
     <!-- Supabase SDK JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
 
     <style>
         /* Enhanced Rx Audit Panel Styles */
@@ -305,7 +305,7 @@
 
     <div class="main-content">
         
-        <!-- à¥§. à¦…à¦«à¦¾à¦° à¦®à§à¦¯à¦¾à¦¨à§‡à¦œà¦®à§‡à¦¨à§à¦Ÿ à¦¸à§‡à¦•à¦¶à¦¨ -->
+        <!-- १. অফার ম্যানেজমেন্ট সেকশন -->
         <section id="offers-section" class="dashboard-section active-section tab-content-section active">
             <div class="section-header">
                 <h2><i class="fa-solid fa-tags"></i> Offer Management</h2>
@@ -336,7 +336,7 @@
             </div>
         </section>
 
-        <!-- à¥¨. à¦…à¦°à§à¦¡à¦¾à¦° à¦“ à¦°à¦¿à¦«à¦¾à¦¨à§à¦¡ à¦¸à§‡à¦•à¦¶à¦¨ -->
+        <!-- २. অর্ডার ও রিফান্ড সেকশন -->
         <section id="orders-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-cart-shopping"></i> Cancelled Orders & Refunds</h2>
@@ -356,13 +356,13 @@
                         </tr>
                     </thead>
                     <tbody id="cancelled-orders-table">
-                        <!-- à¦œà¦¾à¦­à¦¾à¦¸à§à¦•à§à¦°à¦¿à¦ªà§à¦Ÿ à¦¡à¦¾à¦‡à¦¨à¦¾à¦®à¦¿à¦• à¦¡à¦¾à¦Ÿà¦¾ à¦à¦–à¦¾à¦¨à§‡ à¦†à¦¸à¦¬à§‡ -->
+                        <!-- জাভাস্ক্রিপ্ট ডাইনামিক ডাটা এখানে আসবে -->
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <!-- à¥©. à¦ªà§à¦°à§‡à¦¸à¦•à§à¦°à¦¿à¦ªà¦¶à¦¨ à¦…à¦¡à¦¿à¦Ÿ à¦—à§‡à¦Ÿ (NEW FEATURE) -->
+        <!-- ३. প্রেসক্রিপশন অডিট গেট (NEW FEATURE) -->
         <section id="rx-audit-section" class="dashboard-section tab-content-section rx-audit-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-prescription-bottle-medical"></i> Prescription Verification & Audit Gate</h2>
@@ -411,7 +411,7 @@
             </div>
         </section>
 
-        <!-- à¥ª. à¦¨à§‹à¦Ÿà¦¿à¦«à¦¿à¦•à§‡à¦¶à¦¨ à¦¸à§‡à¦•à¦¶à¦¨ -->
+        <!-- ४. নোটিফিকেশন সেকশন -->
         <section id="notifications-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-bell"></i> Send Notifications</h2>
@@ -442,7 +442,7 @@
             </div>
         </section>
 
-        <!-- à§«. ALL ORDERS (NEW) -->
+        <!-- ৫. ALL ORDERS (NEW) -->
         <section id="all-orders-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-list"></i> All Orders</h2>
@@ -481,7 +481,7 @@
             </div>
         </section>
 
-        <!-- à§¬. ALL USERS (NEW) -->
+        <!-- ৬. ALL USERS (NEW) -->
         <section id="users-list-section" class="dashboard-section tab-content-section">
             <div class="section-header">
                 <h2><i class="fa-solid fa-users"></i> All Registered Users</h2>
@@ -513,6 +513,6 @@
     </div>
 
     <script>localStorage.removeItem('admin_auth_in_progress');</script>
-    <script src="adminuser.js?v=12"></script>
+    <script src="adminuser.js?v=13"></script>
 </body>
 </html>

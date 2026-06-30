@@ -11,7 +11,7 @@
     --shadow-md: 0 10px 20px rgba(0,0,0,0.08);
     --green-success: #2ed573;
     --gold-premium: #ffa502;
-    --font-stack: 'Poppins', -apple-system, sans-serif;
+    --font-stack: 'Plus Jakarta Sans', -apple-system, sans-serif;
 }
 
 * {
@@ -75,7 +75,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 16px;
-    padding-bottom: 12px;
+    padding-bottom: 120px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -346,6 +346,7 @@ body {
     box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
     z-index: 1000;
     border-top: 1px solid #e4e7eb;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .nav-item {
     display: flex;

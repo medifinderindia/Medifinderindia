@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,13 +16,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="prod-utils.js?v=4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=13"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#e02020;--primary-dark:#c41818;--dark:#1a1a2e;--green:#28a745;--blue:#1976d2;--gold:#ffc107;--bg:#f1f3f6;--card:#fff;--text:#212121;--text2:#666;--text3:#878787;--border:#e0e0e0;--shadow:0 1px 6px rgba(0,0,0,.1);--radius:8px}
-body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:80px}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:100px}
 a{text-decoration:none;color:inherit}
 .header{position:sticky;top:0;z-index:100;background:var(--primary);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 4px rgba(0,0,0,.15)}
 .back-btn{color:#fff;font-size:18px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
@@ -206,7 +207,7 @@ a{text-decoration:none;color:inherit}
 .feedback-submit:active{transform:scale(.97)}
 .feedback-thank{display:none;text-align:center;padding:20px;font-size:15px;font-weight:600;color:var(--green)}
 .feedback-thank i{font-size:40px;display:block;margin-bottom:8px}
-@media(min-width:768px){body{max-width:700px;margin:0 auto;padding-bottom:90px}.sticky-bar{max-width:700px;left:50%;transform:translateX(-50%)}.main-image-wrapper{height:380px}.product-name{font-size:20px}.current-price{font-size:30px}}
+@media(min-width:768px){body{max-width:700px;margin:0 auto;padding-bottom:100px}.sticky-bar{max-width:700px;left:50%;transform:translateX(-50%)}.main-image-wrapper{height:380px}.product-name{font-size:20px}.current-price{font-size:30px}}
 @media(min-width:1024px){body{max-width:900px}}
 </style>
 </head>
@@ -352,7 +353,7 @@ a{text-decoration:none;color:inherit}
       </div>
     </div>
     <div id="reviewsList"></div>
-    <button class="see-all-btn" onclick="showToast('All reviews coming soon')">See All Reviews</button>
+    <button class="see-all-btn" id="seeAllReviewsBtn" onclick="toggleAllReviews()">See All Reviews</button>
   </div>
   <div class="fbt-section fade-in">
     <div class="section-header"><i class="fas fa-shopping-basket"></i> Frequently Bought Together</div>
@@ -414,10 +415,12 @@ a{text-decoration:none;color:inherit}
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL = 'https://rnpbglinkpsikeszcjcl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+// URL & key loaded from supabase-constants.js
 let supabase;
-try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { supabase = { from: () => ({ select: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }; }
+try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
+if (!supabase) { supabase = { from: () => ({ select: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }) }; }
+
+function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
 let product = { id:'', name:'', price:0, img:'', manufacturer:'', expiry:'', rating:0, desc:'', isRx:'false', category:'', stock:10, composition:'', dosageForm:'', strength:'' };
 let quantity = 1;
@@ -460,12 +463,14 @@ function parseParams(){
   product.id = p.get('id') || 'demo-001';
   product.name = p.get('name') || 'Crocin Advance 500mg Tablet';
   product.price = parseFloat(p.get('price')) || 35.00;
+  product.mrp = parseFloat(p.get('mrp')) || 0;
   product.img = p.get('img') || SAMPLE_IMAGES[0];
   product.manufacturer = p.get('manufacturer') || 'GlaxoSmithKline Pharmaceuticals';
   product.expiry = p.get('expiry') || 'Dec 2027';
   product.rating = parseFloat(p.get('rating')) || 4.3;
   product.desc = p.get('desc') || 'Crocin Advance is a fast-acting pain relief tablet containing Paracetamol 500mg. It provides effective relief from headache, toothache, menstrual cramps, and body pain. Clinically proven formula that starts working in 30 minutes.';
   product.isRx = p.get('isRx') || 'false';
+  product.merchantId = p.get('merchantId') || null;
   product.category = p.get('category') || 'Pain Relief';
   product.stock = parseInt(p.get('stock')) || 10;
   product.composition = p.get('composition') || 'Paracetamol 500mg';
@@ -497,13 +502,13 @@ function generateStars(rating, maxStars){
 function renderProduct(){
   document.getElementById('productName').textContent = product.name;
   document.getElementById('ratingStars').innerHTML = generateStars(product.rating);
-  document.getElementById('ratingCount').textContent = product.rating + ' | 248 ratings';
+  document.getElementById('ratingCount').textContent = product.rating + ' | ' + (dbReviews.length || '0') + ' ratings';
   document.getElementById('sellerName').textContent = product.manufacturer;
   document.getElementById('currentPrice').textContent = 'Rs.' + product.price.toFixed(2);
-  const mrp = product.price * 1.3;
+  const mrp = product.mrp || (product.price * 1.3);
   document.getElementById('mrpPrice').textContent = 'Rs.' + mrp.toFixed(2);
-  const disc = Math.round((1 - product.price/mrp)*100);
-  document.getElementById('discountBadge').textContent = disc + '% off';
+  const disc = mrp > product.price ? Math.round((1 - product.price/mrp)*100) : 0;
+  document.getElementById('discountBadge').textContent = disc > 0 ? disc + '% off' : 'Best Price';
   document.getElementById('productDesc').textContent = product.desc;
 
   allImages = [product.img, ...SAMPLE_IMAGES.slice(0,3)];
@@ -514,8 +519,7 @@ function renderProduct(){
   renderHighlights();
   renderDetailTable();
   renderBreadcrumb();
-  renderOverallRating();
-  renderReviews();
+  loadProductReviews();
   renderFBT();
   renderSimilar();
   updateStickyPrice();
@@ -613,26 +617,70 @@ function renderBreadcrumb(){
     '<span style="color:var(--text)">' + product.name.substring(0,30) + '...</span>';
 }
 
+let dbReviews = [];
+
 function renderOverallRating(){
-  document.getElementById('overallRating').textContent = product.rating;
-  document.getElementById('overallStars').innerHTML = generateStars(product.rating);
-  document.getElementById('totalReviewsText').textContent = '248 ratings, 86 reviews';
+  const total = dbReviews.length || SAMPLE_REVIEWS.length;
+  const avgRating = dbReviews.length > 0 ? (dbReviews.reduce((s, r) => s + (r.rating || 5), 0) / dbReviews.length).toFixed(1) : product.rating;
+  document.getElementById('overallRating').textContent = avgRating;
+  document.getElementById('overallStars').innerHTML = generateStars(parseFloat(avgRating));
+  document.getElementById('totalReviewsText').textContent = total + ' ratings';
+  renderRatingBars();
+}
+
+function renderRatingBars(){
+  const reviews = dbReviews.length > 0 ? dbReviews : SAMPLE_REVIEWS;
+  const total = reviews.length || 1;
+  const counts = {5:0,4:0,3:0,2:0,1:0};
+  reviews.forEach(function(r){ const star = Math.min(5, Math.max(1, Math.round(r.rating || 5))); counts[star]++; });
+  var barHTML = '';
+  for(var i=5; i>=1; i--){
+    var pct = Math.round((counts[i]/total)*100);
+    barHTML += '<div class="rating-bar-row"><span>' + i + '</span><div class="rating-bar"><div class="rating-bar-fill" style="width:' + pct + '%"></div></div><span>' + pct + '%</span></div>';
+  }
+  document.querySelector('.rating-bar-group').innerHTML = barHTML;
+}
+
+async function loadProductReviews(){
+  if (!product.id || !window.supabase) return;
+  try {
+    const { data } = await window.supabase.from('reviews').select('id, rating, review_text, created_at, user_id').eq('product_id', product.id).order('created_at', { ascending: false }).limit(10);
+    if (data && data.length > 0) { dbReviews = data; }
+  } catch(e) {}
+  renderOverallRating();
+  renderReviews();
 }
 
 function renderReviews(){
   const c = document.getElementById('reviewsList');
-  c.innerHTML = SAMPLE_REVIEWS.map(function(r){
+  const reviews = dbReviews.length > 0 ? dbReviews : SAMPLE_REVIEWS;
+  const displayReviews = reviewsExpanded ? reviews : reviews.slice(0, 3);
+  c.innerHTML = displayReviews.map(function(r){
+    const name = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : (r.name || 'User');
+    const avatar = (r.user_id || name).charAt(0).toUpperCase();
+    const rating = r.rating || 5;
+    const text = r.review_text || r.text || '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : (r.date || '');
+    const helpful = r.helpful || 0;
     return '<div class="review-card">' +
       '<div class="review-header">' +
-        '<div class="review-avatar">' + r.avatar + '</div>' +
-        '<div><div class="review-name">' + r.name + '</div>' +
-        '<div class="review-stars">' + generateStars(r.rating) + '</div></div>' +
-        '<div class="review-date">' + r.date + '</div>' +
+        '<div class="review-avatar">' + avatar + '</div>' +
+        '<div><div class="review-name">' + name + '</div>' +
+        '<div class="review-stars">' + generateStars(rating) + '</div></div>' +
+        '<div class="review-date">' + date + '</div>' +
       '</div>' +
-      '<div class="review-text">' + r.text + '</div>' +
-      '<div class="review-helpful" onclick="this.innerHTML=\'<i class=fa-thumbs-up></i> Helpful (' + (r.helpful+1) + ')\'"><i class="far fa-thumbs-up"></i> Helpful (' + r.helpful + ')</div>' +
+      '<div class="review-text">' + escapeHtml(text) + '</div>' +
+      '<div class="review-helpful" onclick="this.innerHTML=\'<i class=fa-thumbs-up></i> Helpful (' + (helpful+1) + ')\'"><i class="far fa-thumbs-up"></i> Helpful (' + helpful + ')</div>' +
     '</div>';
   }).join('');
+}
+
+let reviewsExpanded = false;
+function toggleAllReviews(){
+  reviewsExpanded = !reviewsExpanded;
+  renderReviews();
+  var btn = document.getElementById('seeAllReviewsBtn');
+  if(btn) btn.textContent = reviewsExpanded ? 'Show Less' : 'See All Reviews';
 }
 
 function renderFBT(){
@@ -641,7 +689,7 @@ function renderFBT(){
   c.innerHTML = '<div class="fbt-item"><img src="' + product.img + '" alt=""><div class="fbt-info"><div class="name">' + product.name + '</div><div class="price">Rs.' + product.price.toFixed(2) + '</div></div></div>';
   SAMPLE_FBT.forEach(function(f){
     total += f.price;
-    c.innerHTML += '<div class="fbt-item"><img src="' + f.img + '" alt=""><div class="fbt-info"><div class="name">' + f.name + '</div><div class="price">Rs.' + f.price.toFixed(2) + '</div></div><button class="fbt-add" onclick="addFBTItem(this)">Add</button></div>';
+    c.innerHTML += '<div class="fbt-item"><img src="' + f.img + '" alt=""><div class="fbt-info"><div class="name">' + f.name + '</div><div class="price">Rs.' + f.price.toFixed(2) + '</div></div><button class="fbt-add" data-name="' + f.name + '" data-price="' + f.price + '" data-img="' + f.img + '" onclick="addFBTItem(this)">Add</button></div>';
   });
   document.getElementById('fbtTotalPrice').textContent = 'Rs.' + total.toFixed(2);
   document.getElementById('fbtSavings').textContent = 'You save Rs.' + (total * 0.15).toFixed(2) + ' on this bundle';
@@ -672,14 +720,15 @@ function updateStickyPrice(){
 }
 
 function addToCart(){
-  let cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  if(product.isRx === 'true' && !isPrescriptionUploaded){ showToast('Upload prescription for Rx medicines.', 'error'); return; }
+  let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   const existing = cart.findIndex(function(c){ return c.id === product.id; });
   if(existing >= 0){
     cart[existing].qty += quantity;
   } else {
-    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, manufacturer:product.manufacturer });
+    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, merchantId:product.merchantId || null, exempt_platform_fee:false, exempt_processing_charge:false });
   }
-  localStorage.setItem('medifinder_cart', JSON.stringify(cart));
+  localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
   const btn = document.querySelector('.add-cart-btn');
   if(btn){
@@ -698,23 +747,35 @@ function buyNow(){
 }
 
 function addSimilarToCart(name, price){
-  let cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   cart.push({ id:'sim-'+Date.now(), name:name, price:price, img:SAMPLE_IMAGES[0], qty:1, isRx:'false', manufacturer:'Generic' });
-  localStorage.setItem('medifinder_cart', JSON.stringify(cart));
+  localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
   showToast('Added to cart');
 }
 
 function addFBTItem(btn){
+  const name = btn.getAttribute('data-name') || 'FBT Item';
+  const price = parseFloat(btn.getAttribute('data-price')) || 0;
+  const img = btn.getAttribute('data-img') || '';
+  const cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
+  const existing = cart.find(c => c.name === name);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ id: 'fbt_' + Date.now(), name: name, price: price, img: img, qty: 1, isRx: false, merchantId: '' });
+  }
+  localStorage.setItem('medi_cart', JSON.stringify(cart));
   btn.textContent = 'Added';
   btn.style.background = 'var(--green)';
   btn.style.color = '#fff';
   btn.style.borderColor = 'var(--green)';
-  showToast('Added to cart');
+  updateCartBadge();
+  showToast(name + ' added to cart!', 'success');
 }
 
 function updateCartBadge(){
-  const cart = JSON.parse(localStorage.getItem('medifinder_cart') || '[]');
+  const cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   const total = cart.reduce(function(sum,c){ return sum + c.qty; }, 0);
   document.getElementById('cartBadge').textContent = total;
   document.getElementById('cartBadge').style.display = total > 0 ? 'flex' : 'none';
@@ -830,7 +891,9 @@ function submitFeedback(){
   document.getElementById('feedbackForm').style.display = 'none';
   document.getElementById('feedbackThank').style.display = 'block';
   if(supabase && supabase.from){
-    supabase.from('reviews').insert({ product_id: product.id, rating: rating, review_text: text, created_at: new Date().toISOString() }).then(function(){}).catch(function(){});
+    supabase.from('reviews').insert({ product_id: product.id, rating: rating, review_text: text, created_at: new Date().toISOString() }).then(function(){
+      setTimeout(function(){ loadProductReviews(); }, 1000);
+    }).catch(function(){});
   }
 }
 

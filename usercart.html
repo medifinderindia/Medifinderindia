@@ -5,17 +5,21 @@
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Medifinder- Order&Cart</title>
       <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="usercart.css?v=4">
+    <link rel="stylesheet" href="usercart.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
     <!-- Razorpay Standard Checkout SDK -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -29,12 +33,24 @@
     </header>
 
     <main class="cart-screen">
-        <h2 class="section-title"><i class="fa-solid fa-shopping-cart"></i> Your Shopping Cart</h2>
+        <h2 class="section-title"><i class="fa-solid fa-shopping-cart"></i> Your Cart</h2>
         
+        <div class="cart-header-bar" id="cart-header-bar" style="display:none;">
+            <span class="cart-item-count" id="cart-item-count"><strong>0</strong> items</span>
+            <button class="cart-clear-btn" onclick="clearAllCart()"><i class="fa-solid fa-trash-can"></i> Clear All</button>
+        </div>
+
+        <div id="free-delivery-progress" class="free-delivery-wrap" style="display:none;">
+            <div class="free-delivery-msg" id="free-delivery-msg"><i class="fa-solid fa-truck-fast"></i> <span id="free-delivery-text">Add items for free delivery</span></div>
+            <div class="free-delivery-bar"><div class="free-delivery-bar-fill" id="free-delivery-fill" style="width:0%"></div></div>
+        </div>
+
         <div id="cart-items-container">
-            <div class="cart-item-placeholder">
-                <i class="fa-solid fa-basket-shopping"></i>
-                <p>Your cart is empty. Add medicines from home screen.</p>
+            <div class="cart-empty-state">
+                <div class="cart-empty-icon"><i class="fa-solid fa-basket-shopping"></i></div>
+                <h3>Your cart is empty</h3>
+                <p>Browse medicines and add them to your cart</p>
+                <button class="cart-empty-btn" onclick="window.location.href='userhome.html'"><i class="fa-solid fa-house"></i> Browse Medicines</button>
             </div>
         </div>
 
@@ -138,7 +154,7 @@
             </div>
 
             <div class="price-breakdown">
-                <h3>Bill Summary</h3>
+                <h3>Bill Summary <span id="free-delivery-tag" style="display:none;background:#e8f5e9;color:#28a745;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:8px;">FREE DELIVERY</span></h3>
                 <div class="price-row"><span>Medicine Subtotal:</span><span id="bill-subtotal">₹0.00</span></div>
                 <div class="price-row text-green"><span>Coupon Discount:</span><span id="bill-discount">-₹0.00</span></div>
                 <div class="price-row"><span>Shipping Charges:</span><span id="bill-shipping">₹20.00</span></div>
@@ -150,19 +166,56 @@
                 <div class="price-row total-row"><span>Grand Estimated Total:</span><span id="bill-grand-total">₹0.00</span></div>
             </div>
 
-            <button id="place-order-final-btn" class="main-order-btn">Confirm & Place Order</button>
+            <button id="place-order-final-btn" class="main-order-btn" style="display:none;"></button>
         </div>
     </main>
 
-    <div id="success-animation-modal" class="modal-overlay-view">
-        <div class="modal-content success-box">
-            <div class="truck-animation-wrapper">
-                <i class="fa-solid fa-truck-moving animation-truck"></i>
-                <div class="road-line"></div>
+    <div class="sticky-checkout-bar" id="sticky-checkout-bar" style="display:none;">
+        <div class="sticky-total-info">
+            <span class="sticky-total-label">Total</span>
+            <span class="sticky-total-price" id="sticky-total-price">₹0.00</span>
+        </div>
+        <button class="sticky-checkout-btn" id="place-order-sticky-btn"><i class="fa-solid fa-bag-shopping"></i> Place Order</button>
+    </div>
+
+    <div id="success-animation-modal" class="modal-overlay-view" style="display:none;">
+        <div class="flipkart-success-container">
+            <div class="flipkart-confetti" id="confettiCanvas"></div>
+            <div class="flipkart-success-card">
+                <div class="flipkart-checkmark-circle">
+                    <svg class="flipkart-checkmark-svg" viewBox="0 0 52 52">
+                        <circle class="flipkart-checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="flipkart-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
+                <h2 class="flipkart-success-title">Order Placed!</h2>
+                <p class="flipkart-success-subtitle">Your medicines are being prepared</p>
+                <div class="flipkart-order-info-card">
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Order ID</span>
+                        <span class="flipkart-order-value" id="success-order-id">ORD-XXXX</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Payment</span>
+                        <span class="flipkart-order-value" id="success-payment">COD</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Estimated Delivery</span>
+                        <span class="flipkart-order-value flipkart-eta" id="success-eta">25-30 mins</span>
+                    </div>
+                </div>
+                <div class="flipkart-delivery-code-box" id="success-otp-box">
+                    <p class="flipkart-otp-label">Your Delivery OTP</p>
+                    <p class="flipkart-otp-code" id="success-otp-code">123456</p>
+                    <p class="flipkart-otp-hint">Share this code with delivery partner</p>
+                </div>
+                <button class="flipkart-track-btn" id="go-to-orders-after-success">
+                    <i class="fas fa-route"></i> Track Order
+                </button>
+                <button class="flipkart-home-btn" onclick="window.location.href='userhome.html'">
+                    <i class="fas fa-home"></i> Continue Shopping
+                </button>
             </div>
-            <h2>Order Dispatched Successfully!</h2>
-            <p>Your secure medicine box has been handed over to our delivery agent for immediate transit handling.</p>
-            <button id="go-to-orders-after-success">Track Live Delivery Shipment</button>
         </div>
     </div>
 
@@ -182,11 +235,11 @@
                 <span></span>
             </div>
         </div>
-        <div class="nav-item active" onclick="window.location.href='userorder.html'">
+        <div class="nav-item" onclick="window.location.href='userorder.html'">
             <i class="fas fa-clipboard-list"></i>
             <span>ORDER</span>
         </div>
-        <div class="nav-item" onclick="window.location.href='usercart.html'">
+        <div class="nav-item active" onclick="window.location.href='usercart.html'">
             <i class="fas fa-shopping-cart"></i>
             <span>CART</span>
         </div>
@@ -209,16 +262,16 @@
                 <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Prescription Box opened from Profile','info');window.location.href='userprofile.html#my-box-btn'"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Use coupon code MEDI20 for ₹50 off!','info')"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Call us: 9593625498 | Email: medifinderindia@gmail.com','info')"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
                 <div class="hamburger-menu-divider"></div>
-                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
+                <div class="hamburger-menu-item logout-item" onclick="showConfirmationModal('Logout from MediFinder?', () => { localStorage.clear(); window.location.href='index.html'; })"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
             </div>
         </div>
     </div>
-    <script src="prod-utils.js?v=2"></script>
-    <script src="userscript.js?v=3"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="userscript.js?v=13"></script>
 
 </body>
 </html>

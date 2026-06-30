@@ -5,18 +5,22 @@
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediFinder-Order Tracking</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
       <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="userorder.css?v=4">
+    <link rel="stylesheet" href="userorder.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
 </head>
 <body>
 
@@ -115,17 +119,17 @@
                 <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Prescription Box opened from Profile','info');window.location.href='userprofile.html#my-box-btn'"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Use coupon code MEDI20 for ₹50 off!','info')"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Call us: 9593625498 | Email: medifinderindia@gmail.com','info')"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
                 <div class="hamburger-menu-divider"></div>
-                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
+                <div class="hamburger-menu-item logout-item" onclick="showConfirmationModal('Logout from MediFinder?', () => { localStorage.clear(); window.location.href='index.html'; })"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
             </div>
         </div>
     </div>
     
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="prod-utils.js?v=2"></script>
-    <script src="userscript.js?v=3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="userscript.js?v=13"></script>
 </body>
 </html>

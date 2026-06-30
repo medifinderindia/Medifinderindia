@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
     <style>
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
         :root{--primary:#e02020;--primary-dark:#b71c1c;--primary-light:#ff4747;--sidebar-bg:#1a1a2e;--sidebar-hover:#16213e;--sidebar-active:#e02020;--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--text-muted:#64748b;--border:#e8eaef;--success:#10b981;--danger:#ef4444;--shadow:0 2px 12px rgba(0,0,0,0.08);--radius:12px}
@@ -256,7 +256,7 @@
                         <i class="${p.icon_class}"></i>
                     </div>
                     <div class="list-info">
-                        <h4>${p.tag} â€” ${p.title}</h4>
+                        <h4>${p.tag} — ${p.title}</h4>
                         <p>${p.subtitle} | Sort: ${p.sort_order} | ${p.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'}</p>
                     </div>
                     <div class="list-actions">

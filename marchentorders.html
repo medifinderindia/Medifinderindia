@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{
@@ -1111,7 +1111,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'New Delivery Available',
-                            message: `Pickup: ${order?.address || 'Shop Address'} â†’ Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            message: `Pickup: ${order?.address || 'Shop Address'} → Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1161,7 +1161,7 @@
                             const riderNotifs = ridersRes.data.map(r => ({
                                 rider_id: r.id,
                                 title: 'Order Ready for Pickup',
-                                message: `Pickup from: ${order?.address || 'Shop'} â†’ Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: â‚¹${order?.total_amount || 0}`,
+                                message: `Pickup from: ${order?.address || 'Shop'} → Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: ₹${order?.total_amount || 0}`,
                                 type: 'info',
                                 broadcast_to: 'all',
                                 target: 'all',
@@ -1301,7 +1301,7 @@
                 <div class="modal-section">
                     <div class="modal-section-title">Prescription</div>
                     <div class="rx-badge" style="display:inline-flex;padding:6px 12px;font-size:12px">
-                        <i class="fas fa-prescription"></i> Prescription Required - ${order.prescription_verified ? 'âœ… Verified' : 'â³ Pending Verification'}
+                        <i class="fas fa-prescription"></i> Prescription Required - ${order.prescription_verified ? '✅ Verified' : '⏳ Pending Verification'}
                     </div>
                 </div>` : ''}
 
@@ -1312,7 +1312,7 @@
                             <div class="modal-item-img"><i class="fas fa-pills"></i></div>
                             <div class="modal-item-info">
                                 <div class="modal-item-name">${item.product_name || item.name || 'Medicine'}</div>
-                                <div class="modal-item-detail">Qty: ${item.quantity || 1} Ã— ${formatCurrency(item.unit_price || item.price || 0)}</div>
+                                <div class="modal-item-detail">Qty: ${item.quantity || 1} × ${formatCurrency(item.unit_price || item.price || 0)}</div>
                             </div>
                             <div class="modal-item-price">${formatCurrency((item.quantity || 1) * (item.unit_price || item.price || 0))}</div>
                         </div>
@@ -1486,10 +1486,10 @@
                     <div class="shop-header">
                         <div class="logo">MEDI FINDER</div>
                         <div class="sname">${shopName}</div>
-                        <div class="sinfo">${shopAddr}${shopPhone ? '<br>ðŸ“ž ' + shopPhone : ''}</div>
+                        <div class="sinfo">${shopAddr}${shopPhone ? '<br>📞 ' + shopPhone : ''}</div>
                     </div>
                     <div class="body">
-                        <div class="title">ðŸ“‹ <span>DELIVERY RECEIPT</span></div>
+                        <div class="title">📋 <span>DELIVERY RECEIPT</span></div>
                         <div class="info"><span class="lbl">Order</span><span class="val">#${id}</span></div>
                         <div class="info"><span class="lbl">Date</span><span class="val">${formatDate(order.created_at)}</span></div>
                         <div class="info"><span class="lbl">Payment</span><span class="val">${paymentMethod} [${paymentStatus}]</span></div>
@@ -1497,7 +1497,7 @@
                         <div class="info"><span class="lbl">Transit</span><span class="val">${order.transit_mode || 'Bike'}</span></div>
                         <div class="section">
                             <div class="sec-title">DELIVER TO</div>
-                            <div class="addr"><b>${customerName}</b>ðŸ“ž ${customerPhone}<br>ðŸ“ ${customerAddr}</div>
+                            <div class="addr"><b>${customerName}</b>📞 ${customerPhone}<br>📍 ${customerAddr}</div>
                         </div>
                         <div class="section">
                             <div class="sec-title">ORDER ITEMS</div>
@@ -1517,12 +1517,12 @@
                         </div>
                         ${secureCode ? `
                         <div class="secure-box">
-                            <div>ðŸ”’ Delivery Secure Code</div>
+                            <div>🔒 Delivery Secure Code</div>
                             <div class="code">${secureCode}</div>
                         </div>` : ''}
                     </div>
                     <div class="footer">
-                        <b>MEDI FINDER</b><br>Your Trusted Medical Delivery Partner<br>ðŸ’Š Thank you for your order!<br>${shopName ? 'ðŸ“¦ ' + shopName : ''}
+                        <b>MEDI FINDER</b><br>Your Trusted Medical Delivery Partner<br>💊 Thank you for your order!<br>${shopName ? '📦 ' + shopName : ''}
                     </div>
                 </div>
                 <script>window.onload=function(){window.print();window.close()}<\/script>

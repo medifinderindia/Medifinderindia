@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -599,7 +599,7 @@
             <div class="stat-card">
                 <div class="stat-icon revenue"><i class="fa-solid fa-indian-rupee-sign"></i></div>
                 <div class="stat-label">Today's Revenue</div>
-                <div class="stat-value" id="statRevenue">â‚¹0</div>
+                <div class="stat-value" id="statRevenue">₹0</div>
                 <span class="stat-change neutral" id="statRevenueChange">--</span>
             </div>
             <div class="stat-card">
@@ -787,7 +787,7 @@
     <!-- TOAST CONTAINER -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
     <script>
     (function() {
         'use strict';
@@ -936,7 +936,7 @@
                 const todayCount = todayOrders.length;
                 const yesterdayCount = yesterdayOrders.length;
 
-                document.getElementById('statRevenue').textContent = `â‚¹${Math.round(todayRevenue).toLocaleString('en-IN')}`;
+                document.getElementById('statRevenue').textContent = `₹${Math.round(todayRevenue).toLocaleString('en-IN')}`;
                 document.getElementById('statOrders').textContent = todayCount;
                 document.getElementById('statProducts').textContent = products.length;
 
@@ -1024,7 +1024,7 @@
             days.forEach((d, i) => {
                 const val = values[i];
                 const heightPct = (val / maxVal) * 100;
-                const display = chartMode === 'revenue' ? `â‚¹${Math.round(val)}` : val;
+                const display = chartMode === 'revenue' ? `₹${Math.round(val)}` : val;
                 const colors = ['linear-gradient(to top, #e02020, #ff4d4d)', 'linear-gradient(to top, #1e90ff, #60b3ff)', 'linear-gradient(to top, #2ed573, #7bed9f)', 'linear-gradient(to top, #ffa502, #ffbe76)', 'linear-gradient(to top, #8b5cf6, #c4b5fd)', 'linear-gradient(to top, #06b6d4, #67e8f9)', 'linear-gradient(to top, #e02020, #ff4d4d)'];
                 html += `
                     <div class="bar-col">
@@ -1117,7 +1117,7 @@
             tbody.innerHTML = orders.map(o => {
                 const statusClass = getStatusClass(o.status);
                 const timeStr = o.created_at ? MedUtils.timeAgo(o.created_at) : '--';
-                const amount = o.total_amount ? `â‚¹${Number(o.total_amount).toLocaleString('en-IN')}` : 'â‚¹0';
+                const amount = o.total_amount ? `₹${Number(o.total_amount).toLocaleString('en-IN')}` : '₹0';
                 const customer = o.customer_name || o.user_email || 'Guest';
                 const items = o.items_text || 'N/A';
                 const orderIdShort = (o.id || '').toString().slice(0, 10);
@@ -1192,7 +1192,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'New Delivery Available',
-                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} â†' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} �' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1256,7 +1256,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'Order Ready for Pickup',
-                            message: `Pickup from: ${order?.address || 'Shop'} â†' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: â‚¹${order?.total_amount || 0}`,
+                            message: `Pickup from: ${order?.address || 'Shop'} �' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: ₹${order?.total_amount || 0}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1369,7 +1369,7 @@
                 const newPrice = Math.round(Number(med.unit_price) * 0.7);
                 const { error } = await db.from('medicines').update({ unit_price: newPrice }).eq('id', medId);
                 if (error) throw error;
-                showToast(`Price updated to â‚¹${newPrice} (30% off)`, 'success');
+                showToast(`Price updated to ₹${newPrice} (30% off)`, 'success');
                 await loadMedicines();
             } catch (err) {
                 showToast('Failed to update price', 'error');
@@ -1393,12 +1393,12 @@
                 const totalAmount = Number(order.total_amount || 0);
                 const perItem = items.length > 0 ? totalAmount / items.length : 0;
                 items.forEach(item => {
-                    const name = item.trim().split('Ã—')[0].trim();
+                    const name = item.trim().split('×')[0].trim();
                     if (!name) return;
                     const cleanName = name.replace(/\s*\d+\s*/g, '').trim() || name;
                     if (!productRevenue[cleanName]) { productRevenue[cleanName] = 0; productUnits[cleanName] = 0; }
                     productRevenue[cleanName] += perItem;
-                    const qtyMatch = item.match(/Ã—\s*(\d+)/);
+                    const qtyMatch = item.match(/×\s*(\d+)/);
                     productUnits[cleanName] += qtyMatch ? parseInt(qtyMatch[1]) : 1;
                 });
             });
@@ -1423,7 +1423,7 @@
                         <img src="${img}" alt="${MedUtils.escapeAttr(p.name)}" class="top-product-img" onerror="this.src='https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=100'">
                         <div class="top-product-info">
                             <div class="top-product-name">${MedUtils.sanitizeHTML(p.name)}</div>
-                            <div class="top-product-revenue">â‚¹${Math.round(p.revenue).toLocaleString('en-IN')} revenue</div>
+                            <div class="top-product-revenue">₹${Math.round(p.revenue).toLocaleString('en-IN')} revenue</div>
                             <div class="top-product-bar"><div class="top-product-bar-fill" style="width:${pct}%"></div></div>
                         </div>
                         <div class="top-product-units">${p.units} sold</div>
@@ -1494,7 +1494,7 @@
                         if (payload.eventType === 'INSERT') {
                             showToast(`New order received! #${(order.id || '').toString().slice(0, 8)}`, 'success');
                             if (typeof MedUtils !== 'undefined' && MedUtils.toast) {
-                                MedUtils.toast(`Order #${(order.id || '').toString().slice(0, 8)} placed - â‚¹${order.total_amount || 0}`, 'success', 5000);
+                                MedUtils.toast(`Order #${(order.id || '').toString().slice(0, 8)} placed - ₹${order.total_amount || 0}`, 'success', 5000);
                             }
                         }
                         loadOrders();

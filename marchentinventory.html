@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,12 +8,12 @@
     <title>Inventory - MediFinder Merchant</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="marchentinventory.css?v=12">
+    <link rel="stylesheet" href="marchentinventory.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
 </head>
 <body>
     <div class="container">
@@ -159,14 +159,14 @@
                         <div class="price-card">
                             <label>MRP (Maximum Retail Price)</label>
                             <div class="price-input-wrap">
-                                <span class="currency">â‚¹</span>
+                                <span class="currency">₹</span>
                                 <input type="number" id="editMrp" step="0.01" min="0">
                             </div>
                         </div>
                         <div class="price-card">
                             <label>Selling Price</label>
                             <div class="price-input-wrap">
-                                <span class="currency">â‚¹</span>
+                                <span class="currency">₹</span>
                                 <input type="number" id="editPrice" step="0.01" min="0">
                             </div>
                         </div>
@@ -348,8 +348,8 @@
                         '<p class="comp">' + (p.composition || '') + '</p>' +
                         '<div class="price-row">' +
                             '<div class="price-info">' +
-                                (discount > 0 ? '<span class="mrp">â‚¹' + mrp.toFixed(2) + '</span>' : '') +
-                                '<span class="selling">â‚¹' + price.toFixed(2) + '</span>' +
+                                (discount > 0 ? '<span class="mrp">₹' + mrp.toFixed(2) + '</span>' : '') +
+                                '<span class="selling">₹' + price.toFixed(2) + '</span>' +
                                 '<span class="per-unit">/ ' + (p.unit_type || 'Strip') + '</span>' +
                             '</div>' +
                             '<span class="stock-info"><i class="fas fa-cube"></i> ' + p.stock_qty + ' left</span>' +

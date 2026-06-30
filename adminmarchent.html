@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,7 +11,7 @@
     <meta property="og:description" content="Manage merchants, KYC verification, and payouts">
     <meta property="og:type" content="website">
     <title>MediFinder Admin - Enhanced Merchant Control</title>
-    <link rel="stylesheet" href="adminmarchent.css?v=12">
+    <link rel="stylesheet" href="adminmarchent.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -19,7 +19,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
 
     <style>
         /* Full Page Popups CSS */
@@ -223,11 +223,11 @@
                     <input type="text" id="edit-med-name" disabled style="background: #f1f5f9; width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:600;">Original MRP (â‚¹)</label>
+                    <label style="display:block; margin-bottom:5px; font-weight:600;">Original MRP (₹)</label>
                     <input type="number" id="edit-med-mrp" oninput="calculateModalDiscount()" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:600;">New Selling Price (â‚¹)</label>
+                    <label style="display:block; margin-bottom:5px; font-weight:600;">New Selling Price (₹)</label>
                     <input type="number" id="edit-med-selling" oninput="calculateModalDiscount()" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 15px;">
@@ -256,7 +256,7 @@
                         <thead>
                             <tr>
                                 <th>Order & Product ID</th>
-                                <th>Route (Pickup âž” Drop)</th>
+                                <th>Route (Pickup ➔ Drop)</th>
                                 <th>Merchant Price</th>
                                 <th>Payment Details</th>
                                 <th>Action</th>
@@ -288,15 +288,15 @@
                         <div class="ledger-stat-label">Total Transactions</div>
                     </div>
                     <div class="ledger-stat" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
-                        <div class="ledger-stat-value" id="ledger-total-amount">â‚¹0</div>
+                        <div class="ledger-stat-value" id="ledger-total-amount">₹0</div>
                         <div class="ledger-stat-label">Total Settled</div>
                     </div>
                     <div class="ledger-stat" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
-                        <div class="ledger-stat-value" id="ledger-pending-amount">â‚¹0</div>
+                        <div class="ledger-stat-value" id="ledger-pending-amount">₹0</div>
                         <div class="ledger-stat-label">Pending Amount</div>
                     </div>
                     <div class="ledger-stat" style="background: linear-gradient(135deg, #e02020 0%, #ef5350 100%);">
-                        <div class="ledger-stat-value" id="ledger-avg-settlement">â‚¹0</div>
+                        <div class="ledger-stat-value" id="ledger-avg-settlement">₹0</div>
                         <div class="ledger-stat-label">Avg Settlement</div>
                     </div>
                 </div>
@@ -396,6 +396,6 @@
         </div>
     </div>
 
-    <script src="adminmarchent.js?v=12"></script>
+    <script src="adminmarchent.js?v=13"></script>
 </body>
 </html>

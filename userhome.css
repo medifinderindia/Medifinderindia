@@ -13,7 +13,7 @@
     --green-success: #2ed573;
     --gold-premium: #ffa502;
     --red-alert: #ff4d4d;
-    --font-stack: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-stack: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 *, *::before, *::after {
@@ -90,7 +90,7 @@ body {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 12px;
+    padding-bottom: 120px;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
 }

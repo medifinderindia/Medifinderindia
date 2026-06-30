@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,12 +8,12 @@
     <title>Payment Overview - Medi Finder</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="marchentpayment.css?v=12">
+    <link rel="stylesheet" href="marchentpayment.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
 </head>
 <body>
     <div class="container">
@@ -38,7 +38,7 @@
                         </div>
                         <div class="stat-info">
                             <span class="stat-label">TOTAL RECEIVED</span>
-                            <div class="stat-value" id="totalReceivedDisplay">â‚¹0</div>
+                            <div class="stat-value" id="totalReceivedDisplay">₹0</div>
                         </div>
                         <span class="mini-trend neutral" id="receivedTrend"><i class="fa-solid fa-minus"></i> Stable</span>
                     </div>
@@ -49,7 +49,7 @@
                         </div>
                         <div class="stat-info">
                             <span class="stat-label">TOTAL PROFIT (20%)</span>
-                            <div class="stat-value profit" id="totalProfitDisplay">â‚¹0</div>
+                            <div class="stat-value profit" id="totalProfitDisplay">₹0</div>
                         </div>
                         <span class="mini-trend positive" id="profitTrend"><i class="fa-solid fa-minus"></i> Stable</span>
                     </div>
@@ -71,10 +71,10 @@
                     
                     <div class="trading-graph-container">
                         <div class="graph-grid-lines">
-                            <div class="grid-line"><span id="gridMax">â‚¹0</span></div>
-                            <div class="grid-line"><span id="gridMidHigh">â‚¹0</span></div>
-                            <div class="grid-line"><span id="gridMid">â‚¹0</span></div>
-                            <div class="grid-line"><span id="gridMin">â‚¹0</span></div>
+                            <div class="grid-line"><span id="gridMax">₹0</span></div>
+                            <div class="grid-line"><span id="gridMidHigh">₹0</span></div>
+                            <div class="grid-line"><span id="gridMid">₹0</span></div>
+                            <div class="grid-line"><span id="gridMin">₹0</span></div>
                             <div class="grid-line"><span>0</span></div>
                         </div>
 
@@ -117,6 +117,6 @@
         <div class="nav-item" onclick="window.location.href='marchentinventory.html'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
         <div class="nav-item" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
     </nav>
-    <script src="marchentscript.js?v=12"></script>
+    <script src="marchentscript.js?v=13"></script>
 </body>
 </html>

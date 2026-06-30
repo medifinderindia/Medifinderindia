@@ -1,14 +1,30 @@
-// ==========================================
+﻿// ==========================================
 // 🗄️ Supabase Initialization (Instant Client Boot)
+// URL & key loaded from supabase-constants.js
 // ==========================================
-const supabaseUrl = 'https://rnpbglinkpsikeszcjcl.supabase.co'; 
-const supabaseKey = 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ'; 
+if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') {
 
+}
 if (typeof window.supabaseClientInstance === 'undefined' && typeof window.supabase !== 'undefined') {
-    window.supabaseClientInstance = window.supabase.createClient(supabaseUrl, supabaseKey);
+    window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
 const dbSupabase = window.supabaseClientInstance;
+
+// Merchant ID initialization - ensure it's always available
+async function ensureMerchantId() {
+    let id = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    if (id) { id = parseInt(id); if (!isNaN(id)) { localStorage.setItem('merchantId', id); return id; } }
+    try {
+        const { data: { session } } = await dbSupabase.auth.getSession();
+        if (!session?.user) return null;
+        const { data } = await dbSupabase.from('merchants').select('id').eq('email', session.user.email).maybeSingle();
+        if (data?.id) { localStorage.setItem('merchantId', data.id); return data.id; }
+        const { data: phData } = await dbSupabase.from('merchants').select('id').eq('phone', session.user.phone || '').maybeSingle();
+        if (phData?.id) { localStorage.setItem('merchantId', phData.id); return phData.id; }
+    } catch (e) {}
+    return null;
+}
 
 // ==========================================
 // 🔔📲 BACKGROUND / OFF-SCREEN PUSH NOTIFICATION ENGINE
@@ -18,22 +34,25 @@ function requestBackgroundNotificationPermission() {
     if ('Notification' in window) {
         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
             Notification.requestPermission().then(perm => {
-                console.log("🔔 Notification permission result:", perm);
+
             });
         }
     }
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('merchant-sw.js').catch(() => {
-            console.log("ℹ️ Background service worker not found, using in-page fallback alerts only.");
+
         });
     }
 }
 
 function playMerchantAlertTone() {
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
+        if (!window._audioCtx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) window._audioCtx = new AudioCtx();
+        }
+        const ctx = window._audioCtx;
+        if (!ctx) return;
         const notes = [880, 988, 1175, 988, 880];
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
@@ -48,7 +67,7 @@ function playMerchantAlertTone() {
             osc.stop(ctx.currentTime + i * 0.25 + 0.25);
         });
     } catch (e) {
-        console.log("Audio alert skipped:", e.message);
+
     }
 }
 
@@ -75,7 +94,7 @@ function fireMerchantBackgroundNotification(title, body, onClickOrderId) {
                 sysNotif.close();
             };
         } catch (e) {
-            console.log("System notification dispatch failed:", e.message);
+
         }
     }
 }
@@ -85,6 +104,7 @@ function fireMerchantBackgroundNotification(title, body, onClickOrderId) {
 // ==========================================
 (async () => {
     try {
+        if (!dbSupabase) return;
         const { data } = await dbSupabase.auth.getSession();
         if (!data || !data.session) {
             window.location.replace("index.html");
@@ -133,21 +153,21 @@ window.handleTerminalLogout = async function(event) {
         event.stopPropagation();
     }
 
-    if (!confirm("Are you sure you want to logout?")) return;
+    showConfirmationModal("Are you sure you want to logout?", async () => {
+        try {
+            if (dbSupabase?.auth) {
+                await dbSupabase.auth.signOut();
+            }
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace("index.html");
+        } catch (err) {
 
-    try {
-        if (dbSupabase?.auth) {
-            await dbSupabase.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace("index.html");
         }
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace("index.html");
-    } catch (err) {
-        console.error(err);
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace("index.html");
-    }
+    });
 };
 
 // Global State Management
@@ -163,13 +183,15 @@ let currentMerchantData = null;
 // ==========================================
 async function saveMerchantKyc(fileUrl, licenseNo) {
     let targetMerchantId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-    
-    // merchant_kyc টেবিলে ডেটা চেক করে ইনসার্ট বা আপডেট করা
+    if (!targetMerchantId) throw new Error('Merchant ID not found');
+    targetMerchantId = parseInt(targetMerchantId, 10);
+    if (isNaN(targetMerchantId)) throw new Error('Invalid Merchant ID');
+
     const { data: existingData } = await dbSupabase
         .from('merchant_kyc')
         .select('id')
         .eq('merchant_id', targetMerchantId)
-        .single();
+        .maybeSingle();
 
     let query;
     if (existingData) {
@@ -188,21 +210,27 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
     }
 
     const { error } = await query;
-    if (error) {
-        console.error("KYC Error:", error);
-        alert("KYC সাবমিট করতে সমস্যা হয়েছে: " + error.message);
-    } else {
-        alert("✅ KYC ডকুমেন্ট জমা দেওয়া হয়েছে।");
-    }
+    if (error) throw error;
 }
 
 // Run all modules on DOM Content Loaded
 document.addEventListener("DOMContentLoaded", async () => {
-    console.log("🚀 Medi Finder Terminal System Loaded Successfully!");
 
     if (!dbSupabase) {
-        console.error("Supabase client is not initialized. Check your CDN links.");
+
         return;
+    }
+
+    await ensureMerchantId();
+
+    const cachedAvatar = localStorage.getItem('merchant_avatar');
+    if (cachedAvatar) {
+        const profileImg = document.getElementById('profileDisplay');
+        if (profileImg) profileImg.src = cachedAvatar;
+        const headerImg = document.getElementById('headerAvatar');
+        if (headerImg) headerImg.src = cachedAvatar;
+        const sidebarImg = document.getElementById('sidebarAvatar');
+        if (sidebarImg) sidebarImg.src = cachedAvatar;
     }
 
     try {
@@ -212,14 +240,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
     } catch (secErr) {
-        console.error("Security session fetch failed:", secErr);
+
         window.location.replace("index.html");
         return;
     }
 
     const isLoaded = await loadCurrentMerchantStatus();
     if (!isLoaded) {
-        console.warn("⚠️ Waiting for merchant profile mapping connection...");
+
     }
 
     initNotificationSystem();
@@ -251,11 +279,14 @@ function initNotificationSystem() {
     const notifContainer = document.getElementById('notificationContainer') || createNotificationContainer();
     if (notifContainer) notifContainer.innerHTML = ''; 
 
-    dbSupabase
+    if (window._liveOrdersChannel) { dbSupabase.removeChannel(window._liveOrdersChannel); }
+    if (window._profileAlertsChannel) { dbSupabase.removeChannel(window._profileAlertsChannel); }
+
+    window._liveOrdersChannel = dbSupabase
         .channel('live-orders')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
             const order = payload.new;
-            const marginProfit = (order.total_amount * 0.20).toFixed(2);
+            const marginProfit = ((Number(order.total_amount) || 0) * 0.20).toFixed(2);
             
             showCustomNotification(
                 `🛒 Live Order Received! Profit: ₹${marginProfit}`,
@@ -274,7 +305,7 @@ function initNotificationSystem() {
         })
         .subscribe();
 
-    dbSupabase
+    window._profileAlertsChannel = dbSupabase
         .channel('profile-alerts')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'merchants' }, payload => {
             const merchant = payload.new;
@@ -321,6 +352,33 @@ function initNotificationSystem() {
                     verifyStatusEl.style.background = "#ef4444";
                     verifyStatusEl.style.color = "#fff";
                 }
+            }
+        })
+        .subscribe();
+
+    if (window._merchantNotifsChannel) { dbSupabase.removeChannel(window._merchantNotifsChannel); }
+    window._merchantNotifsChannel = dbSupabase
+        .channel('merchant-notifs-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'merchant_notifications' }, payload => {
+            const n = payload.new;
+            const merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+            if (n.merchant_id && String(n.merchant_id) !== String(merchantId)) return;
+            showCustomNotification(
+                `🔔 ${n.title || 'Notification'}`,
+                n.message || '',
+                null,
+                n.type === 'order' ? 'order' : 'profile'
+            );
+            fireMerchantBackgroundNotification(
+                n.title || 'Notification',
+                n.message || '',
+                null
+            );
+            const badge = document.getElementById('notifBadge');
+            if (badge) {
+                const current = parseInt(badge.textContent) || 0;
+                badge.textContent = current + 1;
+                badge.style.display = 'inline-flex';
             }
         })
         .subscribe();
@@ -394,13 +452,13 @@ async function initHomePage() {
                 .from('orders')
                 .select('total_amount, status')
                 .eq('merchant_id', activeMerchantId)
-                .eq('status', 'Completed');
+                .eq('status', 'delivered');
             if (error) throw error;
 
             if (orders && orders.length > 0) {
                 if (revenueSection) revenueSection.style.display = 'block'; 
                 
-                let totalRevenue = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
+                let totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0);
                 let totalProfit = (totalRevenue * 0.20).toFixed(2); 
                 
                 if (totalEarningsEl) {
@@ -410,7 +468,7 @@ async function initHomePage() {
                 if (revenueSection) revenueSection.style.display = 'none'; 
             }
         } catch (err) {
-            console.error("Live revenue tracking block failure:", err.message);
+
         }
     }
 
@@ -432,13 +490,14 @@ async function initHomePage() {
             renderMedicines(data);
             await updateLiveEarnings();
         } catch (error) {
-            console.error("Error fetching medicines:", error.message);
+
         }
     }
 
     let activeMerchantId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
     if (activeMerchantId) {
-        dbSupabase
+        if (window._medicinesChannel) { dbSupabase.removeChannel(window._medicinesChannel); }
+        window._medicinesChannel = dbSupabase
             .channel('realtime-medicines')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'medicines', filter: `merchant_id=eq.${activeMerchantId}` }, () => {
                 fetchMedicines(searchInput ? searchInput.value : '');
@@ -450,14 +509,14 @@ async function initHomePage() {
         if (!medicineGrid) return;
         medicineGrid.innerHTML = '';
 
-        if (medicines.length === 0) {
+        if (!medicines || medicines.length === 0) {
             medicineGrid.innerHTML = `<div style="text-align:center; width:100%; padding:20px; color:#888;">No medicines found.</div>`;
             return;
         }
 
         medicines.forEach(med => {
             const isPending = med.status === 'Pending';
-            const isSuspended = med.status === 'Suspended' || med.stock_qty <= 0;
+            const isSuspended = med.status === 'Suspended' || (med.stock_qty || 0) <= 0;
             
             const card = document.createElement('div');
             card.className = `medicine-card standard-shadow`;
@@ -543,13 +602,13 @@ async function initHomePage() {
             btn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const id = e.target.closest('button').dataset.id;
-                if (confirm("Are you sure you want to delete this medicine permanently?")) {
+                showConfirmationModal("Are you sure you want to delete this medicine permanently?", async () => {
                     try {
                         const { error } = await dbSupabase.from('medicines').delete().eq('id', id);
                         if (error) throw error;
-                        alert("✅ Medicine deleted successfully!");
-                    } catch (err) { alert("Delete failed: " + err.message); }
-                }
+                        showToast("Medicine deleted successfully", "success");
+                    } catch (err) { showToast("Delete failed: " + err.message, "error"); }
+                });
             });
         });
     }
@@ -587,6 +646,12 @@ function initAddMedicinePage() {
             if (document.getElementById('batchNumber')) document.getElementById('batchNumber').value = editData.batch_number || '';
             if (document.getElementById('storageCondition')) document.getElementById('storageCondition').value = editData.storage_condition || 'Below 30°C';
             if (document.getElementById('unitPrice')) document.getElementById('unitPrice').value = editData.unit_price || '';
+            if (document.getElementById('mrpPrice')) document.getElementById('mrpPrice').value = editData.mrp || '';
+            if (document.getElementById('discountPct')) {
+                const mrp = parseFloat(editData.mrp) || 0;
+                const price = parseFloat(editData.unit_price) || 0;
+                document.getElementById('discountPct').value = (mrp > 0 && price > 0 && price < mrp) ? Math.round(((mrp - price) / mrp) * 100) : '';
+            }
             if (document.getElementById('drugType')) document.getElementById('drugType').value = editData.drug_type || 'Branded';
             if (document.getElementById('stockQty')) document.getElementById('stockQty').value = editData.stock_qty || '';
             if (document.getElementById('unitType')) document.getElementById('unitType').value = editData.unit_type || 'Strip';
@@ -599,7 +664,7 @@ function initAddMedicinePage() {
                 if (img1) { img1.src = editData.image_url; img1.style.display = 'block'; img1.parentElement.classList.add('has-img'); }
             }
             localStorage.removeItem('editMedicineData'); 
-        } catch (e) { console.error("Error setting up edit nodes:", e); }
+        } catch (e) {}
     }
 
     function updateStepForm() {
@@ -633,7 +698,7 @@ function initAddMedicinePage() {
             if (currentStep < totalSteps) {
                 if (currentStep === 1) {
                     const prodName = document.getElementById('prodName')?.value;
-                    if (!prodName) return alert("Please enter the product name before going to next step!");
+                    if (!prodName) { showToast("Please enter the product name before going to next step", "error"); return; }
                 }
                 currentStep++;
                 updateStepForm();
@@ -655,13 +720,13 @@ function initAddMedicinePage() {
         const filePath = `products/${fileName}`;
 
         const { error: uploadError } = await dbSupabase.storage
-            .from('avatars') 
+            .from('products') 
             .upload(filePath, file);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = dbSupabase.storage
-            .from('avatars')
+            .from('products')
             .getPublicUrl(filePath);
 
         return publicUrl;
@@ -679,9 +744,9 @@ function initAddMedicinePage() {
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}_${i}_medicine.${fileExt}`;
             const filePath = `products/${fileName}`;
-            const { error: uploadError } = await dbSupabase.storage.from('avatars').upload(filePath, file);
-            if (uploadError) { console.error('Image upload error:', uploadError); urls.push(null); continue; }
-            const { data: { publicUrl } } = dbSupabase.storage.from('avatars').getPublicUrl(filePath);
+            const { error: uploadError } = await dbSupabase.storage.from('products').upload(filePath, file);
+            if (uploadError) { urls.push(null); continue; }
+            const { data: { publicUrl } } = dbSupabase.storage.from('products').getPublicUrl(filePath);
             urls.push(publicUrl);
         }
         return urls;
@@ -689,15 +754,15 @@ function initAddMedicinePage() {
 
     async function saveMedicineToSupabase(targetStatus) {
         const activeId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-        if (!activeId) return alert("Error: Merchant session identifier not found.");
+        if (!activeId) { showToast("Error: Merchant session identifier not found.", "error"); return; }
 
         try {
             const { data: merchantData, error: merchantError } = await dbSupabase.from('merchants').select('license_status').eq('id', activeId).single();
             if (merchantError || !merchantData || merchantData.license_status !== 'Verified') {
-                alert("Forbidden: Your merchant account must be 'Verified' by the administrator before listing items.");
+                showToast("Error: Your merchant account must be verified by the administrator before listing items.", "error");
                 return;
             }
-        } catch (e) { alert("Verification check fault."); return; }
+        } catch (e) { showToast("Verification check failed.", "error"); return; }
 
         const prodName = document.getElementById('prodName')?.value || '';
         const composition = document.getElementById('composition')?.value || '';
@@ -711,6 +776,7 @@ function initAddMedicinePage() {
         const batchNumber = document.getElementById('batchNumber')?.value || '';
         const storageCondition = document.getElementById('storageCondition')?.value || 'Below 30°C';
         const unitPrice = parseFloat(document.getElementById('unitPrice')?.value) || 0;
+        const mrpPrice = parseFloat(document.getElementById('mrpPrice')?.value) || null;
         const drugType = document.getElementById('drugType')?.value || 'Branded';
         const stockQty = parseInt(document.getElementById('stockQty')?.value) || 0;
         const unitType = document.getElementById('unitType')?.value || 'Strip';
@@ -718,7 +784,7 @@ function initAddMedicinePage() {
         const sideEffects = document.getElementById('sideEffects')?.value || '';
         const category = dosageForm;
 
-        if (!prodName || !unitPrice || !stockQty) { alert("Please complete mandatory parameters: Product Name, Price, and Stock."); return; }
+        if (!prodName || !unitPrice || !stockQty) { showToast("Please complete mandatory fields: Product Name, Price, and Stock.", "error"); return; }
 
         try {
             // Show loading
@@ -749,6 +815,8 @@ function initAddMedicinePage() {
                 batch_number: batchNumber,
                 storage_condition: storageCondition,
                 unit_price: unitPrice,
+                mrp: mrpPrice,
+                selling_price: unitPrice,
                 drug_type: drugType,
                 stock_qty: stockQty,
                 unit_type: unitType,
@@ -761,9 +829,6 @@ function initAddMedicinePage() {
             if (mainImageUrl) {
                 medicineObject.image_url = mainImageUrl;
             }
-            if (imageUrls && imageUrls.some(u => u)) {
-                medicineObject.images = imageUrls.filter(u => u);
-            }
 
             if (currentEditingId) { 
                 response = await dbSupabase.from('medicines').update(medicineObject).eq('id', currentEditingId); 
@@ -773,14 +838,14 @@ function initAddMedicinePage() {
             if (response.error) throw response.error;
             
             if (targetStatus === 'Pending') { 
-                alert("Medicine uploaded successfully! Waiting for Admin approval."); 
+                showToast("Medicine uploaded successfully. Waiting for Admin approval.", "success"); 
                 window.location.href = 'marchenthome.html'; 
             } else { 
-                alert("Saved as draft."); 
+                showToast("Saved as draft.", "success"); 
                 window.location.href = 'marchenthome.html'; 
             }
         } catch (error) { 
-            alert("Save failed: " + error.message);
+            showToast("Save failed: " + error.message, "error");
             const nextBtn = document.getElementById('btnNext');
             const draftBtn = document.getElementById('btnDraft');
             if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>'; }
@@ -807,47 +872,80 @@ function initDeliveryPage() {
     const btnModalCancel = document.getElementById('btnModalCancel');
 
     let orderRequiresRx = true; 
+    let verifiedOrder = null;
 
     if (btnVerifyOrder) {
-        btnVerifyOrder.addEventListener('click', () => {
+        btnVerifyOrder.addEventListener('click', async () => {
+            const orderInput = document.getElementById('orderIdSelect');
+            const rawOrderId = (orderInput?.value || '').replace('#', '').trim();
+            if (!rawOrderId) { showToast('Please enter an Order ID', 'error'); return; }
+
             btnVerifyOrder.classList.add('loading');
             if (verifyText) verifyText.innerText = "Verifying...";
-            
-            setTimeout(() => {
-                if(document.getElementById('distanceSelector')) document.getElementById('distanceSelector').value = "12";
-                if(document.getElementById('autoVehicle')) document.getElementById('autoVehicle').value = "Bike Delivery (Rider)";
-                if(document.getElementById('deliverySpeed')) document.getElementById('deliverySpeed').value = "Super Fast Delivery (Within 30 Mins)";
-                if(document.getElementById('pickupAddress')) document.getElementById('pickupAddress').value = "Medi Care Pharmacy, Kolkata Node-A";
-                if(document.getElementById('deliveryAddress')) document.getElementById('deliveryAddress').value = "72/1 Park Street, Customer Floor-3";
-                
-                if(productPreviewArea) productPreviewArea.style.display = 'block';
+
+            try {
+                const mid = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+                let query = dbSupabase.from('orders').select('*, items_text, items_img, address, total_amount, customer_name, user_email, prescription_url').eq('order_id', rawOrderId);
+                if (mid) query = query.eq('merchant_id', mid);
+                const { data: order, error } = await query.single();
+                if (error || !order) {
+                    showToast('Order not found or not yours', 'error');
+                    btnVerifyOrder.classList.remove('loading');
+                    if (verifyText) verifyText.innerText = "Verify";
+                    return;
+                }
+
+                verifiedOrder = order;
+
+                if (document.getElementById('distanceSelector')) document.getElementById('distanceSelector').value = "12";
+                if (document.getElementById('autoVehicle')) document.getElementById('autoVehicle').value = "Bike Delivery (Rider)";
+                if (document.getElementById('deliverySpeed')) document.getElementById('deliverySpeed').value = "Super Fast Delivery (Within 30 Mins)";
+                if (document.getElementById('pickupAddress')) document.getElementById('pickupAddress').value = order.address || "Medi Care Pharmacy";
+                if (document.getElementById('deliveryAddress')) document.getElementById('deliveryAddress').value = order.delivery_address || order.address || "Customer Address";
+
+                if (productPreviewArea) {
+                    productPreviewArea.style.display = 'block';
+                    const itemsHtml = (order.items_text || '').split(',').map(item => {
+                        const parts = item.split('|');
+                        const name = parts[0] || 'Item';
+                        const qty = parts[1] || '1';
+                        return `<div class="item-mini-card"><div class="item-info"><h5>${name} <span class="item-qty">x ${qty}</span></h5></div></div>`;
+                    }).join('');
+                    const h4 = productPreviewArea.querySelector('h4');
+                    if (h4 && itemsHtml) h4.insertAdjacentHTML('afterend', itemsHtml);
+                }
+
+                if (order.prescription_url) {
+                    if (prescriptionVaultSection) prescriptionVaultSection.style.display = 'block';
+                    const rxImg = document.getElementById('customerRxImage');
+                    if (rxImg) rxImg.src = order.prescription_url;
+                }
+
+                const hasRx = /\brx\b/i.test(order.items_text || '');
+                orderRequiresRx = hasRx;
 
                 if (orderRequiresRx) {
-                    if (prescriptionVaultSection) prescriptionVaultSection.style.display = 'block';
                     if (rxVerificationBox) rxVerificationBox.style.display = 'block';
-                    if (btnBroadcast) {
-                        btnBroadcast.setAttribute('disabled', 'true');
-                        btnBroadcast.style.opacity = "0.5";
-                    }
+                    if (btnBroadcast) { btnBroadcast.setAttribute('disabled', 'true'); btnBroadcast.style.opacity = "0.5"; }
                 } else {
                     if (prescriptionVaultSection) prescriptionVaultSection.style.display = 'none';
                     if (rxVerificationBox) rxVerificationBox.style.display = 'none';
-                    if (btnBroadcast) {
-                        btnBroadcast.removeAttribute('disabled');
-                        btnBroadcast.style.opacity = "1";
-                    }
+                    if (btnBroadcast) { btnBroadcast.removeAttribute('disabled'); btnBroadcast.style.opacity = "1"; }
                 }
-                
-                if(riderStatusBox) {
-                    riderStatusBox.innerHTML = '<span class="status-badge active-ready"><i class="fa-solid fa-circle-info"></i> Awaiting Inventory Checklist Confirmation</span>';
-                }
-                
+
+                if (riderStatusBox) riderStatusBox.innerHTML = '<span class="status-badge active-ready"><i class="fa-solid fa-circle-info"></i> Awaiting Inventory Checklist Confirmation</span>';
+
                 btnVerifyOrder.classList.remove('loading');
                 btnVerifyOrder.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verified';
                 btnVerifyOrder.style.background = '#e6fffa';
                 btnVerifyOrder.style.color = '#00a389';
                 btnVerifyOrder.style.borderColor = '#b2f5ea';
-            }, 1500);
+            } catch (err) {
+
+                showToast('Verification failed. Try again.', 'error');
+                btnVerifyOrder.classList.remove('loading');
+                if (verifyText) verifyText.innerText = "Verify";
+            }
         });
     }
 
@@ -892,21 +990,42 @@ function initDeliveryPage() {
     }
 
     if (btnBroadcast) {
-        btnBroadcast.addEventListener('click', () => {
+        btnBroadcast.addEventListener('click', async () => {
             if (orderRequiresRx && (!chkConfirmItems || !chkConfirmItems.checked)) {
-                alert("🔒 Broadcast Locked: You must check the validation box matching prescription details first.");
+                showToast("Broadcast locked: You must check the validation box matching prescription details first.", "error");
                 return;
             }
-            alert("🚀 Broadcast Published to Fleet Stream Successfully! Local logistics nodes notified.");
+            const broadcastOrderId = document.getElementById('orderIdSelect')?.value?.replace('#', '').trim() || '';
+            const mid = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+            let broadcastSuccess = false;
+            try {
+                const { error: brErr } = await dbSupabase.from('delivery_requests').insert([{
+                    order_id: broadcastOrderId,
+                    merchant_id: mid || null,
+                    status: 'broadcast',
+                    created_at: new Date().toISOString()
+                }]);
+                if (brErr) throw brErr;
+                if (verifiedOrder) {
+                    await dbSupabase.from('orders').update({ status: 'broadcasted' }).eq('order_id', broadcastOrderId);
+                }
+                broadcastSuccess = true;
+            } catch (dbErr) {
 
-            // 📲 Send a background/system notification too, so the merchant is alerted
-            // about the successful broadcast even if this tab is minimized or backgrounded.
-            const broadcastOrderId = document.getElementById('orderIdSelect')?.value || 'N/A';
-            fireMerchantBackgroundNotification(
-                "🚀 Order Broadcasted to Fleet!",
-                `Order ${broadcastOrderId} has been published to the rider pool successfully.`,
-                null
-            );
+            }
+            if (broadcastSuccess) {
+                showToast("Broadcast published to fleet stream successfully.", "success");
+            } else {
+                showToast("Broadcast failed. Please try again.", "error");
+            }
+            if (broadcastSuccess) {
+                fireMerchantBackgroundNotification(
+                    "Order Broadcasted to Fleet!",
+                    `Order ${broadcastOrderId} has been published to the rider pool successfully.`,
+                    null
+                );
+            }
+            if (riderStatusBox) riderStatusBox.innerHTML = '<span class="status-badge active-ready" style="background:#e6fffa; color:#00a389;"><i class="fa-solid fa-circle-check"></i> Broadcast Published — Awaiting Rider Acceptance</span>';
         });
     }
 }
@@ -943,7 +1062,7 @@ async function initPaymentAnalyticsPage() {
                 .from('orders')
                 .select('total_amount, created_at, merchant_id')
                 .eq('merchant_id', activeMerchantId)
-                .eq('status', 'Completed')
+                .eq('status', 'delivered')
                 .order('created_at', { ascending: true });
 
             if (error) throw error;
@@ -954,7 +1073,7 @@ async function initPaymentAnalyticsPage() {
             }
             processFinancialPipeline(data);
         } catch (err) {
-            console.error("Ledger Integration Error:", err.message);
+
             if (graphHintText) graphHintText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444"></i> Sync Error: ${err.message}`;
         }
     }
@@ -973,8 +1092,8 @@ async function initPaymentAnalyticsPage() {
     }
 
     function processFinancialPipeline(orders) {
-        let intervals = timeFilter ? timeFilter.value : 'thismonth';
-        let totalRevenue = orders.reduce((sum, ord) => sum + Number(ord.total_amount), 0);
+        let intervals = (timeFilter && timeFilter.value) ? timeFilter.value : 'thismonth';
+        let totalRevenue = orders.reduce((sum, ord) => sum + (Number(ord.total_amount) || 0), 0);
         let totalProfit = totalRevenue * 0.20; 
 
         if (totalReceivedDisplay) totalReceivedDisplay.innerText = `₹${totalRevenue.toLocaleString('en-IN')}`;
@@ -1067,7 +1186,6 @@ async function initPaymentAnalyticsPage() {
 // 👤 ৫. PROFILE ENGINE (ADVANCED MAP & AVATAR STORAGE UPLOAD)
 // ==========================================
 async function initProfilePage() {
-    console.log("Initializing Profile Event Listeners...");
 
     const verifyStatusEl = document.getElementById('verifyStatus');
     const licenseUploadZone = document.getElementById('licenseUploadZone');
@@ -1095,7 +1213,7 @@ async function initProfilePage() {
                 const file = e.target.files[0];
                 let targetMerchantId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
                 
-                if (!targetMerchantId) return alert("Error: Merchant session identifier missing.");
+                if (!targetMerchantId) { showToast("Error: Merchant session identifier missing.", "error"); return; }
 
                 try {
                     if (profileDisplay) profileDisplay.style.opacity = '0.5';
@@ -1105,13 +1223,13 @@ async function initProfilePage() {
                     const filePath = `avatars/${fileName}`;
 
                     const { error: uploadError } = await dbSupabase.storage
-                        .from('avatars')
+                        .from('media')
                         .upload(filePath, file, { upsert: true });
 
                     if (uploadError) throw uploadError;
 
                     const { data: { publicUrl } } = dbSupabase.storage
-                        .from('avatars')
+                        .from('media')
                         .getPublicUrl(filePath);
 
                     const finalUrl = `${publicUrl}?t=${Date.now()}`;
@@ -1123,15 +1241,17 @@ async function initProfilePage() {
 
                     if (dbError) throw dbError;
 
+                    localStorage.setItem('merchant_avatar', finalUrl);
+
                     if (profileDisplay) {
                         profileDisplay.src = finalUrl;
                         profileDisplay.style.opacity = '1';
                     }
-                    alert("✅ Profile Image uploaded and sync updated in Database!");
+                    showToast("Profile image uploaded and synced to database.", "success");
 
                 } catch (err) {
-                    console.error("Avatar Upload Anomaly:", err);
-                    alert("Upload failed: " + err.message);
+
+                    showToast("Upload failed: " + err.message, "error");
                     if (profileDisplay) profileDisplay.style.opacity = '1';
                 }
             }
@@ -1143,7 +1263,7 @@ async function initProfilePage() {
         bankImageUploadZone.onclick = () => bankImageFile.click();
         bankImageFile.onchange = (e) => {
             if (e.target.files && e.target.files[0]) {
-                bankFileNameDisplay.innerText = `📄 Attached: ${e.target.files[0].name}`;
+                if (bankFileNameDisplay) bankFileNameDisplay.innerText = `📄 Attached: ${e.target.files[0].name}`;
             }
         };
     }
@@ -1157,7 +1277,7 @@ async function initProfilePage() {
             const bankUpi = document.getElementById('bankUpiInput')?.value || '';
 
             let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-            if (!targetMerchantId) return alert("Error: Merchant ID missing.");
+            if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             try {
                 let bankImageUrl = null;
@@ -1169,13 +1289,13 @@ async function initProfilePage() {
                     const filePath = `bank_documents/${fileName}`;
 
                     const { error: uploadError } = await dbSupabase.storage
-                        .from('avatars')
+                        .from('media')
                         .upload(filePath, file, { upsert: true });
 
                     if (uploadError) throw uploadError;
 
                     const { data: { publicUrl } } = dbSupabase.storage
-                        .from('avatars')
+                        .from('media')
                         .getPublicUrl(filePath);
                     bankImageUrl = publicUrl;
                 }
@@ -1193,17 +1313,17 @@ async function initProfilePage() {
                 const { error } = await dbSupabase.from('merchants').update(updatePayload).eq('id', targetMerchantId);
 
                 if (!error) {
-                    alert("✅ Bank Settlement Parameters Streamed & Saved into Database!");
+                    showToast("Bank settlement parameters saved to database.", "success");
                     window.closePopup('bankModal');
                     await loadCurrentMerchantStatus();
                 } else { throw error; }
-            } catch (error) { alert("Bank writing anomaly: " + error.message); }
+            } catch (error) { showToast("Bank details save failed: " + error.message, "error"); }
         });
     }
 
     function updateVisualMap(lat, lon) {
         if (typeof L === 'undefined') {
-            console.error("Leaflet Library is missing! Ensure Leaflet CDN is loaded in HTML.");
+
             return;
         }
 
@@ -1232,7 +1352,7 @@ async function initProfilePage() {
                 profileMapMarker.setLatLng([lat, lon]);
             }
         } catch(e) {
-            console.error("Leaflet execution fault:", e);
+
         }
     }
 
@@ -1246,10 +1366,12 @@ async function initProfilePage() {
         licenseUploadZone.onclick = () => licenseFileInput.click();
         licenseFileInput.onchange = (e) => {
             if (e.target.files && e.target.files[0]) {
-                fileNameDisplay.innerText = `📄 Attached: ${e.target.files[0].name}`;
-                btnVerifyLicense.removeAttribute('disabled');
-                btnVerifyLicense.style.opacity = "1";
-                btnVerifyLicense.style.cursor = "pointer";
+                if (fileNameDisplay) fileNameDisplay.innerText = `📄 Attached: ${e.target.files[0].name}`;
+                if (btnVerifyLicense) {
+                    btnVerifyLicense.removeAttribute('disabled');
+                    btnVerifyLicense.style.opacity = "1";
+                    btnVerifyLicense.style.cursor = "pointer";
+                }
             }
         };
     }
@@ -1258,14 +1380,14 @@ async function initProfilePage() {
         btnVerifyLicense.addEventListener('click', async (e) => {
             e.preventDefault();
             const licenseNo = document.getElementById('licenseIdInput')?.value || '';
-            if (!licenseNo) return alert("Please enter your License Registration ID.");
+            if (!licenseNo) { showToast("Please enter your License Registration ID.", "error"); return; }
 
             let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-            if (!targetMerchantId) return alert("Error: Merchant ID missing.");
+            if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             const fileInput = document.getElementById('licenseFile');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                return alert("Please select a license file to upload.");
+                showToast("Please select a license file to upload.", "error"); return;
             }
 
             const file = fileInput.files[0];
@@ -1276,17 +1398,17 @@ async function initProfilePage() {
                 btnVerifyLicense.innerText = "Uploading...";
 
                 const { error: uploadError } = await dbSupabase.storage
-                    .from('avatars')
+                    .from('media')
                     .upload(filePath, file);
 
                 if (uploadError) {
-                    alert("File upload failed: " + uploadError.message);
+                    showToast("File upload failed: " + uploadError.message, "error");
                     btnVerifyLicense.disabled = false;
                     btnVerifyLicense.innerText = "Run Online Verification Check";
                     return;
                 }
 
-                const { data: urlData } = dbSupabase.storage.from('avatars').getPublicUrl(filePath);
+                const { data: urlData } = dbSupabase.storage.from('media').getPublicUrl(filePath);
                 const publicUrl = urlData?.publicUrl || '';
 
                 await saveMerchantKyc(publicUrl, licenseNo);
@@ -1297,7 +1419,7 @@ async function initProfilePage() {
                 }).eq('id', targetMerchantId);
 
                 if (!error) {
-                    alert("License uploaded and verification request submitted!");
+                    showToast("License uploaded and verification request submitted!", "success");
                     if (verifyStatusEl) {
                         verifyStatusEl.innerText = "Pending Review";
                         verifyStatusEl.className = "status-pill pending";
@@ -1307,7 +1429,7 @@ async function initProfilePage() {
                     await loadCurrentMerchantStatus();
                 } else { throw error; }
             } catch (err) {
-                alert("Verification Save Error: " + err.message);
+                showToast("Verification Save Error: " + err.message, "error");
                 btnVerifyLicense.disabled = false;
                 btnVerifyLicense.innerText = "Run Online Verification Check";
             }
@@ -1317,7 +1439,7 @@ async function initProfilePage() {
     if (btnDropMapPin) {
         btnDropMapPin.addEventListener('click', (e) => {
             e.preventDefault();
-            if (!navigator.geolocation) return alert("Triangulation failure: GPS context denied.");
+            if (!navigator.geolocation) { showToast("Error: Triangulation failure: GPS context denied.", "error"); return; }
 
             if(document.getElementById('autoAddress')) document.getElementById('autoAddress').value = "Locking high-accuracy GPS satellite feed...";
 
@@ -1343,10 +1465,10 @@ async function initProfilePage() {
                         if(document.getElementById('pinCodeInput')) document.getElementById('pinCodeInput').value = pincode;
                         if(document.getElementById('autoAddress')) document.getElementById('autoAddress').value = geoData.display_name;
 
-                        alert("🎯 GPS Sub-Meter Sync Successful! Shop icon marker updated on map.");
+                        showToast("GPS sync successful. Shop icon marker updated on map.", "success");
                     }
-                } catch (err) { alert("GPS coordinates locked, but address lookup failed."); }
-            }, () => alert("Unable to establish accurate device lock."), { enableHighAccuracy: true, timeout: 10000 });
+                } catch (err) { showToast("GPS coordinates locked, but address lookup failed.", "error"); }
+            }, () => { showToast("Error: Unable to establish accurate device lock.", "error"); }, { enableHighAccuracy: true, timeout: 10000 });
         });
     }
 
@@ -1359,10 +1481,10 @@ async function initProfilePage() {
             const state = document.getElementById('stateInput')?.value || '';
             const fullAddr = document.getElementById('autoAddress')?.value || '';
 
-            if(!pin || !city || !dist || !state) return alert("Please fill out all mandatory fields.");
+            if(!pin || !city || !dist || !state) { showToast("Please fill out all mandatory fields.", "error"); return; }
 
             let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-            if (!targetMerchantId) return alert("Error: Merchant ID missing.");
+            if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             try {
                 const { error } = await dbSupabase.from('merchants').update({
@@ -1371,10 +1493,10 @@ async function initProfilePage() {
                 }).eq('id', targetMerchantId);
 
                 if (!error) {
-                    alert("✅ Location Saved into Database!");
+                    showToast("Location saved to database.", "success");
                     window.closePopup('geoModal');
                 } else { throw error; }
-            } catch (error) { alert("Data write anomaly: " + error.message); }
+            } catch (error) { showToast("Data write failed: " + error.message, "error"); }
         });
     }
 
@@ -1382,19 +1504,19 @@ async function initProfilePage() {
         btnSaveStoreCore.addEventListener('click', async (e) => {
             e.preventDefault();
             const updatedName = document.getElementById('shopNameInput')?.value || '';
-            if (!updatedName) return alert("Please specify business name.");
+            if (!updatedName) { showToast("Please specify business name.", "error"); return; }
             
             let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-            if (!targetMerchantId) return alert("Error: Merchant ID missing.");
+            if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             try {
                 const { error } = await dbSupabase.from('merchants').update({ merchant_name: updatedName }).eq('id', targetMerchantId);
                 if (!error) {
                     if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = updatedName;
-                    alert("✅ Shop Identity Updated into Database!");
+                    showToast("Shop identity updated successfully.", "success");
                     window.closePopup('storeCoreModal');
                 } else { throw error; }
-            } catch (err) { alert("Save Profile Error: " + err.message); }
+            } catch (err) { showToast("Save profile failed: " + err.message, "error"); }
         });
     }
 
@@ -1419,7 +1541,7 @@ function initGlobalFeatures() {
             const selectedLang = langSelect.value;
             localStorage.setItem('terminalLanguage', selectedLang);
             applyFullWebLanguage(selectedLang);
-            alert(selectedLang === 'bn' ? "ভাষা পরিবর্তন সফল হয়েছে!" : "Language switched successfully!");
+            showToast(selectedLang === 'bn' ? "ভাষা পরিবর্তন সফল হয়েছে!" : "Language switched successfully!", "success");
             window.closePopup('langModal');
         };
     }
@@ -1427,11 +1549,13 @@ function initGlobalFeatures() {
     if (logoutBtn) {
         logoutBtn.replaceWith(logoutBtn.cloneNode(true));
         const activeLogoutBtn = document.getElementById('logoutActionBtn');
-        activeLogoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            window.handleTerminalLogout(e);
-        });
+        if (activeLogoutBtn) {
+            activeLogoutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.handleTerminalLogout(e);
+            });
+        }
     }
 }
 
@@ -1484,7 +1608,7 @@ async function loadCurrentMerchantStatus() {
 
         const { data: authUserData, error: userErr } = await dbSupabase.auth.getUser();
         if (userErr || !authUserData?.user) {
-            console.error("No active session found during refresh trigger.");
+
             return false;
         }
 
@@ -1510,7 +1634,7 @@ async function loadCurrentMerchantStatus() {
                     .from('merchants')
                     .update({ auth_user_id: activeUser.id })
                     .eq('id', merchantData.id);
-                console.log("🔗 Realtime backward compatibility linked successfully.");
+
             }
         }
 
@@ -1538,6 +1662,7 @@ async function loadCurrentMerchantStatus() {
 
             if (merchantData.merchant_avatar && document.getElementById('profileDisplay')) {
                 document.getElementById('profileDisplay').src = merchantData.merchant_avatar;
+                localStorage.setItem('merchant_avatar', merchantData.merchant_avatar);
             }
 
             const verifyStatusEl = document.getElementById('verifyStatus');
@@ -1575,8 +1700,8 @@ async function loadCurrentMerchantStatus() {
                 globalLat = Number(merchantData.latitude);
                 globalLon = Number(merchantData.longitude);
             } else {
-                globalLat = 22.5726; 
-                globalLon = 88.3639;
+                globalLat = 22.5726;  // fallback — real coords set by GPS
+                globalLon = 88.3639; // fallback — real coords set by GPS
             }
             
             if (typeof updateVisualMap === 'function') {
@@ -1585,14 +1710,14 @@ async function loadCurrentMerchantStatus() {
                 profileMapInstance.setView([globalLat, globalLon], 16);
                 if (profileMapMarker) profileMapMarker.setLatLng([globalLat, globalLon]);
             }
-            console.log("🎯 All merchant dataset mounted successfully and safe from refresh wipe.");
+
             return true; 
         } else {
-            console.warn("⚠️ No merchant record mapped to this context.");
+
             return false;
         }
     } catch (e) { 
-        console.error("Error auto-filling merchant real-time profile assets:", e.message);
+
         return false;
     }
 }

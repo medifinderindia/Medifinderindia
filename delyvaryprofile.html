@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -14,7 +14,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="delyvaryprofile.css?v=12">
+    <link rel="stylesheet" href="delyvaryprofile.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
 </head>
@@ -40,22 +40,22 @@
                     </div>
 
                     <div class="identity-group">
-                        <h2 id="profileDisplayName" class="tr-text" data-en="Rider Account" data-bn="à¦°à¦¾à¦‡à¦¡à¦¾à¦° à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ" data-hi="à¦°à¦¾à¦‡à¦¡à¦¾à¦° à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ">Rider Account</h2>
+                        <h2 id="profileDisplayName" class="tr-text" data-en="Rider Account" data-bn="রাইডার অ্যাকাউন্ট" data-hi="রাইডার অ্যাকাউন্ট">Rider Account</h2>
                         <p id="profileDisplayUsername">@rider</p>
                         <button class="edit-basics-btn" onclick="triggerProfileNameEdit()">
-                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="à¦¨à¦¾à¦® à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨" data-hi="à¤¨à¤¾à¤® à¤¬à¤¦à¤²à¥‡à¤‚">Change Name</span>
+                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
                         </button>
                     </div>
                 </section>
 
                 <div class="menu-list-section">
-                    <h3 class="menu-group-title tr-text" data-en="Account Settings" data-bn="à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸" data-hi="à¤–à¤¾à¤¤à¤¾ à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤—">Account Settings</h3>
+                    <h3 class="menu-group-title tr-text" data-en="Account Settings" data-bn="অ্যাকাউন্ট সেটিংস" data-hi="खाता सेटिंग">Account Settings</h3>
                     
                     <!-- Vehicle Verification -->
                     <div class="menu-item-button" onclick="openSubPage('vehicleSetupPage')">
                         <div class="menu-item-left">
                             <div class="icon-box vehicle-icon"><i class="fa-solid fa-truck"></i></div>
-                            <span class="tr-text" data-en="Vehicle Verification" data-bn="à¦¯à¦¾à¦¨à¦¬à¦¾à¦¹à¦¨ à¦¯à¦¾à¦šà¦¾à¦‡à¦•à¦°à¦£" data-hi="à¤µà¤¾à¤¹à¤¨ à¤¸à¤¤à¥à¤¯à¤¾à¤ªà¤¨">Vehicle Verification</span>
+                            <span class="tr-text" data-en="Vehicle Verification" data-bn="যানবাহন যাচাইকরণ" data-hi="वाहन सत्यापन">Vehicle Verification</span>
                         </div>
                         <div class="status-indicator-dot" id="vehicleStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
                     </div>
@@ -64,7 +64,7 @@
                     <div class="menu-item-button" onclick="openSubPage('licensePage')">
                         <div class="menu-item-left">
                             <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-id-card"></i></div>
-                            <span class="tr-text" data-en="Driving License" data-bn="à¦¡à§à¦°à¦¾à¦‡à¦­à¦¿à¦‚ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸" data-hi="à¤¡à¥à¤°à¤¾à¤‡à¤µà¤¿à¤‚à¤— à¤²à¤¾à¤‡à¤¸à¥‡à¤‚à¤¸">Driving License</span>
+                            <span class="tr-text" data-en="Driving License" data-bn="ড্রাইভিং লাইসেন্স" data-hi="ड्राइविंग लाइसेंस">Driving License</span>
                         </div>
                         <div class="status-indicator-dot" id="licenseStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
                     </div>
@@ -73,27 +73,27 @@
                     <div class="menu-item-button" onclick="openSubPage('payoutConfigPage')">
                         <div class="menu-item-left">
                             <div class="icon-box bank-icon"><i class="fa-solid fa-bank"></i></div>
-                            <span class="tr-text" data-en="Bank & Payment" data-bn="à¦¬à§à¦¯à¦¾à¦‚à¦• à¦“ à¦ªà§‡à¦®à§‡à¦¨à§à¦Ÿ" data-hi="à¤¬à¥ˆà¤‚à¤• à¤”à¤° à¤­à¥à¤—à¤¤à¤¾à¤¨">Bank & Payment</span>
+                            <span class="tr-text" data-en="Bank & Payment" data-bn="ব্যাংক ও পেমেন্ট" data-hi="बैंक और भुगतान">Bank & Payment</span>
                         </div>
                         <div class="status-indicator-dot" id="payoutVerificationTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
                     </div>
 
-                    <h3 class="menu-group-title tr-text" data-en="Financial & Activity" data-bn="à¦†à¦°à§à¦¥à¦¿à¦• à¦“ à¦•à¦¾à¦°à§à¦¯à¦•à§à¦°à¦®" data-hi="à¤µà¤¿à¤¤à¥à¤¤à¥€à¤¯ à¤”à¤° à¤—à¤¤à¤¿à¤µà¤¿à¤§à¤¿">Financial & Activity</h3>
+                    <h3 class="menu-group-title tr-text" data-en="Financial & Activity" data-bn="আর্থিক ও কার্যক্রম" data-hi="वित्तीय और गतिविधि">Financial & Activity</h3>
 
                     <div class="menu-item-button" onclick="openSubPage('languagePage')">
                         <div class="menu-item-left">
                             <div class="icon-box language-icon"><i class="fa-solid fa-language"></i></div>
-                            <span class="tr-text" data-en="App Language" data-bn="à¦…à§à¦¯à¦¾à¦ªà§‡à¦° à¦­à¦¾à¦·à¦¾ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨" data-hi="à¤à¤ª à¤•à¥€ à¤­à¤¾à¤·à¤¾">App Language</span>
+                            <span class="tr-text" data-en="App Language" data-bn="অ্যাপের ভাষা পরিবর্তন" data-hi="ऐप की भाषा">App Language</span>
                         </div>
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
-                    <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="à¦¸à¦¹à¦¾à¦¯à¦¼à¦¤à¦¾ à¦“ à¦†à¦‡à¦¨à¦¿ à¦¨à§€à¦¤à¦¿" data-hi="à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤”à¤° à¤•à¤¾à¤¨à¥‚à¤¨à¥€ à¤¨à¥€à¤¤à¤¿à¤¯à¤¾à¤‚">Help & Legal Architecture</h3>
+                    <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
 
                     <div class="menu-item-button" onclick="openSubPage('supportPage')">
                         <div class="menu-item-left">
                             <div class="icon-box support-icon"><i class="fa-solid fa-headset"></i></div>
-                            <span class="tr-text" data-en="Support Desk" data-bn="à¦¸à¦¾à¦ªà§‹à¦°à§à¦Ÿ à¦¡à§‡à¦¸à§à¦•" data-hi="à¤¸à¤¹à¤¾à¤¯à¤¤à¤¾ à¤¡à¥‡à¤¸à¥à¤•">Support Desk</span>
+                            <span class="tr-text" data-en="Support Desk" data-bn="সাপোর্ট ডেস্ক" data-hi="सहायता डेस्क">Support Desk</span>
                         </div>
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
@@ -101,7 +101,7 @@
                     <div class="menu-item-button" onclick="openSubPage('privacyPage')">
                         <div class="menu-item-left">
                             <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
-                            <span class="tr-text" data-en="Privacy Policy" data-bn="à¦—à§‹à¦ªà¦¨à§€à¦¯à¦¼à¦¤à¦¾ à¦¨à§€à¦¤à¦¿" data-hi="à¤—à¥‹à¤ªà¤¨à¥€à¤¯à¤¤à¤¾ à¤¨à¥€à¤¤à¤¿">Privacy Policy</span>
+                            <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
                         </div>
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
@@ -109,13 +109,13 @@
                     <div class="menu-item-button" onclick="openSubPage('termsPage')">
                         <div class="menu-item-left">
                             <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
-                            <span class="tr-text" data-en="Terms & Conditions" data-bn="à¦¨à¦¿à¦¯à¦¼à¦® à¦“ à¦¶à¦°à§à¦¤à¦¾à¦¬à¦²à§€" data-hi="à¦¨à¤¿à¤¯à¤® à¤”à¤° à¤¶à¤°à¥à¤¤à¥‡à¤‚">Terms & Conditions</span>
+                            <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
                         </div>
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
                     <button id="logoutBtn" class="logout-action-btn-premium" onclick="processGlobalLogout()">
-                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ à¦²à¦—à¦†à¦‰à¦Ÿ à¦•à¦°à§à¦¨" data-hi="à¤–à¤¾à¤¤à¤¾ à¤²à¥‰à¤—à¤†à¤‰à¤Ÿ à¤•à¤°à¥‡à¤‚">Logout Account</span>
+                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
                     </button>
                 </div>
             </div>
@@ -205,7 +205,7 @@
     <!-- Language, Support, Privacy, Terms Pages content remain here... -->
     <!-- (Added placeholders for these to ensure structure is maintained) -->
 
-    <script src="prod-utils.js?v=12"></script>
-    <script src="delyvaryscript.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="delyvaryscript.js?v=13"></script>
 </body>
 </html>

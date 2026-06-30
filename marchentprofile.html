@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,15 +9,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-    <link rel="stylesheet" href="marchentprofile.css?v=12">
+    <link rel="stylesheet" href="marchentprofile.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=12"></script>
+    <script src="prod-utils.js?v=13"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
-    <script src="marchentscript.js?v=12"></script>
+    <script src="marchentscript.js?v=13"></script>
 </head>
 <body>
     <div class="container">
@@ -64,7 +64,7 @@
                         <p class="section-desc">Upload and verify your government drug license here.</p>
                     </div>
 
-                    <!-- ðŸ¦ à¦¨à¦¤à§à¦¨ à¦¬à§à¦¯à¦¾à¦‚à¦• à¦¡à¦¿à¦Ÿà§‡à¦‡à¦²à¦¸ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸ à¦•à¦¾à¦°à§à¦¡ -->
+                    <!-- 🏦 নতুন ব্যাংক ডিটেইলস সেটিংস কার্ড -->
                     <div class="settings-glass-card" onclick="openPopup('bankModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-bank"></i> Bank Settlement Accounts</h3>
@@ -136,7 +136,7 @@
         </div>
     </div>
 
-    <!-- ðŸ¦ à¦¨à¦¤à§à¦¨ à¦¬à§à¦¯à¦¾à¦‚à¦• à¦…à§à¦¯à¦¾à¦•à¦¾à¦‰à¦¨à§à¦Ÿ à¦¸à§‡à¦Ÿà¦†à¦ª à¦®à¦¡à¦¾à¦² à¦ªà¦ªà¦†à¦ª -->
+    <!-- 🏦 নতুন ব্যাংক অ্যাকাউন্ট সেটআপ মডাল পপআপ -->
     <div id="bankModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'bankModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('bankModal')">&times;</button>
@@ -296,7 +296,7 @@
                 <label>Select Language</label>
                 <select id="langSelect" class="premium-select">
                     <option value="en">English (Global Default)</option>
-                    <option value="bn">Bengali (à¦¬à¦¾à¦‚à¦²à¦¾)</option>
+                    <option value="bn">Bengali (বাংলা)</option>
                 </select>
             </div>
             <button class="popup-submit-btn dark-btn">Apply Language</button>
@@ -312,7 +312,7 @@
                 <span class="popup-ref-label">YOUR REFERRAL CODE</span>
                 <span class="popup-ref-code" id="refCode">MEDIFIND786</span>
                 <br><br>
-                <button class="popup-submit-btn success-btn" id="btnGenRefer"><i class="fa-solid fa-wallet"></i> Claim â‚¹1000 Code</button>
+                <button class="popup-submit-btn success-btn" id="btnGenRefer"><i class="fa-solid fa-wallet"></i> Claim ₹1000 Code</button>
             </div>
         </div>
     </div>

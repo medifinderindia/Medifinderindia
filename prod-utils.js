@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // MediFinder Production Utilities v2.0
 // Error handling, validation, security, UX
 // ==========================================
@@ -132,7 +132,7 @@ const MedUtils = {
 
   // --- ERROR BOUNDARY ---
   handleError(error, context = 'App') {
-    console.error(`[${context} Error]:`, error);
+
     this.toast(`${context} error. Please try again.`, 'error');
   },
 
@@ -220,10 +220,12 @@ const MedUtils = {
   async registerSW() {
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
-        console.log('SW registered:', reg.scope);
+        const reg = await navigator.serviceWorker.register('/sw.js?v=13');
+        // Force SW update to pick up latest cached files
+        reg.update().catch(() => {});
+
       } catch (err) {
-        console.error('SW registration failed:', err);
+
       }
     }
   }
@@ -248,4 +250,95 @@ document.addEventListener('DOMContentLoaded', () => {
   MedUtils.initLazyLoad();
   MedUtils.initNetworkListener();
   MedUtils.registerSW();
+  if (document.querySelector('.merchant-page, [data-page="merchant"]') || location.pathname.includes('marchent')) {
+    loadMerchantNotifications();
+  }
 });
+
+// --- GLOBAL TOAST NOTIFICATION (bottom-right, slide-up, auto-dismiss) ---
+function showToast(message, type = 'info') {
+  let container = document.getElementById('global-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'global-toast-container';
+    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999999;display:flex;flex-direction:column-reverse;gap:10px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+
+  const colors = { success: '#2ed573', error: '#e02020', info: '#1c82aa', warning: '#f0a500' };
+  const bgColors = { success: '#e3faf2', error: '#fff3f3', info: '#e8f4fd', warning: '#fff8e1' };
+  const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info', warning: 'fa-exclamation-triangle' };
+
+  const toast = document.createElement('div');
+  toast.style.cssText = `pointer-events:auto;display:flex;align-items:center;gap:10px;background:${bgColors[type] || bgColors.info};color:#1a1a2e;padding:12px 18px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.12);font-size:0.88rem;font-weight:600;font-family:'Inter',system-ui,sans-serif;border-left:4px solid ${colors[type] || colors.info};opacity:0;transform:translateY(20px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1);max-width:340px;`;
+  toast.innerHTML = `<i class="fas ${icons[type] || icons.info}" style="color:${colors[type] || colors.info};font-size:1rem;flex-shrink:0;"></i><span>${MedUtils.sanitizeHTML(message)}</span>`;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Shared merchant notification loader
+async function loadMerchantNotifications() {
+  try {
+    if (typeof supabase === 'undefined' || !supabase) return;
+    const merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    if (!merchantId) return;
+    const { data } = await supabase.from('merchant_notifications')
+      .select('id, title, message, type, is_read, created_at')
+      .eq('merchant_id', merchantId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    const badge = document.getElementById('notifBadge');
+    if (badge && data) {
+      const unread = data.filter(n => !n.is_read).length;
+      badge.textContent = unread || '';
+      badge.style.display = unread > 0 ? '' : 'none';
+    }
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// Shared merchant notification bell click handler
+async function showMerchantNotifications() {
+  const notifs = await loadMerchantNotifications();
+  if (!notifs || notifs.length === 0) {
+    showToast('No new notifications', 'info');
+    return;
+  }
+  const unread = notifs.filter(n => !n.is_read);
+  if (unread.length === 0) {
+    showToast('No new notifications', 'info');
+    return;
+  }
+  const latest = unread[0];
+  showToast(latest.title + ': ' + latest.message, latest.type || 'info');
+}
+
+function showConfirmationModal(message, onConfirm, onCancel) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="width:48px;height:48px;border-radius:50%;background:#fff2f2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <i class="fa-solid fa-circle-question" style="color:#e02020;font-size:24px;"></i>
+      </div>
+      <p style="margin:0 0 20px;font-size:0.95rem;color:#333;font-weight:500;line-height:1.5;">${message}</p>
+      <div style="display:flex;gap:10px;">
+        <button id="_cm_cancel" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-weight:600;color:#666;font-size:0.9rem;">Cancel</button>
+        <button id="_cm_confirm" style="flex:1;padding:12px;border:none;border-radius:10px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;font-size:0.9rem;">Confirm</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_cm_confirm').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
+  overlay.querySelector('#_cm_cancel').onclick = () => { overlay.remove(); if (onCancel) onCancel(); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); if (onCancel) onCancel(); } };
+}

@@ -5,17 +5,21 @@
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediFinder - User Profile</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="userprofile.css?v=4">
+    <link rel="stylesheet" href="userprofile.css?v=13">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
 </head>
 <body>
     
@@ -257,10 +261,20 @@
     <!-- Help Modal -->
     <div class="modal" id="help-modal">
         <div class="modal-content centered-text-box">
-            <i class="fa-solid fa-person-circle-exclamation status-icon-orange"></i>
-            <h3>Help Desk Channels</h3>
-            <p class="coming-soon-label">Coming Soon - Content Unavailable Currently</p>
-            <button class="btn-sec full-width-btn" id="close-help-modal">Dismiss Window</button>
+            <i class="fa-solid fa-headset status-icon-orange"></i>
+            <h3>Help Desk</h3>
+            <div style="text-align:left; font-size:0.85rem; color:#555; line-height:1.8;">
+                <p><b>Phone:</b> 9593625498 (Mon-Sat, 9AM-9PM)</p>
+                <p><b>Email:</b> medifinderindia@gmail.com</p>
+                <p><b>WhatsApp:</b> 9593625498</p>
+                <hr style="border:none;border-top:1px solid #eee;margin:10px 0;">
+                <p><b>Common Issues:</b></p>
+                <p>1. Order not received? Check order status in My Orders.</p>
+                <p>2. Wrong product? Raise a return request from order history.</p>
+                <p>3. Payment failed? Amount will be auto-refunded in 24hrs.</p>
+                <p>4. Prescription upload issues? Try again with clear photo.</p>
+            </div>
+            <button class="btn-sec full-width-btn" id="close-help-modal" style="margin-top:12px;">Close</button>
         </div>
     </div>
 
@@ -345,16 +359,16 @@
                 <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
-                <div class="hamburger-menu-item"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('You are here!','info')"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Use coupon code MEDI20 for ₹50 off!','info')"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item" onclick="showToast('Call us: 9593625498 | Email: medifinderindia@gmail.com','info')"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
                 <div class="hamburger-menu-divider"></div>
-                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
+                <div class="hamburger-menu-item logout-item" onclick="showConfirmationModal('Logout from MediFinder?', () => { localStorage.clear(); window.location.href='index.html'; })"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
             </div>
         </div>
     </div>
 
-    <script src="prod-utils.js?v=2"></script>
-    <script src="userscript.js?v=3"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="userscript.js?v=13"></script>
 </body>
 </html>

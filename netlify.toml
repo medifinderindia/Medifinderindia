@@ -1,5 +1,5 @@
 [build]
-  publish = "public"
+  publish = "."
 
 [[headers]]
   for = "/*"
@@ -49,4 +49,89 @@
 [[redirects]]
   from = "/delivery"
   to = "/delyvaryhome.html"
+  status = 200
+
+[[redirects]]
+  from = "/marchenthome"
+  to = "/marchenthome.html"
+  status = 200
+
+[[redirects]]
+  from = "/marchentorders"
+  to = "/marchentorders.html"
+  status = 200
+
+[[redirects]]
+  from = "/marchentadd"
+  to = "/marchentadd.html"
+  status = 200
+
+[[redirects]]
+  from = "/marchentinventory"
+  to = "/marchentinventory.html"
+  status = 200
+
+[[redirects]]
+  from = "/marchentprofile"
+  to = "/marchentprofile.html"
+  status = 200
+
+[[redirects]]
+  from = "/delyvaryhome"
+  to = "/delyvaryhome.html"
+  status = 200
+
+[[redirects]]
+  from = "/delyvaryorder"
+  to = "/delyvaryorder.html"
+  status = 200
+
+[[redirects]]
+  from = "/delyvaryearning"
+  to = "/delyvaryearning.html"
+  status = 200
+
+[[redirects]]
+  from = "/delyvaryprofile"
+  to = "/delyvaryprofile.html"
+  status = 200
+
+[[redirects]]
+  from = "/adminuser"
+  to = "/adminuser.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin-dashboard"
+  to = "/admin-dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/admindboy"
+  to = "/admindboy.html"
+  status = 200
+
+[[redirects]]
+  from = "/adminmarchent"
+  to = "/adminmarchent.html"
+  status = 200
+
+[[redirects]]
+  from = "/adminsponsored"
+  to = "/adminsponsored.html"
+  status = 200
+
+[[redirects]]
+  from = "/signup"
+  to = "/signup.html"
+  status = 200
+
+[[redirects]]
+  from = "/product-detail"
+  to = "/product-detail.html"
+  status = 200
+
+[[redirects]]
+  from = "/order-receipt"
+  to = "/order-receipt.html"
   status = 200

@@ -19,9 +19,11 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="userhome.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="userhome.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
 </head>
 <body>
 
@@ -48,7 +50,7 @@
             <div class="notification-container">
                 <button class="action-btn pulse-btn" id="notiBtn">
                     <i class="fas fa-bell"></i>
-                    <span class="badge" id="noti-badge">2</span>
+                    <span class="badge" id="noti-badge" style="display:none;">0</span>
                 </button>
                 <div class="notification-dropdown" id="notiDropdown">
                     <div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>
@@ -267,8 +269,8 @@
                         <h4>Dolo 650mg Tablet</h4>
                         <p class="price">₹30.00</p>
                         <div class="btn-group">
-                            <button class="order-btn immediate-order">BUY NOW</button>
-                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
                         </div>
                     </div>
                 </div>
@@ -282,8 +284,8 @@
                         <h4>Becosules Syrup</h4>
                         <p class="price">₹95.00</p>
                         <div class="btn-group">
-                            <button class="order-btn immediate-order">BUY NOW</button>
-                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
                         </div>
                     </div>
                 </div>
@@ -297,8 +299,8 @@
                         <h4>Moisturizing Body Lotion</h4>
                         <p class="price">₹210.00</p>
                         <div class="btn-group">
-                            <button class="order-btn immediate-order">BUY NOW</button>
-                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
                         </div>
                     </div>
                 </div>
@@ -312,8 +314,8 @@
                         <h4>Baby Diaper Rash Cream</h4>
                         <p class="price">₹175.00</p>
                         <div class="btn-group">
-                            <button class="order-btn immediate-order">BUY NOW</button>
-                            <button class="add-to-cart-btn"><i class="fas fa-shopping-cart"></i> CART</button>
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
                         </div>
                     </div>
                 </div>
@@ -472,24 +474,24 @@
                     <i class="fa-solid fa-map-location-dot"></i>
                     <span>Track on Map</span>
                 </div>
-                <div class="hamburger-menu-item">
+                <div class="hamburger-menu-item" onclick="showToast('Prescription Box opened from Profile','info');window.location.href='userprofile.html#my-box-btn'">
                     <i class="fa-solid fa-file-prescription"></i>
                     <span>My Prescriptions</span>
                 </div>
-                <div class="hamburger-menu-item">
+                <div class="hamburger-menu-item" onclick="showToast('Use coupon code MEDI20 for ₹50 off!','info')">
                     <i class="fa-solid fa-tag"></i>
                     <span>Offers & Coupons</span>
                 </div>
-                <div class="hamburger-menu-item">
+                <div class="hamburger-menu-item" onclick="showToast('Call us: 9593625498 | Email: medifinderindia@gmail.com','info')">
                     <i class="fa-solid fa-headset"></i>
                     <span>Customer Support</span>
                 </div>
-                <div class="hamburger-menu-item">
+                <div class="hamburger-menu-item" onclick="showToast('MediFinder - Your trusted medicine delivery partner','info')">
                     <i class="fa-solid fa-circle-info"></i>
                     <span>About MediFinder</span>
                 </div>
                 <div class="hamburger-menu-divider"></div>
-                <div class="hamburger-menu-item logout-item" onclick="if(confirm('Logout?')){localStorage.clear();window.location.href='index.html';}">
+                <div class="hamburger-menu-item logout-item" onclick="showConfirmationModal('Logout from MediFinder?', () => { localStorage.clear(); window.location.href='index.html'; })">
                     <i class="fa-solid fa-right-from-bracket"></i>
                     <span>Logout</span>
                 </div>
@@ -497,8 +499,8 @@
         </div>
     </div>
 
-    <script src="prod-utils.js?v=2"></script>
-    <script src="userscript.js?v=5"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="userscript.js?v=13"></script>
     
 </body>
 </html>

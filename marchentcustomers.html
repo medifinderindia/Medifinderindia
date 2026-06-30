@@ -2,25 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="MediFinder Merchant Customer Management">
 <title>Customers — MediFinder Merchant</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="prod-utils.js?v=4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=13"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:rgba(224,32,32,.12);--accent:#1a1a2e;--bg:#0f0f1a;--card:rgba(26,26,46,.65);--card-border:rgba(224,32,32,.15);--glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.08);--text:#f0f0f5;--text-dim:rgba(240,240,245,.55);--text-mid:rgba(240,240,245,.75);--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;--gold:#ffd700;--radius:14px;--radius-sm:10px;--radius-xs:6px}
 html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
-body{padding-bottom:80px}
+body{padding-bottom:100px}
 a{text-decoration:none;color:inherit}
 
 /* Scrollbar */
@@ -29,18 +30,13 @@ a{text-decoration:none;color:inherit}
 ::-webkit-scrollbar-thumb{background:rgba(224,32,32,.3);border-radius:4px}
 
 /* Header */
-.header{position:fixed;top:0;left:0;right:0;height:60px; background: linear-gradient(135deg, #5b0c05 0%, #ff1e32 100%);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 16px;z-index:1000;gap:12px}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(15,15,26,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 16px;z-index:1000;gap:12px}
 .header-back{width:36px;height:36px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:14px;transition:all .2s}
 .header-back:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
 .header-brand{display:flex;align-items:center;gap:8px;flex:1}
-.header .logo .brand-logo { 
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-.header-title{font-size:16px;font-weight:700;letter-spacing:-.3px;color: #b81a1a;}
-.header-title span{color:black}
+.header-logo{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff}
+.header-title{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.header-title span{color:var(--primary)}
 .header-notif{width:36px;height:36px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:14px;position:relative;transition:all .2s}
 .header-notif:hover{background:var(--primary-light);border-color:var(--primary)}
 .header-notif .badge{position:absolute;top:-3px;right:-3px;width:16px;height:16px;background:var(--primary);border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
@@ -112,7 +108,7 @@ a{text-decoration:none;color:inherit}
 .customer-avatar{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
 .customer-avatar.vip{background:linear-gradient(135deg,#ffd700,#f59e0b)}
 .customer-avatar.regular{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.customer-avatar.new{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.customer-avatar.new{background:linear-gradient(135deg,#e02020,#ff4747)}
 .customer-avatar.inactive{background:linear-gradient(135deg,#6b7280,#4b5563)}
 .customer-info{flex:1;min-width:0}
 .customer-name{font-size:14px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -280,10 +276,10 @@ a{text-decoration:none;color:inherit}
 <header class="header">
   <div class="header-back" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
   <div class="header-brand">
-    <div class="logo"><img src="1779304435608.png" class="brand-logo"></div>
+    <div class="header-logo">M</div>
     <div class="header-title">MEDI<span>FINDER</span></div>
   </div>
-  <div class="header-notif" onclick="showToast('No new notifications','info')">
+  <div class="header-notif" onclick="showMerchantNotifications()">
     <i class="fas fa-bell"></i>
     <div class="badge" id="notifBadge" style="display:none">0</div>
   </div>
@@ -302,7 +298,7 @@ a{text-decoration:none;color:inherit}
   <div class="sidebar-nav">
     <a href="marchenthome.html" class="sidebar-link"><i class="fas fa-th-large"></i>Dashboard</a>
     <a href="marchentorders.html" class="sidebar-link"><i class="fas fa-shopping-bag"></i>Orders</a>
-    <a href="marchentadd.html" class="sidebar-link"><i class="fas fa-pills"></i>Inventory</a>
+    <a href="marchentinventory.html" class="sidebar-link"><i class="fas fa-pills"></i>Inventory</a>
     <a href="marchentreturns.html" class="sidebar-link"><i class="fas fa-rotate-left"></i>Returns</a>
     <a href="marchentanalytics.html" class="sidebar-link"><i class="fas fa-chart-line"></i>Analytics</a>
     <a href="marchentpromotions.html" class="sidebar-link"><i class="fas fa-badge-percent"></i>Promotions</a>
@@ -469,13 +465,12 @@ a{text-decoration:none;color:inherit}
   <a href="marchenthome.html" class="nav-item"><i class="fas fa-home"></i><span>HOME</span></a>
   <a href="marchentorders.html" class="nav-item"><i class="fas fa-shopping-bag"></i><span>ORDERS</span></a>
   <div class="nav-item center-btn" onclick="showToast('Add functionality','info')"><i class="fas fa-plus"></i></div>
-  <a href="marchentadd.html" class="nav-item"><i class="fas fa-pills"></i><span>INVENTORY</span></a>
+  <a href="marchentinventory.html" class="nav-item"><i class="fas fa-pills"></i><span>INVENTORY</span></a>
   <a href="marchentprofile.html" class="nav-item"><i class="fas fa-user"></i><span>PROFILE</span></a>
 </nav>
 
 <script>
-const SUPABASE_URL='https://rnpbglinkpsikeszcjcl.supabase.co';
-const SUPABASE_KEY='sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+// URL & key loaded from supabase-constants.js
 const supabase=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
 
 let allCustomers=[];
@@ -494,7 +489,6 @@ document.addEventListener('DOMContentLoaded',async()=>{
     if (!session) { window.location.replace('index.html'); return; }
     loadCustomers();
   } catch (err) {
-    console.error('Init error:', err);
     showToast('Session error', 'error');
   }
 });
@@ -530,8 +524,9 @@ function showToast(msg,type='info'){
 async function loadCustomers(){
   if(!supabase){
     showSkeletons();
-    allCustomers=generateMockData();
+    allCustomers=[];
     processCustomers();
+    showToast('Database not connected.','error');
     return;
   }
   try{
@@ -574,10 +569,9 @@ async function loadCustomers(){
     allCustomers=Object.values(customerMap);
     processCustomers();
   }catch(e){
-    console.error('Load error:',e);
-    allCustomers=generateMockData();
+    allCustomers=[];
     processCustomers();
-    showToast('Loaded sample data','info');
+    showToast('Could not load customers. Please try again.','error');
   }
 }
 

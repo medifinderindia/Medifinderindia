@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,14 +13,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="prod-utils.js?v=4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=13"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--primary:#e02020;--primary-light:#ff4757;--primary-dark:#c01818;--dark:#1a1a2e;--dark2:#16213e;--dark3:#0f3460;--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--border:#e8e8e8;--success:#2ed573;--warning:#ffa502;--danger:#ff4757;--info:#3742fa;--purple:#7c5cfc;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.12);--radius:14px;--radius-sm:10px;--glass:rgba(255,255,255,.85)}
+:root{--primary:#e02020;--primary-light:#ff4757;--primary-dark:#c01818;--dark:#1a1a2e;--dark2:#16213e;--dark3:#e02020;--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--text2:#64748b;--text3:#94a3b8;--border:#e8eaef;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#e02020;--purple:#e02020;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.12);--radius:14px;--radius-sm:10px;--glass:rgba(255,255,255,.85)}
 html{scroll-behavior:smooth}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;overflow-x:hidden}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(224,32,32,.3)}
 .header-left{display:flex;align-items:center;gap:12px}
@@ -225,7 +226,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   </div>
   <div class="header-right">
     <button class="header-btn" onclick="location.reload()"><i class="fas fa-sync-alt"></i></button>
-    <button class="header-btn" onclick="showToast('No new notifications','info')">
+    <button class="header-btn" onclick="showMerchantNotifications()">
       <i class="fas fa-bell"></i><span class="badge" id="notifBadge">3</span>
     </button>
   </div>
@@ -242,7 +243,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   <div class="sidebar-nav">
     <a href="marchenthome.html"><i class="fas fa-home"></i>Dashboard</a>
     <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i>Orders</a>
-    <a href="marchentadd.html"><i class="fas fa-box"></i>Inventory</a>
+    <a href="marchentinventory.html"><i class="fas fa-box"></i>Inventory</a>
     <a href="marchentreturns.html" class="active"><i class="fas fa-undo-alt"></i>Returns</a>
     <a href="marchentanalytics.html"><i class="fas fa-chart-bar"></i>Analytics</a>
     <a href="marchentpromotions.html"><i class="fas fa-tag"></i>Promotions</a>
@@ -550,17 +551,17 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   <a href="marchenthome.html"><i class="fas fa-home"></i>HOME</a>
   <a href="marchentorders.html"><i class="fas fa-shopping-bag"></i>ORDERS</a>
   <a href="marchentadd.html" class="add-btn"><div class="add-circle"><i class="fas fa-plus"></i></div></a>
-  <a href="marchentadd.html"><i class="fas fa-box"></i>INVENTORY</a>
+  <a href="marchentinventory.html"><i class="fas fa-box"></i>INVENTORY</a>
   <a href="marchentprofile.html"><i class="fas fa-user"></i>PROFILE</a>
 </nav>
 
 <script>
-const SUPABASE_URL='https://rnpbglinkpsikeszcjcl.supabase.co';
-const SUPABASE_KEY='sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
+// URL & key loaded from supabase-constants.js
 let supabase,allReturns=[],filteredReturns=[],currentFilter='all',currentReturn=null,pendingRejectId=null,pendingRefundId=null,pendingPickupId=null,confirmCallback=null;
+let merchantId = null;
 let policy={returnWindow:7,autoApprove:500,restockingFee:5,shipping:'merchant',refundMethod:'original',exchange:'yes',photo:'yes',medicine:'restricted',emailReturn:'yes',sms:'yes'};
 
-function initSupabase(){try{supabase=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;if(!supabase){console.warn('Supabase SDK not loaded, using demo data');return false}return true}catch(e){console.error('Supabase init error:',e);return false}}
+function initSupabase(){try{supabase=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;if(!supabase){return false}return true}catch(e){return false}}
 
 function generateDemoReturns(){
   const reasons=['defective','wrong_item','damaged','expired','not_as_described','quality_issue','changed_mind'];
@@ -603,16 +604,19 @@ async function loadReturns(){
   showLoading();
   if(supabase){
     try{
-      const{data,error}=await supabase.from('returns').select('*').order('date_requested',{ascending:false});
+      merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id') || merchantId;
+      let query = supabase.from('returns').select('*').order('date_requested',{ascending:false});
+      if(merchantId) query = query.eq('merchant_id', merchantId);
+      const{data,error}=await query;
       if(error)throw error;
       allReturns=data||[];
     }catch(e){
-      console.error('Load returns error:',e);
-      allReturns=generateDemoReturns();
-      showToast('Using demo data','warning');
+      allReturns=[];
+      showToast('Could not load returns. Please try again.','error');
     }
   }else{
-    allReturns=generateDemoReturns();
+    allReturns=[];
+    showToast('Database not connected.','error');
   }
   filteredReturns=[...allReturns];
   updateCounts();
@@ -891,8 +895,10 @@ async function updateReturnStatus(id,status,event){
   allReturns[idx].timeline.push({time:new Date().toISOString(),event:event,completed:true});
   if(supabase){
     try{
-      await supabase.from('returns').update({status:status,timeline:allReturns[idx].timeline}).eq('id',id);
-    }catch(e){console.error('Update error:',e)}
+      let updateQuery = supabase.from('returns').update({status:status,timeline:allReturns[idx].timeline}).eq('id',id);
+      if(merchantId) updateQuery = updateQuery.eq('merchant_id', merchantId);
+      await updateQuery;
+    }catch(e){/* error */}
   }
   updateCounts();
   applyFilters();
@@ -1058,10 +1064,9 @@ function setupRealtime(){
   if(!supabase)return;
   try{
     supabase.channel('returns-realtime').on('postgres_changes',{event:'*',schema:'public',table:'returns'},payload=>{
-      console.log('Realtime update:',payload);
       loadReturns();
     }).subscribe();
-  }catch(e){console.error('Realtime error:',e)}
+  }catch(e){/* error */}
 }
 
 function handleLogout(){
@@ -1083,7 +1088,6 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const minDate=new Date();minDate.setDate(minDate.getDate()+1);
     document.getElementById('pickupDate').min=minDate.toISOString().split('T')[0];
   } catch (err) {
-    console.error('Init error:', err);
     showToast('Session error', 'error');
   }
 });
