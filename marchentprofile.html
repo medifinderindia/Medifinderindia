@@ -65,7 +65,7 @@
                     </div>
 
                     <!-- 🏦 নতুন ব্যাংক ডিটেইলস সেটিংস কার্ড -->
-                    <div class="settings-glass-card" onclick="openPopup('bankModal')">
+                    <div class="settings-glass-card" id="bankCard" onclick="openPopup('bankModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-bank"></i> Bank Settlement Accounts</h3>
                             <span class="live-status" style="background:#e0f2fe; color:#0369a1;">Configure</span>
@@ -73,18 +73,11 @@
                         <p class="section-desc">Manage bank accounts, IFSC code, and settlement UPI IDs.</p>
                     </div>
 
-                    <div class="settings-glass-card" onclick="openPopup('geoModal')">
+                    <div class="settings-glass-card" id="geoCard" onclick="openPopup('geoModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-map-location-dot"></i> Geolocation & Address Mapping</h3>
                         </div>
                         <p class="section-desc">Configure shop location, pincode, and contact maps.</p>
-                    </div>
-
-                    <div class="settings-glass-card" onclick="openPopup('helpModal')">
-                        <div class="card-title-row">
-                            <h3><i class="fa-solid fa-circle-question"></i> Help Desk & Merchant Guide</h3>
-                        </div>
-                        <p class="section-desc">Quick FAQ guide to solve operational issues instantly.</p>
                     </div>
 
                     <div class="settings-glass-card" onclick="openPopup('tcModal')">
@@ -238,24 +231,6 @@
                 <button type="button" class="popup-submit-btn" id="btnSaveGeoAddress" style="margin:0; flex:1; background:#2e7d32;">
                     <i class="fa-solid fa-floppy-disk"></i> Save Location Details
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <div id="helpModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'helpModal')">
-        <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('helpModal')">&times;</button>
-            <h3><i class="fa-solid fa-circle-question"></i> Help Desk & Merchant Guide</h3>
-            <hr><br>
-            <div class="premium-accordion">
-                <details class="popup-help-item">
-                    <summary>How to add new medicine?</summary>
-                    <p>Go to the "ADD NEW" tab from the bottom navigation menu. Step 1: Upload medicine pictures, Step 2: Fill in composition, category & manufacturer details, Step 3: Enter stock quantity and unit pricing. Click Next to finish.</p>
-                </details>
-                <details class="popup-help-item">
-                    <summary>Why is my drug license showing unverified?</summary>
-                    <p>Once uploaded, our specialized internal verification node takes up to 24-48 business hours to verify your state-issued pharmacy registration number.</p>
-                </details>
             </div>
         </div>
     </div>

@@ -13,12 +13,14 @@ let currentKycFilter = 'all';
 
 // Supabase ক্লায়েন্ট ইনিশিয়ালাইজেশন
 if (typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
     document.addEventListener("DOMContentLoaded", async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
             updateDbStatus(false, "No active session. Please login via Admin Panel first.");
             showToast("Session expired. Please login again.", "error");
+            localStorage.removeItem('merchantSessionActive');
+            window.location.href = "index.html";
             return;
         }
         updateDbStatus(true, "Connected to Supabase production network.");

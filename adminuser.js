@@ -2,7 +2,7 @@
 let supabaseClient = null;
 
 if (typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 }
 
 function esc(str) { return String(str || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -22,6 +22,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
         showToast("Session expired. Please login again.", "error");
+        localStorage.removeItem('merchantSessionActive');
+        window.location.href = "index.html";
         return;
     }
     loadCancelledOrders();

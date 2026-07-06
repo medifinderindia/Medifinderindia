@@ -1,5 +1,5 @@
 ﻿// Supabase Configuration (URL & key loaded from supabase-constants.js)
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
 let otpInterval;
 

@@ -1,7 +1,7 @@
 ﻿// ================= SUPABASE CLIENT INITIALIZATION =================
 // URL & key loaded from supabase-constants.js
 const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined')
-    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
     : null;
 
 // গ্লোবাল স্টেট হোল্ডার
@@ -35,6 +35,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
         showToast("Session expired. Please login again.", "error");
+        localStorage.removeItem('merchantSessionActive');
+        window.location.href = "index.html";
         return;
     }
     fetchInitialData();
@@ -213,8 +215,8 @@ function filterFleetByZone() {
 // ================= FEATURE 2: REAL-TIME ANALYTICS METRICS =================
 function startAnalyticsRefresh() {
     if (!supabaseClient) return;
-    // Update analytics every 10 seconds
-    setInterval(updateLiveAnalytics, 10000);
+    // Update analytics every 60 seconds
+    setInterval(updateLiveAnalytics, 60000);
     updateLiveAnalytics(); // Initial load
 }
 

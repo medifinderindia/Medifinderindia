@@ -826,7 +826,7 @@
                     loadMedicines()
                 ]);
                 setupRealtimeSubscriptions();
-                refreshInterval = setInterval(autoRefresh, 30000);
+                refreshInterval = setInterval(autoRefresh, 60000);
             } catch (err) {
                 showToast('Failed to load dashboard', 'error');
             }
@@ -1192,7 +1192,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'New Delivery Available',
-                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} â†' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} ï¿½' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1256,7 +1256,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'Order Ready for Pickup',
-                            message: `Pickup from: ${order?.address || 'Shop'} â†' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: â‚¹${order?.total_amount || 0}`,
+                            message: `Pickup from: ${order?.address || 'Shop'} ï¿½' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: â‚¹${order?.total_amount || 0}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',

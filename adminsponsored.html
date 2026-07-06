@@ -231,7 +231,7 @@
     <script>
         // URL & key loaded from supabase-constants.js
         let db = null;
-        try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
+        try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }); } catch(e) { /* error */ }
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -336,7 +336,17 @@
             });
         }
 
-        loadProducts();
+        (async () => {
+            if (!db) return;
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) {
+                showToast("Session expired. Please login again.", "error");
+                localStorage.removeItem('merchantSessionActive');
+                window.location.href = "index.html";
+                return;
+            }
+            loadProducts();
+        })();
     </script>
 </body>
 </html>

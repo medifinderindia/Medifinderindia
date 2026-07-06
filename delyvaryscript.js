@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     loadDeliveryNotifications();
     if (window._notifInterval) clearInterval(window._notifInterval);
-    window._notifInterval = setInterval(loadDeliveryNotifications, 30000);
+    window._notifInterval = setInterval(loadDeliveryNotifications, 60000);
 
     if (supabaseClient) {
         if (window._riderNotifsChannel) supabaseClient.removeChannel(window._riderNotifsChannel);
@@ -269,13 +269,12 @@ function listenToAvailableOrders() {
     window._ordersChannel = supabaseClient
         .channel('public:orders')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-            if (payload.new.status === 'pending' || payload.new.status === 'broadcasted') {
-                if (!isOnDuty) {
-
-                    return;
+            if (payload.new && payload.new.status === 'pending' && !payload.new.rider_id) {
+                if (!isOnDuty) return;
+                if (!document.getElementById(`order-${payload.new.order_id}`)) {
+                    renderAvailableOrder(payload.new);
+                    fireNewOrderNotification(payload.new);
                 }
-                renderAvailableOrder(payload.new);
-                fireNewOrderNotification(payload.new);
             }
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
@@ -294,31 +293,6 @@ function listenToAvailableOrders() {
             const card = document.getElementById(`order-${payload.old.order_id}`);
             if (card) card.remove();
             checkIfOrdersEmpty();
-        })
-        .subscribe();
-
-    // Second channel: dedicated listener for new available orders (pending, no rider)
-    if (window._availableOrdersChannel) {
-        supabaseClient.removeChannel(window._availableOrdersChannel);
-        window._availableOrdersChannel = null;
-    }
-    window._availableOrdersChannel = supabaseClient
-        .channel('available-orders')
-        .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'orders'
-        }, (payload) => {
-            if (payload.new && payload.new.status === 'pending' && !payload.new.rider_id) {
-                if (!isOnDuty) {
-
-                    return;
-                }
-                if (!document.getElementById(`order-${payload.new.order_id}`)) {
-                    renderAvailableOrder(payload.new);
-                    fireNewOrderNotification(payload.new);
-                }
-            }
         })
         .subscribe();
 }

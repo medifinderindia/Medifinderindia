@@ -1061,7 +1061,7 @@
     <script>
         // URL & key loaded from supabase-constants.js
         let supabase = null;
-        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
+        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }); } catch(e) { /* error */ }
 
         // State
         let realtimeChannel = null;
@@ -1436,6 +1436,13 @@
 
         // ====== INIT ======
         document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                showToast("Session expired. Please login again.", "error");
+                localStorage.removeItem('merchantSessionActive');
+                window.location.href = "index.html";
+                return;
+            }
             await Promise.all([
                 loadStats(),
                 loadRevenueChart(),
@@ -1445,13 +1452,13 @@
             setupRealtime();
             renderActivityFeed();
 
-            // Auto-refresh every 30 seconds
+            // Auto-refresh every 60 seconds (realtime already pushes live changes)
             refreshInterval = setInterval(() => {
                 loadStats();
                 loadRevenueChart();
                 loadRecentOrders();
                 loadSystemHealth();
-            }, 30000);
+            }, 60000);
         });
 
         // Cleanup on page unload

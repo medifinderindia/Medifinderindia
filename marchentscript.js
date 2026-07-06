@@ -198,7 +198,9 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
         query = dbSupabase.from('merchant_kyc').update({ 
             license_img: fileUrl, 
             license_no: licenseNo, 
-            verified: false 
+            verified: false,
+            rejection_reason: null,
+            rejected_at: null
         }).eq('id', existingData.id);
     } else {
         query = dbSupabase.from('merchant_kyc').insert({ 
@@ -1676,21 +1678,29 @@ async function loadCurrentMerchantStatus() {
                     verifyStatusEl.className = "status-pill verified";
                     verifyStatusEl.style.background = "#2e7d32";
                     verifyStatusEl.style.color = "#fff";
+                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = '');
+                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = '');
                 } else if (merchantData.license_status === 'Pending') {
                     verifyStatusEl.innerText = "Pending Review";
                     verifyStatusEl.className = "status-pill pending";
                     verifyStatusEl.style.background = "#ffa000";
                     verifyStatusEl.style.color = "#fff";
+                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
+                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
                 } else if (merchantData.license_status === 'Rejected') {
                     verifyStatusEl.innerText = "Rejected";
                     verifyStatusEl.className = "status-pill rejected";
                     verifyStatusEl.style.background = "#ef4444";
                     verifyStatusEl.style.color = "#fff";
+                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
+                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
                 } else {
                     verifyStatusEl.innerText = "Unverified";
                     verifyStatusEl.className = "status-pill unverified";
                     verifyStatusEl.style.background = "#ef4444";
                     verifyStatusEl.style.color = "#fff";
+                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
+                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
                 }
             }
             
