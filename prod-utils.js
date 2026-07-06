@@ -289,10 +289,11 @@ function showToast(message, type = 'info') {
 // Shared merchant notification loader
 async function loadMerchantNotifications() {
   try {
-    if (typeof supabase === 'undefined' || !supabase) return;
+    const client = window.supabaseClientInstance || (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function' ? supabase : null);
+    if (!client) return;
     const merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
     if (!merchantId) return;
-    const { data } = await supabase.from('merchant_notifications')
+    const { data } = await client.from('merchant_notifications')
       .select('id, title, message, type, is_read, created_at')
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
@@ -320,7 +321,8 @@ async function showMerchantNotifications() {
     return;
   }
   const latest = unread[0];
-  showToast(latest.title + ': ' + latest.message, latest.type || 'info');
+  const typeMap = { success: 'success', error: 'error', warning: 'warning', info: 'info', order: 'info', general: 'info', admin: 'info', profile: 'info' };
+  showToast(latest.title + ': ' + latest.message, typeMap[latest.type] || 'info');
 }
 
 function showConfirmationModal(message, onConfirm, onCancel) {

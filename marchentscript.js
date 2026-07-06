@@ -193,51 +193,23 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
         .eq('merchant_id', targetMerchantId)
         .maybeSingle();
 
-    // Also reset status:'pending' and clear any old rejection reason so a
-    // freshly re-submitted license doesn't keep showing the previous
-    // rejected state on the admin panel (mirrors admin's approve/reject,
-    // which now also writes to this 'status' column).
     let query;
     if (existingData) {
         query = dbSupabase.from('merchant_kyc').update({ 
             license_img: fileUrl, 
             license_no: licenseNo, 
-            verified: false,
-            status: 'pending',
-            rejection_reason: null,
-            rejected_at: null
+            verified: false 
         }).eq('id', existingData.id);
     } else {
         query = dbSupabase.from('merchant_kyc').insert({ 
             merchant_id: targetMerchantId, 
             license_img: fileUrl, 
             license_no: licenseNo,
-            verified: false,
-            status: 'pending'
+            verified: false 
         });
     }
 
-    let { error } = await query;
-
-    // Fallback: if the 'status' column doesn't exist on this table, retry
-    // without it so the license upload still saves instead of failing.
-    if (error) {
-        console.warn('saveMerchantKyc: retrying without status column:', error.message);
-        if (existingData) {
-            ({ error } = await dbSupabase.from('merchant_kyc').update({
-                license_img: fileUrl,
-                license_no: licenseNo,
-                verified: false
-            }).eq('id', existingData.id));
-        } else {
-            ({ error } = await dbSupabase.from('merchant_kyc').insert({
-                merchant_id: targetMerchantId,
-                license_img: fileUrl,
-                license_no: licenseNo,
-                verified: false
-            }));
-        }
-    }
+    const { error } = await query;
     if (error) throw error;
 }
 
@@ -389,8 +361,8 @@ function initNotificationSystem() {
         .channel('merchant-notifs-realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'merchant_notifications' }, payload => {
             const n = payload.new;
-            const merchantId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-            if (n.merchant_id && merchantId && String(n.merchant_id) !== String(merchantId)) return;
+            const merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+            if (n.merchant_id && String(n.merchant_id) !== String(merchantId)) return;
             showCustomNotification(
                 `🔔 ${n.title || 'Notification'}`,
                 n.message || '',
@@ -410,69 +382,6 @@ function initNotificationSystem() {
             }
         })
         .subscribe();
-}
-
-// ==========================================
-// 🔔 NOTIFICATION BELL PANEL (shows past messages,
-// not just the live toast at the moment it's sent)
-// ==========================================
-async function showMerchantNotifications() {
-    if (!dbSupabase) return;
-    const merchantId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
-
-    let rows = [];
-    try {
-        let query = dbSupabase.from('merchant_notifications').select('*').order('id', { ascending: false }).limit(50);
-        if (merchantId) {
-            query = query.or(`merchant_id.eq.${merchantId},merchant_id.is.null`);
-        } else {
-            query = query.is('merchant_id', null);
-        }
-        const { data, error } = await query;
-        if (error) throw error;
-        rows = data || [];
-    } catch (e) {
-        console.error('Notifications load failed:', e);
-        showToast('Notification load korte parlo na: ' + (e.message || e), 'error');
-        return;
-    }
-
-    let panel = document.getElementById('merchantNotifPanel');
-    if (panel) panel.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'merchantNotifPanel';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:10000;';
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    const itemsHtml = rows.length
-        ? rows.map(n => `
-            <div style="padding:14px 16px;border-bottom:1px solid #eef2f6;">
-                <div style="font-weight:700;color:#0f172a;font-size:14px;">${esc(n.title || 'Notification')}</div>
-                <div style="color:#475569;font-size:13px;margin-top:4px; line-height:1.4;">${esc(n.message || '')}</div>
-            </div>
-        `).join('')
-        : '<div style="text-align:center;color:#94a3b8;padding:40px 20px;">No notifications yet.</div>';
-
-    overlay.innerHTML = `
-        <div style="position:absolute;top:0;right:0;bottom:0;width:100%;max-width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.15);overflow-y:auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #eef2f6;position:sticky;top:0;background:#fff;">
-                <h3 style="margin:0;font-size:16px;color:#0f172a;">Notifications</h3>
-                <button id="closeMerchantNotifPanel" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
-            </div>
-            ${itemsHtml}
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    document.getElementById('closeMerchantNotifPanel').onclick = () => overlay.remove();
-
-    const badge = document.getElementById('notifBadge');
-    if (badge) {
-        badge.textContent = '';
-        badge.style.display = 'none';
-    }
 }
 
 function showCustomNotification(title, message, orderId, type) {
@@ -559,7 +468,7 @@ async function initHomePage() {
                 if (revenueSection) revenueSection.style.display = 'none'; 
             }
         } catch (err) {
-
+            showToast("Earnings update error: " + (err.message || err), "error");
         }
     }
 
@@ -581,7 +490,7 @@ async function initHomePage() {
             renderMedicines(data);
             await updateLiveEarnings();
         } catch (error) {
-
+            showToast("Medicines load error: " + (error.message || error), "error");
         }
     }
 
@@ -671,6 +580,8 @@ async function initHomePage() {
                 if(!error) {
                     localStorage.setItem('editMedicineData', JSON.stringify(data));
                     window.location.href = 'marchentadd.html'; 
+                } else {
+                    showToast("Failed to load medicine: " + (error.message || error), "error");
                 }
             });
         });
@@ -1102,7 +1013,7 @@ function initDeliveryPage() {
                 }
                 broadcastSuccess = true;
             } catch (dbErr) {
-
+                showToast("Broadcast DB error: " + (dbErr.message || dbErr), "error");
             }
             if (broadcastSuccess) {
                 showToast("Broadcast published to fleet stream successfully.", "success");
@@ -1116,7 +1027,9 @@ function initDeliveryPage() {
                     null
                 );
             }
-            if (riderStatusBox) riderStatusBox.innerHTML = '<span class="status-badge active-ready" style="background:#e6fffa; color:#00a389;"><i class="fa-solid fa-circle-check"></i> Broadcast Published — Awaiting Rider Acceptance</span>';
+            if (riderStatusBox) riderStatusBox.innerHTML = broadcastSuccess
+                ? '<span class="status-badge active-ready" style="background:#e6fffa; color:#00a389;"><i class="fa-solid fa-circle-check"></i> Broadcast Published — Awaiting Rider Acceptance</span>'
+                : '<span class="status-badge" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-exclamation-circle"></i> Broadcast Failed — Try Again</span>';
         });
     }
 }

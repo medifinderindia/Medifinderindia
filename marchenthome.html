@@ -76,7 +76,7 @@
 
         /* HEADER */
         .header {
-            background: rgb(112, 18, 18);
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-mid) 100%);
             padding: 14px 16px;
             display: flex;
             align-items: center;
@@ -96,8 +96,8 @@
         .hamburger:hover { background: rgba(255,255,255,0.2); }
         .brand { display: flex; align-items: center; gap: 8px; }
         .brand-logo { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; }
-        .brand-text { font-size: 16px; font-weight: 700; color: #db0707; letter-spacing: 0.5px; }
-        .brand-text span { color:black; }
+        .brand-text { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .brand-text span { color: var(--primary-light); }
         .header-right { display: flex; align-items: center; gap: 8px; }
         .header-icon {
             width: 38px; height: 38px; border-radius: 10px; border: none;
@@ -1192,7 +1192,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'New Delivery Available',
-                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} �' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} �' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1256,7 +1256,7 @@
                         const riderNotifs = ridersRes.data.map(r => ({
                             rider_id: r.id,
                             title: 'Order Ready for Pickup',
-                            message: `Pickup from: ${order?.address || 'Shop'} �' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: ₹${order?.total_amount || 0}`,
+                            message: `Pickup from: ${order?.address || 'Shop'} �' Deliver to: ${order?.customer_address || order?.address || 'Customer'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}. Total: ₹${order?.total_amount || 0}`,
                             type: 'info',
                             broadcast_to: 'all',
                             target: 'all',
@@ -1468,69 +1468,8 @@
             });
 
             document.getElementById('notifBtn').addEventListener('click', () => {
-                showMerchantNotificationsPanel();
+                showMerchantNotifications();
             });
-        }
-
-        // ==========================================
-        // 🔔 NOTIFICATION PANEL (real data from DB)
-        // This page never loaded marchentscript.js, so the old
-        // showMerchantNotifications() call here was a ReferenceError that
-        // silently did nothing when the bell was clicked. This is a
-        // self-contained replacement using this page's own `db` client.
-        // ==========================================
-        async function showMerchantNotificationsPanel() {
-            if (!db) return;
-
-            let rows = [];
-            try {
-                let query = db.from('merchant_notifications').select('*').order('id', { ascending: false }).limit(50);
-                if (currentMerchantId) {
-                    query = query.or(`merchant_id.eq.${currentMerchantId},merchant_id.is.null`);
-                } else {
-                    query = query.is('merchant_id', null);
-                }
-                const { data, error } = await query;
-                if (error) throw error;
-                rows = data || [];
-            } catch (e) {
-                showToast('Notification load korte parlo na: ' + (e.message || e), 'error');
-                return;
-            }
-
-            // Clear unread badge once opened
-            const badgeEl = document.getElementById('notifBadge');
-            if (badgeEl) { badgeEl.textContent = ''; badgeEl.style.display = 'none'; }
-
-            let panel = document.getElementById('merchantNotifPanel');
-            if (panel) panel.remove();
-
-            const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-            const itemsHtml = rows.length
-                ? rows.map(n => `
-                    <div style="padding:14px 16px;border-bottom:1px solid #eef2f6;">
-                        <div style="font-weight:700;color:#0f172a;font-size:14px;">${esc(n.title || 'Notification')}</div>
-                        <div style="color:#475569;font-size:13px;margin-top:4px;line-height:1.4;">${esc(n.message || '')}</div>
-                    </div>
-                `).join('')
-                : '<div style="text-align:center;color:#94a3b8;padding:40px 20px;">No notifications yet.</div>';
-
-            const overlay = document.createElement('div');
-            overlay.id = 'merchantNotifPanel';
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:10000;';
-            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-            overlay.innerHTML = `
-                <div style="position:absolute;top:0;right:0;bottom:0;width:100%;max-width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.15);overflow-y:auto;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #eef2f6;position:sticky;top:0;background:#fff;">
-                        <h3 style="margin:0;font-size:16px;color:#0f172a;">Notifications</h3>
-                        <button id="closeMerchantNotifPanel" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
-                    </div>
-                    ${itemsHtml}
-                </div>
-            `;
-            document.body.appendChild(overlay);
-            document.getElementById('closeMerchantNotifPanel').onclick = () => overlay.remove();
         }
 
         function closeSidebar() {
@@ -1601,24 +1540,6 @@
                             if (vbr) vbr.style.display = 'none';
                             if (badge) badge.style.display = 'none';
                             showToast('License under review...', 'info');
-                        }
-                    })
-                    .subscribe();
-                db.channel('dashboard-notifs')
-                    .on('postgres_changes', {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'merchant_notifications'
-                    }, payload => {
-                        const n = payload.new;
-                        // Ignore alerts targeted at a different individual merchant
-                        if (n.merchant_id && String(n.merchant_id) !== String(currentMerchantId)) return;
-                        showToast(`🔔 ${n.title || 'Notification'}`, 'info');
-                        const badge = document.getElementById('notifBadge');
-                        if (badge) {
-                            const current = parseInt(badge.textContent) || 0;
-                            badge.textContent = current + 1;
-                            badge.style.display = 'inline-flex';
                         }
                     })
                     .subscribe();

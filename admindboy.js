@@ -28,9 +28,13 @@ let analyticsData = {
 let prevAnalyticsData = null;
 
 // App Initialization Setup
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     if (!supabaseClient) {
-
+        return;
+    }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        showToast("Session expired. Please login again.", "error");
         return;
     }
     fetchInitialData();
@@ -85,7 +89,7 @@ async function fetchInitialData() {
         let { data: riders } = await supabaseClient.from('riders').select('*').eq('duty_status', 'online');
         if(riders) { activeRiders = riders; updateFleetMap(); }
     } catch (err) {
-
+        showToast("Data Load Error: " + err.message, "error");
     }
 }
 
@@ -190,7 +194,7 @@ async function updateFleetMap() {
         const mapUpdatedEl = document.getElementById('map-last-updated');
         if (mapUpdatedEl) mapUpdatedEl.textContent = new Date().toLocaleTimeString();
     } catch (e) {
-
+        showToast("Fleet map update error: " + (e.message || e), "error");
     }
 }
 
@@ -273,7 +277,7 @@ async function updateLiveAnalytics() {
         // Render analytics
         renderAnalyticsCards();
     } catch (err) {
-
+        showToast("Analytics update error: " + (err.message || err), "error");
     }
 }
 
@@ -389,7 +393,7 @@ async function loadPayoutLedger() {
             updateLedgerStats();
         }
     } catch (err) {
-
+        showToast("Payout ledger load error: " + (err.message || err), "error");
     }
 }
 
@@ -838,6 +842,13 @@ async function approveRiderKYC(riderId) {
         if(!error) {
             if (kycTarget.rider_id) {
                 await supabaseClient.from('riders').update({ is_verified: true }).eq('id', kycTarget.rider_id);
+                await supabaseClient.from('rider_notifications').insert({
+                    rider_id: kycTarget.rider_id,
+                    title: 'KYC Approved',
+                    message: 'Your KYC has been approved. You are now a verified rider.',
+                    type: 'success',
+                    is_read: false
+                });
             }
             showToast(`KYC Approved for ${kycTarget.name}`, "success");
             fetchInitialData();
@@ -885,7 +896,10 @@ async function sendRiderNotification() {
             notifPayload.rider_id = riderId;
         }
         await supabaseClient.from('rider_notifications').insert([notifPayload]);
-    } catch(e) {}
+    } catch(e) {
+        showToast("Notification send failed: " + (e.message || e), "error");
+        return;
+    }
 
     const statusBody = document.getElementById('status-popup-body');
     const statusTitle = document.getElementById('status-popup-title');

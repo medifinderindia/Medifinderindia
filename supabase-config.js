@@ -100,6 +100,10 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
             return;
         }
 
+        if (localStorage.getItem('admin_auth_in_progress') === 'true') {
+            return;
+        }
+
         if (isLoginPage || isSignupPage) {
             redirectUserBasedOnRole(session.user);
         }
@@ -140,6 +144,10 @@ async function handleOAuthUserRoleUpdate(user) {
 }
 
 async function redirectUserBasedOnRole(user) {
+    if (localStorage.getItem('admin_auth_in_progress') === 'true') {
+        return;
+    }
+
     // অ্যাডমিন ইমেইল হলে সরাসরি অ্যাডমিন প্যানেলে রিডাইরেক্ট
     if (
         user.email === 'medifinderindia@gmail.com' &&
@@ -773,7 +781,7 @@ if (phoneSignupToggle) {
 // ==========================================
 const ADMIN_SECRET_PASSWORD = "Admin@medifinderindia2026";
 const ADMIN_EMAIL = "medifinderindia@gmail.com";
-const ADMIN_PHONE = "9593625498";
+const ADMIN_PHONE = "+919593625498";
 
 let logoClickCount = 0;
 let logoClickTimeout;

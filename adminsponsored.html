@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
-    <script src="supabase-constants.js"></script>
+    <script src="supabase-constants.js?v=13"></script>
     <script src="prod-utils.js?v=13"></script>
     <style>
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -238,19 +238,14 @@
             document.getElementById('sidebarOverlay').classList.toggle('open');
         }
 
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerHTML = '<i class="fas fa-check-circle"></i> ' + msg;
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
-        }
-
         async function loadProducts() {
             if (!db) return;
-            const { data } = await db.from('sponsored_products').select('*').order('sort_order');
-            const list = document.getElementById('productsList');
-            if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><p>No sponsored products yet</p></div>'; return; }
-            list.innerHTML = data.map(p => `
+            try {
+                const { data, error } = await db.from('sponsored_products').select('*').order('sort_order');
+                if (error) { showToast('Load error: ' + error.message, 'error'); return; }
+                const list = document.getElementById('productsList');
+                if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><p>No sponsored products yet</p></div>'; return; }
+                list.innerHTML = data.map(p => `
                 <div class="list-item">
                     <div class="gradient-preview" style="background:${p.gradient}">
                         <i class="${p.icon_class}"></i>
@@ -266,6 +261,7 @@
                     </div>
                 </div>
             `).join('');
+            } catch(e) { showToast('Load error: ' + (e.message || e), 'error'); }
         }
 
         document.getElementById('sponsoredForm').addEventListener('submit', async (e) => {
@@ -283,13 +279,17 @@
                 sort_order: parseInt(document.getElementById('spSort').value) || 0,
                 is_active: true
             };
-            if (id) {
-                await db.from('sponsored_products').update(obj).eq('id', id);
-                showToast('Updated!');
-            } else {
-                await db.from('sponsored_products').insert(obj);
-                showToast('Added!');
-            }
+            try {
+                if (id) {
+                    const { error } = await db.from('sponsored_products').update(obj).eq('id', id);
+                    if (error) { showToast('Update failed: ' + error.message, 'error'); return; }
+                    showToast('Updated!', 'success');
+                } else {
+                    const { error } = await db.from('sponsored_products').insert(obj);
+                    if (error) { showToast('Add failed: ' + error.message, 'error'); return; }
+                    showToast('Added!', 'success');
+                }
+            } catch(e) { showToast('Error: ' + (e.message || e), 'error'); return; }
             resetForm();
             loadProducts();
         });
@@ -317,16 +317,22 @@
 
         async function toggleActive(id, val) {
             if (!db) return;
-            await db.from('sponsored_products').update({ is_active: val }).eq('id', id);
-            showToast(val ? 'Activated' : 'Deactivated');
+            try {
+                    const { error } = await db.from('sponsored_products').update({ is_active: val }).eq('id', id);
+                    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+                    showToast(val ? 'Activated' : 'Deactivated', 'info');
+                } catch(e) { showToast('Error: ' + (e.message || e), 'error'); }
         }
 
         async function deleteItem(id) {
             showConfirmationModal('Delete this sponsored product?', async () => {
                 if (!db) return;
-                await db.from('sponsored_products').delete().eq('id', id);
-                showToast('Deleted');
-                loadProducts();
+                try {
+                    const { error } = await db.from('sponsored_products').delete().eq('id', id);
+                    if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
+                    showToast('Deleted', 'info');
+                    loadProducts();
+                } catch(e) { showToast('Error: ' + (e.message || e), 'error'); }
             });
         }
 

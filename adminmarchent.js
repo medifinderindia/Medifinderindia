@@ -14,7 +14,13 @@ let currentKycFilter = 'all';
 // Supabase ক্লায়েন্ট ইনিশিয়ালাইজেশন
 if (typeof supabase !== 'undefined') {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            updateDbStatus(false, "No active session. Please login via Admin Panel first.");
+            showToast("Session expired. Please login again.", "error");
+            return;
+        }
         updateDbStatus(true, "Connected to Supabase production network.");
         initializeAllDataStreams();
     });
@@ -115,7 +121,7 @@ async function loadMedicineApprovals() {
         pendingMedicines = data || [];
         renderMedicinesTable();
     } catch (e) {
-
+        showToast("Medicines Load Error: " + e.message, "error");
         pendingMedicines = [];
         renderMedicinesTable();
     }
@@ -276,7 +282,7 @@ async function loadMerchantPayouts() {
         pendingPayouts = data || [];
         renderPayoutsTable();
     } catch (e) {
-
+        showToast("Payouts Load Error: " + e.message, "error");
         pendingPayouts = [];
         renderPayoutsTable();
     }
@@ -346,12 +352,22 @@ async function clearMerchantPayout(index, id, amount) {
     }
 
     if (supabaseClient) {
+        const payout = pendingPayouts[index] || {};
         const { error } = await supabaseClient
             .from('merchant_payouts')
             .update({ status: 'Settled' })
             .eq('id', id);
 
         if (!error) {
+            await supabaseClient.from('payout_history').insert({
+                transaction_id: 'TXN-' + Date.now(),
+                recipient_name: 'Merchant #' + (payout.merchant_id || payout.shop_id || 'Unknown'),
+                amount: payAmount,
+                type: 'Merchant',
+                payment_method: payout.payment_mode || 'Online Transfer',
+                status: 'Completed',
+                reference: id
+            });
             showToast("Success! High-speed reversal bank settlement accomplished.", "success");
             loadMerchantPayouts();
             loadMerchantLedger();
@@ -380,7 +396,7 @@ async function loadMerchantLedger() {
             updateLedgerStats();
         }
     } catch (err) {
-
+        showToast("Ledger Load Error: " + err.message, "error");
     }
 }
 
@@ -527,48 +543,26 @@ function exportLedgerMerchant() {
 async function loadMerchantVerification() {
     if (!supabaseClient) return;
     try {
-        // NOTE: We intentionally do NOT use PostgREST's embedded-relationship
-        // syntax here (e.g. `merchants(...)` inside select()), because that
-        // requires Supabase's schema cache to already know about a foreign
-        // key between merchant_kyc.merchant_id and merchants.id. If that FK
-        // is missing/renamed or the schema cache hasn't refreshed, it throws:
-        // "Could not find a relationship between 'merchant_kyc' and 'merchants' in the schema cache"
-        // and the whole query fails, so the panel shows nothing even though
-        // data exists. Fetching the two tables separately and merging on the
-        // client avoids that dependency completely and always works.
-        // NOTE: We select '*' instead of naming columns (like created_at)
-        // because the actual merchant_kyc column list on this database
-        // doesn't match what was assumed earlier (e.g. 'created_at' does
-        // not exist), which was throwing "column ... does not exist" and
-        // silently emptying the panel. '*' + ordering by 'id' avoids
-        // guessing column names that may not exist.
-        const { data: kycRows, error: kycError } = await supabaseClient
+        const { data: kycData, error: kycErr } = await supabaseClient
             .from('merchant_kyc')
-            .select('*')
-            .order('id', { ascending: false });
-        if (kycError) throw kycError;
+            .select('id, merchant_id, license_img, license_no, verified, rejection_reason, verified_at, rejected_at, created_at')
+            .order('created_at', { ascending: false });
+        if (kycErr) throw kycErr;
 
-        const rows = kycRows || [];
-        const merchantIds = [...new Set(rows.map(r => r.merchant_id).filter(id => id !== null && id !== undefined))];
+        const { data: merData } = await supabaseClient
+            .from('merchants')
+            .select('id, shop_name, merchant_name, phone, email, license_status');
 
-        let merchantsById = {};
-        if (merchantIds.length > 0) {
-            const { data: merchantRows, error: merchantError } = await supabaseClient
-                .from('merchants')
-                .select('id, shop_name, merchant_name, phone, email, license_status')
-                .in('id', merchantIds);
-            if (merchantError) throw merchantError;
-            (merchantRows || []).forEach(m => { merchantsById[m.id] = m; });
-        }
+        const merMap = {};
+        (merData || []).forEach(m => { merMap[m.id] = m; });
 
-        onboardingMerchants = rows.map(r => ({
-            ...r,
-            merchants: merchantsById[r.merchant_id] || null
+        onboardingMerchants = (kycData || []).map(k => ({
+            ...k,
+            merchants: merMap[k.merchant_id] || null
         }));
         renderVerificationCards();
     } catch (e) {
-        console.error('KYC list load failed:', e);
-        showToast('KYC list load korte parlo na: ' + (e.message || e), 'error');
+        showToast("KYC Load Error: " + e.message, "error");
         onboardingMerchants = [];
         renderVerificationCards();
     }
@@ -624,13 +618,13 @@ function renderVerificationCards() {
         } else if (isRejected) {
             statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}', '${esc(kyc.merchants?.id ?? '')}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
             </div>`;
         } else {
             statusBadge = '<span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-clock"></i> Pending</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
                 <button style="background:#ef4444; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="rejectKyc('${esc(kyc.id)}', '${esc(kyc.merchants?.id || '')}')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}', '${esc(kyc.merchants?.id ?? '')}')"><i class="fa-solid fa-certificate"></i> Approve</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Approve</button>
             </div>`;
         }
 
@@ -662,114 +656,40 @@ function renderVerificationCards() {
     });
 }
 
-async function approveKyc(id, merchantId) {
+async function approveKyc(id) {
     if (!supabaseClient) return;
-    merchantId = merchantId ? (isNaN(Number(merchantId)) ? merchantId : Number(merchantId)) : null;
-
     showConfirmationModal(`Approve this merchant's license and verify account?`, async () => {
-        try {
-            // We also set status:'approved' (not just verified:true) because
-            // this table has a separate 'status' column ('pending' /
-            // 'approved' / 'rejected'). If a DB-side trigger/constraint keeps
-            // 'verified' in sync with 'status', sending verified:true alone
-            // can get silently overridden back to false by that trigger while
-            // verified_at still saves — which looks exactly like "approve
-            // doesn't save" (row still shows Pending with Reject visible).
-            // We also clear any old rejection_reason/rejected_at so a
-            // re-approved row doesn't still look rejected.
-            let { data: kycUpdRows, error: kycErr } = await supabaseClient
-                .from('merchant_kyc')
-                .update({
-                    verified: true,
-                    verified_at: new Date().toISOString(),
-                    status: 'approved',
-                    rejection_reason: null,
-                    rejected_at: null
-                })
-                .eq('id', id)
-                .select();
 
-            // Fallback: if this table doesn't actually have one of the extra
-            // columns (status / rejection_reason / rejected_at), the update
-            // above fails and NOTHING gets approved. Retry with progressively
-            // fewer optional fields so approval still goes through.
-            if (kycErr) {
-                console.warn('approveKyc: full update failed, retrying with fewer fields:', kycErr.message);
-                ({ data: kycUpdRows, error: kycErr } = await supabaseClient
-                    .from('merchant_kyc')
-                    .update({ verified: true, verified_at: new Date().toISOString(), status: 'approved' })
-                    .eq('id', id)
-                    .select());
-            }
-            if (kycErr) {
-                console.warn('status/verified_at column issue, retrying approveKyc with verified only');
-                ({ data: kycUpdRows, error: kycErr } = await supabaseClient
-                    .from('merchant_kyc')
-                    .update({ verified: true })
-                    .eq('id', id)
-                    .select());
-            }
+        const { data: kycRec, error: kycErr } = await supabaseClient
+            .from('merchant_kyc')
+            .update({ verified: true, verified_at: new Date().toISOString() })
+            .eq('id', id)
+            .select('merchant_id')
+            .single();
 
-            if (kycErr) {
-                console.error('approveKyc: merchant_kyc update failed:', kycErr);
-                showToast("Error approving KYC: " + kycErr.message, "error");
-                return;
-            }
-
-            // Supabase/PostgREST returns success with an EMPTY rows array
-            // (no error) when a Row Level Security policy silently blocks the
-            // update instead of throwing. Without this check that looks
-            // identical to "approve worked" even though nothing was saved —
-            // this was the actual root cause of the KYC row staying
-            // 'pending' and the Reject button never disappearing.
-            if (!kycUpdRows || kycUpdRows.length === 0) {
-                console.error('approveKyc: update affected 0 rows (likely blocked by an RLS policy) for kyc id', id);
-                showToast("Approve did not save: your admin login may not have UPDATE permission on merchant_kyc (check RLS policy in Supabase).", "error");
-                return;
-            }
-
-            // merchant_id is passed in directly from the already-loaded KYC
-            // list (kyc.merchants.id) instead of being re-fetched with a
-            // .select().single() read-back after the update. That read-back
-            // depended on the admin role having SELECT permission on
-            // merchant_kyc via RLS — if that policy was missing, the update
-            // above would still succeed but this step would silently error,
-            // making it look like nothing got approved and the merchants
-            // table (license_status) would never get updated. Using the
-            // merchant_id we already have avoids that failure mode entirely.
-            if (merchantId) {
-                const { data: merUpdRows, error: merErr } = await supabaseClient
-                    .from('merchants')
-                    .update({ license_status: 'Verified' })
-                    .eq('id', merchantId)
-                    .select();
-                if (merErr) {
-                    console.error('approveKyc: merchants license_status update failed:', merErr);
-                    showToast("KYC approved, but merchant profile status update failed: " + merErr.message, "error");
-                    return;
-                }
-                // Same silent-RLS-block check as above: a blocked update
-                // returns no error but 0 rows, which is exactly why the
-                // merchant dashboard kept showing "Unverified" even after
-                // the admin panel said "approved".
-                if (!merUpdRows || merUpdRows.length === 0) {
-                    console.error('approveKyc: merchants update affected 0 rows (likely blocked by an RLS policy) for merchant id', merchantId);
-                    showToast("KYC marked approved, but the merchant profile status did not save (RLS may be blocking writes to 'merchants'). Merchant dashboard will still show Unverified.", "error");
-                    return;
-                }
-            } else {
-                console.warn('approveKyc: no merchantId available, merchants.license_status was NOT updated for kyc id', id);
-                showToast("KYC record approved, but couldn't find the linked merchant to mark it Verified. Please refresh and check manually.", "error");
-                loadMerchantVerification();
-                return;
-            }
-
-            showToast("Merchant KYC approved successfully. Account is now verified.", "success");
-            loadMerchantVerification();
-        } catch (e) {
-            console.error('approveKyc: unexpected exception:', e);
-            showToast("Unexpected error while approving: " + (e.message || e), "error");
+        if (kycErr) {
+            showToast("Error: " + kycErr.message, "error");
+            return;
         }
+
+        if (kycRec && kycRec.merchant_id) {
+            const { error: merErr } = await supabaseClient
+                .from('merchants')
+                .update({ license_status: 'Verified' })
+                .eq('id', kycRec.merchant_id);
+            if (merErr) { showToast("Merchant status update failed: " + merErr.message, "error"); }
+            await supabaseClient.from('merchant_notifications').insert({
+                merchant_id: kycRec.merchant_id,
+                title: 'KYC Approved',
+                message: 'Your KYC has been approved. Your account is now verified.',
+                type: 'success',
+                category: 'admin',
+                is_read: false
+            });
+        }
+
+        showToast("Merchant KYC approved successfully. Account is now verified.", "success");
+        loadMerchantVerification();
     });
 }
 
@@ -793,62 +713,30 @@ async function rejectKyc(id, merchantId) {
     });
     if (!reason) return;
 
-    // Same reasoning as approveKyc: also set status:'rejected' in case a
-    // DB-side trigger/constraint keeps 'verified' synced to 'status', and
-    // use .select() so we can detect a silently-blocked RLS update (which
-    // returns success + 0 rows, not an error).
-    let error, data;
-    ({ data, error } = await supabaseClient
+    const { error } = await supabaseClient
         .from('merchant_kyc')
-        .update({ verified: false, rejection_reason: reason, rejected_at: new Date().toISOString(), status: 'rejected' })
-        .eq('id', id)
-        .select());
-
-    // Fallback: if this table doesn't actually have a 'rejected_at' or
-    // 'status' column, the update above fails and the rejection never
-    // saves. Retry with progressively fewer optional fields.
-    if (error) {
-        console.warn('rejectKyc: full update failed, retrying without status:', error.message);
-        ({ data, error } = await supabaseClient
-            .from('merchant_kyc')
-            .update({ verified: false, rejection_reason: reason, rejected_at: new Date().toISOString() })
-            .eq('id', id)
-            .select());
-    }
-    if (error) {
-        console.warn('rejected_at column missing, retrying rejectKyc without it');
-        ({ data, error } = await supabaseClient
-            .from('merchant_kyc')
-            .update({ verified: false, rejection_reason: reason })
-            .eq('id', id)
-            .select());
-    }
+        .update({ verified: false, rejection_reason: reason, rejected_at: new Date().toISOString() })
+        .eq('id', id);
 
     if (error) {
-        console.error('rejectKyc failed:', error);
         showToast("Error: " + error.message, "error");
         return;
     }
 
-    if (!data || data.length === 0) {
-        console.error('rejectKyc: update affected 0 rows (likely blocked by an RLS policy) for kyc id', id);
-        showToast("Reject did not save: your admin login may not have UPDATE permission on merchant_kyc (check RLS policy in Supabase).", "error");
-        return;
-    }
-
     if (merchantId) {
-        const { data: merData, error: merErr } = await supabaseClient
+        const { error: merErr } = await supabaseClient
             .from('merchants')
             .update({ license_status: 'Rejected' })
-            .eq('id', merchantId)
-            .select();
-        if (merErr) {
-            console.error('merchants license_status update failed:', merErr);
-            showToast("KYC rejected, but merchant profile status update failed: " + merErr.message, "error");
-        } else if (!merData || merData.length === 0) {
-            console.error('rejectKyc: merchants update affected 0 rows (likely blocked by an RLS policy) for merchant id', merchantId);
-            showToast("KYC marked rejected, but the merchant profile status did not save (RLS may be blocking writes to 'merchants').", "error");
-        }
+            .eq('id', merchantId);
+        if (merErr) { showToast("Merchant status update failed: " + merErr.message, "error"); }
+        await supabaseClient.from('merchant_notifications').insert({
+            merchant_id: merchantId,
+            title: 'KYC Rejected',
+            message: 'Your KYC has been rejected. Reason: ' + reason,
+            type: 'error',
+            category: 'admin',
+            is_read: false
+        });
     }
 
     showToast("Merchant KYC rejected. Merchant has been notified.", "info");
@@ -913,7 +801,7 @@ async function sendMerchantNotification() {
                     const { data: byId } = await supabaseClient.from('merchants').select('id').eq('id', parseInt(shopId)).maybeSingle();
                     if (byId) resolvedMerchantId = byId.id;
                 }
-            } catch (e) { /* resolve failed */ }
+            } catch (e) { showToast("Merchant lookup failed: " + (e.message || e), "error"); }
         }
 
         const insertData = {
@@ -926,25 +814,7 @@ async function sendMerchantNotification() {
             created_at: new Date().toISOString()
         };
 
-        let { error } = await supabaseClient.from('merchant_notifications').insert(insertData);
-
-        // Fallback: if the table doesn't actually have one of the extra
-        // columns (created_at / is_read / category / type), the insert
-        // above fails and the alert never gets saved. Previously this only
-        // retried when the error text matched a narrow regex, which didn't
-        // match Supabase's real "Could not find the 'X' column..." message,
-        // so the retry never fired and dispatches silently failed. Now we
-        // retry with just the core fields on ANY insert error, so the alert
-        // still gets saved instead of disappearing.
-        if (error) {
-            console.warn('merchant_notifications insert failed, retrying with minimal fields:', error.message);
-            const minimalData = {
-                merchant_id: resolvedMerchantId,
-                title: title,
-                message: message
-            };
-            ({ error } = await supabaseClient.from('merchant_notifications').insert(minimalData));
-        }
+        const { error } = await supabaseClient.from('merchant_notifications').insert(insertData);
 
         if (!error) {
             showToast("Broadcast alert system pipeline successfully deployed!", "success");
@@ -953,7 +823,6 @@ async function sendMerchantNotification() {
             if (shopIdEl) shopIdEl.value = "";
             closePopup('notifications-modal');
         } else {
-            console.error('sendMerchantNotification failed:', error);
             showToast("Failed to broadcast alert message: " + error.message, "error");
         }
     }

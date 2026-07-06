@@ -367,7 +367,7 @@ function renderAvailableOrder(order) {
                 </div>
             </div>
             <div class="card-footer">
-                <button class="btn-accept" onclick="acceptOrder('${order.order_id}', ${JSON.stringify(order).replace(/"/g, '&quot;')})">Accept Request</button>
+                <button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>
             </div>
         </div>`;
     container.insertAdjacentHTML('beforeend', cardHtml);
@@ -386,6 +386,7 @@ function checkIfOrdersEmpty() {
 async function acceptOrder(orderId, orderObj) {
     if (!supabaseClient) return;
     try {
+        if (typeof orderObj === 'string') orderObj = JSON.parse(decodeURIComponent(orderObj));
         let riderUuid = '';
         let riderBigIntId = null;
         try {
@@ -395,7 +396,9 @@ async function acceptOrder(orderId, orderObj) {
                 const { data: riderRow } = await supabaseClient.from('riders').select('id').eq('auth_user_id', riderUuid).maybeSingle();
                 if (riderRow) riderBigIntId = riderRow.id;
             }
-        } catch(e) {}
+        } catch(e) {
+            showToast("Session check failed: " + (e.message || e), "error");
+        }
 
         const updatePayload = { status: 'accepted' };
         if (riderBigIntId) updatePayload.rider_id = riderBigIntId;
@@ -589,7 +592,7 @@ async function toggleDutyStatus() {
             await supabaseClient.from('riders').update({ duty_status: isOnDuty ? 'online' : 'offline' }).eq('email', currentRiderEmail);
         }
     } catch (err) {
-
+        showToast("Duty status DB update error: " + (err.message || err), "error");
     }
 }
 
@@ -612,7 +615,7 @@ async function fetchPendingOrdersSnapshot() {
             });
         }
     } catch (err) {
-
+        showToast("Pending orders load error: " + (err.message || err), "error");
     }
 }
 
@@ -633,7 +636,7 @@ function startLiveLocationTracking() {
             (position) => {
                 broadcastRiderLocation(position.coords.latitude, position.coords.longitude);
             },
-            (err) => {},
+            (err) => { showToast("GPS error: " + (err.message || err), "error"); },
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
     }, 5000);
@@ -671,7 +674,7 @@ async function broadcastRiderLocation(lat, lon) {
             updateLiveRiderMarkerOnMap(lat, lon);
         }
     } catch (err) {
-
+        showToast("Location broadcast error: " + (err.message || err), "error");
     }
 }
 
@@ -685,7 +688,7 @@ function updateLiveRiderMarkerOnMap(lat, lon) {
             liveRiderMarker = L.marker([lat, lon], { icon: riderIcon }).addTo(map).bindPopup("<b>You (Live)</b>");
         }
     } catch (e) {
-
+        showToast("Map marker update error: " + (e.message || e), "error");
     }
 }
 
@@ -716,7 +719,7 @@ function fireNewOrderNotification(order) {
             window.location.href = "delyvaryhome.html";
         };
     } catch (e) {
-
+        showToast("Browser notification error: " + (e.message || e), "error");
     }
 }
 
@@ -759,7 +762,9 @@ async function verifyOtpCode() {
                 payment_status: 'Paid',
                 updated_at: new Date().toISOString()
             }).eq('order_id', activeOrderData.order_id);
-        } catch (err) {}
+        } catch (err) {
+            showToast("Order delivered DB update error: " + (err.message || err), "error");
+        }
 
         try {
             let walletRiderId = null;
@@ -769,15 +774,21 @@ async function verifyOtpCode() {
                     const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', walletSession.user.id).maybeSingle();
                     if (r) walletRiderId = r.id;
                 }
-            } catch(e) {}
-            if (!walletRiderId) {}
+            } catch(e) {
+                showToast("Wallet rider ID fetch error: " + (e.message || e), "error");
+            }
+            if (!walletRiderId) {
+                showToast("Could not determine rider ID for wallet. Earnings may not be recorded.", "error");
+            }
             await supabaseClient.from('riders_wallet').insert([{ 
                 rider_id: walletRiderId,
                 order_id: activeOrderData.order_id, 
                 amount_earned: activeOrderData.delivery_charge || 45, 
                 status: 'success', created_at: new Date() 
             }]);
-        } catch (err) {}
+        } catch (err) {
+            showToast("Wallet insert error: " + (err.message || err), "error");
+        }
 
         let localHistory = JSON.parse(localStorage.getItem("completed_history")) || [];
         localHistory.push({
@@ -827,7 +838,9 @@ async function loadEarningsFromDB() {
                 orderId: e.order_id || ''
             }))));
         }
-    } catch (e) {}
+    } catch (e) {
+        showToast("Earnings load error: " + (e.message || e), "error");
+    }
 }
 
 async function initEarningsPage() {
@@ -904,7 +917,9 @@ async function handlePayoutRequest() {
                 const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', riderUuid).maybeSingle();
                 if (r) riderBigIntId = r.id;
             }
-        } catch(e) {}
+        } catch(e) {
+            showToast("Payout session fetch error: " + (e.message || e), "error");
+        }
 
         const { error } = await supabaseClient.from('admin_payout_requests').insert([{
             rider_id: riderBigIntId, total_payout_amount: totalAmount,
@@ -949,7 +964,9 @@ async function loadActiveHoursFromDB() {
             riderActiveMinutes = 0;
         }
         updateActiveHoursUI();
-    } catch(e) {}
+    } catch(e) {
+        showToast("Active hours load error: " + (e.message || e), "error");
+    }
 }
 
 // ==========================================
@@ -996,7 +1013,7 @@ async function saveRiderProfileToDatabase() {
         if (error) throw error;
 
     } catch (dbErr) {
-
+        showToast("Profile save failed: " + (dbErr.message || dbErr), "error");
     }
 }
 
@@ -1052,7 +1069,9 @@ async function sendKycToAdmin(type, payloadData) {
             insertPayload.license_img = payloadData.license_img || '';
         }
         await supabaseClient.from('rider_kyc').insert([insertPayload]);
-    } catch (err) {}
+    } catch (err) {
+        showToast("KYC submission error: " + (err.message || err), "error");
+    }
 }
 
 function runOnlinePlateValidationCheck() {
@@ -1118,7 +1137,9 @@ async function loadDeliveryNotifications() {
             }
             await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('rider_id', parseInt(numericRiderId)).eq('is_read', false);
         }
-    } catch (e) {}
+    } catch (e) {
+        showToast("Notifications load error: " + (e.message || e), "error");
+    }
 }
 
 function timeAgo(dateStr) {
@@ -1190,10 +1211,12 @@ async function loadCurrentRiderProfileStatus() {
 
     try {
         let currentRiderEmail = localStorage.getItem('userEmail');
+        let currentSession = null;
         
         if (supabaseClient.auth && typeof supabaseClient.auth.getSession === 'function') {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session && session.user) currentRiderEmail = session.user.email;
+            const { data: { session: s } } = await supabaseClient.auth.getSession();
+            currentSession = s;
+            if (s && s.user) currentRiderEmail = s.user.email;
         }
         
         if (!currentRiderEmail) return;
@@ -1247,7 +1270,7 @@ async function loadCurrentRiderProfileStatus() {
             document.getElementById('profileDisplayName').innerText = riderProfile.full_name;
         }
         if (document.getElementById('profileDisplayUsername')) {
-            const displayName = riderProfile.username || (session?.user?.email ? '@' + session.user.email.split('@')[0] : '@rider');
+            const displayName = riderProfile.username || (currentSession?.user?.email ? '@' + currentSession.user.email.split('@')[0] : '@rider');
             document.getElementById('profileDisplayUsername').innerText = displayName;
         }
         if (document.getElementById('vehicleTypeSelector') && riderProfile.vehicle_type) {
@@ -1273,7 +1296,7 @@ async function loadCurrentRiderProfileStatus() {
         }
 
     } catch (e) { 
-
+        showToast("Profile status load error: " + (e.message || e), "error");
     }
 }
 

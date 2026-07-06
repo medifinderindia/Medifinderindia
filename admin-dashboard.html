@@ -1056,7 +1056,7 @@
     <!-- Supabase SDK -->
     <script>localStorage.removeItem('admin_auth_in_progress');</script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
-    <script src="supabase-constants.js"></script>
+    <script src="supabase-constants.js?v=13"></script>
     <script src="prod-utils.js?v=13"></script>
     <script>
         // URL & key loaded from supabase-constants.js
@@ -1125,7 +1125,7 @@
                 } else {
                     document.getElementById('todayRevenue').textContent = '₹0';
                 }
-            } catch (err) { /* stats load failed */ }
+            } catch (err) { showToast("Stats load failed: " + (err.message || err), "error"); }
         }
 
         // ====== REVENUE CHART ======
@@ -1176,7 +1176,7 @@
                         </div>
                     `;
                 }).join('');
-            } catch (err) { /* chart load failed */ }
+            } catch (err) { showToast("Chart load failed: " + (err.message || err), "error"); }
         }
 
         // ====== RECENT ORDERS ======
@@ -1220,7 +1220,7 @@
                         </tr>
                     `;
                 }).join('');
-            } catch (err) { /* orders load failed */ }
+            } catch (err) { showToast("Orders load failed: " + (err.message || err), "error"); }
         }
 
         // ====== ACTIVITY FEED ======
@@ -1324,7 +1324,7 @@
                             document.getElementById('healthRealtime').style.color = 'var(--warning)';
                         }
                     });
-            } catch (err) { /* realtime setup failed */ }
+            } catch (err) { showToast("Realtime setup failed: " + (err.message || err), "error"); }
         }
 
         // ====== SYSTEM HEALTH ======
@@ -1342,7 +1342,7 @@
                 document.getElementById('healthBackup').textContent = new Date().toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                 });
-            } catch (err) { /* health load failed */ }
+            } catch (err) { showToast("Health load failed: " + (err.message || err), "error"); }
         }
 
         // ====== UTILITY ======
@@ -1418,7 +1418,7 @@
                             created_at: new Date().toISOString()
                         }]);
                     }
-                } catch(err) { /* broadcast failed */ }
+                } catch(err) { showToast("Broadcast failed: " + (err.message || err), "error"); return; }
                 addActivity('user', `Broadcast sent: "${msg.trim()}"`);
                 showToast('Broadcast notification sent to all users!', 'success');
             }

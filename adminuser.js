@@ -17,7 +17,13 @@ let rxStats = {
 };
 let currentRxFilter = 'pending';
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        showToast("Session expired. Please login again.", "error");
+        return;
+    }
     loadCancelledOrders();
     initRealtimeOrders();
     fetchLiveOffer();
@@ -74,7 +80,7 @@ async function fetchLiveOffer() {
             hideOfferUI();
         }
     } catch (err) {
-
+        showToast("Offer Load Error: " + (err.message || err), "error");
     }
 }
 
@@ -149,7 +155,7 @@ async function loadCancelledOrders() {
             .order('created_at', { ascending: false });
 
         if (error) {
-
+            showToast("Cancelled orders load error: " + (error.message || error), "error");
             cancelledOrders = [];
             renderOrdersTable();
             return;
@@ -157,7 +163,7 @@ async function loadCancelledOrders() {
         cancelledOrders = data || [];
         renderOrdersTable();
     } catch (e) {
-
+        showToast("Cancelled orders load error: " + (e.message || e), "error");
         cancelledOrders = [];
         renderOrdersTable();
     }
@@ -277,7 +283,7 @@ async function loadRxOrders() {
             filterRxOrders(currentRxFilter);
         }
     } catch (err) {
-
+        showToast("Rx Orders Load Error: " + (err.message || err), "error");
     }
 }
 
@@ -544,7 +550,8 @@ async function sendNotification() {
                 created_at: new Date().toISOString()
             });
         } catch (e) {
-
+            showToast("Notification send failed: " + (e.message || e), "error");
+            return;
         }
     }
 
@@ -571,7 +578,9 @@ async function loadAllOrders() {
         allOrdersData = data || [];
         renderAllOrders(allOrdersData);
     } catch (e) {
-
+        showToast("All orders load error: " + (e.message || e), "error");
+        allOrdersData = [];
+        renderAllOrders(allOrdersData);
     }
 }
 
@@ -665,7 +674,9 @@ async function loadAllUsers() {
         allUsersData = data || [];
         renderAllUsers(allUsersData);
     } catch (e) {
-
+        showToast("All users load error: " + (e.message || e), "error");
+        allUsersData = [];
+        renderAllUsers(allUsersData);
     }
 }
 

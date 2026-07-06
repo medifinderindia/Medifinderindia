@@ -1227,9 +1227,10 @@ async function handleCouponApplication() {
             if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = `Coupon applied! ₹${discountAmount.toFixed(2)} saved.`; }
             recalculateBill();
             return;
-        } catch(e) {}
+        } catch(e) {
+            showToast("Coupon lookup error. Using offline fallback.", "info");
+        }
     }
-    // Fallback for offline
     if (couponCode === "MEDI20") {
         discountAmount = 50.00;
         if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = 'Coupon Applied! ₹50.00 saved.'; }
@@ -1403,7 +1404,9 @@ async function processFinalOrderPayload() {
 
     let currentUserId = '';
     if (supabase) {
-        try { currentUserId = (await supabase.auth.getUser()).data?.user?.id || ''; } catch(e) {}
+        try { currentUserId = (await supabase.auth.getUser()).data?.user?.id || ''; } catch(e) {
+            showToast("User session fetch failed. Order will be placed anonymously.", "info");
+        }
     }
 
     const orderPayload = {
@@ -1450,7 +1453,9 @@ async function processFinalOrderPayload() {
                     status: 'active',
                     merchant_id: item.merchantId || primaryMerchantId || null
                 }));
-                try { await supabase.from('order_items').insert(orderItemsPayload); } catch (e) {}
+                try { await supabase.from('order_items').insert(orderItemsPayload); } catch (e) {
+                    showToast("Order items save error: " + (e.message || e), "error");
+                }
                 if (primaryMerchantId) {
                     try {
                         await supabase.from('merchant_notifications').insert([{
@@ -1461,7 +1466,9 @@ async function processFinalOrderPayload() {
                             category: 'order',
                             is_read: false
                         }]);
-                    } catch(e) {}
+                    } catch(e) {
+                        showToast("Merchant notification error: " + (e.message || e), "error");
+                    }
                 }
             }
         } catch (e) { showToast('Order saved locally. Sync will retry.', 'info'); }
@@ -1833,7 +1840,7 @@ window.openDeliveryBoyVerificationModal = async function(orderId) {
             localStorage.setItem('medi_active_orders', JSON.stringify(activeOrdersList));
             localStorage.setItem('medi_completed_orders', JSON.stringify(completedOrdersList));
         }
-        if (supabase) { try { await supabase.from('orders').update({ status:'delivered', payment_status: paymentStatus }).eq('order_id', orderId); } catch(e) {} }
+        if (supabase) { try { await supabase.from('orders').update({ status:'delivered', payment_status: paymentStatus }).eq('order_id', orderId); } catch(e) { showToast("Order status DB update error: " + (e.message || e), "error"); } }
         showToast("Delivery verified successfully!", "success");
         popup.remove();
         setupOrdersPageModules();
