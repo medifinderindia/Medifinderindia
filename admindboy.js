@@ -8,6 +8,7 @@ const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !
 let serviceZones = [];
 let riderPayouts = [];
 let riderKYC = [];
+let currentRiderKycFilter = 'all';
 let payoutLedger = [];
 let activeRiders = [];
 let liveMap = null;
@@ -45,9 +46,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     startAnalyticsRefresh();
     loadPayoutLedger();
     updateOutageZoneSelector();
+    handleHashChange();
 });
 
 // ================= TAB SWITCHING FUNCTIONALITY =================
+function handleHashChange() {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const targetTab = document.getElementById(`${hash}-tab`);
+        if (targetTab) {
+            switchToTab(hash);
+        }
+    }
+}
+window.addEventListener('hashchange', handleHashChange);
+
 function switchToTab(tabName) {
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => {
@@ -68,6 +81,9 @@ function switchToTab(tabName) {
     // Update nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
+        if (item.getAttribute('onclick') && item.getAttribute('onclick').includes("'" + tabName + "'")) {
+            item.classList.add('active');
+        }
     });
 }
 
@@ -791,42 +807,98 @@ async function processRiderPay(riderId) {
 }
 
 // ================= EXISTING KYC SYSTEM (UNCHANGED) =================
+function filterRiderKyc(filterVal) {
+    currentRiderKycFilter = filterVal;
+    
+    const filterIds = ['all', 'pending', 'verified', 'rejected'];
+    filterIds.forEach(id => {
+        const btn = document.getElementById(`filter-kyc-${id}`);
+        if (btn) {
+            if (id === filterVal) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+    });
+    
+    renderKYC();
+}
+
 function renderKYC() {
     const container = document.getElementById('kyc-container');
     if(!container) return;
     container.innerHTML = "";
 
-    if(riderKYC.length === 0) {
-        container.innerHTML = `<p style="text-align:center; color:#94a3b8; width:100%;">No Rider KYC applications available live.</p>`;
+    const filteredKyc = riderKYC.filter(k => {
+        const isVerified = k.verified;
+        const isRejected = k.rejection_reason && !k.verified;
+        const isPending = !isVerified && !isRejected;
+
+        if (currentRiderKycFilter === 'pending') return isPending;
+        if (currentRiderKycFilter === 'verified') return isVerified;
+        if (currentRiderKycFilter === 'rejected') return isRejected;
+        return true;
+    });
+
+    if(filteredKyc.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:#94a3b8; width:100%; padding:20px;">No Rider KYC applications found for category "${currentRiderKycFilter}".</p>`;
         return;
     }
 
-    riderKYC.forEach((kyc) => {
+    filteredKyc.forEach((kyc) => {
         let licenseImgSrc = kyc.license_img ? kyc.license_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
         let plateImgSrc = kyc.plate_img ? kyc.plate_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
+        const isVerified = kyc.verified;
+        const isRejected = kyc.rejection_reason && !kyc.verified;
+        const isPending = !isVerified && !isRejected;
+
+        let statusText = '';
+        let actionButtons = '';
+
+        if (isVerified) {
+            statusText = `<span class="badge active" style="font-size:12px; padding:6px 12px; background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-shield-halved"></i> VERIFIED PARTNER</span>`;
+            actionButtons = `<button class="btn btn-outline btn-small" style="margin-top:10px; background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject / Revoke</button>`;
+        } else if (isRejected) {
+            statusText = `<span class="badge" style="font-size:12px; padding:6px 12px; background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-xmark"></i> REJECTED</span>
+                          <div style="font-size:12px; color:#ef4444; margin-top:5px;"><strong>Reason:</strong> ${kyc.rejection_reason}</div>`;
+            actionButtons = `<button class="btn btn-primary btn-small" style="margin-top:10px;" onclick="approveRiderKYC('${kyc.id}')">Re-Approve Documents</button>`;
+        } else {
+            statusText = `<span class="badge pending" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-hourglass-start"></i> STATUS: PENDING</span>`;
+            actionButtons = `
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject</button>
+                    <button class="btn btn-primary btn-small" onclick="approveRiderKYC('${kyc.id}')">Approve</button>
+                </div>
+            `;
+        }
+
         container.innerHTML += `
-            <div class="kyc-card">
+            <div class="kyc-card" style="border: 1px solid #e2e8f0; border-radius:12px; padding:20px; background:#fff; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px;">
                 <div>
                     <h4 style="color:var(--dark-bg); font-size:18px; margin-bottom:8px;">${kyc.name}</h4>
                     <p style="font-size:13px; margin-bottom:4px;"><strong>Staff ID:</strong> ${kyc.id}</p>
                     <p style="font-size:13px; margin-bottom:4px;"><strong>License No:</strong> ${kyc.license_no}</p>
                     <p style="font-size:13px; margin-bottom:12px;"><strong>Number Plate:</strong> ${kyc.plate_no}</p>
                     <div>
-                        ${kyc.verified ? 
-                            `<span class="badge active" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-shield-halved"></i> VERIFIED PARTNER</span>` : 
-                            `<span class="badge pending" style="font-size:12px; padding:6px 12px; margin-right:10px;"><i class="fa-solid fa-hourglass-start"></i> STATUS: PENDING Approval</span>
-                             <button class="btn btn-primary btn-small" style="margin-top:10px;" onclick="approveRiderKYC('${kyc.id}')">Approve Documents</button>`
-                        }
+                        ${statusText}
+                    </div>
+                    <div>
+                        ${actionButtons}
                     </div>
                 </div>
-                <div class="doc-box">
-                    <p style="font-size:11px; font-weight:600; color:#475569;">Driving License Image</p>
-                    <img src="${licenseImgSrc}" alt="License Doc" style="max-width: 100%; border-radius: 4px;">
+                <div class="doc-box" style="text-align:center;">
+                    <p style="font-size:11px; font-weight:600; color:#475569; margin-bottom:5px;">Driving License Image</p>
+                    <a href="${licenseImgSrc}" target="_blank">
+                        <img src="${licenseImgSrc}" alt="License Doc" style="max-height: 120px; max-width: 100%; border-radius: 6px; border:1px solid #e2e8f0;">
+                    </a>
                 </div>
-                <div class="doc-box">
-                    <p style="font-size:11px; font-weight:600; color:#475569;">Vehicle Plate Image</p>
-                    <img src="${plateImgSrc}" alt="Plate Doc" style="max-width: 100%; border-radius: 4px;">
+                <div class="doc-box" style="text-align:center;">
+                    <p style="font-size:11px; font-weight:600; color:#475569; margin-bottom:5px;">Vehicle Plate Image</p>
+                    <a href="${plateImgSrc}" target="_blank">
+                        <img src="${plateImgSrc}" alt="Plate Doc" style="max-height: 120px; max-width: 100%; border-radius: 6px; border:1px solid #e2e8f0;">
+                    </a>
                 </div>
             </div>
         `;
@@ -839,7 +911,7 @@ async function approveRiderKYC(riderId) {
     if(!kycTarget) return;
 
     showConfirmationModal("Are the vehicle plates and driver identification valid?", async () => {
-        const { error } = await supabaseClient.from('rider_kyc').update({ verified: true }).eq('id', riderId);
+        const { error } = await supabaseClient.from('rider_kyc').update({ verified: true, rejection_reason: '' }).eq('id', riderId);
         
         if(!error) {
             if (kycTarget.rider_id) {
@@ -858,6 +930,49 @@ async function approveRiderKYC(riderId) {
             showToast("KYC Approval Failed: " + error.message, "error");
         }
     });
+}
+
+async function rejectRiderKYC(riderId) {
+    if (!supabaseClient) return;
+    let kycTarget = riderKYC.find(k => k.id === riderId);
+    if(!kycTarget) return;
+
+    const reason = await new Promise(resolve => {
+        const m = document.createElement('div');
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Rider KYC Rejection Reason</h3>
+            <input type="text" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter rejection reason (visible to rider)">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.querySelector('#_pi').focus();
+        m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    });
+    if (!reason) return;
+
+    const { error } = await supabaseClient.from('rider_kyc').update({ verified: false, rejection_reason: reason }).eq('id', riderId);
+    
+    if(!error) {
+        if (kycTarget.rider_id) {
+            await supabaseClient.from('riders').update({ is_verified: false }).eq('id', kycTarget.rider_id);
+            await supabaseClient.from('rider_notifications').insert({
+                rider_id: kycTarget.rider_id,
+                title: 'KYC Rejected',
+                message: 'Your KYC has been rejected. Reason: ' + reason,
+                type: 'error',
+                is_read: false
+            });
+        }
+        showToast(`KYC Rejected for ${kycTarget.name}`, "info");
+        fetchInitialData();
+    } else {
+        showToast("KYC Rejection Failed: " + error.message, "error");
+    }
 }
 
 // ================= EXISTING NOTIFICATIONS (UNCHANGED) =================

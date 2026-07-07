@@ -620,13 +620,13 @@ function renderVerificationCards() {
         } else if (isRejected) {
             statusBadge = '<span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-xmark-circle"></i> Rejected</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}', '${esc(kyc.merchant_id || '')}')"><i class="fa-solid fa-certificate"></i> Re-Approve</button>
             </div>`;
         } else {
             statusBadge = '<span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;"><i class="fa-solid fa-clock"></i> Pending</span>';
             actions = `<div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
                 <button style="background:#ef4444; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="rejectKyc('${esc(kyc.id)}', '${esc(kyc.merchants?.id || '')}')"><i class="fa-solid fa-xmark"></i> Reject</button>
-                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}')"><i class="fa-solid fa-certificate"></i> Approve</button>
+                <button style="background:#10b981; color:#fff; padding:8px 16px; font-size:14px; border:none; border-radius:6px; cursor:pointer;" onclick="approveKyc('${esc(kyc.id)}', '${esc(kyc.merchant_id || '')}')"><i class="fa-solid fa-certificate"></i> Approve</button>
             </div>`;
         }
 

@@ -33,11 +33,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     initRealtimeRxOrders();
     loadAllOrders();
     loadAllUsers();
+    handleHashChange();
 });
 
 // ============================================
 // TAB SWITCHING LOGIC
 // ============================================
+function handleHashChange() {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const targetSection = document.getElementById(`${hash}-section`);
+        if (targetSection) {
+            const navBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => 
+                btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + hash + "'")
+            );
+            switchUserTab({ currentTarget: navBtn || document.createElement('button') }, hash);
+        }
+    }
+}
+window.addEventListener('hashchange', handleHashChange);
+
 function switchUserTab(event, tabName) {
     // Hide all sections
     document.querySelectorAll('.tab-content-section').forEach(sec => {
@@ -58,6 +73,14 @@ function switchUserTab(event, tabName) {
     if (event && event.currentTarget) {
         event.currentTarget.classList.add('active');
     }
+    
+    // Fallback: update nav items by name if no click event
+    document.querySelectorAll('.nav-item').forEach(item => {
+        if (item.getAttribute('onclick') && item.getAttribute('onclick').includes("'" + tabName + "'")) {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+        }
+    });
 
     // Refresh rx data when switching to rx-audit tab
     if (tabName === 'rx-audit') {
@@ -232,9 +255,20 @@ async function processTransfer(index, orderId, amount) {
         }
         
         if (supabaseClient) {
+            // Find the cancelled order details to get the exact database UUID
+            const cancelledOrder = cancelledOrders[index];
+            const dbOrderId = (cancelledOrder && cancelledOrder.order_id) ? cancelledOrder.order_id : orderId;
+
+            // 1. Update orders table status to refunded
             const { error } = await supabaseClient
                 .from('orders')
                 .update({ status: 'refunded' })
+                .eq('id', dbOrderId);
+
+            // 2. Direct write update to cancelled_orders status to Settled/Refunded
+            await supabaseClient
+                .from('cancelled_orders')
+                .update({ status: 'Refunded', refunded_at: new Date().toISOString() })
                 .eq('id', orderId);
 
             if (!error) {

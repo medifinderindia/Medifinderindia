@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // 🗄️ Supabase Initialization (Instant Client Boot)
 // URL & key loaded from supabase-constants.js
 // ==========================================
@@ -199,8 +199,7 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
             license_img: fileUrl, 
             license_no: licenseNo, 
             verified: false,
-            rejection_reason: null,
-            rejected_at: null
+            rejection_reason: null
         }).eq('id', existingData.id);
     } else {
         query = dbSupabase.from('merchant_kyc').insert({ 
@@ -764,9 +763,10 @@ function initAddMedicinePage() {
             const { data: merchantData, error: merchantError } = await dbSupabase.from('merchants').select('license_status').eq('id', activeId).single();
             if (merchantError || !merchantData || merchantData.license_status !== 'Verified') {
                 showToast("Error: Your merchant account must be verified by the administrator before listing items.", "error");
+                reEnableButtons();
                 return;
             }
-        } catch (e) { showToast("Verification check failed.", "error"); return; }
+        } catch (e) { showToast("Verification check failed.", "error"); reEnableButtons(); return; }
 
         const prodName = document.getElementById('prodName')?.value || '';
         const composition = document.getElementById('composition')?.value || '';
@@ -788,7 +788,7 @@ function initAddMedicinePage() {
         const sideEffects = document.getElementById('sideEffects')?.value || '';
         const category = dosageForm;
 
-        if (!prodName || !unitPrice || !stockQty) { showToast("Please complete mandatory fields: Product Name, Price, and Stock.", "error"); return; }
+        if (!prodName || !unitPrice || !stockQty) { showToast("Please complete mandatory fields: Product Name, Price, and Stock.", "error"); reEnableButtons(); return; }
 
         try {
             // Show loading
@@ -808,6 +808,7 @@ function initAddMedicinePage() {
             const medicineObject = {
                 merchant_id: activeMerchantId,
                 product_name: prodName,
+                name: prodName,
                 composition: composition,
                 dosage_form: dosageForm,
                 strength: strength,
@@ -835,7 +836,8 @@ function initAddMedicinePage() {
             }
 
             if (currentEditingId) { 
-                response = await dbSupabase.from('medicines').update(medicineObject).eq('id', currentEditingId); 
+                response = await dbSupabase.from('medicines').update(medicineObject).eq('id', currentEditingId);
+                currentEditingId = null;
             } else { 
                 response = await dbSupabase.from('medicines').insert([medicineObject]); 
             }
@@ -850,11 +852,15 @@ function initAddMedicinePage() {
             }
         } catch (error) { 
             showToast("Save failed: " + error.message, "error");
-            const nextBtn = document.getElementById('btnNext');
-            const draftBtn = document.getElementById('btnDraft');
-            if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>'; }
-            if (draftBtn) { draftBtn.disabled = false; }
+            reEnableButtons();
         }
+    }
+
+    function reEnableButtons() {
+        const nextBtn = document.getElementById('btnNext');
+        const draftBtn = document.getElementById('btnDraft');
+        if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Publish to Admin <i class="fa-solid fa-cloud-arrow-up"></i>'; }
+        if (draftBtn) { draftBtn.disabled = false; }
     }
 }
 

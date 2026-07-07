@@ -619,6 +619,14 @@
                 <h2><i class="fa-solid fa-id-card"></i> Rider Document Verification Center</h2>
             </div>
 
+            <!-- KYC Filters -->
+            <div class="tab-filters-row" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-outline active" id="filter-kyc-all" onclick="filterRiderKyc('all')" style="padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">All</button>
+                <button class="btn btn-outline" id="filter-kyc-pending" onclick="filterRiderKyc('pending')" style="padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Pending</button>
+                <button class="btn btn-outline" id="filter-kyc-verified" onclick="filterRiderKyc('verified')" style="padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Verified</button>
+                <button class="btn btn-outline" id="filter-kyc-rejected" onclick="filterRiderKyc('rejected')" style="padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Rejected</button>
+            </div>
+
             <div class="kyc-grid" id="kyc-container"></div>
         </div>
 

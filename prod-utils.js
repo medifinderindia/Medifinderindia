@@ -289,15 +289,15 @@ function showToast(message, type = 'info') {
 // Shared merchant notification loader
 async function loadMerchantNotifications() {
   try {
-    const client = window.supabaseClientInstance || (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function' ? supabase : null);
+    const client = window.supabaseClientInstance;
     if (!client) return;
-    const merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    const merchantId = parseInt(localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'), 10);
     if (!merchantId) return;
     const { data } = await client.from('merchant_notifications')
       .select('id, title, message, type, is_read, created_at')
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
     const badge = document.getElementById('notifBadge');
     if (badge && data) {
       const unread = data.filter(n => !n.is_read).length;
@@ -312,17 +312,61 @@ async function loadMerchantNotifications() {
 async function showMerchantNotifications() {
   const notifs = await loadMerchantNotifications();
   if (!notifs || notifs.length === 0) {
-    showToast('No new notifications', 'info');
+    showToast('No notifications yet', 'info');
     return;
   }
-  const unread = notifs.filter(n => !n.is_read);
-  if (unread.length === 0) {
-    showToast('No new notifications', 'info');
-    return;
+
+  // Mark all unread as read immediately
+  const unreadIds = notifs.filter(n => !n.is_read).map(n => n.id);
+  if (unreadIds.length > 0) {
+    const client = window.supabaseClientInstance;
+    if (client) {
+      client.from('merchant_notifications').update({ is_read: true }).in('id', unreadIds).then().catch(() => {});
+    }
   }
-  const latest = unread[0];
-  const typeMap = { success: 'success', error: 'error', warning: 'warning', info: 'info', order: 'info', general: 'info', admin: 'info', profile: 'info' };
-  showToast(latest.title + ': ' + latest.message, typeMap[latest.type] || 'info');
+
+  // Build modal
+  const existing = document.getElementById('_notif_modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_notif_modal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  const typeIcon = { success: 'fa-circle-check', error: 'fa-circle-xmark', warning: 'fa-exclamation-triangle', info: 'fa-circle-info', order: 'fa-truck', general: 'fa-bell', admin: 'fa-shield', profile: 'fa-user' };
+  const typeColor = { success: '#2ed573', error: '#e02020', warning: '#f0a500', info: '#1c82aa', order: '#e02020', general: '#1c82aa', admin: '#e02020', profile: '#2ed573' };
+
+  const itemsHtml = notifs.map(n => `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+      <i class="fas ${typeIcon[n.type] || 'fa-bell'}" style="color:${typeColor[n.type] || '#1c82aa'};font-size:1.1rem;margin-top:2px;"></i>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.88rem;color:#1a1a2e;">${MedUtils.sanitizeHTML(n.title)}</div>
+        <div style="font-size:0.8rem;color:#666;margin-top:2px;word-wrap:break-word;">${MedUtils.sanitizeHTML(n.message)}</div>
+        <div style="font-size:0.7rem;color:#999;margin-top:4px;">${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+      </div>
+      <i class="fas fa-circle" style="color:${n.is_read ? '#ddd' : '#e02020'};font-size:0.5rem;margin-top:6px;"></i>
+    </div>
+  `).join('');
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f0f0f0;">
+        <h3 style="margin:0;font-size:1rem;color:#1a1a2e;"><i class="fas fa-bell" style="color:#e02020;margin-right:8px;"></i>Notifications</h3>
+        <button onclick="document.getElementById('_notif_modal').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#999;padding:4px;">&times;</button>
+      </div>
+      <div style="overflow-y:auto;padding:0 20px;flex:1;">
+        ${itemsHtml}
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid #f0f0f0;text-align:center;font-size:0.75rem;color:#999;">
+        ${notifs.length} notification${notifs.length !== 1 ? 's' : ''} · ${unreadIds.length} marked as read
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Update badge to 0
+  const badge = document.getElementById('notifBadge');
+  if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
 }
 
 function showConfirmationModal(message, onConfirm, onCancel) {

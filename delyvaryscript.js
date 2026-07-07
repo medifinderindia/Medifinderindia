@@ -1031,45 +1031,136 @@ async function sendKycToAdmin(type, payloadData) {
         const riderId = parseInt(currentRiderId) || 0;
         const nameEl = document.getElementById("profileDisplayName");
         const name = nameEl ? nameEl.innerText : '';
-        const insertPayload = {
-            rider_id: riderId,
-            name: name
-        };
-        if (type === 'Vehicle_Plate') {
-            insertPayload.plate_no = payloadData.plate || '';
-            insertPayload.vehicle_img = payloadData.plate_img || '';
-        } else if (type === 'License') {
-            insertPayload.license_no = payloadData.license_no || '';
-            insertPayload.license_img = payloadData.license_img || '';
+        
+        const { data: existingData } = await supabaseClient
+            .from('rider_kyc')
+            .select('id, license_no, license_img, plate_no, plate_img, vehicle_img')
+            .eq('rider_id', riderId)
+            .maybeSingle();
+
+        let query;
+        if (existingData) {
+            const updatePayload = {
+                name: name,
+                verified: false,
+                rejection_reason: ''
+            };
+            if (type === 'Vehicle_Plate') {
+                updatePayload.plate_no = payloadData.plate || existingData.plate_no;
+                updatePayload.plate_img = payloadData.plate_img || existingData.plate_img;
+                updatePayload.vehicle_img = payloadData.plate_img || existingData.vehicle_img;
+            } else if (type === 'Driver_License' || type === 'License') {
+                updatePayload.license_no = payloadData.license_no || existingData.license_no;
+                updatePayload.license_img = payloadData.license_img || existingData.license_img;
+            }
+            query = supabaseClient.from('rider_kyc').update(updatePayload).eq('id', existingData.id);
+        } else {
+            const insertPayload = {
+                rider_id: riderId,
+                name: name,
+                verified: false,
+                license_no: '',
+                license_img: '',
+                plate_no: '',
+                plate_img: '',
+                vehicle_img: ''
+            };
+            if (type === 'Vehicle_Plate') {
+                insertPayload.plate_no = payloadData.plate || '';
+                insertPayload.plate_img = payloadData.plate_img || '';
+                insertPayload.vehicle_img = payloadData.plate_img || '';
+            } else if (type === 'Driver_License' || type === 'License') {
+                insertPayload.license_no = payloadData.license_no || '';
+                insertPayload.license_img = payloadData.license_img || '';
+            }
+            query = supabaseClient.from('rider_kyc').insert([insertPayload]);
         }
-        await supabaseClient.from('rider_kyc').insert([insertPayload]);
+
+        const { error } = await query;
+        if (error) throw error;
+
+        await supabaseClient.from('riders').update({ is_verified: false }).eq('id', riderId);
     } catch (err) {
         showToast("KYC submission error: " + (err.message || err), "error");
     }
 }
 
-function runOnlinePlateValidationCheck() {
+async function runOnlinePlateValidationCheck() {
     const vehiclePlateInput = document.getElementById("vehiclePlateInput");
+    const fileInput = document.getElementById("plateImageInput");
     if (!vehiclePlateInput) return;
     const plateInput = vehiclePlateInput.value.trim();
     const typeInput = document.getElementById("vehicleTypeSelector") ? document.getElementById("vehicleTypeSelector").value : "bike";
 
     if (plateInput === "") { showToast("Plate empty.", "error"); return; }
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast("Please upload vehicle plate image.", "error");
+        return;
+    }
 
-    sendKycToAdmin('Vehicle_Plate', { plate: plateInput, vehicle_type: typeInput });
-    saveRiderProfileToDatabase();
-    closeSubPage('vehicleSetupPage');
+    try {
+        const file = fileInput.files[0];
+        const filePath = `rider_docs/${currentRiderId || 'rider'}_plate_${Date.now()}_${file.name}`;
+        
+        showToast("Uploading plate image...", "info");
+        const { error: uploadError } = await supabaseClient.storage
+            .from('media')
+            .upload(filePath, file);
+
+        if (uploadError) {
+            showToast("Plate upload failed: " + uploadError.message, "error");
+            return;
+        }
+
+        const { data: urlData } = supabaseClient.storage.from('media').getPublicUrl(filePath);
+        const publicUrl = urlData?.publicUrl || '';
+
+        await sendKycToAdmin('Vehicle_Plate', { plate: plateInput, vehicle_type: typeInput, plate_img: publicUrl });
+        await saveRiderProfileToDatabase();
+        showToast("Vehicle plate documents submitted for KYC review!", "success");
+        closeSubPage('vehicleSetupPage');
+        await loadCurrentRiderProfileStatus();
+    } catch (err) {
+        showToast("Error saving vehicle documents: " + err.message, "error");
+    }
 }
 
-function runGovLicenseVerificationQuery() {
+async function runGovLicenseVerificationQuery() {
     const licenseStringInput = document.getElementById("licenseStringInput");
+    const fileInput = document.getElementById("licenseImageInput");
     if (!licenseStringInput) return;
     const licenseInput = licenseStringInput.value.trim();
     if (licenseInput === "") { showToast("License empty.", "error"); return; }
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast("Please upload license image.", "error");
+        return;
+    }
 
-    sendKycToAdmin('Driver_License', { license: licenseInput });
-    saveRiderProfileToDatabase();
-    closeSubPage('licensePage');
+    try {
+        const file = fileInput.files[0];
+        const filePath = `rider_docs/${currentRiderId || 'rider'}_license_${Date.now()}_${file.name}`;
+        
+        showToast("Uploading license image...", "info");
+        const { error: uploadError } = await supabaseClient.storage
+            .from('media')
+            .upload(filePath, file);
+
+        if (uploadError) {
+            showToast("License upload failed: " + uploadError.message, "error");
+            return;
+        }
+
+        const { data: urlData } = supabaseClient.storage.from('media').getPublicUrl(filePath);
+        const publicUrl = urlData?.publicUrl || '';
+
+        await sendKycToAdmin('Driver_License', { license_no: licenseInput, license_img: publicUrl });
+        await saveRiderProfileToDatabase();
+        showToast("Driver license submitted for KYC review!", "success");
+        closeSubPage('licensePage');
+        await loadCurrentRiderProfileStatus();
+    } catch (err) {
+        showToast("Error saving license documents: " + err.message, "error");
+    }
 }
 
 // Global safe closeSubPage function
@@ -1217,26 +1308,60 @@ async function loadCurrentRiderProfileStatus() {
             }
         }
 
+        // Fetch current rider KYC status from database to display correct verification badges and reasons
+        let kycVerified = riderProfile.is_verified;
+        let kycReason = "";
+        let hasKyc = false;
+
+        const { data: kycData } = await supabaseClient
+            .from('rider_kyc')
+            .select('verified, rejection_reason')
+            .eq('rider_id', rId)
+            .maybeSingle();
+
+        if (kycData) {
+            hasKyc = true;
+            kycVerified = kycData.verified;
+            kycReason = kycData.rejection_reason || "";
+        }
+
         if (document.getElementById("vehicleStatusTag")) {
-            if (riderProfile.is_verified) {
+            if (kycVerified) {
                 document.getElementById("vehicleStatusTag").innerText = "Verified";
                 document.getElementById("vehicleStatusTag").style.background = "#dcfce7";
                 document.getElementById("vehicleStatusTag").style.color = "#16a34a";
+            } else if (kycReason) {
+                document.getElementById("vehicleStatusTag").innerText = "Rejected";
+                document.getElementById("vehicleStatusTag").style.background = "#fee2e2";
+                document.getElementById("vehicleStatusTag").style.color = "#dc2626";
+            } else if (hasKyc) {
+                document.getElementById("vehicleStatusTag").innerText = "Pending Review";
+                document.getElementById("vehicleStatusTag").style.background = "#fef3c7";
+                document.getElementById("vehicleStatusTag").style.color = "#d97706";
             } else {
                 document.getElementById("vehicleStatusTag").innerText = "Unverified";
+                document.getElementById("vehicleStatusTag").style.background = "#e2e8f0";
+                document.getElementById("vehicleStatusTag").style.color = "#64748b";
             }
         }
 
         if (document.getElementById("licenseStatusTag")) {
-            if (riderProfile.license_number) {
-                document.getElementById("licenseStatusTag").innerText = "Submitted";
-                document.getElementById("licenseStatusTag").style.background = "#fef3c7";
-                document.getElementById("licenseStatusTag").style.color = "#d97706";
-            }
-            if (riderProfile.is_verified) {
+            if (kycVerified) {
                 document.getElementById("licenseStatusTag").innerText = "Verified";
                 document.getElementById("licenseStatusTag").style.background = "#dcfce7";
                 document.getElementById("licenseStatusTag").style.color = "#16a34a";
+            } else if (kycReason) {
+                document.getElementById("licenseStatusTag").innerText = "Rejected: " + kycReason;
+                document.getElementById("licenseStatusTag").style.background = "#fee2e2";
+                document.getElementById("licenseStatusTag").style.color = "#dc2626";
+            } else if (hasKyc) {
+                document.getElementById("licenseStatusTag").innerText = "Pending Review";
+                document.getElementById("licenseStatusTag").style.background = "#fef3c7";
+                document.getElementById("licenseStatusTag").style.color = "#d97706";
+            } else {
+                document.getElementById("licenseStatusTag").innerText = "Unverified";
+                document.getElementById("licenseStatusTag").style.background = "#e2e8f0";
+                document.getElementById("licenseStatusTag").style.color = "#64748b";
             }
         }
 

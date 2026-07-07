@@ -781,7 +781,7 @@ if (phoneSignupToggle) {
 // ==========================================
 const ADMIN_SECRET_PASSWORD = "Admin@medifinderindia2026";
 const ADMIN_EMAIL = "medifinderindia@gmail.com";
-const ADMIN_PHONE = "+919593625498";
+const ADMIN_PHONE = "9593625498";
 
 let logoClickCount = 0;
 let logoClickTimeout;
@@ -870,20 +870,10 @@ if (adminBtnStep2) {
         if (error) {
             showToast("Email OTP Verification Failed: " + error.message, "error");
         } else {
-            showToast("Email OTP Verified! Now please input the Phone SMS Token code standard.", "info");
-            
-            await supabaseClient.auth.signOut(); 
-
-            const { error: phoneError } = await supabaseClient.auth.signInWithOtp({
-                phone: ADMIN_PHONE
-            });
-
-            if (phoneError) {
-                showToast("Error sending Phone OTP: " + phoneError.message, "error");
-            } else {
-                document.getElementById('admin-step-2').classList.add('hidden-section');
-                document.getElementById('admin-step-3').classList.remove('hidden-section');
-            }
+            showToast("3-Step Verification Complete! Welcome Admin.", "success");
+            localStorage.setItem('admin_auth_in_progress', 'true');
+            if (adminModal) adminModal.style.display = 'none';
+            window.location.href = "adminuser.html";
         }
     });
 }

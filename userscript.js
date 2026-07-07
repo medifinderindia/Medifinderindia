@@ -1383,6 +1383,30 @@ async function processFinalOrderPayload() {
         return;
     }
 
+    if (supabase) {
+        try {
+            for (const item of currentCart) {
+                if (!item.id) continue;
+                const { data: med, error: medErr } = await supabase.from('medicines').select('stock_qty, product_name, status').eq('id', item.id).single();
+                if (medErr || !med) {
+                    showToast(`Product "${item.name}" not found in inventory.`, "error");
+                    return;
+                }
+                if (med.status === 'Draft' || med.status === 'Rejected') {
+                    showToast(`"${med.product_name}" is not available for purchase (${med.status}).`, "error");
+                    return;
+                }
+                if (med.stock_qty < item.qty) {
+                    showToast(`Insufficient stock for "${med.product_name}". Available: ${med.stock_qty}, requested: ${item.qty}.`, "error");
+                    return;
+                }
+            }
+        } catch(e) {
+            showToast("Stock verification failed: " + (e.message || e), "error");
+            return;
+        }
+    }
+
     const placeOrderBtn = document.getElementById('place-order-final-btn');
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
     if (placeOrderBtn) { placeOrderBtn.disabled = true; placeOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
@@ -1456,18 +1480,36 @@ async function processFinalOrderPayload() {
                 try { await supabase.from('order_items').insert(orderItemsPayload); } catch (e) {
                     showToast("Order items save error: " + (e.message || e), "error");
                 }
-                if (primaryMerchantId) {
-                    try {
-                        await supabase.from('merchant_notifications').insert([{
-                            merchant_id: primaryMerchantId,
-                            title: 'New Order Received',
-                            message: `Order ${orderId} from ${addr.name}. Items: ${itemsDescription}. Total: ₹${grandTotal}. Address: ${fullAddress}`,
-                            type: 'info',
-                            category: 'order',
-                            is_read: false
-                        }]);
-                    } catch(e) {
-                        showToast("Merchant notification error: " + (e.message || e), "error");
+                for (const item of currentCart) {
+                    if (item.id && item.qty) {
+                        try {
+                            await supabase.rpc('decrement_stock', { med_id: item.id, qty: item.qty });
+                        } catch (e) {
+                            try {
+                                const { data: currMed } = await supabase.from('medicines').select('stock_qty').eq('id', item.id).single();
+                                if (currMed) {
+                                    const newQty = Math.max(0, currMed.stock_qty - item.qty);
+                                    await supabase.from('medicines').update({ stock_qty: newQty }).eq('id', item.id);
+                                }
+                            } catch (e2) {}
+                        }
+                    }
+                }
+                const notifiedMerchants = new Set();
+                for (const item of currentCart) {
+                    const mid = item.merchantId || primaryMerchantId;
+                    if (mid && !notifiedMerchants.has(mid)) {
+                        notifiedMerchants.add(mid);
+                        try {
+                            await supabase.from('merchant_notifications').insert([{
+                                merchant_id: mid,
+                                title: 'New Order Received',
+                                message: `Order ${orderId} from ${addr.name}. Items: ${itemsDescription}. Total: ₹${grandTotal}. Address: ${fullAddress}`,
+                                type: 'info',
+                                category: 'order',
+                                is_read: false
+                            }]);
+                        } catch(e) {}
                     }
                 }
             }
