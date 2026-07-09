@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediFinder — Lab Test Booking</title>
+<style>
+  :root{
+    --maroon-deep:#7a0d0d;
+    --maroon:#a11212;
+    --maroon-bright:#d21f1f;
+    --ink:#1c1414;
+    --cream:#fbf3ee;
+    --cream-2:#f3e4dc;
+    --line:#e7d4c9;
+    --success:#1c7a4d;
+    --navy:#20263b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+  }
+  /* ---------- Top ribbon ---------- */
+  .ribbon{
+    background:var(--maroon-deep);
+    color:#ffe3dc;
+    font-size:11px;
+    letter-spacing:1px;
+    text-align:center;
+    padding:6px 8px;
+    font-weight:700;
+  }
+  /* ---------- Header ---------- */
+  header{
+    background:#fff;
+    padding:14px 16px 10px;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;
+  }
+  .brand-row{
+    display:flex;
+    align-items:center;
+    gap: 15PX;
+    padding: 10px, 20px;
+    justify-content:space-between;
+  }
+ .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand-mark img{
+    width:45px;
+    height:45px;
+    border-radius:12px;
+    transform:none;
+    background:none;
+}
+
+.brand-text h1{
+    margin:0;
+    font-size:30px;
+    font-weight:900;
+    transform:none;
+    letter-spacing:1px;
+}
+
+.brand-text .medi{
+    color:#d50000;
+}
+
+.brand-text .finder{
+    color:#000;
+}
+ .search-bar{
+    width:100%;
+    height:48px;
+
+    display:flex;
+    align-items:center;
+
+    background:#fff;
+    border:1px solid #e5e5e5;
+    border-radius:28px;
+
+    overflow:hidden;
+
+    padding-left:14px;
+    margin-top:15px;
+
+    box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+
+.search-icon{
+    color:#999;
+    font-size:15px;
+    margin-right:10px;
+}
+
+.search-bar input{
+    flex:1;
+
+    border:none;
+    outline:none;
+
+    font-size:14px;
+    background:transparent;
+}
+
+.mic-btn{
+    width:48px;
+    height:48px;
+
+    border:none;
+    background:#e53935;
+
+    color:#fff;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    cursor:pointer;
+
+    border-radius:50%;
+    margin:3px;
+}
+
+.mic-btn i{
+    font-size:18px;
+}
+  .quick-row{
+    display:flex;
+    gap:14px;
+    overflow-x:auto;
+    padding:14px 4px 4px;
+    scrollbar-width:none;
+  }
+  .quick-row::-webkit-scrollbar{display:none;}
+  .quick-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+    width:64px;
+  }
+  .quick-icon{
+    width:48px;height:48px;
+    border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+    color:#fff;
+  }
+  .quick-item span{
+    font-size:10px;
+    text-align:center;
+    color:#5b463d;
+    line-height:1.2;
+  }
+  .quick-item.active .quick-icon{
+    box-shadow:0 0 0 2px var(--maroon-bright);
+  }
+
+  /* ---------- Promo strip ---------- */
+  .promo{
+    margin:14px 16px 0;
+    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    border-radius:14px;
+    padding:16px;
+    color:#fff;
+    position:relative;
+    overflow:hidden;
+  }
+  .promo::after{
+    content:"";
+    position:absolute;right:-40px;top:-40px;
+    width:140px;height:140px;
+    background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);
+  }
+  .promo .badge{
+    background:rgba(255,255,255,.2);
+    display:inline-block;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:3px 9px;
+    border-radius:20px;
+    margin-bottom:8px;
+  }
+  .promo h2{margin:0 0 4px;font-size:18px;}
+  .promo p{margin:0;font-size:12.5px;color:#ffe3dc;}
+
+  /* ---------- Section title ---------- */
+  .section-title{
+    padding:22px 16px 6px;
+  }
+  .section-title h2{
+    margin:0 0 4px;
+    font-size:18px;
+    color:var(--maroon-deep);
+    border-left:4px solid var(--maroon);
+    padding-left:10px;
+  }
+  .section-title p{
+    margin:0 0 0 14px;
+    font-size:12px;
+    color:#7a5f52;
+  }
+
+  /* ---------- Grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+    gap:16px;
+    padding:14px 16px 30px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 16px 14px;
+    box-shadow:0 3px 10px rgba(122,13,13,.06);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .card-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .icon-badge{
+    width:44px;height:44px;
+    border-radius:10px;
+    background:var(--cream-2);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    overflow:hidden;
+  }
+  .icon-badge svg{width:26px;height:26px;}
+  .card-head h3{
+    margin:0;
+    font-size:15px;
+    color:var(--ink);
+  }
+  .card ul{
+    margin:2px 0 4px;
+    padding-left:18px;
+    font-size:12.5px;
+    color:#5b463d;
+    line-height:1.5;
+  }
+  .price-row{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-top:2px;
+  }
+  .price-old{
+    font-size:12.5px;
+    color:#a08072;
+    text-decoration:line-through;
+  }
+  .price-new{
+    font-size:19px;
+    font-weight:800;
+    color:var(--maroon-deep);
+  }
+  .off-badge{
+    margin-left:auto;
+    background:var(--success);
+    color:#fff;
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:20px;
+  }
+  .fasting-note{
+    font-size:11.5px;
+    font-weight:700;
+    padding:5px 9px;
+    border-radius:8px;
+    width:fit-content;
+  }
+  .fasting-note.before{background:#fde8e8;color:#a11212;}
+  .fasting-note.after{background:#e8f3ec;color:var(--success);}
+  .home-note{
+    font-size:11px;
+    color:#8a6a3a;
+    background:#fbf0dd;
+    width:fit-content;
+    padding:3px 8px;
+    border-radius:8px;
+  }
+  .buy-btn{
+    margin-top:6px;
+    border:none;
+    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;
+    font-size:14.5px;
+    font-weight:700;
+    padding:11px;
+    border-radius:10px;
+    cursor:pointer;
+    letter-spacing:.4px;
+  }
+  .buy-btn:hover{filter:brightness(1.05);}
+
+  footer{
+    text-align:center;
+    padding:22px 16px 30px;
+    font-size:12px;
+    color:#9c7b6d;
+  }
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(28,20,20,.55);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:50;
+  }
+  .overlay.active{display:flex;}
+  .sheet{
+    background:#fff;
+    width:100%;
+    max-width:460px;
+    border-radius:18px 18px 0 0;
+    padding:0 0 22px;
+    animation:slideUp .25s ease;
+    max-height:92vh;
+    overflow-y:auto;
+  }
+  @keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px 8px;
+    position:sticky;top:0;
+    background:#fff;
+    border-bottom:1px solid var(--line);
+  }
+  .sheet-header h3{
+    margin:0;
+    color:var(--maroon-deep);
+    font-size:17px;
+  }
+  .close-x{
+    width:32px;height:32px;
+    border-radius:50%;
+    border:none;
+    background:var(--cream-2);
+    color:var(--maroon-deep);
+    font-size:17px;
+    font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .sheet-body{padding:14px 18px 0;}
+  .test-label{
+    font-size:12.5px;
+    color:#7a5f52;
+    margin-bottom:14px;
+  }
+  .field-group-title{
+    font-size:12px;
+    font-weight:700;
+    color:var(--maroon-deep);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    margin:16px 0 8px;
+  }
+  .field{
+    margin-bottom:12px;
+  }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    color:#5b463d;
+    margin-bottom:5px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:11px 12px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    font-size:13.5px;
+    background:var(--cream);
+    font-family:inherit;
+  }
+  .field input:focus, .field select:focus{
+    outline:2px solid var(--maroon-bright);
+    outline-offset:1px;
+  }
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .row3{display:flex;gap:10px;}
+  .row3 .field{flex:1;}
+  .gps-status{
+    font-size:12px;
+    padding:9px 10px;
+    border-radius:8px;
+    background:var(--cream-2);
+    color:#7a5f52;
+    margin:14px 0 12px;
+  }
+  .gps-status.ok{background:#e8f3ec;color:var(--success);}
+  .gps-status.err{background:#fde8e8;color:var(--maroon-deep);}
+  .confirm-btn{
+    width:100%;
+    border:none;
+    padding:14px;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;
+  }
+  .confirm-btn:disabled{opacity:.55;cursor:not-allowed;}
+</style>
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+<body>
+
+<div class="ribbon">100% GENUINE TESTS GUARANTEED &nbsp;·&nbsp; FREE HOME SAMPLE COLLECTION</div>
+
+<header>
+<div class="brand">
+    <div class="brand-mark">
+        <img src="1779304435608.png" alt="MediFinder Logo">
+    </div>
+
+    <div class="brand-text">
+        <h1>
+            <span class="medi">MEDI</span><span class="finder">FINDER</span>
+        </h1>
+    </div>
+</div>
+<div class="search-bar">
+    <span class="search-icon">
+        <i class="fa-solid fa-magnifying-glass"></i>
+    </span>
+
+    <input
+        type="text"
+        id="searchInput"
+        placeholder="Search lab tests...">
+
+    <button class="mic-btn">
+        <i class="fa-solid fa-microphone"></i>
+    </button>
+</div>
+
+  <div class="quick-row">
+    <div class="quick-item active">
+      <div class="quick-icon" style="background:#6c4fd8;">🧪</div>
+      <span>Lab Test</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#1fae8e;">🩺</div>
+      <span>Medical Instruments</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#e78a5a;">👩‍⚕️</div>
+      <span>Nurse Booking</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#3d7ce0;">👨‍⚕️</div>
+      <span>Doctor Consult</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#e05a5a;">❤️</div>
+      <span>Body Checkup</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#e0508f;">🚑</div>
+      <span>Call Ambulance</span>
+    </div>
+    <div class="quick-item">
+      <div class="quick-icon" style="background:#e0a92b;">🪙</div>
+      <span>Get Tablet Coin</span>
+    </div>
+  </div>
+</header>
+
+<div class="promo">
+  <span class="badge">HOME COLLECTION</span>
+  <h2>Book a Test, We Come to You</h2>
+  <p>Certified phlebotomists collect samples from your home anywhere in West Bengal</p>
+</div>
+
+<div class="section-title">
+  <h2>Lab Test Packages & Services</h2>
+  <p>Buy a test — your booking with live location goes straight to our WhatsApp team</p>
+</div>
+
+<div class="grid" id="testGrid"></div>
+
+<footer>
+  © MediFinder · West Bengal Home Sample Collection Network
+</footer>
+
+<!-- Booking Sheet -->
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Confirm Booking</h3>
+      <button class="close-x" id="closeX">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p class="test-label" id="sheetTestName">Test: —</p>
+
+      <div class="field-group-title">Patient Details</div>
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="patientName" placeholder="e.g. Ramesh Das">
+      </div>
+      <div class="field">
+        <label>Phone Number</label>
+        <input type="tel" id="patientPhone" placeholder="e.g. 98XXXXXXXX">
+      </div>
+
+      <div class="field-group-title">Delivery Address</div>
+      <div class="field">
+        <label>House No. / Flat / Building</label>
+        <input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments">
+      </div>
+      <div class="field">
+        <label>Street / Area / Locality</label>
+        <input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road">
+      </div>
+      <div class="field">
+        <label>Landmark (optional)</label>
+        <input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>City / Town</label>
+          <input type="text" id="addrCity" placeholder="e.g. Howrah">
+        </div>
+        <div class="field">
+          <label>Pincode</label>
+          <input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6">
+        </div>
+      </div>
+      <div class="field">
+        <label>State</label>
+        <select id="addrState">
+          <option value="West Bengal" selected>West Bengal</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="field-group-title">Schedule</div>
+      <div class="row2">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="bookDate">
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" id="bookTime">
+        </div>
+      </div>
+
+      <div class="gps-status" id="gpsStatus">📍 Getting your live location...</div>
+
+      <button class="confirm-btn" id="confirmBtn" disabled>Submit Booking</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------- Icon library (inline SVG, no external images) ----------------
+const icons = {
+  tube: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 2v13a3 3 0 006 0V2" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><path d="M9 9h6" stroke="#a11212" stroke-width="1.6"/><path d="M9 2h6" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16" r="1.4" fill="#d21f1f"/></svg>`,
+  drop: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z" stroke="#a11212" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
+  heart: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-9.3-8.8C1.2 8 2.7 5 6 5c2 0 3.3 1.2 4 2.2C10.7 6.2 12 5 14 5c3.3 0 4.8 3 3.3 6.2C15 15.4 12 20 12 20z" stroke="#c22" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+  sun: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="#b8842c" stroke-width="1.6"/><path d="M12 2v3M12 19v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke="#b8842c" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  pill: `<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="18" height="6" rx="3" stroke="#3d7ce0" stroke-width="1.6"/><path d="M12 9v6" stroke="#3d7ce0" stroke-width="1.6"/></svg>`,
+  liver: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 14c0-5 4-9 9-9 4 0 7 3 7 6 0 4-4 6-9 6-3 0-7-1-7-3z" stroke="#8a6a3a" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
+  kidney: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 3C5 3 3 7 3 12s2 9 6 9c3 0 3-4 5-4s2 4 5 4c2 0 3-2 3-4 0-2-2-2-2-4s2-2 2-4c0-2-1-4-3-4-3 0-3 4-5 4S12 3 9 3z" stroke="#1c7a4d" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+  cbc: `<svg viewBox="0 0 24 24" fill="none"><circle cx="8" cy="9" r="3" stroke="#a11212" stroke-width="1.5"/><circle cx="16" cy="9" r="2" stroke="#3d7ce0" stroke-width="1.5"/><circle cx="12" cy="16" r="2.4" stroke="#e0a92b" stroke-width="1.5"/></svg>`,
+  urine: `<svg viewBox="0 0 24 24" fill="none"><path d="M8 3h8l1 4v11a3 3 0 01-3 3h-4a3 3 0 01-3-3V7l1-4z" stroke="#e0a92b" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 8h8" stroke="#e0a92b" stroke-width="1.5"/></svg>`,
+  mosquito: `<svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="12" rx="3" ry="5" stroke="#c22" stroke-width="1.5"/><path d="M12 7V2M9 9l-5-3M15 9l5-3M9 15l-5 3M15 15l5 3" stroke="#c22" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  thermo: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a2 2 0 00-2 2v9a4 4 0 104 0V5a2 2 0 00-2-2z" stroke="#a11212" stroke-width="1.5"/><circle cx="12" cy="18" r="2" fill="#a11212"/></svg>`,
+  mask: `<svg viewBox="0 0 24 24" fill="none"><path d="M3 10c0-3 4-4 9-4s9 1 9 4-4 6-9 6-9-3-9-6z" stroke="#3d7ce0" stroke-width="1.5"/></svg>`,
+  chart: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="#1c7a4d" stroke-width="1.6" stroke-linecap="round"/></svg>`
+};
+
+// ---------------- Test data (West Bengal common tests) ----------------
+const tests = [
+  {name:"Full Body Health Checkup", icon:"tube", items:["CBC","Thyroid Profile","Lipid Profile","Liver Function","Kidney Function"], old:3499, price:2274, off:35, fasting:"before"},
+  {name:"Diabetes Screening Panel", icon:"drop", items:["Fasting Blood Sugar","HbA1c","PP Blood Sugar","Lipid Profile"], old:999, price:749, off:25, fasting:"before"},
+  {name:"Thyroid Profile (T3 T4 TSH)", icon:"pill", items:["T3","T4","TSH"], old:899, price:584, off:35, fasting:"after"},
+  {name:"Heart Health Check", icon:"heart", items:["Lipid Profile","ECG","CRP","Troponin I"], old:1499, price:1124, off:25, fasting:"before"},
+  {name:"Vitamin D Test", icon:"sun", items:["25-OH Vitamin D"], old:1299, price:974, off:25, fasting:"after"},
+  {name:"Vitamin B12 Test", icon:"pill", items:["Vitamin B12"], old:999, price:749, off:25, fasting:"after"},
+  {name:"Liver Function Test (LFT)", icon:"liver", items:["SGOT","SGPT","Bilirubin","Alkaline Phosphatase"], old:899, price:584, off:35, fasting:"after"},
+  {name:"Kidney Function Test (KFT)", icon:"kidney", items:["Urea","Creatinine","Uric Acid","Electrolytes"], old:999, price:649, off:35, fasting:"after"},
+  {name:"CBC (Complete Blood Count)", icon:"cbc", items:["Hemoglobin","WBC Count","Platelet Count","RBC Count"], old:499, price:299, off:40, fasting:"after"},
+  {name:"Urine Routine Examination", icon:"urine", items:["Physical Exam","Chemical Exam","Microscopy"], old:399, price:249, off:37, fasting:"after"},
+  {name:"Dengue NS1 Antigen Test", icon:"mosquito", items:["NS1 Antigen"], old:1199, price:799, off:33, fasting:"after"},
+  {name:"Widal Test (Typhoid)", icon:"thermo", items:["Widal Slide Test"], old:399, price:249, off:37, fasting:"after"},
+  {name:"COVID-19 RT-PCR Test", icon:"mask", items:["Nasal/Throat Swab RT-PCR"], old:899, price:599, off:33, fasting:"after"},
+  {name:"HbA1c (Avg. Blood Sugar - 3mo)", icon:"chart", items:["HbA1c"], old:699, price:449, off:35, fasting:"after"},
+];
+
+const grid = document.getElementById("testGrid");
+function renderGrid(filter=""){
+  grid.innerHTML = "";
+  tests
+    .filter(t => t.name.toLowerCase().includes(filter.toLowerCase()))
+    .forEach((t,i)=>{
+      const realIndex = tests.indexOf(t);
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-head">
+          <div class="icon-badge">${icons[t.icon]}</div>
+          <h3>${t.name}</h3>
+        </div>
+        <ul>${t.items.map(it=>`<li>${it}</li>`).join("")}</ul>
+        <div class="price-row">
+          <span class="price-old">₹${t.old}</span>
+          <span class="price-new">₹${t.price}</span>
+          <span class="off-badge">${t.off}% OFF</span>
+        </div>
+        <span class="fasting-note ${t.fasting}">
+          ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
+        </span>
+        <span class="home-note">🏠 Home Sample Collection Available</span>
+        <button class="buy-btn" data-index="${realIndex}">BUY NOW</button>
+      `;
+      grid.appendChild(card);
+    });
+}
+renderGrid();
+
+document.getElementById("searchInput").addEventListener("input", (e)=>{
+  renderGrid(e.target.value);
+});
+
+// ---------------- Booking flow ----------------
+const overlay = document.getElementById("overlay");
+const sheetTestName = document.getElementById("sheetTestName");
+const gpsStatus = document.getElementById("gpsStatus");
+const confirmBtn = document.getElementById("confirmBtn");
+const closeX = document.getElementById("closeX");
+
+const patientName = document.getElementById("patientName");
+const patientPhone = document.getElementById("patientPhone");
+const addrHouse = document.getElementById("addrHouse");
+const addrStreet = document.getElementById("addrStreet");
+const addrLandmark = document.getElementById("addrLandmark");
+const addrCity = document.getElementById("addrCity");
+const addrPincode = document.getElementById("addrPincode");
+const addrState = document.getElementById("addrState");
+const bookDate = document.getElementById("bookDate");
+const bookTime = document.getElementById("bookTime");
+
+let currentTest = null;
+let currentCoords = null;
+let sheetOpenViaHistory = false;
+
+// Set your WhatsApp group/admin number here (with country code, no + or spaces).
+// Leave EMPTY to let the user pick any chat/group manually when sharing.
+const WHATSAPP_NUMBER = ""; // e.g. "918900000000"
+
+grid.addEventListener("click", (e)=>{
+  if(!e.target.classList.contains("buy-btn")) return;
+  const idx = e.target.getAttribute("data-index");
+  currentTest = tests[idx];
+  sheetTestName.textContent = "Test: " + currentTest.name + " — ₹" + currentTest.price +
+    (currentTest.fasting === "before" ? " (Fasting required)" : " (No fasting needed)");
+
+  [patientName, patientPhone, addrHouse, addrStreet, addrLandmark, addrCity, addrPincode].forEach(f=>f.value="");
+  addrState.value = "West Bengal";
+  const today = new Date();
+  bookDate.value = today.toISOString().split("T")[0];
+  bookTime.value = "09:00";
+  currentCoords = null;
+  gpsStatus.className = "gps-status";
+  gpsStatus.textContent = "📍 Getting your live location...";
+  confirmBtn.disabled = true;
+
+  openSheet();
+  getLocation();
+});
+
+function openSheet(){
+  overlay.classList.add("active");
+  history.pushState({sheet:true}, "");
+  sheetOpenViaHistory = true;
+}
+function closeSheetUI(){
+  overlay.classList.remove("active");
+}
+// Physical/back-gesture close (also triggered by the X button below)
+window.addEventListener("popstate", ()=>{
+  if(overlay.classList.contains("active")){
+    closeSheetUI();
+  }
+  sheetOpenViaHistory = false;
+});
+closeX.addEventListener("click", ()=>{
+  if(sheetOpenViaHistory){
+    history.back(); // triggers popstate -> closeSheetUI, safe even if tapped multiple times
+  } else {
+    closeSheetUI();
+  }
+});
+overlay.addEventListener("click", (e)=>{
+  if(e.target === overlay){
+    if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+  }
+});
+
+function getLocation(){
+  if(!navigator.geolocation){
+    gpsStatus.className = "gps-status err";
+    gpsStatus.textContent = "❌ Location isn't supported on this browser";
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      currentCoords = {
+        lat: pos.coords.latitude.toFixed(6),
+        lng: pos.coords.longitude.toFixed(6)
+      };
+      gpsStatus.className = "gps-status ok";
+      gpsStatus.textContent = "✅ Location found: " + currentCoords.lat + ", " + currentCoords.lng;
+      confirmBtn.disabled = false;
+    },
+    ()=>{
+      gpsStatus.className = "gps-status err";
+      gpsStatus.textContent = "❌ Couldn't get your location. Please turn on GPS and try again.";
+      confirmBtn.disabled = true;
+    },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+}
+
+confirmBtn.addEventListener("click", ()=>{
+  const name = patientName.value.trim();
+  if(!name){ patientName.focus(); return; }
+  if(!currentCoords){ return; }
+
+  const addressParts = [
+    addrHouse.value.trim(),
+    addrStreet.value.trim(),
+    addrLandmark.value.trim(),
+    addrCity.value.trim(),
+    addrState.value,
+    addrPincode.value.trim()
+  ].filter(Boolean);
+  const fullAddress = addressParts.length ? addressParts.join(", ") : "(not provided)";
+
+  const mapsLink = `https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}`;
+  const fastingText = currentTest.fasting === "before" ? "Before Food (Fasting)" : "After Food (Non-Fasting)";
+
+  const message =
+`🩺 *MediFinder — New Test Booking*
+
+*Test:* ${currentTest.name}
+*Type:* ${fastingText}
+*Price:* ₹${currentTest.price}
+
+*Patient Name:* ${name}
+*Phone:* ${patientPhone.value.trim() || "(not provided)"}
+*Address:* ${fullAddress}
+
+*Date:* ${bookDate.value}
+*Time:* ${bookTime.value}
+
+*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}
+${mapsLink}`;
+
+  const encoded = encodeURIComponent(message);
+  const url = WHATSAPP_NUMBER
+    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+
+  window.open(url, "_blank");
+  if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+});
+</script>
+</body>
+</html>

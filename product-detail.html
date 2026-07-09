@@ -251,6 +251,9 @@ a{text-decoration:none;color:inherit}
       <span class="image-badge" id="imageBadge" style="display:none">360 View</span>
       <button class="wishlist-btn" id="wishlistBtn" onclick="toggleWishlist()"><i class="far fa-heart"></i></button>
       <button class="share-btn" onclick="shareProduct()"><i class="fas fa-share-alt"></i></button>
+      <button class="like-btn" id="likeBtn" onclick="toggleLike()" style="position:absolute;left:10px;bottom:10px;height:32px;padding:0 12px;border-radius:16px;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text3);">
+        <i class="far fa-thumbs-up" id="likeIcon"></i> <span id="likeCount">0</span>
+      </button>
       <img id="mainImage" src="" alt="Product" onclick="openZoom()">
     </div>
     <div class="thumbnails" id="thumbnails"></div>
@@ -427,6 +430,7 @@ let quantity = 1;
 let isWishlisted = false;
 let currentImageIndex = 0;
 let allImages = [];
+let isPrescriptionUploaded = localStorage.getItem('medi_presc_uploaded_status') === 'true';
 
 const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&h=400&fit=crop',
@@ -465,6 +469,9 @@ function parseParams(){
   product.price = parseFloat(p.get('price')) || 35.00;
   product.mrp = parseFloat(p.get('mrp')) || 0;
   product.img = p.get('img') || SAMPLE_IMAGES[0];
+  product.img2 = p.get('img2') || '';
+  product.img3 = p.get('img3') || '';
+  product.likes = parseInt(p.get('likes')) || 0;
   product.manufacturer = p.get('manufacturer') || 'GlaxoSmithKline Pharmaceuticals';
   product.expiry = p.get('expiry') || 'Dec 2027';
   product.rating = parseFloat(p.get('rating')) || 4.3;
@@ -511,10 +518,15 @@ function renderProduct(){
   document.getElementById('discountBadge').textContent = disc > 0 ? disc + '% off' : 'Best Price';
   document.getElementById('productDesc').textContent = product.desc;
 
-  allImages = [product.img, ...SAMPLE_IMAGES.slice(0,3)];
+  // Only use the merchant's own uploaded photos here — no more padding the
+  // gallery out with unrelated demo/duplicate stock photos when a product
+  // only has 1 or 2 real images.
+  allImages = [product.img, product.img2, product.img3].filter(Boolean);
+  if (allImages.length === 0) allImages = [SAMPLE_IMAGES[0]];
   document.getElementById('mainImage').src = allImages[0];
   document.getElementById('mainImage').alt = product.name;
   if(allImages.length > 1) document.getElementById('imageBadge').style.display = 'block';
+  initLikeButton();
   renderThumbnails();
   renderHighlights();
   renderDetailTable();
@@ -720,7 +732,15 @@ function updateStickyPrice(){
 }
 
 function addToCart(){
-  if(product.isRx === 'true' && !isPrescriptionUploaded){ showToast('Upload prescription for Rx medicines.', 'error'); return; }
+  if(product.isRx === 'true' && !isPrescriptionUploaded){
+    const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
+    if (typeof showConfirmationModal === 'function') {
+      showConfirmationModal(msg, () => { window.location.href = 'userhome.html#prescription-upload-section'; });
+    } else {
+      showToast('Upload prescription for Rx medicines.', 'error');
+    }
+    return;
+  }
   let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   const existing = cart.findIndex(function(c){ return c.id === product.id; });
   if(existing >= 0){
@@ -781,6 +801,58 @@ function updateCartBadge(){
   document.getElementById('cartBadge').style.display = total > 0 ? 'flex' : 'none';
 }
 
+// LIKE BUTTON — persisted like count on medicines.likes_count (see SQL patch),
+// with a localStorage flag so the same browser can't inflate the count by
+// clicking repeatedly.
+function likedProductsKey(){ return 'medi_liked_products'; }
+function getLikedSet(){
+  try { return JSON.parse(localStorage.getItem(likedProductsKey())) || []; } catch(e){ return []; }
+}
+function initLikeButton(){
+  const countEl = document.getElementById('likeCount');
+  const iconEl = document.getElementById('likeIcon');
+  const btn = document.getElementById('likeBtn');
+  if (!countEl) return;
+  countEl.textContent = product.likes || 0;
+  const liked = getLikedSet().includes(String(product.id));
+  if (liked) {
+    iconEl.className = 'fas fa-thumbs-up';
+    btn.style.color = 'var(--primary)';
+    btn.style.borderColor = 'var(--primary)';
+  }
+}
+async function toggleLike(){
+  const countEl = document.getElementById('likeCount');
+  const iconEl = document.getElementById('likeIcon');
+  const btn = document.getElementById('likeBtn');
+  let likedSet = getLikedSet();
+  const idStr = String(product.id);
+  const alreadyLiked = likedSet.includes(idStr);
+  let current = parseInt(countEl.textContent) || 0;
+
+  if (alreadyLiked) {
+    current = Math.max(0, current - 1);
+    likedSet = likedSet.filter(function(i){ return i !== idStr; });
+    iconEl.className = 'far fa-thumbs-up';
+    btn.style.color = ''; btn.style.borderColor = '';
+  } else {
+    current = current + 1;
+    likedSet.push(idStr);
+    iconEl.className = 'fas fa-thumbs-up';
+    btn.style.color = 'var(--primary)'; btn.style.borderColor = 'var(--primary)';
+    showToast('Liked!');
+  }
+  countEl.textContent = current;
+  localStorage.setItem(likedProductsKey(), JSON.stringify(likedSet));
+  product.likes = current;
+
+  if (supabase && product.id) {
+    try {
+      await supabase.from('medicines').update({ likes_count: current }).eq('id', product.id);
+    } catch(e) { /* non-fatal — UI already reflects the like */ }
+  }
+}
+
 function toggleWishlist(){
   isWishlisted = !isWishlisted;
   const btn = document.getElementById('wishlistBtn');
@@ -796,11 +868,36 @@ function toggleWishlist(){
 }
 
 function shareProduct(){
+  // Mobile: native share sheet already lets people pick WhatsApp/FB/Instagram/etc.
   if(navigator.share){
     navigator.share({ title:product.name, text:'Check out ' + product.name + ' on MediFinder!', url:window.location.href }).catch(function(){});
-  } else {
-    navigator.clipboard.writeText(window.location.href).then(function(){ showToast('Link copied!'); });
+    return;
   }
+  // Desktop fallback: no native share sheet exists, so show direct share links instead.
+  openShareMenu();
+}
+
+function openShareMenu(){
+  const existing = document.getElementById('shareMenuOverlay');
+  if (existing) { existing.remove(); return; }
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Check out ' + product.name + ' on MediFinder!');
+  const overlay = document.createElement('div');
+  overlay.id = 'shareMenuOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.innerHTML =
+    '<div style="background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:20px;">' +
+      '<h3 style="margin:0 0 14px 0;font-size:1rem;">Share this product</h3>' +
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+        '<a href="https://api.whatsapp.com/send?text=' + text + '%20' + url + '" target="_blank" style="text-decoration:none;color:#25D366;text-align:center;font-size:0.75rem;"><i class="fab fa-whatsapp" style="font-size:28px;display:block;margin-bottom:4px;"></i>WhatsApp</a>' +
+        '<a href="https://www.facebook.com/sharer/sharer.php?u=' + url + '" target="_blank" style="text-decoration:none;color:#1877F2;text-align:center;font-size:0.75rem;"><i class="fab fa-facebook" style="font-size:28px;display:block;margin-bottom:4px;"></i>Facebook</a>' +
+        '<a href="javascript:void(0)" onclick="navigator.clipboard.writeText(window.location.href).then(function(){showToast(\'Link copied! Paste it in Instagram.\')})" style="text-decoration:none;color:#E1306C;text-align:center;font-size:0.75rem;"><i class="fab fa-instagram" style="font-size:28px;display:block;margin-bottom:4px;"></i>Instagram</a>' +
+        '<a href="javascript:void(0)" onclick="navigator.clipboard.writeText(window.location.href).then(function(){showToast(\'Link copied!\')})" style="text-decoration:none;color:#555;text-align:center;font-size:0.75rem;"><i class="fas fa-link" style="font-size:28px;display:block;margin-bottom:4px;"></i>Copy Link</a>' +
+      '</div>' +
+      '<button onclick="document.getElementById(\'shareMenuOverlay\').remove()" style="width:100%;margin-top:18px;padding:10px;border-radius:8px;border:1px solid #ddd;background:#f8f9fa;cursor:pointer;">Close</button>' +
+    '</div>';
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 function openZoom(){

@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medifinder — Search. Connect. Care.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#B3261E;
+  --red-dark:#8C1D17;
+  --red-soft:#FDECEA;
+  --ink:#1B1B1F;
+  --muted:#6B6B72;
+  --line:#E7E5E4;
+  --bg:#F7F6F4;
+  --card:#FFFFFF;
+  --teal:#0E9A8B;
+  --gold:#E4A317;
+  --radius:14px;
+  --shadow:0 6px 20px rgba(27,27,31,.07);
+  font-family:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);}
+h1,h2,h3{font-family:'Poppins',sans-serif;margin:0;}
+
+/* ---------- top strip ---------- */
+.top-strip{
+  background:var(--red-dark);color:#fff;text-align:center;
+  font-size:13px;letter-spacing:.03em;padding:8px 12px;font-weight:600;
+}
+
+/* ---------- header ---------- */
+.site-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 24px;background:#fff;border-bottom:1px solid var(--line);
+}
+ .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand-mark img{
+    width:65px;
+    height:45px;
+    border-radius:12px;
+    transform:none;
+    background:none;
+}
+.cross{color:var(--red);font-size:20px;font-weight:800;}
+.brand-text h1{font-size:22px;font-weight:800;color:var(--ink);}
+.brand-text h1 span{color:var(--red);}
+.brand-text p{margin:0;font-size:11px;color:var(--muted);letter-spacing:.04em;}
+.admin-fab{
+  width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+  background:#fff;font-size:22px;color:var(--ink);cursor:pointer;
+  transition:.2s;
+}
+.admin-fab:hover{background:var(--red);color:#fff;border-color:var(--red);}
+
+/* ---------- search panel ---------- */
+.search-panel{
+  display:flex;align-items:center;gap:14px;
+  padding:20px 24px 6px;flex-wrap:wrap;
+}
+.search-box{
+  flex:1;min-width:240px;background:#fff;border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);
+}
+.search-box label{font-size:12px;color:var(--muted);font-weight:600;}
+.input-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.input-row input{
+  border:none;outline:none;font-size:15px;flex:1;background:transparent;color:var(--ink);
+}
+.pin{font-size:16px;}
+.gps-btn{
+  border:1px solid var(--teal);color:var(--teal);background:#e9f9f6;
+  font-size:11px;font-weight:700;border-radius:20px;padding:6px 10px;cursor:pointer;
+}
+.gps-btn:hover{background:var(--teal);color:#fff;}
+.swap-btn{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+  background:#fff;cursor:pointer;font-size:16px;flex-shrink:0;
+}
+.search-cta-wrap{padding:14px 24px 6px;text-align:center;}
+.search-cta{
+  background:var(--red);color:#fff;border:none;padding:13px 34px;
+  border-radius:30px;font-weight:700;font-size:15px;cursor:pointer;
+  box-shadow:0 8px 18px rgba(179,38,30,.28);
+}
+.search-cta:hover{background:var(--red-dark);}
+.search-hint{font-size:12px;color:var(--muted);margin-top:8px;}
+
+/* ---------- quick services ---------- */
+.quick-services{
+  display:flex;gap:26px;overflow-x:auto;padding:22px 24px 14px;
+  border-bottom:1px solid var(--line);
+}
+.qs-item{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  min-width:78px;font-size:12px;font-weight:600;color:var(--ink);text-align:center;
+}
+.qs-icon{
+  width:50px;height:50px;border-radius:16px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;color:#fff;
+}
+.qs-1{background:#7C4DFF;}
+.qs-2{background:#12B886;}
+.qs-3{background:#FF922B;}
+.qs-4{background:#4C6EF5;}
+.qs-5{background:#FA5252;}
+.qs-6{background:#5C3AB8;}
+.qs-7{background:#F5B301;}
+.qs-item.active{position:relative;}
+.qs-item.active::after{
+  content:'';position:absolute;bottom:-14px;left:10%;right:10%;height:3px;
+  background:var(--red);border-radius:2px;
+}
+
+/* ---------- results ---------- */
+.results-section{padding:24px;}
+.results-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.results-count{font-size:13px;color:var(--muted);font-weight:600;}
+.ambulance-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;
+}
+.amb-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;
+}
+.amb-photo{width:100%;height:150px;object-fit:cover;background:#eee;}
+.amb-body{padding:14px 16px;}
+.amb-driver{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:6px;}
+.amb-avatar{width:22px;height:22px;border-radius:50%;background:var(--red-soft);display:flex;align-items:center;justify-content:center;font-size:12px;}
+.amb-route{font-size:14px;font-weight:700;margin-bottom:4px;}
+.amb-contact{font-size:12px;color:var(--muted);margin-bottom:10px;}
+.amb-book-btn{
+  width:100%;background:var(--red);color:#fff;border:none;padding:10px;
+  border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:10px;
+}
+.amb-book-btn:hover{background:var(--red-dark);}
+.price-row{
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--red-soft);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px;
+}
+.price-row b{color:var(--red-dark);}
+
+.empty-state{display:none;text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-state.show{display:block;}
+.empty-icon{font-size:42px;margin-bottom:10px;}
+.empty-state h3{font-size:16px;margin-bottom:6px;color:var(--ink);}
+.empty-state p{font-size:13px;max-width:360px;margin:0 auto;}
+
+/* ---------- modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(27,27,31,.55);
+  display:flex;align-items:center;justify-content:center;z-index:999;padding:16px;
+}
+.modal-overlay.hidden{display:none;}
+.modal-card{
+  background:#fff;border-radius:16px;padding:26px 24px;max-width:420px;width:100%;
+  position:relative;max-height:90vh;overflow-y:auto;
+}
+.modal-card.wide{max-width:640px;}
+.modal-close{
+  position:absolute;top:14px;right:14px;border:none;background:none;
+  font-size:16px;cursor:pointer;color:var(--muted);
+}
+.modal-card h2{font-size:19px;margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:14px;}
+.modal-step label,.form-field label{
+  font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:5px;margin-top:10px;
+}
+.modal-step input,.form-field input{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;
+  font-size:14px;outline:none;
+}
+.modal-step input:focus,.form-field input:focus{border-color:var(--red);}
+.primary-btn{
+  width:100%;background:var(--red);color:#fff;border:none;padding:12px;
+  border-radius:9px;font-weight:700;margin-top:16px;cursor:pointer;font-size:14px;
+}
+.primary-btn:hover{background:var(--red-dark);}
+.link-btn{
+  width:100%;background:none;border:none;color:var(--teal);font-weight:600;
+  font-size:12px;margin-top:10px;cursor:pointer;
+}
+.field-error{color:var(--red);font-size:12px;margin-top:8px;min-height:14px;}
+.field-success{color:var(--teal);font-size:12px;margin-top:8px;min-height:14px;font-weight:600;}
+.hidden{display:none !important;}
+
+/* admin form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;}
+.photo-preview{width:100%;height:110px;object-fit:cover;border-radius:8px;margin-top:8px;}
+.divider{border:none;border-top:1px solid var(--line);margin:22px 0;}
+.admin-list{display:flex;flex-direction:column;gap:10px;}
+.admin-empty{font-size:13px;color:var(--muted);}
+.admin-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;
+}
+.admin-row img{width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;}
+.admin-row-info{flex:1;}
+.admin-row-info b{display:block;font-size:13px;}
+.admin-row-info span{font-size:12px;color:var(--muted);}
+.del-btn{
+  border:1px solid var(--red);color:var(--red);background:#fff;border-radius:7px;
+  padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;
+}
+.del-btn:hover{background:var(--red);color:#fff;}
+
+/* booking modal specifics */
+.booking-amb-info{
+  background:var(--red-soft);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:6px;
+}
+.support-options{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.support-option{
+  display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+  border-radius:9px;padding:10px 12px;font-size:13px;cursor:pointer;
+}
+.support-option input{width:auto;}
+.total-price-box{
+  background:var(--ink);color:#fff;border-radius:9px;padding:12px;
+  display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-top:14px;
+}
+#totalPriceDisplay{color:var(--gold);}
+
+/* toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:12px 20px;border-radius:30px;
+  font-size:13px;z-index:1200;box-shadow:0 8px 20px rgba(0,0,0,.25);
+}
+.toast.hidden{display:none;}
+
+@media(max-width:640px){
+  .form-grid{grid-template-columns:1fr;}
+  .site-header{padding:14px 16px;}
+  .search-panel,.results-section{padding-left:16px;padding-right:16px;}
+}
+
+</style>
+</head>
+<body>
+
+<!-- ================= TOP STRIP ================= -->
+<div class="top-strip">100% Genuine &amp; Verified Ambulances &nbsp;•&nbsp; Express 24/7 Service</div>
+
+<!-- ================= HEADER ================= -->
+<header class="site-header">
+  <div class="brand">
+    <div class="brand-mark">
+        <img src="1779304435608.png" alt="MediFinder Logo">
+    </div>
+    <div class="brand-text">
+      <h1>Medi<span>finder</span></h1>
+      <p>Search. Connect. Care.</p>
+    </div>
+  </div>
+  <button id="adminOpenBtn" class="admin-fab" title="Admin Panel" aria-label="Admin Panel">+</button>
+</header>
+
+<!-- ================= SEARCH PANEL ================= -->
+<section class="search-panel">
+  <div class="search-box">
+    <label>Pickup Location</label>
+    <div class="input-row">
+      <span class="pin">📍</span>
+      <input id="pickupInput" type="text" placeholder="Enter current location">
+      <button id="gpsBtn" class="gps-btn" title="Use current location">GPS</button>
+    </div>
+  </div>
+
+  <button id="swapBtn" class="swap-btn" title="Swap">⇄</button>
+
+  <div class="search-box">
+    <label>Destination</label>
+    <div class="input-row">
+      <span class="pin">🏥</span>
+      <input id="destinationInput" type="text" placeholder="Enter hospital or address">
+    </div>
+  </div>
+</section>
+
+<div class="search-cta-wrap">
+  <button id="searchBtn" class="search-cta">Find Ambulance</button>
+  <p id="searchHint" class="search-hint">Enter pickup and destination to search — all ambulances on that route will show below</p>
+</div>
+
+<!-- ================= QUICK SERVICES (visual only, matches reference) ================= -->
+<section class="quick-services">
+  <div class="qs-item"><div class="qs-icon qs-1">🧪</div><span>Lab Test</span></div>
+  <div class="qs-item"><div class="qs-icon qs-2">🩺</div><span>Medical Instruments</span></div>
+  <div class="qs-item"><div class="qs-icon qs-3">👩‍⚕️</div><span>Nurse Booking</span></div>
+  <div class="qs-item"><div class="qs-icon qs-4">👨‍⚕️</div><span>Doctor Consult</span></div>
+  <div class="qs-item"><div class="qs-icon qs-5">❤️</div><span>Body Checkup</span></div>
+  <div class="qs-item active"><div class="qs-icon qs-6">📞</div><span>Call Ambulance</span></div>
+  <div class="qs-item"><div class="qs-icon qs-7">💊</div><span>Get Tablets</span></div>
+</section>
+
+<!-- ================= AMBULANCE LIST ================= -->
+<section class="results-section">
+  <div class="results-head">
+    <h2>Available Ambulances</h2>
+    <span id="resultsCount" class="results-count">0 found</span>
+  </div>
+  <div id="ambulanceGrid" class="ambulance-grid">
+    <!-- Real-time cards injected by script.js -->
+  </div>
+  <div id="emptyState" class="empty-state">
+    <div class="empty-icon">🚑</div>
+    <h3>No ambulances added yet</h3>
+    <p>Add an ambulance from the Admin Panel — it will appear here in real time as soon as it's added.</p>
+  </div>
+</section>
+
+<!-- ================= ADMIN LOGIN MODAL ================= -->
+<div id="adminLoginModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="adminLoginModal">✕</button>
+    <h2>Admin Login</h2>
+
+    <div id="stepEmail" class="modal-step">
+      <p class="modal-sub">Enter the admin email — a 6-digit OTP will be sent to that email.</p>
+      <label>Email Address</label>
+      <input id="adminEmailInput" type="email" placeholder="xxxxxxxx@gmail.com">
+      <button id="sendOtpBtn" class="primary-btn">Send OTP</button>
+      <p id="emailError" class="field-error"></p>
+    </div>
+
+    <div id="stepOtp" class="modal-step hidden">
+      <p class="modal-sub">Enter the 6-digit code sent to medifinderindia@gmail.com.</p>
+      <label>OTP</label>
+      <input id="otpInput" type="text" maxlength="6" inputmode="numeric" placeholder="6-digit OTP">
+      <button id="verifyOtpBtn" class="primary-btn">Verify</button>
+      <button id="resendOtpBtn" class="link-btn">Resend OTP</button>
+      <p id="otpError" class="field-error"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ADMIN DASHBOARD MODAL ================= -->
+<div id="adminDashboardModal" class="modal-overlay hidden">
+  <div class="modal-card wide">
+    <button class="modal-close" data-close="adminDashboardModal">✕</button>
+    <h2>Ambulance Management</h2>
+    <p class="modal-sub">Add a new ambulance — it will appear on the website in real time.</p>
+
+    <form id="ambulanceForm" class="admin-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Ambulance Photo</label>
+          <input id="ambPhoto" type="file" accept="image/*">
+          <img id="photoPreview" class="photo-preview hidden">
+        </div>
+        <div class="form-field">
+          <label>Driver Name</label>
+          <input id="ambDriver" type="text" placeholder="e.g. Rahul Das" required>
+        </div>
+        <div class="form-field">
+          <label>Pickup Point (From)</label>
+          <input id="ambFrom" type="text" placeholder="e.g. Apollo Hospital" required>
+        </div>
+        <div class="form-field">
+          <label>Destination (where to go)</label>
+          <input id="ambTo" type="text" placeholder="e.g. Howrah Station" required>
+        </div>
+        <div class="form-field">
+          <label>Basic Life Support Price (₹)</label>
+          <input id="ambBasicPrice" type="number" placeholder="e.g. 340" required>
+        </div>
+        <div class="form-field">
+          <label>Advanced Life Support Price (₹)</label>
+          <input id="ambAdvancedPrice" type="number" placeholder="e.g. 400" required>
+        </div>
+        <div class="form-field">
+          <label>WhatsApp Number (with country code, e.g. 91XXXXXXXXXX)</label>
+          <input id="ambWhatsapp" type="text" placeholder="919876543210" required>
+        </div>
+        <div class="form-field">
+          <label>Phone Number</label>
+          <input id="ambPhone" type="text" placeholder="9876543210" required>
+        </div>
+      </div>
+      <button type="submit" class="primary-btn">Add Ambulance</button>
+      <p id="ambFormMsg" class="field-success"></p>
+    </form>
+
+    <hr class="divider">
+
+    <h3>Current Ambulance List</h3>
+    <div id="adminList" class="admin-list">
+      <p class="admin-empty">No ambulances added yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= BOOKING MODAL ================= -->
+<div id="bookingModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="bookingModal">✕</button>
+    <h2>Confirm Booking</h2>
+    <div id="bookingAmbInfo" class="booking-amb-info"></div>
+
+    <form id="bookingForm" class="admin-form">
+      <div class="form-field">
+        <label>Full Destination Location</label>
+        <input id="bkDestination" type="text" placeholder="Enter the full address" required>
+      </div>
+
+      <div class="form-field">
+        <label>Select Support Type</label>
+        <div class="support-options">
+          <label class="support-option">
+            <input type="radio" name="supportType" value="basic" checked>
+            <span>Basic Life Support — <b id="priceBasicTag">₹0</b></span>
+          </label>
+          <label class="support-option">
+            <input type="radio" name="supportType" value="advanced">
+            <span>Advanced Life Support — <b id="priceAdvancedTag">₹0</b></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-field total-price-box">
+        Total Price: <span id="totalPriceDisplay">₹0</span>
+      </div>
+
+      <div class="form-field">
+        <label>Patient Name</label>
+        <input id="bkPatientName" type="text" placeholder="Patient's full name" required>
+      </div>
+      <div class="form-field">
+        <label>Phone Number</label>
+        <input id="bkPhone" type="tel" placeholder="Phone Number" required>
+      </div>
+      <div class="form-field">
+        <label>WhatsApp Number</label>
+        <input id="bkWhatsapp" type="tel" placeholder="WhatsApp Number" required>
+      </div>
+
+      <button type="submit" class="primary-btn">Submit</button>
+      <p id="bookingMsg" class="field-success"></p>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+/* ============================================================
+   Put your own Firebase and EmailJS keys in this file.
+   A step-by-step guide for each is given below.
+   ============================================================ */
+
+/* ---------- 1) FIREBASE CONFIG ----------
+   How to get it:
+   1. Go to https://console.firebase.google.com and create a project.
+   2. Enable Build > Firestore Database > Create database (production/test mode).
+   3. Go to Project settings (⚙️) > General > "Your apps" and add a "Web app" (</>).
+   4. Copy the firebaseConfig object you get and paste it below.
+   5. Go to Firestore > Rules tab and update the rules (a sample is given below).
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyBXLKUqvi9_Tgw-rTv9IU5krApV-8siPs4",
+  authDomain: "medifinderindia-66bac.firebaseapp.com",
+  projectId: "medifinderindia-66bac",
+  storageBucket: "medifinderindia-66bac.firebasestorage.app",
+  messagingSenderId: "517996944028",
+  appId: "1:517996944028:web:8d0fda74afe9a9e2b3eb59",
+  measurementId: "G-SMV1LJYMMQ"
+};
+
+/* Sample Firestore Rules (paste into Firebase Console > Firestore > Rules):
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /ambulances/{docId} {
+      allow read: if true;
+      allow write: if true; // In production, add proper admin auth check
+    }
+    match /bookings/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
+*/
+
+
+/* ---------- 2) EMAILJS CONFIG (for sending OTP emails) ----------
+   How to get it:
+   1. Create a free account at https://www.emailjs.com.
+   2. Email Services > Add New Service (add Gmail using medifinderindia@gmail.com) → you'll get a Service ID.
+   3. Email Templates > Create New Template — use these variables in the template:
+        To email:   {{to_email}}
+        Subject:    Medifinder Admin OTP
+        Body:       Your OTP code: {{otp_code}}
+      → you'll get a Template ID.
+   4. Get the Public Key from Account > General.
+*/
+const EMAILJS_PUBLIC_KEY = "YOUR_EMAILJS_PUBLIC_KEY";
+const EMAILJS_SERVICE_ID = "YOUR_EMAILJS_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "YOUR_EMAILJS_TEMPLATE_ID";
+
+/* ---------- 3) ADMIN EMAIL ---------- */
+const ADMIN_EMAIL = "medifinderindia@gmail.com";
+
+
+/* ============================================================
+   Medifinder — Main Logic
+   ============================================================ */
+
+// ---------- Firebase init ----------
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ---------- EmailJS init ----------
+if (window.emailjs && EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  setTimeout(() => t.classList.add("hidden"), 2800);
+}
+function openModal(id) { $(id).classList.remove("hidden"); }
+function closeModal(id) { $(id).classList.add("hidden"); }
+document.querySelectorAll("[data-close]").forEach(btn => {
+  btn.addEventListener("click", () => closeModal(btn.dataset.close));
+});
+document.querySelectorAll(".modal-overlay").forEach(overlay => {
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.classList.add("hidden");
+  });
+});
+
+let allAmbulances = []; // in-memory cache, kept in sync in realtime
+let currentOtp = null;
+let isAdmin = false;
+let selectedAmbulance = null;
+
+/* ============================================================
+   1) Real-time ambulance list (Firestore onSnapshot)
+   ============================================================ */
+db.collection("ambulances").orderBy("createdAt", "desc")
+  .onSnapshot((snapshot) => {
+    allAmbulances = [];
+    snapshot.forEach(doc => allAmbulances.push({ id: doc.id, ...doc.data() }));
+    renderAmbulances(allAmbulances);
+    renderAdminList();
+  }, (err) => {
+    console.error("Firestore error:", err);
+    showToast("Firebase is not configured — add your Firebase config in the config section.");
+  });
+
+function renderAmbulances(list) {
+  const grid = $("ambulanceGrid");
+  const empty = $("emptyState");
+  $("resultsCount").textContent = `${list.length} found`;
+
+  if (list.length === 0) {
+    grid.innerHTML = "";
+    empty.classList.add("show");
+    return;
+  }
+  empty.classList.remove("show");
+
+  grid.innerHTML = list.map(amb => `
+    <div class="amb-card">
+      <img class="amb-photo" src="${amb.photo || 'https://placehold.co/400x220?text=Ambulance'}" alt="Ambulance">
+      <div class="amb-body">
+        <div class="amb-driver"><span class="amb-avatar">👤</span> Driver: ${escapeHtml(amb.driver)}</div>
+        <div class="amb-route">${escapeHtml(amb.from)} → ${escapeHtml(amb.to)}</div>
+        <div class="amb-contact">📞 ${escapeHtml(amb.phone)}</div>
+        <div class="price-row"><span>Advanced Life Support</span><b>₹${amb.advancedPrice}</b></div>
+        <div class="price-row"><span>Basic Life Support</span><b>₹${amb.basicPrice}</b></div>
+        <button class="amb-book-btn" data-id="${amb.id}">BOOK NOW</button>
+      </div>
+    </div>
+  `).join("");
+
+  grid.querySelectorAll(".amb-book-btn").forEach(btn => {
+    btn.addEventListener("click", () => openBookingModal(btn.dataset.id));
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+/* ============================================================
+   2) Search / GPS
+   ============================================================ */
+$("gpsBtn").addEventListener("click", () => {
+  if (!navigator.geolocation) { showToast("Your browser doesn't support GPS"); return; }
+  showToast("Finding location...");
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude } = pos.coords;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+      const data = await res.json();
+      $("pickupInput").value = data.display_name || `${latitude}, ${longitude}`;
+    } catch {
+      $("pickupInput").value = `${latitude}, ${longitude}`;
+    }
+    showToast("Current location has been set");
+  }, () => showToast("Couldn't get location — please allow permission"));
+});
+
+$("swapBtn").addEventListener("click", () => {
+  const p = $("pickupInput").value;
+  $("pickupInput").value = $("destinationInput").value;
+  $("destinationInput").value = p;
+});
+
+$("searchBtn").addEventListener("click", () => {
+  const pickup = $("pickupInput").value.trim().toLowerCase();
+  const dest = $("destinationInput").value.trim().toLowerCase();
+
+  if (!pickup && !dest) { renderAmbulances(allAmbulances); return; }
+
+  const filtered = allAmbulances.filter(amb => {
+    const from = (amb.from || "").toLowerCase();
+    const to = (amb.to || "").toLowerCase();
+    const pickupMatch = !pickup || from.includes(pickup) || pickup.includes(from);
+    const destMatch = !dest || to.includes(dest) || dest.includes(to);
+    return pickupMatch && destMatch;
+  });
+  renderAmbulances(filtered);
+  if (dest) $("bkDestination").value = $("destinationInput").value;
+});
+
+/* ============================================================
+   3) Admin Login — OTP flow
+   ============================================================ */
+$("adminOpenBtn").addEventListener("click", () => {
+  if (isAdmin) { openModal("adminDashboardModal"); return; }
+  $("stepEmail").classList.remove("hidden");
+  $("stepOtp").classList.add("hidden");
+  $("adminEmailInput").value = "";
+  $("emailError").textContent = "";
+  openModal("adminLoginModal");
+});
+
+$("sendOtpBtn").addEventListener("click", async () => {
+  const email = $("adminEmailInput").value.trim();
+  $("emailError").textContent = "";
+  if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    $("emailError").textContent = "This email does not have admin access.";
+    return;
+  }
+  await sendOtp(email);
+});
+
+$("resendOtpBtn").addEventListener("click", async () => {
+  await sendOtp(ADMIN_EMAIL);
+});
+
+async function sendOtp(email) {
+  currentOtp = String(Math.floor(100000 + Math.random() * 900000));
+  $("sendOtpBtn").disabled = true;
+  $("sendOtpBtn").textContent = "Sending...";
+
+  try {
+    if (window.emailjs && EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: email,
+        otp_code: currentOtp
+      });
+      showToast(`OTP sent to ${email}`);
+    } else {
+      // If EmailJS isn't configured — dev mode, show OTP in console
+      console.log("DEV MODE OTP:", currentOtp);
+      showToast(`EmailJS not configured — check console for OTP (dev mode): ${currentOtp}`);
+    }
+    $("stepEmail").classList.add("hidden");
+    $("stepOtp").classList.remove("hidden");
+    $("otpInput").value = "";
+    $("otpError").textContent = "";
+  } catch (err) {
+    console.error(err);
+    $("emailError").textContent = "Failed to send OTP. Please check the EmailJS configuration.";
+  } finally {
+    $("sendOtpBtn").disabled = false;
+    $("sendOtpBtn").textContent = "Send OTP";
+  }
+}
+
+$("verifyOtpBtn").addEventListener("click", () => {
+  const entered = $("otpInput").value.trim();
+  if (entered.length !== 6) {
+    $("otpError").textContent = "Please enter the 6-digit OTP.";
+    return;
+  }
+  if (entered !== currentOtp) {
+    $("otpError").textContent = "Incorrect OTP, please try again.";
+    return;
+  }
+  isAdmin = true;
+  closeModal("adminLoginModal");
+  openModal("adminDashboardModal");
+  showToast("Successfully logged in as admin");
+});
+
+/* ============================================================
+   4) Admin — Add new ambulance
+   ============================================================ */
+let uploadedPhotoBase64 = "";
+$("ambPhoto").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    uploadedPhotoBase64 = reader.result;
+    $("photoPreview").src = uploadedPhotoBase64;
+    $("photoPreview").classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+});
+
+$("ambulanceForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msgEl = $("ambFormMsg");
+  msgEl.textContent = "";
+
+  const data = {
+    driver: $("ambDriver").value.trim(),
+    from: $("ambFrom").value.trim(),
+    to: $("ambTo").value.trim(),
+    basicPrice: Number($("ambBasicPrice").value),
+    advancedPrice: Number($("ambAdvancedPrice").value),
+    whatsapp: $("ambWhatsapp").value.trim().replace(/\D/g, ""),
+    phone: $("ambPhone").value.trim(),
+    photo: uploadedPhotoBase64 || "",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    await db.collection("ambulances").add(data);
+    msgEl.textContent = "✅ Ambulance added successfully.";
+    $("ambulanceForm").reset();
+    $("photoPreview").classList.add("hidden");
+    uploadedPhotoBase64 = "";
+  } catch (err) {
+    console.error(err);
+    msgEl.textContent = "❌ Failed to add — please check the Firebase configuration.";
+  }
+});
+
+function renderAdminList() {
+  const wrap = $("adminList");
+  if (allAmbulances.length === 0) {
+    wrap.innerHTML = `<p class="admin-empty">No ambulances added yet.</p>`;
+    return;
+  }
+  wrap.innerHTML = allAmbulances.map(amb => `
+    <div class="admin-row">
+      <img src="${amb.photo || 'https://placehold.co/80x80?text=🚑'}" alt="">
+      <div class="admin-row-info">
+        <b>${escapeHtml(amb.driver)} — ${escapeHtml(amb.from)} → ${escapeHtml(amb.to)}</b>
+        <span>Basic ₹${amb.basicPrice} · Advanced ₹${amb.advancedPrice} · 📞 ${escapeHtml(amb.phone)}</span>
+      </div>
+      <button class="del-btn" data-id="${amb.id}">Delete</button>
+    </div>
+  `).join("");
+
+  wrap.querySelectorAll(".del-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Do you want to delete this ambulance?")) return;
+      await db.collection("ambulances").doc(btn.dataset.id).delete();
+      showToast("Ambulance deleted");
+    });
+  });
+}
+
+/* ============================================================
+   5) Booking modal
+   ============================================================ */
+function openBookingModal(ambId) {
+  selectedAmbulance = allAmbulances.find(a => a.id === ambId);
+  if (!selectedAmbulance) return;
+
+  $("bookingAmbInfo").innerHTML =
+    `🚑 <b>${escapeHtml(selectedAmbulance.driver)}</b> — ${escapeHtml(selectedAmbulance.from)} → ${escapeHtml(selectedAmbulance.to)}`;
+  $("priceBasicTag").textContent = `₹${selectedAmbulance.basicPrice}`;
+  $("priceAdvancedTag").textContent = `₹${selectedAmbulance.advancedPrice}`;
+  document.querySelector('input[name="supportType"][value="basic"]').checked = true;
+  updateTotalPrice();
+  $("bookingForm").reset();
+  document.querySelector('input[name="supportType"][value="basic"]').checked = true;
+  $("bkDestination").value = $("destinationInput").value || "";
+  $("bookingMsg").textContent = "";
+  updateTotalPrice();
+  openModal("bookingModal");
+}
+
+document.querySelectorAll('input[name="supportType"]').forEach(el => {
+  el.addEventListener("change", updateTotalPrice);
+});
+function updateTotalPrice() {
+  if (!selectedAmbulance) return;
+  const type = document.querySelector('input[name="supportType"]:checked').value;
+  const price = type === "basic" ? selectedAmbulance.basicPrice : selectedAmbulance.advancedPrice;
+  $("totalPriceDisplay").textContent = `₹${price}`;
+}
+
+$("bookingForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!selectedAmbulance) return;
+
+  const type = document.querySelector('input[name="supportType"]:checked').value;
+  const price = type === "basic" ? selectedAmbulance.basicPrice : selectedAmbulance.advancedPrice;
+
+  const booking = {
+    ambulanceId: selectedAmbulance.id,
+    driver: selectedAmbulance.driver,
+    from: selectedAmbulance.from,
+    to: selectedAmbulance.to,
+    destination: $("bkDestination").value.trim(),
+    supportType: type,
+    price,
+    patientName: $("bkPatientName").value.trim(),
+    phone: $("bkPhone").value.trim(),
+    whatsapp: $("bkWhatsapp").value.trim(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    await db.collection("bookings").add(booking);
+    $("bookingMsg").textContent = "✅ Booking saved — opening WhatsApp...";
+
+    const message =
+      `🚑 New Ambulance Booking\n` +
+      `Patient Name: ${booking.patientName}\n` +
+      `Phone: ${booking.phone}\n` +
+      `Destination: ${booking.destination}\n` +
+      `Support: ${type === "basic" ? "Basic Life Support" : "Advanced Life Support"}\n` +
+      `Price: ₹${price}`;
+
+    const waLink = `https://wa.me/${selectedAmbulance.whatsapp}?text=${encodeURIComponent(message)}`;
+    setTimeout(() => {
+      window.open(waLink, "_blank");
+      closeModal("bookingModal");
+    }, 600);
+  } catch (err) {
+    console.error(err);
+    $("bookingMsg").textContent = "❌ Failed to save booking — please check the Firebase configuration.";
+  }
+});
+
+</script>
+</body>
+</html>

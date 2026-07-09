@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // 🗄️ Supabase Initialization (Instant Client Boot)
 // URL & key loaded from supabase-constants.js
 // ==========================================
@@ -797,9 +797,13 @@ function initAddMedicinePage() {
             if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
             if (draftBtn) { draftBtn.disabled = true; }
 
-            // Upload all images
+            // Upload all images (previously only imageUrls[0] was kept and the
+            // 2nd/3rd real photos the merchant uploaded were discarded, which is
+            // why the storefront showed 1 real photo + 3 duplicate demo photos)
             let imageUrls = await uploadAllMedicineImages();
             let mainImageUrl = imageUrls[0] || null;
+            let secondImageUrl = imageUrls[1] || null;
+            let thirdImageUrl = imageUrls[2] || null;
 
             let response;
             const rawId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id')) || localStorage.getItem('merchant_id');
@@ -833,6 +837,12 @@ function initAddMedicinePage() {
 
             if (mainImageUrl) {
                 medicineObject.image_url = mainImageUrl;
+            }
+            if (secondImageUrl) {
+                medicineObject.image_url_2 = secondImageUrl;
+            }
+            if (thirdImageUrl) {
+                medicineObject.image_url_3 = thirdImageUrl;
             }
 
             if (currentEditingId) { 
