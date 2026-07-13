@@ -809,6 +809,14 @@ function initAddMedicinePage() {
             const rawId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id')) || localStorage.getItem('merchant_id');
             const activeMerchantId = rawId ? parseInt(rawId) : null;
             
+            // prescription_req (text 'Yes'/'No') is the field the merchant form
+            // actually sets. is_rx (boolean) is what the admin table and the
+            // user-facing storefront read to decide OTC vs Rx. These used to be
+            // two disconnected columns — a merchant could pick "Yes (Rx Required)"
+            // here and it would still show as OTC everywhere else. Always derive
+            // is_rx from the same value so they can never go out of sync again.
+            const isRxBool = prescriptionReq === 'Yes';
+
             const medicineObject = {
                 merchant_id: activeMerchantId,
                 product_name: prodName,
@@ -818,6 +826,7 @@ function initAddMedicinePage() {
                 strength: strength,
                 manufacturer: manufacturer,
                 prescription_req: prescriptionReq,
+                is_rx: isRxBool,
                 description: productDescription,
                 mfd_date: mfdDate,
                 expiry_date: expiryDate,

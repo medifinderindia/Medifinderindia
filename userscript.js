@@ -585,23 +585,32 @@ async function setupHomePageModules() {
 
     if (supabase) {
         try {
-            const { data: dbProducts, error: dbError } = await supabase.from('partner_medicines').select('*').eq('approved', true);
+            // NOTE: this used to read from `partner_medicines` (a separate,
+            // disconnected table), which is why the storefront showed demo
+            // composition/ratings/etc. that never matched what a merchant
+            // actually uploaded. `medicines` is the real table merchants add
+            // to and admin approves — that is the single source of truth now.
+            const { data: dbProducts, error: dbError } = await supabase.from('medicines').select('*').eq('status', 'Approved');
             
             if (!dbError && dbProducts && dbProducts.length > 0) {
-                allProductNames = dbProducts.map(p => p.name);
+                allProductNames = dbProducts.map(p => p.name || p.product_name);
                 productsGrid.innerHTML = dbProducts.map(prod => {
-                    const sellingPrice = parseFloat(prod.price || prod.selling_price || prod.unit_price || 0);
+                    const sellingPrice = parseFloat(prod.selling_price || prod.unit_price || prod.price || 0);
                     const mrp = parseFloat(prod.mrp || 0);
                     const discount = mrp > sellingPrice && sellingPrice > 0 ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
-                    const rating = parseFloat(prod.rating || 4.5);
+                    const rating = parseFloat(prod.rating || 0);
                     const stock = parseInt(prod.stock_qty || prod.stock || 0);
                     const isOutOfStock = stock <= 0;
-                    const isRx = prod.is_rx === true || prod.is_rx === 'true';
+                    // prescription_req (merchant's actual choice) is the source of
+                    // truth; is_rx is kept in sync at write-time but we fall back
+                    // to it for any older row that predates that fix.
+                    const isRx = prod.prescription_req ? prod.prescription_req === 'Yes' : (prod.is_rx === true || prod.is_rx === 'true');
                     const freeDelivery = sellingPrice >= 499;
                     const img = prod.image_url || prod.img || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400';
-                    const categoryLabel = prod.category || 'Medicine';
+                    const categoryLabel = prod.category || prod.dosage_form || 'Medicine';
                     const categoryKey = normalizeCategoryKey(categoryLabel);
                     const manufacturer = prod.manufacturer || '';
+                    const productName = prod.name || prod.product_name || 'Unnamed';
                     
                     let badges = '';
                     if (isOutOfStock) {
@@ -626,14 +635,14 @@ async function setupHomePageModules() {
                     const disabledBtn = isOutOfStock ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
                     
                     return `
-                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${prod.name}" data-price="${sellingPrice}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry || '12/2029'}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-merchant-id="${prod.merchantId || prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}">
+                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}">
                         ${badges}
                         <div class="img-container">
-                            <img src="${img}" alt="${prod.name}" loading="lazy">
+                            <img src="${img}" alt="${productName}" loading="lazy">
                         </div>
                         <div class="prod-info">
                             <span class="prod-cat-label">${categoryLabel}</span>
-                            <h4>${prod.name}${rxTag}</h4>
+                            <h4>${productName}${rxTag}</h4>
                             ${manufacturer ? `<p style="font-size:0.7rem; color:#888; margin:2px 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${manufacturer}</p>` : ''}
                             <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
                                 <span style="background:#388e3c; color:#fff; padding:1px 5px; border-radius:3px; font-size:0.65rem; font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>
@@ -1121,6 +1130,7 @@ function navigateToProductDetail(data) {
         if (data.rating) params.set('rating', data.rating);
         if (data.desc) params.set('desc', data.desc);
         if (data.isRx || data['data-is-rx']) params.set('isRx', data.isRx || data['data-is-rx']);
+        if (data.prescriptionReq) params.set('prescriptionReq', data.prescriptionReq);
         if (data.category) params.set('category', data.category);
         if (data.stock) params.set('stock', data.stock);
         if (data.composition) params.set('composition', data.composition);
@@ -1484,7 +1494,7 @@ async function processFinalOrderPayload() {
         try {
             for (const item of currentCart) {
                 if (!item.id) continue;
-                const { data: med, error: medErr } = await supabase.from('medicines').select('stock_qty, product_name, status').eq('id', item.id).single();
+                const { data: med, error: medErr } = await supabase.from('medicines').select('stock_qty, product_name, status, is_rx, prescription_req').eq('id', item.id).single();
                 if (medErr || !med) {
                     showToast(`Product "${item.name}" not found in inventory.`, "error");
                     return;
@@ -1495,6 +1505,14 @@ async function processFinalOrderPayload() {
                 }
                 if (med.stock_qty < item.qty) {
                     showToast(`Insufficient stock for "${med.product_name}". Available: ${med.stock_qty}, requested: ${item.qty}.`, "error");
+                    return;
+                }
+                // Re-check the Rx requirement straight from the DB row — the
+                // client-side cart flag alone isn't trustworthy since it could
+                // be bypassed by editing localStorage.
+                const dbIsRx = med.prescription_req ? med.prescription_req === 'Yes' : (med.is_rx === true);
+                if (dbIsRx && !isPrescriptionUploaded) {
+                    showToast(`Order blocked! "${med.product_name}" requires a prescription upload.`, "error");
                     return;
                 }
             }
@@ -2300,9 +2318,10 @@ async function setupMapPageModules() {
                 try {
                     const nearbyIds = pharmacyDatabaseHub.map(s => s.id);
                     const { data: stockRows, error } = await supabase
-                        .from('partner_medicines')
-                        .select('merchant_id, name, stock_qty')
-                        .ilike('name', `%${token}%`);
+                        .from('medicines')
+                        .select('merchant_id, name, product_name, stock_qty, status')
+                        .eq('status', 'Approved')
+                        .or(`name.ilike.%${token}%,product_name.ilike.%${token}%`);
                     if (!error && stockRows) {
                         const inStockMerchantIds = new Set(
                             stockRows.filter(r => (r.stock_qty || 0) > 0).map(r => String(r.merchant_id))
@@ -2821,11 +2840,11 @@ async function loadSponsoredProducts() {
         if (linkedIds.length > 0) {
             try {
                 const { data: linkedProducts } = await supabase
-                    .from('partner_medicines')
-                    .select('id, image_url, img')
+                    .from('medicines')
+                    .select('id, image_url')
                     .in('id', linkedIds);
                 (linkedProducts || []).forEach(p => {
-                    productImageMap[p.id] = p.image_url || p.img || '';
+                    productImageMap[p.id] = p.image_url || '';
                 });
             } catch (e) { /* fall back to gradient/icon slides below */ }
         }

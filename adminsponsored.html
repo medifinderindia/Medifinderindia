@@ -262,16 +262,16 @@
             if (!id) { showToast('Paste a valid product link or ID first', 'error'); preview.style.display = 'none'; return; }
             if (!db) { showToast('Not connected to database', 'error'); return; }
             try {
-                const { data, error } = await db.from('partner_medicines').select('*').eq('id', id).single();
+                const { data, error } = await db.from('medicines').select('*').eq('id', id).single();
                 if (error || !data) { showToast('No product found for that link/ID', 'error'); preview.style.display = 'none'; return; }
-                const img = data.image_url || data.img || '';
+                const img = data.image_url || '';
                 document.getElementById('linkedProductImg').src = img;
-                document.getElementById('linkedProductName').textContent = data.name || 'Unnamed product';
-                document.getElementById('linkedProductMeta').textContent = '₹' + (data.price || data.selling_price || data.unit_price || '0') + (data.category ? ' · ' + data.category : '');
+                document.getElementById('linkedProductName').textContent = data.name || data.product_name || 'Unnamed product';
+                document.getElementById('linkedProductMeta').textContent = '₹' + (data.selling_price || data.unit_price || '0') + (data.category ? ' · ' + data.category : '');
                 preview.style.display = 'flex';
                 // Auto-fill title/subtitle only if the admin hasn't typed anything yet
-                if (!document.getElementById('spTitle').value) document.getElementById('spTitle').value = data.name || '';
-                if (!document.getElementById('spSubtitle').value && data.price) document.getElementById('spSubtitle').value = 'Now at ₹' + data.price;
+                if (!document.getElementById('spTitle').value) document.getElementById('spTitle').value = data.name || data.product_name || '';
+                if (!document.getElementById('spSubtitle').value && data.selling_price) document.getElementById('spSubtitle').value = 'Now at ₹' + data.selling_price;
                 // Normalize the link so the storefront can resolve the same product reliably
                 document.getElementById('spBtnAction').value = `product-detail.html?id=${id}`;
                 showToast('Product found — its real photo will show on the storefront banner', 'success');

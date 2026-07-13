@@ -151,8 +151,16 @@ function renderMedicinesTable() {
             discountPercent = Math.round(((medMrp - medPrice) / medMrp) * 100);
         }
 
+        // Trust prescription_req (the text the merchant actually chose) as the
+        // source of truth, and fall back to is_rx only for older rows that
+        // don't have prescription_req set. This keeps the badge correct even
+        // for rows created before is_rx/prescription_req were synced.
+        const medIsRx = med.prescription_req
+            ? med.prescription_req === 'Yes'
+            : (med.is_rx === true || med.is_rx === 'true');
+
         let statusBadgeClass = "status-hidden";
-        if (med.is_rx) statusBadgeClass = "status-active";
+        if (medIsRx) statusBadgeClass = "status-active";
 
         tableBody.innerHTML += `
             <tr>
@@ -164,7 +172,7 @@ function renderMedicinesTable() {
                 <td>₹${medMrp}</td>
                 <td><strong>₹${medPrice}</strong></td>
                 <td><span style="color:#10b981; font-weight:bold;">${discountPercent}% Off</span></td>
-                <td><span class="status-badge ${statusBadgeClass}">${med.is_rx ? 'Prescription' : 'OTC'}</span></td>
+                <td><span class="status-badge ${statusBadgeClass}">${medIsRx ? 'Prescription' : 'OTC'}</span></td>
                 <td>
                     <div style="display:flex; gap:6px;">
                         <button class="refund-btn" style="background:#10b981; padding: 6px 10px; font-size:13px;" onclick="approveMedicine('${esc(med.id)}')">
@@ -182,9 +190,19 @@ function renderMedicinesTable() {
 
 async function approveMedicine(id) {
     if (!supabaseClient) return;
+
+    // Self-heal is_rx from prescription_req at the moment of approval, so any
+    // product that slipped through with a mismatched flag gets corrected
+    // right before it goes live on the storefront.
+    const med = pendingMedicines.find(m => String(m.id) === String(id));
+    const updatePayload = { status: 'Approved' };
+    if (med && med.prescription_req) {
+        updatePayload.is_rx = med.prescription_req === 'Yes';
+    }
+
     const { error } = await supabaseClient
         .from('medicines')
-        .update({ status: 'Approved' })
+        .update(updatePayload)
         .eq('id', id);
 
     if (!error) {

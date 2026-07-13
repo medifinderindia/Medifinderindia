@@ -263,27 +263,23 @@ function listenToAvailableOrders() {
     if (!container) return;
     container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#999;"><i class="fas fa-inbox" style="font-size:3rem;margin-bottom:12px;display:block;color:#ddd;"></i><p style="font-size:0.9rem;font-weight:600;">No orders available</p><p style="font-size:0.78rem;">New delivery requests will appear here</p></div>`;
 
-    // ✅ NEW: পেজ লোড হওয়ার সাথে সাথেই বর্তমান pending অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
+    // ✅ পেজ লোড হওয়ার সাথে সাথেই বর্তমান broadcasted অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
     fetchPendingOrdersSnapshot();
 
     window._ordersChannel = supabaseClient
         .channel('public:orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-            if (payload.new && payload.new.status === 'pending' && !payload.new.rider_id) {
-                if (!isOnDuty) return;
-                if (!document.getElementById(`order-${payload.new.order_id}`)) {
-                    renderAvailableOrder(payload.new);
-                    fireNewOrderNotification(payload.new);
-                }
-            }
-        })
+        // ❌ FIX: আগে এখানে INSERT + status==='pending' শুনে সাথে সাথেই order দেখিয়ে দিত —
+        // মানে merchant broadcast করার আগেই rider order দেখে ফেলত। এই listener পুরোপুরি
+        // বাদ দেওয়া হলো। এখন order শুধু merchant broadcast করলেই (status → 'broadcasted')
+        // rider এর কাছে live আসবে, নিচের UPDATE listener দিয়ে।
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
             if (payload.new.status === 'broadcasted' && !payload.new.rider_id) {
                 if (!isOnDuty) return;
                 if (!document.getElementById(`order-${payload.new.order_id}`)) {
                     renderAvailableOrder(payload.new);
+                    fireNewOrderNotification(payload.new); // 🔴 merchant broadcast করার সাথে সাথেই notification
                 }
-            } else if (payload.new.status !== 'pending' && payload.new.status !== 'broadcasted') {
+            } else if (payload.new.status !== 'broadcasted') {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) card.remove();
                 checkIfOrdersEmpty();
@@ -579,7 +575,7 @@ async function fetchPendingOrdersSnapshot() {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
-            .in('status', ['pending', 'broadcasted']);
+            .eq('status', 'broadcasted'); // ✅ FIX: শুধু broadcasted, 'pending' না — merchant broadcast না করলে rider দেখবে না
         if (error) throw error;
         if (data && data.length > 0) {
             data.forEach(order => {
