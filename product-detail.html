@@ -468,7 +468,12 @@ let productLoadedFromDb = false;
 async function loadProductFromDb(){
   if (!product.id || !supabase || !supabase.from) return;
   try {
-    const { data: med, error } = await supabase.from('medicines').select('*').eq('id', product.id).maybeSingle();
+    // A hard timeout so a slow network / blocked RLS query can never leave
+    // the page stuck on the loading skeleton forever — it just falls back
+    // to whatever data came through the URL instead.
+    const fetchPromise = supabase.from('medicines').select('*').eq('id', product.id).maybeSingle();
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'timeout' }), 6000));
+    const { data: med, error } = await Promise.race([fetchPromise, timeoutPromise]);
     if (error || !med) return;
     productLoadedFromDb = true;
     product.id = med.id;
@@ -1118,23 +1123,10 @@ async function updateDeliveryEstimate(){
   }
 }
 
-function loadSimilarFromSupabase(){
-  if(!supabase || !supabase.from) return;
-  supabase.from('products').select('*').eq('category', product.category).limit(6).then(function(res){
-    if(res.data && res.data.length > 0){
-      const c = document.getElementById('similarScroll');
-      c.innerHTML = res.data.map(function(s){
-        return '<div class="similar-card">' +
-          '<img src="' + (s.image_url || s.img || SAMPLE_IMAGES[0]) + '" alt="' + s.name + '">' +
-          '<div class="name">' + s.name + '</div>' +
-          '<div class="rating-sm">' + generateStars(s.rating || 4.0) + ' ' + (s.rating || 4.0) + '</div>' +
-          '<div class="price">Rs.' + (s.price || 0).toFixed(2) + '</div>' +
-          '<button class="add-btn" onclick="addSimilarToCart(\'' + s.name.replace(/'/g,"") + '\',' + (s.price||0) + ')">Add to Cart</button>' +
-        '</div>';
-      }).join('');
-    }
-  }).catch(function(){});
-}
+// (loadSimilarFromSupabase removed — replaced by renderSimilar() above,
+// which correctly queries the real `medicines` table. The old version
+// queried a `products` table that doesn't exist and would have silently
+// no-op'd or, worse, raced with renderSimilar() and overwritten it.)
 
 function setupFeedbackStars(){
   const stars = document.querySelectorAll('#feedbackStars i');
@@ -1167,17 +1159,22 @@ function submitFeedback(){
   }
 }
 
-document.addEventListener('DOMContentLoaded', async function(){
+document.addEventListener('DOMContentLoaded', function(){
   parseParams();
   updateCartBadge();
-  await loadProductFromDb();
   document.getElementById('skeleton').style.display = 'none';
   document.getElementById('mainContent').style.display = 'block';
   renderProduct();
-  loadSimilarFromSupabase();
   setupSwipeCarousel();
   setupFeedbackStars();
   detectLocation();
+
+  // Fetch the authoritative row from the DB in the background (with its own
+  // 6s timeout, see loadProductFromDb) and re-render once it arrives. The
+  // page is shown immediately either way — it never waits on this.
+  loadProductFromDb().then(function(){
+    if (productLoadedFromDb) renderProduct();
+  });
 });
 </script>
 </body>
