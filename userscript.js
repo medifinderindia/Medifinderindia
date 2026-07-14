@@ -1543,8 +1543,19 @@ async function processFinalOrderPayload() {
 
     let currentUserId = '';
     if (supabase) {
-        try { currentUserId = (await supabase.auth.getUser()).data?.user?.id || ''; } catch(e) {
-            showToast("User session fetch failed. Order will be placed anonymously.", "info");
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            currentUserId = userData?.user?.id || '';
+            if (!currentUserId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                currentUserId = session?.user?.id || '';
+            }
+        } catch(e) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                currentUserId = session?.user?.id || '';
+            } catch(e2) {}
+            if (!currentUserId) showToast("User session fetch failed. Order will be placed anonymously.", "info");
         }
     }
 
@@ -1729,7 +1740,7 @@ async function setupOrdersPageModules() {
             if (session?.user) {
                 const { data: dbOrders } = await supabase.from('orders')
                     .select('*')
-                    .or(`user_id.eq.${session.user.id},customer_phone.eq.${session.user.phone || ''}`)
+                    .or(`user_id.eq.${session.user.id},customer_phone.eq.${session.user.phone || ''},user_email.eq.${session.user.email || ''}`)
                     .order('created_at', { ascending: false })
                     .limit(20);
                 if (dbOrders && dbOrders.length > 0) {
