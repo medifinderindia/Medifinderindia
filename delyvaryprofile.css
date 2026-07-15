@@ -533,3 +533,12 @@ input[type="text"]:focus, select:focus {
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Header gradient (matches Home/Earning/Delivery)  */
+/* ============================================================ */
+.navbar {
+    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+}
+.logo-text { color: #ffffff !important; }
+.text-highlight { color: #ffe8e8 !important; }

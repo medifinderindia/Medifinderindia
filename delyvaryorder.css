@@ -798,3 +798,13 @@ body {
         padding: 20px;
     }
 }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Header gradient (matches Home/Earning pages)     */
+/* ============================================================ */
+.main-header {
+    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+}
+.logo-title { color: #ffffff !important; }
+.red-accent { color: #ffe8e8 !important; }
+.sub-tag { color: rgba(255,255,255,0.75) !important; }

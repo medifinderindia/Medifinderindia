@@ -45,6 +45,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (session && session.user) {
             localStorage.setItem("isLoggedIn", "true");
             localStorage.setItem("userEmail", session.user.email);
+
+            // ✅ NEW: Google দিয়ে লগইন করলে Google প্রোফাইল পিকচার অটোমেটিক অ্যাভাটার হিসেবে বসবে —
+            // তবে rider যদি আগে থেকেই নিজের কাস্টম অ্যাভাটার আপলোড/সেট করে থাকে (riders.avatar_url বা
+            // localStorage rider_avatar), সেটা এখানে ওভাররাইট হবে না — শুধু প্রথমবার/ফাঁকা থাকলেই বসবে।
+            await autoApplyGoogleAvatar(session.user);
         }
     } catch (secErr) {
 
@@ -58,6 +63,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ✅ NEW: On Duty / Off Duty সুইচ UI সিঙ্ক করা (হোম ও অর্ডার পেজে)
     initDutyToggleUI();
+
+    // ✅ NEW FIX: লগইন/পেজ লোড হওয়ার সাথে সাথেই riders টেবিলে duty_status DB তে সিঙ্ক করা।
+    // আগে duty_status শুধু ম্যানুয়ালি টগল বাটনে ক্লিক করলেই DB তে সেভ হতো, তাই লগইন করার পরও
+    // অ্যাডমিন প্যানেলের "Online Riders" কাউন্ট ০ দেখাচ্ছিল যতক্ষণ না রাইডার নিজে বাটনে ক্লিক করছিল।
+    syncDutyStatusOnPageLoad();
+    startDutyHeartbeat();
 
     // Bottom nav active state
     initBottomNav();
@@ -86,6 +97,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.getElementById("avatarDisplayImage").src = savedAvatar;
         } else {
             document.getElementById("avatarDisplayImage").src = "https://cdn-icons-png.flaticon.com/512/149/149071.png"; 
+        }
+    }
+
+    // ✅ NEW: হোম পেজের হেডারে প্রোফাইল অ্যাভাটার লোড করা
+    if (document.getElementById("headerAvatarImg")) {
+        const savedHeaderAvatar = localStorage.getItem("rider_avatar");
+        if (savedHeaderAvatar) {
+            document.getElementById("headerAvatarImg").src = savedHeaderAvatar;
         }
     }
     
@@ -275,7 +294,7 @@ function listenToAvailableOrders() {
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
             if (payload.new.status === 'broadcasted' && !payload.new.rider_id) {
                 if (!isOnDuty) return;
-                if (!document.getElementById(`order-${payload.new.order_id}`)) {
+                if (!document.getElementById(`order-${payload.new.order_id}`) && !isOrderRejectedByMe(payload.new.order_id)) {
                     renderAvailableOrder(payload.new);
                     fireNewOrderNotification(payload.new); // 🔴 merchant broadcast করার সাথে সাথেই notification
                 }
@@ -337,10 +356,28 @@ function renderAvailableOrder(order) {
                 </div>
             </div>
             <div class="card-footer">
+                <button class="btn-reject" onclick="rejectOrder('${order.order_id}')">Reject</button>
                 <button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>
             </div>
         </div>`;
     container.insertAdjacentHTML('beforeend', cardHtml);
+}
+
+// ✅ NEW: এই সেশনে যে অর্ডারগুলো এই রাইডার রিজেক্ট করেছে সেগুলো মনে রাখা হয়,
+// যাতে broadcast/snapshot আবার লোড হলেও সেগুলো আবার স্ক্রিনে ফিরে না আসে।
+// (অন্য রাইডাররা তবুও এই অর্ডারটা দেখতে ও গ্রহণ করতে পারবে — শুধু এই রাইডারের ভিউ থেকে সরানো হচ্ছে)
+window._rejectedOrderIds = window._rejectedOrderIds || new Set();
+
+function isOrderRejectedByMe(orderId) {
+    return window._rejectedOrderIds.has(String(orderId));
+}
+
+function rejectOrder(orderId) {
+    window._rejectedOrderIds.add(String(orderId));
+    const card = document.getElementById(`order-${orderId}`);
+    if (card) card.remove();
+    checkIfOrdersEmpty();
+    showToast("Order dismissed from your list.", "info");
 }
 
 function checkIfOrdersEmpty() {
@@ -566,6 +603,74 @@ async function toggleDutyStatus() {
     }
 }
 
+// ==========================================
+// ✅ NEW BLOCK: Duty-status DB sync (fixes admin dashboard "Online Riders" showing 0)
+// ==========================================
+
+// পেজ লোড হওয়ার সাথে সাথেই বর্তমান isOnDuty অবস্থাটা riders টেবিলে লিখে দেওয়া হয়,
+// যাতে রাইডার লগইন করা মাত্রই অ্যাডমিন প্যানেলে সে অনলাইন হিসেবে দেখা যায় —
+// আগে শুধু ম্যানুয়াল টগল ক্লিকেই এটা DB তে যেত।
+async function syncDutyStatusOnPageLoad() {
+    if (!supabaseClient) return;
+    try {
+        const currentRiderEmail = localStorage.getItem('userEmail');
+        if (!currentRiderEmail) return;
+        await supabaseClient
+            .from('riders')
+            .update({
+                duty_status: isOnDuty ? 'online' : 'offline',
+                last_active_at: new Date().toISOString()
+            })
+            .eq('email', currentRiderEmail);
+    } catch (err) {
+        // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই
+    }
+}
+
+// প্রতি ৬০ সেকেন্ডে "heartbeat" পাঠানো হয় (শুধু duty অন থাকলে), যাতে অ্যাডমিন প্যানেল
+// বুঝতে পারে রাইডার এখনও সত্যিকারের অ্যাক্টিভ আছে কিনা (ট্যাব বন্ধ/ক্র্যাশ হলে stale হয়ে যাবে)।
+function startDutyHeartbeat() {
+    if (window._dutyHeartbeatInterval) clearInterval(window._dutyHeartbeatInterval);
+    window._dutyHeartbeatInterval = setInterval(async () => {
+        if (!supabaseClient || !isOnDuty) return;
+        try {
+            const currentRiderEmail = localStorage.getItem('userEmail');
+            if (!currentRiderEmail) return;
+            await supabaseClient
+                .from('riders')
+                .update({ duty_status: 'online', last_active_at: new Date().toISOString() })
+                .eq('email', currentRiderEmail);
+        } catch (err) {
+            // silent
+        }
+    }, 60000);
+}
+
+// ব্রাউজার ট্যাব/অ্যাপ বন্ধ হওয়ার সময় (রাইডার ম্যানুয়ালি অফ-ডিউটি না করলেও) best-effort
+// ভাবে duty_status = offline সেট করার চেষ্টা করা হয়, যাতে অ্যাডমিন প্যানেল real-time মিথ্যা
+// "online" না দেখায়। fetch keepalive ব্যবহার করা হচ্ছে কারণ unload এর সময় সাধারণ async কল
+// শেষ হওয়ার আগেই ব্রাউজার ট্যাব বন্ধ করে দিতে পারে।
+window.addEventListener("pagehide", () => {
+    try {
+        const currentRiderEmail = localStorage.getItem('userEmail');
+        if (!currentRiderEmail || typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
+        const url = `${SUPABASE_URL}/rest/v1/riders?email=eq.${encodeURIComponent(currentRiderEmail)}`;
+        fetch(url, {
+            method: "PATCH",
+            keepalive: true,
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_KEY,
+                "Authorization": `Bearer ${SUPABASE_KEY}`,
+                "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ duty_status: "offline" })
+        });
+    } catch (err) {
+        // silent — best effort only
+    }
+});
+
 async function fetchPendingOrdersSnapshot() {
     if (!supabaseClient) return;
     if (!isOnDuty) return;
@@ -579,7 +684,7 @@ async function fetchPendingOrdersSnapshot() {
         if (error) throw error;
         if (data && data.length > 0) {
             data.forEach(order => {
-                if (!document.getElementById(`order-${order.order_id}`)) {
+                if (!document.getElementById(`order-${order.order_id}`) && !isOrderRejectedByMe(order.order_id)) {
                     renderAvailableOrder(order);
                 }
             });
@@ -798,10 +903,16 @@ async function loadEarningsFromDB() {
             .order('created_at', { ascending: false });
         if (walletEntries && walletEntries.length > 0) {
             const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
             const todayEarnings = walletEntries
                 .filter(e => new Date(e.created_at).toDateString() === today)
                 .reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
+            // ✅ NEW: গতকালের আয়ও হিসাব করা হলো, যাতে "vs yesterday" ট্রেন্ড ব্যাজটা আসল ডাটা দেখাতে পারে
+            const yesterdayEarnings = walletEntries
+                .filter(e => new Date(e.created_at).toDateString() === yesterday)
+                .reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
             localStorage.setItem('today_earnings', todayEarnings.toString());
+            localStorage.setItem('yesterday_earnings', yesterdayEarnings.toString());
             localStorage.setItem('completed_history', JSON.stringify(walletEntries.slice(0, 20).map(e => ({
                 amount: e.amount_earned,
                 date: new Date(e.created_at).toLocaleDateString('en-GB'),
@@ -859,6 +970,31 @@ function updateGraphTrend() {
         if (alertStatus) alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> Payout Processed`;
         const trendGraph = document.getElementById("trendGraphContainer");
         if (trendGraph) trendGraph.className = "graph-box trend-down";
+    } else {
+        // ✅ NEW: আগে এখানে কিছুই হতো না, তাই "+12.4% vs yesterday" টেক্সটটা সবসময় হার্ডকোড
+        // হয়েই থাকতো, আসল ডাটার সাথে কোনো সম্পর্ক ছিল না। এখন আজ বনাম গতকালের real
+        // earnings তুলনা করে ব্যাজ ও গ্রাফের up/down স্টেট আপডেট হবে।
+        const todayVal = parseFloat(localStorage.getItem('today_earnings')) || 0;
+        const yesterdayVal = parseFloat(localStorage.getItem('yesterday_earnings')) || 0;
+        const alertStatus = document.querySelector(".trend-alert-status");
+        const trendGraph = document.getElementById("trendGraphContainer");
+        if (alertStatus && trendGraph) {
+            if (yesterdayVal <= 0 && todayVal <= 0) {
+                alertStatus.innerHTML = `<i class="fa-solid fa-minus"></i> No data yet`;
+                trendGraph.className = "graph-box trend-up";
+            } else if (yesterdayVal <= 0) {
+                alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> New earnings today`;
+                trendGraph.className = "graph-box trend-up";
+            } else {
+                const pctChange = ((todayVal - yesterdayVal) / yesterdayVal) * 100;
+                const isUp = pctChange >= 0;
+                trendGraph.className = isUp ? "graph-box trend-up" : "graph-box trend-down";
+                alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-${isUp ? 'up' : 'down'}"></i> ${isUp ? '+' : ''}${pctChange.toFixed(1)}% vs yesterday`;
+                if (svgPath) {
+                    svgPath.setAttribute("d", isUp ? "M0,22 Q15,8 35,18 T75,5 T100,2" : "M0,10 Q15,15 35,12 T75,22 T100,26");
+                }
+            }
+        }
     }
 }
 
@@ -960,6 +1096,37 @@ function processAvatarUpdate(event) {
     }
 }
 
+// ✅ NEW: Google OAuth দিয়ে লগইন করলে Google প্রোফাইল পিকচারটা রাইডারের অ্যাভাটার হিসেবে
+// অটোমেটিক বসিয়ে দেওয়া হয় — কিন্তু শুধু তখনই, যখন rider এখনো কোনো কাস্টম অ্যাভাটার
+// সেট করেনি (riders.avatar_url খালি)। এরপর rider চাইলে profile পেজ থেকে নিজে বদলে নিতে পারবে।
+async function autoApplyGoogleAvatar(user) {
+    if (!supabaseClient || !user) return;
+    try {
+        const googlePic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+        if (!googlePic) return;
+
+        // যদি ইতিমধ্যে localStorage এ কোনো অ্যাভাটার সেভ করা থাকে, সেটাকে অগ্রাধিকার দেওয়া হবে
+        if (localStorage.getItem("rider_avatar")) return;
+
+        const { data: existingRider } = await supabaseClient
+            .from('riders')
+            .select('avatar_url')
+            .eq('email', user.email)
+            .maybeSingle();
+
+        // rider যদি আগে থেকেই কাস্টম অ্যাভাটার সেট করে থাকে, সেটা ওভাররাইট করা হবে না
+        if (existingRider && existingRider.avatar_url) {
+            localStorage.setItem("rider_avatar", existingRider.avatar_url);
+            return;
+        }
+
+        localStorage.setItem("rider_avatar", googlePic);
+        await supabaseClient.from('riders').upsert({ email: user.email, avatar_url: googlePic }, { onConflict: 'email' });
+    } catch (err) {
+        // silent — avatar auto-fill is a nice-to-have, not critical
+    }
+}
+
 async function saveRiderProfileToDatabase() {
     if (!supabaseClient) return;
     let currentRiderEmail = localStorage.getItem('userEmail');
@@ -1002,8 +1169,27 @@ function verifyAndSubmitFinancials() {
     }
     
     saveRiderProfileToDatabase();
+
+    // ✅ NEW: ব্যাংক ডিটেইলস সাবমিট করার সাথে সাথেই "Pending Review" স্টেটে সেট করা হলো,
+    // যাতে Vehicle/License এর মতোই Bank & Payment ও Unverified → Pending → Verified ফ্লো অনুসরণ করে।
+    markBankDetailsPendingReview();
+
     showToast("Financial configurations saved!", "success");
     closeSubPage('payoutConfigPage'); 
+}
+
+async function markBankDetailsPendingReview() {
+    if (!supabaseClient) return;
+    try {
+        const currentRiderEmail = localStorage.getItem('userEmail');
+        if (!currentRiderEmail) return;
+        await supabaseClient
+            .from('riders')
+            .update({ bank_verified: false, bank_rejection_reason: '' })
+            .eq('email', currentRiderEmail);
+    } catch (err) {
+        // silent — non-critical status flag
+    }
 }
 
 function setAppLanguage(lang) {
@@ -1358,6 +1544,33 @@ async function loadCurrentRiderProfileStatus() {
                 document.getElementById("licenseStatusTag").innerText = "Unverified";
                 document.getElementById("licenseStatusTag").style.background = "#e2e8f0";
                 document.getElementById("licenseStatusTag").style.color = "#64748b";
+            }
+        }
+
+        // ✅ NEW: Bank & Payment স্ট্যাটাস ট্যাগ — আগে এটা কখনো আপডেট হতো না, সবসময়
+        // "Unverified" আটকে থাকতো। এখন Vehicle/License এর মতোই Unverified → Pending →
+        // Verified/Rejected ফ্লো ফলো করবে।
+        if (document.getElementById("payoutVerificationTag")) {
+            const bankHasData = !!(riderProfile.bank_account || riderProfile.upi_id);
+            const bankVerified = riderProfile.bank_verified;
+            const bankRejectReason = riderProfile.bank_rejection_reason || "";
+            const payoutTag = document.getElementById("payoutVerificationTag");
+            if (bankVerified === true) {
+                payoutTag.innerText = "Verified";
+                payoutTag.style.background = "#dcfce7";
+                payoutTag.style.color = "#16a34a";
+            } else if (bankRejectReason) {
+                payoutTag.innerText = "Rejected: " + bankRejectReason;
+                payoutTag.style.background = "#fee2e2";
+                payoutTag.style.color = "#dc2626";
+            } else if (bankHasData) {
+                payoutTag.innerText = "Pending Review";
+                payoutTag.style.background = "#fef3c7";
+                payoutTag.style.color = "#d97706";
+            } else {
+                payoutTag.innerText = "Unverified";
+                payoutTag.style.background = "#fee2e2";
+                payoutTag.style.color = "#ef4444";
             }
         }
 

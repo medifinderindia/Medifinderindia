@@ -378,3 +378,12 @@ body {
         padding: 10px 8px;
     }
 }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Header gradient (matches Home/Delivery pages)   */
+/* ============================================================ */
+.navbar {
+    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+}
+.logo-text { color: #ffffff !important; }
+.text-highlight { color: #ffe8e8 !important; }

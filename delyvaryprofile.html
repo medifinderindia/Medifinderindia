@@ -98,7 +98,7 @@
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
-                    <div class="menu-item-button" onclick="openSubPage('privacyPage')">
+                    <div class="menu-item-button" onclick="window.location.href='dboyt&amp;c.html'">
                         <div class="menu-item-left">
                             <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
                             <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
@@ -106,7 +106,7 @@
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
-                    <div class="menu-item-button" onclick="openSubPage('termsPage')">
+                    <div class="menu-item-button" onclick="window.location.href='dboyt&amp;c.html'">
                         <div class="menu-item-left">
                             <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
                             <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
@@ -201,9 +201,57 @@
             </div>
         </div>
     </div>
+
+    <!-- ✅ NEW: App Language (আগে এই div-ই ছিল না, তাই বাটনে ক্লিক করলে কিছুই হতো না) -->
+    <div id="languagePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>App Language</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium" style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('en')">🇬🇧 <span>English</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('bn')">🅱️ <span>বাংলা (Bengali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('hi')">🕉️ <span>हिंदी (Hindi)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ne')">🏔️ <span>नेपाली (Nepali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('sat')">🌾 <span>ᱥᱟᱱᱛᱟᱲᱤ (Santali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ur')">🕌 <span>اردو (Urdu)</span></button>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;">
+                    English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে,
+                    কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ যোগ করতে প্রতিটা পেজে সেই ভাষার লাইন বসাতে হবে —
+                    সেটা চাইলে পরের ধাপে করে দেব।
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Support Desk (আগে এই div-ও ছিল না) -->
+    <div id="supportPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Support Desk</h3>
+            </div>
+            <div class="sub-page-body" style="display:flex; flex-direction:column; gap:12px;">
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block;" href="tel:+919593625498">
+                    <i class="fa-solid fa-phone"></i> Call Support (Update this number)
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#25D366;" href="https://wa.me/919382262825" target="_blank">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Chat (Update this number)
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#0284c7;" href="medifinderindia@gmail.com">
+                    <i class="fa-solid fa-envelope"></i> Email Support (Update this address)
+                </a>
+                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
+                    
+                </p>
+            </div>
+        </div>
+    </div>
     
-    <!-- Language, Support, Privacy, Terms Pages content remain here... -->
-    <!-- (Added placeholders for these to ensure structure is maintained) -->
+    <!-- Terms & Privacy both open dboyt&c.html directly (real page, no popup needed) -->
 
     <script src="prod-utils.js?v=13"></script>
     <script src="delyvaryscript.js?v=13"></script>
