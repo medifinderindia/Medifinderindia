@@ -27,13 +27,13 @@ if (roleRadioButtons && dynamicPolicyLink) {
             const selectedRole = e.target.value;
             if (selectedRole === 'merchant') {
                 dynamicPolicyLink.textContent = "Merchant Policy";
-                dynamicPolicyLink.href = "merchant-policy.html";
+                dynamicPolicyLink.href = "marchentt_c.html";
             } else if (selectedRole === 'delivery') {
                 dynamicPolicyLink.textContent = "Delivery Partner Policy";
-                dynamicPolicyLink.href = "delivery-policy.html";
+                dynamicPolicyLink.href = "dboyt_c.html";
             } else {
                 dynamicPolicyLink.textContent = "User Policy";
-                dynamicPolicyLink.href = "user-policy.html";
+                dynamicPolicyLink.href = "usert_c.html";
             }
         });
     });
@@ -64,7 +64,11 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const isSignupPage = path.includes("signup.html") || path.endsWith("/signup");
 
     if (session && event === 'SIGNED_IN') {
-        await handleOAuthUserRoleUpdate(session.user);
+        try {
+            await handleOAuthUserRoleUpdate(session.user);
+        } catch (e) {
+            return; // role mismatch হলে already sign-out + toast হয়ে গেছে, এখানেই থামো
+        }
 
         if (event === "PASSWORD_RECOVERY") {
             const newPassword = await new Promise(resolve => {
@@ -127,18 +131,63 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
 });
 
 let _roleUpdateInProgress = false;
-let _lastRoleUpdated = '';
+
+// ✅ FIXED: এখন আর existing account এর role জোর করে ওভাররাইট করবে না।
+// প্রথমবার (নতুন ইউজার) হলে role সেট হবে, কিন্তু আগে থেকে profiles টেবিলে
+// role থাকলে সেটাই আসল/সত্য (source of truth) — mismatch হলে সাইন-আউট করে দেওয়া হবে।
 async function handleOAuthUserRoleUpdate(user) {
-    const savedRole = localStorage.getItem('selected_role');
-    if (!savedRole || _roleUpdateInProgress) return;
-    if (user.user_metadata?.role === savedRole || _lastRoleUpdated === savedRole) return;
+    if (_roleUpdateInProgress) return;
+    const savedRole = localStorage.getItem('selected_role') || 'user';
     _roleUpdateInProgress = true;
     try {
-        _lastRoleUpdated = savedRole;
-        await supabaseClient.auth.updateUser({ data: { role: savedRole } });
-    } catch(e) { 
+        const { data: existingProfile } = await supabaseClient
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
 
-        _lastRoleUpdated = '';
+        const actualRole = existingProfile?.role;
+
+        if (actualRole) {
+            // এই একাউন্ট আগে থেকেই একটা নির্দিষ্ট role এ registered
+            if (actualRole !== savedRole) {
+                await supabaseClient.auth.signOut();
+                showToast(`এই একাউন্টটি ইতিমধ্যে "${actualRole}" হিসেবে রেজিস্টার করা আছে। দয়া করে "${actualRole}" রোল সিলেক্ট করে লগইন করুন।`, "error");
+                localStorage.removeItem('selected_role');
+                throw new Error('role_mismatch');
+            }
+            return; // role মিলে গেছে, কিছু পাল্টানোর দরকার নেই
+        }
+
+        // একদম নতুন ইউজার — প্রথমবার role সেট করা হচ্ছে
+        await supabaseClient.auth.updateUser({ data: { role: savedRole } });
+        await supabaseClient.from('profiles').upsert({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            role: savedRole,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+        if (savedRole === 'merchant') {
+            await supabaseClient.from('merchants').upsert({
+                auth_user_id: user.id,
+                merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
+                email: user.email || '',
+                status: 'active'
+            }, { onConflict: 'auth_user_id' });
+        }
+        if (savedRole === 'delivery') {
+            await supabaseClient.from('riders').upsert({
+                auth_user_id: user.id,
+                name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
+                status: 'offline'
+            }, { onConflict: 'auth_user_id' });
+        }
+    } catch (e) {
+        _roleUpdateInProgress = false;
+        throw e; // caller (onAuthStateChange) কে জানিয়ে দাও যে blocked হয়েছে
     }
     _roleUpdateInProgress = false;
 }
@@ -461,46 +510,73 @@ if (loginForm) {
                 loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
             }
         } else {
-            // Login successful - update profile role if needed
+            // ✅ FIXED: আগে আসল role চেক করো, তারপর upsert/redirect করো
+            const user = data.user;
             try {
-                const user = data.user;
-                if (user) {
-                    await supabaseClient.from('profiles').upsert({
-                        id: user.id,
-                        email: user.email || email,
-                        phone: user.phone || '',
-                        role: role,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'id', ignoreDuplicates: false });
+                const { data: existingProfile } = await supabaseClient
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .maybeSingle();
 
-                    if (role === 'merchant') {
-                        await supabaseClient.from('merchants').upsert({
-                            auth_user_id: user.id,
-                            merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
-                            email: user.email || email,
-                            status: 'active',
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'auth_user_id' });
+                const actualRole = existingProfile?.role;
+
+                if (actualRole && actualRole !== role) {
+                    // ভুল রোল সিলেক্ট করে লগইন করার চেষ্টা — ব্লক করো
+                    await supabaseClient.auth.signOut();
+                    showToast(`এই একাউন্টটি "${actualRole}" হিসেবে রেজিস্টার করা। দয়া করে "${actualRole}" রোল সিলেক্ট করে আবার লগইন করুন।`, "error");
+                    if (loginBtn) {
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
                     }
-                    if (role === 'delivery') {
-                        await supabaseClient.from('riders').upsert({
-                            auth_user_id: user.id,
-                            name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
-                            email: user.email || email,
-                            status: 'offline',
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'auth_user_id' });
-                    }
+                    return;
                 }
-            } catch(e) {}
 
-            // Redirect based on role
-            if (role === 'merchant') {
-                window.location.href = 'marchenthome.html';
-            } else if (role === 'delivery') {
-                window.location.href = 'delyvaryhome.html';
-            } else {
-                window.location.href = 'userhome.html';
+                const finalRole = actualRole || role;
+
+                await supabaseClient.from('profiles').upsert({
+                    id: user.id,
+                    email: user.email || email,
+                    phone: user.phone || '',
+                    role: finalRole,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id', ignoreDuplicates: false });
+
+                if (!actualRole && finalRole === 'merchant') {
+                    await supabaseClient.from('merchants').upsert({
+                        auth_user_id: user.id,
+                        merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
+                        email: user.email || email,
+                        status: 'active',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'auth_user_id' });
+                }
+                if (!actualRole && finalRole === 'delivery') {
+                    await supabaseClient.from('riders').upsert({
+                        auth_user_id: user.id,
+                        name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
+                        email: user.email || email,
+                        status: 'offline',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'auth_user_id' });
+                }
+
+                localStorage.setItem('selected_role', finalRole);
+
+                // Redirect based on the ACTUAL (verified) role
+                if (finalRole === 'merchant') {
+                    window.location.href = 'marchenthome.html';
+                } else if (finalRole === 'delivery') {
+                    window.location.href = 'delyvaryhome.html';
+                } else {
+                    window.location.href = 'userhome.html';
+                }
+            } catch (e) {
+                showToast("Login error while verifying role. Please try again.", "error");
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
+                }
             }
         }
     });
@@ -642,60 +718,72 @@ if (verifyOtpBtn) {
             verifyOtpBtn.disabled = false;
             verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
         } else {
-            // OTP Verified - create/update profile and redirect
+            // ✅ FIXED: OTP Verified — আগে আসল role চেক করো, তারপর upsert/redirect
+            const user = data.user;
             try {
-                const user = data.user;
-                if (user) {
-                    // Upsert profile
-                    await supabaseClient.from('profiles').upsert({
-                        id: user.id,
+                const { data: existingProfile } = await supabaseClient
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                const actualRole = existingProfile?.role;
+
+                if (actualRole && actualRole !== role) {
+                    await supabaseClient.auth.signOut();
+                    showToast(`এই নাম্বারটি "${actualRole}" হিসেবে রেজিস্টার করা। দয়া করে "${actualRole}" রোল সিলেক্ট করে আবার লগইন করুন।`, "error");
+                    verifyOtpBtn.disabled = false;
+                    verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
+                    return;
+                }
+
+                const finalRole = actualRole || role;
+
+                await supabaseClient.from('profiles').upsert({
+                    id: user.id,
+                    email: user.email || '',
+                    phone: formattedPhone,
+                    full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                    role: finalRole,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+                if (!actualRole && finalRole === 'merchant') {
+                    await supabaseClient.from('merchants').upsert({
+                        auth_user_id: user.id,
+                        merchant_name: user.user_metadata?.full_name || 'New Merchant',
                         email: user.email || '',
                         phone: formattedPhone,
-                        full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-                        role: role,
+                        status: 'active',
                         updated_at: new Date().toISOString()
-                    }, { onConflict: 'id' });
+                    }, { onConflict: 'auth_user_id' });
+                }
+                if (!actualRole && finalRole === 'delivery') {
+                    await supabaseClient.from('riders').upsert({
+                        auth_user_id: user.id,
+                        name: user.user_metadata?.full_name || 'New Rider',
+                        phone: formattedPhone,
+                        status: 'offline',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'auth_user_id' });
+                }
 
-                    // If merchant, upsert merchant record
-                    if (role === 'merchant') {
-                        await supabaseClient.from('merchants').upsert({
-                            auth_user_id: user.id,
-                            merchant_name: user.user_metadata?.full_name || 'New Merchant',
-                            email: user.email || '',
-                            phone: formattedPhone,
-                            status: 'active',
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'auth_user_id' });
-                    }
+                localStorage.setItem('selected_role', finalRole);
+                localStorage.setItem('userPhone', formattedPhone);
 
-                    // If delivery, upsert rider record
-                    if (role === 'delivery') {
-                        await supabaseClient.from('riders').upsert({
-                            auth_user_id: user.id,
-                            name: user.user_metadata?.full_name || 'New Rider',
-                            phone: formattedPhone,
-                            status: 'offline',
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'auth_user_id' });
-                    }
+                verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verified!';
+
+                if (finalRole === 'merchant') {
+                    window.location.href = 'marchenthome.html';
+                } else if (finalRole === 'delivery') {
+                    window.location.href = 'delyvaryhome.html';
+                } else {
+                    window.location.href = 'userhome.html';
                 }
             } catch (profileErr) {
-
-            }
-
-            // Store role and redirect
-            localStorage.setItem('selected_role', role);
-            localStorage.setItem('userPhone', formattedPhone);
-            
-            verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verified!';
-
-            // Redirect based on role
-            if (role === 'merchant') {
-                window.location.href = 'marchenthome.html';
-            } else if (role === 'delivery') {
-                window.location.href = 'delyvaryhome.html';
-            } else {
-                window.location.href = 'userhome.html';
+                showToast("Login error while verifying role. Please try again.", "error");
+                verifyOtpBtn.disabled = false;
+                verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
             }
         }
     });
