@@ -27,13 +27,13 @@ if (roleRadioButtons && dynamicPolicyLink) {
             const selectedRole = e.target.value;
             if (selectedRole === 'merchant') {
                 dynamicPolicyLink.textContent = "Merchant Policy";
-                dynamicPolicyLink.href = "marchentt_c.html";
+                dynamicPolicyLink.href = "marchentt&c.html";
             } else if (selectedRole === 'delivery') {
                 dynamicPolicyLink.textContent = "Delivery Partner Policy";
-                dynamicPolicyLink.href = "dboyt_c.html";
+                dynamicPolicyLink.href = "dboyt&c.html";
             } else {
                 dynamicPolicyLink.textContent = "User Policy";
-                dynamicPolicyLink.href = "usert_c.html";
+                dynamicPolicyLink.href = "usert&c.html";
             }
         });
     });
@@ -504,7 +504,28 @@ if (loginForm) {
         });
 
         if (error) {
-            showToast("Login Failed! Reason: " + error.message, "error");
+            // ✅ FIXED: email ভুল নাকি password ভুল সেটা আলাদা করে দেখানো হচ্ছে
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showToast("Please enter a valid email id!", "error");
+            } else {
+                let emailExists = null;
+                try {
+                    const { data: existsData } = await supabaseClient.rpc('check_email_exists', { p_email: email.trim().toLowerCase() });
+                    emailExists = existsData;
+                } catch (rpcErr) {
+                    emailExists = null; // RPC না থাকলে/ফেইল করলে নিচের fallback ব্যবহার হবে
+                }
+
+                if (emailExists === false) {
+                    showToast("Please enter correct email id!", "error");
+                } else if (emailExists === true) {
+                    showToast("Incorrect password! Please try again.", "error");
+                } else {
+                    // RPC না থাকলে Supabase-এর generic মেসেজ দেখাও
+                    showToast("Login Failed! Reason: " + error.message, "error");
+                }
+            }
             if (loginBtn) {
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';

@@ -3,10 +3,10 @@
 // Vercel-ready: skips all cross-origin, no CSP violations
 // ==========================================
 
-const CACHE_VERSION = 'medi-finder-v7';
-const STATIC_CACHE = 'medi-static-v7';
-const DYNAMIC_CACHE = 'medi-dynamic-v7';
-const IMAGE_CACHE = 'medi-images-v7';
+const CACHE_VERSION = 'medi-finder-v8';
+const STATIC_CACHE = 'medi-static-v8';
+const DYNAMIC_CACHE = 'medi-dynamic-v8';
+const IMAGE_CACHE = 'medi-images-v8';
 
 const PRECACHE_URLS = [
     '/',
@@ -72,9 +72,9 @@ const PRECACHE_URLS = [
     '/adminmarchent.css',
     '/admindboy.css',
     '/style.css',
-    '/user-policy.html',
-    '/merchant-policy.html',
-    '/delivery-policy.html',
+    '/usert_c.html',
+    '/marchentt_c.html',
+    '/dboyt_c.html',
     '/manifest.json',
     '/favicon.png'
 ];
