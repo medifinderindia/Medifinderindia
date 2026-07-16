@@ -11,13 +11,84 @@ let systemNotifications = [];
 let adminOffers = [];
 
 let currentUserEmail = '';
+let currentAuthUserId = '';   // Supabase auth UUID, set once session resolves — used by the notification system
 let selectedPaymentMethod = "COD";
 let isPincodeVerified = false;
 let verifiedAddress = localStorage.getItem('medi_verified_address') || "";
 let discountAmount = 0;
 let isPrescriptionUploaded = localStorage.getItem('medi_presc_uploaded_status') === 'true' || false;
+let activePrescription = JSON.parse(localStorage.getItem('medi_active_prescription') || 'null'); // {fileName, url, date} of the currently active upload
 
-// Shared Rx (prescription-required) gate — used everywhere a user tries to
+// Shows exactly one of the three prescription-widget states (default / uploading / uploaded)
+// and keeps it correct across page loads by reading the persisted activePrescription record.
+function renderPrescriptionWidgetState() {
+    const defaultState = document.getElementById('presc-default-state');
+    const progressState = document.getElementById('presc-progress-state');
+    const uploadedState = document.getElementById('presc-uploaded-state');
+    if (!defaultState && !uploadedState) return; // widget not on this page
+
+    if (activePrescription && activePrescription.url) {
+        if (defaultState) defaultState.style.display = 'none';
+        if (progressState) progressState.style.display = 'none';
+        if (uploadedState) uploadedState.style.display = 'flex';
+        const nameEl = document.getElementById('presc-uploaded-filename');
+        if (nameEl) nameEl.innerText = activePrescription.fileName || 'Prescription';
+    } else {
+        if (defaultState) defaultState.style.display = 'flex';
+        if (progressState) progressState.style.display = 'none';
+        if (uploadedState) uploadedState.style.display = 'none';
+    }
+}
+
+function showPrescriptionProgressState() {
+    const defaultState = document.getElementById('presc-default-state');
+    const progressState = document.getElementById('presc-progress-state');
+    const uploadedState = document.getElementById('presc-uploaded-state');
+    if (defaultState) defaultState.style.display = 'none';
+    if (uploadedState) uploadedState.style.display = 'none';
+    if (progressState) progressState.style.display = 'flex';
+    const bar = document.getElementById('presc-progress-bar');
+    if (bar) bar.style.width = '0%';
+}
+
+// The Supabase JS storage.upload() call doesn't expose byte-level progress,
+// so this animates toward ~90% while the real upload is in flight and snaps
+// to 100% only once it actually resolves — an honest "still working" cue
+// rather than a fake instant bar.
+function animatePrescriptionProgress() {
+    const bar = document.getElementById('presc-progress-bar');
+    if (!bar) return () => {};
+    let pct = 0;
+    const timer = setInterval(() => {
+        pct = Math.min(90, pct + Math.random() * 12);
+        bar.style.width = pct + '%';
+    }, 250);
+    return () => { clearInterval(timer); bar.style.width = '100%'; };
+}
+
+window.deleteActivePrescription = function() {
+    showConfirmationModal("Delete this prescription? You'll need to re-upload it for Rx orders.", async () => {
+        const toDelete = activePrescription;
+        activePrescription = null;
+        isPrescriptionUploaded = false;
+        localStorage.removeItem('medi_active_prescription');
+        localStorage.setItem('medi_presc_uploaded_status', 'false');
+        renderPrescriptionWidgetState();
+
+        if (supabase && toDelete && toDelete.storagePath) {
+            try { await supabase.storage.from('media').remove([toDelete.storagePath]); } catch (e) {}
+        }
+        // Also drop the matching entry from the archived "My Prescription Box" list
+        if (toDelete && toDelete.url) {
+            let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
+            myBox = myBox.filter(p => p.url !== toDelete.url);
+            localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
+        }
+        showToast("Prescription deleted.", "info");
+    });
+};
+
+
 // add/buy an Rx medicine without a verified prescription on file.
 function blockForMissingPrescription() {
     const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
@@ -187,10 +258,7 @@ const languageMatrix = {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    const prescBadge = document.getElementById('uploaded-presc-badge');
-    if (prescBadge && isPrescriptionUploaded) {
-        prescBadge.style.display = 'block';
-    }
+    renderPrescriptionWidgetState();
 
     detectLiveUserGPSCoordinates();
     autoFillSavedUserDataOnAuth();
@@ -422,6 +490,7 @@ async function autoFillSavedUserDataOnAuth() {
             const { data: { session } } = await supabase.auth.getSession();
             if (session && session.user) {
                 currentUserEmail = session.user.email || '';
+                currentAuthUserId = session.user.id || '';
                 const userEmail = session.user.email;
 
                 // Show UID from supabase auth
@@ -490,40 +559,126 @@ function setupGlobalCloseButtonListeners() {
     });
 }
 
+// Resolves the logged-in user's Supabase auth UUID, waiting on the session
+// if autoFillSavedUserDataOnAuth hasn't populated currentAuthUserId yet.
+async function getCurrentAuthUserId() {
+    if (currentAuthUserId) return currentAuthUserId;
+    if (!supabase) return '';
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+            currentAuthUserId = session.user.id;
+            return currentAuthUserId;
+        }
+    } catch (e) {}
+    return '';
+}
+
+// Call this from anywhere (order placed, cancelled, prescription approved,
+// coin/coupon added, etc.) to create a real, persistent notification row.
+// Pass userId = null for an admin broadcast that every user sees.
+async function pushUserNotification(userId, type, title, message, orderId) {
+    if (!supabase) return;
+    try {
+        await supabase.from('notifications').insert([{
+            user_id: userId || null,
+            type: type || 'general',
+            title: title || 'MediFinder',
+            message: message || '',
+            order_id: orderId || null
+        }]);
+    } catch (e) {}
+}
+
+function timeAgoLabel(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins + ' min' + (mins > 1 ? 's' : '') + ' ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + ' hour' + (hrs > 1 ? 's' : '') + ' ago';
+    const days = Math.floor(hrs / 24);
+    return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+}
+
+function renderNotificationDropdown(notiDropdown) {
+    const body = notiDropdown.querySelector('.dropdown-body');
+    if (!body) return;
+
+    if (systemNotifications.length === 0) {
+        body.innerHTML = `<div class="noti-empty"><i class="fa-solid fa-bell-slash"></i><p>No Notifications Yet</p></div>`;
+        return;
+    }
+
+    body.innerHTML = systemNotifications.map(n => `
+        <div class="noti-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}">
+            <button class="noti-delete-btn" onclick="deleteUserNotification('${n.id}', event)"><i class="fa-solid fa-xmark"></i></button>
+            <p><strong>${n.title || ''}</strong><br>${n.message || ''}</p>
+            <span>${timeAgoLabel(n.created_at)}</span>
+        </div>
+    `).join('');
+}
+
+window.deleteUserNotification = async function(id, event) {
+    if (event) event.stopPropagation();
+    systemNotifications = systemNotifications.filter(n => n.id !== id);
+    const notiDropdown = document.getElementById('notiDropdown');
+    if (notiDropdown) renderNotificationDropdown(notiDropdown);
+    if (supabase) {
+        try { await supabase.from('notifications').delete().eq('id', id); } catch (e) {}
+    }
+};
+
 async function setupGlobalNotificationHub() {
     const notiBtn = document.getElementById('notiBtn');
     const notiDropdown = document.getElementById('notiDropdown');
     const badge = document.getElementById('noti-badge');
 
-    if (supabase) {
+    async function refreshNotifications() {
+        if (!supabase) return;
+        const uid = await getCurrentAuthUserId();
         try {
-            const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(5);
+            let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
+            query = uid ? query.or(`user_id.eq.${uid},user_id.is.null`) : query.is('user_id', null);
+            const { data, error } = await query;
             if (!error && data) systemNotifications = data;
         } catch (e) {}
+
+        const unreadCount = systemNotifications.filter(n => !n.is_read).length;
+        if (badge) {
+            if (unreadCount === 0) { badge.style.display = 'none'; badge.innerText = '0'; }
+            else { badge.innerText = unreadCount > 99 ? '99+' : unreadCount; badge.style.display = 'flex'; }
+        }
     }
 
-    if (systemNotifications.length === 0) {
-        if (badge) { badge.style.display = 'none'; badge.innerText = '0'; }
-    } else {
-        if (badge) { badge.innerText = systemNotifications.length; badge.style.display = 'flex'; }
-    }
+    await refreshNotifications();
 
     if (notiBtn && notiDropdown) {
-        notiBtn.addEventListener('click', (e) => {
+        notiBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
+            const opening = !notiDropdown.classList.contains('active');
             notiDropdown.classList.toggle('active');
-            
-            const body = notiDropdown.querySelector('.dropdown-body');
-            if (body) {
-                body.innerHTML = systemNotifications.map(n => `
-                    <div class="noti-item unread">
-                        <p>${n.text || n.message}</p>
-                        <span>${n.time || new Date(n.created_at).toLocaleTimeString()}</span>
-                    </div>
-                `).join('');
+            renderNotificationDropdown(notiDropdown);
+
+            if (opening && systemNotifications.some(n => !n.is_read)) {
+                const unreadIds = systemNotifications.filter(n => !n.is_read).map(n => n.id);
+                systemNotifications = systemNotifications.map(n => ({ ...n, is_read: true }));
+                if (badge) { badge.style.display = 'none'; badge.innerText = '0'; }
+                if (supabase && unreadIds.length) {
+                    try { await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds); } catch (e) {}
+                }
             }
         });
         document.addEventListener('click', () => notiDropdown.classList.remove('active'));
+
+        // Live updates without a refresh, if realtime is enabled on the table
+        if (supabase) {
+            supabase.channel('user-notifications-feed')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+                    refreshNotifications();
+                })
+                .subscribe();
+        }
     }
 }
 
@@ -535,21 +690,23 @@ async function setupHomePageModules() {
 
     // Normalizes whatever text the merchant picked for "dosage form / category"
     // (e.g. "Tablets", "SYRUP", "Baby Care Kit") down to the exact lowercase
-    // keys used by the category filter chips: syrup, tablet, lotion, baby,
-    // others, food. This is what makes clicking a category chip actually
+    // keys used by the category filter chips: tablet, capsule, syrup, insulin,
+    // baby, food, others. This is what makes clicking a category chip actually
     // filter the live database products (previously it silently matched
     // nothing because casing/labels never lined up).
     function normalizeCategoryKey(raw) {
         const c = String(raw || '').toLowerCase().trim();
         if (!c) return 'others';
+        if (c.includes('insulin')) return 'insulin';
+        if (c.includes('capsule')) return 'capsule';
         if (c.includes('syrup')) return 'syrup';
-        if (c.includes('tablet') || c.includes('capsule') || c.includes('pill')) return 'tablet';
-        if (c.includes('lotion') || c.includes('cream') || c.includes('ointment') || c.includes('gel')) return 'lotion';
+        if (c.includes('tablet') || c.includes('pill')) return 'tablet';
         if (c.includes('baby') || c.includes('infant') || c.includes('diaper')) return 'baby';
         if (c.includes('food') || c.includes('drink') || c.includes('supplement') || c.includes('nutrition') || c.includes('horlicks')) return 'food';
         return 'others';
     }
     window.normalizeCategoryKey = normalizeCategoryKey;
+
 
     const productsGrid = document.getElementById('main-products-grid');
     if (!productsGrid) return;
@@ -866,60 +1023,97 @@ async function setupHomePageModules() {
     // ============================================================
     // PRESCRIPTION UPLOAD
     // ============================================================
+    async function handlePrescriptionFile(file) {
+        if (!file) return;
+        const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+        const isImage = file.type.startsWith('image/');
+        if (!isPdf && !isImage) {
+            showToast("Please upload an image (JPG/PNG) or a PDF file.", "error");
+            return;
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const uniqueFileName = `${Date.now()}_prescription.${fileExt}`;
+        const storagePath = `live_slips/${uniqueFileName}`;
+        let uploadedPrescriptionUrl = '';
+
+        showPrescriptionProgressState();
+        const finishProgress = animatePrescriptionProgress();
+
+        if (supabase) {
+            const { data, error } = await supabase.storage.from('media').upload(storagePath, file);
+            finishProgress();
+            if (error) {
+                showToast("Upload failed: " + error.message, "error");
+                renderPrescriptionWidgetState();
+                return;
+            }
+            const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+            uploadedPrescriptionUrl = urlData.publicUrl;
+
+            activePrescription = { fileName: file.name, url: uploadedPrescriptionUrl, storagePath, date: new Date().toLocaleDateString('en-GB') };
+            localStorage.setItem('medi_active_prescription', JSON.stringify(activePrescription));
+
+            // Save prescription record for My Box (archive of every upload, kept even after delete/replace)
+            let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
+            myBox.push({
+                id: 'PRESC-' + Date.now(),
+                fileName: file.name,
+                url: uploadedPrescriptionUrl,
+                date: new Date().toLocaleDateString('en-GB'),
+                thumb: isImage ? URL.createObjectURL(file) : ''
+            });
+            localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
+        } else {
+            finishProgress();
+        }
+
+        showToast("Verifying prescription with AI...", "info");
+        const aiResult = isImage ? await analyzePrescriptionWithGemini(file) : { status: "SUCCESS", medicines: [] };
+
+        if (aiResult.status === "FAILED") {
+            showToast(`Prescription failed: ${aiResult.reason}`, "error");
+            isPrescriptionUploaded = false;
+            localStorage.setItem('medi_presc_uploaded_status', 'false');
+            activePrescription = null;
+            localStorage.removeItem('medi_active_prescription');
+            renderPrescriptionWidgetState();
+            return;
+        }
+
+        isPrescriptionUploaded = true;
+        localStorage.setItem('medi_presc_uploaded_status', 'true');
+        renderPrescriptionWidgetState();
+
+        showToast("Prescription uploaded successfully!", "success");
+        if (aiResult.medicines && aiResult.medicines.length > 0) {
+            openPrescriptionSelectionPopup(aiResult.medicines, uploadedPrescriptionUrl);
+        }
+    }
+
     const prescInput = document.getElementById('presc-file-input');
     if (prescInput) {
-        prescInput.addEventListener('change', async (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                const fileExt = file.name.split('.').pop();
-                const uniqueFileName = `${Date.now()}_prescription.${fileExt}`;
-                let uploadedPrescriptionUrl = '';
-
-                showToast("Uploading prescription to cloud...", "info");
-                
-                if (supabase) {
-                    const { data, error } = await supabase.storage
-                        .from('media')
-                        .upload(`live_slips/${uniqueFileName}`, file);
-                    if (error) { showToast("Upload failed: " + error.message, "error"); return; }
-                    const { data: urlData } = supabase.storage.from('media').getPublicUrl(`live_slips/${uniqueFileName}`);
-                    uploadedPrescriptionUrl = urlData.publicUrl;
-                    
-                    // Save prescription record for My Box
-                    let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
-                    myBox.push({
-                        id: 'PRESC-' + Date.now(),
-                        fileName: file.name,
-                        url: urlData.publicUrl,
-                        date: new Date().toLocaleDateString('en-GB'),
-                        thumb: URL.createObjectURL(file)
-                    });
-                    localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
-
-                }
-
-                showToast("Verifying prescription with AI...", "info");
-                const aiResult = await analyzePrescriptionWithGemini(file);
-                
-                if (aiResult.status === "FAILED") {
-                    showToast(`Prescription failed: ${aiResult.reason}`, "error");
-                    isPrescriptionUploaded = false;
-                    localStorage.setItem('medi_presc_uploaded_status', 'false');
-                    const prescBadge = document.getElementById('uploaded-presc-badge');
-                    if (prescBadge) prescBadge.style.display = 'none';
-                    e.target.value = "";
-                    return;
-                }
-
-                isPrescriptionUploaded = true;
-                localStorage.setItem('medi_presc_uploaded_status', 'true');
-                const prescBadge = document.getElementById('uploaded-presc-badge');
-                if (prescBadge) prescBadge.style.display = 'block';
-
-                showToast("Prescription scanned successfully! Medicines found.", "success");
-                openPrescriptionSelectionPopup(aiResult.medicines, uploadedPrescriptionUrl);
-            }
+        prescInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handlePrescriptionFile(e.target.files[0]);
+            e.target.value = "";
         });
+    }
+    const prescCameraInput = document.getElementById('presc-camera-input');
+    if (prescCameraInput) {
+        prescCameraInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handlePrescriptionFile(e.target.files[0]);
+            e.target.value = "";
+        });
+    }
+    const prescViewBtn = document.getElementById('presc-view-btn');
+    if (prescViewBtn) {
+        prescViewBtn.addEventListener('click', () => {
+            if (activePrescription && activePrescription.url) window.open(activePrescription.url, '_blank');
+        });
+    }
+    const prescDeleteBtn = document.getElementById('presc-delete-btn');
+    if (prescDeleteBtn) {
+        prescDeleteBtn.addEventListener('click', () => window.deleteActivePrescription());
     }
 
     if (productsGrid) {
@@ -1593,6 +1787,7 @@ async function processFinalOrderPayload() {
         try {
             const { data: insertedOrder, error } = await supabase.from('orders').insert([orderPayload]).select().single();
             if (!error && insertedOrder) {
+                pushUserNotification(currentUserId, 'order_placed', 'Order Placed', `Your order ${orderId} has been placed successfully.`, orderId);
                 const orderItemsPayload = currentCart.map(item => ({
                     order_id: orderId,
                     product_name: item.name,
@@ -1927,6 +2122,8 @@ window.handleCancelOrderFlow = function(orderId, pipelineStatus) {
                     status: 'Pending'
                 }]);
                 if (cancelInsertErr) showToast('Cancelled-order record save error: ' + (cancelInsertErr.message || cancelInsertErr), 'error');
+                const cancelUid = await getCurrentAuthUserId();
+                pushUserNotification(cancelUid, 'cancelled', 'Order Cancelled', `Your order ${orderId} has been cancelled.`, orderId);
             } catch (e) {
                 showToast('Cancellation sync error: ' + (e.message || e), 'error');
             }
@@ -2876,15 +3073,36 @@ async function loadSponsoredProducts() {
                 div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
             }
 
+            const isLinkedToProduct = !!linkedId;
+            if (isLinkedToProduct) div.style.cursor = 'pointer';
+
             div.innerHTML = `
                 <div class="slide-content">
                     <span class="slide-tag">${item.tag || 'SPONSORED'}</span>
                     <h3>${item.title}</h3>
                     <p>${item.subtitle}</p>
-                    ${item.btn_text ? `<button class="slide-btn" ${item.btn_action ? `onclick="window.location.href='${item.btn_action}'"` : ''}>${item.btn_text} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+                    ${item.btn_text ? `<button class="slide-btn" data-btn-action="${(item.btn_action || '').replace(/"/g, '&quot;')}">${item.btn_text} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
                 </div>
                 ${productImg ? '' : `<div class="slide-icon"><i class="${item.icon_class || 'fa-solid fa-capsules'}"></i></div>`}
             `;
+
+            // Whatever page path a merchant/admin typed into btn_action, a slot that's
+            // actually linked to a real product (btn_action contains ?id=...) must always
+            // land on the real Product Details page with that ID — previously it trusted
+            // the raw stored path verbatim, so a slot could open the wrong page entirely.
+            if (isLinkedToProduct) {
+                const goToProduct = (e) => {
+                    e.stopPropagation();
+                    window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
+                };
+                div.addEventListener('click', goToProduct);
+                div.querySelector('.slide-btn')?.addEventListener('click', goToProduct);
+            } else {
+                div.querySelector('.slide-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (item.btn_action) window.location.href = item.btn_action;
+                });
+            }
             slider.appendChild(div);
         });
     } catch (e) {

@@ -73,6 +73,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Bottom nav active state
     initBottomNav();
 
+    // ✅ NEW: হোম পেজ থেকে "Verify License" popup এর মাধ্যমে রিডাইরেক্ট হলে সরাসরি License সেকশন খুলে যাবে
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('open') === 'license' && typeof openSubPage === 'function') {
+            setTimeout(() => openSubPage('licensePage'), 200);
+        }
+    } catch(e) {}
+
     // ✅ NEW: ব্রাউজার ব্যাকগ্রাউন্ডে থাকলেও নতুন অর্ডার নোটিফিকেশনের জন্য পারমিশন রিকোয়েস্ট
     requestBrowserNotificationPermission();
 
@@ -124,8 +132,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const n = payload.new;
                 const myId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
                 if (n.rider_id && String(n.rider_id) !== String(myId)) return;
+
+                // ✅ Badge count বাড়ানো, ১০ এর বেশি হলে "10+" দেখানো
                 const badge = document.getElementById('noti-badge');
-                if (badge) { const c = parseInt(badge.textContent) || 0; badge.textContent = c + 1; badge.style.display = 'inline-flex'; }
+                if (badge) {
+                    const current = badge.style.display === 'none' ? 0 : (parseInt(badge.textContent) || 0);
+                    const next = current + 1;
+                    badge.textContent = next > 10 ? '10+' : String(next);
+                    badge.style.display = 'inline-flex';
+                }
+
+                // ✅ Dropdown খোলা থাকলেও instant নতুন notification card উপরে বসবে, রিফ্রেশ লাগবে না
+                const dropdownBody = document.getElementById('noti-dropdown-body');
+                if (dropdownBody) {
+                    const placeholder = dropdownBody.querySelector('p.noti-item');
+                    if (placeholder) dropdownBody.innerHTML = '';
+                    const itemHtml = `<div class="noti-item unread" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
+                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
+                        <p>${escapeHtml(n.message) || ''}</p>
+                        <span>Just now</span>
+                    </div>`;
+                    dropdownBody.insertAdjacentHTML('afterbegin', itemHtml);
+                }
+
                 showToast(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`, 'info');
             })
             .subscribe();
@@ -146,12 +175,15 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 
 async function initBaseTrackingMap() {
     const sessionOrder = localStorage.getItem("active_delivery_order");
-    
+
     let centerLat = 22.5726, centerLon = 88.3639; // fallback — real coords set by GPS
+    let gotGps = false;
     try {
         const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 }));
         centerLat = pos.coords.latitude;
         centerLon = pos.coords.longitude;
+        cachedRiderPosition = { lat: centerLat, lon: centerLon };
+        gotGps = true;
     } catch(e) {}
 
     if (sessionOrder) {
@@ -160,21 +192,38 @@ async function initBaseTrackingMap() {
         const pLon = activeOrderData.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
         const uLat = activeOrderData.user_lat || 22.5850;
         const uLon = activeOrderData.user_lon || 88.4000;
-        centerLat = (pLat + uLat) / 2;
-        centerLon = (pLon + uLon) / 2;
-        
+
+        // ✅ FIX: rider এর আসল GPS পাওয়া গেলে ম্যাপ সেন্টার তাঁর নিজের অবস্থানেই থাকবে,
+        // না পেলে pharmacy/customer এর মাঝামাঝি fallback
+        if (!gotGps) {
+            centerLat = (pLat + uLat) / 2;
+            centerLon = (pLon + uLon) / 2;
+        }
+
         const paymentVal = document.getElementById("paymentStatusValue");
         if (paymentVal) {
             paymentVal.innerText = activeOrderData.payment_status ? activeOrderData.payment_status.toUpperCase() : "ONLINE PAID";
         }
 
         updateMapVehiclePill(activeOrderData.vehicle_type || 'bike');
+    } else {
+        // ✅ কোনো active order না থাকলে distance সবসময় 0 KM দেখাবে
+        const distEl = document.getElementById("distanceLeftValue");
+        const etaEl = document.getElementById("etaValue");
+        if (distEl) distEl.innerText = "0 km";
+        if (etaEl) etaEl.innerText = "--";
     }
 
-    map = L.map('zomatoRealMap').setView([centerLat, centerLon], 12);
+    map = L.map('zomatoRealMap').setView([centerLat, centerLon], sessionOrder ? 12 : 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
         attribution: 'MediFinder Express Tracking' 
     }).addTo(map);
+
+    // ✅ FIX: rider marker এখন থেকে সবসময় আসল GPS position এ বসবে (আগে ফেক midpoint এ বসতো,
+    // যা পরে লাইভ GPS marker এর সাথে দুইটা আলাদা marker দেখাতো)
+    if (gotGps) {
+        updateLiveRiderMarkerOnMap(centerLat, centerLon);
+    }
 
     if (sessionOrder) {
         renderMapMarkers(activeOrderData);
@@ -182,6 +231,7 @@ async function initBaseTrackingMap() {
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "1";
         }
+        updateLiveDistanceAndETA(); // ✅ প্রথমবার লোড হওয়ার সাথে সাথেই distance/ETA বসিয়ে দেওয়া
         // Listen for order status changes in real-time
         listenToOrderUpdates(activeOrderData.order_id);
     } else {
@@ -199,6 +249,60 @@ async function initBaseTrackingMap() {
         }
         const paymentVal = document.getElementById("paymentStatusValue");
         if (paymentVal) paymentVal.innerText = "N/A";
+    }
+}
+
+// ✅ NEW: "My Location" ফ্লোটিং বাটন — GPS পারমিশন নিয়ে instant নিজের অবস্থানে zoom করবে
+function focusMyLocationOnMap() {
+    if (!map || !navigator.geolocation) return;
+    const btn = document.getElementById("myLocationBtn");
+    if (btn) btn.classList.add("locating");
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            cachedRiderPosition = { lat, lon };
+            map.setView([lat, lon], 16, { animate: true });
+            updateLiveRiderMarkerOnMap(lat, lon);
+            if (btn) btn.classList.remove("locating");
+        },
+        (err) => {
+            showToast("Could not get your location: " + (err.message || err), "error");
+            if (btn) btn.classList.remove("locating");
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+    );
+}
+
+// ✅ NEW: rider এর বর্তমান GPS অনুযায়ী distance ও ETA লাইভ আপডেট করা
+// order accept করার আগে pharmacy কে টার্গেট ধরে, picked_up/out_for_delivery হলে customer কে টার্গেট ধরে
+function updateLiveDistanceAndETA() {
+    const distEl = document.getElementById("distanceLeftValue");
+    const etaEl = document.getElementById("etaValue");
+    if (!distEl) return;
+
+    if (!activeOrderData || !cachedRiderPosition) {
+        distEl.innerText = "0 km";
+        if (etaEl) etaEl.innerText = "--";
+        return;
+    }
+
+    const status = activeOrderData.status || 'accepted';
+    let targetLat, targetLon;
+    if (status === 'picked_up' || status === 'out_for_delivery') {
+        targetLat = activeOrderData.user_lat || 22.5850;
+        targetLon = activeOrderData.user_lon || 88.4000;
+    } else {
+        targetLat = activeOrderData.pharmacy_lat || 22.5726;
+        targetLon = activeOrderData.pharmacy_lon || 88.3639;
+    }
+
+    const dist = haversineKm(cachedRiderPosition.lat, cachedRiderPosition.lon, targetLat, targetLon);
+    distEl.innerText = `${dist} km`;
+
+    if (etaEl) {
+        // গড় ২৫ কিমি/ঘন্টা স্পিড ধরে সাধারণ ETA হিসাব (bike delivery)
+        const etaMinutes = Math.max(1, Math.round((dist / 25) * 60));
+        etaEl.innerText = `${etaMinutes} min`;
     }
 }
 
@@ -230,18 +334,17 @@ function renderMapMarkers(order) {
     const pLon = order.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
     const uLat = order.user_lat || 22.5850;
     const uLon = order.user_lon || 88.4000;
-    const rLat = (pLat + uLat) / 2;
-    const rLon = (pLon + uLon) / 2;
 
     const shopIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/4320/4320355.png', iconSize: [35, 35] });
-    const riderIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972185.png', iconSize: [40, 40] });
     const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1216/1216844.png', iconSize: [35, 35] });
 
     L.marker([pLat, pLon], {icon: shopIcon}).addTo(map).bindPopup(`<b>${order.pharmacy_name || 'Pharmacy'}</b>`);
-    L.marker([rLat, rLon], {icon: riderIcon}).addTo(map).bindPopup(`<b>You (Rider)</b>`);
     L.marker([uLat, uLon], {icon: userIcon}).addTo(map).bindPopup(`<b>${order.user_name || 'Customer'}</b>`);
 
-    L.polyline([[pLat, pLon], [rLat, rLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
+    // ✅ FIX: আগে এখানে একটা ফেক "You (Rider)" marker মাঝামাঝি বসানো হতো, যেটা আসল লাইভ GPS
+    // marker এর সাথে ডুপ্লিকেট হয়ে যেত। এখন rider marker শুধু updateLiveRiderMarkerOnMap()
+    // থেকেই বসে — real GPS position থেকে।
+    L.polyline([[pLat, pLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
 }
 
 // ==========================================
@@ -269,6 +372,38 @@ function listenToOrderUpdates(orderId) {
         .subscribe();
 }
 
+// ✅ NEW: Zomato/Swiggy স্টাইল skeleton loader — orders fetch হওয়ার আগ পর্যন্ত
+// "No orders" ফ্ল্যাশ না দেখিয়ে একটা shimmer placeholder দেখাবে, ফলে পেজটা স্মুথ মনে হবে
+function renderOrdersSkeleton(container) {
+    if (!container) return;
+    let skeletons = '';
+    for (let i = 0; i < 3; i++) {
+        skeletons += `
+        <div class="order-card skeleton-card">
+            <div class="skeleton-row">
+                <div class="skeleton-line w-30"></div>
+                <div class="skeleton-line w-40" style="margin-left:auto;"></div>
+            </div>
+            <div class="skeleton-row">
+                <div class="skeleton-circle"></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+                    <div class="skeleton-line w-60"></div>
+                    <div class="skeleton-line w-40"></div>
+                </div>
+            </div>
+            <div class="skeleton-row">
+                <div class="skeleton-line w-80"></div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = skeletons;
+}
+
+function clearOrdersSkeleton(container) {
+    if (!container) return;
+    container.querySelectorAll('.skeleton-card').forEach(el => el.remove());
+}
+
 function listenToAvailableOrders() {
     if (!supabaseClient) return;
     if (window._ordersChannel) {
@@ -280,7 +415,10 @@ function listenToAvailableOrders() {
     }, () => {}, { timeout: 5000, maximumAge: 60000 });
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#999;"><i class="fas fa-inbox" style="font-size:3rem;margin-bottom:12px;display:block;color:#ddd;"></i><p style="font-size:0.9rem;font-weight:600;">No orders available</p><p style="font-size:0.78rem;">New delivery requests will appear here</p></div>`;
+
+    // ✅ FIX: আগে সরাসরি "No orders available" দেখাতো, যেটা ১ মুহূর্ত পরে data এলে flash/flicker করতো।
+    // এখন shimmer skeleton দেখাবে যতক্ষণ না আসল data লোড হয়।
+    renderOrdersSkeleton(container);
 
     // ✅ পেজ লোড হওয়ার সাথে সাথেই বর্তমান broadcasted অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
     fetchPendingOrdersSnapshot();
@@ -315,6 +453,7 @@ function listenToAvailableOrders() {
 function renderAvailableOrder(order) {
     const container = document.getElementById("ordersContainer");
     if (!container) return;
+    clearOrdersSkeleton(container); // ✅ realtime অর্ডার আসলে shimmer থাকলে সেটাও সরিয়ে দাও
     const emptyState = container.querySelector("div[style*='text-align:center']");
     if (emptyState && !emptyState.classList.contains("order-card")) emptyState.remove();
 
@@ -334,6 +473,12 @@ function renderAvailableOrder(order) {
             distText = '<span class="distance-info" style="font-size:0.75rem;color:#64748b;"><i class="fa-solid fa-location-dot"></i> Calculating...</span>';
         }
     }
+
+    // ✅ NEW: Driving License verified না থাকলে Accept বাটন লক থাকবে, ক্লিক করলে popup + প্রোফাইলে রিডাইরেক্ট
+    const canAccept = window._riderLicenseVerified === true;
+    const acceptBtnHtml = canAccept
+        ? `<button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>`
+        : `<button class="btn-accept btn-locked" onclick="showLicenseRequiredPopup()"><i class="fa-solid fa-lock"></i> Verify License</button>`;
 
     const cardHtml = `
         <div class="order-card" id="order-${order.order_id}">
@@ -357,10 +502,18 @@ function renderAvailableOrder(order) {
             </div>
             <div class="card-footer">
                 <button class="btn-reject" onclick="rejectOrder('${order.order_id}')">Reject</button>
-                <button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>
+                ${acceptBtnHtml}
             </div>
         </div>`;
     container.insertAdjacentHTML('beforeend', cardHtml);
+}
+
+// ✅ NEW: License verify ছাড়া অর্ডার accept করার চেষ্টা করলে এই popup দেখাবে, Confirm করলে প্রোফাইলের License অংশে নিয়ে যাবে
+function showLicenseRequiredPopup() {
+    const goToProfile = confirm("Please verify your Driving License before accepting delivery orders.\n\nGo to your Profile's License section now?");
+    if (goToProfile) {
+        window.location.href = "delyvaryprofile.html?open=license";
+    }
 }
 
 // ✅ NEW: এই সেশনে যে অর্ডারগুলো এই রাইডার রিজেক্ট করেছে সেগুলো মনে রাখা হয়,
@@ -392,6 +545,11 @@ function checkIfOrdersEmpty() {
 // ==========================================
 async function acceptOrder(orderId, orderObj) {
     if (!supabaseClient) return;
+    // ✅ NEW: ডাবল-সেফটি — বাটন লক থাকা সত্ত্বেও কোনোভাবে কল হলে এখানেও আটকে দেওয়া হবে
+    if (window._riderLicenseVerified !== true) {
+        showLicenseRequiredPopup();
+        return;
+    }
     try {
         if (typeof orderObj === 'string') orderObj = JSON.parse(decodeURIComponent(orderObj));
         let riderUuid = '';
@@ -538,6 +696,7 @@ async function markOrderPickedUp() {
         activeOrderData.status = 'picked_up';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
+        updateLiveDistanceAndETA(); // ✅ পিকআপের পর টার্গেট এখন pharmacy থেকে customer এ বদলে যাবে
         showToast("Status updated: Order Picked Up. You can now head to the customer's location.", "success");
     } catch (err) {
 
@@ -673,15 +832,22 @@ window.addEventListener("pagehide", () => {
 
 async function fetchPendingOrdersSnapshot() {
     if (!supabaseClient) return;
-    if (!isOnDuty) return;
     const container = document.getElementById("ordersContainer");
     if (!container) return;
+    if (!isOnDuty) {
+        clearOrdersSkeleton(container);
+        checkIfOrdersEmpty();
+        return;
+    }
     try {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
             .eq('status', 'broadcasted'); // ✅ FIX: শুধু broadcasted, 'pending' না — merchant broadcast না করলে rider দেখবে না
         if (error) throw error;
+
+        clearOrdersSkeleton(container); // ✅ real data চলে এসেছে, এখন shimmer সরিয়ে দাও
+
         if (data && data.length > 0) {
             data.forEach(order => {
                 if (!document.getElementById(`order-${order.order_id}`) && !isOrderRejectedByMe(order.order_id)) {
@@ -689,7 +855,10 @@ async function fetchPendingOrdersSnapshot() {
                 }
             });
         }
+        checkIfOrdersEmpty();
     } catch (err) {
+        clearOrdersSkeleton(container);
+        checkIfOrdersEmpty();
         showToast("Pending orders load error: " + (err.message || err), "error");
     }
 }
@@ -714,7 +883,7 @@ function startLiveLocationTracking() {
             (err) => { showToast("GPS error: " + (err.message || err), "error"); },
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
-    }, 5000);
+    }, 3000); // ✅ FIX: আগে ছিল 5000ms (৫ সেকেন্ড), স্পেক অনুযায়ী এখন প্রতি ৩ সেকেন্ডে GPS আপডেট হবে
 }
 
 function stopLiveLocationTracking() {
@@ -726,6 +895,7 @@ function stopLiveLocationTracking() {
 
 async function broadcastRiderLocation(lat, lon) {
     if (!supabaseClient) return;
+    cachedRiderPosition = { lat, lon }; // ✅ FIX: প্রতি টিকে সর্বশেষ GPS position ক্যাশে রাখা, distance/ETA হিসাবের জন্য
     try {
         // riders টেবিলে লাইভ লোকেশন আপডেট (এডমিন/ট্র্যাকিং প্যানেলের জন্য, সবসময় অন-ডিউটিতে)
         let currentRiderEmail = localStorage.getItem('userEmail');
@@ -747,6 +917,7 @@ async function broadcastRiderLocation(lat, lon) {
                 .eq('order_id', order.order_id);
 
             updateLiveRiderMarkerOnMap(lat, lon);
+            updateLiveDistanceAndETA(); // ✅ GPS আপডেট হলেই distance/ETA স্বয়ংক্রিয়ভাবে কমবে বা বাড়বে
         }
     } catch (err) {
         showToast("Location broadcast error: " + (err.message || err), "error");
@@ -1358,34 +1529,110 @@ function closeSubPage(pageId) {
     }
 }
 
-function toggleNotifications() { const notiDropdown = document.getElementById('notiDropdown'); if (notiDropdown) notiDropdown.classList.toggle('hidden'); }
+function toggleNotifications() {
+    const notiDropdown = document.getElementById('notiDropdown');
+    if (!notiDropdown) return;
+    notiDropdown.classList.toggle('hidden');
 
+    // ✅ ড্রপডাউনের বাইরে ক্লিক করলে বন্ধ হয়ে যাবে (Zomato/Swiggy স্টাইল)
+    if (!notiDropdown.classList.contains('hidden')) {
+        setTimeout(() => {
+            document.addEventListener('click', closeNotiDropdownOutside);
+        }, 0);
+    }
+}
+
+function closeNotiDropdownOutside(e) {
+    const notiDropdown = document.getElementById('notiDropdown');
+    const notiBtn = document.querySelector('.notification-btn');
+    if (!notiDropdown) return;
+    if (notiDropdown.contains(e.target) || (notiBtn && notiBtn.contains(e.target))) return;
+    notiDropdown.classList.add('hidden');
+    document.removeEventListener('click', closeNotiDropdownOutside);
+}
+
+// ✅ FIX: আগে notification লোড হওয়ার সাথে সাথেই সবগুলো is_read=true করে দিত (auto mark-all-read),
+// ফলে badge/লাল ডট কখনো ঠিকমতো দেখাই যেত না। এখন শুধু unread count (10+ ক্যাপসহ) লোড হয় এবং
+// প্রতিটা notification ক্লিক করলে আলাদাভাবে read হবে (নিচের markNotificationAsRead ফাংশন)।
 async function loadDeliveryNotifications() {
     const badge = document.getElementById('noti-badge');
-    const dropdownBody = document.getElementById('notiDropdown');
+    const dropdownBody = document.getElementById('noti-dropdown-body');
     if (!badge || !supabaseClient) return;
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session?.user) return;
         const numericRiderId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
         if (!numericRiderId) return;
-        const { data } = await supabaseClient.from('rider_notifications')
-            .select('id, title, message, created_at')
+
+        // Unread count (exact, capped at "10+" for display)
+        const { count } = await supabaseClient.from('rider_notifications')
+            .select('id', { count: 'exact', head: true })
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
-            .eq('is_read', false)
-            .order('created_at', { ascending: false })
-            .limit(5);
-        if (data && data.length > 0) {
-            badge.textContent = data.length;
+            .eq('is_read', false);
+
+        const unread = count || 0;
+        if (unread > 0) {
+            badge.textContent = unread > 10 ? '10+' : String(unread);
             badge.style.display = 'inline-flex';
-            if (dropdownBody) {
-                const itemsHtml = data.map(n => `<div class="noti-item unread"><p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p><p>${escapeHtml(n.message) || ''}</p><span>${timeAgo(n.created_at)}</span></div>`).join('');
-                dropdownBody.innerHTML = `<div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>${itemsHtml}`;
+        } else {
+            badge.style.display = 'none';
+            badge.textContent = '0';
+        }
+
+        // Recent notifications (read + unread) for the dropdown list
+        const { data } = await supabaseClient.from('rider_notifications')
+            .select('id, title, message, created_at, is_read')
+            .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+            .order('created_at', { ascending: false })
+            .limit(15);
+
+        if (dropdownBody) {
+            if (data && data.length > 0) {
+                dropdownBody.innerHTML = data.map(n => `
+                    <div class="noti-item ${n.is_read ? 'read' : 'unread'}" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
+                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
+                        <p>${escapeHtml(n.message) || ''}</p>
+                        <span>${timeAgo(n.created_at)}</span>
+                    </div>`).join('');
+            } else {
+                dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
             }
-            await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('rider_id', parseInt(numericRiderId)).eq('is_read', false);
         }
     } catch (e) {
         showToast("Notifications load error: " + (e.message || e), "error");
+    }
+}
+
+// ✅ NEW: একটা notification ক্লিক করলে সেটা read হবে — লাল ডট চলে যাবে, badge count ১ কমবে,
+// এবং database এ is_read=true সেভ হবে (Facebook/Zomato স্টাইল)
+async function markNotificationAsRead(id, el) {
+    if (!supabaseClient || !id) return;
+    if (el && el.classList.contains('read')) return; // already read, nothing to do
+
+    if (el) {
+        el.classList.remove('unread');
+        el.classList.add('read');
+    }
+
+    const badge = document.getElementById('noti-badge');
+    if (badge && badge.style.display !== 'none') {
+        const current = badge.textContent;
+        if (current !== '10+') {
+            const c = (parseInt(current) || 0) - 1;
+            if (c <= 0) {
+                badge.style.display = 'none';
+                badge.textContent = '0';
+            } else {
+                badge.textContent = String(c);
+            }
+        }
+    }
+
+    try {
+        const { error } = await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('id', id);
+        if (error) throw error;
+    } catch (e) {
+        showToast("Could not mark notification as read: " + (e.message || e), "error");
     }
 }
 
@@ -1506,6 +1753,9 @@ async function loadCurrentRiderProfileStatus() {
             kycVerified = kycData.verified;
             kycReason = kycData.rejection_reason || "";
         }
+
+        // ✅ NEW: গ্লোবাল ফ্ল্যাগ — Driving License/KYC verified না হলে Accept Order বাটন লক থাকবে (দেখুন acceptOrder ও renderAvailableOrder)
+        window._riderLicenseVerified = (kycVerified === true);
 
         if (document.getElementById("vehicleStatusTag")) {
             if (kycVerified) {

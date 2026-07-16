@@ -106,6 +106,19 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
+  // ✅ FIX: OAuth / Supabase auth callback URLs — Service Worker কখনো intercept করবে না
+  // Google login, error redirect, token exchange — সব browser নিজে handle করবে
+  const isAuthCallback =
+      url.searchParams.has('code') ||
+      url.searchParams.has('error_description') ||
+      url.searchParams.has('access_token') ||
+      url.searchParams.has('refresh_token') ||
+      url.hash.includes('access_token') ||
+      url.hash.includes('refresh_token') ||
+      url.hash.includes('error_description') ||
+      url.pathname.includes('auth/v1/callback');
+  if (isAuthCallback) return; // browser directly handle করবে, SW bypass
+
   // Skip ALL cross-origin requests entirely
   if (url.origin !== self.location.origin) return;
 
@@ -153,8 +166,12 @@ async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      // ✅ FIX: query parameter সহ URL cache করবে না (auth error URLs cache হয় না)
+      const urlObj = new URL(request.url);
+      if (!urlObj.search) {
+        const cache = await caches.open(cacheName);
+        cache.put(request, response.clone());
+      }
     }
     return response;
   } catch {

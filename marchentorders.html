@@ -1105,22 +1105,9 @@
                     }]);
                 } catch(e) { /* error */ }
 
-                try {
-                    const ridersRes = await supabase.from('riders').select('id').eq('duty_status', 'online');
-                    if (ridersRes.data && ridersRes.data.length > 0) {
-                        const riderNotifs = ridersRes.data.map(r => ({
-                            rider_id: r.id,
-                            title: 'New Delivery Available',
-                            message: `Pickup: ${order?.address || 'Shop Address'} → Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
-                            type: 'info',
-                            broadcast_to: 'all',
-                            target: 'all',
-                            sent_by: 'system',
-                            is_read: false
-                        }));
-                        await supabase.from('rider_notifications').insert(riderNotifs);
-                    }
-                } catch(e) { /* error */ }
+                // Note: riders are no longer notified at Accept — they're auto-dispatched
+                // only when the order is marked Shipped (see updateStatus below), once it's
+                // actually packed and ready for pickup.
 
                 showToast('Order accepted successfully', 'success');
                 await loadOrders();

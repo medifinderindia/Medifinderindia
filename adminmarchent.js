@@ -207,6 +207,18 @@ async function approveMedicine(id) {
 
     if (!error) {
         showToast("Medicine status set to 'Approved' live on app.", "success");
+        if (med && med.merchant_id) {
+            try {
+                await supabaseClient.from('merchant_notifications').insert({
+                    merchant_id: med.merchant_id,
+                    title: 'Product Approved',
+                    message: `Your product "${med.product_name || 'Item'}" has been approved and is now live on the app.`,
+                    type: 'success',
+                    category: 'product',
+                    is_read: false
+                });
+            } catch (e) { /* error */ }
+        }
         loadMedicineApprovals();
     } else {
         showToast("Error approving product: " + error.message, "error");
@@ -382,12 +394,24 @@ async function clearMerchantPayout(index, id, amount) {
             await supabaseClient.from('payout_history').insert({
                 transaction_id: 'TXN-' + Date.now(),
                 recipient_name: 'Merchant #' + (payout.merchant_id || payout.shop_id || 'Unknown'),
-                amount: payAmount,
+                amount: amount,
                 type: 'Merchant',
                 payment_method: payout.payment_mode || 'Online Transfer',
                 status: 'Completed',
                 reference: id
             });
+            if (payout.merchant_id) {
+                try {
+                    await supabaseClient.from('merchant_notifications').insert({
+                        merchant_id: payout.merchant_id,
+                        title: 'Payment Released',
+                        message: `A payout of ₹${amount} has been settled to your account via ${payout.payment_mode || 'Online Transfer'}.`,
+                        type: 'success',
+                        category: 'payment',
+                        is_read: false
+                    });
+                } catch (e) { /* error */ }
+            }
             showToast("Success! High-speed reversal bank settlement accomplished.", "success");
             loadMerchantPayouts();
             loadMerchantLedger();
@@ -571,7 +595,7 @@ async function loadMerchantVerification() {
 
         const { data: merData } = await supabaseClient
             .from('merchants')
-            .select('id, shop_name, merchant_name, phone, email, license_status');
+            .select('id, shop_name, merchant_name, phone, email, license_status, bank_no, ifsc_code, upi_id, bank_image');
 
         const merMap = {};
         (merData || []).forEach(m => { merMap[m.id] = m; });
@@ -667,6 +691,17 @@ function renderVerificationCards() {
                 <div style="background:#f8fafc; padding:12px; border-radius:6px; font-size:13px; color:#475569; margin-bottom:15px; border-left:3px solid #e02020;">
                     <strong>Drug License Proof:</strong> <br>
                     <a href="${kyc.license_img || '#'}" target="_blank" style="color:#e02020; text-decoration:underline; font-weight:600;"><i class="fa-solid fa-file-pdf"></i> View Document</a>
+                </div>
+                <div style="background:#f0fdf4; padding:12px; border-radius:6px; font-size:13px; color:#166534; margin-bottom:15px; border-left:3px solid #10b981;">
+                    <strong><i class="fa-solid fa-building-columns"></i> Bank Settlement Details:</strong>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; margin-top:8px;">
+                        <div><span style="color:#65758b;">A/C Number:</span> <strong>${kyc.merchants?.bank_no || 'Not Added'}</strong></div>
+                        <div><span style="color:#65758b;">IFSC Code:</span> <strong>${kyc.merchants?.ifsc_code || 'Not Added'}</strong></div>
+                        <div><span style="color:#65758b;">UPI ID:</span> <strong>${kyc.merchants?.upi_id || 'Not Added'}</strong></div>
+                        <div>
+                            ${kyc.merchants?.bank_image ? `<a href="${kyc.merchants.bank_image}" target="_blank" style="color:#10b981; text-decoration:underline; font-weight:600;"><i class="fa-solid fa-file-image"></i> View Bank Document</a>` : '<span style="color:#94a3b8;">No document uploaded</span>'}
+                        </div>
+                    </div>
                 </div>
                 ${isRejected ? `<div style="background:#fef2f2; padding:10px; border-radius:6px; font-size:13px; color:#dc2626; margin-bottom:10px; border-left:3px solid #ef4444;"><strong>Rejection Reason:</strong> ${kyc.rejection_reason}</div>` : ''}
                 ${isVerified && kyc.verified_at ? `<div style="font-size:12px; color:#64748b;">Verified on: ${new Date(kyc.verified_at).toLocaleDateString('en-IN')}</div>` : ''}
