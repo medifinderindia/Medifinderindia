@@ -2,34 +2,25 @@
 <html lang="en">
 <head>
     <!-- ==========================================
-         Splash/auto-login guard (extension, added for splash flow)
-         Runs before anything else paints. If a still-valid Supabase
-         session token is already sitting in localStorage, we never
-         show this login form — we bounce straight to splash.html,
-         which will verify the session properly and route by role.
-         If there's no token (or it's expired/invalid), this does
-         nothing and the page loads exactly as before.
+         Splash guard (extension, added for splash flow)
+         Every FRESH entry to the site (Google result, typed URL,
+         bookmark, new tab) must go through splash.html first —
+         splash.html then decides: no session -> back here (login),
+         valid session -> straight to the role home page. Internal
+         navigation within the same tab (e.g. clicking between Login
+         and Signup) already carries the "mf_splash_done" flag set by
+         splash.js, so it will NOT loop back into splash again.
+         If sessionStorage is unavailable, this simply does nothing
+         and the page loads exactly as before.
          ========================================== -->
     <script>
         (function () {
             try {
-                for (var i = 0; i < localStorage.length; i++) {
-                    var key = localStorage.key(i);
-                    if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1) {
-                        var raw = localStorage.getItem(key);
-                        if (!raw) break;
-                        var parsed = JSON.parse(raw);
-                        var session = parsed && (parsed.currentSession || parsed);
-                        var hasToken = session && (session.access_token || parsed.access_token);
-                        var expiresAt = session && (session.expires_at || parsed.expires_at);
-                        if (hasToken && (!expiresAt || expiresAt * 1000 > Date.now())) {
-                            window.location.replace('splash.html');
-                        }
-                        break;
-                    }
+                if (!sessionStorage.getItem('mf_splash_done')) {
+                    window.location.replace('splash.html');
                 }
             } catch (e) {
-                // Any parsing issue just falls through to the normal login page — no risk.
+                // No sessionStorage support — fall through to normal page load.
             }
         })();
     </script>

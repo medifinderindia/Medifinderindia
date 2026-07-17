@@ -314,6 +314,17 @@ body {
 (function () {
     "use strict";
 
+    // As soon as splash.html loads, mark this tab-session as "entered via splash".
+    // index.html / signup.html check this flag and only force a redirect back
+    // to splash.html when it's NOT set (i.e. a fresh entry — Google result,
+    // typed URL, bookmark, new tab). Internal navigation (Login <-> Signup,
+    // or splash's own redirect) will already have this flag set, so it won't loop.
+    try {
+        sessionStorage.setItem('mf_splash_done', '1');
+    } catch (e) {
+        // sessionStorage unavailable (e.g. some private-browsing modes) — harmless, just skip.
+    }
+
     // Splash is allowed to show for at most this long, no matter what.
     var MAX_DISPLAY_MS = 4200;
     // Splash won't disappear before this — matches the loading bar's fill

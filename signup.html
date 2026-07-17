@@ -2,30 +2,19 @@
 <html lang="en">
 <head>
     <!-- ==========================================
-         Splash/auto-login guard (extension, added for splash flow)
-         Same purpose as in index.html: if a valid session already
-         exists, skip this form and let splash.html route by role.
+         Splash guard (extension, added for splash flow)
+         Same purpose as index.html: force splash.html on every fresh
+         entry; skip it for internal same-tab navigation (flag set by
+         splash.js). Falls through safely if sessionStorage is unavailable.
          ========================================== -->
     <script>
         (function () {
             try {
-                for (var i = 0; i < localStorage.length; i++) {
-                    var key = localStorage.key(i);
-                    if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1) {
-                        var raw = localStorage.getItem(key);
-                        if (!raw) break;
-                        var parsed = JSON.parse(raw);
-                        var session = parsed && (parsed.currentSession || parsed);
-                        var hasToken = session && (session.access_token || parsed.access_token);
-                        var expiresAt = session && (session.expires_at || parsed.expires_at);
-                        if (hasToken && (!expiresAt || expiresAt * 1000 > Date.now())) {
-                            window.location.replace('splash.html');
-                        }
-                        break;
-                    }
+                if (!sessionStorage.getItem('mf_splash_done')) {
+                    window.location.replace('splash.html');
                 }
             } catch (e) {
-                // Falls through to the normal signup page — no risk.
+                // No sessionStorage support — fall through to normal page load.
             }
         })();
     </script>
