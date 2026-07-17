@@ -956,7 +956,7 @@
                     el.querySelector('span').textContent = `${outOfStock > 0 ? outOfStock + ' out, ' : ''}${lowStock} low stock`;
                 }
 
-                if (typeof refreshUnreadNotifBadge === 'function') refreshUnreadNotifBadge();
+                updateNotifBadge(todayCount);
             } catch (err) {
             }
         }
@@ -970,6 +970,11 @@
             if (pct > 0) { el.className = 'stat-change up'; el.innerHTML = `<i class="fa-solid fa-caret-up"></i> +${pct}%`; }
             else if (pct < 0) { el.className = 'stat-change down'; el.innerHTML = `<i class="fa-solid fa-caret-down"></i> ${pct}%`; }
             else { el.className = 'stat-change neutral'; el.textContent = '0%'; }
+        }
+
+        function updateNotifBadge(count) {
+            const badge = document.getElementById('notifBadge');
+            if (count > 0) { badge.textContent = count; } else { badge.textContent = ''; }
         }
 
         // ==========================================
@@ -1181,9 +1186,22 @@
                         is_read: false
                     }]);
                 } catch(e) { /* error */ }
-                // Note: riders are no longer notified at Accept — they're auto-dispatched
-                // only when the order is marked Shipped (see _shipOrder below), once it's
-                // actually packed and ready for pickup.
+                try {
+                    const ridersRes = await db.from('riders').select('id').eq('duty_status', 'online');
+                    if (ridersRes.data && ridersRes.data.length > 0) {
+                        const riderNotifs = ridersRes.data.map(r => ({
+                            rider_id: r.id,
+                            title: 'New Delivery Available',
+                            message: `Pickup: ${order?.address || order?.customer_address || 'Shop Address'} �' Drop: ${order?.customer_address || order?.address || 'Customer Address'}. Order: ${order?.order_id || orderId}. Items: ${order?.items_text || ''}`,
+                            type: 'info',
+                            broadcast_to: 'all',
+                            target: 'all',
+                            sent_by: 'system',
+                            is_read: false
+                        }));
+                        await db.from('rider_notifications').insert(riderNotifs);
+                    }
+                } catch(e) { /* error */ }
                 showToast('Order accepted successfully', 'success');
                 await loadOrders();
                 await loadDashboardStats();

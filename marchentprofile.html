@@ -10,39 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <link rel="stylesheet" href="marchentprofile.css?v=13">
-    <style>
-        /* Small, tidy card-style Logout button */
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            max-width: 220px;
-            margin: 18px auto 6px auto;
-            padding: 12px 20px;
-            background: #fff;
-            border: 1.5px solid #fee2e2;
-            border-radius: 14px;
-            color: #e02020;
-            font-weight: 700;
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(224,32,32,0.06);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .logout-btn:hover {
-            background: #e02020;
-            color: #fff;
-            box-shadow: 0 4px 14px rgba(224,32,32,0.25);
-        }
-        .popup-channel.whatsapp {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #128C7E;
-        }
-        .popup-channel.whatsapp i { color: #25D366; }
-    </style>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
@@ -76,7 +43,7 @@
                             <input type="text" id="merchantNameInput" value="Niramoy Traders" class="live-edit-name" placeholder="Enter Owner/Shop Name">
                             <i class="fa-solid fa-pen-to-square edit-indicator"></i>
                         </div>
-                        <span class="uid-badge" id="uidBadge"><i class="fa-solid fa-fingerprint"></i> ID: #MT1001</span>
+                        <span class="uid-badge"><i class="fa-solid fa-fingerprint"></i> ID: #MT1001</span>
                     </div>
                 </div>
 
@@ -97,10 +64,10 @@
                         <p class="section-desc">Upload and verify your government drug license here.</p>
                     </div>
 
-                    <!-- 🏦 ব্যাংক অ্যাকাউন্ট ডিটেইলস (KYC) সেটিংস কার্ড -->
+                    <!-- 🏦 নতুন ব্যাংক ডিটেইলস সেটিংস কার্ড -->
                     <div class="settings-glass-card" id="bankCard" onclick="openPopup('bankModal')">
                         <div class="card-title-row">
-                            <h3><i class="fa-solid fa-bank"></i> Bank Account Details (KYC)</h3>
+                            <h3><i class="fa-solid fa-bank"></i> Bank Settlement Accounts</h3>
                             <span class="live-status" style="background:#e0f2fe; color:#0369a1;">Configure</span>
                         </div>
                         <p class="section-desc">Manage bank accounts, IFSC code, and settlement UPI IDs.</p>
@@ -113,9 +80,9 @@
                         <p class="section-desc">Configure shop location, pincode, and contact maps.</p>
                     </div>
 
-                    <div class="settings-glass-card" onclick="window.location.href='marchentt_c.html'">
+                    <div class="settings-glass-card" onclick="openPopup('tcModal')">
                         <div class="card-title-row">
-                            <h3><i class="fa-solid fa-scale-balanced"></i> Terms & Privacy Policy</h3>
+                            <h3><i class="fa-solid fa-scale-balanced"></i> Terms & Regulatory Conditions</h3>
                         </div>
                         <p class="section-desc">Review drug policies, compliance, and system SLAs.</p>
                     </div>
@@ -136,9 +103,9 @@
 
                     <div class="settings-glass-card" onclick="openPopup('supportModal')">
                         <div class="card-title-row">
-                            <h3><i class="fa-solid fa-headset"></i> Help Desk</h3>
+                            <h3><i class="fa-solid fa-headset"></i> Immediate Support Node</h3>
                         </div>
-                        <p class="section-desc">Direct links to get connected via Call, WhatsApp, or Email support.</p>
+                        <p class="section-desc">Direct links to get connected via Call or Email support.</p>
                     </div>
                     
                     <button type="button" class="menu-item logout-btn" id="logoutActionBtn">
@@ -166,7 +133,7 @@
     <div id="bankModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'bankModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('bankModal')">&times;</button>
-            <h3><i class="fa-solid fa-bank"></i> Bank Account Details (KYC)</h3>
+            <h3><i class="fa-solid fa-bank"></i> Bank Settlement Details</h3>
             <p class="popup-section-desc">Configure your payout bank parameters and virtual payment address (UPI).</p>
             <hr><br>
             <div class="form-group-premium">
@@ -268,6 +235,33 @@
         </div>
     </div>
 
+    <div id="tcModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'tcModal')">
+        <div class="popup-content-box" style="max-width: 500px;">
+            <button class="close-popup-btn" onclick="closePopup('tcModal')">&times;</button>
+            <h3 style="color: #ff4d4d;"><i class="fa-solid fa-scale-balanced"></i> Terms & Regulatory Conditions</h3>
+            <p style="font-size: 11px; color: #666; margin: -5px 0 10px 0;"><strong>Terminal Policy Version:</strong> 2.0 (June 2026)</p>
+            <hr>
+            <div class="popup-tc-scroller" style="max-height: 350px; overflow-y: auto; text-align: left; padding-right: 10px; font-size: 13px; line-height: 1.5; color: #333;">
+                
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-link"></i> 1. Intermediary Scope</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">MEDI FINDER operates strictly as a digital marketplace routing engine connecting independent pharmacies with consumers. We do not manufacture, possess, or retail medical inventories ourselves.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #ff4d4d; font-size: 14px;"><i class="fa-solid fa-triangle-exclamation"></i> 2. Product Disclaimers & Absolute Liability</h5>
+                <p style="margin: 0 0 10px 0; color: #555;"><strong>The merchant acknowledges that MEDI FINDER takes zero liability for medicine fulfillment errors.</strong> If any incorrect medicine, wrong chemical strength, expired product, or sub-standard drugs are packaged by your shop, the merchant profile holder will handle all legal consequences and damages independently.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-cloud-showers-heavy"></i> 3. Weather & Traffic Disclaimers</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Logistical turnaround speeds are heavily dependent on external situations. MEDI FINDER or its fleet operators accept no accountability for fulfillment delays caused by severe traffic blockages, floods, bad weather, or force majeure conditions.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-shield-halved"></i> 4. Government License Audit</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Partner shops must maintain legal compliance certificates. Listing illegal, habit-forming, or unapproved narcotic substances will terminate your system access metrics instantly and alert state pharmaceutical inspectors.</p>
+
+                <h5 style="margin: 15px 0 5px 0; color: #111; font-size: 14px;"><i class="fa-solid fa-user-lock"></i> 5. Privacy & GPS Telemetry Data</h5>
+                <p style="margin: 0 0 10px 0; color: #555;">Your registered telephone assets, database attributes, and precise Leaflet coordinates map inputs are highly secured. Coordinate streams are used exclusively to calculate distances for delivery distribution networks. No data records are sold out to marketing networks.</p>
+
+            </div>
+        </div>
+    </div>
+
     <div id="langModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'langModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('langModal')">&times;</button>
@@ -301,12 +295,11 @@
     <div id="supportModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'supportModal')">
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('supportModal')">&times;</button>
-            <h3><i class="fa-solid fa-headset"></i> Help Desk</h3>
+            <h3><i class="fa-solid fa-headset"></i> Immediate Support Node</h3>
             <hr><br>
             <div class="popup-support-channels">
                 <a href="tel:9593625498" class="popup-channel phone"><i class="fa-solid fa-phone-volume"></i> Call Helpline: +91 9593625498</a>
-                <a href="https://wa.me/919382262825" target="_blank" rel="noopener" class="popup-channel whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp: +91 9382262825</a>
-                <a href="mailto:medifinderindia@gmail.com" class="popup-channel mail"><i class="fa-solid fa-message"></i> mail now</a>
+                <a href="mailto:support@medifinderindia.com" class="popup-channel mail"><i class="fa-solid fa-message"></i> mail now</a>
             </div>
         </div>
     </div>

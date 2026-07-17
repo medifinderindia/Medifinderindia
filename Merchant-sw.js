@@ -43,7 +43,7 @@ self.addEventListener('notificationclick', (event) => {
                 }
             }
             if (self.clients.openWindow) {
-                return self.clients.openWindow('marchentorders.html');
+                return self.clients.openWindow('marchentdboyrequest.html');
             }
         })
     );

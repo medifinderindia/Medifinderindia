@@ -45,11 +45,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (session && session.user) {
             localStorage.setItem("isLoggedIn", "true");
             localStorage.setItem("userEmail", session.user.email);
-
-            // ✅ NEW: Google দিয়ে লগইন করলে Google প্রোফাইল পিকচার অটোমেটিক অ্যাভাটার হিসেবে বসবে —
-            // তবে rider যদি আগে থেকেই নিজের কাস্টম অ্যাভাটার আপলোড/সেট করে থাকে (riders.avatar_url বা
-            // localStorage rider_avatar), সেটা এখানে ওভাররাইট হবে না — শুধু প্রথমবার/ফাঁকা থাকলেই বসবে।
-            await autoApplyGoogleAvatar(session.user);
         }
     } catch (secErr) {
 
@@ -64,22 +59,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ✅ NEW: On Duty / Off Duty সুইচ UI সিঙ্ক করা (হোম ও অর্ডার পেজে)
     initDutyToggleUI();
 
-    // ✅ NEW FIX: লগইন/পেজ লোড হওয়ার সাথে সাথেই riders টেবিলে duty_status DB তে সিঙ্ক করা।
-    // আগে duty_status শুধু ম্যানুয়ালি টগল বাটনে ক্লিক করলেই DB তে সেভ হতো, তাই লগইন করার পরও
-    // অ্যাডমিন প্যানেলের "Online Riders" কাউন্ট ০ দেখাচ্ছিল যতক্ষণ না রাইডার নিজে বাটনে ক্লিক করছিল।
-    syncDutyStatusOnPageLoad();
-    startDutyHeartbeat();
-
     // Bottom nav active state
     initBottomNav();
-
-    // ✅ NEW: হোম পেজ থেকে "Verify License" popup এর মাধ্যমে রিডাইরেক্ট হলে সরাসরি License সেকশন খুলে যাবে
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('open') === 'license' && typeof openSubPage === 'function') {
-            setTimeout(() => openSubPage('licensePage'), 200);
-        }
-    } catch(e) {}
 
     // ✅ NEW: ব্রাউজার ব্যাকগ্রাউন্ডে থাকলেও নতুন অর্ডার নোটিফিকেশনের জন্য পারমিশন রিকোয়েস্ট
     requestBrowserNotificationPermission();
@@ -107,14 +88,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.getElementById("avatarDisplayImage").src = "https://cdn-icons-png.flaticon.com/512/149/149071.png"; 
         }
     }
-
-    // ✅ NEW: হোম পেজের হেডারে প্রোফাইল অ্যাভাটার লোড করা
-    if (document.getElementById("headerAvatarImg")) {
-        const savedHeaderAvatar = localStorage.getItem("rider_avatar");
-        if (savedHeaderAvatar) {
-            document.getElementById("headerAvatarImg").src = savedHeaderAvatar;
-        }
-    }
     
     if (document.getElementById("activeHoursTracker")) {
         loadActiveHoursFromDB();
@@ -132,29 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const n = payload.new;
                 const myId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
                 if (n.rider_id && String(n.rider_id) !== String(myId)) return;
-
-                // ✅ Badge count বাড়ানো, ১০ এর বেশি হলে "10+" দেখানো
                 const badge = document.getElementById('noti-badge');
-                if (badge) {
-                    const current = badge.style.display === 'none' ? 0 : (parseInt(badge.textContent) || 0);
-                    const next = current + 1;
-                    badge.textContent = next > 10 ? '10+' : String(next);
-                    badge.style.display = 'inline-flex';
-                }
-
-                // ✅ Dropdown খোলা থাকলেও instant নতুন notification card উপরে বসবে, রিফ্রেশ লাগবে না
-                const dropdownBody = document.getElementById('noti-dropdown-body');
-                if (dropdownBody) {
-                    const placeholder = dropdownBody.querySelector('p.noti-item');
-                    if (placeholder) dropdownBody.innerHTML = '';
-                    const itemHtml = `<div class="noti-item unread" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
-                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
-                        <p>${escapeHtml(n.message) || ''}</p>
-                        <span>Just now</span>
-                    </div>`;
-                    dropdownBody.insertAdjacentHTML('afterbegin', itemHtml);
-                }
-
+                if (badge) { const c = parseInt(badge.textContent) || 0; badge.textContent = c + 1; badge.style.display = 'inline-flex'; }
                 showToast(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`, 'info');
             })
             .subscribe();
@@ -175,15 +127,12 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 
 async function initBaseTrackingMap() {
     const sessionOrder = localStorage.getItem("active_delivery_order");
-
+    
     let centerLat = 22.5726, centerLon = 88.3639; // fallback — real coords set by GPS
-    let gotGps = false;
     try {
         const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 }));
         centerLat = pos.coords.latitude;
         centerLon = pos.coords.longitude;
-        cachedRiderPosition = { lat: centerLat, lon: centerLon };
-        gotGps = true;
     } catch(e) {}
 
     if (sessionOrder) {
@@ -192,38 +141,21 @@ async function initBaseTrackingMap() {
         const pLon = activeOrderData.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
         const uLat = activeOrderData.user_lat || 22.5850;
         const uLon = activeOrderData.user_lon || 88.4000;
-
-        // ✅ FIX: rider এর আসল GPS পাওয়া গেলে ম্যাপ সেন্টার তাঁর নিজের অবস্থানেই থাকবে,
-        // না পেলে pharmacy/customer এর মাঝামাঝি fallback
-        if (!gotGps) {
-            centerLat = (pLat + uLat) / 2;
-            centerLon = (pLon + uLon) / 2;
-        }
-
+        centerLat = (pLat + uLat) / 2;
+        centerLon = (pLon + uLon) / 2;
+        
         const paymentVal = document.getElementById("paymentStatusValue");
         if (paymentVal) {
             paymentVal.innerText = activeOrderData.payment_status ? activeOrderData.payment_status.toUpperCase() : "ONLINE PAID";
         }
 
         updateMapVehiclePill(activeOrderData.vehicle_type || 'bike');
-    } else {
-        // ✅ কোনো active order না থাকলে distance সবসময় 0 KM দেখাবে
-        const distEl = document.getElementById("distanceLeftValue");
-        const etaEl = document.getElementById("etaValue");
-        if (distEl) distEl.innerText = "0 km";
-        if (etaEl) etaEl.innerText = "--";
     }
 
-    map = L.map('zomatoRealMap').setView([centerLat, centerLon], sessionOrder ? 12 : 15);
+    map = L.map('zomatoRealMap').setView([centerLat, centerLon], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
         attribution: 'MediFinder Express Tracking' 
     }).addTo(map);
-
-    // ✅ FIX: rider marker এখন থেকে সবসময় আসল GPS position এ বসবে (আগে ফেক midpoint এ বসতো,
-    // যা পরে লাইভ GPS marker এর সাথে দুইটা আলাদা marker দেখাতো)
-    if (gotGps) {
-        updateLiveRiderMarkerOnMap(centerLat, centerLon);
-    }
 
     if (sessionOrder) {
         renderMapMarkers(activeOrderData);
@@ -231,7 +163,6 @@ async function initBaseTrackingMap() {
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "1";
         }
-        updateLiveDistanceAndETA(); // ✅ প্রথমবার লোড হওয়ার সাথে সাথেই distance/ETA বসিয়ে দেওয়া
         // Listen for order status changes in real-time
         listenToOrderUpdates(activeOrderData.order_id);
     } else {
@@ -249,60 +180,6 @@ async function initBaseTrackingMap() {
         }
         const paymentVal = document.getElementById("paymentStatusValue");
         if (paymentVal) paymentVal.innerText = "N/A";
-    }
-}
-
-// ✅ NEW: "My Location" ফ্লোটিং বাটন — GPS পারমিশন নিয়ে instant নিজের অবস্থানে zoom করবে
-function focusMyLocationOnMap() {
-    if (!map || !navigator.geolocation) return;
-    const btn = document.getElementById("myLocationBtn");
-    if (btn) btn.classList.add("locating");
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const lat = pos.coords.latitude, lon = pos.coords.longitude;
-            cachedRiderPosition = { lat, lon };
-            map.setView([lat, lon], 16, { animate: true });
-            updateLiveRiderMarkerOnMap(lat, lon);
-            if (btn) btn.classList.remove("locating");
-        },
-        (err) => {
-            showToast("Could not get your location: " + (err.message || err), "error");
-            if (btn) btn.classList.remove("locating");
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-    );
-}
-
-// ✅ NEW: rider এর বর্তমান GPS অনুযায়ী distance ও ETA লাইভ আপডেট করা
-// order accept করার আগে pharmacy কে টার্গেট ধরে, picked_up/out_for_delivery হলে customer কে টার্গেট ধরে
-function updateLiveDistanceAndETA() {
-    const distEl = document.getElementById("distanceLeftValue");
-    const etaEl = document.getElementById("etaValue");
-    if (!distEl) return;
-
-    if (!activeOrderData || !cachedRiderPosition) {
-        distEl.innerText = "0 km";
-        if (etaEl) etaEl.innerText = "--";
-        return;
-    }
-
-    const status = activeOrderData.status || 'accepted';
-    let targetLat, targetLon;
-    if (status === 'picked_up' || status === 'out_for_delivery') {
-        targetLat = activeOrderData.user_lat || 22.5850;
-        targetLon = activeOrderData.user_lon || 88.4000;
-    } else {
-        targetLat = activeOrderData.pharmacy_lat || 22.5726;
-        targetLon = activeOrderData.pharmacy_lon || 88.3639;
-    }
-
-    const dist = haversineKm(cachedRiderPosition.lat, cachedRiderPosition.lon, targetLat, targetLon);
-    distEl.innerText = `${dist} km`;
-
-    if (etaEl) {
-        // গড় ২৫ কিমি/ঘন্টা স্পিড ধরে সাধারণ ETA হিসাব (bike delivery)
-        const etaMinutes = Math.max(1, Math.round((dist / 25) * 60));
-        etaEl.innerText = `${etaMinutes} min`;
     }
 }
 
@@ -334,17 +211,18 @@ function renderMapMarkers(order) {
     const pLon = order.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
     const uLat = order.user_lat || 22.5850;
     const uLon = order.user_lon || 88.4000;
+    const rLat = (pLat + uLat) / 2;
+    const rLon = (pLon + uLon) / 2;
 
     const shopIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/4320/4320355.png', iconSize: [35, 35] });
+    const riderIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972185.png', iconSize: [40, 40] });
     const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1216/1216844.png', iconSize: [35, 35] });
 
     L.marker([pLat, pLon], {icon: shopIcon}).addTo(map).bindPopup(`<b>${order.pharmacy_name || 'Pharmacy'}</b>`);
+    L.marker([rLat, rLon], {icon: riderIcon}).addTo(map).bindPopup(`<b>You (Rider)</b>`);
     L.marker([uLat, uLon], {icon: userIcon}).addTo(map).bindPopup(`<b>${order.user_name || 'Customer'}</b>`);
 
-    // ✅ FIX: আগে এখানে একটা ফেক "You (Rider)" marker মাঝামাঝি বসানো হতো, যেটা আসল লাইভ GPS
-    // marker এর সাথে ডুপ্লিকেট হয়ে যেত। এখন rider marker শুধু updateLiveRiderMarkerOnMap()
-    // থেকেই বসে — real GPS position থেকে।
-    L.polyline([[pLat, pLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
+    L.polyline([[pLat, pLon], [rLat, rLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
 }
 
 // ==========================================
@@ -372,38 +250,6 @@ function listenToOrderUpdates(orderId) {
         .subscribe();
 }
 
-// ✅ NEW: Zomato/Swiggy স্টাইল skeleton loader — orders fetch হওয়ার আগ পর্যন্ত
-// "No orders" ফ্ল্যাশ না দেখিয়ে একটা shimmer placeholder দেখাবে, ফলে পেজটা স্মুথ মনে হবে
-function renderOrdersSkeleton(container) {
-    if (!container) return;
-    let skeletons = '';
-    for (let i = 0; i < 3; i++) {
-        skeletons += `
-        <div class="order-card skeleton-card">
-            <div class="skeleton-row">
-                <div class="skeleton-line w-30"></div>
-                <div class="skeleton-line w-40" style="margin-left:auto;"></div>
-            </div>
-            <div class="skeleton-row">
-                <div class="skeleton-circle"></div>
-                <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-                    <div class="skeleton-line w-60"></div>
-                    <div class="skeleton-line w-40"></div>
-                </div>
-            </div>
-            <div class="skeleton-row">
-                <div class="skeleton-line w-80"></div>
-            </div>
-        </div>`;
-    }
-    container.innerHTML = skeletons;
-}
-
-function clearOrdersSkeleton(container) {
-    if (!container) return;
-    container.querySelectorAll('.skeleton-card').forEach(el => el.remove());
-}
-
 function listenToAvailableOrders() {
     if (!supabaseClient) return;
     if (window._ordersChannel) {
@@ -415,28 +261,29 @@ function listenToAvailableOrders() {
     }, () => {}, { timeout: 5000, maximumAge: 60000 });
     const container = document.getElementById("ordersContainer");
     if (!container) return;
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#999;"><i class="fas fa-inbox" style="font-size:3rem;margin-bottom:12px;display:block;color:#ddd;"></i><p style="font-size:0.9rem;font-weight:600;">No orders available</p><p style="font-size:0.78rem;">New delivery requests will appear here</p></div>`;
 
-    // ✅ FIX: আগে সরাসরি "No orders available" দেখাতো, যেটা ১ মুহূর্ত পরে data এলে flash/flicker করতো।
-    // এখন shimmer skeleton দেখাবে যতক্ষণ না আসল data লোড হয়।
-    renderOrdersSkeleton(container);
-
-    // ✅ পেজ লোড হওয়ার সাথে সাথেই বর্তমান broadcasted অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
+    // ✅ NEW: পেজ লোড হওয়ার সাথে সাথেই বর্তমান pending অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
     fetchPendingOrdersSnapshot();
 
     window._ordersChannel = supabaseClient
         .channel('public:orders')
-        // ❌ FIX: আগে এখানে INSERT + status==='pending' শুনে সাথে সাথেই order দেখিয়ে দিত —
-        // মানে merchant broadcast করার আগেই rider order দেখে ফেলত। এই listener পুরোপুরি
-        // বাদ দেওয়া হলো। এখন order শুধু merchant broadcast করলেই (status → 'broadcasted')
-        // rider এর কাছে live আসবে, নিচের UPDATE listener দিয়ে।
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+            if (payload.new && payload.new.status === 'pending' && !payload.new.rider_id) {
+                if (!isOnDuty) return;
+                if (!document.getElementById(`order-${payload.new.order_id}`)) {
+                    renderAvailableOrder(payload.new);
+                    fireNewOrderNotification(payload.new);
+                }
+            }
+        })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
             if (payload.new.status === 'broadcasted' && !payload.new.rider_id) {
                 if (!isOnDuty) return;
-                if (!document.getElementById(`order-${payload.new.order_id}`) && !isOrderRejectedByMe(payload.new.order_id)) {
+                if (!document.getElementById(`order-${payload.new.order_id}`)) {
                     renderAvailableOrder(payload.new);
-                    fireNewOrderNotification(payload.new); // 🔴 merchant broadcast করার সাথে সাথেই notification
                 }
-            } else if (payload.new.status !== 'broadcasted') {
+            } else if (payload.new.status !== 'pending' && payload.new.status !== 'broadcasted') {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) card.remove();
                 checkIfOrdersEmpty();
@@ -453,7 +300,6 @@ function listenToAvailableOrders() {
 function renderAvailableOrder(order) {
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    clearOrdersSkeleton(container); // ✅ realtime অর্ডার আসলে shimmer থাকলে সেটাও সরিয়ে দাও
     const emptyState = container.querySelector("div[style*='text-align:center']");
     if (emptyState && !emptyState.classList.contains("order-card")) emptyState.remove();
 
@@ -473,12 +319,6 @@ function renderAvailableOrder(order) {
             distText = '<span class="distance-info" style="font-size:0.75rem;color:#64748b;"><i class="fa-solid fa-location-dot"></i> Calculating...</span>';
         }
     }
-
-    // ✅ NEW: Driving License verified না থাকলে Accept বাটন লক থাকবে, ক্লিক করলে popup + প্রোফাইলে রিডাইরেক্ট
-    const canAccept = window._riderLicenseVerified === true;
-    const acceptBtnHtml = canAccept
-        ? `<button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>`
-        : `<button class="btn-accept btn-locked" onclick="showLicenseRequiredPopup()"><i class="fa-solid fa-lock"></i> Verify License</button>`;
 
     const cardHtml = `
         <div class="order-card" id="order-${order.order_id}">
@@ -501,36 +341,10 @@ function renderAvailableOrder(order) {
                 </div>
             </div>
             <div class="card-footer">
-                <button class="btn-reject" onclick="rejectOrder('${order.order_id}')">Reject</button>
-                ${acceptBtnHtml}
+                <button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>
             </div>
         </div>`;
     container.insertAdjacentHTML('beforeend', cardHtml);
-}
-
-// ✅ NEW: License verify ছাড়া অর্ডার accept করার চেষ্টা করলে এই popup দেখাবে, Confirm করলে প্রোফাইলের License অংশে নিয়ে যাবে
-function showLicenseRequiredPopup() {
-    const goToProfile = confirm("Please verify your Driving License before accepting delivery orders.\n\nGo to your Profile's License section now?");
-    if (goToProfile) {
-        window.location.href = "delyvaryprofile.html?open=license";
-    }
-}
-
-// ✅ NEW: এই সেশনে যে অর্ডারগুলো এই রাইডার রিজেক্ট করেছে সেগুলো মনে রাখা হয়,
-// যাতে broadcast/snapshot আবার লোড হলেও সেগুলো আবার স্ক্রিনে ফিরে না আসে।
-// (অন্য রাইডাররা তবুও এই অর্ডারটা দেখতে ও গ্রহণ করতে পারবে — শুধু এই রাইডারের ভিউ থেকে সরানো হচ্ছে)
-window._rejectedOrderIds = window._rejectedOrderIds || new Set();
-
-function isOrderRejectedByMe(orderId) {
-    return window._rejectedOrderIds.has(String(orderId));
-}
-
-function rejectOrder(orderId) {
-    window._rejectedOrderIds.add(String(orderId));
-    const card = document.getElementById(`order-${orderId}`);
-    if (card) card.remove();
-    checkIfOrdersEmpty();
-    showToast("Order dismissed from your list.", "info");
 }
 
 function checkIfOrdersEmpty() {
@@ -545,11 +359,6 @@ function checkIfOrdersEmpty() {
 // ==========================================
 async function acceptOrder(orderId, orderObj) {
     if (!supabaseClient) return;
-    // ✅ NEW: ডাবল-সেফটি — বাটন লক থাকা সত্ত্বেও কোনোভাবে কল হলে এখানেও আটকে দেওয়া হবে
-    if (window._riderLicenseVerified !== true) {
-        showLicenseRequiredPopup();
-        return;
-    }
     try {
         if (typeof orderObj === 'string') orderObj = JSON.parse(decodeURIComponent(orderObj));
         let riderUuid = '';
@@ -696,7 +505,6 @@ async function markOrderPickedUp() {
         activeOrderData.status = 'picked_up';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
-        updateLiveDistanceAndETA(); // ✅ পিকআপের পর টার্গেট এখন pharmacy থেকে customer এ বদলে যাবে
         showToast("Status updated: Order Picked Up. You can now head to the customer's location.", "success");
     } catch (err) {
 
@@ -762,103 +570,25 @@ async function toggleDutyStatus() {
     }
 }
 
-// ==========================================
-// ✅ NEW BLOCK: Duty-status DB sync (fixes admin dashboard "Online Riders" showing 0)
-// ==========================================
-
-// পেজ লোড হওয়ার সাথে সাথেই বর্তমান isOnDuty অবস্থাটা riders টেবিলে লিখে দেওয়া হয়,
-// যাতে রাইডার লগইন করা মাত্রই অ্যাডমিন প্যানেলে সে অনলাইন হিসেবে দেখা যায় —
-// আগে শুধু ম্যানুয়াল টগল ক্লিকেই এটা DB তে যেত।
-async function syncDutyStatusOnPageLoad() {
-    if (!supabaseClient) return;
-    try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail) return;
-        await supabaseClient
-            .from('riders')
-            .update({
-                duty_status: isOnDuty ? 'online' : 'offline',
-                last_active_at: new Date().toISOString()
-            })
-            .eq('email', currentRiderEmail);
-    } catch (err) {
-        // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই
-    }
-}
-
-// প্রতি ৬০ সেকেন্ডে "heartbeat" পাঠানো হয় (শুধু duty অন থাকলে), যাতে অ্যাডমিন প্যানেল
-// বুঝতে পারে রাইডার এখনও সত্যিকারের অ্যাক্টিভ আছে কিনা (ট্যাব বন্ধ/ক্র্যাশ হলে stale হয়ে যাবে)।
-function startDutyHeartbeat() {
-    if (window._dutyHeartbeatInterval) clearInterval(window._dutyHeartbeatInterval);
-    window._dutyHeartbeatInterval = setInterval(async () => {
-        if (!supabaseClient || !isOnDuty) return;
-        try {
-            const currentRiderEmail = localStorage.getItem('userEmail');
-            if (!currentRiderEmail) return;
-            await supabaseClient
-                .from('riders')
-                .update({ duty_status: 'online', last_active_at: new Date().toISOString() })
-                .eq('email', currentRiderEmail);
-        } catch (err) {
-            // silent
-        }
-    }, 60000);
-}
-
-// ব্রাউজার ট্যাব/অ্যাপ বন্ধ হওয়ার সময় (রাইডার ম্যানুয়ালি অফ-ডিউটি না করলেও) best-effort
-// ভাবে duty_status = offline সেট করার চেষ্টা করা হয়, যাতে অ্যাডমিন প্যানেল real-time মিথ্যা
-// "online" না দেখায়। fetch keepalive ব্যবহার করা হচ্ছে কারণ unload এর সময় সাধারণ async কল
-// শেষ হওয়ার আগেই ব্রাউজার ট্যাব বন্ধ করে দিতে পারে।
-window.addEventListener("pagehide", () => {
-    try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail || typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
-        const url = `${SUPABASE_URL}/rest/v1/riders?email=eq.${encodeURIComponent(currentRiderEmail)}`;
-        fetch(url, {
-            method: "PATCH",
-            keepalive: true,
-            headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`,
-                "Prefer": "return=minimal"
-            },
-            body: JSON.stringify({ duty_status: "offline" })
-        });
-    } catch (err) {
-        // silent — best effort only
-    }
-});
-
 async function fetchPendingOrdersSnapshot() {
     if (!supabaseClient) return;
+    if (!isOnDuty) return;
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    if (!isOnDuty) {
-        clearOrdersSkeleton(container);
-        checkIfOrdersEmpty();
-        return;
-    }
     try {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
-            .eq('status', 'broadcasted'); // ✅ FIX: শুধু broadcasted, 'pending' না — merchant broadcast না করলে rider দেখবে না
+            .in('status', ['pending', 'broadcasted']);
         if (error) throw error;
-
-        clearOrdersSkeleton(container); // ✅ real data চলে এসেছে, এখন shimmer সরিয়ে দাও
-
         if (data && data.length > 0) {
             data.forEach(order => {
-                if (!document.getElementById(`order-${order.order_id}`) && !isOrderRejectedByMe(order.order_id)) {
+                if (!document.getElementById(`order-${order.order_id}`)) {
                     renderAvailableOrder(order);
                 }
             });
         }
-        checkIfOrdersEmpty();
     } catch (err) {
-        clearOrdersSkeleton(container);
-        checkIfOrdersEmpty();
         showToast("Pending orders load error: " + (err.message || err), "error");
     }
 }
@@ -883,7 +613,7 @@ function startLiveLocationTracking() {
             (err) => { showToast("GPS error: " + (err.message || err), "error"); },
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
-    }, 3000); // ✅ FIX: আগে ছিল 5000ms (৫ সেকেন্ড), স্পেক অনুযায়ী এখন প্রতি ৩ সেকেন্ডে GPS আপডেট হবে
+    }, 5000);
 }
 
 function stopLiveLocationTracking() {
@@ -895,7 +625,6 @@ function stopLiveLocationTracking() {
 
 async function broadcastRiderLocation(lat, lon) {
     if (!supabaseClient) return;
-    cachedRiderPosition = { lat, lon }; // ✅ FIX: প্রতি টিকে সর্বশেষ GPS position ক্যাশে রাখা, distance/ETA হিসাবের জন্য
     try {
         // riders টেবিলে লাইভ লোকেশন আপডেট (এডমিন/ট্র্যাকিং প্যানেলের জন্য, সবসময় অন-ডিউটিতে)
         let currentRiderEmail = localStorage.getItem('userEmail');
@@ -917,7 +646,6 @@ async function broadcastRiderLocation(lat, lon) {
                 .eq('order_id', order.order_id);
 
             updateLiveRiderMarkerOnMap(lat, lon);
-            updateLiveDistanceAndETA(); // ✅ GPS আপডেট হলেই distance/ETA স্বয়ংক্রিয়ভাবে কমবে বা বাড়বে
         }
     } catch (err) {
         showToast("Location broadcast error: " + (err.message || err), "error");
@@ -1074,16 +802,10 @@ async function loadEarningsFromDB() {
             .order('created_at', { ascending: false });
         if (walletEntries && walletEntries.length > 0) {
             const today = new Date().toDateString();
-            const yesterday = new Date(Date.now() - 86400000).toDateString();
             const todayEarnings = walletEntries
                 .filter(e => new Date(e.created_at).toDateString() === today)
                 .reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
-            // ✅ NEW: গতকালের আয়ও হিসাব করা হলো, যাতে "vs yesterday" ট্রেন্ড ব্যাজটা আসল ডাটা দেখাতে পারে
-            const yesterdayEarnings = walletEntries
-                .filter(e => new Date(e.created_at).toDateString() === yesterday)
-                .reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
             localStorage.setItem('today_earnings', todayEarnings.toString());
-            localStorage.setItem('yesterday_earnings', yesterdayEarnings.toString());
             localStorage.setItem('completed_history', JSON.stringify(walletEntries.slice(0, 20).map(e => ({
                 amount: e.amount_earned,
                 date: new Date(e.created_at).toLocaleDateString('en-GB'),
@@ -1141,31 +863,6 @@ function updateGraphTrend() {
         if (alertStatus) alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> Payout Processed`;
         const trendGraph = document.getElementById("trendGraphContainer");
         if (trendGraph) trendGraph.className = "graph-box trend-down";
-    } else {
-        // ✅ NEW: আগে এখানে কিছুই হতো না, তাই "+12.4% vs yesterday" টেক্সটটা সবসময় হার্ডকোড
-        // হয়েই থাকতো, আসল ডাটার সাথে কোনো সম্পর্ক ছিল না। এখন আজ বনাম গতকালের real
-        // earnings তুলনা করে ব্যাজ ও গ্রাফের up/down স্টেট আপডেট হবে।
-        const todayVal = parseFloat(localStorage.getItem('today_earnings')) || 0;
-        const yesterdayVal = parseFloat(localStorage.getItem('yesterday_earnings')) || 0;
-        const alertStatus = document.querySelector(".trend-alert-status");
-        const trendGraph = document.getElementById("trendGraphContainer");
-        if (alertStatus && trendGraph) {
-            if (yesterdayVal <= 0 && todayVal <= 0) {
-                alertStatus.innerHTML = `<i class="fa-solid fa-minus"></i> No data yet`;
-                trendGraph.className = "graph-box trend-up";
-            } else if (yesterdayVal <= 0) {
-                alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> New earnings today`;
-                trendGraph.className = "graph-box trend-up";
-            } else {
-                const pctChange = ((todayVal - yesterdayVal) / yesterdayVal) * 100;
-                const isUp = pctChange >= 0;
-                trendGraph.className = isUp ? "graph-box trend-up" : "graph-box trend-down";
-                alertStatus.innerHTML = `<i class="fa-solid fa-arrow-trend-${isUp ? 'up' : 'down'}"></i> ${isUp ? '+' : ''}${pctChange.toFixed(1)}% vs yesterday`;
-                if (svgPath) {
-                    svgPath.setAttribute("d", isUp ? "M0,22 Q15,8 35,18 T75,5 T100,2" : "M0,10 Q15,15 35,12 T75,22 T100,26");
-                }
-            }
-        }
     }
 }
 
@@ -1267,37 +964,6 @@ function processAvatarUpdate(event) {
     }
 }
 
-// ✅ NEW: Google OAuth দিয়ে লগইন করলে Google প্রোফাইল পিকচারটা রাইডারের অ্যাভাটার হিসেবে
-// অটোমেটিক বসিয়ে দেওয়া হয় — কিন্তু শুধু তখনই, যখন rider এখনো কোনো কাস্টম অ্যাভাটার
-// সেট করেনি (riders.avatar_url খালি)। এরপর rider চাইলে profile পেজ থেকে নিজে বদলে নিতে পারবে।
-async function autoApplyGoogleAvatar(user) {
-    if (!supabaseClient || !user) return;
-    try {
-        const googlePic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-        if (!googlePic) return;
-
-        // যদি ইতিমধ্যে localStorage এ কোনো অ্যাভাটার সেভ করা থাকে, সেটাকে অগ্রাধিকার দেওয়া হবে
-        if (localStorage.getItem("rider_avatar")) return;
-
-        const { data: existingRider } = await supabaseClient
-            .from('riders')
-            .select('avatar_url')
-            .eq('email', user.email)
-            .maybeSingle();
-
-        // rider যদি আগে থেকেই কাস্টম অ্যাভাটার সেট করে থাকে, সেটা ওভাররাইট করা হবে না
-        if (existingRider && existingRider.avatar_url) {
-            localStorage.setItem("rider_avatar", existingRider.avatar_url);
-            return;
-        }
-
-        localStorage.setItem("rider_avatar", googlePic);
-        await supabaseClient.from('riders').upsert({ email: user.email, avatar_url: googlePic }, { onConflict: 'email' });
-    } catch (err) {
-        // silent — avatar auto-fill is a nice-to-have, not critical
-    }
-}
-
 async function saveRiderProfileToDatabase() {
     if (!supabaseClient) return;
     let currentRiderEmail = localStorage.getItem('userEmail');
@@ -1340,27 +1006,8 @@ function verifyAndSubmitFinancials() {
     }
     
     saveRiderProfileToDatabase();
-
-    // ✅ NEW: ব্যাংক ডিটেইলস সাবমিট করার সাথে সাথেই "Pending Review" স্টেটে সেট করা হলো,
-    // যাতে Vehicle/License এর মতোই Bank & Payment ও Unverified → Pending → Verified ফ্লো অনুসরণ করে।
-    markBankDetailsPendingReview();
-
     showToast("Financial configurations saved!", "success");
     closeSubPage('payoutConfigPage'); 
-}
-
-async function markBankDetailsPendingReview() {
-    if (!supabaseClient) return;
-    try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail) return;
-        await supabaseClient
-            .from('riders')
-            .update({ bank_verified: false, bank_rejection_reason: '' })
-            .eq('email', currentRiderEmail);
-    } catch (err) {
-        // silent — non-critical status flag
-    }
 }
 
 function setAppLanguage(lang) {
@@ -1529,110 +1176,34 @@ function closeSubPage(pageId) {
     }
 }
 
-function toggleNotifications() {
-    const notiDropdown = document.getElementById('notiDropdown');
-    if (!notiDropdown) return;
-    notiDropdown.classList.toggle('hidden');
+function toggleNotifications() { const notiDropdown = document.getElementById('notiDropdown'); if (notiDropdown) notiDropdown.classList.toggle('hidden'); }
 
-    // ✅ ড্রপডাউনের বাইরে ক্লিক করলে বন্ধ হয়ে যাবে (Zomato/Swiggy স্টাইল)
-    if (!notiDropdown.classList.contains('hidden')) {
-        setTimeout(() => {
-            document.addEventListener('click', closeNotiDropdownOutside);
-        }, 0);
-    }
-}
-
-function closeNotiDropdownOutside(e) {
-    const notiDropdown = document.getElementById('notiDropdown');
-    const notiBtn = document.querySelector('.notification-btn');
-    if (!notiDropdown) return;
-    if (notiDropdown.contains(e.target) || (notiBtn && notiBtn.contains(e.target))) return;
-    notiDropdown.classList.add('hidden');
-    document.removeEventListener('click', closeNotiDropdownOutside);
-}
-
-// ✅ FIX: আগে notification লোড হওয়ার সাথে সাথেই সবগুলো is_read=true করে দিত (auto mark-all-read),
-// ফলে badge/লাল ডট কখনো ঠিকমতো দেখাই যেত না। এখন শুধু unread count (10+ ক্যাপসহ) লোড হয় এবং
-// প্রতিটা notification ক্লিক করলে আলাদাভাবে read হবে (নিচের markNotificationAsRead ফাংশন)।
 async function loadDeliveryNotifications() {
     const badge = document.getElementById('noti-badge');
-    const dropdownBody = document.getElementById('noti-dropdown-body');
+    const dropdownBody = document.getElementById('notiDropdown');
     if (!badge || !supabaseClient) return;
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session?.user) return;
         const numericRiderId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
         if (!numericRiderId) return;
-
-        // Unread count (exact, capped at "10+" for display)
-        const { count } = await supabaseClient.from('rider_notifications')
-            .select('id', { count: 'exact', head: true })
-            .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
-            .eq('is_read', false);
-
-        const unread = count || 0;
-        if (unread > 0) {
-            badge.textContent = unread > 10 ? '10+' : String(unread);
-            badge.style.display = 'inline-flex';
-        } else {
-            badge.style.display = 'none';
-            badge.textContent = '0';
-        }
-
-        // Recent notifications (read + unread) for the dropdown list
         const { data } = await supabaseClient.from('rider_notifications')
-            .select('id, title, message, created_at, is_read')
+            .select('id, title, message, created_at')
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+            .eq('is_read', false)
             .order('created_at', { ascending: false })
-            .limit(15);
-
-        if (dropdownBody) {
-            if (data && data.length > 0) {
-                dropdownBody.innerHTML = data.map(n => `
-                    <div class="noti-item ${n.is_read ? 'read' : 'unread'}" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
-                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
-                        <p>${escapeHtml(n.message) || ''}</p>
-                        <span>${timeAgo(n.created_at)}</span>
-                    </div>`).join('');
-            } else {
-                dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
+            .limit(5);
+        if (data && data.length > 0) {
+            badge.textContent = data.length;
+            badge.style.display = 'inline-flex';
+            if (dropdownBody) {
+                const itemsHtml = data.map(n => `<div class="noti-item unread"><p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p><p>${escapeHtml(n.message) || ''}</p><span>${timeAgo(n.created_at)}</span></div>`).join('');
+                dropdownBody.innerHTML = `<div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>${itemsHtml}`;
             }
+            await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('rider_id', parseInt(numericRiderId)).eq('is_read', false);
         }
     } catch (e) {
         showToast("Notifications load error: " + (e.message || e), "error");
-    }
-}
-
-// ✅ NEW: একটা notification ক্লিক করলে সেটা read হবে — লাল ডট চলে যাবে, badge count ১ কমবে,
-// এবং database এ is_read=true সেভ হবে (Facebook/Zomato স্টাইল)
-async function markNotificationAsRead(id, el) {
-    if (!supabaseClient || !id) return;
-    if (el && el.classList.contains('read')) return; // already read, nothing to do
-
-    if (el) {
-        el.classList.remove('unread');
-        el.classList.add('read');
-    }
-
-    const badge = document.getElementById('noti-badge');
-    if (badge && badge.style.display !== 'none') {
-        const current = badge.textContent;
-        if (current !== '10+') {
-            const c = (parseInt(current) || 0) - 1;
-            if (c <= 0) {
-                badge.style.display = 'none';
-                badge.textContent = '0';
-            } else {
-                badge.textContent = String(c);
-            }
-        }
-    }
-
-    try {
-        const { error } = await supabaseClient.from('rider_notifications').update({ is_read: true }).eq('id', id);
-        if (error) throw error;
-    } catch (e) {
-        showToast("Could not mark notification as read: " + (e.message || e), "error");
     }
 }
 
@@ -1754,9 +1325,6 @@ async function loadCurrentRiderProfileStatus() {
             kycReason = kycData.rejection_reason || "";
         }
 
-        // ✅ NEW: গ্লোবাল ফ্ল্যাগ — Driving License/KYC verified না হলে Accept Order বাটন লক থাকবে (দেখুন acceptOrder ও renderAvailableOrder)
-        window._riderLicenseVerified = (kycVerified === true);
-
         if (document.getElementById("vehicleStatusTag")) {
             if (kycVerified) {
                 document.getElementById("vehicleStatusTag").innerText = "Verified";
@@ -1794,33 +1362,6 @@ async function loadCurrentRiderProfileStatus() {
                 document.getElementById("licenseStatusTag").innerText = "Unverified";
                 document.getElementById("licenseStatusTag").style.background = "#e2e8f0";
                 document.getElementById("licenseStatusTag").style.color = "#64748b";
-            }
-        }
-
-        // ✅ NEW: Bank & Payment স্ট্যাটাস ট্যাগ — আগে এটা কখনো আপডেট হতো না, সবসময়
-        // "Unverified" আটকে থাকতো। এখন Vehicle/License এর মতোই Unverified → Pending →
-        // Verified/Rejected ফ্লো ফলো করবে।
-        if (document.getElementById("payoutVerificationTag")) {
-            const bankHasData = !!(riderProfile.bank_account || riderProfile.upi_id);
-            const bankVerified = riderProfile.bank_verified;
-            const bankRejectReason = riderProfile.bank_rejection_reason || "";
-            const payoutTag = document.getElementById("payoutVerificationTag");
-            if (bankVerified === true) {
-                payoutTag.innerText = "Verified";
-                payoutTag.style.background = "#dcfce7";
-                payoutTag.style.color = "#16a34a";
-            } else if (bankRejectReason) {
-                payoutTag.innerText = "Rejected: " + bankRejectReason;
-                payoutTag.style.background = "#fee2e2";
-                payoutTag.style.color = "#dc2626";
-            } else if (bankHasData) {
-                payoutTag.innerText = "Pending Review";
-                payoutTag.style.background = "#fef3c7";
-                payoutTag.style.color = "#d97706";
-            } else {
-                payoutTag.innerText = "Unverified";
-                payoutTag.style.background = "#fee2e2";
-                payoutTag.style.color = "#ef4444";
             }
         }
 

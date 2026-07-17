@@ -3,10 +3,10 @@
 // Vercel-ready: skips all cross-origin, no CSP violations
 // ==========================================
 
-const CACHE_VERSION = 'medi-finder-v8';
-const STATIC_CACHE = 'medi-static-v8';
-const DYNAMIC_CACHE = 'medi-dynamic-v8';
-const IMAGE_CACHE = 'medi-images-v8';
+const CACHE_VERSION = 'medi-finder-v7';
+const STATIC_CACHE = 'medi-static-v7';
+const DYNAMIC_CACHE = 'medi-dynamic-v7';
+const IMAGE_CACHE = 'medi-images-v7';
 
 const PRECACHE_URLS = [
     '/',
@@ -72,9 +72,9 @@ const PRECACHE_URLS = [
     '/adminmarchent.css',
     '/admindboy.css',
     '/style.css',
-    '/usert_c.html',
-    '/marchentt_c.html',
-    '/dboyt_c.html',
+    '/user-policy.html',
+    '/merchant-policy.html',
+    '/delivery-policy.html',
     '/manifest.json',
     '/favicon.png'
 ];
@@ -105,19 +105,6 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-
-  // ✅ FIX: OAuth / Supabase auth callback URLs — Service Worker কখনো intercept করবে না
-  // Google login, error redirect, token exchange — সব browser নিজে handle করবে
-  const isAuthCallback =
-      url.searchParams.has('code') ||
-      url.searchParams.has('error_description') ||
-      url.searchParams.has('access_token') ||
-      url.searchParams.has('refresh_token') ||
-      url.hash.includes('access_token') ||
-      url.hash.includes('refresh_token') ||
-      url.hash.includes('error_description') ||
-      url.pathname.includes('auth/v1/callback');
-  if (isAuthCallback) return; // browser directly handle করবে, SW bypass
 
   // Skip ALL cross-origin requests entirely
   if (url.origin !== self.location.origin) return;
@@ -166,12 +153,8 @@ async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      // ✅ FIX: query parameter সহ URL cache করবে না (auth error URLs cache হয় না)
-      const urlObj = new URL(request.url);
-      if (!urlObj.search) {
-        const cache = await caches.open(cacheName);
-        cache.put(request, response.clone());
-      }
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
     }
     return response;
   } catch {

@@ -173,22 +173,10 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group full">
-                        <label>Button Link (URL or Product ID) — paste a product link to auto-pull its real photo</label>
-                        <div style="display:flex;gap:8px;">
-                            <input type="text" id="spBtnAction" placeholder="e.g., product-detail.html?id=123  or just  123" style="flex:1;">
-                            <button type="button" class="btn btn-secondary btn-sm" id="fetchProductBtn" onclick="fetchLinkedProduct()" style="white-space:nowrap;"><i class="fas fa-magnifying-glass"></i> Fetch Product</button>
-                        </div>
-                        <div id="linkedProductPreview" style="display:none;margin-top:10px;align-items:center;gap:12px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
-                            <img id="linkedProductImg" src="" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;">
-                            <div style="flex:1;">
-                                <div id="linkedProductName" style="font-size:13px;font-weight:700;"></div>
-                                <div id="linkedProductMeta" style="font-size:11px;color:var(--text-muted);"></div>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                        <label>Button Link (URL)</label>
+                        <input type="text" id="spBtnAction" placeholder="e.g., product-detail.html?id=123">
                     </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
                         <label>Sort Order</label>
                         <input type="number" id="spSort" value="0">
@@ -244,42 +232,6 @@
         // URL & key loaded from supabase-constants.js
         let db = null;
         try { if (window.supabase && window.supabase.createClient) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }); } catch(e) { /* error */ }
-
-        function extractProductId(raw) {
-            if (!raw) return '';
-            raw = raw.trim();
-            const m = raw.match(/[?&]id=([^&#]+)/);
-            if (m) return decodeURIComponent(m[1]);
-            // plain id pasted with no URL wrapper
-            if (!raw.includes('/') && !raw.includes('.html')) return raw;
-            return '';
-        }
-
-        async function fetchLinkedProduct() {
-            const raw = document.getElementById('spBtnAction').value;
-            const id = extractProductId(raw);
-            const preview = document.getElementById('linkedProductPreview');
-            if (!id) { showToast('Paste a valid product link or ID first', 'error'); preview.style.display = 'none'; return; }
-            if (!db) { showToast('Not connected to database', 'error'); return; }
-            try {
-                const { data, error } = await db.from('medicines').select('*').eq('id', id).single();
-                if (error || !data) { showToast('No product found for that link/ID', 'error'); preview.style.display = 'none'; return; }
-                const img = data.image_url || '';
-                document.getElementById('linkedProductImg').src = img;
-                document.getElementById('linkedProductName').textContent = data.name || data.product_name || 'Unnamed product';
-                document.getElementById('linkedProductMeta').textContent = '₹' + (data.selling_price || data.unit_price || '0') + (data.category ? ' · ' + data.category : '');
-                preview.style.display = 'flex';
-                // Auto-fill title/subtitle only if the admin hasn't typed anything yet
-                if (!document.getElementById('spTitle').value) document.getElementById('spTitle').value = data.name || data.product_name || '';
-                if (!document.getElementById('spSubtitle').value && data.selling_price) document.getElementById('spSubtitle').value = 'Now at ₹' + data.selling_price;
-                // Normalize the link so the storefront can resolve the same product reliably
-                document.getElementById('spBtnAction').value = `product-detail.html?id=${id}`;
-                showToast('Product found — its real photo will show on the storefront banner', 'success');
-            } catch (e) {
-                showToast('Error: ' + (e.message || e), 'error');
-                preview.style.display = 'none';
-            }
-        }
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -354,15 +306,12 @@
             document.getElementById('spIcon').value = p.icon_class;
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Sponsored Product';
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            if (extractProductId(p.btn_action || '')) fetchLinkedProduct();
-            else document.getElementById('linkedProductPreview').style.display = 'none';
         }
 
         function resetForm() {
             document.getElementById('sponsoredForm').reset();
             document.getElementById('editId').value = '';
             document.getElementById('spSort').value = '0';
-            document.getElementById('linkedProductPreview').style.display = 'none';
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add Sponsored Product';
         }
 
