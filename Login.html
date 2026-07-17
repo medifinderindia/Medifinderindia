@@ -1,29 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- ==========================================
-         Splash guard (extension, added for splash flow)
-         Every FRESH entry to the site (Google result, typed URL,
-         bookmark, new tab) must go through splash.html first —
-         splash.html then decides: no session -> back here (login),
-         valid session -> straight to the role home page. Internal
-         navigation within the same tab (e.g. clicking between Login
-         and Signup) already carries the "mf_splash_done" flag set by
-         splash.js, so it will NOT loop back into splash again.
-         If sessionStorage is unavailable, this simply does nothing
-         and the page loads exactly as before.
-         ========================================== -->
-    <script>
-        (function () {
-            try {
-                if (!sessionStorage.getItem('mf_splash_done')) {
-                    window.location.replace('index.html');
-                }
-            } catch (e) {
-                // No sessionStorage support — fall through to normal page load.
-            }
-        })();
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">

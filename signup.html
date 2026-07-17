@@ -1,23 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- ==========================================
-         Splash guard (extension, added for splash flow)
-         Same purpose as index.html: force splash.html on every fresh
-         entry; skip it for internal same-tab navigation (flag set by
-         splash.js). Falls through safely if sessionStorage is unavailable.
-         ========================================== -->
-    <script>
-        (function () {
-            try {
-                if (!sessionStorage.getItem('mf_splash_done')) {
-                    window.location.replace('index.html');
-                }
-            } catch (e) {
-                // No sessionStorage support — fall through to normal page load.
-            }
-        })();
-    </script>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
