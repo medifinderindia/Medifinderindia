@@ -179,6 +179,37 @@ body {
     margin-bottom: 12px; 
 }
 
+/* ============================================================ */
+/* ✅ NEW BLOCK: Total Lifetime Income — profile header, right side */
+/* ============================================================ */
+.income-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 14px;
+    padding: 12px 20px;
+    flex-shrink: 0;
+}
+.income-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+}
+.income-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #ffffff;
+}
+@media (min-width: 768px) {
+    .income-block { margin-left: auto; }
+}
+
 .edit-basics-btn { 
     background: rgba(255, 255, 255, 0.1); 
     border: 1px solid rgba(255, 255, 255, 0.2); 
@@ -533,3 +564,12 @@ input[type="text"]:focus, select:focus {
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Header gradient (matches Home/Earning/Delivery)  */
+/* ============================================================ */
+.navbar {
+    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+}
+.logo-text { color: #ffffff !important; }
+.text-highlight { color: #ffe8e8 !important; }

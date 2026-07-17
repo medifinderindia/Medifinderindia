@@ -1,4 +1,4 @@
-// ==========================================
+﻿// ==========================================
 // 🗄️ Supabase Initialization (Instant Client Boot)
 // URL & key loaded from supabase-constants.js
 // ==========================================
@@ -39,7 +39,7 @@ function requestBackgroundNotificationPermission() {
         }
     }
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('merchant-sw.js').catch(() => {
+        navigator.serviceWorker.register('Merchant-sw.js').catch(() => {
 
         });
     }
@@ -88,8 +88,7 @@ function fireMerchantBackgroundNotification(title, body, onClickOrderId) {
             sysNotif.onclick = () => {
                 window.focus();
                 if (onClickOrderId) {
-                    localStorage.setItem('pendingBroadcastOrderId', onClickOrderId);
-                    window.location.href = 'marchentdboyrequest.html';
+                    window.location.href = 'marchentorders.html';
                 }
                 sysNotif.close();
             };
@@ -131,6 +130,10 @@ window.openPopup = function(modalId) {
                 if (typeof window.invalidateProfileMapInstance === 'function') {
                     window.invalidateProfileMapInstance(); 
                 }
+                // 📍 Auto-trigger the device Geolocation prompt the instant this
+                // card is opened, so the merchant doesn't need a second click.
+                const dropPinBtn = document.getElementById('btnDropMapPin');
+                if (dropPinBtn) dropPinBtn.click();
             }, 300);
         }
     }
@@ -263,9 +266,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (document.getElementById('merchantNameInput') || document.getElementById('btnDropMapPin') || document.getElementById('langSelect') || document.getElementById('btnSaveStoreCore') || document.getElementById('btnSaveGeoAddress') || document.getElementById('btnSaveBankDetails')) {
         initProfilePage();
     }
-    if (document.getElementById('btnBroadcast') || document.getElementById('orderIdSelect')) {
-        initDeliveryPage();
-    }
     if (document.getElementById('totalReceivedDisplay') || document.getElementById('tradingSvg')) {
         initPaymentAnalyticsPage();
     }
@@ -291,7 +291,7 @@ function initNotificationSystem() {
             
             showCustomNotification(
                 `🛒 Live Order Received! Profit: ₹${marginProfit}`,
-                `Order ID: ${order.id || 'N/A'}. Value: ₹${order.total_amount}. Click to broadcast to riders.`,
+                `Order ID: ${order.id || 'N/A'}. Value: ₹${order.total_amount}. Tap to view and accept.`,
                 order.id,
                 'order'
             );
@@ -300,7 +300,7 @@ function initNotificationSystem() {
             // gets alerted even if this site tab is minimized or not in focus.
             fireMerchantBackgroundNotification(
                 `🛒 New Order Received! Profit: ₹${marginProfit}`,
-                `Order ID: ${order.id || 'N/A'} • Value: ₹${order.total_amount}. Tap to broadcast to delivery riders.`,
+                `Order ID: ${order.id || 'N/A'} • Value: ₹${order.total_amount}. Tap to view and accept.`,
                 order.id
             );
         })
@@ -375,14 +375,14 @@ function initNotificationSystem() {
                 n.message || '',
                 null
             );
-            const badge = document.getElementById('notifBadge');
-            if (badge) {
-                const current = parseInt(badge.textContent) || 0;
-                badge.textContent = current + 1;
-                badge.style.display = 'inline-flex';
+            refreshUnreadNotifBadge();
+            if (window._notifPanelOpen) {
+                fetchMerchantNotifications().then(renderNotifPanel);
             }
         })
         .subscribe();
+
+    refreshUnreadNotifBadge();
 }
 
 function showCustomNotification(title, message, orderId, type) {
@@ -404,8 +404,7 @@ function showCustomNotification(title, message, orderId, type) {
     
     notif.addEventListener('click', () => {
         if (orderId) {
-            localStorage.setItem('pendingBroadcastOrderId', orderId);
-            window.location.href = 'marchentdboyrequest.html'; 
+            window.location.href = 'marchentorders.html';
         }
     });
     
@@ -427,10 +426,204 @@ function createNotificationContainer() {
     return container;
 }
 
-// ... আপনার বাকি ফাংশনগুলো (initHomePage, initAddMedicinePage, initDeliveryPage, initPaymentAnalyticsPage, initProfilePage, initGlobalFeatures, loadCurrentMerchantStatus) এখানে আগের মতোই থাকবে। আমি সেগুলো এখানে নতুন করে দিচ্ছি না কারণ সেগুলো অলরেডি আপনার কাছে আছে এবং আমি কোনোটাই ডিলিট করিনি।
-// [এখানে আপনার বাকি ফাংশনগুলো যেমন: initHomePage, initAddMedicinePage, initDeliveryPage, 
-// initPaymentAnalyticsPage, initProfilePage, initGlobalFeatures, loadCurrentMerchantStatus 
-// আগের মতোই থাকবে।]
+// ==========================================
+// 🔔 PERSISTED NOTIFICATION HISTORY (Notification Center)
+// Fetches & displays saved rows from merchant_notifications so the
+// merchant always has a real history — separate from the temporary
+// toast popups above, which are never saved to this list.
+// ==========================================
+function _notifIconFor(n) {
+    const t = (n.title || '').toLowerCase();
+    const c = (n.category || '').toLowerCase();
+    if (t.includes('kyc') || t.includes('license')) return { icon: 'fa-shield-halved', color: '#0284c7' };
+    if (t.includes('product') || t.includes('medicine') || t.includes('approved') && t.includes('live')) return { icon: 'fa-box-open', color: '#7c3aed' };
+    if (c === 'order' || t.includes('order')) return { icon: 'fa-receipt', color: '#e02020' };
+    if (t.includes('payout') || t.includes('payment') || t.includes('settlement')) return { icon: 'fa-wallet', color: '#059669' };
+    if (n.type === 'error') return { icon: 'fa-circle-exclamation', color: '#ef4444' };
+    if (n.type === 'warning') return { icon: 'fa-triangle-exclamation', color: '#f59e0b' };
+    return { icon: 'fa-bullhorn', color: '#64748b' };
+}
+
+function _timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+async function fetchMerchantNotifications() {
+    const merchantId = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    if (!merchantId || !dbSupabase) return [];
+    try {
+        const { data, error } = await dbSupabase
+            .from('merchant_notifications')
+            .select('*')
+            .or(`merchant_id.eq.${merchantId},merchant_id.is.null`)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+async function refreshUnreadNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    const merchantId = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    if (!merchantId || !dbSupabase) { badge.textContent = ''; return; }
+    try {
+        const { count, error } = await dbSupabase
+            .from('merchant_notifications')
+            .select('id', { count: 'exact', head: true })
+            .or(`merchant_id.eq.${merchantId},merchant_id.is.null`)
+            .eq('is_read', false);
+        if (error) throw error;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.textContent = '';
+            badge.style.display = 'none';
+        }
+    } catch (e) {
+        badge.textContent = '';
+    }
+}
+
+function _notifPanelEl() {
+    let panel = document.getElementById('notifHistoryPanel');
+    if (panel) return panel;
+    panel = document.createElement('div');
+    panel.id = 'notifHistoryPanel';
+    panel.className = 'notif-history-panel';
+    panel.innerHTML = `
+        <div class="notif-history-overlay" id="notifHistoryOverlay"></div>
+        <div class="notif-history-card">
+            <div class="notif-history-head">
+                <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+                <div class="notif-history-actions">
+                    <button type="button" id="btnMarkAllNotifRead">Mark all read</button>
+                    <button type="button" id="btnCloseNotifPanel" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="notif-history-list" id="notifHistoryList">
+                <div class="notif-history-empty">Loading...</div>
+            </div>
+        </div>
+        <style>
+            .notif-history-panel { position: fixed; inset: 0; z-index: 10000; display: none; }
+            .notif-history-panel.show { display: block; }
+            .notif-history-overlay { position: absolute; inset: 0; background: rgba(15,23,42,0.35); }
+            .notif-history-card { position: absolute; top: 0; right: 0; height: 100%; width: min(380px, 100%); background: #fff; box-shadow: -8px 0 30px rgba(0,0,0,0.15); display: flex; flex-direction: column; animation: notifSlideIn 0.25s ease; }
+            @keyframes notifSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+            .notif-history-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid #f1f5f9; }
+            .notif-history-head h3 { margin: 0; font-size: 16px; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+            .notif-history-actions { display: flex; align-items: center; gap: 12px; }
+            .notif-history-actions button { border: none; background: none; cursor: pointer; }
+            #btnMarkAllNotifRead { color: #e02020; font-size: 12.5px; font-weight: 600; }
+            #btnCloseNotifPanel { font-size: 16px; color: #94a3b8; padding: 4px; }
+            .notif-history-list { flex: 1; overflow-y: auto; }
+            .notif-history-empty { padding: 60px 20px; text-align: center; color: #94a3b8; font-size: 14px; }
+            .notif-history-item { display: flex; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #f8fafc; cursor: pointer; position: relative; }
+            .notif-history-item.unread { background: #fff7f7; }
+            .notif-history-item .nh-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: #fff; }
+            .notif-history-item .nh-body { flex: 1; min-width: 0; }
+            .notif-history-item .nh-title { font-size: 13.5px; font-weight: 700; color: #1e293b; margin-bottom: 3px; }
+            .notif-history-item .nh-msg { font-size: 12.5px; color: #64748b; line-height: 1.4; word-break: break-word; }
+            .notif-history-item .nh-time { font-size: 11px; color: #b0b8c4; margin-top: 4px; }
+            .notif-history-item .nh-dot { width: 8px; height: 8px; border-radius: 50%; background: #e02020; position: absolute; right: 16px; top: 18px; }
+        </style>
+    `;
+    document.body.appendChild(panel);
+    panel.querySelector('#notifHistoryOverlay').addEventListener('click', closeMerchantNotifications);
+    panel.querySelector('#btnCloseNotifPanel').addEventListener('click', closeMerchantNotifications);
+    panel.querySelector('#btnMarkAllNotifRead').addEventListener('click', markAllNotifRead);
+    return panel;
+}
+
+function renderNotifPanel(list) {
+    const listEl = document.getElementById('notifHistoryList');
+    if (!listEl) return;
+    if (!list || list.length === 0) {
+        listEl.innerHTML = `<div class="notif-history-empty"><i class="fa-regular fa-bell-slash" style="font-size:28px; display:block; margin-bottom:10px; opacity:0.5;"></i>No notifications yet</div>`;
+        return;
+    }
+    listEl.innerHTML = list.map(n => {
+        const meta = _notifIconFor(n);
+        return `
+            <div class="notif-history-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" data-order="${n.category === 'order' ? '1' : ''}">
+                <div class="nh-icon" style="background:${meta.color};"><i class="fa-solid ${meta.icon}"></i></div>
+                <div class="nh-body">
+                    <div class="nh-title">${(n.title || 'Notification').replace(/</g, '&lt;')}</div>
+                    <div class="nh-msg">${(n.message || '').replace(/</g, '&lt;')}</div>
+                    <div class="nh-time">${_timeAgo(n.created_at)}</div>
+                </div>
+                ${n.is_read ? '' : '<span class="nh-dot"></span>'}
+            </div>
+        `;
+    }).join('');
+
+    listEl.querySelectorAll('.notif-history-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = item.getAttribute('data-id');
+            const isOrder = item.getAttribute('data-order') === '1';
+            markNotifRead(id);
+            if (isOrder) window.location.href = 'marchentorders.html';
+        });
+    });
+}
+
+async function markNotifRead(id) {
+    if (!id || !dbSupabase) return;
+    try {
+        await dbSupabase.from('merchant_notifications').update({ is_read: true }).eq('id', id);
+        const item = document.querySelector(`.notif-history-item[data-id="${id}"]`);
+        if (item) {
+            item.classList.remove('unread');
+            const dot = item.querySelector('.nh-dot');
+            if (dot) dot.remove();
+        }
+        refreshUnreadNotifBadge();
+    } catch (e) {}
+}
+
+async function markAllNotifRead() {
+    const merchantId = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
+    if (!merchantId || !dbSupabase) return;
+    try {
+        await dbSupabase.from('merchant_notifications').update({ is_read: true }).or(`merchant_id.eq.${merchantId},merchant_id.is.null`).eq('is_read', false);
+        document.querySelectorAll('.notif-history-item.unread').forEach(item => {
+            item.classList.remove('unread');
+            const dot = item.querySelector('.nh-dot');
+            if (dot) dot.remove();
+        });
+        refreshUnreadNotifBadge();
+    } catch (e) {}
+}
+
+window.showMerchantNotifications = async function() {
+    const panel = _notifPanelEl();
+    panel.classList.add('show');
+    window._notifPanelOpen = true;
+    const list = await fetchMerchantNotifications();
+    renderNotifPanel(list);
+};
+
+window.closeMerchantNotifications = function() {
+    const panel = document.getElementById('notifHistoryPanel');
+    if (panel) panel.classList.remove('show');
+    window._notifPanelOpen = false;
+};
+function closeMerchantNotifications() { window.closeMerchantNotifications(); }
+
 // ==========================================
 // 🏠 HOME PAGE LOGIC (MEDICINE LIST & REVENUE + REALTIME LISTENER)
 // ==========================================
@@ -640,7 +833,7 @@ function initAddMedicinePage() {
             currentEditingId = editData.id;
             if (document.getElementById('prodName')) document.getElementById('prodName').value = editData.product_name || '';
             if (document.getElementById('composition')) document.getElementById('composition').value = editData.composition || '';
-            if (document.getElementById('dosageForm')) document.getElementById('dosageForm').value = editData.dosage_form || 'Tablets';
+            if (document.getElementById('dosageForm')) document.getElementById('dosageForm').value = editData.dosage_form || 'Tablet';
             if (document.getElementById('strength')) document.getElementById('strength').value = editData.strength || '';
             if (document.getElementById('manufacturer')) document.getElementById('manufacturer').value = editData.manufacturer || '';
             if (document.getElementById('prescriptionReq')) document.getElementById('prescriptionReq').value = editData.prescription_req || 'No';
@@ -770,7 +963,7 @@ function initAddMedicinePage() {
 
         const prodName = document.getElementById('prodName')?.value || '';
         const composition = document.getElementById('composition')?.value || '';
-        const dosageForm = document.getElementById('dosageForm')?.value || 'Tablets';
+        const dosageForm = document.getElementById('dosageForm')?.value || 'Tablet';
         const strength = document.getElementById('strength')?.value || '';
         const manufacturer = document.getElementById('manufacturer')?.value || '';
         const prescriptionReq = document.getElementById('prescriptionReq')?.value || 'No';
@@ -797,14 +990,26 @@ function initAddMedicinePage() {
             if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
             if (draftBtn) { draftBtn.disabled = true; }
 
-            // Upload all images
+            // Upload all images (previously only imageUrls[0] was kept and the
+            // 2nd/3rd real photos the merchant uploaded were discarded, which is
+            // why the storefront showed 1 real photo + 3 duplicate demo photos)
             let imageUrls = await uploadAllMedicineImages();
             let mainImageUrl = imageUrls[0] || null;
+            let secondImageUrl = imageUrls[1] || null;
+            let thirdImageUrl = imageUrls[2] || null;
 
             let response;
             const rawId = window.currentMerchantId || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id')) || localStorage.getItem('merchant_id');
             const activeMerchantId = rawId ? parseInt(rawId) : null;
             
+            // prescription_req (text 'Yes'/'No') is the field the merchant form
+            // actually sets. is_rx (boolean) is what the admin table and the
+            // user-facing storefront read to decide OTC vs Rx. These used to be
+            // two disconnected columns — a merchant could pick "Yes (Rx Required)"
+            // here and it would still show as OTC everywhere else. Always derive
+            // is_rx from the same value so they can never go out of sync again.
+            const isRxBool = prescriptionReq === 'Yes';
+
             const medicineObject = {
                 merchant_id: activeMerchantId,
                 product_name: prodName,
@@ -814,6 +1019,7 @@ function initAddMedicinePage() {
                 strength: strength,
                 manufacturer: manufacturer,
                 prescription_req: prescriptionReq,
+                is_rx: isRxBool,
                 description: productDescription,
                 mfd_date: mfdDate,
                 expiry_date: expiryDate,
@@ -833,6 +1039,12 @@ function initAddMedicinePage() {
 
             if (mainImageUrl) {
                 medicineObject.image_url = mainImageUrl;
+            }
+            if (secondImageUrl) {
+                medicineObject.image_url_2 = secondImageUrl;
+            }
+            if (thirdImageUrl) {
+                medicineObject.image_url_3 = thirdImageUrl;
             }
 
             if (currentEditingId) { 
@@ -861,184 +1073,6 @@ function initAddMedicinePage() {
         const draftBtn = document.getElementById('btnDraft');
         if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Publish to Admin <i class="fa-solid fa-cloud-arrow-up"></i>'; }
         if (draftBtn) { draftBtn.disabled = false; }
-    }
-}
-
-// ==========================================
-// 🚚 DELIVERY AND FLEET DISTRIBUTION LOGIC
-// ==========================================
-function initDeliveryPage() {
-    const btnVerifyOrder = document.getElementById('btnVerifyOrder');
-    const verifyText = document.getElementById('verifyText');
-    const btnBroadcast = document.getElementById('btnBroadcast');
-    const rxVerificationBox = document.getElementById('rxVerificationBox');
-    const chkConfirmItems = document.getElementById('chkConfirmItems');
-    const prescriptionVaultSection = document.getElementById('prescriptionVaultSection');
-    const productPreviewArea = document.getElementById('productPreviewArea');
-    const riderStatusBox = document.getElementById('riderStatusBox');
-
-    const liabilityModal = document.getElementById('liabilityModal');
-    const btnModalConfirm = document.getElementById('btnModalConfirm');
-    const btnModalCancel = document.getElementById('btnModalCancel');
-
-    let orderRequiresRx = true; 
-    let verifiedOrder = null;
-
-    if (btnVerifyOrder) {
-        btnVerifyOrder.addEventListener('click', async () => {
-            const orderInput = document.getElementById('orderIdSelect');
-            const rawOrderId = (orderInput?.value || '').replace('#', '').trim();
-            if (!rawOrderId) { showToast('Please enter an Order ID', 'error'); return; }
-
-            btnVerifyOrder.classList.add('loading');
-            if (verifyText) verifyText.innerText = "Verifying...";
-
-            try {
-                const mid = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
-                let query = dbSupabase.from('orders').select('*, items_text, items_img, address, total_amount, customer_name, user_email, prescription_url').eq('order_id', rawOrderId);
-                if (mid) query = query.eq('merchant_id', mid);
-                const { data: order, error } = await query.single();
-                if (error || !order) {
-                    showToast('Order not found or not yours', 'error');
-                    btnVerifyOrder.classList.remove('loading');
-                    if (verifyText) verifyText.innerText = "Verify";
-                    return;
-                }
-
-                verifiedOrder = order;
-
-                if (document.getElementById('distanceSelector')) document.getElementById('distanceSelector').value = "12";
-                if (document.getElementById('autoVehicle')) document.getElementById('autoVehicle').value = "Bike Delivery (Rider)";
-                if (document.getElementById('deliverySpeed')) document.getElementById('deliverySpeed').value = "Super Fast Delivery (Within 30 Mins)";
-                if (document.getElementById('pickupAddress')) document.getElementById('pickupAddress').value = order.address || "Medi Care Pharmacy";
-                if (document.getElementById('deliveryAddress')) document.getElementById('deliveryAddress').value = order.delivery_address || order.address || "Customer Address";
-
-                if (productPreviewArea) {
-                    productPreviewArea.style.display = 'block';
-                    const itemsHtml = (order.items_text || '').split(',').map(item => {
-                        const parts = item.split('|');
-                        const name = parts[0] || 'Item';
-                        const qty = parts[1] || '1';
-                        return `<div class="item-mini-card"><div class="item-info"><h5>${name} <span class="item-qty">x ${qty}</span></h5></div></div>`;
-                    }).join('');
-                    const h4 = productPreviewArea.querySelector('h4');
-                    if (h4 && itemsHtml) h4.insertAdjacentHTML('afterend', itemsHtml);
-                }
-
-                if (order.prescription_url) {
-                    if (prescriptionVaultSection) prescriptionVaultSection.style.display = 'block';
-                    const rxImg = document.getElementById('customerRxImage');
-                    if (rxImg) rxImg.src = order.prescription_url;
-                }
-
-                const hasRx = /\brx\b/i.test(order.items_text || '');
-                orderRequiresRx = hasRx;
-
-                if (orderRequiresRx) {
-                    if (rxVerificationBox) rxVerificationBox.style.display = 'block';
-                    if (btnBroadcast) { btnBroadcast.setAttribute('disabled', 'true'); btnBroadcast.style.opacity = "0.5"; }
-                } else {
-                    if (prescriptionVaultSection) prescriptionVaultSection.style.display = 'none';
-                    if (rxVerificationBox) rxVerificationBox.style.display = 'none';
-                    if (btnBroadcast) { btnBroadcast.removeAttribute('disabled'); btnBroadcast.style.opacity = "1"; }
-                }
-
-                if (riderStatusBox) riderStatusBox.innerHTML = '<span class="status-badge active-ready"><i class="fa-solid fa-circle-info"></i> Awaiting Inventory Checklist Confirmation</span>';
-
-                btnVerifyOrder.classList.remove('loading');
-                btnVerifyOrder.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verified';
-                btnVerifyOrder.style.background = '#e6fffa';
-                btnVerifyOrder.style.color = '#00a389';
-                btnVerifyOrder.style.borderColor = '#b2f5ea';
-            } catch (err) {
-
-                showToast('Verification failed. Try again.', 'error');
-                btnVerifyOrder.classList.remove('loading');
-                if (verifyText) verifyText.innerText = "Verify";
-            }
-        });
-    }
-
-    if (chkConfirmItems) {
-        chkConfirmItems.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                if (liabilityModal) liabilityModal.classList.add('show');
-            } else {
-                if (btnBroadcast) {
-                    btnBroadcast.setAttribute('disabled', 'true');
-                    btnBroadcast.style.opacity = "0.5";
-                }
-                if(riderStatusBox) {
-                    riderStatusBox.innerHTML = '<span class="status-badge active-ready"><i class="fa-solid fa-circle-info"></i> Awaiting Inventory Checklist Confirmation</span>';
-                }
-            }
-        });
-    }
-
-    if (btnModalConfirm) {
-        btnModalConfirm.addEventListener('click', () => {
-            if (liabilityModal) liabilityModal.classList.remove('show');
-            if (btnBroadcast) {
-                btnBroadcast.removeAttribute('disabled');
-                btnBroadcast.style.opacity = "1";
-            }
-            if(riderStatusBox) {
-                riderStatusBox.innerHTML = '<span class="status-badge active-ready" style="background:#e6fffa; color:#00a389;"><i class="fa-solid fa-spinner fa-spin"></i> Ready to Broadcast to Fleet</span>';
-            }
-        });
-    }
-
-    if (btnModalCancel) {
-        btnModalCancel.addEventListener('click', () => {
-            if (liabilityModal) liabilityModal.classList.remove('show');
-            if (chkConfirmItems) chkConfirmItems.checked = false; 
-            if (btnBroadcast) {
-                btnBroadcast.setAttribute('disabled', 'true');
-                btnBroadcast.style.opacity = "0.5";
-            }
-        });
-    }
-
-    if (btnBroadcast) {
-        btnBroadcast.addEventListener('click', async () => {
-            if (orderRequiresRx && (!chkConfirmItems || !chkConfirmItems.checked)) {
-                showToast("Broadcast locked: You must check the validation box matching prescription details first.", "error");
-                return;
-            }
-            const broadcastOrderId = document.getElementById('orderIdSelect')?.value?.replace('#', '').trim() || '';
-            const mid = window.currentMerchantId || localStorage.getItem('merchantId') || localStorage.getItem('merchant_id');
-            let broadcastSuccess = false;
-            try {
-                const { error: brErr } = await dbSupabase.from('delivery_requests').insert([{
-                    order_id: broadcastOrderId,
-                    merchant_id: mid || null,
-                    status: 'broadcast',
-                    created_at: new Date().toISOString()
-                }]);
-                if (brErr) throw brErr;
-                if (verifiedOrder) {
-                    await dbSupabase.from('orders').update({ status: 'broadcasted' }).eq('order_id', broadcastOrderId);
-                }
-                broadcastSuccess = true;
-            } catch (dbErr) {
-                showToast("Broadcast DB error: " + (dbErr.message || dbErr), "error");
-            }
-            if (broadcastSuccess) {
-                showToast("Broadcast published to fleet stream successfully.", "success");
-            } else {
-                showToast("Broadcast failed. Please try again.", "error");
-            }
-            if (broadcastSuccess) {
-                fireMerchantBackgroundNotification(
-                    "Order Broadcasted to Fleet!",
-                    `Order ${broadcastOrderId} has been published to the rider pool successfully.`,
-                    null
-                );
-            }
-            if (riderStatusBox) riderStatusBox.innerHTML = broadcastSuccess
-                ? '<span class="status-badge active-ready" style="background:#e6fffa; color:#00a389;"><i class="fa-solid fa-circle-check"></i> Broadcast Published — Awaiting Rider Acceptance</span>'
-                : '<span class="status-badge" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-exclamation-circle"></i> Broadcast Failed — Try Again</span>';
-        });
     }
 }
 
@@ -1663,6 +1697,13 @@ async function loadCurrentMerchantStatus() {
             if (document.getElementById('merchantEmailInput')) document.getElementById('merchantEmailInput').value = merchantData.email || '';
             if (document.getElementById('merchantPhoneInput')) document.getElementById('merchantPhoneInput').value = merchantData.phone || '';
             if (document.getElementById('licenseIdInput')) document.getElementById('licenseIdInput').value = merchantData.license_id || '';
+
+            // 🆔 UID — always pulled live from the database (never hardcoded)
+            const uidBadgeEl = document.getElementById('uidBadge');
+            if (uidBadgeEl) {
+                const realUid = merchantData.uid || merchantData.merchant_code || ('MT' + String(merchantData.id).padStart(4, '0'));
+                uidBadgeEl.innerHTML = `<i class="fa-solid fa-fingerprint"></i> ID: #${realUid}`;
+            }
             
             // 🏦 অটো-রিসেট প্রতিরোধে সুপাবেস ডাটাবেস থেকে ব্যাংক ডেটা লোড
             if (document.getElementById('bankNoInput')) document.getElementById('bankNoInput').value = merchantData.bank_no || '';

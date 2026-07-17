@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
     <script src="prod-utils.js?v=13"></script>
+    <link rel="stylesheet" href="merchant-shared.css?v=14">
 </head>
 <body>
     <div class="container">
@@ -85,19 +89,12 @@
                                     <label>Category / Form</label>
                                     <select id="dosageForm" required>
                                         <option value="">Select Category</option>
-                                        <option value="Tablets">Tablets</option>
-                                        <option value="Capsules">Capsules</option>
                                         <option value="Syrup">Syrup</option>
-                                        <option value="Injection">Injection</option>
+                                        <option value="Tablet">Tablet</option>
                                         <option value="Lotion">Lotion</option>
-                                        <option value="Ointment">Ointment</option>
-                                        <option value="Drops">Drops</option>
-                                        <option value="Inhaler">Inhaler</option>
-                                        <option value="Powder">Powder</option>
-                                        <option value="Gel">Gel</option>
-                                        <option value="Spray">Spray</option>
-                                        <option value="Baby Care">Baby Care</option>
-                                        <option value="Supplement">Supplement</option>
+                                        <option value="Baby">Baby</option>
+                                        <option value="Insulin">Insulin</option>
+                                        <option value="Food">Food</option>
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
@@ -255,5 +252,6 @@
         }
     </script>
     <script src="marchentscript.js?v=13"></script>
+    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

@@ -51,13 +51,6 @@
                         <span class="sub-tag">Rider Express</span>
                     </div>
                 </div>
-                
-                <div class="header-actions">
-                    <div class="status-toggle-pill">
-                        <div class="pulse-dot active"></div>
-                        <span class="status-txt">On Duty</span>
-                    </div>
-                </div>
             </div>
         </header>
 
@@ -80,14 +73,22 @@
                     </div>
                 </div>
 
-                <div class="live-map-wrapper">
+                <div class="live-map-wrapper" style="position:relative;">
                     <div id="zomatoRealMap"></div>
+                    <!-- ✅ NEW: My Location floating button — ক্লিক করলে GPS permission নিয়ে নিজের অবস্থানে zoom করবে -->
+                    <button id="myLocationBtn" class="my-location-btn" onclick="focusMyLocationOnMap()" title="My Location">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </button>
                 </div>
                 
                 <div class="map-bottom-bar" style="margin: 0 16px 16px 16px;">
                     <div class="info-meta">
                         <span class="label">Distance Left</span>
-                        <span class="value">2.4 km</span>
+                        <span class="value" id="distanceLeftValue">0 km</span>
+                    </div>
+                    <div class="info-meta">
+                        <span class="label">ETA</span>
+                        <span class="value emphasis" id="etaValue">--</span>
                     </div>
                     <div class="info-meta">
                         <span class="label">Payment Status</span>

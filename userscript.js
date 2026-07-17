@@ -1,5 +1,4 @@
-﻿
-/* ==========================================================================
+﻿/* ==========================================================================
    1. GLOBAL SYSTEM CONFIGURATIONS & SUPABASE INIT
    URL & key loaded from supabase-constants.js
    ========================================================================== */
@@ -9,14 +8,101 @@ let currentCart = JSON.parse(localStorage.getItem('medi_cart')) || [];
 let patientsData = JSON.parse(localStorage.getItem('medi_patients')) || [];
 let alarmsData = JSON.parse(localStorage.getItem('medi_alarms')) || [];
 let systemNotifications = [];
+let savedAddresses = []; // Flipkart-style multi-address book, loaded from user_addresses table
 let adminOffers = [];
 
 let currentUserEmail = '';
+let currentAuthUserId = '';   // Supabase auth UUID, set once session resolves — used by the notification system
 let selectedPaymentMethod = "COD";
 let isPincodeVerified = false;
 let verifiedAddress = localStorage.getItem('medi_verified_address') || "";
 let discountAmount = 0;
 let isPrescriptionUploaded = localStorage.getItem('medi_presc_uploaded_status') === 'true' || false;
+let activePrescription = JSON.parse(localStorage.getItem('medi_active_prescription') || 'null'); // {fileName, url, date} of the currently active upload
+
+// Shows exactly one of the three prescription-widget states (default / uploading / uploaded)
+// and keeps it correct across page loads by reading the persisted activePrescription record.
+function renderPrescriptionWidgetState() {
+    const defaultState = document.getElementById('presc-default-state');
+    const progressState = document.getElementById('presc-progress-state');
+    const uploadedState = document.getElementById('presc-uploaded-state');
+    if (!defaultState && !uploadedState) return; // widget not on this page
+
+    if (activePrescription && activePrescription.url) {
+        if (defaultState) defaultState.style.display = 'none';
+        if (progressState) progressState.style.display = 'none';
+        if (uploadedState) uploadedState.style.display = 'flex';
+        const nameEl = document.getElementById('presc-uploaded-filename');
+        if (nameEl) nameEl.innerText = activePrescription.fileName || 'Prescription';
+    } else {
+        if (defaultState) defaultState.style.display = 'flex';
+        if (progressState) progressState.style.display = 'none';
+        if (uploadedState) uploadedState.style.display = 'none';
+    }
+}
+
+function showPrescriptionProgressState() {
+    const defaultState = document.getElementById('presc-default-state');
+    const progressState = document.getElementById('presc-progress-state');
+    const uploadedState = document.getElementById('presc-uploaded-state');
+    if (defaultState) defaultState.style.display = 'none';
+    if (uploadedState) uploadedState.style.display = 'none';
+    if (progressState) progressState.style.display = 'flex';
+    const bar = document.getElementById('presc-progress-bar');
+    if (bar) bar.style.width = '0%';
+}
+
+// The Supabase JS storage.upload() call doesn't expose byte-level progress,
+// so this animates toward ~90% while the real upload is in flight and snaps
+// to 100% only once it actually resolves — an honest "still working" cue
+// rather than a fake instant bar.
+function animatePrescriptionProgress() {
+    const bar = document.getElementById('presc-progress-bar');
+    if (!bar) return () => {};
+    let pct = 0;
+    const timer = setInterval(() => {
+        pct = Math.min(90, pct + Math.random() * 12);
+        bar.style.width = pct + '%';
+    }, 250);
+    return () => { clearInterval(timer); bar.style.width = '100%'; };
+}
+
+window.deleteActivePrescription = function() {
+    showConfirmationModal("Delete this prescription? You'll need to re-upload it for Rx orders.", async () => {
+        const toDelete = activePrescription;
+        activePrescription = null;
+        isPrescriptionUploaded = false;
+        localStorage.removeItem('medi_active_prescription');
+        localStorage.setItem('medi_presc_uploaded_status', 'false');
+        renderPrescriptionWidgetState();
+
+        if (supabase && toDelete && toDelete.storagePath) {
+            try { await supabase.storage.from('media').remove([toDelete.storagePath]); } catch (e) {}
+        }
+        // Also drop the matching entry from the archived "My Prescription Box" list
+        if (toDelete && toDelete.url) {
+            let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
+            myBox = myBox.filter(p => p.url !== toDelete.url);
+            localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
+        }
+        showToast("Prescription deleted.", "info");
+    });
+};
+
+
+// add/buy an Rx medicine without a verified prescription on file.
+function blockForMissingPrescription() {
+    const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
+    if (typeof showConfirmationModal === 'function') {
+        showConfirmationModal(msg, () => {
+            window.location.href = (window.location.pathname.split('/').pop() === 'userhome.html')
+                ? '#prescription-upload-section'
+                : 'userhome.html#prescription-upload-section';
+        });
+    } else {
+        showToast("Upload prescription for Rx medicines.", "error");
+    }
+}
 
 let userLiveLat = 22.5726;  // fallback — real coords set by GPS
 let userLiveLng = 88.3639; // fallback — real coords set by GPS
@@ -173,13 +259,11 @@ const languageMatrix = {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    const prescBadge = document.getElementById('uploaded-presc-badge');
-    if (prescBadge && isPrescriptionUploaded) {
-        prescBadge.style.display = 'block';
-    }
+    renderPrescriptionWidgetState();
 
     detectLiveUserGPSCoordinates();
     autoFillSavedUserDataOnAuth();
+    retryPendingOrderSync();
     setupGlobalNotificationHub();
     setupHomePageModules();
     setupCartPageModules();
@@ -207,6 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initModalRatingStars();
     initScrollToTop();
     initWishlistButtons();
+    initVoiceSearch();
     initServicesMenu();
     initHamburgerMenu();
     updateProductCount();
@@ -226,7 +311,7 @@ document.addEventListener('click', (e) => {
         e.stopPropagation();
         const isRx = card.getAttribute('data-is-rx') === 'true' || card.dataset.isRx === 'true';
         if (isRx && !isPrescriptionUploaded) {
-            showToast("Upload prescription for Rx medicines.", "error");
+            blockForMissingPrescription();
             return;
         }
         navigateToProductDetail(card.dataset);
@@ -244,7 +329,7 @@ window.handleQuickBuyNow = function(btn) {
     if (!card) return;
     const isRx = card.getAttribute('data-is-rx') === 'true' || card.dataset.isRx === 'true';
     if (isRx && !isPrescriptionUploaded) {
-        showToast("Upload prescription for Rx medicines.", "error");
+        blockForMissingPrescription();
         return;
     }
     navigateToProductDetail(card.dataset);
@@ -303,9 +388,12 @@ const prefetchCache = {};
 // ============================================================
 function setupServiceWorkerNotifications() {
     if ('serviceWorker' in navigator && 'Notification' in window) {
-        Notification.requestPermission().then(perm => {
-
-        });
+        // 'default' means the user hasn't been asked yet; once they grant or
+        // deny it, Notification.permission stops being 'default' and this
+        // skips the prompt on every subsequent page load.
+        if (Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
 
         // Register service worker for background notifications
         if ('serviceWorker' in navigator) {
@@ -406,6 +494,7 @@ async function autoFillSavedUserDataOnAuth() {
             const { data: { session } } = await supabase.auth.getSession();
             if (session && session.user) {
                 currentUserEmail = session.user.email || '';
+                currentAuthUserId = session.user.id || '';
                 const userEmail = session.user.email;
 
                 // Show UID from supabase auth
@@ -463,13 +552,8 @@ function setupGlobalCloseButtonListeners() {
         if (e.target.closest('.modal-close-cross') || e.target.closest('.close-btn') || e.target.closest('.close-modal-btn') || e.target.id === 'map-modal-close' || e.target.id === 'cancel-name' || e.target.id === 'close-help-modal' || e.target.id === 'close-otp-modal') {
             const openModal = e.target.closest('.modal') || e.target.closest('.modal-overlay-view') || document.querySelector('.modal.active');
             if (openModal) {
-                const modalId = openModal.id;
                 openModal.style.display = "none";
                 openModal.classList.remove('active');
-                if (modalId === 'otp-verification-modal' || e.target.id === 'close-otp-modal') {
-                    showToast("Redirecting to verification cancellation support window due to user termination rule.", "info");
-                    window.location.href = "adminuser.html?reason=user_cancelled_process";
-                }
             }
         }
         if (e.target.classList.contains('modal') || e.target.classList.contains('modal-overlay-view')) {
@@ -479,40 +563,136 @@ function setupGlobalCloseButtonListeners() {
     });
 }
 
+// Resolves the logged-in user's Supabase auth UUID, waiting on the session
+// if autoFillSavedUserDataOnAuth hasn't populated currentAuthUserId yet.
+async function getCurrentAuthUserId() {
+    if (currentAuthUserId) return currentAuthUserId;
+    if (!supabase) return '';
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+            currentAuthUserId = session.user.id;
+            return currentAuthUserId;
+        }
+    } catch (e) {}
+    return '';
+}
+
+// Call this from anywhere (order placed, cancelled, prescription approved,
+// coin/coupon added, etc.) to create a real, persistent notification row.
+// Pass userId = null for an admin broadcast that every user sees.
+async function pushUserNotification(userId, type, title, message, orderId) {
+    if (!supabase) return;
+    try {
+        await supabase.from('notifications').insert([{
+            user_id: userId || null,
+            type: type || 'general',
+            title: title || 'MediFinder',
+            message: message || '',
+            order_id: orderId || null
+        }]);
+    } catch (e) {}
+}
+
+function timeAgoLabel(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins + ' min' + (mins > 1 ? 's' : '') + ' ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + ' hour' + (hrs > 1 ? 's' : '') + ' ago';
+    const days = Math.floor(hrs / 24);
+    return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+}
+
+function updateNotiBadge() {
+    const badge = document.getElementById('noti-badge');
+    if (!badge) return;
+    const unreadCount = systemNotifications.filter(n => !n.is_read).length;
+    if (unreadCount === 0) { badge.style.display = 'none'; badge.innerText = '0'; }
+    else { badge.innerText = unreadCount > 10 ? '10+' : unreadCount; badge.style.display = 'flex'; }
+}
+
+function renderNotificationDropdown(notiDropdown) {
+    const body = notiDropdown.querySelector('.dropdown-body');
+    if (!body) return;
+
+    if (systemNotifications.length === 0) {
+        body.innerHTML = `<div class="noti-empty"><i class="fa-solid fa-bell-slash"></i><p>No Notifications Yet</p></div>`;
+        return;
+    }
+
+    body.innerHTML = systemNotifications.map(n => `
+        <div class="noti-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" onclick="markNotificationRead('${n.id}')">
+            ${n.is_read ? '' : '<span class="noti-unread-dot">●</span>'}
+            <button class="noti-delete-btn" onclick="deleteUserNotification('${n.id}', event)"><i class="fa-solid fa-xmark"></i></button>
+            <p><strong>${n.title || ''}</strong><br>${n.message || ''}</p>
+            <span>${timeAgoLabel(n.created_at)}</span>
+        </div>
+    `).join('');
+}
+
+// Clicking a single notification card marks only that one read — the red dot
+// on it disappears and the badge count drops by exactly one, immediately.
+window.markNotificationRead = async function(id) {
+    const target = systemNotifications.find(n => n.id === id);
+    if (!target || target.is_read) return;
+    target.is_read = true;
+    const notiDropdown = document.getElementById('notiDropdown');
+    if (notiDropdown) renderNotificationDropdown(notiDropdown);
+    updateNotiBadge();
+    if (supabase) {
+        try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch (e) {}
+    }
+};
+
+window.deleteUserNotification = async function(id, event) {
+    if (event) event.stopPropagation();
+    systemNotifications = systemNotifications.filter(n => n.id !== id);
+    const notiDropdown = document.getElementById('notiDropdown');
+    if (notiDropdown) renderNotificationDropdown(notiDropdown);
+    updateNotiBadge();
+    if (supabase) {
+        try { await supabase.from('notifications').delete().eq('id', id); } catch (e) {}
+    }
+};
+
 async function setupGlobalNotificationHub() {
     const notiBtn = document.getElementById('notiBtn');
     const notiDropdown = document.getElementById('notiDropdown');
-    const badge = document.getElementById('noti-badge');
 
-    if (supabase) {
+    async function refreshNotifications() {
+        if (!supabase) return;
+        const uid = await getCurrentAuthUserId();
         try {
-            const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(5);
+            let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
+            query = uid ? query.or(`user_id.eq.${uid},user_id.is.null`) : query.is('user_id', null);
+            const { data, error } = await query;
             if (!error && data) systemNotifications = data;
         } catch (e) {}
+        updateNotiBadge();
+        if (notiDropdown && notiDropdown.classList.contains('active')) renderNotificationDropdown(notiDropdown);
     }
 
-    if (systemNotifications.length === 0) {
-        if (badge) { badge.style.display = 'none'; badge.innerText = '0'; }
-    } else {
-        if (badge) { badge.innerText = systemNotifications.length; badge.style.display = 'flex'; }
-    }
+    // Unread count loads the moment the session resolves, not just on a later click
+    await refreshNotifications();
 
     if (notiBtn && notiDropdown) {
         notiBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             notiDropdown.classList.toggle('active');
-            
-            const body = notiDropdown.querySelector('.dropdown-body');
-            if (body) {
-                body.innerHTML = systemNotifications.map(n => `
-                    <div class="noti-item unread">
-                        <p>${n.text || n.message}</p>
-                        <span>${n.time || new Date(n.created_at).toLocaleTimeString()}</span>
-                    </div>
-                `).join('');
-            }
+            renderNotificationDropdown(notiDropdown);
         });
         document.addEventListener('click', () => notiDropdown.classList.remove('active'));
+    }
+
+    // Realtime: new rows, reads, and deletes reflect instantly with no page refresh
+    if (supabase) {
+        supabase.channel('user-notifications-feed')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+                refreshNotifications();
+            })
+            .subscribe();
     }
 }
 
@@ -521,6 +701,26 @@ async function setupGlobalNotificationHub() {
 // ============================================================
 async function setupHomePageModules() {
     if (!document.getElementById('family-health-banner') && !document.getElementById('main-products-grid')) return;
+
+    // Normalizes whatever text the merchant picked for "dosage form / category"
+    // (e.g. "Tablets", "SYRUP", "Baby Care Kit") down to the exact lowercase
+    // keys used by the category filter chips: tablet, capsule, syrup, insulin,
+    // baby, food, others. This is what makes clicking a category chip actually
+    // filter the live database products (previously it silently matched
+    // nothing because casing/labels never lined up).
+    function normalizeCategoryKey(raw) {
+        const c = String(raw || '').toLowerCase().trim();
+        if (!c) return 'others';
+        if (c.includes('insulin')) return 'insulin';
+        if (c.includes('capsule')) return 'capsule';
+        if (c.includes('syrup')) return 'syrup';
+        if (c.includes('tablet') || c.includes('pill')) return 'tablet';
+        if (c.includes('baby') || c.includes('infant') || c.includes('diaper')) return 'baby';
+        if (c.includes('food') || c.includes('drink') || c.includes('supplement') || c.includes('nutrition') || c.includes('horlicks')) return 'food';
+        return 'others';
+    }
+    window.normalizeCategoryKey = normalizeCategoryKey;
+
 
     const productsGrid = document.getElementById('main-products-grid');
     if (!productsGrid) return;
@@ -556,22 +756,32 @@ async function setupHomePageModules() {
 
     if (supabase) {
         try {
-            const { data: dbProducts, error: dbError } = await supabase.from('partner_medicines').select('*').eq('approved', true);
+            // NOTE: this used to read from `partner_medicines` (a separate,
+            // disconnected table), which is why the storefront showed demo
+            // composition/ratings/etc. that never matched what a merchant
+            // actually uploaded. `medicines` is the real table merchants add
+            // to and admin approves — that is the single source of truth now.
+            const { data: dbProducts, error: dbError } = await supabase.from('medicines').select('*').eq('status', 'Approved');
             
             if (!dbError && dbProducts && dbProducts.length > 0) {
-                allProductNames = dbProducts.map(p => p.name);
+                allProductNames = dbProducts.map(p => p.name || p.product_name);
                 productsGrid.innerHTML = dbProducts.map(prod => {
-                    const sellingPrice = parseFloat(prod.price || prod.selling_price || prod.unit_price || 0);
+                    const sellingPrice = parseFloat(prod.selling_price || prod.unit_price || prod.price || 0);
                     const mrp = parseFloat(prod.mrp || 0);
                     const discount = mrp > sellingPrice && sellingPrice > 0 ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
-                    const rating = parseFloat(prod.rating || 4.5);
+                    const rating = parseFloat(prod.rating || 0);
                     const stock = parseInt(prod.stock_qty || prod.stock || 0);
                     const isOutOfStock = stock <= 0;
-                    const isRx = prod.is_rx === true || prod.is_rx === 'true';
+                    // prescription_req (merchant's actual choice) is the source of
+                    // truth; is_rx is kept in sync at write-time but we fall back
+                    // to it for any older row that predates that fix.
+                    const isRx = prod.prescription_req ? prod.prescription_req === 'Yes' : (prod.is_rx === true || prod.is_rx === 'true');
                     const freeDelivery = sellingPrice >= 499;
                     const img = prod.image_url || prod.img || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400';
-                    const category = prod.category || 'Medicine';
+                    const categoryLabel = prod.category || prod.dosage_form || 'Medicine';
+                    const categoryKey = normalizeCategoryKey(categoryLabel);
                     const manufacturer = prod.manufacturer || '';
+                    const productName = prod.name || prod.product_name || 'Unnamed';
                     
                     let badges = '';
                     if (isOutOfStock) {
@@ -596,14 +806,14 @@ async function setupHomePageModules() {
                     const disabledBtn = isOutOfStock ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
                     
                     return `
-                    <div class="product-card" data-id="${prod.id}" data-category="${category}" data-name="${prod.name}" data-price="${sellingPrice}" data-img="${img}" data-expiry="${prod.expiry || '12/2029'}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-merchant-id="${prod.merchantId || prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}">
+                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}">
                         ${badges}
                         <div class="img-container">
-                            <img src="${img}" alt="${prod.name}" loading="lazy">
+                            <img src="${img}" alt="${productName}" loading="lazy">
                         </div>
                         <div class="prod-info">
-                            <span class="prod-cat-label">${category}</span>
-                            <h4>${prod.name}${rxTag}</h4>
+                            <span class="prod-cat-label">${categoryLabel}</span>
+                            <h4>${productName}${rxTag}</h4>
                             ${manufacturer ? `<p style="font-size:0.7rem; color:#888; margin:2px 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${manufacturer}</p>` : ''}
                             <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
                                 <span style="background:#388e3c; color:#fff; padding:1px 5px; border-radius:3px; font-size:0.65rem; font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>
@@ -827,58 +1037,97 @@ async function setupHomePageModules() {
     // ============================================================
     // PRESCRIPTION UPLOAD
     // ============================================================
+    async function handlePrescriptionFile(file) {
+        if (!file) return;
+        const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+        const isImage = file.type.startsWith('image/');
+        if (!isPdf && !isImage) {
+            showToast("Please upload an image (JPG/PNG) or a PDF file.", "error");
+            return;
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const uniqueFileName = `${Date.now()}_prescription.${fileExt}`;
+        const storagePath = `live_slips/${uniqueFileName}`;
+        let uploadedPrescriptionUrl = '';
+
+        showPrescriptionProgressState();
+        const finishProgress = animatePrescriptionProgress();
+
+        if (supabase) {
+            const { data, error } = await supabase.storage.from('media').upload(storagePath, file);
+            finishProgress();
+            if (error) {
+                showToast("Upload failed: " + error.message, "error");
+                renderPrescriptionWidgetState();
+                return;
+            }
+            const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+            uploadedPrescriptionUrl = urlData.publicUrl;
+
+            activePrescription = { fileName: file.name, url: uploadedPrescriptionUrl, storagePath, date: new Date().toLocaleDateString('en-GB') };
+            localStorage.setItem('medi_active_prescription', JSON.stringify(activePrescription));
+
+            // Save prescription record for My Box (archive of every upload, kept even after delete/replace)
+            let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
+            myBox.push({
+                id: 'PRESC-' + Date.now(),
+                fileName: file.name,
+                url: uploadedPrescriptionUrl,
+                date: new Date().toLocaleDateString('en-GB'),
+                thumb: isImage ? URL.createObjectURL(file) : ''
+            });
+            localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
+        } else {
+            finishProgress();
+        }
+
+        showToast("Verifying prescription with AI...", "info");
+        const aiResult = isImage ? await analyzePrescriptionWithGemini(file) : { status: "SUCCESS", medicines: [] };
+
+        if (aiResult.status === "FAILED") {
+            showToast(`Prescription failed: ${aiResult.reason}`, "error");
+            isPrescriptionUploaded = false;
+            localStorage.setItem('medi_presc_uploaded_status', 'false');
+            activePrescription = null;
+            localStorage.removeItem('medi_active_prescription');
+            renderPrescriptionWidgetState();
+            return;
+        }
+
+        isPrescriptionUploaded = true;
+        localStorage.setItem('medi_presc_uploaded_status', 'true');
+        renderPrescriptionWidgetState();
+
+        showToast("Prescription uploaded successfully!", "success");
+        if (aiResult.medicines && aiResult.medicines.length > 0) {
+            openPrescriptionSelectionPopup(aiResult.medicines, uploadedPrescriptionUrl);
+        }
+    }
+
     const prescInput = document.getElementById('presc-file-input');
     if (prescInput) {
-        prescInput.addEventListener('change', async (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                const fileExt = file.name.split('.').pop();
-                const uniqueFileName = `${Date.now()}_prescription.${fileExt}`;
-                
-                showToast("Uploading prescription to cloud...", "info");
-                
-                if (supabase) {
-                    const { data, error } = await supabase.storage
-                        .from('media')
-                        .upload(`live_slips/${uniqueFileName}`, file);
-                    if (error) { showToast("Upload failed: " + error.message, "error"); return; }
-                    const { data: urlData } = supabase.storage.from('media').getPublicUrl(`live_slips/${uniqueFileName}`);
-                    
-                    // Save prescription record for My Box
-                    let myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
-                    myBox.push({
-                        id: 'PRESC-' + Date.now(),
-                        fileName: file.name,
-                        url: urlData.publicUrl,
-                        date: new Date().toLocaleDateString('en-GB'),
-                        thumb: URL.createObjectURL(file)
-                    });
-                    localStorage.setItem('medi_prescription_box', JSON.stringify(myBox));
-
-                }
-
-                showToast("Verifying prescription with AI...", "info");
-                const aiResult = await analyzePrescriptionWithGemini(file);
-                
-                if (aiResult.status === "FAILED") {
-                    showToast(`Prescription failed: ${aiResult.reason}`, "error");
-                    isPrescriptionUploaded = false;
-                    localStorage.setItem('medi_presc_uploaded_status', 'false');
-                    const prescBadge = document.getElementById('uploaded-presc-badge');
-                    if (prescBadge) prescBadge.style.display = 'none';
-                    e.target.value = "";
-                    return;
-                }
-
-                isPrescriptionUploaded = true;
-                localStorage.setItem('medi_presc_uploaded_status', 'true');
-                const prescBadge = document.getElementById('uploaded-presc-badge');
-                if (prescBadge) prescBadge.style.display = 'block';
-
-                showToast("Prescription scanned successfully! Medicines found.", "success");
-                openPrescriptionSelectionPopup(aiResult.medicines);
-            }
+        prescInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handlePrescriptionFile(e.target.files[0]);
+            e.target.value = "";
         });
+    }
+    const prescCameraInput = document.getElementById('presc-camera-input');
+    if (prescCameraInput) {
+        prescCameraInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handlePrescriptionFile(e.target.files[0]);
+            e.target.value = "";
+        });
+    }
+    const prescViewBtn = document.getElementById('presc-view-btn');
+    if (prescViewBtn) {
+        prescViewBtn.addEventListener('click', () => {
+            if (activePrescription && activePrescription.url) window.open(activePrescription.url, '_blank');
+        });
+    }
+    const prescDeleteBtn = document.getElementById('presc-delete-btn');
+    if (prescDeleteBtn) {
+        prescDeleteBtn.addEventListener('click', () => window.deleteActivePrescription());
     }
 
     if (productsGrid) {
@@ -901,7 +1150,7 @@ async function setupHomePageModules() {
             const isRxAttr = document.getElementById('product-detail-modal').getAttribute('data-modal-rx') === 'true';
             
             if (isRxAttr && !isPrescriptionUploaded) {
-                showToast("Upload prescription for Rx medicines.", "error");
+                blockForMissingPrescription();
                 return;
             }
             addToCart({
@@ -964,7 +1213,63 @@ function openHealthCheckupPopup() {
     };
 }
 
-function openPrescriptionSelectionPopup(medicines) {
+// Accurate great-circle distance in km (replaces the old rough sqrt() estimate
+// used around the map code, and reused to find pharmacies near a prescription).
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Finds nearby verified pharmacies (within radiusKm) and pushes a notification
+// row into the EXISTING `merchant_notifications` table (already wired up with
+// realtime + the notification bell in marchentscript.js), so a new prescription
+// order shows up for them immediately — no new tables/columns required.
+async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines) {
+    if (!supabase) return;
+    try {
+        const userLat = await new Promise((resolve) => {
+            if (!navigator.geolocation) return resolve(null);
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => resolve(null),
+                { timeout: 6000 }
+            );
+        });
+
+        const { data: merchants, error } = await supabase
+            .from('merchants')
+            .select('id, latitude, longitude, shop_name, merchant_name, status')
+            .in('status', ['active', 'approved']);
+        if (error || !merchants) return;
+
+        let targets = merchants;
+        if (userLat) {
+            const RADIUS_KM = 15;
+            targets = merchants
+                .filter(m => m.latitude && m.longitude)
+                .map(m => ({ ...m, _dist: haversineKm(userLat.lat, userLat.lng, parseFloat(m.latitude), parseFloat(m.longitude)) }))
+                .filter(m => m._dist <= RADIUS_KM)
+                .sort((a, b) => a._dist - b._dist);
+        }
+        if (targets.length === 0) targets = merchants; // fallback: notify everyone if we couldn't get location
+
+        const medNames = selectedMedicines.map(m => m.name).join(', ');
+        const notifRows = targets.map(m => ({
+            merchant_id: m.id,
+            title: '🩺 New Prescription Order Nearby',
+            message: `Customer needs: ${medNames}. Prescription: ${prescriptionUrl}`,
+            type: 'order'
+        }));
+        await supabase.from('merchant_notifications').insert(notifRows);
+    } catch (e) {
+        // Non-fatal — the medicines are already in the user's cart either way.
+    }
+}
+
+function openPrescriptionSelectionPopup(medicines, prescriptionUrl) {
     let popup = document.createElement('div');
     popup.className = "modal active";
     popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
@@ -999,9 +1304,16 @@ function openPrescriptionSelectionPopup(medicines) {
     document.getElementById('add-presc-cart').onclick = () => {
         const selectedCheckboxes = popup.querySelectorAll('.presc-select-box:checked');
         if (selectedCheckboxes.length === 0) { showToast("Please select at least one medicine!", "error"); return; }
+        const selectedMeds = [];
         selectedCheckboxes.forEach(box => {
-            addToCart({ id: box.dataset.id, name: box.dataset.name, price: box.dataset.price, img: box.dataset.img, isRx: false });
+            const med = { id: box.dataset.id, name: box.dataset.name, price: box.dataset.price, img: box.dataset.img };
+            selectedMeds.push(med);
+            addToCart({ id: med.id, name: med.name, price: med.price, img: med.img, isRx: false });
         });
+        if (prescriptionUrl) {
+            broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMeds);
+            showToast("Sent to nearby pharmacies for confirmation!", "success");
+        }
         popup.remove();
         window.location.href = 'usercart.html';
     };
@@ -1018,11 +1330,15 @@ function navigateToProductDetail(data) {
         if (data.price) params.set('price', data.price);
         if (data.mrp) params.set('mrp', data.mrp);
         if (data.img) params.set('img', data.img);
+        if (data.img2) params.set('img2', data.img2);
+        if (data.img3) params.set('img3', data.img3);
+        if (data.likes) params.set('likes', data.likes);
         if (data.manufacturer) params.set('manufacturer', data.manufacturer);
         if (data.expiry) params.set('expiry', data.expiry);
         if (data.rating) params.set('rating', data.rating);
         if (data.desc) params.set('desc', data.desc);
         if (data.isRx || data['data-is-rx']) params.set('isRx', data.isRx || data['data-is-rx']);
+        if (data.prescriptionReq) params.set('prescriptionReq', data.prescriptionReq);
         if (data.category) params.set('category', data.category);
         if (data.stock) params.set('stock', data.stock);
         if (data.composition) params.set('composition', data.composition);
@@ -1052,7 +1368,7 @@ function updateProductCount() {
 function addToCart(product) {
     const isControlledRx = product.isRx === true || product.isRx === 'true';
     if (isControlledRx && !isPrescriptionUploaded) {
-        showToast("Upload prescription first for Rx medicines!", "error");
+        blockForMissingPrescription();
         return;
     }
     const existing = currentCart.find(item => item.id === product.id);
@@ -1157,7 +1473,24 @@ function showSavedAddress(addr) {
     }
 }
 
-function saveDeliveryAddress() {
+// Checks the pincode against the admin's service_zones registry (same table
+// the admin "Network Area Control" panel manages via Launch Zone Live /
+// Suspend Zone). A pincode with no row at all means that area hasn't been
+// launched yet; a row with status 'suspended' means it was launched but is
+// temporarily paused — both are treated as unavailable.
+async function checkPincodeServiceability(pincode) {
+    if (!supabase || !pincode) return { available: true }; // fail-open on setup issues, never brick checkout over a network hiccup
+    try {
+        const { data, error } = await supabase.from('service_zones').select('pin, dist, status').eq('pin', pincode).maybeSingle();
+        if (error) return { available: true };
+        if (!data || data.status !== 'approved') return { available: false };
+        return { available: true, dist: data.dist };
+    } catch (e) {
+        return { available: true };
+    }
+}
+
+async function saveDeliveryAddress() {
     const name = document.getElementById('addr-name')?.value.trim();
     const phone = document.getElementById('addr-phone')?.value.trim();
     const house = document.getElementById('addr-house')?.value.trim();
@@ -1177,6 +1510,14 @@ function saveDeliveryAddress() {
     }
     if (phone.length < 10) {
         if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Enter valid phone number.'; }
+        return;
+    }
+
+    if (statusMsg) { statusMsg.style.color = '#747d8c'; statusMsg.innerText = 'Checking service availability...'; }
+    const zoneCheck = await checkPincodeServiceability(pincode);
+    if (!zoneCheck.available) {
+        isPincodeVerified = false;
+        if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Unavailable! Service is not launched in your pincode yet. Please try again after 5 days.'; }
         return;
     }
 
@@ -1307,17 +1648,16 @@ window.removeFromCart = function(id) {
 
 function recalculateBill() {
     let subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    let dynamicPlatformFee = 5;
-    let dynamicProcessingCharge = 10;
-    let exemptPlatform = currentCart.every(item => item.exempt_platform_fee === true);
-    let exemptProcessing = currentCart.some(item => item.exempt_processing_charge === true);
-    if (exemptPlatform || subtotal === 0) dynamicPlatformFee = 0;
-    if (exemptProcessing || subtotal === 0) dynamicProcessingCharge = 0;
-    let shipping = subtotal > 0 ? 20 : 0;
-    let delivery = subtotal > 0 ? 15 : 0;
+    // Dynamic bill rule: orders under ₹100 pay a flat ₹5 shipping charge; ₹100 and
+    // above ship free. Platform fee and order-processing charge are always free.
+    // COD adds a flat ₹10 handling charge on top, regardless of order value.
+    const SHIPPING_THRESHOLD = 100;
+    let dynamicPlatformFee = 0;
+    let dynamicProcessingCharge = 0;
+    let shipping = (subtotal > 0 && subtotal < SHIPPING_THRESHOLD) ? 5 : 0;
+    let delivery = 0;
     let cod = (selectedPaymentMethod === "COD" && subtotal > 0) ? 10 : 0;
-    const freeDelivery = subtotal >= 499;
-    if (freeDelivery) { shipping = 0; delivery = 0; }
+    const freeDelivery = subtotal >= SHIPPING_THRESHOLD;
     discountAmount = Math.min(discountAmount, subtotal);
     let grandTotal = Math.max(0, (subtotal - discountAmount) + shipping + delivery + dynamicPlatformFee + dynamicProcessingCharge + cod);
 
@@ -1332,8 +1672,8 @@ function recalculateBill() {
             if (freeText) freeText.textContent = 'You get FREE delivery!';
             if (freeFill) { freeFill.style.width = '100%'; freeFill.className = 'free-delivery-bar-fill done'; }
         } else {
-            const remaining = Math.max(0, 499 - subtotal);
-            const pct = Math.min(100, (subtotal / 499) * 100);
+            const remaining = Math.max(0, SHIPPING_THRESHOLD - subtotal);
+            const pct = Math.min(100, (subtotal / SHIPPING_THRESHOLD) * 100);
             if (freeMsg) freeMsg.className = 'free-delivery-msg red';
             if (freeText) freeText.textContent = `Add ₹${remaining.toFixed(0)} more for FREE delivery`;
             if (freeFill) { freeFill.style.width = pct + '%'; freeFill.className = pct >= 80 ? 'free-delivery-bar-fill close' : 'free-delivery-bar-fill'; }
@@ -1383,11 +1723,17 @@ async function processFinalOrderPayload() {
         return;
     }
 
+    const zoneCheckAtOrder = await checkPincodeServiceability(addr.pincode);
+    if (!zoneCheckAtOrder.available) {
+        showToast("Unavailable! Service is not launched in your pincode yet. Please try again after 5 days.", "error");
+        return;
+    }
+
     if (supabase) {
         try {
             for (const item of currentCart) {
                 if (!item.id) continue;
-                const { data: med, error: medErr } = await supabase.from('medicines').select('stock_qty, product_name, status').eq('id', item.id).single();
+                const { data: med, error: medErr } = await supabase.from('medicines').select('stock_qty, product_name, status, is_rx, prescription_req').eq('id', item.id).single();
                 if (medErr || !med) {
                     showToast(`Product "${item.name}" not found in inventory.`, "error");
                     return;
@@ -1398,6 +1744,14 @@ async function processFinalOrderPayload() {
                 }
                 if (med.stock_qty < item.qty) {
                     showToast(`Insufficient stock for "${med.product_name}". Available: ${med.stock_qty}, requested: ${item.qty}.`, "error");
+                    return;
+                }
+                // Re-check the Rx requirement straight from the DB row — the
+                // client-side cart flag alone isn't trustworthy since it could
+                // be bypassed by editing localStorage.
+                const dbIsRx = med.prescription_req ? med.prescription_req === 'Yes' : (med.is_rx === true);
+                if (dbIsRx && !isPrescriptionUploaded) {
+                    showToast(`Order blocked! "${med.product_name}" requires a prescription upload.`, "error");
                     return;
                 }
             }
@@ -1428,8 +1782,19 @@ async function processFinalOrderPayload() {
 
     let currentUserId = '';
     if (supabase) {
-        try { currentUserId = (await supabase.auth.getUser()).data?.user?.id || ''; } catch(e) {
-            showToast("User session fetch failed. Order will be placed anonymously.", "info");
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            currentUserId = userData?.user?.id || '';
+            if (!currentUserId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                currentUserId = session?.user?.id || '';
+            }
+        } catch(e) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                currentUserId = session?.user?.id || '';
+            } catch(e2) {}
+            if (!currentUserId) showToast("User session fetch failed. Order will be placed anonymously.", "info");
         }
     }
 
@@ -1467,6 +1832,7 @@ async function processFinalOrderPayload() {
         try {
             const { data: insertedOrder, error } = await supabase.from('orders').insert([orderPayload]).select().single();
             if (!error && insertedOrder) {
+                pushUserNotification(currentUserId, 'order_placed', 'Order Placed', `Your order ${orderId} has been placed successfully.`, orderId);
                 const orderItemsPayload = currentCart.map(item => ({
                     order_id: orderId,
                     product_name: item.name,
@@ -1512,8 +1878,20 @@ async function processFinalOrderPayload() {
                         } catch(e) {}
                     }
                 }
+            } else if (error) {
+                // Order insert into the 'orders' table failed - surface the real reason
+                // instead of silently pretending it worked, and queue it for auto-retry.
+                showToast('Order DB save failed: ' + (error.message || 'Unknown database error') + '. Will auto-retry shortly.', 'error');
+                let pendingSync = JSON.parse(localStorage.getItem('medi_pending_order_sync')) || [];
+                pendingSync.push(orderPayload);
+                localStorage.setItem('medi_pending_order_sync', JSON.stringify(pendingSync));
             }
-        } catch (e) { showToast('Order saved locally. Sync will retry.', 'info'); }
+        } catch (e) {
+            showToast('Order DB save failed: ' + (e.message || e) + '. Will auto-retry shortly.', 'error');
+            let pendingSync = JSON.parse(localStorage.getItem('medi_pending_order_sync')) || [];
+            pendingSync.push(orderPayload);
+            localStorage.setItem('medi_pending_order_sync', JSON.stringify(pendingSync));
+        }
     }
 
     const successModal = document.getElementById('success-animation-modal');
@@ -1538,6 +1916,34 @@ async function processFinalOrderPayload() {
     } finally {
         if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = ''; }
         if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-bag-shopping"></i> Place Order'; }
+    }
+}
+
+// Retries any orders that failed to save to the 'orders' table earlier (e.g. due to a
+// temporary network/DB error) so they eventually reach the merchant/rider/admin panels.
+async function retryPendingOrderSync() {
+    if (!supabase) return;
+    let pending = JSON.parse(localStorage.getItem('medi_pending_order_sync')) || [];
+    if (pending.length === 0) return;
+
+    const stillPending = [];
+    let syncedCount = 0;
+    for (const payload of pending) {
+        try {
+            // Skip if it already exists (in case a previous retry partially succeeded)
+            const { data: existing } = await supabase.from('orders').select('order_id').eq('order_id', payload.order_id).maybeSingle();
+            if (existing) { syncedCount++; continue; }
+
+            const { error } = await supabase.from('orders').insert([payload]);
+            if (error) stillPending.push(payload);
+            else syncedCount++;
+        } catch (e) {
+            stillPending.push(payload);
+        }
+    }
+    localStorage.setItem('medi_pending_order_sync', JSON.stringify(stillPending));
+    if (syncedCount > 0) {
+        showToast(`${syncedCount} pending order(s) synced successfully.`, 'success');
     }
 }
 
@@ -1574,7 +1980,7 @@ async function setupOrdersPageModules() {
             if (session?.user) {
                 const { data: dbOrders } = await supabase.from('orders')
                     .select('*')
-                    .or(`user_id.eq.${session.user.id},customer_phone.eq.${session.user.phone || ''}`)
+                    .or(`user_id.eq.${session.user.id},customer_phone.eq.${session.user.phone || ''},user_email.eq.${session.user.email || ''}`)
                     .order('created_at', { ascending: false })
                     .limit(20);
                 if (dbOrders && dbOrders.length > 0) {
@@ -1737,11 +2143,36 @@ window.handleCancelOrderFlow = function(orderId, pipelineStatus) {
         showToast("This order is out for delivery and cannot be canceled.", "error");
         return;
     }
-    showConfirmationModal("Are you sure you want to cancel this order?", () => {
+    showConfirmationModal("Are you sure you want to cancel this order?", async () => {
         let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
+        const targetOrder = activeOrdersList.find(o => (o.order_id || o.id) === orderId);
         activeOrdersList = activeOrdersList.filter(o => (o.order_id || o.id) !== orderId);
         localStorage.setItem('medi_active_orders', JSON.stringify(activeOrdersList));
-        if (supabase) { supabase.from('orders').update({ status: 'cancelled', cancellation_reason: 'Cancelled by user' }).eq('order_id', orderId).then(({error}) => { if(error) {} }); }
+
+        if (supabase) {
+            try {
+                const { error: updateErr } = await supabase.from('orders')
+                    .update({ status: 'cancelled', cancellation_reason: 'Cancelled by user' })
+                    .eq('order_id', orderId);
+                if (updateErr) showToast('Order status update error: ' + (updateErr.message || updateErr), 'error');
+
+                // This row is what actually makes the cancellation show up on the admin
+                // refund panel (adminuser.js reads from the 'cancelled_orders' table).
+                const { error: cancelInsertErr } = await supabase.from('cancelled_orders').insert([{
+                    order_id: orderId,
+                    customer: targetOrder?.customer_name || '',
+                    total_amount: targetOrder?.total_amount || targetOrder?.total_bill || 0,
+                    reason: 'Cancelled by user',
+                    payment: targetOrder?.payment_mode || 'Online',
+                    status: 'Pending'
+                }]);
+                if (cancelInsertErr) showToast('Cancelled-order record save error: ' + (cancelInsertErr.message || cancelInsertErr), 'error');
+                const cancelUid = await getCurrentAuthUserId();
+                pushUserNotification(cancelUid, 'cancelled', 'Order Cancelled', `Your order ${orderId} has been cancelled.`, orderId);
+            } catch (e) {
+                showToast('Cancellation sync error: ' + (e.message || e), 'error');
+            }
+        }
         showToast("Order canceled successfully.", "success");
         setupOrdersPageModules();
     });
@@ -1864,8 +2295,6 @@ window.openDeliveryBoyVerificationModal = async function(orderId) {
     document.body.appendChild(popup);
     document.getElementById('close-otp-modal').onclick = () => {
         popup.remove();
-        showToast("Redirecting to support window...", "info");
-        window.location.href = "adminuser.html?reason=user_cancelled_process";
     };
     document.getElementById('submit-otp-verification').onclick = async () => {
         let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
@@ -1892,6 +2321,26 @@ window.openDeliveryBoyVerificationModal = async function(orderId) {
 // ============================================================
 // MAP PAGE - Real-time GPS, Search + Suggestions, Distance, GO direction
 // ============================================================
+// Fetches an actual road route (turn-by-turn road geometry) from the free/open
+// OSRM demo server instead of drawing a straight line that ignores rivers,
+// ponds, buildings, etc. Falls back to a straight line only if OSRM is
+// unreachable, so the map never breaks even if the free service is briefly down.
+async function fetchRoadRoute(fromLat, fromLng, toLat, toLng) {
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data && data.code === 'Ok' && data.routes && data.routes[0]) {
+            return {
+                coords: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+                distanceKm: data.routes[0].distance / 1000,
+                durationMin: Math.round(data.routes[0].duration / 60)
+            };
+        }
+    } catch (e) { /* fall through to straight-line fallback below */ }
+    return null;
+}
+
 async function setupMapPageModules() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
@@ -1926,6 +2375,7 @@ async function setupMapPageModules() {
 
     let pharmacyDatabaseHub = [];
     let allShopMarkers = [];
+    const NEARBY_RADIUS_KM = 20;
 
     try {
         if (supabase) {
@@ -1934,7 +2384,7 @@ async function setupMapPageModules() {
                 .select('id, merchant_name, shop_name, latitude, longitude, status, license_status, city, address')
                 .in('status', ['active', 'approved']);
             if (!error && data && data.length > 0) {
-                pharmacyDatabaseHub = data.map(m => ({
+                let allPharmacies = data.map(m => ({
                     id: m.id,
                     name: m.shop_name || m.merchant_name || 'Pharmacy',
                     lat: parseFloat(m.latitude) || 22.5726,
@@ -1943,6 +2393,16 @@ async function setupMapPageModules() {
                     address: m.address || '',
                     license: m.license_status || 'Unverified'
                 }));
+
+                // Only show pharmacies actually near the user, closest first —
+                // previously every registered pharmacy in the whole database
+                // showed up regardless of distance.
+                allPharmacies.forEach(shop => { shop._dist = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng); });
+                allPharmacies.sort((a, b) => a._dist - b._dist);
+                let nearby = allPharmacies.filter(s => s._dist <= NEARBY_RADIUS_KM);
+                if (nearby.length === 0) nearby = allPharmacies.slice(0, 5); // fallback if none within radius
+
+                pharmacyDatabaseHub = nearby;
 
                 pharmacyDatabaseHub.forEach(shop => {
                     const marker = L.marker([shop.lat, shop.lng], { icon: shopIconActive }).addTo(map)
@@ -1966,14 +2426,16 @@ async function setupMapPageModules() {
     renderAllShops(pharmacyDatabaseHub);
 
     if (navigator.geolocation) {
-        navigator.geolocation.watchPosition((pos) => {
+        navigator.geolocation.watchPosition(async (pos) => {
             userLiveLat = pos.coords.latitude;
             userLiveLng = pos.coords.longitude;
             humanMarker.setLatLng([userLiveLat, userLiveLng]);
             if (operationalRoutingControl && activeShopMarker) {
+                const dest = activeShopMarker.getLatLng();
                 map.removeLayer(operationalRoutingControl);
-                operationalRoutingControl = L.polyline([[userLiveLat, userLiveLng], activeShopMarker.getLatLng()], {
-                    color: "#ff4757", weight: 5, opacity: 0.85, dashArray: '5,10'
+                const route = await fetchRoadRoute(userLiveLat, userLiveLng, dest.lat, dest.lng);
+                operationalRoutingControl = L.polyline(route ? route.coords : [[userLiveLat, userLiveLng], [dest.lat, dest.lng]], {
+                    color: "#ff4757", weight: 5, opacity: 0.85, dashArray: route ? null : '5,10'
                 }).addTo(map);
             }
         }, (err) => {}, { enableHighAccuracy: true, maximumAge: 1000 });
@@ -1988,15 +2450,21 @@ async function setupMapPageModules() {
         });
     }
 
-    const triggerLiveMapDirections = (shop) => {
+    const triggerLiveMapDirections = async (shop) => {
         if (operationalRoutingControl) map.removeLayer(operationalRoutingControl);
         if (activeShopMarker) map.removeLayer(activeShopMarker);
         activeShopMarker = L.marker([shop.lat, shop.lng], { icon: shopIcon }).addTo(map)
             .bindPopup(`<b>${shop.name}</b><br>${shop.address || ''}`).openPopup();
-        operationalRoutingControl = L.polyline([[userLiveLat, userLiveLng], [shop.lat, shop.lng]], {
-            color: "#ff4757", weight: 5, opacity: 0.85, dashArray: '5,10'
+
+        const route = await fetchRoadRoute(userLiveLat, userLiveLng, shop.lat, shop.lng);
+        operationalRoutingControl = L.polyline(route ? route.coords : [[userLiveLat, userLiveLng], [shop.lat, shop.lng]], {
+            color: "#ff4757", weight: 5, opacity: 0.85, dashArray: route ? null : '5,10'
         }).addTo(map);
         map.fitBounds(operationalRoutingControl.getBounds(), { padding: [50,50] });
+        if (route) {
+            const etaLabel = route.durationMin < 60 ? `${route.durationMin} min` : `${Math.floor(route.durationMin/60)}h ${route.durationMin%60}m`;
+            showToast(`Road route: ${route.distanceKm.toFixed(1)} km • ~${etaLabel}`, "info");
+        }
     };
 
     function renderAllShops(shops) {
@@ -2009,7 +2477,7 @@ async function setupMapPageModules() {
             return;
         }
         displayGrid.innerHTML = shops.map(shop => {
-            const distKm = Math.sqrt(Math.pow(userLiveLat - shop.lat, 2) + Math.pow(userLiveLng - shop.lng, 2)) * 111;
+            const distKm = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng);
             const etaMins = Math.round(distKm * 6 + 5);
             const etaLabel = etaMins < 60 ? `${etaMins} min` : `${Math.floor(etaMins/60)}h ${etaMins%60}m`;
             const distLabel = distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`;
@@ -2087,14 +2555,39 @@ async function setupMapPageModules() {
     }
 
     if (searchBtn && inputField) {
-        searchBtn.addEventListener('click', () => {
+        searchBtn.addEventListener('click', async () => {
             const token = inputField.value.trim().toLowerCase();
             if (!token) {
                 renderAllShops(pharmacyDatabaseHub);
                 allShopMarkers.forEach(m => m.addTo(map));
                 return;
             }
-            const matchedStores = pharmacyDatabaseHub.filter(s => s.name.toLowerCase().includes(token));
+
+            // Find which NEARBY pharmacies actually have this medicine in stock
+            // (previously this just matched the pharmacy's own name, so it
+            // showed every registered pharmacy regardless of what they stock).
+            let matchedStores = [];
+            if (supabase) {
+                try {
+                    const nearbyIds = pharmacyDatabaseHub.map(s => s.id);
+                    const { data: stockRows, error } = await supabase
+                        .from('medicines')
+                        .select('merchant_id, name, product_name, stock_qty, status')
+                        .eq('status', 'Approved')
+                        .or(`name.ilike.%${token}%,product_name.ilike.%${token}%`);
+                    if (!error && stockRows) {
+                        const inStockMerchantIds = new Set(
+                            stockRows.filter(r => (r.stock_qty || 0) > 0).map(r => String(r.merchant_id))
+                        );
+                        matchedStores = pharmacyDatabaseHub.filter(s => inStockMerchantIds.has(String(s.id)));
+                    }
+                } catch (e) { /* fall back below */ }
+            }
+            if (matchedStores.length === 0) {
+                // fallback: at least match by pharmacy name so the search never goes empty on a lookup error
+                matchedStores = pharmacyDatabaseHub.filter(s => s.name.toLowerCase().includes(token));
+            }
+
             allShopMarkers.forEach(m => map.removeLayer(m));
             matchedStores.forEach(shop => {
                 const marker = L.marker([shop.lat, shop.lng], { icon: shopIcon }).addTo(map)
@@ -2299,47 +2792,185 @@ function setupProfilePageModules() {
     const helpTrigger = document.getElementById('help-desk-trigger');
     const referEarnBtn = document.getElementById('refer-earn-btn');
     if (editBtn) editBtn.onclick = () => toggleModalDisplay('edit-modal', true);
-    if (addressBtn) addressBtn.onclick = () => toggleModalDisplay('address-modal', true);
-    if (termsTrigger) termsTrigger.onclick = () => toggleModalDisplay('terms-modal', true);
+    if (addressBtn) addressBtn.onclick = () => { toggleModalDisplay('address-modal', true); loadSavedAddresses(); };
+    // Item 15: T&C now opens the real standalone page directly — no popup.
+    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert_c.html'; };
     if (helpTrigger) helpTrigger.onclick = () => toggleModalDisplay('help-modal', true);
     if (referEarnBtn) referEarnBtn.onclick = () => toggleModalDisplay('referral-modal', true);
 
     // ============================================================
-    // ADDRESS MODAL - Address select with autofill from saved addresses
+    // ADDRESS BOOK — Flipkart-style multi-address (tags, default, edit/delete/select)
     // ============================================================
+    function resetAddressForm() {
+        ['addr-name', 'addr-phone', 'addr-house', 'addr-line2', 'addr-landmark', 'addr-city', 'addr-state', 'addr-pincode'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const defaultCheck = document.getElementById('addr-set-default');
+        if (defaultCheck) defaultCheck.checked = false;
+        const homeRadio = document.querySelector('input[name="addr_tag"][value="Home"]');
+        if (homeRadio) homeRadio.checked = true;
+        const editingIdField = document.getElementById('editing-address-id');
+        if (editingIdField) editingIdField.value = '';
+        const heading = document.getElementById('address-form-heading');
+        if (heading) heading.innerText = 'Add New Address';
+        const statusMsg = document.getElementById('addr-status-msg');
+        if (statusMsg) statusMsg.innerText = '';
+    }
+
+    window.editSavedAddress = function(id) {
+        const a = savedAddresses.find(x => x.id === id);
+        if (!a) return;
+        document.getElementById('editing-address-id').value = a.id;
+        document.getElementById('addr-name').value = a.name || '';
+        document.getElementById('addr-phone').value = a.phone || '';
+        document.getElementById('addr-house').value = a.address1 || '';
+        document.getElementById('addr-line2').value = a.address2 || '';
+        document.getElementById('addr-landmark').value = a.landmark || '';
+        document.getElementById('addr-city').value = a.city || '';
+        document.getElementById('addr-state').value = a.state || '';
+        document.getElementById('addr-pincode').value = a.pincode || '';
+        const tagRadio = document.querySelector(`input[name="addr_tag"][value="${a.tag || 'Home'}"]`);
+        if (tagRadio) tagRadio.checked = true;
+        document.getElementById('addr-set-default').checked = !!a.is_default;
+        document.getElementById('address-form-heading').innerText = 'Edit Address';
+        document.getElementById('address-form-heading').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    window.deleteSavedAddress = function(id) {
+        showConfirmationModal("Delete this address?", async () => {
+            savedAddresses = savedAddresses.filter(a => a.id !== id);
+            renderSavedAddressList();
+            if (supabase) {
+                try { await supabase.from('user_addresses').delete().eq('id', id); } catch (e) {}
+            }
+            showToast("Address deleted.", "info");
+        });
+    };
+
+    // Selecting a saved address makes it the active delivery address used at checkout
+    window.selectSavedAddressAsActive = async function(id) {
+        const a = savedAddresses.find(x => x.id === id);
+        if (!a) return;
+        const addr = { name: a.name, phone: a.phone, house: a.address1, area: a.address2 || '', city: a.city, pincode: a.pincode, landmark: a.landmark || '' };
+        localStorage.setItem('medi_delivery_address', JSON.stringify(addr));
+        verifiedAddress = `${a.address1}, ${a.city} - ${a.pincode}`;
+        localStorage.setItem('medi_verified_address', verifiedAddress);
+        if (currentAddressText) currentAddressText.innerText = verifiedAddress;
+
+        const zoneCheck = await checkPincodeServiceability(a.pincode);
+        if (!zoneCheck.available) {
+            showToast("Selected, but service isn't launched in this pincode yet — please try again after 5 days.", "error");
+        } else {
+            showToast(`Using ${a.tag} address for delivery.`, "success");
+        }
+    };
+
+    async function loadSavedAddresses() {
+        if (!supabase) { renderSavedAddressList(); return; }
+        const uid = await getCurrentAuthUserId();
+        if (!uid) { renderSavedAddressList(); return; }
+        try {
+            const { data, error } = await supabase.from('user_addresses').select('*').eq('user_id', uid).order('is_default', { ascending: false }).order('created_at', { ascending: false });
+            if (!error && data) savedAddresses = data;
+        } catch (e) {}
+        renderSavedAddressList();
+
+        const defaultAddr = savedAddresses.find(a => a.is_default) || savedAddresses[0];
+        if (defaultAddr && currentAddressText) {
+            verifiedAddress = `${defaultAddr.address1}, ${defaultAddr.city} - ${defaultAddr.pincode}`;
+            currentAddressText.innerText = `${verifiedAddress} (${defaultAddr.tag})`;
+        }
+    }
+
+    function renderSavedAddressList() {
+        const list = document.getElementById('saved-address-list');
+        if (!list) return;
+        if (savedAddresses.length === 0) {
+            list.innerHTML = `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.8rem;">No saved addresses yet. Add one below.</div>`;
+            return;
+        }
+        list.innerHTML = savedAddresses.map(a => `
+            <div class="record-subcard-pill" onclick="selectSavedAddressAsActive('${a.id}')">
+                <div>
+                    <span class="addr-tag-badge">${a.tag || 'Home'}</span>${a.is_default ? '<span class="addr-default-badge">DEFAULT</span>' : ''}
+                    <div style="margin-top:4px;"><strong>${a.name || ''}</strong></div>
+                    <div class="sub-label">${a.address1}${a.address2 ? ', ' + a.address2 : ''}${a.landmark ? ', Near ' + a.landmark : ''}, ${a.city}, ${a.state} - ${a.pincode}</div>
+                    <div class="sub-label">${a.phone || ''}</div>
+                </div>
+                <div class="addr-actions-col">
+                    <button onclick="event.stopPropagation(); editSavedAddress('${a.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="delete-record-action-btn" onclick="event.stopPropagation(); deleteSavedAddress('${a.id}')" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>
+        `).join('');
+    }
+
     const saveAddressBtn = document.getElementById('save-address-btn');
     if (saveAddressBtn) {
         saveAddressBtn.onclick = async () => {
+            const name = document.getElementById('addr-name')?.value?.trim();
+            const phone = document.getElementById('addr-phone')?.value?.trim();
             const house = document.getElementById('addr-house')?.value?.trim();
-            const village = document.getElementById('addr-village')?.value?.trim();
-            const pin = document.getElementById('addr-pincode')?.value?.trim();
-            if (!house || !village || !pin) { showToast("Please fill all address fields.", "error"); return; }
-            verifiedAddress = `${house}, ${village}, PIN: ${pin}`;
-            localStorage.setItem('medi_verified_address', verifiedAddress);
+            const line2 = document.getElementById('addr-line2')?.value?.trim();
+            const landmark = document.getElementById('addr-landmark')?.value?.trim();
+            const city = document.getElementById('addr-city')?.value?.trim();
+            const state = document.getElementById('addr-state')?.value?.trim();
+            const pincode = document.getElementById('addr-pincode')?.value?.trim();
+            const tag = document.querySelector('input[name="addr_tag"]:checked')?.value || 'Home';
+            const isDefault = document.getElementById('addr-set-default')?.checked || false;
+            const editingId = document.getElementById('editing-address-id')?.value;
+            const statusMsg = document.getElementById('addr-status-msg');
 
-            // Save to address list
-            let addrList = JSON.parse(localStorage.getItem('medi_address_list')) || [];
-            if (!addrList.includes(verifiedAddress)) {
-                addrList.push(verifiedAddress);
-                localStorage.setItem('medi_address_list', JSON.stringify(addrList));
+            if (!name || !phone || !house || !city || !state || !pincode) {
+                if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Please fill all required fields.'; }
+                return;
             }
-            renderAddressSelectDropdown();
+            if (pincode.length !== 6) {
+                if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Pincode must be 6 digits.'; }
+                return;
+            }
+            if (phone.length < 10) {
+                if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Enter a valid phone number.'; }
+                return;
+            }
 
-            if (currentAddressText) currentAddressText.innerText = verifiedAddress;
-            if (supabase) {
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (session && session.user) {
-                        await supabase.from('profiles').upsert({ email: session.user.email, address: verifiedAddress });
-                    }
-                } catch(e) { }
+            if (statusMsg) { statusMsg.style.color = '#747d8c'; statusMsg.innerText = 'Checking service availability...'; }
+            const zoneCheck = await checkPincodeServiceability(pincode);
+            if (!zoneCheck.available) {
+                if (statusMsg) { statusMsg.style.color = '#ff4d4d'; statusMsg.innerText = '❌ Unavailable! Service is not launched in this pincode yet. Please try again after 5 days.'; }
+                return;
             }
-            toggleModalDisplay('address-modal', false);
-            showToast("Address saved!", "success");
+
+            if (!supabase) { showToast("Address book requires an active connection.", "error"); return; }
+            const uid = await getCurrentAuthUserId();
+            if (!uid) { showToast("Please log in to save an address.", "error"); return; }
+
+            const payload = { user_id: uid, tag, name, phone, address1: house, address2: line2 || null, landmark: landmark || null, city, state, pincode, is_default: isDefault };
+
+            try {
+                // Only one address can be default — clear the flag on the others first
+                if (isDefault) {
+                    await supabase.from('user_addresses').update({ is_default: false }).eq('user_id', uid);
+                }
+                if (editingId) {
+                    await supabase.from('user_addresses').update(payload).eq('id', editingId);
+                } else {
+                    await supabase.from('user_addresses').insert([payload]);
+                }
+            } catch (e) {
+                showToast("Failed to save address: " + (e.message || e), "error");
+                return;
+            }
+
+            if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = '✓ Address saved!'; }
+            resetAddressForm();
+            await loadSavedAddresses();
+            showToast(editingId ? "Address updated!" : "Address saved!", "success");
         };
     }
 
-    renderAddressSelectDropdown();
+    loadSavedAddresses();
 
     const logoutAction = document.getElementById('logout-btn');
     if (logoutAction) {
@@ -2358,33 +2989,6 @@ function setupProfilePageModules() {
     if (myBoxBtn) {
         myBoxBtn.onclick = () => openMyPrescriptionBox();
     }
-}
-
-// ============================================================
-// ADDRESS SELECT DROPDOWN - autofill from saved list
-// ============================================================
-function renderAddressSelectDropdown() {
-    const selectBox = document.getElementById('saved-address-select');
-    if (!selectBox) return;
-    const addrList = JSON.parse(localStorage.getItem('medi_address_list')) || [];
-    if (addrList.length === 0) {
-        selectBox.style.display = 'none';
-        return;
-    }
-    selectBox.style.display = 'block';
-    selectBox.innerHTML = `<option value="" disabled selected>-- Select a saved address --</option>` +
-        addrList.map(a => `<option value="${a}">${a}</option>`).join('');
-    selectBox.onchange = () => {
-        const selected = selectBox.value;
-        if (selected) {
-            const house = selected.split(',')[0]?.trim();
-            const village = selected.split(',')[1]?.trim();
-            const pin = selected.split('PIN:')[1]?.trim();
-            if (document.getElementById('addr-house')) document.getElementById('addr-house').value = house || '';
-            if (document.getElementById('addr-village')) document.getElementById('addr-village').value = village || '';
-            if (document.getElementById('addr-pincode')) document.getElementById('addr-pincode').value = pin || '';
-        }
-    };
 }
 
 // ============================================================
@@ -2588,26 +3192,80 @@ async function loadSponsoredProducts() {
             .order('sort_order', { ascending: true });
         if (error || !data || data.length === 0) return;
 
+        // If a sponsor slot is linked to a real product (btn_action contains ?id=...),
+        // pull that product's actual photo so the merchant's paid slot shows the real item.
+        const linkedIds = data
+            .map(item => {
+                const m = (item.btn_action || '').match(/[?&]id=([^&#]+)/);
+                return m ? decodeURIComponent(m[1]) : null;
+            })
+            .filter(Boolean);
+        let productImageMap = {};
+        if (linkedIds.length > 0) {
+            try {
+                const { data: linkedProducts } = await supabase
+                    .from('medicines')
+                    .select('id, image_url')
+                    .in('id', linkedIds);
+                (linkedProducts || []).forEach(p => {
+                    productImageMap[p.id] = p.image_url || '';
+                });
+            } catch (e) { /* fall back to gradient/icon slides below */ }
+        }
+
         slider.innerHTML = '';
         data.forEach((item, i) => {
             const div = document.createElement('div');
             div.className = 'slide' + (i === 0 ? ' active-slide' : '');
-            div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+            const linkedId = (item.btn_action || '').match(/[?&]id=([^&#]+)/);
+            const productImg = linkedId ? productImageMap[decodeURIComponent(linkedId[1])] : null;
+
+            if (productImg) {
+                // Real merchant product photo, with the chosen gradient as a subtle overlay for text contrast
+                div.style.backgroundImage = `linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.15)), url('${productImg}')`;
+                div.style.backgroundSize = 'cover';
+                div.style.backgroundPosition = 'center';
+            } else {
+                div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+            }
+
+            const isLinkedToProduct = !!linkedId;
+            if (isLinkedToProduct) div.style.cursor = 'pointer';
+
             div.innerHTML = `
                 <div class="slide-content">
                     <span class="slide-tag">${item.tag || 'SPONSORED'}</span>
                     <h3>${item.title}</h3>
                     <p>${item.subtitle}</p>
-                    ${item.btn_text ? `<button class="slide-btn" ${item.btn_action ? `onclick="window.location.href='${item.btn_action}'"` : ''}>${item.btn_text} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+                    ${item.btn_text ? `<button class="slide-btn" data-btn-action="${(item.btn_action || '').replace(/"/g, '&quot;')}">${item.btn_text} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
                 </div>
-                <div class="slide-icon"><i class="${item.icon_class || 'fa-solid fa-capsules'}"></i></div>
+                ${productImg ? '' : `<div class="slide-icon"><i class="${item.icon_class || 'fa-solid fa-capsules'}"></i></div>`}
             `;
+
+            // Whatever page path a merchant/admin typed into btn_action, a slot that's
+            // actually linked to a real product (btn_action contains ?id=...) must always
+            // land on the real Product Details page with that ID — previously it trusted
+            // the raw stored path verbatim, so a slot could open the wrong page entirely.
+            if (isLinkedToProduct) {
+                const goToProduct = (e) => {
+                    e.stopPropagation();
+                    window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
+                };
+                div.addEventListener('click', goToProduct);
+                div.querySelector('.slide-btn')?.addEventListener('click', goToProduct);
+            } else {
+                div.querySelector('.slide-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (item.btn_action) window.location.href = item.btn_action;
+                });
+            }
             slider.appendChild(div);
         });
     } catch (e) {
 
     }
 }
+
 
 /* ==========================================================================
    AUTO-SLIDING BANNER - Flipkart Style Carousel
@@ -2851,6 +3509,107 @@ function initWishlistButtons() {
 }
 
 /* ==========================================================================
+   VOICE / MIC SEARCH (Web Speech API)
+   ========================================================================== */
+function initVoiceSearch() {
+    const micBtn = document.getElementById('voice-search-btn');
+    const searchInput = document.getElementById('home-medicine-search');
+    if (!micBtn || !searchInput) return; // mic button not present on this page
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // Browser doesn't support voice recognition at all (e.g. old browsers)
+    if (!SpeechRecognitionAPI) {
+        micBtn.addEventListener('click', () => {
+            showToast('Voice search isn\'t supported on this browser. Please use Chrome.', 'warning');
+        });
+        return;
+    }
+
+    // Inject listening-state styles once (no separate CSS file needed)
+    if (!document.getElementById('voice-search-inline-style')) {
+        const style = document.createElement('style');
+        style.id = 'voice-search-inline-style';
+        style.textContent = `
+            .truemads-mic-btn.listening { color: #e02020 !important; animation: mediMicPulse 1s ease-in-out infinite; }
+            @keyframes mediMicPulse {
+                0% { box-shadow: 0 0 0 0 rgba(224,32,32,0.45); }
+                70% { box-shadow: 0 0 0 12px rgba(224,32,32,0); }
+                100% { box-shadow: 0 0 0 0 rgba(224,32,32,0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    function langToSpeechCode(lang) {
+        if (lang === 'bn') return 'bn-IN';
+        if (lang === 'hi') return 'hi-IN';
+        return 'en-IN';
+    }
+
+    let isListening = false;
+
+    micBtn.addEventListener('click', () => {
+        if (isListening) {
+            recognition.stop();
+            return;
+        }
+        const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
+        recognition.lang = langToSpeechCode(savedLang);
+
+        // Calling start() triggers the browser's native "Allow microphone access?" prompt
+        // automatically the first time (or on every call if permission was denied before).
+        try {
+            recognition.start();
+        } catch (err) {
+            // start() throws if it's already running - reset and retry
+            try { recognition.stop(); } catch (e2) {}
+            setTimeout(() => { try { recognition.start(); } catch (e3) {} }, 250);
+        }
+    });
+
+    recognition.addEventListener('start', () => {
+        isListening = true;
+        micBtn.classList.add('listening');
+        showToast('Listening... say the medicine name', 'info');
+    });
+
+    recognition.addEventListener('result', (event) => {
+        const transcript = (event.results[0][0].transcript || '').trim();
+        if (transcript) {
+            searchInput.value = transcript;
+            searchInput.dispatchEvent(new Event('input'));
+            searchInput.focus();
+            showToast(`Searching for "${transcript}"`, 'success');
+        }
+    });
+
+    recognition.addEventListener('error', (event) => {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        if (event.error === 'not-allowed' || event.error === 'permission-denied' || event.error === 'service-not-allowed') {
+            showToast('Microphone access denied. Please allow mic permission in your browser settings and try again.', 'warning');
+        } else if (event.error === 'no-speech') {
+            showToast('No speech detected. Please try again.', 'info');
+        } else if (event.error === 'audio-capture') {
+            showToast('No microphone found on this device.', 'warning');
+        } else {
+            showToast('Voice search failed. Please try again.', 'warning');
+        }
+    });
+
+    recognition.addEventListener('end', () => {
+        isListening = false;
+        micBtn.classList.remove('listening');
+    });
+}
+
+/* ==========================================================================
    SERVICES MENU
    ========================================================================== */
 function initServicesMenu() {
@@ -2860,7 +3619,7 @@ function initServicesMenu() {
             const service = item.dataset.service;
             switch(service) {
                 case 'lab':
-                    window.open('https://www.1mg.com/labs', '_blank');
+                    window.location.href = 'lab-booking.html?type=lab';
                     break;
                 case 'instrument':
                     window.location.href = 'userhome.html?category=instrument';
@@ -2873,12 +3632,10 @@ function initServicesMenu() {
                     showToast('Dial +91-9593625498 for Doctor Consultation', 'warning');
                     break;
                 case 'checkup':
-                    showToast('Visit your nearest MediFinder partner clinic', 'info');
+                    window.location.href = 'lab-booking.html?type=checkup';
                     break;
                 case 'ambulance':
-                    showConfirmationModal('Call 108 for Emergency Ambulance?', () => {
-                        window.location.href = 'tel:108';
-                    });
+                    window.location.href = 'ambulances-booking.html';
                     break;
                 case 'coins':
                     showToast('You earned 50 MediCoins! Redeem on next order.', 'success');

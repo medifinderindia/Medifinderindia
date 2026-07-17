@@ -42,11 +42,11 @@
                 
                 <div class="earnings-summary-card">
                     <div class="card-top-info">
-                        <p class="label-heading">Total Earnings Today</p>
+                        <p class="label-heading" id="earningsPeriodLabel">Total Earnings — Today</p>
                         <div class="icon-circle-bg"><i class="fa-solid fa-wallet"></i></div>
                     </div>
                     <!-- আজকের মোট ইনকাম ডিসপ্লে -->
-                    <h1 id="todayTotalEarnings">?0</h1>
+                    <h1 id="todayTotalEarnings">₹0</h1>
                     <div class="summary-footer">
                         <span class="payout-status-dot"></span>
                         <!-- লাইভ একটিভ আওয়ার দেখানোর জন্য টেক্সট পরিবর্তন -->
@@ -54,6 +54,16 @@
                     </div>
                     
                     <!-- ১০ ঘণ্টা লিমিটের অ্যাডমিন পে-আউট রিকোয়েস্ট বাটন -->
+                    <!-- ✅ NEW: Total Earnings card এর period filter chips -->
+                    <div class="period-filter-row" id="earningsPeriodFilter">
+                        <button class="period-chip active" data-period="today" onclick="selectEarningsPeriod('today')">Today</button>
+                        <button class="period-chip" data-period="yesterday" onclick="selectEarningsPeriod('yesterday')">Yesterday</button>
+                        <button class="period-chip" data-period="thisWeek" onclick="selectEarningsPeriod('thisWeek')">This Week</button>
+                        <button class="period-chip" data-period="lastWeek" onclick="selectEarningsPeriod('lastWeek')">Last Week</button>
+                        <button class="period-chip" data-period="thisMonth" onclick="selectEarningsPeriod('thisMonth')">This Month</button>
+                        <button class="period-chip" data-period="lastMonth" onclick="selectEarningsPeriod('lastMonth')">Last Month</button>
+                        <button class="period-chip" data-period="allTime" onclick="selectEarningsPeriod('allTime')">All Time</button>
+                    </div>
                     <button id="payoutRequestBtn" class="action-btn-accent-premium" onclick="handlePayoutRequest()" style="width: 100%; margin-top: 15px; background: #e63946; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s ease;">
                         <i class="fa-solid fa-paper-plane"></i> Request Payout to Admin
                     </button>
@@ -63,10 +73,18 @@
                     <div class="graph-header">
                         <span class="trend-title">Profit Analysis</span>
                         <div class="trend-alert-status">
-                            <i class="fa-solid fa-arrow-trend-up"></i> +12.4% vs yesterday
+                            <i class="fa-solid fa-arrow-trend-up"></i> Loading trend...
                         </div>
                     </div>
                     
+                    <!-- ✅ NEW: Profit Analysis গ্রাফের period filter chips -->
+                    <div class="period-filter-row" id="profitPeriodFilter">
+                        <button class="period-chip active" data-period="today" onclick="selectProfitPeriod('today')">Today</button>
+                        <button class="period-chip" data-period="yesterday" onclick="selectProfitPeriod('yesterday')">Yesterday</button>
+                        <button class="period-chip" data-period="lastWeek" onclick="selectProfitPeriod('lastWeek')">Last Week</button>
+                        <button class="period-chip" data-period="lastMonth" onclick="selectProfitPeriod('lastMonth')">Last Month</button>
+                        <button class="period-chip" data-period="allTime" onclick="selectProfitPeriod('allTime')">All Time</button>
+                    </div>
                     <div class="sparkline-canvas">
                         <svg viewBox="0 0 100 30" class="chart-svg" preserveAspectRatio="none">
                             <defs>
@@ -88,6 +106,13 @@
                 <div class="history-header">
                     <h3 class="section-subtitle">Recent Run Completed History</h3>
                     <span class="history-count">0 Orders</span>
+                </div>
+                <!-- ✅ NEW: History সেকশনের period filter chips -->
+                <div class="period-filter-row" id="historyPeriodFilter" style="margin-bottom:14px;">
+                    <button class="period-chip active" data-period="today" onclick="selectHistoryPeriod('today')">Today</button>
+                    <button class="period-chip" data-period="yesterday" onclick="selectHistoryPeriod('yesterday')">Yesterday</button>
+                    <button class="period-chip" data-period="lastWeek" onclick="selectHistoryPeriod('lastWeek')">Last Week</button>
+                    <button class="period-chip" data-period="lastMonth" onclick="selectHistoryPeriod('lastMonth')">Last Month</button>
                 </div>
                 
                 <div class="history-list">

@@ -166,7 +166,33 @@ body{padding-bottom:100px}
 .form-row,.form-row-3{grid-template-columns:1fr}
 .product-select-grid{grid-template-columns:1fr}
 }
+/* ===== GUIDE / HOW IT WORKS TAB ===== */
+.guide-flow{display:flex;align-items:stretch;gap:8px;margin-top:14px}
+.guide-flow-step{flex:1;background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:14px 10px;text-align:center}
+.guide-flow-icon{width:38px;height:38px;border-radius:50%;background:rgba(224,32,32,0.15);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:15px;margin:0 auto 10px}
+.guide-flow-title{font-size:12px;font-weight:700;margin-bottom:4px}
+.guide-flow-desc{font-size:10.5px;color:var(--text3);line-height:1.4}
+.guide-flow-arrow{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px;flex-shrink:0}
+@media(max-width:400px){.guide-flow{flex-direction:column}.guide-flow-arrow{transform:rotate(90deg);padding:2px 0}}
+.guide-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.guide-type-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:14px}
+.guide-type-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:10px}
+.guide-type-name{font-size:12.5px;font-weight:700;margin-bottom:4px}
+.guide-type-desc{font-size:10.5px;color:var(--text3);line-height:1.4;margin-bottom:8px}
+.guide-type-example{font-size:10px;color:var(--text2);background:var(--glass);border-radius:6px;padding:5px 8px;display:inline-block}
+.guide-phone-row{display:flex;gap:16px;align-items:flex-start;margin-top:14px;flex-wrap:wrap}
+.guide-phone{width:150px;flex-shrink:0;background:#000;border-radius:22px;padding:8px 6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);margin:0 auto}
+.guide-phone-notch{width:50px;height:14px;background:#000;border-radius:0 0 10px 10px;margin:0 auto 4px;position:relative}
+.guide-phone-screen{background:var(--dark);border-radius:16px;padding:10px 8px;min-height:170px}
+.guide-phone-card{background:var(--glass);border-radius:10px;padding:8px;position:relative;margin-bottom:8px}
+.guide-phone-thumb{width:100%;height:44px;border-radius:8px;background:rgba(224,32,32,0.15);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:6px}
+.guide-phone-pname{font-size:9px;font-weight:700;margin-bottom:3px}
+.guide-phone-price{display:flex;gap:4px;align-items:baseline}
+.guide-phone-tag{position:absolute;top:6px;right:6px;background:var(--primary);color:#fff;font-size:7px;font-weight:800;padding:2px 6px;border-radius:8px}
+.guide-phone-coupon{font-size:8px;color:var(--text3);background:var(--glass);border-radius:6px;padding:5px 6px;text-align:center}
+.guide-phone-note{flex:1;min-width:180px}
 </style>
+    <link rel="stylesheet" href="merchant-shared.css?v=14">
 </head>
 <body>
 
@@ -181,7 +207,7 @@ body{padding-bottom:100px}
 <div class="brand-name">MEDI<span>FINDER</span></div>
 </div>
 <div class="header-actions">
-<button class="header-btn" onclick="location.href='marchentnotifications.html'"><i class="fas fa-bell"></i><div class="notif-dot"></div></button>
+<button class="header-btn" onclick="location.href='marchenthome.html'"><i class="fas fa-bell"></i><div class="notif-dot"></div></button>
 </div>
 </header>
 
@@ -213,6 +239,7 @@ body{padding-bottom:100px}
 <div class="tab" data-tab="flash"><i class="fas fa-bolt"></i> Flash Sales</div>
 <div class="tab" data-tab="pricing"><i class="fas fa-indian-rupee-sign"></i> Price Mgmt</div>
 <div class="tab" data-tab="featured"><i class="fas fa-star"></i> Featured</div>
+<div class="tab" data-tab="guide"><i class="fas fa-circle-info"></i> How It Works</div>
 </div>
 
 <!-- ANALYTICS SUMMARY -->
@@ -276,6 +303,114 @@ body{padding-bottom:100px}
 <div class="stat-card"><div class="stat-value" id="featuredBudget">₹0</div><div class="stat-label">Featured Budget</div></div>
 </div>
 <div id="featuredList"><div class="skeleton" style="height:120px;margin-bottom:12px"></div></div>
+</div>
+
+<!-- GUIDE / HOW IT WORKS TAB -->
+<div class="tab-content" id="tab-guide">
+
+<div class="card" style="text-align:center;padding:20px 16px">
+<div style="font-size:15px;font-weight:800;margin-bottom:6px"><i class="fas fa-wand-magic-sparkles" style="color:var(--primary)"></i> How Promotions Work</div>
+<div style="font-size:12.5px;color:var(--text2);line-height:1.6">Every offer you create here — a Discount, Coupon, or Flash Sale — follows the same 3-step journey before it reaches a customer.</div>
+</div>
+
+<div class="guide-flow">
+<div class="guide-flow-step">
+<div class="guide-flow-icon"><i class="fas fa-plus"></i></div>
+<div class="guide-flow-title">1. You Create It</div>
+<div class="guide-flow-desc">Set the type, value, and dates in Discounts, Coupons, or Flash Sales.</div>
+</div>
+<div class="guide-flow-arrow"><i class="fas fa-chevron-right"></i></div>
+<div class="guide-flow-step">
+<div class="guide-flow-icon"><i class="fas fa-box"></i></div>
+<div class="guide-flow-title">2. Attach Products</div>
+<div class="guide-flow-desc">Tap products in the grid to link the offer to exactly those items.</div>
+</div>
+<div class="guide-flow-arrow"><i class="fas fa-chevron-right"></i></div>
+<div class="guide-flow-step">
+<div class="guide-flow-icon"><i class="fas fa-mobile-screen-button"></i></div>
+<div class="guide-flow-title">3. Customer Sees It</div>
+<div class="guide-flow-desc">The offer shows automatically on those products in the customer app.</div>
+</div>
+</div>
+
+<div class="section-header" style="margin-top:20px">
+<div class="section-title" style="font-size:15px">Discount Types Explained</div>
+</div>
+
+<div class="guide-type-grid">
+<div class="guide-type-card">
+<div class="guide-type-icon" style="background:rgba(0,176,255,0.15);color:var(--info)"><i class="fas fa-percent"></i></div>
+<div class="guide-type-name">Discount %</div>
+<div class="guide-type-desc">Cuts the price by a percentage. Great for wide sales.</div>
+<div class="guide-type-example">e.g. 20% off → ₹500 becomes ₹400</div>
+</div>
+<div class="guide-type-card">
+<div class="guide-type-icon" style="background:rgba(0,200,83,0.15);color:var(--success)"><i class="fas fa-tags"></i></div>
+<div class="guide-type-name">Flat Discount</div>
+<div class="guide-type-desc">Cuts a fixed rupee amount off, regardless of price.</div>
+<div class="guide-type-example">e.g. ₹50 off → ₹500 becomes ₹450</div>
+</div>
+<div class="guide-type-card">
+<div class="guide-type-icon" style="background:rgba(224,32,32,0.15);color:var(--primary)"><i class="fas fa-gift"></i></div>
+<div class="guide-type-name">Buy X Get Y</div>
+<div class="guide-type-desc">Customer buys a set quantity and gets more free or discounted.</div>
+<div class="guide-type-example">e.g. Buy 1 Get 1 free</div>
+</div>
+<div class="guide-type-card">
+<div class="guide-type-icon" style="background:rgba(255,193,7,0.15);color:var(--warning)"><i class="fas fa-cart-shopping"></i></div>
+<div class="guide-type-name">Minimum Purchase</div>
+<div class="guide-type-desc">Offer only unlocks once the cart crosses this amount.</div>
+<div class="guide-type-example">e.g. Min order ₹300 to apply</div>
+</div>
+</div>
+
+<div class="card" style="margin-top:4px">
+<div class="card-title" style="font-size:13.5px"><i class="fas fa-calendar-xmark" style="color:var(--danger)"></i> Expiry Date</div>
+<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:6px">Every offer needs an end date. Once that date passes, the offer automatically stops working for customers — it flips to <span class="badge badge-expired" style="margin:0 2px">Expired</span> here in your dashboard and won't apply at checkout anymore. You don't need to remove it manually.</div>
+</div>
+
+<div class="section-header" style="margin-top:20px">
+<div class="section-title" style="font-size:15px">Where Customers See It</div>
+</div>
+<div class="guide-phone-row">
+<div class="guide-phone">
+<div class="guide-phone-notch"></div>
+<div class="guide-phone-screen">
+<div class="guide-phone-card">
+<div class="guide-phone-thumb"><i class="fas fa-prescription-bottle-medical"></i></div>
+<div class="guide-phone-info">
+<div class="guide-phone-pname">Paracetamol 500mg</div>
+<div class="guide-phone-price"><span class="price-original">₹80</span> <span class="price-current" style="font-size:14px">₹64</span></div>
+</div>
+<div class="guide-phone-tag">20% OFF</div>
+</div>
+<div class="guide-phone-coupon"><i class="fas fa-ticket"></i> Apply code MED20 at checkout</div>
+</div>
+</div>
+<div class="guide-phone-note">
+<div style="font-size:12.5px;color:var(--text2);line-height:1.7">
+<div style="margin-bottom:8px"><i class="fas fa-check" style="color:var(--success);width:16px"></i> Discounts &amp; Flash Sales show as a strikethrough price directly on the product card.</div>
+<div style="margin-bottom:8px"><i class="fas fa-check" style="color:var(--success);width:16px"></i> Coupon codes appear at checkout for the customer to apply manually.</div>
+<div><i class="fas fa-check" style="color:var(--success);width:16px"></i> Featured products get boosted placement near the top of search results.</div>
+</div>
+</div>
+</div>
+
+<div class="section-header" style="margin-top:20px">
+<div class="section-title" style="font-size:15px">Activate / Deactivate Anytime</div>
+</div>
+<div class="card">
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+<button class="btn btn-sm btn-outline" style="pointer-events:none"><i class="fas fa-pause"></i> Pause</button>
+<div style="font-size:12px;color:var(--text2);flex:1;min-width:180px">Pauses the offer instantly — it stops applying for customers, but stays saved so you can turn it back on anytime.</div>
+</div>
+<hr style="border:none;border-top:1px solid var(--glass-border);margin:14px 0">
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+<button class="btn btn-sm btn-outline" style="pointer-events:none"><i class="fas fa-play"></i> Activate</button>
+<div style="font-size:12px;color:var(--text2);flex:1;min-width:180px">Turns a paused offer back on. This button lives on every Discount and Coupon card.</div>
+</div>
+</div>
+
 </div>
 </main>
 
@@ -421,7 +556,8 @@ document.getElementById('couponCode').value=c;
 function formatDate(d){if(!d)return '—';return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
 function formatDateTime(d){if(!d)return '—';return new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
 function formatCurrency(n){return '₹'+Number(n||0).toLocaleString('en-IN')}
-function getStatus(start,end){
+function getStatus(start,end,isActive){
+if(isActive===false)return{label:'Paused',cls:'badge-paused'};
 const now=new Date(),s=new Date(start),e=new Date(end);
 if(now<s)return{label:'Scheduled',cls:'badge-scheduled'};
 if(now>e)return{label:'Expired',cls:'badge-expired'};
@@ -434,53 +570,55 @@ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
 this.classList.add('active');
 document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
 document.getElementById('tab-'+this.dataset.tab).classList.add('active');
+const analyticsGrid=document.getElementById('analyticsGrid');
+if(analyticsGrid)analyticsGrid.style.display=(this.dataset.tab==='guide')?'none':'';
 });
 });
 
 async function loadProducts(){
 try{
 if(!supabase)return;
-const{data,e}=await supabase.from('medicines').select('id,product_name,unit_price,category,stock_qty').eq('merchant_id',merchantId).order('product_name');
-if(!e&&data)sbProducts=data.map(p=>({id:p.id,name:p.product_name,price:p.unit_price,category:p.category,stock:p.stock_qty}));
+const{data,error}=await supabase.from('medicines').select('id,product_name,unit_price,category,stock_qty').eq('merchant_id',merchantId).order('product_name');
+if(!error&&data)sbProducts=data.map(p=>({id:p.id,name:p.product_name,price:p.unit_price,category:p.category,stock:p.stock_qty}));
 }catch(e){/* error */}
 }
 async function loadDiscounts(){
 try{
 if(!supabase){renderDiscounts([]);return}
-const{data,e}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','discount').order('created_at',{ascending:false});
-if(!e){sbDiscounts=data||[];renderDiscounts(sbDiscounts)}
+const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','discount').order('created_at',{ascending:false});
+if(!error){sbDiscounts=data||[];renderDiscounts(sbDiscounts)}
 else renderDiscounts([]);
 }catch(e){renderDiscounts([])}
 }
 async function loadCoupons(){
 try{
 if(!supabase){renderCoupons([]);return}
-const{data,e}=await supabase.from('coupons').select('*').eq('merchant_id',merchantId).order('created_at',{ascending:false});
-if(!e){sbCoupons=data||[];renderCoupons(sbCoupons)}
+const{data,error}=await supabase.from('coupons').select('*').eq('merchant_id',merchantId).order('created_at',{ascending:false});
+if(!error){sbCoupons=data||[];renderCoupons(sbCoupons)}
 else renderCoupons([]);
 }catch(e){renderCoupons([])}
 }
 async function loadFlashSales(){
 try{
 if(!supabase){renderFlash([]);return}
-const{data,e}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','flash_sale').order('created_at',{ascending:false});
-if(!e){sbFlash=data||[];renderFlash(sbFlash)}
+const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','flash_sale').order('created_at',{ascending:false});
+if(!error){sbFlash=data||[];renderFlash(sbFlash)}
 else renderFlash([]);
 }catch(e){renderFlash([])}
 }
 async function loadFeatured(){
 try{
 if(!supabase){renderFeatured([]);return}
-const{data,e}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','featured').order('created_at',{ascending:false});
-if(!e){sbFeatured=data||[];renderFeatured(sbFeatured)}
+const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','featured').order('created_at',{ascending:false});
+if(!error){sbFeatured=data||[];renderFeatured(sbFeatured)}
 else renderFeatured([]);
 }catch(e){renderFeatured([])}
 }
 async function loadPriceProducts(){
 try{
 if(!supabase){renderPriceList([]);return}
-const{data,e}=await supabase.from('medicines').select('id,product_name,unit_price,mrp,category,stock_qty,updated_at').eq('merchant_id',merchantId).order('product_name');
-if(!e){renderPriceList((data||[]).map(p=>({id:p.id,name:p.product_name,price:p.unit_price,mrp:p.mrp,category:p.category,stock:p.stock_qty,updated_at:p.updated_at})))}
+const{data,error}=await supabase.from('medicines').select('id,product_name,unit_price,mrp,category,stock_qty,updated_at').eq('merchant_id',merchantId).order('product_name');
+if(!error){renderPriceList((data||[]).map(p=>({id:p.id,name:p.product_name,price:p.unit_price,mrp:p.mrp,category:p.category,stock:p.stock_qty,updated_at:p.updated_at})))}
 else renderPriceList([]);
 }catch(e){renderPriceList([])}
 }
@@ -489,9 +627,9 @@ function renderDiscounts(discounts){
 const el=document.getElementById('discountsList');
 if(!discounts.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-tags"></i></div><div class="empty-title">No Discounts Yet</div><div class="empty-desc">Create your first discount to attract more customers</div><button class="btn btn-primary" onclick="openModal(\'discountModal\')"><i class="fas fa-plus"></i> Create Discount</button></div>';return}
 el.innerHTML=discounts.map(d=>{
-const st=getStatus(d.start_date,d.end_date);
+const st=getStatus(d.start_date,d.end_date,d.status!=='paused');
 const productNames=Array.isArray(d.applicable_products)?d.applicable_products.map(p=>{const pr=sbProducts.find(x=>x.id===p);return pr?pr.name:'Product'}).slice(0,2):[];
-return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(d.title||'Untitled Discount')}</div><div class="discount-type-badge"><i class="fas fa-${d.discount_type==='percentage'?'percent':'indian-rupee-sign'}"></i>${(d.discount_type||'percentage').replace('_',' ')} — ${d.discount_value||0}${d.discount_type==='percentage'?'%':''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(d.start_date)} — ${formatDate(d.end_date)}</span></div>${productNames.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fas fa-box"></i> ${productNames.join(', ')}${(d.applicable_products||[]).length>2?' +'+(d.applicable_products.length-2)+' more':''}</div>`:''}<div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editDiscount('${d.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${d.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i> ${st.label==='Active'?'Pause':'Activate'}</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${d.id}','discount')"><i class="fas fa-trash"></i></button></div></div>`;
+return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(d.title||'Untitled Discount')}</div><div class="discount-type-badge"><i class="fas fa-${d.discount_type==='percentage'?'percent':'indian-rupee-sign'}"></i>${(d.discount_type||'percentage').replace('_',' ')} — ${d.discount_value||0}${d.discount_type==='percentage'?'%':''}</div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-calendar"></i>${formatDate(d.start_date)} — ${formatDate(d.end_date)}</span></div>${productNames.length?`<div style="font-size:11px;color:var(--text3);margin-top:4px"><i class="fas fa-box"></i> ${productNames.join(', ')}${(d.applicable_products||[]).length>2?' +'+(d.applicable_products.length-2)+' more':''}</div>`:''}<div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editDiscount('${d.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${d.id}','${d.status!=='paused'?'paused':'active'}','discount')"><i class="fas fa-${d.status!=='paused'?'pause':'play'}"></i> ${d.status!=='paused'?'Pause':'Activate'}</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${d.id}','discount')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -499,9 +637,9 @@ function renderCoupons(coupons){
 const el=document.getElementById('couponsList');
 if(!coupons.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-ticket"></i></div><div class="empty-title">No Coupons Yet</div><div class="empty-desc">Create coupon codes to boost sales</div><button class="btn btn-primary" onclick="openModal(\'couponModal\')"><i class="fas fa-plus"></i> Create Coupon</button></div>';return}
 el.innerHTML=coupons.map(c=>{
-const st=getStatus(c.start_date||c.created_at,c.end_date||c.end_date);
+const st=getStatus(c.start_date||c.created_at,c.end_date||c.end_date,c.is_active!==false);
 const pct=c.used_count||0, lim=c.max_uses||Infinity;
-return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(c.description||'Coupon')}</div><div class="coupon-code" onclick="copyCode('${esc(c.code)}')">${esc(c.code||'CODE')} <i class="fas fa-copy"></i></div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-percent"></i>${c.discount_type==='percentage'?c.discount_value+'%':'₹'+c.discount_value} off</span><span><i class="fas fa-receipt"></i>Used: ${pct}${lim<Infinity?'/'+lim:''}</span><span><i class="fas fa-calendar"></i>Exp: ${formatDate(c.end_date||c.end_date)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${lim<Infinity?Math.min(100,(pct/lim)*100):0}%"></div></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editCoupon('${c.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="copyCode('${esc(c.code)}')"><i class="fas fa-copy"></i> Copy</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${c.id}','${st.label==='Active'?'paused':'active'}')"><i class="fas fa-${st.label==='Active'?'pause':'play'}"></i></button><button class="btn btn-sm btn-danger" onclick="deletePromo('${c.id}','coupon')"><i class="fas fa-trash"></i></button></div></div>`;
+return`<div class="card"><div class="card-header"><div><div class="card-title">${esc(c.description||'Coupon')}</div><div class="coupon-code" onclick="copyCode('${esc(c.code)}')">${esc(c.code||'CODE')} <i class="fas fa-copy"></i></div></div><span class="badge ${st.cls}">${st.label}</span></div><div class="card-meta"><span><i class="fas fa-percent"></i>${c.discount_type==='percentage'?c.discount_value+'%':'₹'+c.discount_value} off</span><span><i class="fas fa-receipt"></i>Used: ${pct}${lim<Infinity?'/'+lim:''}</span><span><i class="fas fa-calendar"></i>Exp: ${formatDate(c.end_date||c.end_date)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${lim<Infinity?Math.min(100,(pct/lim)*100):0}%"></div></div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editCoupon('${c.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-outline" onclick="copyCode('${esc(c.code)}')"><i class="fas fa-copy"></i> Copy</button><button class="btn btn-sm btn-outline" onclick="togglePromoStatus('${c.id}','${c.is_active!==false?'paused':'active'}','coupon')"><i class="fas fa-${c.is_active!==false?'pause':'play'}"></i></button><button class="btn btn-sm btn-danger" onclick="deletePromo('${c.id}','coupon')"><i class="fas fa-trash"></i></button></div></div>`;
 }).join('');
 }
 
@@ -509,7 +647,7 @@ function renderFlash(sales){
 const el=document.getElementById('flashList');
 if(!sales.length){el.innerHTML='<div class="empty-state"><div class="empty-icon"><i class="fas fa-bolt"></i></div><div class="empty-title">No Flash Sales</div><div class="empty-desc">Create flash sales to drive urgency and quick purchases</div><button class="btn btn-primary" onclick="openModal(\'flashModal\')"><i class="fas fa-plus"></i> Create Flash Sale</button></div>';return}
 el.innerHTML=sales.map(f=>{
-const st=getStatus(f.start_date,f.end_date);
+const st=getStatus(f.start_date,f.end_date,f.status!=='paused');
 const isLive=st.label==='Active';
 const productCount=Array.isArray(f.applicable_products)?f.applicable_products.length:0;
 return`<div class="card featured-card"><div class="card-header"><div><div class="card-title">${esc(f.title||'Flash Sale')}</div><div style="font-size:12px;color:var(--text2)">${f.discount_value||0}% off on ${productCount} products</div></div><span class="badge ${st.cls}">${isLive?'LIVE':st.label}</span></div>${isLive?'<div class="flash-urgency"><i class="fas fa-circle"></i> Active Now</div>':''}<div class="card-meta"><span><i class="fas fa-clock"></i>${formatDateTime(f.start_date)} — ${formatDateTime(f.end_date)}</span>${f.budget?`<span><i class="fas fa-wallet"></i>Budget: ${formatCurrency(f.budget)}</span>`:''}</div><div class="card-actions"><button class="btn btn-sm btn-outline" onclick="editFlash('${f.id}')"><i class="fas fa-pen"></i> Edit</button><button class="btn btn-sm btn-danger" onclick="deletePromo('${f.id}','flash')"><i class="fas fa-trash"></i></button></div></div>`;
@@ -577,15 +715,18 @@ const editId=document.getElementById('editDiscountId').value;
 const payload={
 merchant_id:merchantId,type:'discount',title:document.getElementById('discountName').value,
 discount_type:document.getElementById('discountType').value,discount_value:parseFloat(document.getElementById('discountValue').value),
+min_order_amount:parseFloat(document.getElementById('discountMinOrder').value)||0,
+max_discount_amount:parseFloat(document.getElementById('discountMaxCap').value)||null,
+usage_limit:parseInt(document.getElementById('discountUsage').value)||null,
 applicable_products:getSelectedProducts('discountProducts'),
 start_date:document.getElementById('discountStart').value,
-end_date:document.getElementById('discountEnd').value,
-status:'active'
+end_date:document.getElementById('discountEnd').value
 };
+if(!editId)payload.status='active';
 try{
 if(!supabase){showToast('Database not connected','error');return}
-if(editId){const{e}=await supabase.from('promotions').update(payload).eq('id',editId);if(e)throw e}
-else{const{e}=await supabase.from('promotions').insert([payload]);if(e)throw e}
+if(editId){const{error}=await supabase.from('promotions').update(payload).eq('id',editId);if(error)throw error}
+else{const{error}=await supabase.from('promotions').insert([payload]);if(error)throw error}
 showToast(editId?'Discount updated!':'Discount created!');
 closeModal('discountModal');document.getElementById('discountForm').reset();
 document.getElementById('editDiscountId').value='';
@@ -610,8 +751,8 @@ is_active:true,used_count:0
 };
 try{
 if(!supabase){showToast('Database not connected','error');return}
-if(editId){const{e}=await supabase.from('coupons').update(payload).eq('id',editId);if(e)throw e}
-else{const{e}=await supabase.from('coupons').insert([payload]);if(e)throw e}
+if(editId){const{error}=await supabase.from('coupons').update(payload).eq('id',editId);if(error)throw error}
+else{const{error}=await supabase.from('coupons').insert([payload]);if(error)throw error}
 showToast(editId?'Coupon updated!':'Coupon created!');
 closeModal('couponModal');document.getElementById('couponForm').reset();
 document.getElementById('editCouponId').value='';
@@ -632,8 +773,8 @@ status:'active'
 };
 try{
 if(!supabase){showToast('Database not connected','error');return}
-if(editId){const{e}=await supabase.from('promotions').update(payload).eq('id',editId);if(e)throw e}
-else{const{e}=await supabase.from('promotions').insert([payload]);if(e)throw e}
+if(editId){const{error}=await supabase.from('promotions').update(payload).eq('id',editId);if(error)throw error}
+else{const{error}=await supabase.from('promotions').insert([payload]);if(error)throw error}
 showToast(editId?'Flash sale updated!':'Flash sale created!');
 closeModal('flashModal');document.getElementById('flashForm').reset();
 document.getElementById('editFlashId').value='';
@@ -678,7 +819,7 @@ status:'active'
 };
 try{
 if(!supabase){showToast('Database not connected','error');return}
-const{e}=await supabase.from('promotions').insert([payload]);if(e)throw e;
+const{error}=await supabase.from('promotions').insert([payload]);if(error)throw error;
 showToast('Products featured successfully!');
 closeModal('featuredModal');document.getElementById('featuredForm').reset();
 await loadFeatured();
@@ -741,15 +882,19 @@ if(f.applicable_products&&f.applicable_products.includes(el.dataset.id))el.class
 openModal('flashModal');
 }
 
-async function togglePromoStatus(id,newStatus){
+async function togglePromoStatus(id,newStatus,type){
 if(!supabase)return;
 try{
-const{e}=await supabase.from('promotions').update({status:newStatus}).eq('id',id);
-if(!e){
-// also try coupons table
-await supabase.from('coupons').update({is_active:newStatus==='active'}).eq('id',id);
-showToast('Status updated!');await refreshAll();
+let error;
+if(type==='coupon'){
+const res=await supabase.from('coupons').update({is_active:newStatus==='active'}).eq('id',id);
+error=res.error;
+}else{
+const res=await supabase.from('promotions').update({status:newStatus}).eq('id',id);
+error=res.error;
 }
+if(!error){showToast(newStatus==='active'?'Activated!':'Paused!');await refreshAll();}
+else showToast('Error updating status','error');
 }catch(e){showToast('Error updating status','error')}
 }
 async function deletePromo(id,type){
@@ -757,8 +902,8 @@ showConfirmationModal('Are you sure you want to delete this?', async () => {
 if(!supabase)return;
 try{
 const table=type==='coupon'?'coupons':'promotions';
-const{e}=await supabase.from(table).delete().eq('id',id);
-if(!e){showToast('Deleted!');await refreshAll()}
+const{error}=await supabase.from(table).delete().eq('id',id);
+if(!error){showToast('Deleted!');await refreshAll()}
 }catch(e){showToast('Error deleting','error')}
 });
 }
@@ -798,8 +943,8 @@ modal.onclick=(e)=>{if(e.target===modal){modal.remove();resolve(null);}};
 if(newPrice===null)return;
 const val=parseFloat(newPrice);
 if(isNaN(val)||val<=0){showToast('Invalid price','error');return}
-supabase.from('medicines').update({unit_price:val}).eq('id',id).then(({e})=>{
-if(!e){showToast('Price updated!');loadPriceProducts();loadProducts()}
+supabase.from('medicines').update({unit_price:val}).eq('id',id).then(({error})=>{
+if(!error){showToast('Price updated!');loadPriceProducts();loadProducts()}
 else showToast('Error updating price','error');
 });
 }
@@ -857,5 +1002,6 @@ populateProductCheckboxes();
 refreshAll();
 })();
 </script>
+    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

@@ -378,3 +378,50 @@ body {
         padding: 10px 8px;
     }
 }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Header gradient (matches Home/Delivery pages)   */
+/* ============================================================ */
+.navbar {
+    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+}
+.logo-text { color: #ffffff !important; }
+.text-highlight { color: #ffe8e8 !important; }
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Period filter chips (Earnings/Profit/History)   */
+/* ============================================================ */
+.period-filter-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px 0 4px 0;
+    margin-bottom: 4px;
+    scrollbar-width: none;
+}
+.period-filter-row::-webkit-scrollbar { display: none; }
+.period-chip {
+    flex-shrink: 0;
+    background: #f1f2f6;
+    color: var(--text-muted);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.period-chip:hover { background: #e2e8f0; }
+.period-chip.active {
+    background: linear-gradient(135deg, #e02020, #ff4747);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(224,32,32,0.3);
+}
+
+/* ============================================================ */
+/* ✅ NEW BLOCK: Responsive safety — 320px to 1920px, no overflow */
+/* ============================================================ */
+html, body { max-width: 100vw; overflow-x: hidden; }
+img, svg { max-width: 100%; height: auto; }

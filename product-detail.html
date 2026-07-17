@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="MediFinder - Order medicines online with fast delivery.">
 <meta property="og:title" content="MediFinder - Product Details">
@@ -251,6 +252,9 @@ a{text-decoration:none;color:inherit}
       <span class="image-badge" id="imageBadge" style="display:none">360 View</span>
       <button class="wishlist-btn" id="wishlistBtn" onclick="toggleWishlist()"><i class="far fa-heart"></i></button>
       <button class="share-btn" onclick="shareProduct()"><i class="fas fa-share-alt"></i></button>
+      <button class="like-btn" id="likeBtn" onclick="toggleLike()" style="position:absolute;left:10px;bottom:10px;height:32px;padding:0 12px;border-radius:16px;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text3);">
+        <i class="far fa-thumbs-up" id="likeIcon"></i> <span id="likeCount">0</span>
+      </button>
       <img id="mainImage" src="" alt="Product" onclick="openZoom()">
     </div>
     <div class="thumbnails" id="thumbnails"></div>
@@ -263,7 +267,7 @@ a{text-decoration:none;color:inherit}
       <span class="rating-count" id="ratingCount"></span>
     </div>
     <div class="sold-by">Sold by: <strong id="sellerName"></strong>
-      <span class="verified-badge"><i class="fas fa-check-circle"></i> Verified</span>
+      <span class="verified-badge" id="verifiedBadge" style="display:none"><i class="fas fa-check-circle"></i> Verified</span>
     </div>
     <div class="price-section">
       <div class="price-row">
@@ -284,7 +288,7 @@ a{text-decoration:none;color:inherit}
         <div class="free-delivery" id="deliveryCharge">Free delivery</div>
       </div>
     </div>
-    <div class="delivery-row">
+    <div class="delivery-row" id="expressDeliveryRow" style="display:none">
       <i class="fas fa-bolt"></i>
       <div>
         <div class="label">Express Delivery</div>
@@ -301,24 +305,9 @@ a{text-decoration:none;color:inherit}
       </div>
     </div>
   </div>
-  <div class="offers-section fade-in">
+  <div class="offers-section fade-in" id="offersSection" style="display:none">
     <div class="section-header"><i class="fas fa-tags"></i> Available Offers</div>
-    <div class="offer-card">
-      <div class="offer-icon bank"><i class="fas fa-university"></i></div>
-      <div><div class="offer-text"><strong>Bank Offer</strong> 10% off on HDFC Bank credit and debit cards. Min order Rs.500</div><span class="tc-link">T&C</span></div>
-    </div>
-    <div class="offer-card">
-      <div class="offer-icon coupon"><i class="fas fa-ticket-alt"></i></div>
-      <div><div class="offer-text"><strong>Coupon</strong> Use code <strong>MED10</strong> and get Rs.10 off on first order</div><span class="tc-link">T&C</span></div>
-    </div>
-    <div class="offer-card">
-      <div class="offer-icon wallet"><i class="fas fa-wallet"></i></div>
-      <div><div class="offer-text"><strong>Wallet Offer</strong> Pay with Paytm UPI and get Rs.20 cashback</div><span class="tc-link">T&C</span></div>
-    </div>
-    <div class="offer-card">
-      <div class="offer-icon cashback"><i class="fas fa-percent"></i></div>
-      <div><div class="offer-text"><strong>Cashback</strong> Get 5% cashback with MediFinder Wallet (max Rs.50)</div><span class="tc-link">T&C</span></div>
-    </div>
+    <div id="offersList"></div>
   </div>
   <div class="details-section fade-in">
     <div class="section-header"><i class="fas fa-info-circle"></i> Product Details</div>
@@ -330,11 +319,11 @@ a{text-decoration:none;color:inherit}
   <div class="seller-section fade-in">
     <div class="section-header"><i class="fas fa-store"></i> Seller Information</div>
     <div class="seller-name" id="sellerLink"></div>
-    <div class="seller-rating"><i class="fas fa-star"></i><span id="sellerRatingText">4.2 out of 5</span></div>
-    <div class="policy-item"><i class="fas fa-file-invoice"></i> GST invoice available</div>
-    <div class="policy-item"><i class="fas fa-undo"></i> 7 days return policy</div>
-    <div class="policy-item"><i class="fas fa-shield-alt"></i> 100% genuine products</div>
-    <div style="margin-top:10px"><span class="change-link">View seller's other products</span></div>
+    <div class="seller-rating" id="sellerRatingRow" style="display:none"><i class="fas fa-star"></i><span id="sellerRatingText"></span></div>
+    <div class="policy-item" id="gstPolicyItem" style="display:none"><i class="fas fa-file-invoice"></i> GST invoice available</div>
+    <div class="policy-item" id="returnPolicyItem" style="display:none"><i class="fas fa-undo"></i> 7 days return policy</div>
+    <div class="policy-item" id="genuinePolicyItem" style="display:none"><i class="fas fa-shield-alt"></i> 100% genuine products (Verified seller)</div>
+    <div style="margin-top:10px"><span class="change-link" onclick="viewSellerProducts()">View seller's other products</span></div>
   </div>
   <div class="reviews-section fade-in">
     <div class="section-header"><i class="fas fa-star"></i> Ratings and Reviews</div>
@@ -355,13 +344,13 @@ a{text-decoration:none;color:inherit}
     <div id="reviewsList"></div>
     <button class="see-all-btn" id="seeAllReviewsBtn" onclick="toggleAllReviews()">See All Reviews</button>
   </div>
-  <div class="fbt-section fade-in">
+  <div class="fbt-section fade-in" id="fbtSection">
     <div class="section-header"><i class="fas fa-shopping-basket"></i> Frequently Bought Together</div>
     <div id="fbtList"></div>
     <div class="fbt-total"><span>Total price for all items:</span><span id="fbtTotalPrice"></span></div>
     <div class="fbt-savings" id="fbtSavings" style="font-size:12px;text-align:right;margin-top:4px"></div>
   </div>
-  <div class="similar-section fade-in">
+  <div class="similar-section fade-in" id="similarSection">
     <div class="section-header"><i class="fas fa-th-large"></i> Similar Products</div>
     <div class="similar-scroll" id="similarScroll"></div>
   </div>
@@ -427,6 +416,7 @@ let quantity = 1;
 let isWishlisted = false;
 let currentImageIndex = 0;
 let allImages = [];
+let isPrescriptionUploaded = localStorage.getItem('medi_presc_uploaded_status') === 'true';
 
 const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&h=400&fit=crop',
@@ -435,47 +425,27 @@ const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=400&h=400&fit=crop'
 ];
 
-const SAMPLE_REVIEWS = [
-  { name:'Rahul S.', avatar:'R', rating:5, text:'Great medicine, works perfectly. Fast delivery and genuine product. Highly recommended for this condition.', date:'2 days ago', helpful:12 },
-  { name:'Priya M.', avatar:'P', rating:4, text:'Good quality medicine. Slight side effects initially but went away after 2 days. Packaging was good.', date:'1 week ago', helpful:8 },
-  { name:'Amit K.', avatar:'A', rating:5, text:'Best price online. Genuine product with proper packaging. Will order again from MediFinder.', date:'2 weeks ago', helpful:15 },
-  { name:'Sneha R.', avatar:'S', rating:3, text:'Average product. Took longer than expected to show results. Delivery was quick though.', date:'3 weeks ago', helpful:3 },
-  { name:'Vikram P.', avatar:'V', rating:5, text:'Doctor recommended this and MediFinder had the best price. Authentic product delivered safely.', date:'1 month ago', helpful:20 },
-  { name:'Ananya D.', avatar:'A', rating:4, text:'Effective medicine. Good packaging and fast delivery. The expiry date was well within range.', date:'1 month ago', helpful:7 }
-];
-
-const SAMPLE_SIMILAR = [
-  { id:'s1', name:'Paracetamol 500mg Tablets', price:45.00, mrp:65.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&h=200&fit=crop', rating:4.3, category:'Pain Relief' },
-  { id:'s2', name:'Vitamin D3 Capsules', price:189.00, mrp:299.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=200&h=200&fit=crop', rating:4.5, category:'Supplements' },
-  { id:'s3', name:'Cetirizine 10mg Tablets', price:35.00, mrp:55.00, img:'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=200&h=200&fit=crop', rating:4.2, category:'Allergy' },
-  { id:'s4', name:'Omeprazole 20mg Capsules', price:75.00, mrp:110.00, img:'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=200&h=200&fit=crop', rating:4.4, category:'Gastrointestinal' },
-  { id:'s5', name:'Metformin 500mg Tablets', price:55.00, mrp:85.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&h=200&fit=crop', rating:4.1, category:'Diabetes' },
-  { id:'s6', name:'Amlodipine 5mg Tablets', price:65.00, mrp:95.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=200&h=200&fit=crop', rating:4.6, category:'Cardiovascular' }
-];
-
-const SAMPLE_FBT = [
-  { name:'Digital Thermometer', price:199.00, img:'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120&h=120&fit=crop' },
-  { name:'Hand Sanitizer 500ml', price:149.00, img:'https://images.unsplash.com/photo-1550572017-edd951b55104?w=120&h=120&fit=crop' }
-];
-
 function parseParams(){
   const p = new URLSearchParams(window.location.search);
-  product.id = p.get('id') || 'demo-001';
-  product.name = p.get('name') || 'Crocin Advance 500mg Tablet';
-  product.price = parseFloat(p.get('price')) || 35.00;
+  product.id = p.get('id') || '';
+  product.name = p.get('name') || 'Loading product...';
+  product.price = parseFloat(p.get('price')) || 0;
   product.mrp = parseFloat(p.get('mrp')) || 0;
   product.img = p.get('img') || SAMPLE_IMAGES[0];
-  product.manufacturer = p.get('manufacturer') || 'GlaxoSmithKline Pharmaceuticals';
-  product.expiry = p.get('expiry') || 'Dec 2027';
-  product.rating = parseFloat(p.get('rating')) || 4.3;
-  product.desc = p.get('desc') || 'Crocin Advance is a fast-acting pain relief tablet containing Paracetamol 500mg. It provides effective relief from headache, toothache, menstrual cramps, and body pain. Clinically proven formula that starts working in 30 minutes.';
-  product.isRx = p.get('isRx') || 'false';
+  product.img2 = p.get('img2') || '';
+  product.img3 = p.get('img3') || '';
+  product.likes = parseInt(p.get('likes')) || 0;
+  product.manufacturer = p.get('manufacturer') || '';
+  product.expiry = p.get('expiry') || '';
+  product.rating = parseFloat(p.get('rating')) || 0;
+  product.desc = p.get('desc') || '';
+  product.isRx = p.get('isRx') || (p.get('prescriptionReq') === 'Yes' ? 'true' : 'false');
   product.merchantId = p.get('merchantId') || null;
-  product.category = p.get('category') || 'Pain Relief';
-  product.stock = parseInt(p.get('stock')) || 10;
-  product.composition = p.get('composition') || 'Paracetamol 500mg';
-  product.dosageForm = p.get('dosageForm') || 'Tablet';
-  product.strength = p.get('strength') || '500mg';
+  product.category = p.get('category') || '';
+  product.stock = parseInt(p.get('stock')) || 0;
+  product.composition = p.get('composition') || '';
+  product.dosageForm = p.get('dosageForm') || '';
+  product.strength = p.get('strength') || '';
   
   // Fallback to localStorage if URL params missing
   if (!p.get('name')) {
@@ -486,6 +456,53 @@ function parseParams(){
       }
     } catch(e) {}
   }
+}
+
+// The URL/localStorage values above are only ever a snapshot taken at the
+// moment the user clicked a card. Entry points that only pass an id (e.g.
+// the homepage sponsor banner, which only ever sets ?id=7) used to leave
+// every other field on the hardcoded demo defaults — wrong composition,
+// wrong manufacturer, wrong Rx status, etc. This fetches the real row from
+// the medicines table and overwrites the product object with it, so the
+// page is always accurate regardless of how the user got here.
+let productLoadedFromDb = false;
+async function loadProductFromDb(){
+  if (!product.id || !supabase || !supabase.from) return;
+  try {
+    // A hard timeout so a slow network / blocked RLS query can never leave
+    // the page stuck on the loading skeleton forever — it just falls back
+    // to whatever data came through the URL instead.
+    const fetchPromise = supabase.from('medicines').select('*').eq('id', product.id).maybeSingle();
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'timeout' }), 6000));
+    const { data: med, error } = await Promise.race([fetchPromise, timeoutPromise]);
+    if (error || !med) return;
+    productLoadedFromDb = true;
+    product.id = med.id;
+    product.name = med.name || med.product_name || product.name;
+    product.price = parseFloat(med.selling_price ?? med.unit_price ?? product.price);
+    product.mrp = parseFloat(med.mrp ?? product.mrp ?? 0);
+    if (med.image_url) product.img = med.image_url;
+    product.img2 = med.image_url_2 || '';
+    product.img3 = med.image_url_3 || '';
+    product.likes = med.likes_count || 0;
+    product.manufacturer = med.manufacturer || product.manufacturer;
+    product.expiry = med.expiry_date || product.expiry;
+    product.rating = med.rating != null ? parseFloat(med.rating) : product.rating;
+    product.desc = med.description || product.desc;
+    // prescription_req (the merchant's actual text choice) is the source of
+    // truth; is_rx is kept in sync at write time but we fall back to it for
+    // older rows.
+    const dbIsRx = med.prescription_req ? med.prescription_req === 'Yes' : (med.is_rx === true);
+    product.isRx = dbIsRx ? 'true' : 'false';
+    product.merchantId = med.merchant_id || product.merchantId;
+    product.category = med.category || med.dosage_form || product.category;
+    product.stock = med.stock_qty != null ? parseInt(med.stock_qty) : product.stock;
+    product.composition = med.composition || product.composition;
+    product.dosageForm = med.dosage_form || product.dosageForm;
+    product.strength = med.strength || product.strength;
+    product.sideEffects = med.side_effects || '';
+    product.status = med.status || '';
+  } catch(e) { /* keep whatever we already had from URL params */ }
 }
 
 function generateStars(rating, maxStars){
@@ -501,8 +518,8 @@ function generateStars(rating, maxStars){
 
 function renderProduct(){
   document.getElementById('productName').textContent = product.name;
-  document.getElementById('ratingStars').innerHTML = generateStars(product.rating);
-  document.getElementById('ratingCount').textContent = product.rating + ' | ' + (dbReviews.length || '0') + ' ratings';
+  document.getElementById('ratingStars').innerHTML = '';
+  document.getElementById('ratingCount').textContent = 'Loading ratings...';
   document.getElementById('sellerName').textContent = product.manufacturer;
   document.getElementById('currentPrice').textContent = 'Rs.' + product.price.toFixed(2);
   const mrp = product.mrp || (product.price * 1.3);
@@ -511,15 +528,22 @@ function renderProduct(){
   document.getElementById('discountBadge').textContent = disc > 0 ? disc + '% off' : 'Best Price';
   document.getElementById('productDesc').textContent = product.desc;
 
-  allImages = [product.img, ...SAMPLE_IMAGES.slice(0,3)];
+  // Only use the merchant's own uploaded photos here — no more padding the
+  // gallery out with unrelated demo/duplicate stock photos when a product
+  // only has 1 or 2 real images.
+  allImages = [product.img, product.img2, product.img3].filter(Boolean);
+  if (allImages.length === 0) allImages = [SAMPLE_IMAGES[0]];
   document.getElementById('mainImage').src = allImages[0];
   document.getElementById('mainImage').alt = product.name;
   if(allImages.length > 1) document.getElementById('imageBadge').style.display = 'block';
+  initLikeButton();
   renderThumbnails();
   renderHighlights();
   renderDetailTable();
   renderBreadcrumb();
   loadProductReviews();
+  loadRealOffers();
+  loadSellerInfo();
   renderFBT();
   renderSimilar();
   updateStickyPrice();
@@ -620,16 +644,26 @@ function renderBreadcrumb(){
 let dbReviews = [];
 
 function renderOverallRating(){
-  const total = dbReviews.length || SAMPLE_REVIEWS.length;
-  const avgRating = dbReviews.length > 0 ? (dbReviews.reduce((s, r) => s + (r.rating || 5), 0) / dbReviews.length).toFixed(1) : product.rating;
+  if (dbReviews.length === 0) {
+    document.getElementById('overallRating').textContent = '—';
+    document.getElementById('overallStars').innerHTML = '';
+    document.getElementById('totalReviewsText').textContent = 'No ratings yet';
+    document.querySelector('.rating-bar-group').innerHTML = '';
+    document.getElementById('ratingStars').innerHTML = '';
+    document.getElementById('ratingCount').textContent = 'No ratings yet';
+    return;
+  }
+  const avgRating = (dbReviews.reduce((s, r) => s + (r.rating || 5), 0) / dbReviews.length).toFixed(1);
   document.getElementById('overallRating').textContent = avgRating;
   document.getElementById('overallStars').innerHTML = generateStars(parseFloat(avgRating));
-  document.getElementById('totalReviewsText').textContent = total + ' ratings';
+  document.getElementById('totalReviewsText').textContent = dbReviews.length + ' rating' + (dbReviews.length === 1 ? '' : 's');
+  document.getElementById('ratingStars').innerHTML = generateStars(parseFloat(avgRating));
+  document.getElementById('ratingCount').textContent = avgRating + ' | ' + dbReviews.length + ' rating' + (dbReviews.length === 1 ? '' : 's');
   renderRatingBars();
 }
 
 function renderRatingBars(){
-  const reviews = dbReviews.length > 0 ? dbReviews : SAMPLE_REVIEWS;
+  const reviews = dbReviews;
   const total = reviews.length || 1;
   const counts = {5:0,4:0,3:0,2:0,1:0};
   reviews.forEach(function(r){ const star = Math.min(5, Math.max(1, Math.round(r.rating || 5))); counts[star]++; });
@@ -642,7 +676,7 @@ function renderRatingBars(){
 }
 
 async function loadProductReviews(){
-  if (!product.id || !window.supabase) return;
+  if (!product.id || !window.supabase) { renderOverallRating(); renderReviews(); return; }
   try {
     const { data } = await window.supabase.from('reviews').select('id, rating, review_text, created_at, user_id').eq('product_id', product.id).order('created_at', { ascending: false }).limit(10);
     if (data && data.length > 0) { dbReviews = data; }
@@ -653,14 +687,21 @@ async function loadProductReviews(){
 
 function renderReviews(){
   const c = document.getElementById('reviewsList');
-  const reviews = dbReviews.length > 0 ? dbReviews : SAMPLE_REVIEWS;
+  const seeAllBtn = document.getElementById('seeAllReviewsBtn');
+  if (dbReviews.length === 0) {
+    c.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:12px 0;">No reviews yet. Be the first to review this product!</p>';
+    if (seeAllBtn) seeAllBtn.style.display = 'none';
+    return;
+  }
+  if (seeAllBtn) seeAllBtn.style.display = 'block';
+  const reviews = dbReviews;
   const displayReviews = reviewsExpanded ? reviews : reviews.slice(0, 3);
   c.innerHTML = displayReviews.map(function(r){
-    const name = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : (r.name || 'User');
+    const name = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : 'User';
     const avatar = (r.user_id || name).charAt(0).toUpperCase();
     const rating = r.rating || 5;
-    const text = r.review_text || r.text || '';
-    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : (r.date || '');
+    const text = r.review_text || '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '';
     const helpful = r.helpful || 0;
     return '<div class="review-card">' +
       '<div class="review-header">' +
@@ -683,30 +724,122 @@ function toggleAllReviews(){
   if(btn) btn.textContent = reviewsExpanded ? 'Show Less' : 'See All Reviews';
 }
 
-function renderFBT(){
-  const c = document.getElementById('fbtList');
-  let total = product.price;
-  c.innerHTML = '<div class="fbt-item"><img src="' + product.img + '" alt=""><div class="fbt-info"><div class="name">' + product.name + '</div><div class="price">Rs.' + product.price.toFixed(2) + '</div></div></div>';
-  SAMPLE_FBT.forEach(function(f){
-    total += f.price;
-    c.innerHTML += '<div class="fbt-item"><img src="' + f.img + '" alt=""><div class="fbt-info"><div class="name">' + f.name + '</div><div class="price">Rs.' + f.price.toFixed(2) + '</div></div><button class="fbt-add" data-name="' + f.name + '" data-price="' + f.price + '" data-img="' + f.img + '" onclick="addFBTItem(this)">Add</button></div>';
-  });
-  document.getElementById('fbtTotalPrice').textContent = 'Rs.' + total.toFixed(2);
-  document.getElementById('fbtSavings').textContent = 'You save Rs.' + (total * 0.15).toFixed(2) + ' on this bundle';
+// Only shows offers that are actually configured and active in the DB.
+// If you haven't built a real coupon/cashback system yet, this section
+// simply stays hidden — showing nothing is honest, showing fake ones isn't.
+// Expected table: platform_offers(title text, description text, icon_class text, is_active bool)
+async function loadRealOffers(){
+  const section = document.getElementById('offersSection');
+  const list = document.getElementById('offersList');
+  if (!supabase || !supabase.from) return;
+  try {
+    const { data, error } = await supabase.from('platform_offers').select('*').eq('is_active', true);
+    if (error || !data || data.length === 0) { section.style.display = 'none'; return; }
+    list.innerHTML = data.map(function(o){
+      return '<div class="offer-card">' +
+        '<div class="offer-icon coupon"><i class="' + (o.icon_class || 'fas fa-tag') + '"></i></div>' +
+        '<div><div class="offer-text"><strong>' + escapeHtml(o.title || 'Offer') + '</strong> ' + escapeHtml(o.description || '') + '</div></div>' +
+      '</div>';
+    }).join('');
+    section.style.display = 'block';
+  } catch(e) { section.style.display = 'none'; }
 }
 
-function renderSimilar(){
+// Previously every product showed the exact same "GST invoice available /
+// 7 days return / 100% genuine" block regardless of the seller or the order
+// value. Now: the Verified badge and genuine/GST claims only show for
+// merchants whose license_status is actually 'Verified' in the DB, and the
+// 7-day return policy only shows for orders where returns make sense
+// (Rx items are non-returnable, and RS asked for it to depend on price).
+async function loadSellerInfo(){
+  const verifiedBadge = document.getElementById('verifiedBadge');
+  const gstItem = document.getElementById('gstPolicyItem');
+  const returnItem = document.getElementById('returnPolicyItem');
+  const genuineItem = document.getElementById('genuinePolicyItem');
+  const ratingRow = document.getElementById('sellerRatingRow');
+  const ratingText = document.getElementById('sellerRatingText');
+
+  const isRx = product.isRx === 'true';
+  // Rx medicines are non-returnable regardless of price (matches the Rx
+  // Policy note already shown in the Delivery & Returns section below).
+  if (!isRx && product.price >= 500) {
+    returnItem.style.display = 'flex';
+  }
+
+  if (!product.merchantId || !supabase || !supabase.from) return;
+  try {
+    const { data: merchant } = await supabase.from('merchants').select('*').eq('id', product.merchantId).maybeSingle();
+    if (!merchant) return;
+    const sellerLinkEl = document.getElementById('sellerLink');
+    if (sellerLinkEl) sellerLinkEl.textContent = merchant.shop_name || merchant.merchant_name || product.manufacturer;
+    const isVerified = merchant.license_status === 'Verified';
+    if (isVerified) {
+      verifiedBadge.style.display = 'inline-flex';
+      gstItem.style.display = 'flex';
+      genuineItem.style.display = 'flex';
+    }
+    if (merchant.rating) {
+      ratingText.textContent = parseFloat(merchant.rating).toFixed(1) + ' out of 5';
+      ratingRow.style.display = 'flex';
+    }
+  } catch(e) { /* leave everything hidden rather than guess */ }
+}
+
+function viewSellerProducts(){
+  if (!product.merchantId) { showToast('Seller info unavailable'); return; }
+  window.location.href = 'userhome.html?merchant=' + encodeURIComponent(product.merchantId);
+}
+
+async function renderFBT(){
+  const section = document.getElementById('fbtSection');
+  const c = document.getElementById('fbtList');
+  if (!supabase || !supabase.from || !product.merchantId) { if(section) section.style.display = 'none'; return; }
+  try {
+    const { data, error } = await supabase.from('medicines').select('id, name, product_name, selling_price, unit_price, image_url')
+      .eq('merchant_id', product.merchantId).eq('status', 'Approved').neq('id', product.id).limit(2);
+    if (error || !data || data.length === 0) { if(section) section.style.display = 'none'; return; }
+    let total = product.price;
+    c.innerHTML = '<div class="fbt-item"><img src="' + product.img + '" alt=""><div class="fbt-info"><div class="name">' + product.name + '</div><div class="price">Rs.' + product.price.toFixed(2) + '</div></div></div>';
+    data.forEach(function(f){
+      const fName = f.name || f.product_name || 'Item';
+      const fPrice = parseFloat(f.selling_price || f.unit_price || 0);
+      const fImg = f.image_url || SAMPLE_IMAGES[0];
+      total += fPrice;
+      c.innerHTML += '<div class="fbt-item"><img src="' + fImg + '" alt=""><div class="fbt-info"><div class="name">' + escapeHtml(fName) + '</div><div class="price">Rs.' + fPrice.toFixed(2) + '</div></div><button class="fbt-add" data-id="' + f.id + '" data-name="' + escapeHtml(fName) + '" data-price="' + fPrice + '" data-img="' + fImg + '" onclick="addFBTItem(this)">Add</button></div>';
+    });
+    document.getElementById('fbtTotalPrice').textContent = 'Rs.' + total.toFixed(2);
+    document.getElementById('fbtSavings').textContent = '';
+    if(section) section.style.display = 'block';
+  } catch(e) { if(section) section.style.display = 'none'; }
+}
+
+async function renderSimilar(){
+  const section = document.getElementById('similarSection');
   const c = document.getElementById('similarScroll');
-  c.innerHTML = SAMPLE_SIMILAR.map(function(s){
-    const savings = Math.round((1 - s.price/s.mrp)*100);
-    return '<div class="similar-card">' +
-      '<img src="' + s.img + '" alt="' + s.name + '">' +
-      '<div class="name">' + s.name + '</div>' +
-      '<div class="rating-sm">' + generateStars(s.rating) + ' ' + s.rating + '</div>' +
-      '<div class="price">Rs.' + s.price.toFixed(2) + ' <span class="old-price">Rs.' + s.mrp.toFixed(2) + '</span></div>' +
-      '<button class="add-btn" onclick="addSimilarToCart(\'' + s.name + '\',' + s.price + ')">Add to Cart</button>' +
-    '</div>';
-  }).join('');
+  if (!supabase || !supabase.from) { if(section) section.style.display = 'none'; return; }
+  try {
+    let query = supabase.from('medicines').select('id, name, product_name, selling_price, unit_price, mrp, rating, image_url, category, dosage_form, is_rx, prescription_req')
+      .eq('status', 'Approved').neq('id', product.id).limit(6);
+    if (product.category) query = query.eq('category', product.category);
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) { if(section) section.style.display = 'none'; return; }
+    c.innerHTML = data.map(function(s){
+      const sName = s.name || s.product_name || 'Item';
+      const sPrice = parseFloat(s.selling_price || s.unit_price || 0);
+      const sMrp = parseFloat(s.mrp || sPrice);
+      const sRating = parseFloat(s.rating || 0);
+      const sImg = s.image_url || SAMPLE_IMAGES[0];
+      const sIsRx = s.prescription_req ? s.prescription_req === 'Yes' : (s.is_rx === true);
+      return '<div class="similar-card" onclick="window.location.href=\'product-detail.html?id=' + s.id + '\'">' +
+        '<img src="' + sImg + '" alt="' + escapeHtml(sName) + '">' +
+        '<div class="name">' + escapeHtml(sName) + '</div>' +
+        '<div class="rating-sm">' + (sRating > 0 ? generateStars(sRating) + ' ' + sRating : 'No ratings yet') + '</div>' +
+        '<div class="price">Rs.' + sPrice.toFixed(2) + (sMrp > sPrice ? ' <span class="old-price">Rs.' + sMrp.toFixed(2) + '</span>' : '') + '</div>' +
+        '<button class="add-btn" onclick="event.stopPropagation();addSimilarToCart(\'' + s.id + '\',\'' + escapeHtml(sName).replace(/'/g,"") + '\',' + sPrice + ',\'' + sImg + '\',' + sIsRx + ')">Add to Cart</button>' +
+      '</div>';
+    }).join('');
+    if(section) section.style.display = 'block';
+  } catch(e) { if(section) section.style.display = 'none'; }
 }
 
 function changeQty(delta){
@@ -720,7 +853,15 @@ function updateStickyPrice(){
 }
 
 function addToCart(){
-  if(product.isRx === 'true' && !isPrescriptionUploaded){ showToast('Upload prescription for Rx medicines.', 'error'); return; }
+  if(product.isRx === 'true' && !isPrescriptionUploaded){
+    const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
+    if (typeof showConfirmationModal === 'function') {
+      showConfirmationModal(msg, () => { window.location.href = 'userhome.html#prescription-upload-section'; });
+    } else {
+      showToast('Upload prescription for Rx medicines.', 'error');
+    }
+    return;
+  }
   let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   const existing = cart.findIndex(function(c){ return c.id === product.id; });
   if(existing >= 0){
@@ -746,9 +887,15 @@ function buyNow(){
   window.location.href = 'usercart.html?checkout=true';
 }
 
-function addSimilarToCart(name, price){
+function addSimilarToCart(id, name, price, img, isRx){
+  if (isRx && !isPrescriptionUploaded) {
+    showToast('Upload prescription for Rx medicines.', 'error');
+    return;
+  }
   let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
-  cart.push({ id:'sim-'+Date.now(), name:name, price:price, img:SAMPLE_IMAGES[0], qty:1, isRx:'false', manufacturer:'Generic' });
+  const existing = cart.findIndex(function(c){ return c.id === id; });
+  if (existing >= 0) { cart[existing].qty += 1; }
+  else { cart.push({ id:id, name:name, price:price, img: img || SAMPLE_IMAGES[0], qty:1, isRx: isRx ? 'true' : 'false' }); }
   localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
   showToast('Added to cart');
@@ -781,6 +928,58 @@ function updateCartBadge(){
   document.getElementById('cartBadge').style.display = total > 0 ? 'flex' : 'none';
 }
 
+// LIKE BUTTON — persisted like count on medicines.likes_count (see SQL patch),
+// with a localStorage flag so the same browser can't inflate the count by
+// clicking repeatedly.
+function likedProductsKey(){ return 'medi_liked_products'; }
+function getLikedSet(){
+  try { return JSON.parse(localStorage.getItem(likedProductsKey())) || []; } catch(e){ return []; }
+}
+function initLikeButton(){
+  const countEl = document.getElementById('likeCount');
+  const iconEl = document.getElementById('likeIcon');
+  const btn = document.getElementById('likeBtn');
+  if (!countEl) return;
+  countEl.textContent = product.likes || 0;
+  const liked = getLikedSet().includes(String(product.id));
+  if (liked) {
+    iconEl.className = 'fas fa-thumbs-up';
+    btn.style.color = 'var(--primary)';
+    btn.style.borderColor = 'var(--primary)';
+  }
+}
+async function toggleLike(){
+  const countEl = document.getElementById('likeCount');
+  const iconEl = document.getElementById('likeIcon');
+  const btn = document.getElementById('likeBtn');
+  let likedSet = getLikedSet();
+  const idStr = String(product.id);
+  const alreadyLiked = likedSet.includes(idStr);
+  let current = parseInt(countEl.textContent) || 0;
+
+  if (alreadyLiked) {
+    current = Math.max(0, current - 1);
+    likedSet = likedSet.filter(function(i){ return i !== idStr; });
+    iconEl.className = 'far fa-thumbs-up';
+    btn.style.color = ''; btn.style.borderColor = '';
+  } else {
+    current = current + 1;
+    likedSet.push(idStr);
+    iconEl.className = 'fas fa-thumbs-up';
+    btn.style.color = 'var(--primary)'; btn.style.borderColor = 'var(--primary)';
+    showToast('Liked!');
+  }
+  countEl.textContent = current;
+  localStorage.setItem(likedProductsKey(), JSON.stringify(likedSet));
+  product.likes = current;
+
+  if (supabase && product.id) {
+    try {
+      await supabase.from('medicines').update({ likes_count: current }).eq('id', product.id);
+    } catch(e) { /* non-fatal — UI already reflects the like */ }
+  }
+}
+
 function toggleWishlist(){
   isWishlisted = !isWishlisted;
   const btn = document.getElementById('wishlistBtn');
@@ -796,11 +995,36 @@ function toggleWishlist(){
 }
 
 function shareProduct(){
+  // Mobile: native share sheet already lets people pick WhatsApp/FB/Instagram/etc.
   if(navigator.share){
     navigator.share({ title:product.name, text:'Check out ' + product.name + ' on MediFinder!', url:window.location.href }).catch(function(){});
-  } else {
-    navigator.clipboard.writeText(window.location.href).then(function(){ showToast('Link copied!'); });
+    return;
   }
+  // Desktop fallback: no native share sheet exists, so show direct share links instead.
+  openShareMenu();
+}
+
+function openShareMenu(){
+  const existing = document.getElementById('shareMenuOverlay');
+  if (existing) { existing.remove(); return; }
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Check out ' + product.name + ' on MediFinder!');
+  const overlay = document.createElement('div');
+  overlay.id = 'shareMenuOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.innerHTML =
+    '<div style="background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:20px;">' +
+      '<h3 style="margin:0 0 14px 0;font-size:1rem;">Share this product</h3>' +
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+        '<a href="https://api.whatsapp.com/send?text=' + text + '%20' + url + '" target="_blank" style="text-decoration:none;color:#25D366;text-align:center;font-size:0.75rem;"><i class="fab fa-whatsapp" style="font-size:28px;display:block;margin-bottom:4px;"></i>WhatsApp</a>' +
+        '<a href="https://www.facebook.com/sharer/sharer.php?u=' + url + '" target="_blank" style="text-decoration:none;color:#1877F2;text-align:center;font-size:0.75rem;"><i class="fab fa-facebook" style="font-size:28px;display:block;margin-bottom:4px;"></i>Facebook</a>' +
+        '<a href="javascript:void(0)" onclick="navigator.clipboard.writeText(window.location.href).then(function(){showToast(\'Link copied! Paste it in Instagram.\')})" style="text-decoration:none;color:#E1306C;text-align:center;font-size:0.75rem;"><i class="fab fa-instagram" style="font-size:28px;display:block;margin-bottom:4px;"></i>Instagram</a>' +
+        '<a href="javascript:void(0)" onclick="navigator.clipboard.writeText(window.location.href).then(function(){showToast(\'Link copied!\')})" style="text-decoration:none;color:#555;text-align:center;font-size:0.75rem;"><i class="fas fa-link" style="font-size:28px;display:block;margin-bottom:4px;"></i>Copy Link</a>' +
+      '</div>' +
+      '<button onclick="document.getElementById(\'shareMenuOverlay\').remove()" style="width:100%;margin-top:18px;padding:10px;border-radius:8px;border:1px solid #ddd;background:#f8f9fa;cursor:pointer;">Close</button>' +
+    '</div>';
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 function openZoom(){
@@ -835,36 +1059,75 @@ function showToast(msg){
   t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
 }
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+let userCoords = null;
+
 function detectLocation(){
   if(navigator.geolocation){
     document.getElementById('deliveryLocation').textContent = 'Detecting...';
     navigator.geolocation.getCurrentPosition(function(pos){
+      userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       document.getElementById('deliveryLocation').textContent = 'Current Location (' + pos.coords.latitude.toFixed(2) + ', ' + pos.coords.longitude.toFixed(2) + ')';
+      updateDeliveryEstimate();
     }, function(){
-      document.getElementById('deliveryLocation').textContent = 'Mumbai, Maharashtra 400001';
+      document.getElementById('deliveryLocation').textContent = 'Enter your address to see delivery time';
+      updateDeliveryEstimate();
     });
   } else {
-    document.getElementById('deliveryLocation').textContent = 'Mumbai, Maharashtra 400001';
+    document.getElementById('deliveryLocation').textContent = 'Enter your address to see delivery time';
+    updateDeliveryEstimate();
   }
 }
 
-function loadSimilarFromSupabase(){
-  if(!supabase || !supabase.from) return;
-  supabase.from('products').select('*').eq('category', product.category).limit(6).then(function(res){
-    if(res.data && res.data.length > 0){
-      const c = document.getElementById('similarScroll');
-      c.innerHTML = res.data.map(function(s){
-        return '<div class="similar-card">' +
-          '<img src="' + (s.image_url || s.img || SAMPLE_IMAGES[0]) + '" alt="' + s.name + '">' +
-          '<div class="name">' + s.name + '</div>' +
-          '<div class="rating-sm">' + generateStars(s.rating || 4.0) + ' ' + (s.rating || 4.0) + '</div>' +
-          '<div class="price">Rs.' + (s.price || 0).toFixed(2) + '</div>' +
-          '<button class="add-btn" onclick="addSimilarToCart(\'' + s.name.replace(/'/g,"") + '\',' + (s.price||0) + ')">Add to Cart</button>' +
-        '</div>';
-      }).join('');
+// Real distance-based delivery estimate. Previously this was a flat "Within
+// 2 hours" claim regardless of where the merchant's shop actually was —
+// which breaks down completely for cross-district orders (e.g. a shop in
+// North Dinajpur can't deliver to South Dinajpur in 2 hours). This looks up
+// the merchant's registered shop coordinates and only promises express
+// delivery when the distance genuinely supports it.
+async function updateDeliveryEstimate(){
+  const dateEl = document.getElementById('deliveryDate');
+  const expressRow = document.getElementById('expressDeliveryRow');
+  if (!product.merchantId || !userCoords || !supabase || !supabase.from) {
+    dateEl.textContent = 'Within 2-4 business days';
+    expressRow.style.display = 'none';
+    return;
+  }
+  try {
+    const { data: merchant } = await supabase.from('merchants').select('latitude, longitude, district').eq('id', product.merchantId).maybeSingle();
+    if (!merchant || !merchant.latitude || !merchant.longitude) {
+      dateEl.textContent = 'Within 2-4 business days';
+      expressRow.style.display = 'none';
+      return;
     }
-  }).catch(function(){});
+    const distKm = haversineKm(userCoords.lat, userCoords.lng, parseFloat(merchant.latitude), parseFloat(merchant.longitude));
+    if (distKm <= 8) {
+      dateEl.textContent = 'Today, within a few hours';
+      expressRow.style.display = 'flex';
+    } else if (distKm <= 30) {
+      dateEl.textContent = 'Tomorrow';
+      expressRow.style.display = 'none';
+    } else {
+      dateEl.textContent = 'Within 2-4 business days (' + Math.round(distKm) + ' km from shop)';
+      expressRow.style.display = 'none';
+    }
+  } catch(e) {
+    dateEl.textContent = 'Within 2-4 business days';
+    expressRow.style.display = 'none';
+  }
 }
+
+// (loadSimilarFromSupabase removed — replaced by renderSimilar() above,
+// which correctly queries the real `medicines` table. The old version
+// queried a `products` table that doesn't exist and would have silently
+// no-op'd or, worse, raced with renderSimilar() and overwritten it.)
 
 function setupFeedbackStars(){
   const stars = document.querySelectorAll('#feedbackStars i');
@@ -900,15 +1163,19 @@ function submitFeedback(){
 document.addEventListener('DOMContentLoaded', function(){
   parseParams();
   updateCartBadge();
-  setTimeout(function(){
-    document.getElementById('skeleton').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
-    renderProduct();
-    loadSimilarFromSupabase();
-    setupSwipeCarousel();
-    setupFeedbackStars();
-  }, 300);
+  document.getElementById('skeleton').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  renderProduct();
+  setupSwipeCarousel();
+  setupFeedbackStars();
   detectLocation();
+
+  // Fetch the authoritative row from the DB in the background (with its own
+  // 6s timeout, see loadProductFromDb) and re-render once it arrives. The
+  // page is shown immediately either way — it never waits on this.
+  loadProductFromDb().then(function(){
+    if (productLoadedFromDb) renderProduct();
+  });
 });
 </script>
 </body>

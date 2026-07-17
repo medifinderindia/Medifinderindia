@@ -8,6 +8,13 @@ const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !
 let serviceZones = [];
 let riderPayouts = [];
 let riderKYC = [];
+let riderBankRequests = []; // ✅ NEW: Bank & Payment verification requests
+
+// ✅ NEW: small escaping helper used by renderBankVerification()
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 let currentRiderKycFilter = 'all';
 let payoutLedger = [];
 let activeRiders = [];
@@ -106,6 +113,14 @@ async function fetchInitialData() {
         // ४. সক্রিয় রাইডার লোড
         let { data: riders } = await supabaseClient.from('riders').select('*').eq('duty_status', 'online');
         if(riders) { activeRiders = riders; updateFleetMap(); }
+
+        // ✅ NEW ৫. Bank & Payment ভেরিফিকেশন ডাটা লোড (যাদের bank details সাবমিট করা আছে)
+        let { data: bankRows } = await supabaseClient
+            .from('riders')
+            .select('id, email, full_name, bank_account, ifsc_code, upi_id, bank_verified, bank_rejection_reason')
+            .not('bank_account', 'is', null)
+            .neq('bank_account', '');
+        if (bankRows) { riderBankRequests = bankRows; renderBankVerification(); }
     } catch (err) {
         showToast("Data Load Error: " + err.message, "error");
     }
@@ -127,7 +142,7 @@ function setupRealtimeSubscriptions() {
         fetchInitialData();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
-        fetchInitialData();
+        fetchInitialData(); // covers activeRiders + riderBankRequests refresh
     })
     .subscribe();
 }
@@ -905,6 +920,54 @@ function renderKYC() {
     });
 }
 
+// ✅ NEW: Bank & Payment verification cards (mirrors renderKYC layout above)
+function renderBankVerification() {
+    const container = document.getElementById('bank-kyc-container');
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (riderBankRequests.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:#94a3b8; width:100%; padding:20px;">No bank/payment submissions yet.</p>`;
+        return;
+    }
+
+    riderBankRequests.forEach((r) => {
+        const isVerified = r.bank_verified === true;
+        const isRejected = r.bank_verified === false && r.bank_rejection_reason;
+        let statusText = '';
+        let actionButtons = '';
+
+        if (isVerified) {
+            statusText = `<span class="badge active" style="font-size:12px; padding:6px 12px; background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-shield-halved"></i> VERIFIED</span>`;
+            actionButtons = `<button class="btn btn-outline btn-small" style="margin-top:10px; background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${r.id}')">Reject / Revoke</button>`;
+        } else if (isRejected) {
+            statusText = `<span class="badge" style="font-size:12px; padding:6px 12px; background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-xmark"></i> REJECTED</span>
+                          <div style="font-size:12px; color:#ef4444; margin-top:5px;"><strong>Reason:</strong> ${escapeHtml(r.bank_rejection_reason)}</div>`;
+            actionButtons = `<button class="btn btn-primary btn-small" style="margin-top:10px;" onclick="approveRiderBank('${r.id}')">Re-Approve</button>`;
+        } else {
+            statusText = `<span class="badge pending" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-hourglass-start"></i> STATUS: PENDING</span>`;
+            actionButtons = `
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${r.id}')">Reject</button>
+                    <button class="btn btn-primary btn-small" onclick="approveRiderBank('${r.id}')">Approve</button>
+                </div>
+            `;
+        }
+
+        container.innerHTML += `
+            <div class="kyc-card" style="border: 1px solid #e2e8f0; border-radius:12px; padding:20px; background:#fff; margin-bottom:15px;">
+                <h4 style="color:var(--dark-bg); font-size:18px; margin-bottom:8px;">${escapeHtml(r.full_name || r.email || 'Rider #' + r.id)}</h4>
+                <p style="font-size:13px; margin-bottom:4px;"><strong>Rider ID:</strong> ${r.id}</p>
+                <p style="font-size:13px; margin-bottom:4px;"><strong>Bank Account:</strong> ${escapeHtml(r.bank_account || '-')}</p>
+                <p style="font-size:13px; margin-bottom:4px;"><strong>IFSC:</strong> ${escapeHtml(r.ifsc_code || '-')}</p>
+                <p style="font-size:13px; margin-bottom:12px;"><strong>UPI ID:</strong> ${escapeHtml(r.upi_id || '-')}</p>
+                <div>${statusText}</div>
+                <div>${actionButtons}</div>
+            </div>
+        `;
+    });
+}
+
 async function approveRiderKYC(riderId) {
     if (!supabaseClient) return;
     let kycTarget = riderKYC.find(k => k.id === riderId);
@@ -972,6 +1035,67 @@ async function rejectRiderKYC(riderId) {
         fetchInitialData();
     } else {
         showToast("KYC Rejection Failed: " + error.message, "error");
+    }
+}
+
+// ==========================================
+// ✅ NEW BLOCK: Bank & Payment verification (mirrors the Vehicle/License KYC flow above).
+// Wire these to buttons in your rider-detail view, e.g.:
+//   onclick="approveRiderBank(${rider.id})"  /  onclick="rejectRiderBank(${rider.id})"
+// ==========================================
+async function approveRiderBank(riderId) {
+    if (!supabaseClient) return;
+    showConfirmationModal("Are the bank/UPI details valid for payout?", async () => {
+        const { error } = await supabaseClient.from('riders').update({ bank_verified: true, bank_rejection_reason: '' }).eq('id', riderId);
+        if (!error) {
+            await supabaseClient.from('rider_notifications').insert({
+                rider_id: riderId,
+                title: 'Bank Details Approved',
+                message: 'Your bank & payment details have been verified successfully.',
+                type: 'success',
+                is_read: false
+            });
+            showToast("Bank details approved", "success");
+            fetchInitialData();
+        } else {
+            showToast("Bank approval failed: " + error.message, "error");
+        }
+    });
+}
+
+async function rejectRiderBank(riderId) {
+    if (!supabaseClient) return;
+    const reason = await new Promise(resolve => {
+        const m = document.createElement('div');
+        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Bank Details Rejection Reason</h3>
+            <input type="text" id="_bi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter rejection reason (visible to rider)">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                <button id="_bo" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        m.querySelector('#_bi').focus();
+        m.querySelector('#_bo').onclick = () => { const v = m.querySelector('#_bi').value.trim(); m.remove(); resolve(v || null); };
+        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    });
+    if (!reason) return;
+
+    const { error } = await supabaseClient.from('riders').update({ bank_verified: false, bank_rejection_reason: reason }).eq('id', riderId);
+    if (!error) {
+        await supabaseClient.from('rider_notifications').insert({
+            rider_id: riderId,
+            title: 'Bank Details Rejected',
+            message: 'Your bank & payment details were rejected. Reason: ' + reason,
+            type: 'error',
+            is_read: false
+        });
+        showToast("Bank details rejected", "info");
+        fetchInitialData();
+    } else {
+        showToast("Bank rejection failed: " + error.message, "error");
     }
 }
 
