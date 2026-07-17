@@ -26,9 +26,6 @@
 
     <!-- Prevent any white/blank flash before CSS paints -->
     <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
-    <script src="supabase-constants.js"></script>
     <style>/* ==========================================
    MediFinder Splash Screen
    Premium animated loading experience
@@ -275,6 +272,9 @@ body {
     .splash-title { font-size: 1.25rem; }
     .splash-tagline { font-size: 0.78rem; }
 }</style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
 </head>
 <body>
 
@@ -315,7 +315,7 @@ body {
     "use strict";
 
     // As soon as splash.html loads, mark this tab-session as "entered via splash".
-    // index.html / signup.html check this flag and only force a redirect back
+    // Login.html / signup.html check this flag and only force a redirect back
     // to splash.html when it's NOT set (i.e. a fresh entry — Google result,
     // typed URL, bookmark, new tab). Internal navigation (Login <-> Signup,
     // or splash's own redirect) will already have this flag set, so it won't loop.
@@ -392,7 +392,7 @@ body {
         });
     }
 
-    // Figures out where the user should land: index.html (not logged in),
+    // Figures out where the user should land: Login.html (not logged in),
     // or the correct role home page (logged in). Reuses the exact client
     // and role logic already shipped in supabase-config.js when available,
     // so there is a single source of truth for role → destination mapping.
@@ -402,14 +402,14 @@ body {
 
             var client = window.supabaseClient;
             if (!client || !client.auth) {
-                return "index.html";
+                return "Login.html";
             }
 
             var sessionResult = await client.auth.getSession();
             var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
 
             if (!session || !session.user) {
-                return "index.html";
+                return "Login.html";
             }
 
             if (typeof window.getRedirectPathForUser === "function") {
@@ -428,7 +428,7 @@ body {
             return "userhome.html";
         } catch (err) {
             console.error("Splash session check failed:", err);
-            return "index.html";
+            return "Login.html";
         }
     }
 
@@ -451,7 +451,7 @@ body {
 
         // Hard cap: never let the splash (or the redirect decision) exceed MAX_DISPLAY_MS
         var hardCap = new Promise(function (resolve) {
-            setTimeout(function () { resolve("index.html"); }, MAX_DISPLAY_MS - 200);
+            setTimeout(function () { resolve("Login.html"); }, MAX_DISPLAY_MS - 200);
         });
 
         var destination = await Promise.race([determineDestination(), hardCap]);
