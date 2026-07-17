@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ==========================================
+         Splash guard (extension, added for splash flow)
+         Every FRESH entry to the site (Google result, typed URL,
+         bookmark, new tab) must go through splash.html first —
+         splash.html then decides: no session -> back here (login),
+         valid session -> straight to the role home page. Internal
+         navigation within the same tab (e.g. clicking between Login
+         and Signup) already carries the "mf_splash_done" flag set by
+         splash.js, so it will NOT loop back into splash again.
+         If sessionStorage is unavailable, this simply does nothing
+         and the page loads exactly as before.
+         ========================================== -->
+    <script>
+        (function () {
+            try {
+                if (!sessionStorage.getItem('mf_splash_done')) {
+                    window.location.replace('splash.html');
+                }
+            } catch (e) {
+                // No sessionStorage support — fall through to normal page load.
+            }
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>MediFinder - Medicine in 20 Minutes</title>
+    <meta name="description" content="Order medicines, healthcare products & essentials with fast delivery. Shop from trusted pharmacies near you.">
+    <meta name="keywords" content="medicine delivery, pharmacy, healthcare, online medicine, MediFinder">
+    <meta name="author" content="MediFinder">
+    <meta name="theme-color" content="#e02020">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MediFinder">
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="MediFinder - Medicine in 20 Minutes">
+    <meta property="og:description" content="Order medicines & healthcare essentials with fast delivery">
+    <meta property="og:image" content="favicon.png">
+    <meta property="og:url" content="https://medifinder.in">
+    <meta property="og:site_name" content="MediFinder">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MediFinder - Medicine Delivery">
+    <meta name="twitter:description" content="Order medicines & healthcare essentials with fast delivery">
+    <meta name="twitter:image" content="favicon.png">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+</head>
+<body>
+
+    <div class="auth-container">
+        <div class="logo-wrapper">
+            <div class="logo-circle">
+                <img src="1779304435608.png" alt="Medifinder Premium Logo">
+            </div>
+        </div>
+
+        <div class="auth-box">
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Log in to your Medifinder profile.</p>
+
+            <form id="login-form">
+                <label class="section-label">Select Your Role</label>
+                <div class="role-container">
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="user" checked>
+                        <div class="role-content">
+                            <div class="role-icon-circle user-role"><i class="fa-solid fa-user"></i></div>
+                            <span>User</span>
+                            <small>Order Medicines</small>
+                        </div>
+                    </label>
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="merchant">
+                        <div class="role-content">
+                            <div class="role-icon-circle merchant-role"><i class="fa-solid fa-store"></i></div>
+                            <span>Merchant</span>
+                            <small>Manage Shop</small>
+                        </div>
+                    </label>
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="delivery">
+                        <div class="role-content">
+                            <div class="role-icon-circle delivery-role"><i class="fa-solid fa-truck"></i></div>
+                            <span>Delivery</span>
+                            <small>Deliver Orders</small>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="login-email" placeholder="Email Address" required>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-lock input-icon"></i>
+                    <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+                </div>
+
+                <div style="text-align: right; margin-bottom: 15px;">
+                    <a href="#" id="forgot-password-link" style="color: #ff4747; text-decoration: none; font-size: 0.85rem;">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn-premium">Log In</button>
+            </form>
+
+            <div class="divider"><span>Or Connect With</span></div>
+
+            <div class="social-group">
+                <button type="button" class="btn-social btn-google" id="google-btn">
+                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
+                </button>
+                <button type="button" class="btn-social btn-phone" id="phone-auth-toggle">
+                    <i class="fa-solid fa-phone"></i> Phone 
+                </button>
+            </div>
+
+            <div id="phone-section" class="hidden-section">
+                <div class="input-group" style="margin-top: 15px;">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="phone-number" placeholder="+919593XXXXXX">
+                </div>
+                <button type="button" class="btn-premium secondary" id="send-otp-btn">Send OTP</button>
+
+                <div class="input-group otp-input-group hidden-section" id="otp-input-wrapper" style="margin-top: 15px;">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="text" id="otp-code" placeholder="Enter 6-Digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+                    <button type="button" class="btn-premium" id="verify-otp-btn"><i class="fas fa-check-circle"></i> Verify & Login</button>
+                </div>
+                <div id="login-otp-timer" style="text-align:center; font-size:13px; color:#888; margin-top:8px; display:none;"></div>
+                <a href="#" id="login-resend-otp" style="display:none; text-align:center; font-size:13px; color:#e02020; text-decoration:underline; cursor:pointer; margin-top:4px;">Resend OTP</a>
+            </div>
+
+            <p class="toggle-text">Don't have an account? <a href="signup.html">Create Account</a></p>
+        </div>
+    </div>
+
+    <div id="forgot-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
+        <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
+            <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-unlock-keyhole"></i> Reset Password</h3>
+                <button type="button" id="close-forgot-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div class="admin-step">
+                <p class="step-desc" style="font-size: 0.9rem; color: #555; margin-bottom: 15px;">Enter your registered email to receive a password reset link.</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="reset-email" placeholder="Your Email Address" style="width: 100%;">
+                </div>
+                <button type="button" class="btn-premium" id="send-reset-link-btn" style="margin-top: 15px; width: 100%;">Send Reset Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
+        <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
+            <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-shield-halved"></i> Admin Verification</h3>
+                <button type="button" id="close-admin-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <div id="admin-step-1" class="admin-step">
+                <p class="step-desc">Step 1: Enter Secure Admin Password</p>
+                <form onsubmit="return false">
+                <div class="input-group">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="password" id="admin-password" placeholder="Enter Security Password" autocomplete="current-password">
+                </div>
+                </form>
+                <button type="button" class="btn-premium" id="admin-btn-step-1" style="margin-top: 10px; width: 100%;">Verify Password</button>
+            </div>
+
+            <div id="admin-step-2" class="admin-step hidden-section">
+                <p class="step-desc">Step 2: Enter OTP sent to Admin Email</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope-circle-check input-icon"></i>
+                    <input type="text" id="admin-email-otp" placeholder="Enter 6-Digit Email OTP">
+                </div>
+                <button type="button" class="btn-premium" id="admin-btn-step-2" style="margin-top: 10px; width: 100%;">Verify Email OTP</button>
+            </div>
+
+            <div id="admin-step-3" class="admin-step hidden-section">
+                <p class="step-desc">Step 3: Enter OTP sent to Admin Phone</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-comment-sms input-icon"></i>
+                    <input type="text" id="admin-phone-otp" placeholder="Enter 6-Digit Phone OTP">
+                </div>
+                <button type="button" class="btn-premium" id="admin-btn-step-3" style="margin-top: 10px; width: 100%;">Finalize & Login</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="prod-utils.js?v=13"></script>
+    <script src="supabase-config.js?v=13"></script>
+</body>
+</html>

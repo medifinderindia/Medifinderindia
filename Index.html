@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MediFinder">
+    <meta name="description" content="MediFinder - Medicine in 20 Minutes">
+    <title>MediFinder</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="splash.css?v=1">
+
+    <!-- Prevent any white/blank flash before CSS paints -->
+    <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <style>/* ==========================================
+   MediFinder Splash Screen
+   Premium animated loading experience
+   ========================================== */
+
+:root {
+    --mf-red: #e02020;
+    --mf-red-dark: #b81717;
+    --mf-red-soft: rgba(224, 32, 32, 0.10);
+    --mf-text: #2f3542;
+    --mf-muted: #8a8f98;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    background: #ffffff;
+}
+
+body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow: hidden;
+}
+
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+/* Soft ambient glow behind the logo, gives premium depth without imagery */
+.splash-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(520px, 140vw);
+    height: min(520px, 140vw);
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--mf-red-soft) 0%, rgba(224, 32, 32, 0) 70%);
+    animation: glowPulse 3.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes glowPulse {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.94); }
+    50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.04); }
+}
+
+.splash-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 360px;
+    z-index: 1;
+}
+
+/* Logo */
+.logo-ring {
+    width: clamp(92px, 26vw, 128px);
+    height: clamp(92px, 26vw, 128px);
+    border-radius: 50%;
+    padding: 6px;
+    background: conic-gradient(from 0deg, var(--mf-red), #ff6b6b, var(--mf-red));
+    animation: ringSpin 5s linear infinite, fadeZoomIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    margin-bottom: 22px;
+}
+
+@keyframes ringSpin {
+    to { transform: rotate(360deg); }
+}
+
+.logo-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(224, 32, 32, 0.18);
+}
+
+.splash-logo {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    animation: logoBreathe 2.4s ease-in-out infinite;
+}
+
+@keyframes fadeZoomIn {
+    from { opacity: 0; transform: scale(0.55); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes logoBreathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+}
+
+/* Title */
+.splash-title {
+    margin: 0;
+    font-size: clamp(1.4rem, 5vw, 1.8rem);
+    font-weight: 800;
+    color: var(--mf-text);
+    letter-spacing: -0.02em;
+    animation: fadeUp 0.6s ease-out 0.15s both;
+}
+
+.splash-title span {
+    color: var(--mf-red);
+}
+
+.splash-tagline {
+    margin: 4px 0 26px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--mf-muted);
+    animation: fadeUp 0.6s ease-out 0.25s both;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Icon stage */
+.icon-stage {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.splash-icon {
+    font-size: 1.9rem;
+    line-height: 1;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-block;
+}
+
+.splash-icon.icon-hide {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+}
+
+/* Loading bar */
+.loading-bar-track {
+    width: min(220px, 60vw);
+    height: 7px;
+    background: #f1f1f4;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+
+.loading-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--mf-red-dark), var(--mf-red) 55%, #ff6b6b);
+    background-size: 200% 100%;
+    animation: barShimmer 1.4s linear infinite;
+    transition: width 2.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.loading-bar-fill.fill-active {
+    width: 100%;
+}
+
+@keyframes barShimmer {
+    0%   { background-position: 0% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.loading-text {
+    margin: 14px 0 0;
+    font-size: 0.78rem;
+    color: var(--mf-muted);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.splash-footer {
+    position: absolute;
+    bottom: 28px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    font-size: 0.72rem;
+    color: #c7cad0;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    animation: fadeUp 0.6s ease-out 0.4s both;
+}
+
+/* Exit transition: fades the whole splash out smoothly before navigation */
+.splash-screen.splash-exit {
+    animation: splashFadeOut 0.35s ease forwards;
+}
+
+@keyframes splashFadeOut {
+    to { opacity: 0; }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .logo-ring,
+    .splash-glow,
+    .splash-logo {
+        animation: none !important;
+    }
+    .loading-bar-fill {
+        transition: width 2.9s linear;
+        animation: none !important;
+        background: var(--mf-red);
+    }
+}
+
+@media (max-width: 360px) {
+    .splash-title { font-size: 1.25rem; }
+    .splash-tagline { font-size: 0.78rem; }
+}</style>
+</head>
+<body>
+
+    <div class="splash-screen" id="splash-screen">
+        <div class="splash-glow"></div>
+
+        <div class="splash-content">
+            <div class="logo-ring">
+                <div class="logo-circle">
+                    <img src="favicon.png" alt="MediFinder" class="splash-logo" id="splash-logo">
+                </div>
+            </div>
+
+            <h1 class="splash-title">Medi<span>Finder</span></h1>
+            <p class="splash-tagline">Medicine in 20 Minutes</p>
+
+            <div class="icon-stage" aria-hidden="true">
+                <span class="splash-icon" id="splash-icon">💊</span>
+            </div>
+
+            <div class="loading-bar-track">
+                <div class="loading-bar-fill" id="loading-bar-fill"></div>
+            </div>
+
+            <p class="loading-text" id="loading-text">Getting things ready…</p>
+        </div>
+
+        <p class="splash-footer">Trusted Medicine Delivery Partner</p>
+    </div>
+    <script>// ==========================================
+// MediFinder Splash Screen Logic
+// - Cycles medical icons
+// - Plays the loading bar animation
+// - Checks Supabase session and redirects to the
+//   correct destination WITHOUT ever flashing the login page
+// ==========================================
+(function () {
+    "use strict";
+
+    // As soon as splash.html loads, mark this tab-session as "entered via splash".
+    // index.html / signup.html check this flag and only force a redirect back
+    // to splash.html when it's NOT set (i.e. a fresh entry — Google result,
+    // typed URL, bookmark, new tab). Internal navigation (Login <-> Signup,
+    // or splash's own redirect) will already have this flag set, so it won't loop.
+    try {
+        sessionStorage.setItem('mf_splash_done', '1');
+    } catch (e) {
+        // sessionStorage unavailable (e.g. some private-browsing modes) — harmless, just skip.
+    }
+
+    // Splash is allowed to show for at most this long, no matter what.
+    var MAX_DISPLAY_MS = 4200;
+    // Splash won't disappear before this — matches the loading bar's fill
+    // duration (see splash.css) so it always finishes visually before redirect.
+    var MIN_DISPLAY_MS = 3000;
+
+    var startedAt = Date.now();
+    var redirected = false;
+
+    var icons = [
+        "💊", "💉", "🧴", "🩹", "🩺", "🧪", "❤️", "🫀", "🩸", "🦴",
+        "🫁", "👁️", "🦷", "🧠", "👶", "🤰", "♿", "🚑", "🏥", "💉",
+        "💊", "📋", "🧬", "⚕️", "🩹"
+    ];
+    var iconIndex = 0;
+    var iconTimer = null;
+
+    function startIconCycle() {
+        var iconEl = document.getElementById("splash-icon");
+        if (!iconEl) return;
+        iconTimer = setInterval(function () {
+            iconEl.classList.add("icon-hide");
+            setTimeout(function () {
+                iconIndex = (iconIndex + 1) % icons.length;
+                iconEl.textContent = icons[iconIndex];
+                iconEl.classList.remove("icon-hide");
+            }, 200);
+        }, 400);
+    }
+
+    function stopIconCycle() {
+        if (iconTimer) {
+            clearInterval(iconTimer);
+            iconTimer = null;
+        }
+    }
+
+    function startLoadingBar() {
+        var fill = document.getElementById("loading-bar-fill");
+        if (!fill) return;
+        // Small delay so the CSS width transition reliably triggers
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                fill.classList.add("fill-active");
+            });
+        });
+    }
+
+    function setLoadingText(text) {
+        var el = document.getElementById("loading-text");
+        if (el) el.textContent = text;
+    }
+
+    function waitFor(conditionFn, timeoutMs, intervalMs) {
+        return new Promise(function (resolve) {
+            var waited = 0;
+            (function poll() {
+                if (conditionFn() || waited >= timeoutMs) {
+                    resolve();
+                    return;
+                }
+                waited += intervalMs;
+                setTimeout(poll, intervalMs);
+            })();
+        });
+    }
+
+    // Figures out where the user should land: index.html (not logged in),
+    // or the correct role home page (logged in). Reuses the exact client
+    // and role logic already shipped in supabase-config.js when available,
+    // so there is a single source of truth for role → destination mapping.
+    async function determineDestination() {
+        try {
+            await waitFor(function () { return !!window.supabaseClient; }, 1200, 50);
+
+            var client = window.supabaseClient;
+            if (!client || !client.auth) {
+                return "index.html";
+            }
+
+            var sessionResult = await client.auth.getSession();
+            var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+
+            if (!session || !session.user) {
+                return "index.html";
+            }
+
+            if (typeof window.getRedirectPathForUser === "function") {
+                return await window.getRedirectPathForUser(session.user);
+            }
+
+            // Fallback mapping if supabase-config.js hasn't exposed the helper
+            var user = session.user;
+            if (user.email === "medifinderindia@gmail.com") {
+                return "adminuser.html";
+            }
+            var role = (user.user_metadata && user.user_metadata.role) ||
+                localStorage.getItem("selected_role") || "user";
+            if (role === "merchant") return "marchenthome.html";
+            if (role === "delivery") return "delyvaryhome.html";
+            return "userhome.html";
+        } catch (err) {
+            console.error("Splash session check failed:", err);
+            return "index.html";
+        }
+    }
+
+    function goTo(path) {
+        if (redirected) return;
+        redirected = true;
+        stopIconCycle();
+
+        var splash = document.getElementById("splash-screen");
+        if (splash) splash.classList.add("splash-exit");
+
+        setTimeout(function () {
+            window.location.replace(path);
+        }, 320);
+    }
+
+    async function init() {
+        startIconCycle();
+        startLoadingBar();
+
+        // Hard cap: never let the splash (or the redirect decision) exceed MAX_DISPLAY_MS
+        var hardCap = new Promise(function (resolve) {
+            setTimeout(function () { resolve("index.html"); }, MAX_DISPLAY_MS - 200);
+        });
+
+        var destination = await Promise.race([determineDestination(), hardCap]);
+
+        setLoadingText("Almost there…");
+
+        var elapsed = Date.now() - startedAt;
+        var remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+
+        setTimeout(function () {
+            goTo(destination);
+        }, remaining);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();</script>
+
+    <!-- Existing production auth logic (session client, role redirect helpers). Not modified in behavior. -->
+    <script src="supabase-config.js?v=13"></script>
+    <script src="splash.js?v=1"></script>
+</body>
+</html>
