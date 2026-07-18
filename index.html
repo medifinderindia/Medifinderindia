@@ -326,7 +326,7 @@ html.mf-fast .splash-screen {
             <p class="loading-text" id="loading-text">Getting things ready…</p>
         </div>
 
-        <p class="splash-footer">Trusted Medicine Delivery Partner</p>
+        <p class="splash-footer">Trusted Medicine Delivery Web</p>
     </div>
 <script>// ==========================================
 // MediFinder Splash Screen Logic
@@ -445,6 +445,50 @@ html.mf-fast .splash-screen {
         }
     }
 
+    // Safety valve: no matter what triggers repeated loads of this page
+    // (stale cached copy, an old service worker, a PWA shell re-launching
+    // at its start_url, etc.), this makes sure we NEVER auto-redirect more
+    // than a few times in a short window. If that happens, we stop and show
+    // a manual "Continue" link instead of silently bouncing forever.
+    function tooManyRecentRedirects() {
+        try {
+            var raw = sessionStorage.getItem("mf_redirect_log");
+            var log = raw ? JSON.parse(raw) : [];
+            var now = Date.now();
+            log = log.filter(function (t) { return now - t < 10000; }); // last 10s
+            log.push(now);
+            sessionStorage.setItem("mf_redirect_log", JSON.stringify(log));
+            return log.length > 3;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function showManualContinue(path) {
+        console.warn("MediFinder splash: too many redirects in a short window — stopping auto-redirect. If you keep seeing this, clear your browser cache / uninstall+reinstall the PWA, or check for a stale service worker.");
+        stopIconCycle();
+        document.documentElement.classList.remove("mf-fast");
+        var splash = document.getElementById("splash-screen");
+        if (splash) splash.classList.remove("splash-exit");
+        setLoadingText("Taking longer than usual…");
+        var track = document.querySelector(".loading-bar-track");
+        if (track) {
+            var link = document.createElement("a");
+            link.href = path;
+            link.textContent = "Tap to continue";
+            link.style.cssText = "display:inline-block;margin-top:16px;color:#e02020;font-weight:700;font-size:0.85rem;text-decoration:underline;";
+            track.parentNode.insertBefore(link, track.nextSibling);
+        }
+    }
+
+    function safeRedirect(path) {
+        if (tooManyRecentRedirects()) {
+            showManualContinue(path);
+            return;
+        }
+        window.location.replace(path);
+    }
+
     function goTo(path) {
         if (redirected) return;
         redirected = true;
@@ -454,7 +498,7 @@ html.mf-fast .splash-screen {
         if (splash) splash.classList.add("splash-exit");
 
         setTimeout(function () {
-            window.location.replace(path);
+            safeRedirect(path);
         }, 320);
     }
 
@@ -473,7 +517,7 @@ html.mf-fast .splash-screen {
 
         if (alreadyShown) {
             var quickDestination = await determineDestination();
-            window.location.replace(quickDestination);
+            safeRedirect(quickDestination);
             return;
         }
 
@@ -492,6 +536,7 @@ html.mf-fast .splash-screen {
         });
 
         var destination = await Promise.race([determineDestination(), hardCap]);
+
 
         setLoadingText("Almost there…");
 
