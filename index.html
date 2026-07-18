@@ -24,6 +24,27 @@
 
     <!-- Prevent any white/blank flash before CSS paints -->
     <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
+
+    <!-- ==========================================
+         Splash "once per session" gate
+         Runs synchronously before anything paints. If this tab has
+         already shown the splash (and not logged out since), we hide
+         the splash instantly — no flash — and the main script below
+         will do a silent redirect instead of the full animation.
+         Mobile browsers that reload index.html on app-resume will hit
+         this path instead of re-playing the splash every time.
+         ========================================== -->
+    <script>
+        (function () {
+            try {
+                if (sessionStorage.getItem('mf_splash_shown')) {
+                    document.documentElement.classList.add('mf-fast');
+                }
+            } catch (e) {
+                // sessionStorage unavailable — full splash will just play normally.
+            }
+        })();
+    </script>
     <style>/* ==========================================
    MediFinder Splash Screen
    Premium animated loading experience
@@ -66,6 +87,11 @@ body {
     padding: 24px;
     overflow: hidden;
     z-index: 9999;
+}
+
+/* Fast path: this tab already showed the splash this session — hide it instantly, no flash */
+html.mf-fast .splash-screen {
+    display: none !important;
 }
 
 /* Soft ambient glow behind the logo, gives premium depth without imagery */
@@ -433,6 +459,30 @@ body {
     }
 
     async function init() {
+        // Fast path: this tab already played the splash this session (and hasn't
+        // logged out since — see the SIGNED_OUT handler in supabase-config.js,
+        // which clears this flag). Skip the animation entirely and just redirect
+        // silently. The .mf-fast class (set synchronously in <head>) already
+        // hid the splash markup, so there's no visual flash either.
+        var alreadyShown = false;
+        try {
+            alreadyShown = !!sessionStorage.getItem("mf_splash_shown");
+        } catch (e) {
+            alreadyShown = false;
+        }
+
+        if (alreadyShown) {
+            var quickDestination = await determineDestination();
+            window.location.replace(quickDestination);
+            return;
+        }
+
+        try {
+            sessionStorage.setItem("mf_splash_shown", "1");
+        } catch (e) {
+            // sessionStorage unavailable — splash will just play every time, harmless.
+        }
+
         startIconCycle();
         startLoadingBar();
 

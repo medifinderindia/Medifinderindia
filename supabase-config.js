@@ -63,6 +63,11 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const isLoginPage = path.includes("login.html");
     const isSignupPage = path.includes("signup.html") || path.endsWith("/signup");
 
+    // Splash should play again on the next entry after a logout.
+    if (event === 'SIGNED_OUT') {
+        try { sessionStorage.removeItem('mf_splash_shown'); } catch (e) {}
+    }
+
     if (session && event === 'SIGNED_IN') {
         try {
             await handleOAuthUserRoleUpdate(session.user);
