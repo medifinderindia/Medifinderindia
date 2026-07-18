@@ -68,41 +68,55 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         try { sessionStorage.removeItem('mf_splash_shown'); } catch (e) {}
     }
 
-    if (session && event === 'SIGNED_IN') {
-        try {
-            await handleOAuthUserRoleUpdate(session.user);
-        } catch (e) {
-            return; // role mismatch হলে already sign-out + toast হয়ে গেছে, এখানেই থামো
-        }
-
-        if (event === "PASSWORD_RECOVERY") {
-            const newPassword = await new Promise(resolve => {
-                const m = document.createElement('div');
-                m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-                m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
-                    <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">New Password</h3>
-                    <input type="password" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter your new secure password">
-                    <div style="display:flex;gap:10px;">
-                        <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
-                        <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
-                    </div>
-                </div>`;
-                document.body.appendChild(m);
-                m.querySelector('#_pi').focus();
-                m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
-                m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+    // ✅ FIXED: PASSWORD_RECOVERY নিজে একটা আলাদা event — আগে এটা "SIGNED_IN" এর
+    // ভেতরে বসানো থাকায় কখনোই রান হতো না। এখন আলাদা করে হ্যান্ডেল করা হচ্ছে।
+    if (event === "PASSWORD_RECOVERY" && session) {
+        const newPassword = await new Promise(resolve => {
+            const m = document.createElement('div');
+            m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
+                <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">New Password</h3>
+                <input type="password" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter your new secure password">
+                <div style="display:flex;gap:10px;">
+                    <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+                    <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+            m.querySelector('#_pi').focus();
+            m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value.trim(); m.remove(); resolve(v || null); };
+            m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
+        });
+        if (newPassword) {
+            supabaseClient.auth.updateUser({ password: newPassword }).then(({ error }) => {
+                if (error) showToast("Error updating password: " + error.message, "error");
+                else {
+                    showToast("Password updated successfully! Please log in.", "success");
+                    supabaseClient.auth.signOut();
+                    window.location.href = "Login.html";
+                }
             });
-            if (newPassword) {
-                supabaseClient.auth.updateUser({ password: newPassword }).then(({ error }) => {
-                    if (error) showToast("Error updating password: " + error.message, "error");
-                    else {
-                        showToast("Password updated successfully! Please log in.", "success");
-                        supabaseClient.auth.signOut();
-                        window.location.href = "Login.html";
-                    }
-                });
+        }
+        return;
+    }
+
+    // ✅ FIXED: আগে শুধু event === 'SIGNED_IN' হলে রিডাইরেক্ট হতো। কিন্তু ব্রাউজার/অ্যাপ
+    // রিফ্রেশ করলে বা সরাসরি Login.html/signup.html ওপেন করলে Supabase একবার
+    // 'INITIAL_SESSION' event পাঠায় (persisted session সহ) — সেটা আগে ইগনোর হতো,
+    // ফলে আগে থেকে লগইন থাকা ইউজারও Login পেজেই আটকে থাকতো, মনে হতো বারবার
+    // লগইন করতে হচ্ছে। এখন INITIAL_SESSION কেও ধরা হচ্ছে যাতে সাথে সাথে home এ যায়।
+    const isSignInLikeEvent = event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
+
+    if (session && isSignInLikeEvent) {
+        // নতুন sign-in হলেই শুধু role sync/OAuth upsert চালাও — একটা persisted
+        // session রিস্টোর হওয়া (INITIAL_SESSION/TOKEN_REFRESHED) মানে নতুন কিছু
+        // করার দরকার নেই, শুধু সঠিক পেজে পাঠিয়ে দিলেই যথেষ্ট।
+        if (event === 'SIGNED_IN') {
+            try {
+                await handleOAuthUserRoleUpdate(session.user);
+            } catch (e) {
+                return; // role mismatch হলে already sign-out + toast হয়ে গেছে, এখানেই থামো
             }
-            return;
         }
 
         if (session.user.email === "medifinderindia@gmail.com" && localStorage.getItem('admin_auth_in_progress') === 'true') {

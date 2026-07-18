@@ -3,7 +3,7 @@
 // URL & key loaded from supabase-constants.js
 // ==========================================
 const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined')
-    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
     : null;
 
 function escapeHtml(str) {

@@ -2,7 +2,7 @@
    1. GLOBAL SYSTEM CONFIGURATIONS & SUPABASE INIT
    URL & key loaded from supabase-constants.js
    ========================================================================== */
-const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 
 let currentCart = JSON.parse(localStorage.getItem('medi_cart')) || [];
 let patientsData = JSON.parse(localStorage.getItem('medi_patients')) || [];

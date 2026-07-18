@@ -6,7 +6,7 @@ if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') 
 
 }
 if (typeof window.supabaseClientInstance === 'undefined' && typeof window.supabase !== 'undefined') {
-    window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 }
 
 const dbSupabase = window.supabaseClientInstance;
