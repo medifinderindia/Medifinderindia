@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="theme-color" content="#e02020">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -172,7 +173,7 @@
         </div>
     </div>
 
-    <!-- Address Modal - with saved address select dropdown -->
+    <!-- Address Modal - Flipkart-style multi-address book -->
     <div class="modal" id="address-modal">
         <div class="modal-content-large">
             <div class="modal-sheet-header">
@@ -180,15 +181,36 @@
                 <span class="modal-close-cross">&times;</span>
             </div>
             <div class="modal-scrollable-inner" style="padding:16px;">
-                <!-- Saved addresses dropdown - auto fills fields -->
-                <select id="saved-address-select" style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid #ced4da;font-size:0.85rem;box-sizing:border-box;margin-bottom:12px;background:#fff;color:#2f3542;">
-                    <option value="" disabled selected>-- Select a saved address --</option>
-                </select>
+                <div id="saved-address-list" class="dynamic-records-grid"></div>
 
-                <input type="text" id="addr-house" placeholder="House / Flat / Building No." style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:10px;">
-                <input type="text" id="addr-village" placeholder="Area / Street / Colony / Village" style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:10px;">
-                <input type="number" id="addr-pincode" placeholder="6-digit PIN Code" style="width:100%;padding:11px;border-radius:8px;border:1px solid #ced4da;font-size:0.88rem;box-sizing:border-box;margin-bottom:14px;">
-                <button id="save-address-btn" style="width:100%;padding:12px;border-radius:8px;border:none;background:#ff4d4d;color:#fff;cursor:pointer;font-weight:700;font-size:0.95rem;">Save Address</button>
+                <div class="add-new-subform-box">
+                    <h4 id="address-form-heading">Add New Address</h4>
+                    <input type="hidden" id="editing-address-id" value="">
+                    <input type="text" id="addr-name" placeholder="Full Name">
+                    <input type="text" id="addr-phone" placeholder="Phone Number" maxlength="10">
+                    <input type="text" id="addr-house" placeholder="Address Line 1 (House / Flat / Building)">
+                    <input type="text" id="addr-line2" placeholder="Address Line 2 (Area / Street / Colony)">
+                    <input type="text" id="addr-landmark" placeholder="Landmark (optional)">
+                    <div class="input-split-row">
+                        <input type="text" id="addr-city" placeholder="City">
+                        <input type="text" id="addr-state" placeholder="State">
+                    </div>
+                    <input type="number" id="addr-pincode" placeholder="6-digit PIN Code">
+
+                    <div class="tag-selection-block">
+                        <div class="block-label">Save Address As</div>
+                        <div class="tag-pills-row">
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Home" checked><span><i class="fa-solid fa-house"></i> Home</span></label>
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Office"><span><i class="fa-solid fa-briefcase"></i> Office</span></label>
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Other"><span><i class="fa-solid fa-location-dot"></i> Other</span></label>
+                        </div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#555;margin:-4px 0 14px 0;">
+                        <input type="checkbox" id="addr-set-default" style="width:auto;margin:0;"> Set as default address
+                    </label>
+                    <p id="addr-status-msg" style="font-size:0.78rem;font-weight:600;min-height:16px;margin-bottom:8px;"></p>
+                    <button id="save-address-btn" class="full-width-btn btn-pri">Save Address</button>
+                </div>
             </div>
         </div>
     </div>
@@ -260,61 +282,59 @@
 
     <!-- Help Modal -->
     <div class="modal" id="help-modal">
-        <div class="modal-content centered-text-box">
-            <i class="fa-solid fa-headset status-icon-orange"></i>
-            <h3>Help Desk</h3>
-            <div style="text-align:left; font-size:0.85rem; color:#555; line-height:1.8;">
-                <p><b>Phone:</b> 9593625498 (Mon-Sat, 9AM-9PM)</p>
-                <p><b>Email:</b> medifinderindia@gmail.com</p>
-                <p><b>WhatsApp:</b> 9593625498</p>
-                <hr style="border:none;border-top:1px solid #eee;margin:10px 0;">
-                <p><b>Common Issues:</b></p>
-                <p>1. Order not received? Check order status in My Orders.</p>
-                <p>2. Wrong product? Raise a return request from order history.</p>
-                <p>3. Payment failed? Amount will be auto-refunded in 24hrs.</p>
-                <p>4. Prescription upload issues? Try again with clear photo.</p>
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3><i class="fa-solid fa-headset"></i> Help Desk</h3>
+                <span class="modal-close-cross" id="close-help-modal">&times;</span>
             </div>
-            <button class="btn-sec full-width-btn" id="close-help-modal" style="margin-top:12px;">Close</button>
+            <div class="modal-scrollable-inner" style="padding:16px;">
+                <div class="contact-actions-grid" style="margin-bottom:16px;">
+                    <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                    <a href="mailto:medifinderindia@gmail.com" class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
+                </div>
+                <div class="faq-accordion">
+                    <details class="faq-item" open>
+                        <summary>How to order medicine</summary>
+                        <p>Search or browse a category on the home page, add items to your cart, confirm your delivery address, and place the order. You'll get a live order status in My Orders.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to upload a prescription</summary>
+                        <p>On the home page, tap Camera to click a photo of your prescription or Gallery / PDF to upload an existing file. It's verified automatically and linked to your Rx orders.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to track my order</summary>
+                        <p>Go to My Orders and tap Track on any active order to see live delivery status and location on the map.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to cancel an order</summary>
+                        <p>Open My Orders, select the order, and tap Cancel. Orders already out for delivery may not be cancellable.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Refund policy</summary>
+                        <p>Refunds for cancelled or returned orders are processed back to your original payment method, typically within 5-7 business days.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Delivery charge</summary>
+                        <p>Delivery charges depend on your distance from the pharmacy and order value; the exact charge is shown on the checkout page before you pay.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Return policy</summary>
+                        <p>Damaged, expired, or incorrect items can be returned within 24 hours of delivery. Medicines cannot be returned once the seal is opened, except in case of a genuine error.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Payment failed but amount deducted</summary>
+                        <p>If a payment fails after the amount was deducted, it is automatically reversed to your account within 24-48 hours. Contact support if it isn't reversed after that window.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Contact Support</summary>
+                        <p>Call us at 9593625498 (Mon-Sat, 9AM-9PM) or email medifinderindia@gmail.com — we typically respond within a few hours.</p>
+                    </details>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Terms Modal -->
-    <div class="modal" id="terms-modal">
-        <div class="modal-content-large">
-            <div class="modal-sheet-header">
-                <h3>Terms, Conditions & Privacy Policy</h3>
-                <span class="modal-close-cross" id="close-terms-modal">&times;</span>
-            </div>
-            <div class="modal-scrollable-inner" style="padding:15px;text-align:left;line-height:1.5;color:#333;max-height:70vh;overflow-y:auto;">
-                <div style="border-bottom:2px solid #e0e0e0;padding-bottom:15px;margin-bottom:15px;">
-                    <h2 style="color:#d9534f;margin-top:0;">TERMS & CONDITIONS</h2>
-                    <p style="font-size:12px;color:#666;"><strong>Last Updated:</strong> June 2026</p>
-                    <p>Welcome to <strong>MEDI FINDER</strong>. By using this application, you agree to follow and be strictly bound by the operational rules and legal disclaimers stated below.</p>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-link"></i> 1. Nature of Our Intermediary Platform</h4>
-                    <p><strong>MEDI FINDER</strong> operates strictly as an intermediary digital platform linking users with registered, independent retail pharmacy shops. <strong>MEDI FINDER is NOT a pharmacy store, manufacturing outfit, or healthcare practitioner.</strong></p>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-triangle-exclamation"></i> 2. Critical Product Disclaimers</h4>
-                    <p>Since products are packaged by individual pharmacy entities, <strong>MEDI FINDER holds zero legal responsibility for wrong medicine, inaccurate dosage, or expired goods.</strong></p>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-cloud-showers-heavy"></i> 3. Delivery Obstruction Waiver</h4>
-                    <p>Time scheduling references are rough approximations. <strong>MEDI FINDER accepts no liability for delayed deliveries resulting from traffic, weather, or force majeure events.</strong></p>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-ban"></i> 4. Anti-Abuse Standards</h4>
-                    <p>Users must provide correct data. Counterfeit medication or platform manipulation will terminate access and activate reports to pharmaceutical regulatory authorities.</p>
-                </div>
-                <div>
-                    <h2 style="color:#d9534f;margin-top:0;">PRIVACY POLICY</h2>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-database"></i> 1. Information Aggregation</h4>
-                    <ul>
-                        <li><strong>Profile Data:</strong> Full name, telephone, patient details, and delivery addresses.</li>
-                        <li><strong>Prescription Assets:</strong> Image logs uploaded to authorize orders.</li>
-                        <li><strong>Location Parameters:</strong> GPS coordinates to discover proximal pharmacies.</li>
-                    </ul>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-share-nodes"></i> 2. Information Sharing</h4>
-                    <p>Data is shared exclusively with the merchant pharmacy selected to fulfill your order. <strong>We maintain a zero third-party commercial sales scheme.</strong></p>
-                    <h4 style="color:#333;margin-bottom:5px;"><i class="fa-solid fa-lock"></i> 3. Security Frameworks</h4>
-                    <p>Authentication tokens are guarded via cryptographic databases. Keeping your password secure from external devices is your direct responsibility.</p>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <nav class="bottom-nav" id="bottom-nav">
         <div class="nav-item" onclick="window.location.href='userhome.html'">
@@ -360,8 +380,8 @@
                 <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
                 <div class="hamburger-menu-item" onclick="showToast('You are here!','info')"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
-                <div class="hamburger-menu-item" onclick="showToast('Use coupon code MEDI20 for ₹50 off!','info')"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
-                <div class="hamburger-menu-item" onclick="showToast('Call us: 9593625498 | Email: medifinderindia@gmail.com','info')"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#refer-earn-btn'"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#help-desk-trigger'"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
                 <div class="hamburger-menu-divider"></div>
                 <div class="hamburger-menu-item logout-item" onclick="showConfirmationModal('Logout from MediFinder?', () => { localStorage.clear(); window.location.href='index.html'; })"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></div>
             </div>

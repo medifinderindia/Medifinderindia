@@ -300,6 +300,17 @@ document.addEventListener("DOMContentLoaded", () => {
     setupPagePrefetch();
 });
 
+// Fixes orders (and cart/notifications) appearing to "disappear" when the user
+// hits the browser Back button. The browser often restores the page from its
+// back/forward cache (bfcache) instead of reloading it — DOMContentLoaded does
+// NOT fire again in that case, so the page just shows whatever was rendered
+// before the order existed. event.persisted === true is how we detect that
+// restore and force everything to re-sync against localStorage + Supabase.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return; // normal load/navigation — DOMContentLoaded already handled it
+    if (document.getElementById('order-list')) refreshOrdersFromServer();
+});
+
 // Global BUY NOW / ADD TO CART handler (outside async to guarantee early registration)
 document.addEventListener('click', (e) => {
     const card = e.target.closest('.product-card');
@@ -460,14 +471,36 @@ function detectLiveUserGPSCoordinates() {
     }
 }
 
+// Keeps every "who's logged in" display (hamburger menu + profile fields) in
+// sync with the real account. Previously the hamburger only got a value once,
+// synchronously, from initHamburgerMenu() — so it was stuck on 'Guest User'
+// with a random fake ID until the next full page load, even for an already
+// logged-in user, because the async session/profile fetch never wrote back
+// to the hamburger elements. This is called both immediately (from cache)
+// and again once the real session resolves.
+function applyUserIdentityToUI(name, uid, email) {
+    const nameTargets = ['user-name', 'new-name-input', 'hamburger-user-name'];
+    nameTargets.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !name) return;
+        if (el.tagName === 'INPUT') el.value = name; else el.innerText = name;
+    });
+    if (uid) {
+        const uidDisplay = document.getElementById('user-uid-display');
+        if (uidDisplay) uidDisplay.innerText = "User ID: " + uid;
+        const hamburgerUid = document.getElementById('hamburger-user-id');
+        if (hamburgerUid) hamburgerUid.innerText = uid;
+    }
+    if (email) {
+        const usernameEl = document.getElementById('user-username');
+        if (usernameEl) usernameEl.innerText = email;
+    }
+}
+
 async function autoFillSavedUserDataOnAuth() {
     const cachedName = localStorage.getItem('medi_profile_name');
-    if (cachedName && document.getElementById('user-name')) {
-        document.getElementById('user-name').innerText = cachedName;
-    }
-    if (cachedName && document.getElementById('new-name-input')) {
-        document.getElementById('new-name-input').value = cachedName;
-    }
+    const cachedUid = localStorage.getItem('medi_user_uid');
+    applyUserIdentityToUI(cachedName, cachedUid, null);
     if (verifiedAddress && document.getElementById('current-address')) {
         document.getElementById('current-address').innerText = verifiedAddress;
     }
@@ -478,28 +511,23 @@ async function autoFillSavedUserDataOnAuth() {
         renderAlarmsListUI();
     }
 
-    // Show signup-generated User ID in profile
-    const userIdDisplay = document.getElementById('user-uid-display');
-    if (userIdDisplay) {
-        let uid = localStorage.getItem('medi_user_uid');
-        if (!uid) {
-            uid = "MF" + Math.floor(100000 + Math.random() * 900000);
-            localStorage.setItem('medi_user_uid', uid);
-        }
-        userIdDisplay.innerText = "User ID: " + uid;
-    }
-
     if (supabase) {
+        let session = null;
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const sessionResult = await supabase.auth.getSession();
+            session = sessionResult.data.session;
             if (session && session.user) {
                 currentUserEmail = session.user.email || '';
                 currentAuthUserId = session.user.id || '';
                 const userEmail = session.user.email;
 
-                // Show UID from supabase auth
-                if (userIdDisplay) userIdDisplay.innerText = "User ID: " + session.user.id.substring(0, 12).toUpperCase();
-                
+                // The real, stable Supabase auth UID is the single source of truth for
+                // "User ID" everywhere (profile page + hamburger) — persisted so it's
+                // consistent across sessions/devices instead of a randomly-generated one.
+                const stableUid = session.user.id.substring(0, 12).toUpperCase();
+                localStorage.setItem('medi_user_uid', stableUid);
+                applyUserIdentityToUI(null, stableUid, userEmail);
+
                 const { data: profileArray, error: profileError } = await supabase
                     .from('profiles')
                     .select('*')
@@ -508,23 +536,17 @@ async function autoFillSavedUserDataOnAuth() {
 
                 if (!profileError && profileArray && profileArray.length > 0) {
                     const profile = profileArray[0];
-                    if (profile.full_name && document.getElementById('user-name')) {
-                        document.getElementById('user-name').innerText = profile.full_name;
+                    if (profile.full_name) {
                         localStorage.setItem('medi_profile_name', profile.full_name);
-                    }
-                    // Update username display with email
-                    const userUsernameEl = document.getElementById('user-username');
-                    if (userUsernameEl && userEmail) {
-                        userUsernameEl.innerText = userEmail;
+                        applyUserIdentityToUI(profile.full_name, null, userEmail);
                     }
                     if (profile.address && document.getElementById('current-address')) {
                         document.getElementById('current-address').innerText = profile.address;
                         localStorage.setItem('medi_verified_address', profile.address);
                     }
                 } else if (userEmail) {
-                    // No profile found, still show email
-                    const userUsernameEl = document.getElementById('user-username');
-                    if (userUsernameEl) userUsernameEl.innerText = userEmail;
+                    // No profile row found yet, still show the email as username
+                    applyUserIdentityToUI(null, null, userEmail);
                 }
 
                 const { data: dbPatients } = await supabase.from('patients').select('*').eq('user_email', userEmail);
@@ -543,8 +565,25 @@ async function autoFillSavedUserDataOnAuth() {
             }
         } catch(e) {
 
+        } finally {
+            if (!session || !session.user) showGuestHamburgerState();
         }
     }
+}
+
+// Item 11: a genuinely logged-out visitor should never see the placeholder
+// "Guest User" text sitting in the hamburger menu as if it were a real
+// identity — swap that whole block for an actual Login prompt instead.
+function showGuestHamburgerState() {
+    document.querySelectorAll('.hamburger-profile').forEach(block => {
+        block.innerHTML = `
+            <div class="hamburger-profile-pic"><i class="fa-solid fa-user" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f1f2f6;color:#747d8c;font-size:1.3rem;"></i></div>
+            <div class="hamburger-profile-info">
+                <h3>Welcome to MediFinder</h3>
+                <p style="cursor:pointer;color:#e02020;font-weight:700;" onclick="window.location.href='index.html'"><i class="fa-solid fa-right-to-bracket"></i> Login / Sign Up</p>
+            </div>
+        `;
+    });
 }
 
 function setupGlobalCloseButtonListeners() {
@@ -1710,6 +1749,37 @@ function generateSecureSixDigitOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Opens the real Razorpay Checkout modal and resolves with the payment id on
+// success, or null if the payment failed / was dismissed. Previously nothing
+// in the app actually called this — selecting Razorpay just marked the order
+// "Paid" without collecting any real payment.
+function openRazorpayCheckout(amountRupees, customerName, customerPhone) {
+    return new Promise((resolve) => {
+        if (typeof Razorpay === 'undefined') {
+            showToast("Payment gateway failed to load. Please try Cash on Delivery.", "error");
+            resolve(null);
+            return;
+        }
+        const options = {
+            key: "rzp_test_TDK3YbLhmu0A30", // TEST KEY — replace with the live key before going to production
+            amount: Math.round(amountRupees * 100), // Razorpay expects paise
+            currency: "INR",
+            name: "MediFinder",
+            description: "Medicine Order Payment",
+            prefill: { name: customerName || '', contact: customerPhone || '' },
+            theme: { color: "#e02020" },
+            handler: function (response) { resolve(response.razorpay_payment_id); },
+            modal: { ondismiss: function () { resolve(null); } }
+        };
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function () {
+            showToast("Payment failed. Please try again.", "error");
+            resolve(null);
+        });
+        rzp.open();
+    });
+}
+
 async function processFinalOrderPayload() {
     if (currentCart.length === 0) { showToast("Your cart is empty!", "error"); return; }
     const addr = JSON.parse(localStorage.getItem('medi_delivery_address') || 'null');
@@ -1763,8 +1833,23 @@ async function processFinalOrderPayload() {
 
     const placeOrderBtn = document.getElementById('place-order-final-btn');
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
+    const origPlaceBtnHTML = placeOrderBtn ? placeOrderBtn.innerHTML : '';
+    const origStickyBtnHTML = stickyPlaceBtn ? stickyPlaceBtn.innerHTML : '';
     if (placeOrderBtn) { placeOrderBtn.disabled = true; placeOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
     if (stickyPlaceBtn) { stickyPlaceBtn.disabled = true; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
+
+    let razorpayPaymentId = null;
+    if (selectedPaymentMethod === 'RAZORPAY') {
+        const amountText = document.getElementById('bill-grand-total')?.innerText || "₹0.00";
+        const amountRupees = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
+        razorpayPaymentId = await openRazorpayCheckout(amountRupees, addr.name, addr.phone);
+        if (!razorpayPaymentId) {
+            showToast("Payment was not completed — order not placed.", "error");
+            if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = origPlaceBtnHTML; }
+            if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = origStickyBtnHTML; }
+            return;
+        }
+    }
 
     try {
     const primaryMerchantId = currentCart.find(item => item.merchantId)?.merchantId || null;
@@ -1820,6 +1905,7 @@ async function processFinalOrderPayload() {
         shop_lat: shopCoordinates.lat,
         shop_lng: shopCoordinates.lng,
         delivery_secure_code: secureDeliveryOTP,
+        razorpay_payment_id: razorpayPaymentId || null,
         date_string: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
         merchant_id: primaryMerchantId
     };
@@ -1911,8 +1997,10 @@ async function processFinalOrderPayload() {
         showToast(`Order placed! Delivery Code: ${secureDeliveryOTP}`, "success");
     }
 
-    currentCart = [];
-    localStorage.removeItem('medi_cart');
+    // Cart is intentionally left as-is here. The order is already saved to the
+    // orders table (i.e. archived) — auto-wiping the cart on top of that was
+    // the reported bug. Items now only leave the cart when the user removes
+    // them via the existing per-item delete button.
     } finally {
         if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = ''; }
         if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-bag-shopping"></i> Place Order'; }
@@ -1970,10 +2058,9 @@ function createConfetti() {
 // ============================================================
 // ORDERS PAGE
 // ============================================================
-async function setupOrdersPageModules() {
+async function refreshOrdersFromServer() {
     const listContainer = document.getElementById('order-list');
     if (!listContainer) return;
-
     if (supabase) {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -1992,6 +2079,15 @@ async function setupOrdersPageModules() {
             }
         } catch (e) {}
     }
+    const currentTab = document.querySelector('.tab-btn.active')?.dataset?.filter || 'active';
+    renderOrdersUI(currentTab);
+}
+
+async function setupOrdersPageModules() {
+    const listContainer = document.getElementById('order-list');
+    if (!listContainer) return;
+
+    await refreshOrdersFromServer();
 
     const tabBtns = document.querySelectorAll('.tab-btn');
     let lastFilter = 'active';
@@ -2989,6 +3085,14 @@ function setupProfilePageModules() {
     if (myBoxBtn) {
         myBoxBtn.onclick = () => openMyPrescriptionBox();
     }
+
+    // Deep-linking from the hamburger menu on other pages (e.g.
+    // userhome.html#... -> userprofile.html#my-box-btn) previously just left
+    // a dead URL hash — the browser can't "open" a modal via anchor scroll.
+    // This actually triggers the matching action once the page is ready.
+    if (window.location.hash === '#my-box-btn') openMyPrescriptionBox();
+    else if (window.location.hash === '#refer-earn-btn') toggleModalDisplay('referral-modal', true);
+    else if (window.location.hash === '#help-desk-trigger') toggleModalDisplay('help-modal', true);
 }
 
 // ============================================================
@@ -3658,13 +3762,9 @@ function initHamburgerMenu() {
 
     if (!hamburgerBtn || !overlay) return;
 
-    // Set user name in menu
-    const userName = localStorage.getItem('medi_profile_name') || 'Guest User';
-    const userId = localStorage.getItem('medi_user_uid') || 'MF' + Math.floor(100000 + Math.random() * 900000);
-    const nameEl = document.getElementById('hamburger-user-name');
-    const idEl = document.getElementById('hamburger-user-id');
-    if (nameEl) nameEl.innerText = userName;
-    if (idEl) idEl.innerText = userId;
+    // Real name/UID is applied via applyUserIdentityToUI() from cache immediately
+    // and again once the Supabase session resolves — no fake/random ID here anymore.
+    applyUserIdentityToUI(localStorage.getItem('medi_profile_name'), localStorage.getItem('medi_user_uid'), null);
 
     hamburgerBtn.addEventListener('click', () => {
         overlay.classList.add('active');
