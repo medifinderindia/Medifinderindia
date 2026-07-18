@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediFinder — Nurse Booking</title>
+<style>
+  :root{
+    --maroon-deep:#b71c1c;
+    --maroon:#e02020;
+    --maroon-bright:#ff4747;
+    --ink:#2f3542;
+    --cream:#f4f6f9;
+    --cream-2:#fdecea;
+    --line:#e5e7eb;
+    --success:#2ed573;
+    --navy:#20263b;
+    --gold:#ffa502;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--cream);color:var(--ink);}
+  .ribbon{background:var(--maroon-deep);color:#ffe3dc;font-size:11px;letter-spacing:1px;text-align:center;padding:6px 8px;font-weight:700;}
+  header{background:#fff;padding:14px 16px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;}
+  .header-top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark img{width:45px;height:45px;border-radius:12px;}
+  .brand-text h1{margin:0;font-size:26px;font-weight:900;letter-spacing:1px;}
+  .brand-text .medi{color:#d50000;}
+  .brand-text .finder{color:#000;}
+  .back-link{
+    display:inline-flex;align-items:center;gap:7px;
+    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    color:#fff;text-decoration:none;font-weight:700;font-size:12.5px;
+    border:none;padding:9px 16px 9px 12px;border-radius:30px;
+    box-shadow:0 6px 16px rgba(183,28,28,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .back-link:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(183,28,28,.35);}
+
+  .promo{margin:14px 16px 0;background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));border-radius:14px;padding:16px;color:#fff;position:relative;overflow:hidden;}
+  .promo::after{content:"";position:absolute;right:-40px;top:-40px;width:140px;height:140px;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);}
+  .promo .badge{background:rgba(255,255,255,.2);display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px;margin-bottom:8px;}
+  .promo h2{margin:0 0 4px;font-size:18px;}
+  .promo p{margin:0;font-size:12.5px;color:#ffe3dc;}
+  .book-cta{
+    margin-top:12px;width:100%;border:none;padding:13px;border-radius:10px;
+    font-size:15px;font-weight:800;cursor:pointer;background:#fff;color:var(--maroon-deep);
+  }
+
+  .section-title{padding:22px 16px 6px;}
+  .section-title h2{margin:0 0 4px;font-size:18px;color:var(--maroon-deep);border-left:4px solid var(--maroon);padding-left:10px;}
+  .section-title p{margin:0 0 0 14px;font-size:12px;color:#7a5f52;}
+
+  /* ---------- Booking list ---------- */
+  .bookings{padding:14px 16px 30px;display:flex;flex-direction:column;gap:14px;}
+  .empty-state{
+    text-align:center;padding:40px 20px;color:#9c7b6d;font-size:13px;
+    background:#fff;border:1px dashed var(--line);border-radius:14px;
+  }
+  .bcard{
+    background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:16px;box-shadow:0 3px 10px rgba(122,13,13,.06);
+  }
+  .bcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .bcard-top h3{margin:0 0 3px;font-size:15.5px;color:var(--ink);}
+  .bcard-top .meta{font-size:12px;color:#7a5f52;}
+  .status-pill{
+    font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;letter-spacing:.3px;
+  }
+  .status-pill.pending{background:#fbf0dd;color:#8a6a3a;}
+  .status-pill.approved{background:#e8f3ec;color:var(--success);}
+  .bcard hr{border:none;border-top:1px solid var(--line);margin:12px 0;}
+  .bcard .row-line{display:flex;justify-content:space-between;font-size:12.5px;color:#5b463d;padding:3px 0;}
+  .bcard .row-line b{color:var(--ink);}
+  .rx-thumb{
+    width:100%;max-height:140px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--line);
+  }
+  .nurse-box{
+    margin-top:12px;background:var(--cream-2);border-radius:12px;padding:12px 14px;
+  }
+  .nurse-box .n-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .nurse-box .n-avatar{
+    width:40px;height:40px;border-radius:50%;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;
+  }
+  .nurse-box .n-name{font-weight:800;font-size:14px;color:var(--maroon-deep);}
+  .nurse-box .n-sub{font-size:11.5px;color:#7a5f52;}
+  .nurse-box .n-detail{font-size:12.5px;color:#5b463d;line-height:1.6;}
+
+  .demo-admin{
+    margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;
+  }
+  .demo-admin summary{
+    font-size:11px;color:#a08072;cursor:pointer;font-weight:700;letter-spacing:.3px;
+  }
+  .demo-admin .field{margin-top:8px;}
+  .demo-admin label{display:block;font-size:11.5px;font-weight:700;color:#5b463d;margin-bottom:4px;}
+  .demo-admin input{
+    width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;background:var(--cream);
+  }
+  .demo-admin button{
+    margin-top:10px;width:100%;border:none;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;
+    background:var(--success);color:#fff;cursor:pointer;
+  }
+
+  footer{text-align:center;padding:22px 16px 30px;font-size:12px;color:#9c7b6d;}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(28,20,20,.55);display:none;align-items:flex-end;justify-content:center;z-index:50;}
+  .overlay.active{display:flex;}
+  .sheet{background:#fff;width:100%;max-width:460px;border-radius:18px 18px 0 0;padding:0 0 22px;animation:slideUp .25s ease;max-height:92vh;overflow-y:auto;}
+  @keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px;position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);}
+  .sheet-header h3{margin:0;color:var(--maroon-deep);font-size:17px;}
+  .close-x{width:32px;height:32px;border-radius:50%;border:none;background:var(--cream-2);color:var(--maroon-deep);font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .sheet-body{padding:14px 18px 0;}
+  .field-group-title{font-size:12px;font-weight:700;color:var(--maroon-deep);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:#5b463d;margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;background:var(--cream);font-family:inherit;
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--maroon-bright);outline-offset:1px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .gender-row{display:flex;gap:10px;}
+  .gender-opt{
+    flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;
+    font-size:13px;font-weight:700;color:#5b463d;cursor:pointer;background:var(--cream);
+  }
+  .gender-opt.active{background:var(--maroon-bright);border-color:var(--maroon-bright);color:#fff;}
+  .file-drop{
+    border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;
+    font-size:12.5px;color:#7a5f52;cursor:pointer;background:var(--cream);
+  }
+  .file-drop.has-file{border-color:var(--success);color:var(--success);font-weight:700;}
+  .rx-preview{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:10px;display:none;}
+  .err-msg{font-size:11.5px;color:var(--maroon-bright);margin-top:4px;display:none;}
+  .confirm-btn{
+    width:100%;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));color:#fff;margin-top:6px;
+  }
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--success);color:#fff;padding:11px 18px;border-radius:30px;font-size:13px;font-weight:700;
+    box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:.25s ease;z-index:60;max-width:88%;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+</head>
+<body>
+
+<div class="ribbon">CERTIFIED HOME NURSES &nbsp;·&nbsp; VERIFIED & BACKGROUND CHECKED</div>
+
+<header>
+  <div class="header-top-row">
+    <div class="brand">
+      <div class="brand-mark"><img src="1779304435608.png" alt="MediFinder Logo"></div>
+      <div class="brand-text"><h1><span class="medi">MEDI</span><span class="finder">FINDER</span></h1></div>
+    </div>
+    <a href="userhome.html" class="back-link"><i class="fa-solid fa-house"></i> Back to Home</a>
+  </div>
+</header>
+
+<div class="promo">
+  <span class="badge">HOME NURSE CARE</span>
+  <h2>Book a Verified Nurse at Home</h2>
+  <p>Trained nurses for injections, dressing, post-op care & more — right at your doorstep</p>
+  <button class="book-cta" id="openBookBtn">📋 Book Nurse Now</button>
+</div>
+
+<div class="section-title">
+  <h2>Your Nurse Bookings</h2>
+  <p>Track your request status below — Pending, then Approved with nurse details</p>
+</div>
+
+<div class="bookings" id="bookingsWrap"></div>
+
+<footer>
+  © MediFinder · Home Nurse Booking Network
+</footer>
+
+<!-- Booking Form Sheet -->
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Book a Nurse</h3>
+      <button class="close-x" id="closeX">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="field-group-title">Patient Details</div>
+      <div class="field">
+        <label>Full Name *</label>
+        <input type="text" id="patientName" placeholder="e.g. Ramesh Das">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Age *</label>
+          <input type="number" id="patientAge" placeholder="e.g. 62" min="0" max="120">
+        </div>
+        <div class="field">
+          <label>Caste (optional)</label>
+          <input type="text" id="patientCaste" placeholder="e.g. General / OBC / SC / ST">
+        </div>
+      </div>
+      <div class="field">
+        <label>Gender *</label>
+        <div class="gender-row">
+          <div class="gender-opt" data-val="Male">Male</div>
+          <div class="gender-opt" data-val="Female">Female</div>
+        </div>
+      </div>
+
+      <div class="field-group-title">Medical Details</div>
+      <div class="field">
+        <label>Problem / Reason for Booking *</label>
+        <textarea id="problemDesc" placeholder="e.g. Daily insulin injection, wound dressing after surgery..."></textarea>
+      </div>
+      <div class="field">
+        <label>Doctor You Are Consulting</label>
+        <input type="text" id="doctorName" placeholder="e.g. Dr. S. Bhattacharya">
+      </div>
+      <div class="field">
+        <label>Prescription Image</label>
+        <div class="file-drop" id="fileDrop">📎 Tap to upload prescription photo</div>
+        <input type="file" id="rxFile" accept="image/*" style="display:none;">
+        <img class="rx-preview" id="rxPreview">
+      </div>
+
+      <div class="field-group-title">Schedule</div>
+      <div class="row2">
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" id="bookDate">
+        </div>
+        <div class="field">
+          <label>Time *</label>
+          <input type="time" id="bookTime">
+        </div>
+      </div>
+
+      <div class="field-group-title">Address</div>
+      <div class="field">
+        <label>House No. / Flat / Building *</label>
+        <input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments">
+      </div>
+      <div class="field">
+        <label>Street / Area / Locality *</label>
+        <input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road">
+      </div>
+      <div class="field">
+        <label>Landmark (optional)</label>
+        <input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>City / Town *</label>
+          <input type="text" id="addrCity" placeholder="e.g. Howrah">
+        </div>
+        <div class="field">
+          <label>Pincode *</label>
+          <input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6">
+        </div>
+      </div>
+      <div class="field">
+        <label>State</label>
+        <select id="addrState">
+          <option value="West Bengal" selected>West Bengal</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="field-group-title">Contact</div>
+      <div class="row2">
+        <div class="field">
+          <label>Contact No. *</label>
+          <input type="tel" id="contactNo" placeholder="e.g. 98XXXXXXXX">
+        </div>
+        <div class="field">
+          <label>WhatsApp No. *</label>
+          <input type="tel" id="whatsappNo" placeholder="e.g. 98XXXXXXXX">
+        </div>
+      </div>
+
+      <div class="err-msg" id="errMsg">Please fill all required (*) fields.</div>
+      <button class="confirm-btn" id="confirmBtn">Submit Booking Request</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   NURSE BOOKING — form + status tracker (Pending / Approved)
+   Storage: localStorage (swap with Supabase table where marked)
+   ============================================================ */
+const STORAGE_KEY = "mf_nurse_bookings";
+
+// Set your WhatsApp admin/team number here (country code, no + or spaces).
+const WHATSAPP_NUMBER = ""; // e.g. "918900000000"
+
+function getBookings(){ return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+function saveBookings(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+// ---------------- Live notification bridge to userhome.html ----------------
+// Uses the SAME Supabase project as the rest of MediFinder so these events
+// land in the `notifications` table and show up instantly in the bell icon
+// on userhome.html (it already has a realtime subscription on this table).
+// NOTE: SUPABASE_URL / SUPABASE_ANON_KEY below are read from supabase-constants.js —
+// if your file defines them under different variable names, update this block to match.
+let sbClient = null;
+try{
+  if(window.supabase && typeof SUPABASE_URL !== "undefined" && typeof SUPABASE_ANON_KEY !== "undefined"){
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}catch(e){}
+
+async function pushHomeNotification(title, message){
+  if(!sbClient) return;
+  try{
+    const { data:{ session } } = await sbClient.auth.getSession();
+    const uid = session && session.user ? session.user.id : null;
+    await sbClient.from("notifications").insert([{
+      user_id: uid, type: "nurse_booking", title, message
+    }]);
+  }catch(e){}
+}
+
+// ---------------- Form elements ----------------
+const overlay = document.getElementById("overlay");
+const openBookBtn = document.getElementById("openBookBtn");
+const closeX = document.getElementById("closeX");
+const confirmBtn = document.getElementById("confirmBtn");
+const errMsg = document.getElementById("errMsg");
+
+const patientName = document.getElementById("patientName");
+const patientAge = document.getElementById("patientAge");
+const patientCaste = document.getElementById("patientCaste");
+const genderOpts = document.querySelectorAll(".gender-opt");
+const problemDesc = document.getElementById("problemDesc");
+const doctorName = document.getElementById("doctorName");
+const fileDrop = document.getElementById("fileDrop");
+const rxFile = document.getElementById("rxFile");
+const rxPreview = document.getElementById("rxPreview");
+const bookDate = document.getElementById("bookDate");
+const bookTime = document.getElementById("bookTime");
+const addrHouse = document.getElementById("addrHouse");
+const addrStreet = document.getElementById("addrStreet");
+const addrLandmark = document.getElementById("addrLandmark");
+const addrCity = document.getElementById("addrCity");
+const addrPincode = document.getElementById("addrPincode");
+const addrState = document.getElementById("addrState");
+const contactNo = document.getElementById("contactNo");
+const whatsappNo = document.getElementById("whatsappNo");
+
+let selectedGender = "";
+let rxImageData = "";
+let sheetOpenViaHistory = false;
+
+genderOpts.forEach(opt=>{
+  opt.addEventListener("click", ()=>{
+    genderOpts.forEach(o=>o.classList.remove("active"));
+    opt.classList.add("active");
+    selectedGender = opt.getAttribute("data-val");
+  });
+});
+
+fileDrop.addEventListener("click", ()=> rxFile.click());
+rxFile.addEventListener("change", ()=>{
+  const file = rxFile.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    rxImageData = e.target.result; // base64 — for production, upload to Supabase Storage instead
+    rxPreview.src = rxImageData;
+    rxPreview.style.display = "block";
+    fileDrop.textContent = "✅ " + file.name;
+    fileDrop.classList.add("has-file");
+  };
+  reader.readAsDataURL(file);
+});
+
+function resetForm(){
+  [patientName, patientAge, patientCaste, problemDesc, doctorName, addrHouse, addrStreet,
+   addrLandmark, addrCity, addrPincode, contactNo, whatsappNo].forEach(f=>f.value="");
+  addrState.value = "West Bengal";
+  genderOpts.forEach(o=>o.classList.remove("active"));
+  selectedGender = "";
+  rxImageData = "";
+  rxPreview.style.display = "none";
+  fileDrop.textContent = "📎 Tap to upload prescription photo";
+  fileDrop.classList.remove("has-file");
+  const today = new Date();
+  bookDate.value = today.toISOString().split("T")[0];
+  bookTime.value = "09:00";
+  errMsg.style.display = "none";
+}
+
+function openSheet(){
+  resetForm();
+  overlay.classList.add("active");
+  history.pushState({sheet:true}, "");
+  sheetOpenViaHistory = true;
+}
+function closeSheetUI(){ overlay.classList.remove("active"); }
+window.addEventListener("popstate", ()=>{
+  if(overlay.classList.contains("active")) closeSheetUI();
+  sheetOpenViaHistory = false;
+});
+openBookBtn.addEventListener("click", openSheet);
+closeX.addEventListener("click", ()=>{
+  if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+});
+overlay.addEventListener("click",(e)=>{
+  if(e.target === overlay){
+    if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+  }
+});
+
+confirmBtn.addEventListener("click", ()=>{
+  const required = [
+    patientName.value.trim(), patientAge.value.trim(), selectedGender,
+    problemDesc.value.trim(), bookDate.value, bookTime.value,
+    addrHouse.value.trim(), addrStreet.value.trim(), addrCity.value.trim(),
+    addrPincode.value.trim(), contactNo.value.trim(), whatsappNo.value.trim()
+  ];
+  if(required.some(v=>!v)){
+    errMsg.style.display = "block";
+    return;
+  }
+  errMsg.style.display = "none";
+
+  const booking = {
+    id: "NB" + Date.now(),
+    status: "pending",
+    createdAt: Date.now(),
+    patientName: patientName.value.trim(),
+    age: patientAge.value.trim(),
+    gender: selectedGender,
+    caste: patientCaste.value.trim(),
+    problem: problemDesc.value.trim(),
+    doctorName: doctorName.value.trim(),
+    rxImage: rxImageData,
+    date: bookDate.value,
+    time: bookTime.value,
+    address: {
+      house: addrHouse.value.trim(), street: addrStreet.value.trim(),
+      landmark: addrLandmark.value.trim(), city: addrCity.value.trim(),
+      pincode: addrPincode.value.trim(), state: addrState.value
+    },
+    contactNo: contactNo.value.trim(),
+    whatsappNo: whatsappNo.value.trim(),
+    nurse: null // filled when admin approves: { name, qualification, courses }
+  };
+
+  const list = getBookings();
+  list.unshift(booking);
+  saveBookings(list);
+  // TODO (production): insert this booking into a Supabase `nurse_bookings` table
+  // instead of localStorage, and upload rxImage to Supabase Storage, storing the URL.
+
+  sendWhatsAppNotification(booking);
+  pushHomeNotification("Nurse Booking Received", `Your nurse booking request for ${booking.patientName} on ${booking.date} is pending review.`);
+  renderBookings();
+
+  if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+  showToast("Booking submitted! Status: Pending ⏳");
+});
+
+function sendWhatsAppNotification(b){
+  const fullAddress = [b.address.house, b.address.street, b.address.landmark, b.address.city, b.address.state, b.address.pincode].filter(Boolean).join(", ");
+  const message =
+`🧑‍⚕️ *MediFinder — New Nurse Booking Request*
+
+*Patient:* ${b.patientName} (${b.age} yrs, ${b.gender})
+*Caste:* ${b.caste || "(not provided)"}
+*Problem:* ${b.problem}
+*Doctor Consulting:* ${b.doctorName || "(not provided)"}
+*Prescription Image:* ${b.rxImage ? "Attached in system (see admin panel)" : "(not uploaded)"}
+
+*Date:* ${b.date}
+*Time:* ${b.time}
+*Address:* ${fullAddress}
+
+*Contact No:* ${b.contactNo}
+*WhatsApp No:* ${b.whatsappNo}
+
+*Booking ID:* ${b.id}
+*Status:* Pending — please review & approve.`;
+
+  const encoded = encodeURIComponent(message);
+  const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  window.open(url, "_blank");
+}
+
+// ---------------- Render bookings ----------------
+const bookingsWrap = document.getElementById("bookingsWrap");
+
+function renderBookings(){
+  const list = getBookings();
+  if(list.length === 0){
+    bookingsWrap.innerHTML = `<div class="empty-state">No bookings yet. Tap "Book Nurse Now" above to request a home nurse.</div>`;
+    return;
+  }
+  bookingsWrap.innerHTML = list.map(b=>{
+    const d = new Date(b.createdAt);
+    const submittedStr = d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
+    const fullAddress = [b.address.house, b.address.street, b.address.city, b.address.pincode].filter(Boolean).join(", ");
+    const nurseBlock = b.status === "approved" && b.nurse ? `
+      <div class="nurse-box">
+        <div class="n-head">
+          <div class="n-avatar">${b.nurse.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <div class="n-name">${b.nurse.name}</div>
+            <div class="n-sub">Assigned Nurse</div>
+          </div>
+        </div>
+        <div class="n-detail">
+          <b>Education:</b> ${b.nurse.qualification || "—"}<br>
+          <b>Courses Completed:</b> ${b.nurse.courses || "—"}
+        </div>
+      </div>
+    ` : "";
+
+    const adminBlock = b.status === "pending" ? `
+      <details class="demo-admin">
+        <summary>⚙️ Demo: Simulate Admin Approval</summary>
+        <div class="field">
+          <label>Nurse Name</label>
+          <input type="text" data-role="n-name" placeholder="e.g. Sister Anjali Roy">
+        </div>
+        <div class="field">
+          <label>Education</label>
+          <input type="text" data-role="n-edu" placeholder="e.g. B.Sc Nursing, Calcutta University">
+        </div>
+        <div class="field">
+          <label>Courses Completed</label>
+          <input type="text" data-role="n-courses" placeholder="e.g. GNM, Critical Care Nursing, BLS Certified">
+        </div>
+        <button class="approve-btn" data-id="${b.id}">Approve Booking</button>
+      </details>
+    ` : "";
+
+    return `
+      <div class="bcard" data-booking-id="${b.id}">
+        <div class="bcard-top">
+          <div>
+            <h3>${b.patientName}</h3>
+            <div class="meta">${b.age} yrs · ${b.gender} · Requested ${submittedStr}</div>
+          </div>
+          <span class="status-pill ${b.status}">${b.status === "approved" ? "✅ Approved" : "⏳ Pending"}</span>
+        </div>
+        <hr>
+        <div class="row-line"><span>Problem</span><b>${b.problem}</b></div>
+        <div class="row-line"><span>Doctor</span><b>${b.doctorName || "—"}</b></div>
+        <div class="row-line"><span>Schedule</span><b>${b.date} · ${b.time}</b></div>
+        <div class="row-line"><span>Address</span><b>${fullAddress}</b></div>
+        <div class="row-line"><span>Contact</span><b>${b.contactNo}</b></div>
+        ${b.rxImage ? `<img class="rx-thumb" src="${b.rxImage}" alt="Prescription">` : ""}
+        ${nurseBlock}
+        ${adminBlock}
+      </div>
+    `;
+  }).join("");
+}
+renderBookings();
+
+// ---------------- Demo approve action ----------------
+bookingsWrap.addEventListener("click",(e)=>{
+  if(!e.target.classList.contains("approve-btn")) return;
+  const card = e.target.closest(".bcard");
+  const id = e.target.getAttribute("data-id");
+  const nameVal = card.querySelector('[data-role="n-name"]').value.trim();
+  const eduVal = card.querySelector('[data-role="n-edu"]').value.trim();
+  const courseVal = card.querySelector('[data-role="n-courses"]').value.trim();
+  if(!nameVal){ card.querySelector('[data-role="n-name"]').focus(); return; }
+
+  const list = getBookings();
+  const idx = list.findIndex(x=>x.id === id);
+  if(idx === -1) return;
+  list[idx].status = "approved";
+  list[idx].nurse = { name: nameVal, qualification: eduVal, courses: courseVal };
+  saveBookings(list);
+  // TODO (production): this whole "Demo: Simulate Admin Approval" panel should NOT
+  // exist on the user-facing page. Instead, your admin panel updates the
+  // `nurse_bookings` row's status + assigned nurse in Supabase, and this page
+  // should just read the latest status (e.g. via a realtime subscription or
+  // periodic fetch keyed on the logged-in user / booking id).
+  pushHomeNotification("Nurse Booking Approved", `${nameVal} has been assigned as your nurse for ${list[idx].patientName}'s booking on ${list[idx].date}.`);
+  renderBookings();
+  showToast("Booking approved (demo) ✅");
+});
+
+// ---------------- Toast ----------------
+let toastTimeout;
+function showToast(msg){
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=> toast.classList.remove("show"), 2400);
+}
+</script>
+</body>
+</html>

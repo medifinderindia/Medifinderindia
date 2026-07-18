@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediFinder — Get Tablet Coin</title>
+<style>
+  :root{
+    --maroon-deep:#b71c1c;
+    --maroon:#e02020;
+    --maroon-bright:#ff4747;
+    --ink:#2f3542;
+    --cream:#f4f6f9;
+    --cream-2:#fdecea;
+    --line:#e5e7eb;
+    --success:#2ed573;
+    --navy:#20263b;
+    --gold:#ffa502;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+  }
+  .ribbon{
+    background:var(--maroon-deep);
+    color:#ffe3dc;
+    font-size:11px;
+    letter-spacing:1px;
+    text-align:center;
+    padding:6px 8px;
+    font-weight:700;
+  }
+  header{
+    background:#fff;
+    padding:14px 16px 10px;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand-mark img{
+    width:45px;height:45px;
+    border-radius:12px;
+  }
+  .brand-text h1{
+    margin:0;
+    font-size:26px;
+    font-weight:900;
+    letter-spacing:1px;
+  }
+  .brand-text .medi{color:#d50000;}
+  .brand-text .finder{color:#000;}
+  .header-top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .back-link{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    color:#fff;
+    text-decoration:none;
+    font-weight:700;
+    font-size:12.5px;
+    border:none;
+    padding:9px 16px 9px 12px;
+    border-radius:30px;
+    box-shadow:0 6px 16px rgba(183,28,28,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .back-link:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(183,28,28,.35);}
+
+  /* ---------- Coin balance banner ---------- */
+  .coin-banner{
+    margin:14px 16px 0;
+    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    border-radius:16px;
+    padding:20px;
+    color:#fff;
+    position:relative;
+    overflow:hidden;
+    text-align:center;
+  }
+  .coin-banner::after{
+    content:"";
+    position:absolute;right:-40px;top:-40px;
+    width:160px;height:160px;
+    background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%);
+  }
+  .coin-banner .label{
+    font-size:11px;
+    letter-spacing:1.5px;
+    color:#ffe3dc;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .coin-banner .amount{
+    font-size:40px;
+    font-weight:900;
+    margin:6px 0 2px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .coin-banner .amount .coin-ic{
+    width:36px;height:36px;
+    border-radius:50%;
+    background:var(--gold);
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;
+    box-shadow:0 0 0 3px rgba(255,255,255,.25);
+  }
+  .coin-banner .sub{
+    font-size:12px;
+    color:#ffe3dc;
+  }
+  .coin-actions{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+  }
+  .coin-actions button{
+    flex:1;
+    border:none;
+    padding:10px;
+    border-radius:10px;
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn-redeem{background:#fff;color:var(--maroon-deep);}
+  .btn-history{background:rgba(255,255,255,.18);color:#fff;}
+
+  /* ---------- Section title ---------- */
+  .section-title{padding:22px 16px 6px;}
+  .section-title h2{
+    margin:0 0 4px;
+    font-size:18px;
+    color:var(--maroon-deep);
+    border-left:4px solid var(--maroon);
+    padding-left:10px;
+  }
+  .section-title p{
+    margin:0 0 0 14px;
+    font-size:12px;
+    color:#7a5f52;
+  }
+
+  /* ---------- Earn grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+    gap:16px;
+    padding:14px 16px 10px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 16px 14px;
+    box-shadow:0 3px 10px rgba(122,13,13,.06);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .card-head{display:flex;align-items:center;gap:10px;}
+  .icon-badge{
+    width:44px;height:44px;
+    border-radius:10px;
+    background:var(--cream-2);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    font-size:20px;
+  }
+  .card-head h3{margin:0;font-size:15px;color:var(--ink);}
+  .card p.desc{
+    margin:0;
+    font-size:12.5px;
+    color:#5b463d;
+    line-height:1.5;
+  }
+  .reward-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    font-weight:800;
+    color:var(--maroon-deep);
+  }
+  .reward-row .mini-coin{
+    width:18px;height:18px;
+    border-radius:50%;
+    background:var(--gold);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:10px;
+    color:#fff;
+  }
+  .cooldown-note{
+    font-size:11px;
+    color:#8a6a3a;
+    background:#fbf0dd;
+    width:fit-content;
+    padding:3px 8px;
+    border-radius:8px;
+  }
+  .earn-btn{
+    margin-top:6px;
+    border:none;
+    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;
+    font-size:14.5px;
+    font-weight:700;
+    padding:11px;
+    border-radius:10px;
+    cursor:pointer;
+    letter-spacing:.4px;
+  }
+  .earn-btn:hover{filter:brightness(1.05);}
+  .earn-btn:disabled{
+    background:#cbb8b0;
+    cursor:not-allowed;
+    filter:none;
+  }
+
+  /* ---------- Redeem strip ---------- */
+  .redeem-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:14px;
+    padding:14px 16px 30px;
+  }
+  .redeem-card{
+    background:#fff;
+    border:1px dashed var(--maroon-bright);
+    border-radius:12px;
+    padding:14px;
+    text-align:center;
+  }
+  .redeem-card .r-coin{
+    font-size:13px;
+    font-weight:800;
+    color:var(--gold);
+    margin-bottom:4px;
+  }
+  .redeem-card h4{margin:2px 0 4px;font-size:14px;color:var(--maroon-deep);}
+  .redeem-card p{margin:0 0 10px;font-size:11.5px;color:#7a5f52;}
+  .redeem-card button{
+    border:none;
+    background:var(--cream-2);
+    color:var(--maroon-deep);
+    font-size:12px;
+    font-weight:700;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    width:100%;
+  }
+  .redeem-card button:disabled{opacity:.5;cursor:not-allowed;}
+
+  footer{
+    text-align:center;
+    padding:22px 16px 30px;
+    font-size:12px;
+    color:#9c7b6d;
+  }
+
+  /* ---------- Ad-watch modal ---------- */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(28,20,20,.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:16px;
+  }
+  .overlay.active{display:flex;}
+  .ad-sheet{
+    background:#fff;
+    width:100%;
+    max-width:380px;
+    border-radius:16px;
+    padding:20px;
+    text-align:center;
+    animation:popIn .2s ease;
+  }
+  @keyframes popIn{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .ad-screen{
+    background:var(--navy);
+    color:#fff;
+    border-radius:12px;
+    height:180px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    margin-bottom:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ad-screen .ad-tag{
+    position:absolute;top:8px;left:8px;
+    background:rgba(255,255,255,.15);
+    font-size:9px;
+    padding:2px 7px;
+    border-radius:10px;
+    letter-spacing:.5px;
+  }
+  .ring-wrap{position:relative;width:70px;height:70px;margin-bottom:10px;}
+  .ring-wrap svg{transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:rgba(255,255,255,.15);stroke-width:6;}
+  .ring-fg{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .3s linear;}
+  .ring-num{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;font-weight:800;
+  }
+  .ad-sheet h3{margin:0 0 6px;color:var(--maroon-deep);font-size:16px;}
+  .ad-sheet p{margin:0 0 16px;font-size:12.5px;color:#7a5f52;}
+  .claim-btn{
+    width:100%;
+    border:none;
+    padding:13px;
+    border-radius:10px;
+    font-size:14.5px;
+    font-weight:700;
+    cursor:pointer;
+    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;
+  }
+  .claim-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .close-x{
+    position:absolute;
+    top:10px;right:10px;
+    width:30px;height:30px;
+    border-radius:50%;
+    border:none;
+    background:var(--cream-2);
+    color:var(--maroon-deep);
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .ad-sheet-wrap{position:relative;}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed;
+    bottom:22px;left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--success);
+    color:#fff;
+    padding:11px 18px;
+    border-radius:30px;
+    font-size:13px;
+    font-weight:700;
+    box-shadow:0 6px 18px rgba(0,0,0,.2);
+    opacity:0;
+    pointer-events:none;
+    transition:.25s ease;
+    z-index:60;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ---------- History sheet ---------- */
+  .hist-overlay{
+    position:fixed;inset:0;
+    background:rgba(28,20,20,.55);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:55;
+  }
+  .hist-overlay.active{display:flex;}
+  .hist-sheet{
+    background:#fff;
+    width:100%;
+    max-width:460px;
+    border-radius:18px 18px 0 0;
+    padding:0 0 22px;
+    max-height:75vh;
+    overflow-y:auto;
+    animation:slideUp .25s ease;
+  }
+  @keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .hist-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px 8px;
+    position:sticky;top:0;background:#fff;
+    border-bottom:1px solid var(--line);
+  }
+  .hist-header h3{margin:0;color:var(--maroon-deep);font-size:17px;}
+  .hist-body{padding:10px 18px 0;}
+  .hist-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .hist-row .hr-left .hr-title{font-weight:700;color:var(--ink);}
+  .hist-row .hr-left .hr-time{font-size:11px;color:#9c7b6d;}
+  .hist-row .hr-coin{font-weight:800;color:var(--success);}
+  .hist-empty{
+    text-align:center;
+    padding:30px 0;
+    color:#9c7b6d;
+    font-size:13px;
+  }
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+</head>
+<body>
+
+<div class="ribbon">EARN TABLET COIN · WATCH & GET REWARDED · USE ON YOUR NEXT ORDER</div>
+
+<header>
+  <div class="header-top-row">
+    <div class="brand">
+      <div class="brand-mark"><img src="1779304435608.png" alt="MediFinder Logo"></div>
+      <div class="brand-text"><h1><span class="medi">MEDI</span><span class="finder">FINDER</span></h1></div>
+    </div>
+    <a href="userhome.html" class="back-link"><i class="fa-solid fa-house"></i> Back to Home</a>
+  </div>
+</header>
+
+<div class="coin-banner">
+  <div class="label">Your Tablet Coin Balance</div>
+  <div class="amount"><span class="coin-ic">🪙</span><span id="balanceText">0</span></div>
+  <div class="sub">1 Tablet Coin = ₹1 discount on your next medicine order</div>
+  <div class="coin-actions">
+    <button class="btn-redeem" id="openRedeem">Redeem Coins</button>
+    <button class="btn-history" id="openHistory">View History</button>
+  </div>
+</div>
+
+<div class="section-title">
+  <h2>Earn Tablet Coin</h2>
+  <p>Watch a short ad, get instantly rewarded — just like Flipkart SuperCoin</p>
+</div>
+
+<div class="grid" id="earnGrid"></div>
+
+<div class="section-title">
+  <h2>Redeem Your Coins</h2>
+  <p>Convert Tablet Coin into real discounts on MediFinder</p>
+</div>
+
+<div class="redeem-grid" id="redeemGrid"></div>
+
+<footer>
+  © MediFinder · Tablet Coin Rewards Program
+</footer>
+
+<!-- Ad watch modal -->
+<div class="overlay" id="adOverlay">
+  <div class="ad-sheet-wrap">
+    <div class="ad-sheet">
+      <button class="close-x" id="adCloseX">✕</button>
+      <div class="ad-screen" id="adScreen">
+        <span class="ad-tag">AD</span>
+        <div class="ring-wrap">
+          <svg width="70" height="70">
+            <circle class="ring-bg" cx="35" cy="35" r="30"></circle>
+            <circle class="ring-fg" id="ringFg" cx="35" cy="35" r="30" stroke-dasharray="188.4" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="ring-num" id="ringNum">15</div>
+        </div>
+        <div id="adScreenText">Your ad is playing...</div>
+      </div>
+      <h3 id="adTitle">Watching Ad</h3>
+      <p id="adDesc">Please wait, don't close this window.</p>
+      <button class="claim-btn" id="claimBtn" disabled>Claim Reward</button>
+    </div>
+  </div>
+</div>
+
+<!-- History sheet -->
+<div class="hist-overlay" id="histOverlay">
+  <div class="hist-sheet">
+    <div class="hist-header">
+      <h3>Coin History</h3>
+      <button class="close-x" id="histCloseX">✕</button>
+    </div>
+    <div class="hist-body" id="histBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   TABLET COIN — reward-for-watching-ads system
+   Storage: localStorage (swap with Supabase calls where marked)
+   ============================================================ */
+
+const STORAGE_BALANCE = "mf_tablet_coin_balance";
+const STORAGE_HISTORY = "mf_tablet_coin_history";
+const STORAGE_COOLDOWN = "mf_tablet_coin_cooldown"; // per-task last-claim timestamps
+
+// ---------------- Earn tasks ----------------
+// Each task = one "ad slot". cooldownMins = how long before it can be watched again.
+const earnTasks = [
+  { id:"ad_short",   icon:"📺", title:"Watch Short Ad (15s)",  desc:"A quick 15-second video ad from our sponsors.",           reward:5,  seconds:15, cooldownMins:30 },
+  { id:"ad_long",    icon:"🎬", title:"Watch Full Ad (30s)",   desc:"A 30-second video ad. Bigger reward for full watch.",     reward:12, seconds:30, cooldownMins:60 },
+  { id:"ad_offer",   icon:"🎁", title:"Sponsor Offer Video",   desc:"Watch a sponsor offer video to unlock bonus coins.",       reward:20, seconds:20, cooldownMins:180 },
+  { id:"daily_bonus",icon:"📅", title:"Daily Check-in Bonus",  desc:"Watch a short ad for your daily login bonus.",             reward:8,  seconds:10, cooldownMins:1440 },
+];
+
+// ---------------- Redeem options ----------------
+const redeemOptions = [
+  { id:"r1", coins:50,  title:"₹50 Order Discount",  desc:"Apply on any medicine order above ₹300" },
+  { id:"r2", coins:100, title:"₹100 Order Discount", desc:"Apply on any medicine order above ₹500" },
+  { id:"r3", coins:200, title:"Free Delivery x3",    desc:"Waive delivery charge on next 3 orders" },
+  { id:"r4", coins:500, title:"₹500 Order Discount", desc:"Apply on any medicine order above ₹1500" },
+];
+
+// ---------------- State helpers ----------------
+// ---------------- Live notification bridge to userhome.html ----------------
+// Same Supabase project as the rest of MediFinder — inserts land in the
+// `notifications` table so they show up instantly in the home page bell.
+// NOTE: verify SUPABASE_URL / SUPABASE_ANON_KEY match the variable names in your
+// actual supabase-constants.js file.
+let sbClient = null;
+try{
+  if(window.supabase && typeof SUPABASE_URL !== "undefined" && typeof SUPABASE_ANON_KEY !== "undefined"){
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}catch(e){}
+
+async function pushHomeNotification(title, message){
+  if(!sbClient) return;
+  try{
+    const { data:{ session } } = await sbClient.auth.getSession();
+    const uid = session && session.user ? session.user.id : null;
+    await sbClient.from("notifications").insert([{
+      user_id: uid, type: "tablet_coin", title, message
+    }]);
+  }catch(e){}
+}
+
+function getBalance(){ return parseInt(localStorage.getItem(STORAGE_BALANCE) || "0", 10); }
+function setBalance(v){ localStorage.setItem(STORAGE_BALANCE, v); document.getElementById("balanceText").textContent = v; }
+function getHistory(){ return JSON.parse(localStorage.getItem(STORAGE_HISTORY) || "[]"); }
+function pushHistory(entry){
+  const h = getHistory();
+  h.unshift(entry);
+  localStorage.setItem(STORAGE_HISTORY, JSON.stringify(h.slice(0,100)));
+}
+function getCooldowns(){ return JSON.parse(localStorage.getItem(STORAGE_COOLDOWN) || "{}"); }
+function setCooldown(taskId){
+  const c = getCooldowns();
+  c[taskId] = Date.now();
+  localStorage.setItem(STORAGE_COOLDOWN, JSON.stringify(c));
+}
+function minsLeft(taskId, cooldownMins){
+  const c = getCooldowns();
+  if(!c[taskId]) return 0;
+  const elapsedMins = (Date.now() - c[taskId]) / 60000;
+  const left = cooldownMins - elapsedMins;
+  return left > 0 ? Math.ceil(left) : 0;
+}
+
+// ---------------- Render earn grid ----------------
+const earnGrid = document.getElementById("earnGrid");
+function renderEarnGrid(){
+  earnGrid.innerHTML = "";
+  earnTasks.forEach(task=>{
+    const left = minsLeft(task.id, task.cooldownMins);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="icon-badge">${task.icon}</div>
+        <h3>${task.title}</h3>
+      </div>
+      <p class="desc">${task.desc}</p>
+      <div class="reward-row"><span class="mini-coin">🪙</span> +${task.reward} Tablet Coin</div>
+      ${left > 0
+        ? `<span class="cooldown-note">⏳ Available again in ${left} min</span>`
+        : `<span class="cooldown-note">✅ Ready to watch</span>`}
+      <button class="earn-btn" data-id="${task.id}" ${left>0 ? "disabled" : ""}>
+        ${left>0 ? "On Cooldown" : "Watch Ad & Earn"}
+      </button>
+    `;
+    earnGrid.appendChild(card);
+  });
+}
+renderEarnGrid();
+setInterval(renderEarnGrid, 15000); // refresh cooldown labels periodically
+
+// ---------------- Render redeem grid ----------------
+const redeemGrid = document.getElementById("redeemGrid");
+function renderRedeemGrid(){
+  redeemGrid.innerHTML = "";
+  const bal = getBalance();
+  redeemOptions.forEach(opt=>{
+    const canAfford = bal >= opt.coins;
+    const card = document.createElement("div");
+    card.className = "redeem-card";
+    card.innerHTML = `
+      <div class="r-coin">🪙 ${opt.coins} Coins</div>
+      <h4>${opt.title}</h4>
+      <p>${opt.desc}</p>
+      <button data-id="${opt.id}" ${canAfford ? "" : "disabled"}>
+        ${canAfford ? "Redeem" : "Not enough coins"}
+      </button>
+    `;
+    redeemGrid.appendChild(card);
+  });
+}
+renderRedeemGrid();
+
+redeemGrid.addEventListener("click",(e)=>{
+  if(e.target.tagName !== "BUTTON" || e.target.disabled) return;
+  const opt = redeemOptions.find(o=>o.id === e.target.getAttribute("data-id"));
+  if(!opt) return;
+  const bal = getBalance();
+  if(bal < opt.coins) return;
+  setBalance(bal - opt.coins);
+  pushHistory({ type:"redeem", title:opt.title, coins:-opt.coins, time:Date.now() });
+  renderRedeemGrid();
+  showToast(`Redeemed: ${opt.title} 🎉`);
+  pushHomeNotification("Tablet Coin Redeemed", `You redeemed ${opt.coins} Tablet Coin for "${opt.title}".`);
+  // TODO (production): call Supabase RPC here to generate a real coupon code
+  // tied to this user, e.g. supabase.rpc('redeem_tablet_coin', {option_id: opt.id})
+});
+
+// ---------------- Ad watch flow ----------------
+const adOverlay = document.getElementById("adOverlay");
+const adTitle = document.getElementById("adTitle");
+const adDesc = document.getElementById("adDesc");
+const ringFg = document.getElementById("ringFg");
+const ringNum = document.getElementById("ringNum");
+const claimBtn = document.getElementById("claimBtn");
+const adCloseX = document.getElementById("adCloseX");
+const adScreenText = document.getElementById("adScreenText");
+
+const CIRC = 2 * Math.PI * 30; // r=30
+ringFg.style.strokeDasharray = CIRC;
+
+let activeTask = null;
+let timerInterval = null;
+
+earnGrid.addEventListener("click",(e)=>{
+  if(e.target.tagName !== "BUTTON" || e.target.disabled) return;
+  const task = earnTasks.find(t=>t.id === e.target.getAttribute("data-id"));
+  if(!task) return;
+  startAdWatch(task);
+});
+
+function startAdWatch(task){
+  activeTask = task;
+  adTitle.textContent = task.title;
+  adDesc.textContent = "Please wait, don't close this window.";
+  adScreenText.textContent = "Your ad is playing...";
+  claimBtn.disabled = true;
+  claimBtn.textContent = "Claim Reward";
+  adOverlay.classList.add("active");
+
+  let remaining = task.seconds;
+  ringNum.textContent = remaining;
+  ringFg.style.strokeDashoffset = 0;
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(()=>{
+    remaining--;
+    ringNum.textContent = remaining > 0 ? remaining : "✓";
+    const progress = 1 - (remaining / task.seconds);
+    ringFg.style.strokeDashoffset = CIRC * (1 - progress);
+    if(remaining <= 0){
+      clearInterval(timerInterval);
+      adScreenText.textContent = "Ad complete!";
+      adDesc.textContent = "Tap below to collect your Tablet Coin.";
+      claimBtn.disabled = false;
+    }
+  }, 1000);
+
+  /* ============================================================
+     PRODUCTION NOTE:
+     Replace the setInterval countdown above with a real rewarded-ad
+     SDK callback. Common options for a web app like this:
+       - An offerwall/reward-ad network (e.g. CPX Research, AdGate
+         Media, OfferToro) — they give you a postback URL/webhook
+         that fires server-side when a user genuinely finishes an ad,
+         which is far safer than crediting coins from client JS alone.
+       - Google Ad Manager rewarded web interstitials.
+     Whichever you pick, the actual coin credit should happen in your
+     Supabase backend (an RPC/Edge Function verifying the ad network's
+     postback signature), not purely in this client-side script —
+     otherwise users can fake completion by editing local state.
+     ============================================================ */
+}
+
+claimBtn.addEventListener("click", ()=>{
+  if(!activeTask) return;
+  const newBal = getBalance() + activeTask.reward;
+  setBalance(newBal);
+  pushHistory({ type:"earn", title:activeTask.title, coins:activeTask.reward, time:Date.now() });
+  setCooldown(activeTask.id);
+  adOverlay.classList.remove("active");
+  renderEarnGrid();
+  renderRedeemGrid();
+  showToast(`+${activeTask.reward} Tablet Coin earned! 🪙`);
+  pushHomeNotification("Tablet Coin Earned", `You earned ${activeTask.reward} Tablet Coin from "${activeTask.title}". New balance: ${newBal}.`);
+  activeTask = null;
+  // TODO (production): also sync balance to Supabase, e.g.
+  // supabase.from('tablet_coin_wallet').upsert({ user_id, balance: newBal })
+});
+
+adCloseX.addEventListener("click", ()=>{
+  clearInterval(timerInterval);
+  adOverlay.classList.remove("active");
+  activeTask = null;
+});
+adOverlay.addEventListener("click",(e)=>{
+  if(e.target === adOverlay){
+    clearInterval(timerInterval);
+    adOverlay.classList.remove("active");
+    activeTask = null;
+  }
+});
+
+// ---------------- History sheet ----------------
+const histOverlay = document.getElementById("histOverlay");
+const histBody = document.getElementById("histBody");
+const histCloseX = document.getElementById("histCloseX");
+
+document.getElementById("openHistory").addEventListener("click", ()=>{
+  renderHistory();
+  histOverlay.classList.add("active");
+});
+histCloseX.addEventListener("click", ()=> histOverlay.classList.remove("active"));
+histOverlay.addEventListener("click",(e)=>{
+  if(e.target === histOverlay) histOverlay.classList.remove("active");
+});
+document.getElementById("openRedeem").addEventListener("click", ()=>{
+  document.querySelector(".redeem-grid").scrollIntoView({behavior:"smooth", block:"start"});
+});
+
+function renderHistory(){
+  const h = getHistory();
+  if(h.length === 0){
+    histBody.innerHTML = `<div class="hist-empty">No activity yet. Watch an ad to earn your first Tablet Coin!</div>`;
+    return;
+  }
+  histBody.innerHTML = h.map(entry=>{
+    const d = new Date(entry.time);
+    const timeStr = d.toLocaleString("en-IN", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" });
+    const sign = entry.coins > 0 ? "+" : "";
+    const color = entry.coins > 0 ? "var(--success)" : "var(--maroon-deep)";
+    return `
+      <div class="hist-row">
+        <div class="hr-left">
+          <div class="hr-title">${entry.title}</div>
+          <div class="hr-time">${timeStr}</div>
+        </div>
+        <div class="hr-coin" style="color:${color}">${sign}${entry.coins}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ---------------- Toast ----------------
+let toastTimeout;
+function showToast(msg){
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=> toast.classList.remove("show"), 2200);
+}
+
+// ---------------- Init ----------------
+setBalance(getBalance());
+</script>
+</body>
+</html>

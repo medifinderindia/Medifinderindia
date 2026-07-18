@@ -6,22 +6,33 @@
 <title>Medifinder — Search. Connect. Care.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <style>
 :root{
-  --red:#B3261E;
-  --red-dark:#8C1D17;
-  --red-soft:#FDECEA;
-  --ink:#1B1B1F;
-  --muted:#6B6B72;
-  --line:#E7E5E4;
-  --bg:#F7F6F4;
+  --red:#e02020;
+  --red-dark:#b71c1c;
+  --red-soft:#fdecea;
+  --ink:#2f3542;
+  --muted:#747d8c;
+  --line:#e5e7eb;
+  --bg:#f4f6f9;
   --card:#FFFFFF;
   --teal:#0E9A8B;
-  --gold:#E4A317;
+  --gold:#ffa502;
   --radius:14px;
   --shadow:0 6px 20px rgba(27,27,31,.07);
   font-family:'Inter',system-ui,sans-serif;
 }
+.back-home-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  background:linear-gradient(120deg,var(--red-dark),var(--red));
+  color:#fff;border:none;padding:9px 16px 9px 12px;border-radius:30px;
+  font-size:12.5px;font-weight:700;text-decoration:none;
+  box-shadow:0 6px 16px rgba(183,28,28,.28);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.back-home-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(183,28,28,.35);}
+.back-home-btn i{font-size:12px;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--ink);}
 h1,h2,h3{font-family:'Poppins',sans-serif;margin:0;}
@@ -260,7 +271,10 @@ h1,h2,h3{font-family:'Poppins',sans-serif;margin:0;}
       <p>Search. Connect. Care.</p>
     </div>
   </div>
-  <button id="adminOpenBtn" class="admin-fab" title="Admin Panel" aria-label="Admin Panel">+</button>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="userhome.html" class="back-home-btn"><i class="fa-solid fa-house"></i> Back to Home</a>
+    <button id="adminOpenBtn" class="admin-fab" title="Admin Panel" aria-label="Admin Panel">+</button>
+  </div>
 </header>
 
 <!-- ================= SEARCH PANEL ================= -->
@@ -289,17 +303,6 @@ h1,h2,h3{font-family:'Poppins',sans-serif;margin:0;}
   <button id="searchBtn" class="search-cta">Find Ambulance</button>
   <p id="searchHint" class="search-hint">Enter pickup and destination to search — all ambulances on that route will show below</p>
 </div>
-
-<!-- ================= QUICK SERVICES (visual only, matches reference) ================= -->
-<section class="quick-services">
-  <div class="qs-item"><div class="qs-icon qs-1">🧪</div><span>Lab Test</span></div>
-  <div class="qs-item"><div class="qs-icon qs-2">🩺</div><span>Medical Instruments</span></div>
-  <div class="qs-item"><div class="qs-icon qs-3">👩‍⚕️</div><span>Nurse Booking</span></div>
-  <div class="qs-item"><div class="qs-icon qs-4">👨‍⚕️</div><span>Doctor Consult</span></div>
-  <div class="qs-item"><div class="qs-icon qs-5">❤️</div><span>Body Checkup</span></div>
-  <div class="qs-item active"><div class="qs-icon qs-6">📞</div><span>Call Ambulance</span></div>
-  <div class="qs-item"><div class="qs-icon qs-7">💊</div><span>Get Tablets</span></div>
-</section>
 
 <!-- ================= AMBULANCE LIST ================= -->
 <section class="results-section">

@@ -207,7 +207,7 @@ body{padding-bottom:100px}
 <div class="brand-name">MEDI<span>FINDER</span></div>
 </div>
 <div class="header-actions">
-<button class="header-btn" onclick="location.href='marchenthome.html'"><i class="fas fa-bell"></i><div class="notif-dot"></div></button>
+<button class="header-btn" onclick="showMerchantNotifications()"><i class="fas fa-bell"></i><div class="notif-dot" style="display:none;"></div></button>
 </div>
 </header>
 
@@ -534,6 +534,150 @@ let supabase,sbProducts=[],sbDiscounts=[],sbCoupons=[],sbFlash=[],sbFeatured=[];
 let merchantId=localStorage.getItem('merchantId')||localStorage.getItem('merchant_id')||'';
 
 try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){/* error */}
+
+// ==========================================
+// 🔔 NOTIFICATION HISTORY PANEL (self-contained — this page
+// doesn't load marchentscript.js, so this lives here directly)
+// ==========================================
+let _notifPanelOpen=false;
+function _notifIconFor(n){
+    const t=(n.title||'').toLowerCase();const c=(n.category||'').toLowerCase();
+    if(t.includes('kyc')||t.includes('license'))return{icon:'fa-shield-halved',color:'#0284c7'};
+    if(t.includes('product')||t.includes('medicine'))return{icon:'fa-box-open',color:'#7c3aed'};
+    if(c==='order'||t.includes('order'))return{icon:'fa-receipt',color:'#e02020'};
+    if(t.includes('payout')||t.includes('payment')||t.includes('settlement'))return{icon:'fa-wallet',color:'#059669'};
+    if(n.type==='error')return{icon:'fa-circle-exclamation',color:'#ef4444'};
+    if(n.type==='warning')return{icon:'fa-triangle-exclamation',color:'#f59e0b'};
+    return{icon:'fa-bullhorn',color:'#64748b'};
+}
+function _timeAgo(dateStr){
+    if(!dateStr)return'';
+    const mins=Math.floor((Date.now()-new Date(dateStr).getTime())/60000);
+    if(mins<1)return'Just now';if(mins<60)return`${mins}m ago`;
+    const hrs=Math.floor(mins/60);if(hrs<24)return`${hrs}h ago`;
+    const days=Math.floor(hrs/24);if(days<7)return`${days}d ago`;
+    return new Date(dateStr).toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+}
+async function fetchMerchantNotifications(){
+    if(!merchantId||!supabase)return[];
+    try{
+        const{data,error}=await supabase.from('merchant_notifications').select('*').or(`merchant_id.eq.${merchantId},merchant_id.is.null`).order('created_at',{ascending:false}).limit(50);
+        if(error)throw error;return data||[];
+    }catch(e){return[]}
+}
+async function refreshUnreadNotifBadge(){
+    const dot=document.querySelector('.notif-dot');
+    if(!merchantId||!supabase)return;
+    try{
+        const{count,error}=await supabase.from('merchant_notifications').select('id',{count:'exact',head:true}).or(`merchant_id.eq.${merchantId},merchant_id.is.null`).eq('is_read',false);
+        if(error)throw error;
+        if(dot)dot.style.display=count>0?'block':'none';
+    }catch(e){}
+}
+function _notifPanelEl(){
+    let panel=document.getElementById('notifHistoryPanel');
+    if(panel)return panel;
+    panel=document.createElement('div');
+    panel.id='notifHistoryPanel';
+    panel.className='notif-history-panel';
+    panel.innerHTML=`
+        <div class="notif-history-overlay" id="notifHistoryOverlay"></div>
+        <div class="notif-history-card">
+            <div class="notif-history-head">
+                <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+                <div class="notif-history-actions">
+                    <button type="button" id="btnMarkAllNotifRead">Mark all read</button>
+                    <button type="button" id="btnCloseNotifPanel" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="notif-history-list" id="notifHistoryList"><div class="notif-history-empty">Loading...</div></div>
+        </div>
+        <style>
+            .notif-history-panel{position:fixed;inset:0;z-index:10000;display:none}
+            .notif-history-panel.show{display:block}
+            .notif-history-overlay{position:absolute;inset:0;background:rgba(15,23,42,0.35)}
+            .notif-history-card{position:absolute;top:0;right:0;height:100%;width:min(380px,100%);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,0.15);display:flex;flex-direction:column;animation:notifSlideIn .25s ease}
+            @keyframes notifSlideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+            .notif-history-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #f1f5f9}
+            .notif-history-head h3{margin:0;font-size:16px;color:#0f172a;display:flex;align-items:center;gap:8px}
+            .notif-history-actions{display:flex;align-items:center;gap:12px}
+            .notif-history-actions button{border:none;background:none;cursor:pointer}
+            #btnMarkAllNotifRead{color:#e02020;font-size:12.5px;font-weight:600}
+            #btnCloseNotifPanel{font-size:16px;color:#94a3b8;padding:4px}
+            .notif-history-list{flex:1;overflow-y:auto}
+            .notif-history-empty{padding:60px 20px;text-align:center;color:#94a3b8;font-size:14px}
+            .notif-history-item{display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid #f8fafc;cursor:pointer;position:relative}
+            .notif-history-item.unread{background:#fff7f7}
+            .notif-history-item .nh-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:#fff}
+            .notif-history-item .nh-body{flex:1;min-width:0}
+            .notif-history-item .nh-title{font-size:13.5px;font-weight:700;color:#1e293b;margin-bottom:3px}
+            .notif-history-item .nh-msg{font-size:12.5px;color:#64748b;line-height:1.4;word-break:break-word}
+            .notif-history-item .nh-time{font-size:11px;color:#b0b8c4;margin-top:4px}
+            .notif-history-item .nh-dot{width:8px;height:8px;border-radius:50%;background:#e02020;position:absolute;right:16px;top:18px}
+        </style>`;
+    document.body.appendChild(panel);
+    panel.querySelector('#notifHistoryOverlay').addEventListener('click',closeMerchantNotifications);
+    panel.querySelector('#btnCloseNotifPanel').addEventListener('click',closeMerchantNotifications);
+    panel.querySelector('#btnMarkAllNotifRead').addEventListener('click',markAllNotifRead);
+    return panel;
+}
+function renderNotifPanel(list){
+    const listEl=document.getElementById('notifHistoryList');
+    if(!listEl)return;
+    if(!list||list.length===0){
+        listEl.innerHTML=`<div class="notif-history-empty"><i class="fa-regular fa-bell-slash" style="font-size:28px;display:block;margin-bottom:10px;opacity:0.5;"></i>No notifications yet</div>`;
+        return;
+    }
+    listEl.innerHTML=list.map(n=>{
+        const meta=_notifIconFor(n);
+        return `<div class="notif-history-item ${n.is_read?'':'unread'}" data-id="${n.id}" data-order="${n.category==='order'?'1':''}">
+            <div class="nh-icon" style="background:${meta.color};"><i class="fa-solid ${meta.icon}"></i></div>
+            <div class="nh-body">
+                <div class="nh-title">${(n.title||'Notification').replace(/</g,'&lt;')}</div>
+                <div class="nh-msg">${(n.message||'').replace(/</g,'&lt;')}</div>
+                <div class="nh-time">${_timeAgo(n.created_at)}</div>
+            </div>
+            ${n.is_read?'':'<span class="nh-dot"></span>'}
+        </div>`;
+    }).join('');
+    listEl.querySelectorAll('.notif-history-item').forEach(item=>{
+        item.addEventListener('click',()=>{
+            const id=item.getAttribute('data-id');
+            const isOrder=item.getAttribute('data-order')==='1';
+            markNotifRead(id);
+            if(isOrder)window.location.href='marchentorders.html';
+        });
+    });
+}
+async function markNotifRead(id){
+    if(!id||!supabase)return;
+    try{
+        await supabase.from('merchant_notifications').update({is_read:true}).eq('id',id);
+        const item=document.querySelector(`.notif-history-item[data-id="${id}"]`);
+        if(item){item.classList.remove('unread');const dot=item.querySelector('.nh-dot');if(dot)dot.remove();}
+        refreshUnreadNotifBadge();
+    }catch(e){}
+}
+async function markAllNotifRead(){
+    if(!merchantId||!supabase)return;
+    try{
+        await supabase.from('merchant_notifications').update({is_read:true}).or(`merchant_id.eq.${merchantId},merchant_id.is.null`).eq('is_read',false);
+        document.querySelectorAll('.notif-history-item.unread').forEach(item=>{item.classList.remove('unread');const dot=item.querySelector('.nh-dot');if(dot)dot.remove();});
+        refreshUnreadNotifBadge();
+    }catch(e){}
+}
+async function showMerchantNotifications(){
+    const panel=_notifPanelEl();
+    panel.classList.add('show');
+    _notifPanelOpen=true;
+    const list=await fetchMerchantNotifications();
+    renderNotifPanel(list);
+}
+function closeMerchantNotifications(){
+    const panel=document.getElementById('notifHistoryPanel');
+    if(panel)panel.classList.remove('show');
+    _notifPanelOpen=false;
+}
 
 function toggleSidebar(){
 document.getElementById('sidebar').classList.toggle('open');
@@ -1000,6 +1144,7 @@ if(stored){merchantId=stored;localStorage.setItem('merchantId',merchantId)}
 await loadProducts();
 populateProductCheckboxes();
 refreshAll();
+refreshUnreadNotifBadge();
 })();
 </script>
     <script src="merchant-transitions.js?v=14"></script>

@@ -6,15 +6,39 @@
 <title>MediFinder — Lab Test Booking</title>
 <style>
   :root{
-    --maroon-deep:#7a0d0d;
-    --maroon:#a11212;
-    --maroon-bright:#d21f1f;
-    --ink:#1c1414;
-    --cream:#fbf3ee;
-    --cream-2:#f3e4dc;
-    --line:#e7d4c9;
-    --success:#1c7a4d;
+    --maroon-deep:#b71c1c;
+    --maroon:#e02020;
+    --maroon-bright:#ff4747;
+    --ink:#2f3542;
+    --cream:#f4f6f9;
+    --cream-2:#fdecea;
+    --line:#e5e7eb;
+    --success:#2ed573;
     --navy:#20263b;
+    --gold:#ffa502;
+  }
+  .back-home-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    color:#fff;
+    border:none;
+    padding:9px 16px 9px 12px;
+    border-radius:30px;
+    font-size:12.5px;
+    font-weight:700;
+    text-decoration:none;
+    box-shadow:0 6px 16px rgba(183,28,28,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .back-home-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(183,28,28,.35);}
+  .back-home-btn i{font-size:12px;}
+  .header-top-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
   }
   *{box-sizing:border-box;}
   body{
@@ -436,16 +460,19 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
 <div class="ribbon">100% GENUINE TESTS GUARANTEED &nbsp;·&nbsp; FREE HOME SAMPLE COLLECTION</div>
 
 <header>
-<div class="brand">
-    <div class="brand-mark">
-        <img src="1779304435608.png" alt="MediFinder Logo">
-    </div>
+<div class="header-top-row">
+  <div class="brand">
+      <div class="brand-mark">
+          <img src="1779304435608.png" alt="MediFinder Logo">
+      </div>
 
-    <div class="brand-text">
-        <h1>
-            <span class="medi">MEDI</span><span class="finder">FINDER</span>
-        </h1>
-    </div>
+      <div class="brand-text">
+          <h1>
+              <span class="medi">MEDI</span><span class="finder">FINDER</span>
+          </h1>
+      </div>
+  </div>
+  <a href="userhome.html" class="back-home-btn"><i class="fa-solid fa-house"></i> Back to Home</a>
 </div>
 <div class="search-bar">
     <span class="search-icon">
@@ -462,36 +489,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
     </button>
 </div>
 
-  <div class="quick-row">
-    <div class="quick-item active">
-      <div class="quick-icon" style="background:#6c4fd8;">🧪</div>
-      <span>Lab Test</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#1fae8e;">🩺</div>
-      <span>Medical Instruments</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#e78a5a;">👩‍⚕️</div>
-      <span>Nurse Booking</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#3d7ce0;">👨‍⚕️</div>
-      <span>Doctor Consult</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#e05a5a;">❤️</div>
-      <span>Body Checkup</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#e0508f;">🚑</div>
-      <span>Call Ambulance</span>
-    </div>
-    <div class="quick-item">
-      <div class="quick-icon" style="background:#e0a92b;">🪙</div>
-      <span>Get Tablet Coin</span>
-    </div>
-  </div>
+
 </header>
 
 <div class="promo">

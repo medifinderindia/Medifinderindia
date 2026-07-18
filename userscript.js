@@ -3730,10 +3730,10 @@ function initServicesMenu() {
                     showToast('Showing medical instruments', 'info');
                     break;
                 case 'nurse':
-                    showToast('Call 1800-123-4567 for Nurse Booking', 'warning');
+                    window.location.href = 'nurse-booking.html';
                     break;
                 case 'doctor':
-                    showToast('Dial +91-9593625498 for Doctor Consultation', 'warning');
+                    showToast('This service is not available right now. Please try after a few days.', 'warning');
                     break;
                 case 'checkup':
                     window.location.href = 'lab-booking.html?type=checkup';
@@ -3742,7 +3742,7 @@ function initServicesMenu() {
                     window.location.href = 'ambulances-booking.html';
                     break;
                 case 'coins':
-                    showToast('You earned 50 MediCoins! Redeem on next order.', 'success');
+                    window.location.href = 'tablet-coin.html';
                     break;
                 default:
                     showToast('Feature coming soon!', 'info');

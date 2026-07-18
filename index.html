@@ -22,6 +22,13 @@
     <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- ✅ FIX: এই দুইটা লাইন আগে মিসিং ছিল, যার কারণে supabase-config.js এর
+         supabase.createClient(...) কল ReferenceError দিয়ে ক্র্যাশ করত এবং
+         window.supabaseClient কখনো সেট হতো না। ফলে splash screen সবসময়
+         session না পেয়ে Login.html এ পাঠিয়ে দিত, যদিও ইউজার আগে থেকেই লগইন ছিল। -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+
     <!-- Prevent any white/blank flash before CSS paints -->
     <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
 
