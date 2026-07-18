@@ -2890,7 +2890,7 @@ function setupProfilePageModules() {
     if (editBtn) editBtn.onclick = () => toggleModalDisplay('edit-modal', true);
     if (addressBtn) addressBtn.onclick = () => { toggleModalDisplay('address-modal', true); loadSavedAddresses(); };
     // Item 15: T&C now opens the real standalone page directly — no popup.
-    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert_c.html'; };
+    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert&c.html'; };
     if (helpTrigger) helpTrigger.onclick = () => toggleModalDisplay('help-modal', true);
     if (referEarnBtn) referEarnBtn.onclick = () => toggleModalDisplay('referral-modal', true);
 
