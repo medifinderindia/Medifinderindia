@@ -566,6 +566,41 @@ function generateStars(rating, maxStars){
   return html;
 }
 
+// Sponsor "50% off — first order only" deals. A sponsored slot on the home
+// slider can be linked to this exact product (btn_action contains ?id=...)
+// and carry a first_order_discount_percent. If this shopper has never
+// claimed that specific slot's deal (checked via sponsor_discount_claims,
+// written only once their order actually goes through in userscript.js),
+// the discounted price is applied here and shown as a banner. Any DB issue
+// here must never break the page, so it fails silently to the normal price.
+let sponsorDiscountInfo = null; // { percent, slotId }
+async function applySponsorFirstOrderDiscount(){
+  if (!product.id || !supabase || !supabase.from) return;
+  try {
+    const { data: slots } = await supabase.from('sponsored_products')
+      .select('id, btn_action, first_order_discount_percent')
+      .eq('is_active', true)
+      .not('first_order_discount_percent', 'is', null);
+    if (!slots || slots.length === 0) return;
+    const matched = slots.find(function(s){
+      const m = (s.btn_action || '').match(/[?&]id=([^&#]+)/);
+      return m && decodeURIComponent(m[1]) === String(product.id);
+    });
+    if (!matched || !matched.first_order_discount_percent) return;
+
+    const uid = await getCurrentUid();
+    if (uid) {
+      const { data: claim } = await supabase.from('sponsor_discount_claims')
+        .select('id').eq('user_id', uid).eq('sponsored_product_id', matched.id).maybeSingle();
+      if (claim) return; // this shopper already used this deal once
+    }
+
+    if (!product.mrp || product.mrp <= product.price) product.mrp = product.price;
+    sponsorDiscountInfo = { percent: matched.first_order_discount_percent, slotId: matched.id };
+    product.price = +(product.price * (1 - sponsorDiscountInfo.percent / 100)).toFixed(2);
+  } catch (e) { /* no discount applied — page still works normally */ }
+}
+
 function renderProduct(){
   document.getElementById('productName').textContent = product.name;
   document.getElementById('ratingStars').innerHTML = '';
@@ -577,6 +612,20 @@ function renderProduct(){
   const disc = mrp > product.price ? Math.round((1 - product.price/mrp)*100) : 0;
   document.getElementById('discountBadge').textContent = disc > 0 ? disc + '% off' : 'Best Price';
   document.getElementById('productDesc').textContent = product.desc;
+
+  const priceRow = document.getElementById('currentPrice')?.closest('.price-section, .price-row, div');
+  let sponsorBanner = document.getElementById('sponsorDiscountBanner');
+  if (sponsorDiscountInfo) {
+    if (!sponsorBanner && priceRow) {
+      sponsorBanner = document.createElement('div');
+      sponsorBanner.id = 'sponsorDiscountBanner';
+      sponsorBanner.style.cssText = 'margin-top:6px;padding:6px 10px;background:#fff3e0;color:#e65100;font-size:0.78rem;font-weight:700;border-radius:6px;display:inline-block;';
+      priceRow.parentNode.insertBefore(sponsorBanner, priceRow.nextSibling);
+    }
+    if (sponsorBanner) sponsorBanner.textContent = '🎉 ' + sponsorDiscountInfo.percent + '% OFF — First Order Special';
+  } else if (sponsorBanner) {
+    sponsorBanner.remove();
+  }
 
   // Only use the merchant's own uploaded photos here — no more padding the
   // gallery out with unrelated demo/duplicate stock photos when a product
@@ -959,7 +1008,7 @@ function addToCart(){
   if(existing >= 0){
     cart[existing].qty += quantity;
   } else {
-    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, merchantId:product.merchantId || null, exempt_platform_fee:false, exempt_processing_charge:false });
+    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, merchantId:product.merchantId || null, exempt_platform_fee:false, exempt_processing_charge:false, sponsorDiscountSlotId: sponsorDiscountInfo ? sponsorDiscountInfo.slotId : null });
   }
   localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
@@ -1421,8 +1470,9 @@ document.addEventListener('DOMContentLoaded', function(){
   // Fetch the authoritative row from the DB in the background (with its own
   // 6s timeout, see loadProductFromDb) and re-render once it arrives. The
   // page is shown immediately either way — it never waits on this.
-  loadProductFromDb().then(function(){
-    if (productLoadedFromDb) renderProduct();
+  loadProductFromDb().then(async function(){
+    await applySponsorFirstOrderDiscount();
+    if (productLoadedFromDb || sponsorDiscountInfo) renderProduct();
   });
 });
 </script>

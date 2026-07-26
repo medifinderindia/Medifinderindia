@@ -418,12 +418,23 @@ function setupServiceWorkerNotifications() {
 
 function fireSystemNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, {
+        const osNotification = new Notification(title, {
             body: body,
             icon: '1779304435608.png',
             badge: '1779304435608.png',
             vibrate: [200, 100, 200]
         });
+        // Tapping the OS notification should bring the app to the front and
+        // land on Home — previously this notification had no click handler
+        // at all, so tapping it did nothing.
+        osNotification.onclick = function() {
+            window.focus();
+            const currentPage = window.location.pathname.split('/').pop();
+            if (currentPage && currentPage !== 'userhome.html') {
+                window.location.href = 'userhome.html';
+            }
+            osNotification.close();
+        };
     }
     // Also play alarm tone using Web Audio API
     playAlarmTone();
@@ -672,16 +683,22 @@ function renderNotificationDropdown(notiDropdown) {
 }
 
 // Clicking a single notification card marks only that one read — the red dot
-// on it disappears and the badge count drops by exactly one, immediately.
+// on it disappears and the badge count drops by exactly one, immediately —
+// and then takes the user to the Home page (unless they're already there).
 window.markNotificationRead = async function(id) {
     const target = systemNotifications.find(n => n.id === id);
-    if (!target || target.is_read) return;
-    target.is_read = true;
-    const notiDropdown = document.getElementById('notiDropdown');
-    if (notiDropdown) renderNotificationDropdown(notiDropdown);
-    updateNotiBadge();
-    if (supabase) {
-        try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch (e) {}
+    if (target && !target.is_read) {
+        target.is_read = true;
+        const notiDropdown = document.getElementById('notiDropdown');
+        if (notiDropdown) renderNotificationDropdown(notiDropdown);
+        updateNotiBadge();
+        if (supabase) {
+            try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch (e) {}
+        }
+    }
+    const currentPage = window.location.pathname.split('/').pop();
+    if (currentPage && currentPage !== 'userhome.html') {
+        window.location.href = 'userhome.html';
     }
 };
 
@@ -771,6 +788,40 @@ async function setupHomePageModules() {
 
     let allProductNames = [];
 
+    // Seller storefront mode — reached via "View seller's other products" on
+    // product-detail.html (userhome.html?merchant=ID). Previously this param
+    // was never read, so it silently dumped the visitor on the normal,
+    // unfiltered home page. Now it hides the generic homepage furniture and
+    // turns this same grid into a single-seller store showing everything
+    // that merchant has approved, still orderable exactly like any product.
+    const merchantFilterId = new URLSearchParams(window.location.search).get('merchant');
+    if (merchantFilterId) {
+        ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'].forEach(cls => {
+            const el = document.querySelector('.' + cls);
+            if (el) el.style.display = 'none';
+        });
+        const heading = document.getElementById('products-section-heading');
+        if (heading) heading.textContent = 'Loading seller\u2019s store...';
+        if (!document.getElementById('seller-store-back-bar')) {
+            const backBar = document.createElement('div');
+            backBar.id = 'seller-store-back-bar';
+            backBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
+            backBar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder Home';
+            backBar.addEventListener('click', () => { window.location.href = 'userhome.html'; });
+            const productsSection = document.querySelector('.products-showcase-section');
+            if (productsSection && productsSection.parentNode) {
+                productsSection.parentNode.insertBefore(backBar, productsSection);
+            }
+        }
+        if (supabase) {
+            supabase.from('merchants').select('shop_name, merchant_name').eq('id', merchantFilterId).maybeSingle()
+                .then(({ data: m }) => {
+                    if (heading && m) heading.textContent = 'Products from ' + (m.shop_name || m.merchant_name || 'this Seller');
+                    else if (heading) heading.textContent = 'Seller\u2019s Store';
+                }).catch(() => { if (heading) heading.textContent = 'Seller\u2019s Store'; });
+        }
+    }
+
     // Show skeleton loading
     productsGrid.innerHTML = Array(6).fill('').map(() => `
         <div class="product-card skeleton-card" style="pointer-events:none;">
@@ -800,7 +851,9 @@ async function setupHomePageModules() {
             // composition/ratings/etc. that never matched what a merchant
             // actually uploaded. `medicines` is the real table merchants add
             // to and admin approves — that is the single source of truth now.
-            const { data: dbProducts, error: dbError } = await supabase.from('medicines').select('*').eq('status', 'Approved');
+            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved');
+            if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
+            const { data: dbProducts, error: dbError } = await medQuery;
             
             if (!dbError && dbProducts && dbProducts.length > 0) {
                 allProductNames = dbProducts.map(p => p.name || p.product_name);
@@ -876,9 +929,10 @@ async function setupHomePageModules() {
                 const countBadge = document.getElementById('product-count-badge');
                 if (countBadge) countBadge.textContent = `${dbProducts.length} items`;
 
-                // Update section heading dynamically
+                // Update section heading dynamically (skip in seller-storefront
+                // mode — that heading is set to the seller's name separately above)
                 const heading = document.getElementById('products-section-heading');
-                if (heading) heading.textContent = `Essential Medicines (${dbProducts.length})`;
+                if (heading && !merchantFilterId) heading.textContent = `Essential Medicines (${dbProducts.length})`;
 
                 if (noProductsMsg) noProductsMsg.style.display = 'none';
             } else if (dbProducts && dbProducts.length === 0) {
@@ -1932,6 +1986,38 @@ async function processFinalOrderPayload() {
                 try { await supabase.from('order_items').insert(orderItemsPayload); } catch (e) {
                     showToast("Order items save error: " + (e.message || e), "error");
                 }
+                // First-order reward — a real, persistent coupon (not just a
+                // toast) that shows up under Offers & Coupons afterward.
+                if (currentUserId) {
+                    try {
+                        const { count } = await supabase.from('orders').select('order_id', { count: 'exact', head: true }).eq('user_id', currentUserId);
+                        if (count === 1) {
+                            await supabase.from('user_coupons').insert([{
+                                user_id: currentUserId,
+                                code: 'WELCOME50',
+                                description: '₹50 off your next order — thanks for your first order!',
+                                is_used: false
+                            }]);
+                        }
+                    } catch (e) {}
+                }
+                // Lock in any "50% off — first order only" sponsor deals used in
+                // this order, so the same shopper can't reuse them on a repeat
+                // order of the same sponsored item.
+                if (currentUserId) {
+                    for (const item of currentCart) {
+                        if (item.sponsorDiscountSlotId) {
+                            try {
+                                await supabase.from('sponsor_discount_claims').insert([{
+                                    user_id: currentUserId,
+                                    sponsored_product_id: item.sponsorDiscountSlotId,
+                                    product_id: item.id,
+                                    order_id: orderId
+                                }]);
+                            } catch (e) {}
+                        }
+                    }
+                }
                 for (const item of currentCart) {
                     if (item.id && item.qty) {
                         try {
@@ -2807,6 +2893,7 @@ function setupProfilePageModules() {
             if (copyNoticeText) { copyNoticeText.innerText = "✓ Referral code copied!"; setTimeout(() => { copyNoticeText.innerText = ""; }, 3000); }
         };
     }
+    if (document.getElementById('my-coupons-list')) loadMyCouponsAndOffers();
 
     const languageSelectNode = document.getElementById('language-select');
     const activeAppLanguageEnv = localStorage.getItem('medi_active_language_env') || 'en';
@@ -2892,7 +2979,7 @@ function setupProfilePageModules() {
     // Item 15: T&C now opens the real standalone page directly — no popup.
     if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert&c.html'; };
     if (helpTrigger) helpTrigger.onclick = () => toggleModalDisplay('help-modal', true);
-    if (referEarnBtn) referEarnBtn.onclick = () => toggleModalDisplay('referral-modal', true);
+    if (referEarnBtn) referEarnBtn.onclick = () => { toggleModalDisplay('referral-modal', true); loadMyCouponsAndOffers(); };
 
     // ============================================================
     // ADDRESS BOOK — Flipkart-style multi-address (tags, default, edit/delete/select)
@@ -3091,8 +3178,9 @@ function setupProfilePageModules() {
     // a dead URL hash — the browser can't "open" a modal via anchor scroll.
     // This actually triggers the matching action once the page is ready.
     if (window.location.hash === '#my-box-btn') openMyPrescriptionBox();
-    else if (window.location.hash === '#refer-earn-btn') toggleModalDisplay('referral-modal', true);
+    else if (window.location.hash === '#refer-earn-btn') { toggleModalDisplay('referral-modal', true); loadMyCouponsAndOffers(); }
     else if (window.location.hash === '#help-desk-trigger') toggleModalDisplay('help-modal', true);
+    else if (window.location.hash === '#pill-reminders-trigger') { toggleModalDisplay('reminder-modal', true); renderAlarmsListUI(); }
 }
 
 // ============================================================
@@ -3754,6 +3842,65 @@ function initServicesMenu() {
 /* ==========================================================================
    HAMBURGER MENU
    ========================================================================== */
+// ============================================================
+// MY COUPONS & OFFERS — real, persistent list (Offers & Coupons)
+// "My Coupons" = actually earned coupons (order rewards, referral
+// rewards, admin grants) from user_coupons, one row per shopper.
+// "New Offers" = platform-wide active offers from platform_offers,
+// which simply accumulates whatever admin adds/activates.
+// ============================================================
+async function loadMyCouponsAndOffers() {
+    const couponsList = document.getElementById('my-coupons-list');
+    const offersList = document.getElementById('new-offers-list');
+    if (!couponsList && !offersList) return;
+    if (couponsList) couponsList.innerHTML = '<p style="font-size:0.75rem;color:#999;">Loading...</p>';
+    if (offersList) offersList.innerHTML = '<p style="font-size:0.75rem;color:#999;">Loading...</p>';
+    if (!supabase) return;
+
+    if (couponsList) {
+        try {
+            const uid = await getCurrentAuthUserId();
+            if (!uid) {
+                couponsList.innerHTML = '<p style="font-size:0.75rem;color:#999;">Login to see your coupons.</p>';
+            } else {
+                const { data, error } = await supabase.from('user_coupons').select('*')
+                    .eq('user_id', uid).eq('is_used', false).order('created_at', { ascending: false });
+                if (error || !data || data.length === 0) {
+                    couponsList.innerHTML = '<p style="font-size:0.75rem;color:#999;">No coupons yet — place an order or refer a friend to earn one.</p>';
+                } else {
+                    couponsList.innerHTML = data.map(c => `
+                        <div class="record-subcard-pill" style="margin-bottom:8px;">
+                            <div>
+                                <span class="addr-tag-badge">${c.code}</span>
+                                <div class="sub-label" style="margin-top:4px;">${c.description || ''}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+        } catch (e) { couponsList.innerHTML = '<p style="font-size:0.75rem;color:#999;">Could not load coupons.</p>'; }
+    }
+
+    if (offersList) {
+        try {
+            const { data, error } = await supabase.from('platform_offers').select('*')
+                .eq('is_active', true).order('created_at', { ascending: false });
+            if (error || !data || data.length === 0) {
+                offersList.innerHTML = '<p style="font-size:0.75rem;color:#999;">No active offers right now.</p>';
+            } else {
+                offersList.innerHTML = data.map(o => `
+                    <div class="record-subcard-pill" style="margin-bottom:8px;">
+                        <div>
+                            <strong>${o.title || ''}</strong>
+                            <div class="sub-label">${o.description || ''}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) { offersList.innerHTML = '<p style="font-size:0.75rem;color:#999;">Could not load offers.</p>'; }
+    }
+}
+
 function initHamburgerMenu() {
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const overlay = document.getElementById('hamburger-overlay');

@@ -1,0 +1,160 @@
+/* ==========================================================
+   MEDI FINDER — MERCHANT PANEL SHARED LAYER (Phase 4)
+   Mobile Optimization • Performance • Smooth Navigation • Header Theme
+   Loaded AFTER each page's own stylesheet so it can safely patch
+   spacing/overflow/theme issues without fighting existing rules.
+   ========================================================== */
+
+/* ---------- 1. GLOBAL SAFETY NET ---------- */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+img { max-width: 100%; height: auto; }
+
+/* Prevent ANY flex/grid child from forcing overflow — the #1 cause of
+   text (like status pills, "ONLINE" badges, prices) spilling out of
+   their card on narrow screens. */
+.top-bar, .header, .brand, .card-header, .card-title-row,
+.stat-card, .status-pill, .status-badge, .badge, .live-status,
+.header-badge, .mini-trend, .nav-item, .bottom-nav-item,
+.settings-glass-card, .card-meta, .card-actions {
+    min-width: 0;
+}
+
+/* ---------- 2. TEXT / BADGE OVERFLOW SAFETY ---------- */
+.status-pill, .status-badge, .badge, .live-status, .header-badge,
+.mini-trend, .discount-type-badge, .uid-badge, .coupon-code {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+}
+h1, h2, h3, p, span, label, .section-title, .card-title {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ---------- 3. HEADER THEME — Dark Black → Red Gradient ---------- */
+.top-bar, header.header, .header, header {
+    background: linear-gradient(120deg, #0a0a0a 0%, #1a1a1a 45%, #b81818 85%, #e02020 100%) !important;
+    color: #fff;
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+.top-bar .logo-area, .brand, .header .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.top-bar .logo-area img, .brand-icon img {
+    height: 34px;
+    width: auto;
+    flex-shrink: 0;
+}
+.top-bar h1, .brand-name, .header .logo {
+    font-size: clamp(15px, 4.2vw, 20px);
+    white-space: nowrap;
+    color: #fff !important;
+    margin: 0;
+}
+.top-bar h1 .highlight, .brand-name span, .header .logo span {
+    color: #ff4d4d !important;
+}
+.top-bar .header-icon, .header-btn, .header button, .hamburger {
+    background: rgba(255,255,255,0.12);
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.18);
+}
+
+/* ---------- 4. RESPONSIVE HEADER / SIDEBAR / BOTTOM NAV ---------- */
+@media (max-width: 480px) {
+    .top-bar { padding: 10px 12px !important; }
+    .top-bar h1, .brand-name { font-size: 14.5px; }
+    .header-actions, .header-icon, .header-btn { flex-shrink: 0; }
+}
+
+.bottom-nav, .bottom-nav-item, .nav-item {
+    min-height: 44px; /* touch-friendly target */
+}
+.bottom-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.bottom-nav .nav-item, .bottom-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 10.5px;
+    text-align: center;
+    padding: 6px 2px;
+}
+.bottom-nav .nav-item span, .bottom-nav-item span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.sidebar { max-width: 85vw; }
+
+/* ---------- 5. TOUCH-FRIENDLY BUTTONS & NO OVERFLOW ---------- */
+button, .btn, .btn-sm, .header-icon, .header-btn, .hamburger {
+    min-height: 40px;
+    touch-action: manipulation;
+}
+.btn, button {
+    white-space: normal;
+    word-break: break-word;
+}
+.card-actions, .form-footer, .popup-support-channels, .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.card-actions > *, .form-footer > * { flex: 1 1 auto; min-width: 90px; }
+
+@media (max-width: 380px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .form-row { flex-direction: column; }
+}
+
+/* ---------- 6. RESPONSIVE CARD GRIDS ---------- */
+.premium-settings-grid, .product-select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+/* ---------- 7. SMOOTH PAGE TRANSITIONS ---------- */
+body {
+    animation: mfFadeIn 0.28s ease both;
+}
+@keyframes mfFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+body.mf-leaving {
+    animation: mfFadeOut 0.16s ease both;
+}
+@keyframes mfFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    body, body.mf-leaving { animation: none !important; }
+}

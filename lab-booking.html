@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediFinder — Lab Test Booking</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <style>
   :root{
     --maroon-deep:#b71c1c;
@@ -67,8 +68,8 @@
   .brand-row{
     display:flex;
     align-items:center;
-    gap: 15PX;
-    padding: 10px, 20px;
+    gap: 15px;
+    padding: 10px 20px;
     justify-content:space-between;
   }
  .brand{
@@ -697,6 +698,12 @@ grid.addEventListener("click", (e)=>{
   getLocation();
 });
 
+// A guard history entry is pushed as soon as this page loads. This means the
+// very first phone/browser Back press always fires our own popstate handler
+// instead of exiting the page (or the app, if opened standalone from a
+// notification tap with no real history behind it) — it lands on Home instead.
+history.pushState({labBookingGuard:true}, "");
+
 function openSheet(){
   overlay.classList.add("active");
   history.pushState({sheet:true}, "");
@@ -709,8 +716,12 @@ function closeSheetUI(){
 window.addEventListener("popstate", ()=>{
   if(overlay.classList.contains("active")){
     closeSheetUI();
+    sheetOpenViaHistory = false;
+    return;
   }
-  sheetOpenViaHistory = false;
+  // No sheet open — a Back press here means the user wants to leave this
+  // page entirely, so send them Home instead of risking an exit/blank tab.
+  window.location.href = "userhome.html";
 });
 closeX.addEventListener("click", ()=>{
   if(sheetOpenViaHistory){

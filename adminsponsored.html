@@ -193,6 +193,10 @@
                         <label>Sort Order</label>
                         <input type="number" id="spSort" value="0">
                     </div>
+                    <div class="form-group">
+                        <label>First Order Discount % (optional — leave blank for no deal)</label>
+                        <input type="number" id="spFirstOrderDiscount" placeholder="e.g., 50" min="1" max="90">
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -325,6 +329,7 @@
                 btn_text: document.getElementById('spBtnText').value,
                 btn_action: document.getElementById('spBtnAction').value,
                 sort_order: parseInt(document.getElementById('spSort').value) || 0,
+                first_order_discount_percent: parseInt(document.getElementById('spFirstOrderDiscount').value) || null,
                 is_active: true
             };
             try {
@@ -350,6 +355,7 @@
             document.getElementById('spBtnText').value = p.btn_text;
             document.getElementById('spBtnAction').value = p.btn_action || '';
             document.getElementById('spSort').value = p.sort_order;
+            document.getElementById('spFirstOrderDiscount').value = p.first_order_discount_percent || '';
             document.getElementById('spGradient').value = p.gradient;
             document.getElementById('spIcon').value = p.icon_class;
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Sponsored Product';

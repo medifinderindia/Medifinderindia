@@ -23,6 +23,45 @@
     <script src="supabase-constants.js"></script>
     <!-- Razorpay Standard Checkout SDK -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+/* ===================== Premium truck delivery success animation =====================
+   Plays once when #success-animation-modal gets .modal-revealed: a delivery
+   truck rolls in, its back door opens, the parcel loads in, the door shuts,
+   the truck drives off, then the usual checkmark fades in to finish. Pure
+   CSS keyframes on a timeline — no JS needed beyond the existing class toggle. */
+.truck-delivery-anim { position: relative; width: 220px; height: 110px; margin: 0 auto 6px; overflow: hidden; }
+.truck-delivery-anim .truck-road { position: absolute; left: 0; right: 0; bottom: 14px; height: 2px; background: repeating-linear-gradient(90deg, #ddd 0 10px, transparent 10px 20px); }
+.truck-delivery-anim .truck-wrap { position: absolute; left: 50%; bottom: 14px; width: 120px; height: 60px; transform: translate(-50%, 0) translateX(-160px); opacity: 0; }
+.modal-revealed .truck-delivery-anim .truck-wrap { animation: truckDriveInOut 3.1s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes truckDriveInOut {
+  0%   { transform: translate(-50%, 0) translateX(-160px); opacity: 0; }
+  8%   { opacity: 1; }
+  32%  { transform: translate(-50%, 0) translateX(0); opacity: 1; }
+  68%  { transform: translate(-50%, 0) translateX(0); opacity: 1; }
+  92%  { transform: translate(-50%, 0) translateX(180px); opacity: 1; }
+  100% { transform: translate(-50%, 0) translateX(180px); opacity: 0; }
+}
+.truck-delivery-anim .truck-door { transform-origin: 4px 32px; }
+.modal-revealed .truck-delivery-anim .truck-door { animation: truckDoorOpenClose 3.1s ease forwards; }
+@keyframes truckDoorOpenClose {
+  0%, 33% { transform: rotate(0deg); }
+  40%, 55% { transform: rotate(-100deg); }
+  62%, 100% { transform: rotate(0deg); }
+}
+.truck-delivery-anim .truck-parcel-box { position: absolute; left: 50%; bottom: 14px; transform: translate(calc(-50% - 18px), 40px); opacity: 0; font-size: 1.1rem; color: #b8860b; z-index: 2; }
+.modal-revealed .truck-delivery-anim .truck-parcel-box { animation: parcelLoad 3.1s ease forwards; }
+@keyframes parcelLoad {
+  0%, 40% { transform: translate(calc(-50% - 18px), 40px); opacity: 0; }
+  50% { transform: translate(calc(-50% - 18px), 40px); opacity: 1; }
+  60%, 100% { transform: translate(calc(-50% - 18px), -4px); opacity: 0; }
+}
+.truck-delivery-anim .post-truck-checkmark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+.modal-revealed .truck-delivery-anim .post-truck-checkmark { animation: checkmarkArrive 0.5s ease forwards; animation-delay: 2.9s; }
+@keyframes checkmarkArrive {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+</style>
 </head>
 <body>
     
@@ -183,11 +222,27 @@
         <div class="flipkart-success-container">
             <div class="flipkart-confetti" id="confettiCanvas"></div>
             <div class="flipkart-success-card">
-                <div class="flipkart-checkmark-circle">
-                    <svg class="flipkart-checkmark-svg" viewBox="0 0 52 52">
-                        <circle class="flipkart-checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/>
-                        <path class="flipkart-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                    </svg>
+                <div class="truck-delivery-anim">
+                    <div class="truck-road"></div>
+                    <div class="truck-parcel-box"><i class="fa-solid fa-box"></i></div>
+                    <div class="truck-wrap">
+                        <svg class="truck-svg" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" width="120" height="60">
+                            <rect x="4" y="18" width="60" height="28" rx="3" fill="#e02020"/>
+                            <rect x="64" y="26" width="30" height="20" rx="2" fill="#c4c4c4"/>
+                            <rect x="70" y="30" width="16" height="10" fill="#aee1f9"/>
+                            <circle cx="24" cy="48" r="7" fill="#222"/>
+                            <circle cx="80" cy="48" r="7" fill="#222"/>
+                            <circle cx="24" cy="48" r="3" fill="#666"/>
+                            <circle cx="80" cy="48" r="3" fill="#666"/>
+                            <rect class="truck-door" x="4" y="18" width="10" height="28" fill="#a80000"/>
+                        </svg>
+                    </div>
+                    <div class="flipkart-checkmark-circle post-truck-checkmark">
+                        <svg class="flipkart-checkmark-svg" viewBox="0 0 52 52">
+                            <circle class="flipkart-checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="flipkart-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
                 </div>
                 <h2 class="flipkart-success-title">Order Placed!</h2>
                 <p class="flipkart-success-subtitle">Your medicines are being prepared</p>
@@ -260,9 +315,9 @@
             </div>
             <div class="hamburger-menu-list">
                 <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html'"><i class="fa-solid fa-user-circle"></i><span>My Profile</span></div>
-                <div class="hamburger-menu-item" onclick="window.location.href='usercart.html'"><i class="fa-solid fa-shopping-cart"></i><span>My Cart</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userorder.html'"><i class="fa-solid fa-clipboard-list"></i><span>My Orders</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='usermap.html'"><i class="fa-solid fa-map-location-dot"></i><span>Track on Map</span></div>
+                <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#pill-reminders-trigger'"><i class="fa-solid fa-tablets"></i><span>Pill Reminder</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#my-box-btn'"><i class="fa-solid fa-file-prescription"></i><span>My Prescriptions</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#refer-earn-btn'"><i class="fa-solid fa-tag"></i><span>Offers & Coupons</span></div>
                 <div class="hamburger-menu-item" onclick="window.location.href='userprofile.html#help-desk-trigger'"><i class="fa-solid fa-headset"></i><span>Customer Support</span></div>
