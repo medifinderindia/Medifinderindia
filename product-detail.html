@@ -28,9 +28,7 @@ body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;backgrou
 a{text-decoration:none;color:inherit}
 .header{position:sticky;top:0;z-index:100;background:var(--primary);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 4px rgba(0,0,0,.15)}
 .back-btn{color:#fff;font-size:18px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
-.search-bar{flex:1;background:#fff;border-radius:20px;display:flex;align-items:center;padding:8px 14px;gap:8px;max-width:600px}
-.search-bar input{border:none;outline:none;flex:1;font-size:14px;font-family:inherit;color:var(--text);background:transparent}
-.search-bar .mic-icon{color:var(--text3);font-size:16px;cursor:pointer}
+.header-title{flex:1;color:#fff;font-size:16px;font-weight:700}
 .cart-btn{position:relative;color:#fff;font-size:20px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
 .cart-badge{position:absolute;top:-4px;right:-6px;background:var(--dark);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center}
 .breadcrumb{padding:10px 14px;font-size:12px;color:var(--text3);background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap}
@@ -45,12 +43,14 @@ a{text-decoration:none;color:inherit}
 .skel-line.w80{width:80%}
 .carousel-section{background:var(--card);padding:16px;display:flex;flex-direction:column;align-items:center;position:relative}
 .main-image-wrapper{width:100%;max-width:400px;height:280px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:var(--radius);position:relative;cursor:zoom-in;background:#fafafa}
-.main-image-wrapper img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .3s ease}
-.main-image-wrapper:hover img{transform:scale(1.5)}
+.main-image-wrapper img{max-width:100%;max-height:100%;object-fit:contain}
 .image-badge{position:absolute;top:10px;left:10px;background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px}
-.wishlist-btn{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text3);transition:all .2s}
+.image-actions-row{width:100%;max-width:400px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.image-actions-right{display:flex;align-items:center;gap:8px}
+.like-btn{height:32px;padding:0 12px;border-radius:16px;background:#fff;border:1px solid var(--border);display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text3)}
+.wishlist-btn{width:36px;height:36px;border-radius:50%;background:#fff;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text3);transition:all .2s;flex-shrink:0}
 .wishlist-btn.active{color:var(--primary);border-color:var(--primary)}
-.share-btn{position:absolute;top:54px;right:10px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text3)}
+.share-btn{width:36px;height:36px;border-radius:50%;background:#fff;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text3);flex-shrink:0}
 .thumbnails{display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px}
 .thumb{width:56px;height:56px;border:2px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0;transition:border-color .2s}
 .thumb.active,.thumb:hover{border-color:var(--primary)}
@@ -169,6 +169,24 @@ a{text-decoration:none;color:inherit}
 .buy-now-btn{padding:10px 20px;border:none;background:var(--primary);color:#fff;font-size:14px;font-weight:700;border-radius:var(--radius);cursor:pointer;font-family:inherit;white-space:nowrap}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;opacity:0;transition:all .3s ease;z-index:200;white-space:nowrap;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.experience-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:none;align-items:flex-end;justify-content:center}
+.experience-overlay.active{display:flex}
+.experience-sheet{background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px}
+.experience-header{display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.experience-photo-input{width:100%;border:1px dashed var(--border);border-radius:var(--radius);padding:16px;text-align:center;font-size:13px;color:var(--text3);cursor:pointer;margin-bottom:12px}
+.experience-preview{max-width:100%;max-height:160px;border-radius:var(--radius);display:none;margin-bottom:12px}
+.address-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:none;align-items:flex-end;justify-content:center}
+.address-picker-overlay.active{display:flex}
+.address-picker-sheet{background:#fff;width:100%;max-width:420px;border-radius:16px 16px 0 0;padding:18px;max-height:70vh;overflow-y:auto}
+.address-picker-header{display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.address-picker-close{background:none;border:none;font-size:16px;color:var(--text3);cursor:pointer}
+.address-picker-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.address-picker-item:last-child{border-bottom:none}
+.address-picker-item i{color:var(--primary);margin-top:3px;flex-shrink:0}
+.address-picker-item .tag{font-size:13px;font-weight:700;color:var(--text)}
+.address-picker-item .addr-text{font-size:12px;color:var(--text3);margin-top:2px}
+.address-picker-empty{font-size:13px;color:var(--text3);padding:10px 0}
+.address-picker-gps{width:100%;margin-top:10px;padding:10px;border:1px dashed var(--border);background:#fafafa;color:var(--primary);font-weight:600;font-size:13px;border-radius:var(--radius);cursor:pointer;font-family:inherit}
 .zoom-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:300;display:none;align-items:center;justify-content:center;cursor:zoom-out}
 .zoom-overlay.active{display:flex}
 .zoom-overlay img{max-width:90%;max-height:90%;object-fit:contain}
@@ -215,10 +233,7 @@ a{text-decoration:none;color:inherit}
 <body>
 <header class="header">
   <button class="back-btn" onclick="history.back()" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
-  <div class="search-bar">
-    <input type="text" placeholder="Search medicines, health products..." id="searchInput" readonly>
-    <i class="fas fa-microphone mic-icon"></i>
-  </div>
+  <div class="header-title">Product Details</div>
   <button class="cart-btn" onclick="window.location.href='usercart.html'" aria-label="Cart">
     <i class="fas fa-shopping-cart"></i>
     <span class="cart-badge" id="cartBadge">0</span>
@@ -250,12 +265,16 @@ a{text-decoration:none;color:inherit}
   <div class="carousel-section fade-in">
     <div class="main-image-wrapper" id="mainImageWrapper">
       <span class="image-badge" id="imageBadge" style="display:none">360 View</span>
-      <button class="wishlist-btn" id="wishlistBtn" onclick="toggleWishlist()"><i class="far fa-heart"></i></button>
-      <button class="share-btn" onclick="shareProduct()"><i class="fas fa-share-alt"></i></button>
-      <button class="like-btn" id="likeBtn" onclick="toggleLike()" style="position:absolute;left:10px;bottom:10px;height:32px;padding:0 12px;border-radius:16px;background:rgba(255,255,255,.9);border:1px solid var(--border);display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text3);">
+      <img id="mainImage" src="" alt="Product" onclick="openZoom()">
+    </div>
+    <div class="image-actions-row">
+      <button class="like-btn" id="likeBtn" onclick="toggleLike()">
         <i class="far fa-thumbs-up" id="likeIcon"></i> <span id="likeCount">0</span>
       </button>
-      <img id="mainImage" src="" alt="Product" onclick="openZoom()">
+      <div class="image-actions-right">
+        <button class="wishlist-btn" id="wishlistBtn" onclick="toggleWishlist()"><i class="far fa-heart"></i></button>
+        <button class="share-btn" onclick="shareProduct()"><i class="fas fa-share-alt"></i></button>
+      </div>
     </div>
     <div class="thumbnails" id="thumbnails"></div>
     <div class="swipe-indicator" id="swipeIndicator"></div>
@@ -301,7 +320,7 @@ a{text-decoration:none;color:inherit}
       <div>
         <div class="label">Delivering to</div>
         <div class="value" id="deliveryLocation">Detecting location...</div>
-        <span class="change-link" onclick="detectLocation()">Change</span>
+        <span class="change-link" onclick="openAddressPicker()">Change</span>
       </div>
     </div>
   </div>
@@ -356,6 +375,10 @@ a{text-decoration:none;color:inherit}
   </div>
   <div class="feedback-section fade-in">
     <div class="section-header"><i class="fas fa-comment-dots"></i> Share Your Feedback</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="feedback-submit" style="flex:1;min-width:140px" onclick="document.getElementById('feedbackForm').scrollIntoView({behavior:'smooth'})"><i class="fas fa-star"></i> Share Your Feedback</button>
+      <button class="feedback-submit" style="flex:1;min-width:140px;background:var(--dark)" onclick="openExperienceUpload()"><i class="fas fa-camera"></i> Upload Your Experience</button>
+    </div>
     <div class="feedback-form" id="feedbackForm">
       <div>
         <div style="font-size:13px;color:var(--text3);margin-bottom:6px">Rate this product</div>
@@ -377,13 +400,13 @@ a{text-decoration:none;color:inherit}
   </div>
   <div class="policies-section fade-in">
     <div class="section-header"><i class="fas fa-shield-alt"></i> Delivery and Returns</div>
-    <div class="policy-grid">
+    <div class="policy-grid" id="policyGrid">
       <div class="policy-box"><i class="fas fa-truck"></i><div><div class="title">Free Delivery</div><div class="desc">Free delivery on orders above Rs.500</div></div></div>
-      <div class="policy-box"><i class="fas fa-bolt"></i><div><div class="title">Express Delivery</div><div class="desc">Get medicines within 2 hours</div></div></div>
+      <div class="policy-box" id="expressPolicyBox" style="display:none"><i class="fas fa-bolt"></i><div><div class="title">Express Delivery</div><div class="desc">Get medicines within a few hours</div></div></div>
       <div class="policy-box"><i class="fas fa-map-marked-alt"></i><div><div class="title">Track Order</div><div class="desc">Real-time order tracking</div></div></div>
-      <div class="policy-box"><i class="fas fa-undo"></i><div><div class="title">7-Day Returns</div><div class="desc">Easy returns in original packaging</div></div></div>
-      <div class="policy-box"><i class="fas fa-file-prescription"></i><div><div class="title">Rx Policy</div><div class="desc">Prescription medicines non-returnable</div></div></div>
-      <div class="policy-box"><i class="fas fa-money-bill-wave"></i><div><div class="title">Refund</div><div class="desc">Refund within 3-5 business days</div></div></div>
+      <div class="policy-box" id="returnPolicyBox"><i class="fas fa-undo"></i><div><div class="title" id="returnPolicyTitle">Checking return eligibility...</div><div class="desc" id="returnPolicyDesc"></div></div></div>
+      <div class="policy-box" id="codPolicyBox" style="display:none"><i class="fas fa-money-bill-wave"></i><div><div class="title">Cash on Delivery</div><div class="desc" id="codPolicyDesc">Available for this order</div></div></div>
+      <div class="policy-box" id="supportPolicyBox" style="display:none"><i class="fas fa-headset"></i><div><div class="title">Customer Support</div><div class="desc" id="supportPolicyDesc"></div></div></div>
     </div>
   </div>
 </div>
@@ -396,6 +419,33 @@ a{text-decoration:none;color:inherit}
   <div class="sticky-price"><div class="label">Total</div><div class="amount" id="stickyPrice">Rs.0.00</div></div>
   <button class="add-cart-btn" onclick="addToCart()">Add to Cart</button>
   <button class="buy-now-btn" onclick="buyNow()">Buy Now</button>
+</div>
+<div class="experience-overlay" id="experienceOverlay" onclick="if(event.target===this) closeExperienceUpload()">
+  <div class="experience-sheet">
+    <div class="experience-header">
+      <span>Upload Your Experience</span>
+      <button class="address-picker-close" onclick="closeExperienceUpload()"><i class="fas fa-times"></i></button>
+    </div>
+    <label class="experience-photo-input" id="experiencePhotoLabel">
+      <i class="fas fa-camera" style="font-size:22px;display:block;margin-bottom:6px"></i>
+      Tap to add a photo after using this product
+      <input type="file" accept="image/*" id="experiencePhotoInput" style="display:none" onchange="previewExperiencePhoto(this)">
+    </label>
+    <img id="experiencePreview" class="experience-preview">
+    <textarea class="feedback-textarea" id="experienceText" placeholder="How did it feel using this product?"></textarea>
+    <button class="feedback-submit" id="experienceSubmitBtn" style="width:100%;margin-top:12px" onclick="submitExperienceUpload()"><i class="fas fa-paper-plane"></i> Post Experience</button>
+  </div>
+</div>
+<div class="address-picker-overlay" id="addressPickerOverlay" onclick="if(event.target===this) closeAddressPicker()">
+  <div class="address-picker-sheet">
+    <div class="address-picker-header">
+      <span>Deliver to</span>
+      <button class="address-picker-close" onclick="closeAddressPicker()"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="addressPickerList"><div class="address-picker-empty">Loading your addresses...</div></div>
+    <button class="address-picker-gps" onclick="useCurrentGpsLocation()"><i class="fas fa-location-arrow"></i> Use current GPS location</button>
+    <div style="margin-top:10px;text-align:center"><span class="change-link" onclick="window.location.href='userprofile.html#address-book'">+ Add a new address</span></div>
+  </div>
 </div>
 <div class="zoom-overlay" id="zoomOverlay" onclick="closeZoom()">
   <button class="zoom-close"><i class="fas fa-times"></i></button>
@@ -606,7 +656,6 @@ function setupSwipeCarousel(){
 function renderHighlights(){
   const c = document.getElementById('highlights');
   const items = [
-    'Composition: ' + product.composition,
     'Dosage Form: ' + product.dosageForm,
     'Strength: ' + product.strength,
     'Manufacturer: ' + product.manufacturer,
@@ -653,24 +702,35 @@ function renderOverallRating(){
     document.getElementById('ratingCount').textContent = 'No ratings yet';
     return;
   }
-  const avgRating = (dbReviews.reduce((s, r) => s + (r.rating || 5), 0) / dbReviews.length).toFixed(1);
+  const rated = dbReviews.filter(function(r){ return r.rating != null; });
+  if (rated.length === 0) {
+    document.getElementById('overallRating').textContent = '—';
+    document.getElementById('overallStars').innerHTML = '';
+    document.getElementById('totalReviewsText').textContent = 'No ratings yet';
+    document.querySelector('.rating-bar-group').innerHTML = '';
+    document.getElementById('ratingStars').innerHTML = '';
+    document.getElementById('ratingCount').textContent = 'No ratings yet';
+    return;
+  }
+  const avgRating = (rated.reduce((s, r) => s + r.rating, 0) / rated.length).toFixed(1);
   document.getElementById('overallRating').textContent = avgRating;
   document.getElementById('overallStars').innerHTML = generateStars(parseFloat(avgRating));
-  document.getElementById('totalReviewsText').textContent = dbReviews.length + ' rating' + (dbReviews.length === 1 ? '' : 's');
+  document.getElementById('totalReviewsText').textContent = rated.length + ' rating' + (rated.length === 1 ? '' : 's');
   document.getElementById('ratingStars').innerHTML = generateStars(parseFloat(avgRating));
-  document.getElementById('ratingCount').textContent = avgRating + ' | ' + dbReviews.length + ' rating' + (dbReviews.length === 1 ? '' : 's');
+  document.getElementById('ratingCount').textContent = avgRating + ' | ' + rated.length + ' rating' + (rated.length === 1 ? '' : 's');
   renderRatingBars();
 }
 
 function renderRatingBars(){
-  const reviews = dbReviews;
+  const reviews = dbReviews.filter(function(r){ return r.rating != null; });
   const total = reviews.length || 1;
   const counts = {5:0,4:0,3:0,2:0,1:0};
   reviews.forEach(function(r){ const star = Math.min(5, Math.max(1, Math.round(r.rating || 5))); counts[star]++; });
   var barHTML = '';
   for(var i=5; i>=1; i--){
     var pct = Math.round((counts[i]/total)*100);
-    barHTML += '<div class="rating-bar-row"><span>' + i + '</span><div class="rating-bar"><div class="rating-bar-fill" style="width:' + pct + '%"></div></div><span>' + pct + '%</span></div>';
+    var color = i >= 4 ? 'var(--green)' : (i === 3 ? 'var(--gold)' : 'var(--primary)');
+    barHTML += '<div class="rating-bar-row"><span>' + i + '</span><div class="rating-bar"><div class="rating-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span>' + pct + '%</span></div>';
   }
   document.querySelector('.rating-bar-group').innerHTML = barHTML;
 }
@@ -678,7 +738,7 @@ function renderRatingBars(){
 async function loadProductReviews(){
   if (!product.id || !window.supabase) { renderOverallRating(); renderReviews(); return; }
   try {
-    const { data } = await window.supabase.from('reviews').select('id, rating, review_text, created_at, user_id').eq('product_id', product.id).order('created_at', { ascending: false }).limit(10);
+    const { data } = await window.supabase.from('reviews').select('id, rating, review_text, review_image_url, created_at, user_id').eq('product_id', product.id).order('created_at', { ascending: false }).limit(10);
     if (data && data.length > 0) { dbReviews = data; }
   } catch(e) {}
   renderOverallRating();
@@ -699,18 +759,20 @@ function renderReviews(){
   c.innerHTML = displayReviews.map(function(r){
     const name = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : 'User';
     const avatar = (r.user_id || name).charAt(0).toUpperCase();
-    const rating = r.rating || 5;
     const text = r.review_text || '';
     const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '';
     const helpful = r.helpful || 0;
+    const starsHtml = r.rating != null ? '<div class="review-stars">' + generateStars(r.rating) + '</div>' : '<div class="review-stars" style="color:var(--text3);font-size:11px">Photo experience</div>';
+    const imageHtml = r.review_image_url ? '<img src="' + r.review_image_url + '" alt="Review photo" style="max-width:140px;max-height:140px;object-fit:cover;border-radius:6px;margin-top:8px;cursor:zoom-in" onclick="event.stopPropagation();document.getElementById(\'zoomImage\').src=this.src;document.getElementById(\'zoomOverlay\').classList.add(\'active\')">' : '';
     return '<div class="review-card">' +
       '<div class="review-header">' +
         '<div class="review-avatar">' + avatar + '</div>' +
         '<div><div class="review-name">' + name + '</div>' +
-        '<div class="review-stars">' + generateStars(rating) + '</div></div>' +
+        starsHtml + '</div>' +
         '<div class="review-date">' + date + '</div>' +
       '</div>' +
-      '<div class="review-text">' + escapeHtml(text) + '</div>' +
+      (text ? '<div class="review-text">' + escapeHtml(text) + '</div>' : '') +
+      imageHtml +
       '<div class="review-helpful" onclick="this.innerHTML=\'<i class=fa-thumbs-up></i> Helpful (' + (helpful+1) + ')\'"><i class="far fa-thumbs-up"></i> Helpful (' + helpful + ')</div>' +
     '</div>';
   }).join('');
@@ -751,6 +813,22 @@ async function loadRealOffers(){
 // merchants whose license_status is actually 'Verified' in the DB, and the
 // 7-day return policy only shows for orders where returns make sense
 // (Rx items are non-returnable, and RS asked for it to depend on price).
+function renderReturnPolicyBox(){
+  const isRx = product.isRx === 'true';
+  const title = document.getElementById('returnPolicyTitle');
+  const desc = document.getElementById('returnPolicyDesc');
+  if (isRx) {
+    title.textContent = 'Non-Returnable';
+    desc.textContent = 'Prescription medicines cannot be returned';
+  } else if (product.price >= 500) {
+    title.textContent = '7-Day Returns';
+    desc.textContent = 'Easy returns in original packaging';
+  } else {
+    title.textContent = 'Non-Returnable';
+    desc.textContent = 'Returns available on orders above Rs.500';
+  }
+}
+
 async function loadSellerInfo(){
   const verifiedBadge = document.getElementById('verifiedBadge');
   const gstItem = document.getElementById('gstPolicyItem');
@@ -761,10 +839,11 @@ async function loadSellerInfo(){
 
   const isRx = product.isRx === 'true';
   // Rx medicines are non-returnable regardless of price (matches the Rx
-  // Policy note already shown in the Delivery & Returns section below).
+  // Policy note shown in the Delivery & Returns section below).
   if (!isRx && product.price >= 500) {
     returnItem.style.display = 'flex';
   }
+  renderReturnPolicyBox();
 
   if (!product.merchantId || !supabase || !supabase.from) return;
   try {
@@ -781,6 +860,19 @@ async function loadSellerInfo(){
     if (merchant.rating) {
       ratingText.textContent = parseFloat(merchant.rating).toFixed(1) + ' out of 5';
       ratingRow.style.display = 'flex';
+    }
+    // Cash on Delivery: only claim it's available when the merchant record
+    // actually says so. cod_available defaults to null on older rows —
+    // treat that as "not confirmed" rather than assuming yes.
+    if (merchant.cod_available === true) {
+      document.getElementById('codPolicyBox').style.display = 'flex';
+    }
+    // Customer support: only show a number that's actually on file.
+    if (merchant.phone) {
+      const supportBox = document.getElementById('supportPolicyBox');
+      const supportDesc = document.getElementById('supportPolicyDesc');
+      supportDesc.innerHTML = '<a href="tel:' + merchant.phone + '" style="color:var(--blue)">' + merchant.phone + '</a>';
+      supportBox.style.display = 'flex';
     }
   } catch(e) { /* leave everything hidden rather than guess */ }
 }
@@ -1069,6 +1161,83 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 
 let userCoords = null;
 
+// Resolves the logged-in user's id the same way the rest of the site does:
+// a cached uid in localStorage first (fast, no network round-trip), falling
+// back to a live Supabase auth check if that's missing.
+async function getCurrentUid(){
+  const cached = localStorage.getItem('medi_user_uid');
+  if (cached) return cached;
+  if (!supabase || !supabase.auth) return '';
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data && data.user && data.user.id) return data.user.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    return (sessionData && sessionData.session && sessionData.session.user && sessionData.session.user.id) || '';
+  } catch(e) { return ''; }
+}
+
+// Delivery location now comes from the user's saved address book
+// (user_addresses table — the same Flipkart-style addresses managed on the
+// Profile page) instead of raw GPS. Selecting an address geocodes its
+// pincode via Nominatim (already whitelisted in CSP, used elsewhere on the
+// site) so the existing distance-based delivery estimate can still work off
+// real coordinates.
+async function openAddressPicker(){
+  const overlay = document.getElementById('addressPickerOverlay');
+  const list = document.getElementById('addressPickerList');
+  overlay.classList.add('active');
+  list.innerHTML = '<div class="address-picker-empty">Loading your addresses...</div>';
+  if (!supabase || !supabase.from) { list.innerHTML = '<div class="address-picker-empty">Could not load saved addresses.</div>'; return; }
+  const uid = await getCurrentUid();
+  if (!uid) { list.innerHTML = '<div class="address-picker-empty">Log in to see your saved addresses.</div>'; return; }
+  try {
+    const { data, error } = await supabase.from('user_addresses').select('*').eq('user_id', uid)
+      .order('is_default', { ascending: false }).order('created_at', { ascending: false });
+    if (error || !data || data.length === 0) {
+      list.innerHTML = '<div class="address-picker-empty">No saved address yet. Add one from your Profile.</div>';
+      return;
+    }
+    list.innerHTML = data.map(function(a, i){
+      const addrText = a.address1 + (a.address2 ? ', ' + a.address2 : '') + (a.landmark ? ', Near ' + a.landmark : '') + ', ' + a.city + ' - ' + a.pincode;
+      return '<div class="address-picker-item" onclick=\'selectDeliveryAddress(' + JSON.stringify(a).replace(/'/g, "&#39;") + ')\'>' +
+        '<i class="fas fa-location-dot"></i>' +
+        '<div><div class="tag">' + escapeHtml(a.tag || ('Address ' + (i+1))) + '</div>' +
+        '<div class="addr-text">' + escapeHtml(addrText) + '</div></div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="address-picker-empty">Could not load saved addresses.</div>';
+  }
+}
+
+function closeAddressPicker(){
+  document.getElementById('addressPickerOverlay').classList.remove('active');
+}
+
+async function selectDeliveryAddress(addr){
+  document.getElementById('deliveryLocation').textContent = 'Locating ' + (addr.tag || 'address') + '...';
+  closeAddressPicker();
+  try {
+    const resp = await fetch('https://nominatim.openstreetmap.org/search?postalcode=' + encodeURIComponent(addr.pincode) + '&country=India&format=json&limit=1');
+    const results = await resp.json();
+    if (results && results.length > 0) {
+      userCoords = { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+    } else {
+      userCoords = null;
+    }
+  } catch(e) {
+    userCoords = null;
+  }
+  const label = (addr.tag || 'Address') + ' - ' + addr.address1 + ', ' + addr.city + ' - ' + addr.pincode;
+  document.getElementById('deliveryLocation').textContent = label;
+  updateDeliveryEstimate();
+}
+
+function useCurrentGpsLocation(){
+  closeAddressPicker();
+  detectLocation();
+}
+
 function detectLocation(){
   if(navigator.geolocation){
     document.getElementById('deliveryLocation').textContent = 'Detecting...';
@@ -1095,9 +1264,11 @@ function detectLocation(){
 async function updateDeliveryEstimate(){
   const dateEl = document.getElementById('deliveryDate');
   const expressRow = document.getElementById('expressDeliveryRow');
+  const expressPolicyBox = document.getElementById('expressPolicyBox');
   if (!product.merchantId || !userCoords || !supabase || !supabase.from) {
     dateEl.textContent = 'Within 2-4 business days';
     expressRow.style.display = 'none';
+    if (expressPolicyBox) expressPolicyBox.style.display = 'none';
     return;
   }
   try {
@@ -1105,22 +1276,27 @@ async function updateDeliveryEstimate(){
     if (!merchant || !merchant.latitude || !merchant.longitude) {
       dateEl.textContent = 'Within 2-4 business days';
       expressRow.style.display = 'none';
+      if (expressPolicyBox) expressPolicyBox.style.display = 'none';
       return;
     }
     const distKm = haversineKm(userCoords.lat, userCoords.lng, parseFloat(merchant.latitude), parseFloat(merchant.longitude));
     if (distKm <= 8) {
       dateEl.textContent = 'Today, within a few hours';
       expressRow.style.display = 'flex';
+      if (expressPolicyBox) expressPolicyBox.style.display = 'flex';
     } else if (distKm <= 30) {
       dateEl.textContent = 'Tomorrow';
       expressRow.style.display = 'none';
+      if (expressPolicyBox) expressPolicyBox.style.display = 'none';
     } else {
       dateEl.textContent = 'Within 2-4 business days (' + Math.round(distKm) + ' km from shop)';
       expressRow.style.display = 'none';
+      if (expressPolicyBox) expressPolicyBox.style.display = 'none';
     }
   } catch(e) {
     dateEl.textContent = 'Within 2-4 business days';
     expressRow.style.display = 'none';
+    if (expressPolicyBox) expressPolicyBox.style.display = 'none';
   }
 }
 
@@ -1147,17 +1323,89 @@ function setupFeedbackStars(){
   });
 }
 
-function submitFeedback(){
+let experiencePhotoFile = null;
+
+function openExperienceUpload(){
+  document.getElementById('experienceOverlay').classList.add('active');
+}
+function closeExperienceUpload(){
+  document.getElementById('experienceOverlay').classList.remove('active');
+}
+function previewExperiencePhoto(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Please choose an image file', 'error'); return; }
+  experiencePhotoFile = file;
+  const preview = document.getElementById('experiencePreview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+}
+
+async function submitExperienceUpload(){
+  const text = document.getElementById('experienceText').value.trim();
+  if (!experiencePhotoFile && !text) { showToast('Add a photo or write something first', 'error'); return; }
+  if (!supabase || !supabase.from) { showToast('Could not connect — try again', 'error'); return; }
+
+  const btn = document.getElementById('experienceSubmitBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
+
+  let imageUrl = '';
+  if (experiencePhotoFile) {
+    const ext = experiencePhotoFile.name.split('.').pop();
+    const path = 'reviews/' + product.id + '/' + Date.now() + '.' + ext;
+    const { error: uploadError } = await supabase.storage.from('media').upload(path, experiencePhotoFile);
+    if (uploadError) {
+      showToast('Photo upload failed: ' + uploadError.message, 'error');
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Experience';
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
+    imageUrl = urlData.publicUrl;
+  }
+
+  const uid = await getCurrentUid();
+  const payload = { product_id: product.id, rating: null, review_text: text, review_image_url: imageUrl || null, created_at: new Date().toISOString() };
+  if (uid) payload.user_id = uid;
+
+  const { error } = await supabase.from('reviews').insert(payload);
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Experience';
+  if (error) {
+    showToast('Could not post your experience: ' + (error.message || 'please try again'), 'error');
+    return;
+  }
+  experiencePhotoFile = null;
+  document.getElementById('experienceText').value = '';
+  document.getElementById('experiencePreview').style.display = 'none';
+  closeExperienceUpload();
+  showToast('Thanks for sharing your experience!');
+  loadProductReviews();
+}
+
+async function submitFeedback(){
   const rating = document.querySelectorAll('#feedbackStars i.active').length;
   const text = document.getElementById('feedbackText').value.trim();
   if(rating === 0){ showToast('Please select a rating', 'error'); return; }
+  if (!supabase || !supabase.from) { showToast('Could not connect — try again', 'error'); return; }
+
+  const submitBtn = document.getElementById('feedbackSubmit');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...'; }
+
+  const uid = await getCurrentUid();
+  const payload = { product_id: product.id, rating: rating, review_text: text, created_at: new Date().toISOString() };
+  if (uid) payload.user_id = uid;
+
+  const { error } = await supabase.from('reviews').insert(payload);
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Feedback'; }
+
+  if (error) {
+    // Surface the real reason instead of pretending it worked — this is the
+    // exact silent failure that made ratings look "not saved" before.
+    showToast('Could not save your rating: ' + (error.message || 'please try again'), 'error');
+    return;
+  }
   document.getElementById('feedbackForm').style.display = 'none';
   document.getElementById('feedbackThank').style.display = 'block';
-  if(supabase && supabase.from){
-    supabase.from('reviews').insert({ product_id: product.id, rating: rating, review_text: text, created_at: new Date().toISOString() }).then(function(){
-      setTimeout(function(){ loadProductReviews(); }, 1000);
-    }).catch(function(){});
-  }
+  setTimeout(function(){ loadProductReviews(); }, 800);
 }
 
 document.addEventListener('DOMContentLoaded', function(){

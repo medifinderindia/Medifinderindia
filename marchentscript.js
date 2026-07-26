@@ -832,15 +832,22 @@ function initAddMedicinePage() {
             const editData = JSON.parse(editDataStr);
             currentEditingId = editData.id;
             if (document.getElementById('prodName')) document.getElementById('prodName').value = editData.product_name || '';
+            if (typeof setProductType === 'function') setProductType(editData.product_type || 'Medicine');
+            const typeRadio = document.querySelector(`input[name="productType"][value="${editData.product_type || 'Medicine'}"]`);
+            if (typeRadio) typeRadio.checked = true;
+            if (document.getElementById('dosageForm')) document.getElementById('dosageForm').value = editData.dosage_form || '';
             if (document.getElementById('composition')) document.getElementById('composition').value = editData.composition || '';
-            if (document.getElementById('dosageForm')) document.getElementById('dosageForm').value = editData.dosage_form || 'Tablet';
+            if (window.syncSaltChipsFromComposition) window.syncSaltChipsFromComposition();
             if (document.getElementById('strength')) document.getElementById('strength').value = editData.strength || '';
             if (document.getElementById('manufacturer')) document.getElementById('manufacturer').value = editData.manufacturer || '';
+            if (document.getElementById('brandName')) document.getElementById('brandName').value = editData.brand_name || '';
             if (document.getElementById('prescriptionReq')) document.getElementById('prescriptionReq').value = editData.prescription_req || 'No';
             if (document.getElementById('mfdDate')) document.getElementById('mfdDate').value = editData.mfd_date || '';
             if (document.getElementById('expiryDate')) document.getElementById('expiryDate').value = editData.expiry_date || '';
             if (document.getElementById('batchNumber')) document.getElementById('batchNumber').value = editData.batch_number || '';
-            if (document.getElementById('storageCondition')) document.getElementById('storageCondition').value = editData.storage_condition || 'Below 30°C';
+            if (document.getElementById('lotNumber')) document.getElementById('lotNumber').value = editData.lot_number || '';
+            if (document.getElementById('warrantyPeriod')) document.getElementById('warrantyPeriod').value = editData.warranty_period || 'No Warranty';
+            if (document.getElementById('modelNumber')) document.getElementById('modelNumber').value = editData.model_number || '';
             if (document.getElementById('unitPrice')) document.getElementById('unitPrice').value = editData.unit_price || '';
             if (document.getElementById('mrpPrice')) document.getElementById('mrpPrice').value = editData.mrp || '';
             if (document.getElementById('discountPct')) {
@@ -895,6 +902,10 @@ function initAddMedicinePage() {
                 if (currentStep === 1) {
                     const prodName = document.getElementById('prodName')?.value;
                     if (!prodName) { showToast("Please enter the product name before going to next step", "error"); return; }
+                    if ((window.currentProductType || 'Medicine') === 'Medicine') {
+                        const composition = document.getElementById('composition')?.value;
+                        if (!composition) { showToast("Please select at least one Composition / Salt", "error"); return; }
+                    }
                 }
                 currentStep++;
                 updateStepForm();
@@ -962,16 +973,20 @@ function initAddMedicinePage() {
         } catch (e) { showToast("Verification check failed.", "error"); reEnableButtons(); return; }
 
         const prodName = document.getElementById('prodName')?.value || '';
+        const productType = window.currentProductType || 'Medicine';
         const composition = document.getElementById('composition')?.value || '';
         const dosageForm = document.getElementById('dosageForm')?.value || 'Tablet';
         const strength = document.getElementById('strength')?.value || '';
         const manufacturer = document.getElementById('manufacturer')?.value || '';
+        const brandName = document.getElementById('brandName')?.value || '';
         const prescriptionReq = document.getElementById('prescriptionReq')?.value || 'No';
         const productDescription = document.getElementById('productDescription')?.value || '';
         const mfdDate = document.getElementById('mfdDate')?.value || null;
         const expiryDate = document.getElementById('expiryDate')?.value || null;
         const batchNumber = document.getElementById('batchNumber')?.value || '';
-        const storageCondition = document.getElementById('storageCondition')?.value || 'Below 30°C';
+        const lotNumber = document.getElementById('lotNumber')?.value || '';
+        const warrantyPeriod = document.getElementById('warrantyPeriod')?.value || '';
+        const modelNumber = document.getElementById('modelNumber')?.value || '';
         const unitPrice = parseFloat(document.getElementById('unitPrice')?.value) || 0;
         const mrpPrice = parseFloat(document.getElementById('mrpPrice')?.value) || null;
         const drugType = document.getElementById('drugType')?.value || 'Branded';
@@ -1014,17 +1029,21 @@ function initAddMedicinePage() {
                 merchant_id: activeMerchantId,
                 product_name: prodName,
                 name: prodName,
+                product_type: productType,
                 composition: composition,
                 dosage_form: dosageForm,
                 strength: strength,
                 manufacturer: manufacturer,
+                brand_name: brandName,
                 prescription_req: prescriptionReq,
                 is_rx: isRxBool,
                 description: productDescription,
                 mfd_date: mfdDate,
                 expiry_date: expiryDate,
                 batch_number: batchNumber,
-                storage_condition: storageCondition,
+                lot_number: lotNumber,
+                warranty_period: warrantyPeriod,
+                model_number: modelNumber,
                 unit_price: unitPrice,
                 mrp: mrpPrice,
                 selling_price: unitPrice,
@@ -1612,10 +1631,12 @@ function applyFullWebLanguage(lang) {
         storeSetupDesc: document.querySelector('.settings-glass-card:nth-child(1) .section-desc'),
         licenseTitle: document.querySelector('.settings-glass-card:nth-child(2) h3'),
         licenseDesc: document.querySelector('.settings-glass-card:nth-child(2) .section-desc'),
-        geoTitle: document.querySelector('.settings-glass-card:nth-child(3) h3'),
-        geoDesc: document.querySelector('.settings-glass-card:nth-child(3) .section-desc'),
-        helpTitle: document.querySelector('.settings-glass-card:nth-child(4) h3'),
-        helpDesc: document.querySelector('.settings-glass-card:nth-child(4) .section-desc')
+        bankTitle: document.querySelector('.settings-glass-card:nth-child(3) h3'),
+        bankDesc: document.querySelector('.settings-glass-card:nth-child(3) .section-desc'),
+        geoTitle: document.querySelector('.settings-glass-card:nth-child(4) h3'),
+        geoDesc: document.querySelector('.settings-glass-card:nth-child(4) .section-desc'),
+        helpTitle: document.querySelector('.settings-glass-card:nth-child(8) h3'),
+        helpDesc: document.querySelector('.settings-glass-card:nth-child(8) .section-desc')
     };
 
     if (lang === 'bn') {
@@ -1624,16 +1645,20 @@ function applyFullWebLanguage(lang) {
         if (elementsToTranslate.storeSetupDesc) elementsToTranslate.storeSetupDesc.innerText = 'আপনার নিবন্ধিত অফিসিয়াল দোকানের নাম পরিচালনা করুন।';
         if (elementsToTranslate.licenseTitle) elementsToTranslate.licenseTitle.innerHTML = '<i class="fa-solid fa-file-shield"></i> সরকারি লাইসেন্স হাব';
         if (elementsToTranslate.licenseDesc) elementsToTranslate.licenseDesc.innerText = 'আপনার সরকারি ড্রাগ লাইসেন্স এখানে আপলোড ও যাচাই করুন।';
+        if (elementsToTranslate.bankTitle) elementsToTranslate.bankTitle.innerHTML = '<i class="fa-solid fa-bank"></i> ব্যাংক অ্যাকাউন্ট ডিটেইলস (KYC)';
+        if (elementsToTranslate.bankDesc) elementsToTranslate.bankDesc.innerText = 'ব্যাংক অ্যাকাউন্ট, IFSC কোড এবং সেটেলমেন্ট UPI আইডি পরিচালনা করুন।';
         if (elementsToTranslate.geoTitle) elementsToTranslate.geoTitle.innerHTML = '<i class="fa-solid fa-map-location-dot"></i> লোকেশন ও ঠিকানা ম্যাপিং';
         if (elementsToTranslate.geoDesc) elementsToTranslate.geoDesc.innerText = 'দোকানের অবস্থান, পিনকোড এবং লাইভ ম্যাপ কনফিগার করুন।';
-        if (elementsToTranslate.helpTitle) elementsToTranslate.helpTitle.innerHTML = '<i class="fa-solid fa-circle-question"></i> সাহায্য কেন্দ্র ও মার্চেন্ট গাইডセンター';
-        if (elementsToTranslate.helpDesc) elementsToTranslate.helpDesc.innerText = 'যেকোনো operational সমস্যা তাৎক্ষণিকভাবে সমাধান করার নির্দেশিকা।';
+        if (elementsToTranslate.helpTitle) elementsToTranslate.helpTitle.innerHTML = '<i class="fa-solid fa-circle-question"></i> সাহায্য কেন্দ্র ও মার্চেন্ট গাইড';
+        if (elementsToTranslate.helpDesc) elementsToTranslate.helpDesc.innerText = 'যেকোনো অপারেশনাল সমস্যা তাৎক্ষণিকভাবে সমাধান করার নির্দেশিকা।';
     } else {
         if (elementsToTranslate.logoTitle) elementsToTranslate.logoTitle.innerHTML = 'MEDI <span class="highlight">FINDER</span>';
         if (elementsToTranslate.storeSetupTitle) elementsToTranslate.storeSetupTitle.innerHTML = '<i class="fa-solid fa-store"></i> Store Core Setup';
         if (elementsToTranslate.storeSetupDesc) elementsToTranslate.storeSetupDesc.innerText = 'Manage your registered official shop identity.';
         if (elementsToTranslate.licenseTitle) elementsToTranslate.licenseTitle.innerHTML = '<i class="fa-solid fa-file-shield"></i> Government License Hub';
         if (elementsToTranslate.licenseDesc) elementsToTranslate.licenseDesc.innerText = 'Upload and verify your government drug license here.';
+        if (elementsToTranslate.bankTitle) elementsToTranslate.bankTitle.innerHTML = '<i class="fa-solid fa-bank"></i> Bank Account Details (KYC)';
+        if (elementsToTranslate.bankDesc) elementsToTranslate.bankDesc.innerText = 'Manage bank accounts, IFSC code, and settlement UPI IDs.';
         if (elementsToTranslate.geoTitle) elementsToTranslate.geoTitle.innerHTML = '<i class="fa-solid fa-map-location-dot"></i> Geolocation & Address Mapping';
         if (elementsToTranslate.geoDesc) elementsToTranslate.geoDesc.innerText = 'Configure shop location, pincode, and contact maps.';
         if (elementsToTranslate.helpTitle) elementsToTranslate.helpTitle.innerHTML = '<i class="fa-solid fa-circle-question"></i> Help Desk & Merchant Guide';
@@ -1692,8 +1717,13 @@ async function loadCurrentMerchantStatus() {
             localStorage.setItem('merchantSessionActive', 'true');
             localStorage.setItem('userEmail', activeUser.email || '');
             
-            if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = merchantData.merchant_name || '';
-            if (document.getElementById('shopNameInput')) document.getElementById('shopNameInput').value = merchantData.merchant_name || '';
+            // 👤 গুগল লগইন হলে user_metadata থেকে নাম/ছবি ফলব্যাক হিসেবে ব্যবহার করা হয়
+            const googleName = activeUser.user_metadata?.full_name || activeUser.user_metadata?.name || '';
+            const googleAvatar = activeUser.user_metadata?.avatar_url || activeUser.user_metadata?.picture || '';
+            const resolvedMerchantName = merchantData.merchant_name || googleName || '';
+
+            if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = resolvedMerchantName;
+            if (document.getElementById('shopNameInput')) document.getElementById('shopNameInput').value = resolvedMerchantName;
             if (document.getElementById('merchantEmailInput')) document.getElementById('merchantEmailInput').value = merchantData.email || '';
             if (document.getElementById('merchantPhoneInput')) document.getElementById('merchantPhoneInput').value = merchantData.phone || '';
             if (document.getElementById('licenseIdInput')) document.getElementById('licenseIdInput').value = merchantData.license_id || '';
@@ -1713,9 +1743,15 @@ async function loadCurrentMerchantStatus() {
                 document.getElementById('bankFileNameDisplay').innerText = `📄 Document Synced Successfully`;
             }
 
-            if (merchantData.merchant_avatar && document.getElementById('profileDisplay')) {
-                document.getElementById('profileDisplay').src = merchantData.merchant_avatar;
-                localStorage.setItem('merchant_avatar', merchantData.merchant_avatar);
+            if (document.getElementById('profileDisplay')) {
+                if (merchantData.merchant_avatar) {
+                    document.getElementById('profileDisplay').src = merchantData.merchant_avatar;
+                    localStorage.setItem('merchant_avatar', merchantData.merchant_avatar);
+                } else if (googleAvatar) {
+                    // কাস্টম আপলোড না থাকলে গুগলের ছবিটা দেখাও (ডিফল্ট ব্রোকেন আইকনের বদলে)
+                    document.getElementById('profileDisplay').src = googleAvatar;
+                }
+                // দুটোর কোনোটাই না থাকলে HTML-এ সেট করা নিরপেক্ষ প্লেসহোল্ডার আইকনটাই থেকে যাবে
             }
 
             const verifyStatusEl = document.getElementById('verifyStatus');

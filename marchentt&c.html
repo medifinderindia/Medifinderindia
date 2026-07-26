@@ -96,16 +96,109 @@
 .social-icons a i, 
 .social-icons a svg, 
 .social-icons a img {
-    font-size: 22px !important; /* Font Awesome আইকন হলে সাইজ ঠিক করবে */
-    max-width: 24px !important;  /* যদি ইমেজ বা SVG লোগো ব্যবহার করেন */
+    font-size: 22px !important;
+    max-width: 24px !important;
     max-height: 24px !important;
     width: auto;
     height: auto;
     display: block;
 }
+
+.back-button {
+    position: sticky;
+    top: 12px;
+    left: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    background: #ffffff;
+    color: #c70202;
+    border: 1px solid #f1d0d0;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    margin: 15px 0 0 15px;
+    z-index: 100;
+}
+.back-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ================= MOBILE RESPONSIVE FIX ================= */
+* {
+    box-sizing: border-box;
+}
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    .container {
+        margin: 10px auto;
+        padding: 20px 16px;
+        border-radius: 6px;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+    h1 {
+        font-size: 1.6rem;
+        line-height: 1.3;
+    }
+    h2 {
+        font-size: 1.2rem;
+    }
+    h3 {
+        font-size: 1.05rem;
+    }
+    p, li {
+        font-size: 15px;
+        text-align: left;
+    }
+    .highlight {
+        padding: 12px;
+        font-size: 14px;
+    }
+    .social-icons {
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .social-icons a {
+        width: 44px;
+        height: 44px;
+    }
+    .back-button {
+        margin: 10px 0 0 10px;
+        padding: 7px 14px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 400px) {
+    .container {
+        padding: 16px 12px;
+    }
+    h1 {
+        font-size: 1.4rem;
+    }
+}
     </style>
 </head>
 <body>
+
+<a href="javascript:void(0);" class="back-button" onclick="goBackSafely()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    Back
+</a>
 
 <div class="container">
     <h1>Privacy Policy (Merchant)</h1>
@@ -271,29 +364,40 @@
     
     <p>
         <strong>Medi Finder India Legal Desk</strong><br>
-         <p><strong>Platform Entity Name:</strong> Medifinderindia </p>
-        <p><strong>Official Web Domain:</strong><a href="https://medifinderindia.com" target="_blank">medifinderindia.com</a></p>
-        <p><strong>Registered Physical Address:</strong> Banihari, Janchi, Gangarampur, District: Dakshin Dinajpur, West Bengal, India, PIN - 733140</p>
-        <p><strong>Contact Helpline:</strong> +91 9593625498</p>
-        <p><strong>Email:</strong><a href="medifinderindia@gmail.com"> medifinderindia@gmail.com</a></p>
-        <p>Our verification unit will review your logged complaints and respond with a formal resolution strategy within an absolute timeline of 30 days.</p>
-    </div>
+        <strong>Platform Entity Name:</strong> Medifinderindia<br>
+        <strong>Official Web Domain:</strong> <a href="https://medifinderindia.com" target="_blank">medifinderindia.com</a><br>
+        <strong>Registered Physical Address:</strong> Banihari, Janchi, Gangarampur, District: Dakshin Dinajpur, West Bengal, India, PIN - 733140<br>
+        <strong>Contact Helpline:</strong> +91 9593625498<br>
+        <strong>Email:</strong> <a href="mailto:medifinderindia@gmail.com">medifinderindia@gmail.com</a>
+    </p>
+    <p>Our verification unit will review your logged complaints and respond with a formal resolution strategy within an absolute timeline of 30 days.</p>
 </div>
     <!-- SOCIAL MEDIA CONNECT SECTION -->
     <div class="social-connect">
         <h3>Connect With Medifinder</h3>
         <div class="social-icons">
             <!-- Replace the '#' with your actual profile URLs -->
-            <a href="https://www.facebook.com/profile.php?id=61590844315430" class="facebook" target="_blank" title="Facebook"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfGv-4a2Odo3N6EaZsIR_4xxqjDktdTxEpMk73fzF7-g&s=10"></a>
-            <a href="https://www.instagram.com/medifinder.india/" class="instagram" target="_blank" title="Instagram"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrGEzhzMjrmbS31ZcxwHF0lZlwcUJ85aVGxR8S1BF_bw&s=10"></a>
-            <a href="https://wa.me/919593625498" class="whatsapp" target="_blank" title="WhatsApp"><iMG src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVYdqHee1P_pwtI1k40-jq5sUUhQqrZn14bVSs6hv47g&s=10"></a>
-            <a href="https://www.x.com" class="x-twitter" target="_blank" title="X (Twitter)"><iMG src="https://img.magnific.com/free-vector/new-2023-twitter-logo-x-icon-design_1017-45418.jpg?semt=ais_hybrid&w=740&q=80"></a>
+            <a href="https://www.facebook.com/profile.php?id=61590844315430" class="facebook" target="_blank" title="Facebook"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfGv-4a2Odo3N6EaZsIR_4xxqjDktdTxEpMk73fzF7-g&s=10" alt="Facebook"></a>
+            <a href="https://www.instagram.com/medifinder.india/" class="instagram" target="_blank" title="Instagram"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrGEzhzMjrmbS31ZcxwHF0lZlwcUJ85aVGxR8S1BF_bw&s=10" alt="Instagram"></a>
+            <a href="https://wa.me/919593625498" class="whatsapp" target="_blank" title="WhatsApp"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVYdqHee1P_pwtI1k40-jq5sUUhQqrZn14bVSs6hv47g&s=10" alt="WhatsApp"></a>
+            <a href="https://www.x.com" class="x-twitter" target="_blank" title="X (Twitter)"><img src="https://img.magnific.com/free-vector/new-2023-twitter-logo-x-icon-design_1017-45418.jpg?semt=ais_hybrid&w=740&q=80" alt="X (Twitter)"></a>
         </div>
     </div>
 
     <p style="text-align: center; margin-top: 40px; font-size: 13px; color: #94a3b8; font-weight: 500;">
         &copy; 2026 Medifinderindia . All rights reserved.
     </p>
-</div>
+
+<script>
+    function goBackSafely() {
+        if (document.referrer && document.referrer !== window.location.href) {
+            window.history.back();
+        } else if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "index.html"; // fallback: apnar homepage-er naam/path diye ei line ta change korte paren
+        }
+    }
+</script>
 </body>
 </html>

@@ -19,16 +19,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            max-width: 220px;
+            gap: 10px;
+            width: 100%;
+            max-width: 320px;
             margin: 18px auto 6px auto;
-            padding: 12px 20px;
+            padding: 16px 24px;
             background: #fff;
             border: 1.5px solid #fee2e2;
             border-radius: 14px;
             color: #e02020;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 16px;
             box-shadow: 0 2px 10px rgba(224,32,32,0.06);
             cursor: pointer;
             transition: all 0.2s ease;
@@ -69,7 +70,7 @@
             <section class="content-body">
                 <div class="profile-hero-card">
                     <div class="avatar-wrapper">
-                        <img id="profileDisplay" src="" alt="Merchant Avatar">
+                        <img id="profileDisplay" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Ccircle cx='50' cy='40' r='18' fill='%2394a3b8'/%3E%3Cpath d='M50 62c-19 0-32 10-32 24v14h64V86c0-14-13-24-32-24z' fill='%2394a3b8'/%3E%3C/svg%3E" alt="Merchant Avatar">
                         <label for="avatarInput" class="cam-overlay-btn" title="Change Profile Image">
                             <i class="fa-solid fa-camera"></i>
                         </label>
@@ -155,7 +156,7 @@
 
     <div id="storeCoreModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'storeCoreModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('storeCoreModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('storeCoreModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-store"></i> Store Core Setup</h3>
             <hr><br>
             <div class="form-group-premium">
@@ -169,7 +170,7 @@
     <!-- 🏦 নতুন ব্যাংক অ্যাকাউন্ট সেটআপ মডাল পপআপ -->
     <div id="bankModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'bankModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('bankModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('bankModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-bank"></i> Bank Account Details (KYC)</h3>
             <p class="popup-section-desc">Configure your payout bank parameters and virtual payment address (UPI).</p>
             <hr><br>
@@ -201,7 +202,7 @@
 
     <div id="licenseModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'licenseModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('licenseModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('licenseModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-file-shield"></i> Government License Hub</h3>
             <p class="popup-section-desc">Upload your drug license to unlock product publishing and customer sales.</p>
             <hr><br>
@@ -225,7 +226,7 @@
 
     <div id="geoModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'geoModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('geoModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('geoModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-map-location-dot"></i> Geolocation & Address Config</h3>
             <hr><br>
             
@@ -261,20 +262,19 @@
                 <input type="text" id="autoAddress" placeholder="Full address will resolve here..." class="popup-readonly" readonly>
             </div>
             
-            <div style="display: flex; gap:10px; margin-top:15px;">
-                <button type="button" class="popup-submit-btn secondary-btn" id="btnDropMapPin" style="margin:0; flex:1;">
-                    <i class="fa-solid fa-location-crosshairs"></i> Get GPS Drop-Pin
-                </button>
-                <button type="button" class="popup-submit-btn" id="btnSaveGeoAddress" style="margin:0; flex:1; background:#2e7d32;">
-                    <i class="fa-solid fa-floppy-disk"></i> Save Location Details
-                </button>
-            </div>
+            <button type="button" class="popup-submit-btn locate-me-btn" id="btnDropMapPin">
+                <i class="fa-solid fa-location-crosshairs"></i> আমার বর্তমান লোকেশন খুঁজুন (Use My Current Location)
+            </button>
+            <p class="locate-me-hint"><i class="fa-solid fa-circle-info"></i> উপরে ট্যাপ করলেই আপনার লোকেশন সাথে সাথে বসে যাবে — তারপর নিচে সেভ করুন।</p>
+            <button type="button" class="popup-submit-btn" id="btnSaveGeoAddress" style="background:#2e7d32; margin-top:8px;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Location Details
+            </button>
         </div>
     </div>
 
     <div id="langModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'langModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('langModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('langModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-language"></i> Terminal Language</h3>
             <hr><br>
             <div class="form-group-premium">
@@ -282,7 +282,16 @@
                 <select id="langSelect" class="premium-select">
                     <option value="en">English (Global Default)</option>
                     <option value="bn">Bengali (বাংলা)</option>
+                    <option value="hi">Hindi (हिन्दी)</option>
+                    <option value="ur">Urdu (اردو)</option>
+                    <option value="ne">Nepali (नेपाली)</option>
+                    <option value="sat">Santali (ᱥᱟᱱᱛᱟᱲᱤ)</option>
+                    <option value="or">Odia (ଓଡ଼ିଆ)</option>
+                    <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                    <option value="kur">Kurmali (কুড়মালি)</option>
+                    <option value="raj">Rajbanshi (রাজবংশী)</option>
                 </select>
+                <p class="lang-support-note"><i class="fa-solid fa-circle-info"></i> এই মুহূর্তে সম্পূর্ণ অ্যাপ ট্রান্সলেশন শুধু বাংলা ও ইংরেজিতে চালু আছে। বাকি ভাষাগুলো শীঘ্রই যোগ হবে; এখন সিলেক্ট করলে ইংরেজি টেক্সট দেখাবে।</p>
             </div>
             <button class="popup-submit-btn dark-btn">Apply Language</button>
         </div>
@@ -290,7 +299,7 @@
 
     <div id="referModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'referModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('referModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('referModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-gift"></i> Referral Pipeline</h3>
             <hr><br>
             <div class="popup-referral-box">
@@ -304,7 +313,7 @@
 
     <div id="supportModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'supportModal')">
         <div class="popup-content-box">
-            <button class="close-popup-btn" onclick="closePopup('supportModal')">&times;</button>
+            <button class="close-popup-btn" onclick="closePopup('supportModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-headset"></i> Help Desk</h3>
             <hr><br>
             <div class="popup-support-channels">
@@ -316,11 +325,14 @@
     </div>
 
     <nav class="bottom-nav">
-        <div class="nav-item" onclick="window.location.href='marchenthome.html'"><i class="fas fa-home"></i><span>HOME</span></div>
-        <div class="nav-item" onclick="window.location.href='marchentorders.html'"><i class="fas fa-receipt"></i><span>ORDERS</span></div>
-        <div class="nav-item" onclick="window.location.href='marchentadd.html'"><i class="fas fa-circle-plus"></i><span>ADD NEW</span></div>
-        <div class="nav-item" onclick="window.location.href='marchentinventory.html'"><i class="fas fa-boxes-stacked"></i><span>INVENTORY</span></div>
-        <div class="nav-item active" onclick="window.location.href='marchentprofile.html'"><i class="fas fa-user-circle"></i><span>PROFILE</span></div>
+        <a class="nav-item" href="marchenthome.html"><i class="fas fa-home"></i><span>HOME</span></a>
+        <a class="nav-item" href="marchentorders.html"><i class="fas fa-box"></i><span>ORDERS</span></a>
+        <a class="nav-add" href="marchentadd.html">
+            <div class="nav-add-btn"><i class="fas fa-plus"></i></div>
+            <span>ADD</span>
+        </a>
+        <a class="nav-item" href="marchentinventory.html"><i class="fas fa-capsules"></i><span>INVENTORY</span></a>
+        <a class="nav-item active" href="marchentprofile.html"><i class="fas fa-user-circle"></i><span>PROFILE</span></a>
     </nav>
     <script>
         (function() {

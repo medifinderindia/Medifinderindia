@@ -135,9 +135,109 @@
             margin: 50px 0;
             letter-spacing: 2px;
         }
+
+        .back-button {
+            position: sticky;
+            top: 12px;
+            left: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            background: #ffffff;
+            color: #c70202;
+            border: 1px solid #f1d0d0;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            cursor: pointer;
+            margin: 15px 0 0 15px;
+            z-index: 100;
+        }
+        .back-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ================= MOBILE RESPONSIVE FIX ================= */
+        * {
+            box-sizing: border-box;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px 16px;
+                border-radius: 8px;
+                overflow-wrap: break-word;
+                word-break: break-word;
+            }
+            h1 {
+                font-size: 1.7rem;
+                line-height: 1.3;
+            }
+            h2 {
+                font-size: 1.3rem;
+            }
+            h3 {
+                font-size: 1.05rem;
+            }
+            p, li {
+                font-size: 15px;
+                text-align: left;
+            }
+            .highlight-box, .danger-box {
+                padding: 14px;
+                font-size: 14px;
+            }
+            .social-icons {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            .social-icons a img {
+                width: 40px;
+                height: 40px;
+            }
+            .nav-tabs {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .tab-btn {
+                padding: 8px 14px;
+                font-size: 1rem;
+            }
+            .back-button {
+                margin: 10px 0 0 10px;
+                padding: 7px 14px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .container {
+                padding: 16px 12px;
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
+        }
     </style>
 </head>
 <body>
+
+<a href="javascript:void(0);" class="back-button" onclick="goBackSafely()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    Back
+</a>
 
 <div class="container">
     
@@ -249,7 +349,7 @@
         <div class="social-icons">
             <a href="https://www.facebook.com/profile.php?id=61590844315430" class="facebook" target="_blank" title="Facebook"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfGv-4a2Odo3N6EaZsIR_4xxqjDktdTxEpMk73fzF7-g&s=10" alt="Facebook"></a>
             <a href="https://www.instagram.com/medifinder.india/" class="instagram" target="_blank" title="Instagram"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrGEzhzMjrmbS31ZcxwHF0lZlwcUJ85aVGxR8S1BF_bw&s=10" alt="Instagram"></a>
-            <a href="https://wa.me/91 9382262825" class="whatsapp" target="_blank" title="WhatsApp"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVYdqHee1P_pwtI1k40-jq5sUUhQqrZn14bVSs6hv47g&s=10" alt="WhatsApp"></a>
+            <a href="https://wa.me/919382262825" class="whatsapp" target="_blank" title="WhatsApp"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVYdqHee1P_pwtI1k40-jq5sUUhQqrZn14bVSs6hv47g&s=10" alt="WhatsApp"></a>
             <a href="https://www.x.com" class="x-twitter" target="_blank" title="X (Twitter)"><img src="https://img.magnific.com/free-vector/new-2023-twitter-logo-x-icon-design_1017-45418.jpg?semt=ais_hybrid&w=740&q=80" alt="X"></a>
         </div>
     </div>
@@ -259,6 +359,16 @@
 <script>
     // In production, you can use simple JavaScript to switch views or display them sequentially as configured above.
     console.log("Medi Finder India Legal Stack Loaded Successfully.");
+
+    function goBackSafely() {
+        if (document.referrer && document.referrer !== window.location.href) {
+            window.history.back();
+        } else if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "index.html"; // fallback: apnar homepage-er naam/path diye ei line ta change korte paren
+        }
+    }
 </script>
 </body>
 </html>
