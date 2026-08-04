@@ -29,8 +29,14 @@
             width: 60px; height: 60px; border-radius: 50%; background: #fff;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 10px; font-size: 28px; color: #e02020; font-weight: 900;
-            border: 3px solid rgba(255,255,255,0.3);
+            border: 3px solid rgba(255,255,255,0.3); overflow: hidden;
         }
+        .receipt-header .shop-logo img { width: 34px; height: 34px; object-fit: contain; }
+        .invoice-no-tag {
+            position: absolute; top: 14px; right: 14px; text-align: right;
+            font-size: 10px; color: #fff; opacity: 0.95; line-height: 1.5;
+        }
+        .invoice-no-tag .inv-num { font-weight: 800; font-size: 11px; letter-spacing: 0.5px; }
         .receipt-header h1 { font-size: 20px; letter-spacing: 1px; margin-bottom: 4px; }
         .receipt-header .shop-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
         .receipt-header .shop-info { font-size: 11px; opacity: 0.9; line-height: 1.4; }
@@ -103,6 +109,26 @@
         }
         .barcode-section canvas { width: 100%; max-width: 300px; height: 50px; }
         .barcode-section .order-id-text { font-size: 11px; color: #6b7280; margin-top: 4px; letter-spacing: 2px; }
+        .qr-section {
+            text-align: center; padding: 14px 0 4px; margin-top: 8px; border-top: 1px dashed #ddd;
+        }
+        .qr-section img { width: 110px; height: 110px; border-radius: 8px; border: 1px solid #e5e7eb; padding: 4px; }
+        .qr-section .qr-caption { font-size: 10px; color: #6b7280; margin-top: 6px; letter-spacing: 1px; }
+        .signature-section {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            margin-top: 18px; padding-top: 10px;
+        }
+        .signature-section .sign-box { text-align: center; flex: 1; }
+        .signature-section .sign-line { border-top: 1px solid #9ca3af; width: 90%; margin: 0 auto 4px; }
+        .signature-section .sign-label { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-section .verified-tick {
+            display: flex; flex-direction: column; align-items: center; flex: 1;
+        }
+        .signature-section .verified-tick .tick-circle {
+            width: 30px; height: 30px; border-radius: 50%; background: #2ed573; color: #fff;
+            display: flex; align-items: center; justify-content: center; font-size: 15px; margin-bottom: 4px;
+        }
+        .signature-section .verified-tick .sign-label { color: #2ed573; font-weight: 700; }
         .receipt-footer {
             padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;
         }
@@ -248,13 +274,20 @@
             const secureCode = order.delivery_secure_code || '';
             const dateStr = order.date_string || formatDate(order.created_at);
             const timeStr = order.created_at ? formatTime(order.created_at) : '';
+            // Unique invoice number per receipt, derived from the order's own unique ID —
+            // no separate counter table needed, it's already unique per order.
+            const invoiceNo = 'INV-' + (order.order_id || order.id || '').toString().replace(/^ORD-/, '');
+            const couponCode = order.coupon_code || '';
+            // Data the QR code encodes — enough to look this exact receipt up again.
+            const qrData = encodeURIComponent(`${invoiceNo}|${order.order_id || order.id || ''}`);
+            const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + qrData;
 
             // Build items HTML
             let itemsHtml = '';
             if (items.length > 0) {
                 itemsHtml = items.map((i, idx) => `
                     <div class="items-table-row">
-                        <div class="item-name">${i.product_name || 'Item'}</div>
+                        <div class="item-name">${i.product_category || i.dosage_form || i.product_name || 'Item'}</div>
                         <div class="item-qty">×${i.quantity || 1}</div>
                         <div class="item-price">${formatCurrency(i.unit_price || 0)}</div>
                         <div class="item-total">${formatCurrency(i.total_price || (i.quantity || 1) * (i.unit_price || 0))}</div>
@@ -278,18 +311,26 @@
             wrapper.innerHTML = `
                 <div class="receipt-card">
                     <div class="receipt-header">
-                        <div class="shop-logo">MF</div>
+                        <div class="invoice-no-tag">
+                            <div>Invoice No.</div>
+                            <div class="inv-num">${invoiceNo}</div>
+                        </div>
+                        <div class="shop-logo"><img src="favicon.png" alt="MediFinder"></div>
                         <div class="shop-name">${shopName}</div>
                         <div class="shop-info">${shopFullAddr ? shopFullAddr + '<br>' : ''}${shopPhone ? '📞 ' + shopPhone : ''}</div>
                         <div class="receipt-badge"><i class="fa-regular fa-clock"></i> ${dateStr} ${timeStr}</div>
                     </div>
 
                     <div class="receipt-body">
-                        <div class="receipt-title">📋 <span>DELIVERY RECEIPT</span></div>
+                        <div class="receipt-title">🧾 <span>ORDER RECEIPT</span></div>
 
                         <div class="info-row">
                             <span class="label">Order ID</span>
                             <span class="value">#${order.order_id || order.id?.slice(0, 8) || ''}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Invoice Date</span>
+                            <span class="value">${dateStr}</span>
                         </div>
                         <div class="info-row">
                             <span class="label">Payment</span>
@@ -332,25 +373,38 @@
                             </div>
                             ${delivery > 0 ? `<div class="info-row"><span class="label">Delivery Fee</span><span class="value">${formatCurrency(delivery)}</span></div>` : ''}
                             ${tax > 0 ? `<div class="info-row"><span class="label">Tax</span><span class="value">${formatCurrency(tax)}</span></div>` : ''}
-                            ${discount > 0 ? `<div class="info-row"><span class="label">Discount</span><span class="value" style="color:#2ed573">-${formatCurrency(discount)}</span></div>` : ''}
+                            ${discount > 0 ? `<div class="info-row"><span class="label">Discount${couponCode ? ' (' + couponCode + ')' : ''}</span><span class="value" style="color:#2ed573">-${formatCurrency(discount)}</span></div>` : ''}
                             <div class="info-row grand-total-row">
                                 <span class="label">Grand Total</span>
                                 <span class="value">${formatCurrency(total)}</span>
                             </div>
                         </div>
 
-                        ${secureCode ? `
-                        <div class="secure-code-section">
-                            <div class="code-label"><i class="fa-solid fa-shield"></i> Delivery Secure Code</div>
-                            <div class="code-value">${secureCode}</div>
-                            <div style="font-size:10px;color:#6b7280;margin-top:4px">Share this code with delivery partner for verification</div>
-                        </div>` : ''}
-
                         <div class="barcode-section no-print">
                             <div style="font-family:'Courier New',monospace;font-size:20px;letter-spacing:6px;color:#333;font-weight:700">
                                 ${order.order_id || order.id || ''}
                             </div>
                             <div class="order-id-text">ORDER REFERENCE</div>
+                        </div>
+
+                        <div class="qr-section">
+                            <img src="${qrCodeUrl}" alt="Receipt QR Code">
+                            <div class="qr-caption">SCAN TO VERIFY THIS RECEIPT</div>
+                        </div>
+
+                        <div class="signature-section">
+                            <div class="sign-box">
+                                <div class="sign-line"></div>
+                                <div class="sign-label">Customer Sign</div>
+                            </div>
+                            <div class="verified-tick">
+                                <div class="tick-circle"><i class="fa-solid fa-check"></i></div>
+                                <div class="sign-label">Verified</div>
+                            </div>
+                            <div class="sign-box">
+                                <div class="sign-line"></div>
+                                <div class="sign-label">Authorised Sign</div>
+                            </div>
                         </div>
                     </div>
 

@@ -823,9 +823,11 @@
                 await Promise.all([
                     loadDashboardStats(),
                     loadOrders(),
-                    loadMedicines()
+                    loadMedicines(),
+                    loadPrescriptionRequests()
                 ]);
                 setupRealtimeSubscriptions();
+                setupPrescriptionRealtime();
                 refreshInterval = setInterval(autoRefresh, 60000);
             } catch (err) {
                 showToast('Failed to load dashboard', 'error');
@@ -1068,7 +1070,7 @@
             if (!currentMerchantId) return;
             try {
                 const { data, error } = await db.from('orders')
-                    .select('id, items_text, items_img, address, total_bill, total_amount, status, payment_mode, payment_status, customer_name, user_email, created_at')
+                    .select('id, items_text, items_img, address, total_bill, total_amount, status, payment_mode, payment_status, customer_name, user_email, customer_phone, rx_prescription_url, created_at')
                     .eq('merchant_id', currentMerchantId)
                     .order('created_at', { ascending: false })
                     .limit(100);
@@ -1125,6 +1127,12 @@
                     `;
                 } else if (s === 'accepted' || s === 'arrived_at_store' || s === 'picked_up' || s === 'shipped') {
                     actions = `<button class="order-action-btn btn-ship" onclick="window._shipOrder('${o.id}')" title="Mark Delivered"><i class="fa-solid fa-circle-check"></i></button>`;
+                }
+                if (o.rx_prescription_url) {
+                    actions += `<button class="order-action-btn" onclick="window._viewOrderPrescription('${MedUtils.escapeAttr(o.rx_prescription_url)}')" title="View Prescription" style="background:#fff5f5;color:#e02020;"><i class="fa-solid fa-file-prescription"></i></button>`;
+                }
+                if (o.customer_phone) {
+                    actions += `<a class="order-action-btn" href="tel:${o.customer_phone}" title="Call Customer" style="background:#eef6ff;color:#1e90ff;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-phone"></i></a>`;
                 }
                 return `
                     <tr>
@@ -1446,7 +1454,7 @@
             });
 
             document.getElementById('msgBtn').addEventListener('click', () => {
-                showToast('Messaging coming soon! Use notifications.', 'info');
+                openPrescriptionPanel();
             });
 
             document.getElementById('notifBtn').addEventListener('click', () => {
@@ -1457,6 +1465,225 @@
         function closeSidebar() {
             document.getElementById('sidebar').classList.remove('active');
             document.getElementById('sidebarOverlay').classList.remove('active');
+        }
+
+        // ==========================================
+        // 🩺 PRESCRIPTION BROADCAST REQUESTS (Message button)
+        // These are prescription orders the user app broadcasts to every
+        // nearby pharmacy at once. Whichever pharmacy accepts first wins —
+        // enforced atomically by the accept_prescription_order() RPC so two
+        // pharmacies can never both accept the same request — and every
+        // other pharmacy's Accept button disappears live (realtime), no
+        // page refresh needed.
+        // ==========================================
+        let prescriptionRequests = [];
+        let _prescPanelOpen = false;
+
+        async function loadPrescriptionRequests() {
+            if (!currentMerchantId || !db) return;
+            try {
+                const { data: notifs, error } = await db.from('merchant_notifications')
+                    .select('id, related_prescription_id, created_at')
+                    .eq('merchant_id', currentMerchantId)
+                    .not('related_prescription_id', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(30);
+                if (error || !notifs || notifs.length === 0) {
+                    prescriptionRequests = [];
+                    updateMsgBadge();
+                    if (_prescPanelOpen) renderPrescriptionPanel();
+                    return;
+                }
+                const ids = [...new Set(notifs.map(n => n.related_prescription_id))];
+                const { data: rxRows } = await db.from('prescription_orders').select('*').in('id', ids).order('created_at', { ascending: false });
+                prescriptionRequests = rxRows || [];
+                updateMsgBadge();
+                if (_prescPanelOpen) renderPrescriptionPanel();
+            } catch (err) { /* non-fatal */ }
+        }
+
+        function updateMsgBadge() {
+            const badge = document.getElementById('msgBadge');
+            if (!badge) return;
+            const pendingCount = prescriptionRequests.filter(r => r.status === 'pending').length;
+            if (pendingCount > 0) { badge.textContent = pendingCount; badge.style.display = 'flex'; }
+            else { badge.textContent = ''; badge.style.display = 'none'; }
+        }
+
+        function _prescPanelEl() {
+            let panel = document.getElementById('prescReqPanel');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'prescReqPanel';
+                panel.style.cssText = 'position:fixed;top:0;right:0;width:100%;max-width:400px;height:100vh;background:#fff;box-shadow:-4px 0 20px rgba(0,0,0,0.15);z-index:10001;transform:translateX(100%);transition:transform 0.25s ease;display:flex;flex-direction:column;';
+                panel.innerHTML = `
+                    <div style="padding:16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;background:#e02020;color:#fff;">
+                        <h3 style="margin:0;font-size:1rem;"><i class="fa-solid fa-file-prescription"></i> Prescription Requests</h3>
+                        <button id="prescPanelCloseBtn" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="prescReqList" style="flex:1;overflow-y:auto;padding:12px;background:#f4f6f9;"></div>
+                `;
+                document.body.appendChild(panel);
+                let overlay = document.createElement('div');
+                overlay.id = 'prescReqOverlay';
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10000;display:none;';
+                document.body.appendChild(overlay);
+                overlay.addEventListener('click', closePrescriptionPanel);
+                panel.querySelector('#prescPanelCloseBtn').addEventListener('click', closePrescriptionPanel);
+            }
+            return panel;
+        }
+
+        async function openPrescriptionPanel() {
+            const panel = _prescPanelEl();
+            const overlay = document.getElementById('prescReqOverlay');
+            overlay.style.display = 'block';
+            requestAnimationFrame(() => { panel.style.transform = 'translateX(0)'; });
+            _prescPanelOpen = true;
+            await loadPrescriptionRequests();
+            renderPrescriptionPanel();
+        }
+        window.openPrescriptionPanel = openPrescriptionPanel;
+
+        function closePrescriptionPanel() {
+            const panel = document.getElementById('prescReqPanel');
+            const overlay = document.getElementById('prescReqOverlay');
+            if (panel) panel.style.transform = 'translateX(100%)';
+            if (overlay) overlay.style.display = 'none';
+            _prescPanelOpen = false;
+        }
+
+        function renderPrescriptionPanel() {
+            const list = document.getElementById('prescReqList');
+            if (!list) return;
+            if (prescriptionRequests.length === 0) {
+                list.innerHTML = `<div style="text-align:center;padding:40px 10px;color:#999;"><i class="fa-solid fa-file-circle-xmark" style="font-size:2rem;opacity:0.5;"></i><p>No prescription requests yet</p></div>`;
+                return;
+            }
+            list.innerHTML = prescriptionRequests.map(rx => {
+                const meds = (rx.medicines || []).map(m => m.name).join(', ');
+                const mine = rx.status === 'accepted' && rx.accepted_by === currentMerchantId;
+                const takenByOther = rx.status === 'accepted' && rx.accepted_by !== currentMerchantId;
+                let statusHtml = '';
+                if (rx.status === 'pending') {
+                    statusHtml = `
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <button onclick="window._acceptPrescriptionOrder('${rx.id}')" style="flex:1;background:#2ed573;color:#fff;border:none;border-radius:6px;padding:8px;font-weight:600;cursor:pointer;"><i class="fa-solid fa-check"></i> Accept</button>
+                            <button onclick="window._declinePrescriptionNotif('${rx.id}')" style="flex:1;background:#f1f2f6;color:#555;border:none;border-radius:6px;padding:8px;font-weight:600;cursor:pointer;"><i class="fa-solid fa-xmark"></i> Decline</button>
+                        </div>`;
+                } else if (mine) {
+                    statusHtml = `<div style="margin-top:8px;color:#2ed573;font-weight:600;font-size:0.8rem;"><i class="fa-solid fa-circle-check"></i> You accepted this — see Recent Orders</div>`;
+                } else if (takenByOther) {
+                    statusHtml = `<div style="margin-top:8px;color:#999;font-size:0.8rem;"><i class="fa-solid fa-ban"></i> Already accepted by another pharmacy</div>`;
+                } else {
+                    statusHtml = `<div style="margin-top:8px;color:#999;font-size:0.8rem;">Cancelled</div>`;
+                }
+                return `
+                <div id="prescReq-${rx.id}" style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;${takenByOther ? 'opacity:0.55;' : ''}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                        <div>
+                            <strong style="font-size:0.85rem;">${MedUtils.sanitizeHTML(rx.user_name || 'Customer')}</strong>
+                            <p style="margin:2px 0 0;font-size:0.78rem;color:#666;">${MedUtils.sanitizeHTML(meds || 'See prescription')}</p>
+                        </div>
+                        <button onclick="window._viewPrescriptionImage('${rx.id}')" title="View prescription" style="background:#fff5f5;border:1px solid #ffd6d6;color:#e02020;border-radius:6px;padding:6px 8px;cursor:pointer;flex-shrink:0;"><i class="fa-solid fa-file-prescription"></i></button>
+                    </div>
+                    ${rx.user_phone ? `<a href="tel:${rx.user_phone}" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:0.78rem;color:#1e90ff;text-decoration:none;"><i class="fa-solid fa-phone"></i> ${rx.user_phone}</a>` : ''}
+                    ${statusHtml}
+                </div>`;
+            }).join('');
+        }
+
+        window._viewPrescriptionImage = function(id) {
+            const rx = prescriptionRequests.find(r => r.id === id);
+            if (!rx) return;
+            let modal = document.createElement('div');
+            modal.id = 'prescImgModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10002;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+            modal.innerHTML = `
+                <button id="prescImgCloseBtn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#fff;font-size:1.6rem;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                <img src="${rx.prescription_url}" style="max-width:100%;max-height:70vh;border-radius:10px;background:#fff;object-fit:contain;">
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                    ${rx.user_phone ? `<a href="tel:${rx.user_phone}" style="background:#1e90ff;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;"><i class="fa-solid fa-phone"></i> Call Customer</a>` : ''}
+                    ${rx.status === 'pending' ? `<button onclick="window._acceptPrescriptionOrder('${rx.id}');document.getElementById('prescImgModal').remove();" style="background:#2ed573;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;"><i class="fa-solid fa-check"></i> Accept</button>` : ''}
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.querySelector('#prescImgCloseBtn').onclick = () => modal.remove();
+        };
+
+        window._declinePrescriptionNotif = async function(id) {
+            // Only dismisses it from THIS pharmacy's own list — the shared
+            // request stays open so other nearby pharmacies can still accept it.
+            prescriptionRequests = prescriptionRequests.filter(r => r.id !== id);
+            updateMsgBadge();
+            renderPrescriptionPanel();
+            try {
+                await db.from('merchant_notifications').update({ is_read: true }).eq('merchant_id', currentMerchantId).eq('related_prescription_id', id);
+            } catch (e) {}
+        };
+
+        window._acceptPrescriptionOrder = async function(id) {
+            try {
+                const { data, error } = await db.rpc('accept_prescription_order', { p_id: id, p_merchant_id: currentMerchantId });
+                if (error) throw error;
+                const rx = Array.isArray(data) ? data[0] : data;
+                if (!rx || !rx.id) {
+                    showToast('Already accepted by another pharmacy.', 'error');
+                    await loadPrescriptionRequests();
+                    return;
+                }
+                const meds = rx.medicines || [];
+                const itemsText = meds.map(m => `${m.name}|1`).join(', ');
+                const totalAmt = meds.reduce((s, m) => s + (Number(m.price) || 0), 0);
+                await db.from('orders').insert([{
+                    merchant_id: currentMerchantId,
+                    user_id: rx.user_id || null,
+                    user_email: rx.user_email || null,
+                    customer_name: rx.user_name || 'Prescription Customer',
+                    customer_phone: rx.user_phone || '',
+                    address: rx.user_address || '',
+                    items_text: itemsText,
+                    total_amount: totalAmt,
+                    total_bill: totalAmt,
+                    status: 'accepted',
+                    payment_mode: 'COD',
+                    payment_status: 'pending',
+                    rx_prescription_url: rx.prescription_url
+                }]);
+                showToast('Prescription accepted! Added to Recent Orders.', 'success');
+                await loadPrescriptionRequests();
+                await loadOrders();
+                await loadDashboardStats();
+            } catch (err) {
+                showToast('Failed to accept: ' + (err.message || err), 'error');
+            }
+        };
+
+        function setupPrescriptionRealtime() {
+            if (!currentMerchantId) return;
+            try {
+                db.channel('presc-orders-status')
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prescription_orders' }, payload => {
+                        // Any pharmacy accepting/cancelling a request updates everyone's
+                        // panel live — this is how the Accept button disappears for
+                        // every OTHER pharmacy the instant one of them wins the race,
+                        // with no page refresh.
+                        const idx = prescriptionRequests.findIndex(r => r.id === payload.new.id);
+                        if (idx !== -1) prescriptionRequests[idx] = payload.new;
+                        updateMsgBadge();
+                        if (_prescPanelOpen) renderPrescriptionPanel();
+                    })
+                    .subscribe();
+
+                db.channel('presc-notif-incoming')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'merchant_notifications', filter: `merchant_id=eq.${currentMerchantId}` }, payload => {
+                        if (payload.new.related_prescription_id) {
+                            showToast('🩺 New prescription order nearby! Tap Messages to view.', 'info');
+                            loadPrescriptionRequests();
+                        }
+                    })
+                    .subscribe();
+            } catch (err) {}
         }
 
         // ==========================================
@@ -1537,7 +1764,8 @@
                 await Promise.all([
                     loadDashboardStats(),
                     loadOrders(),
-                    loadMedicines()
+                    loadMedicines(),
+                    loadPrescriptionRequests()
                 ]);
             } catch (err) {
             }

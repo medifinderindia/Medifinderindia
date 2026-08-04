@@ -93,6 +93,8 @@ a{text-decoration:none;color:inherit}
 .offer-text strong{font-weight:700}
 .tc-link{color:var(--blue);font-size:12px;cursor:pointer;margin-top:2px;display:inline-block}
 .details-section{background:var(--card);margin-top:8px;padding:16px}
+#detailTable{max-height:150px;overflow:hidden;transition:max-height 0.3s ease}
+#detailTable.expanded{max-height:1000px}
 .detail-item{display:flex;padding:8px 0;border-bottom:1px solid var(--border)}
 .detail-item:last-child{border-bottom:none}
 .detail-label{width:140px;font-size:13px;color:var(--text3);flex-shrink:0}
@@ -728,7 +730,8 @@ function renderDetailTable(){
     ['Prescription', product.isRx === 'true' ? 'Required' : 'Not Required']
   ];
   document.getElementById('detailTable').innerHTML = fields.map(function(f){
-    return '<div class="detail-item"><div class="detail-label">' + f[0] + '</div><div class="detail-value">' + f[1] + '</div></div>';
+    const val = (f[1] === null || f[1] === undefined || f[1] === '' || f[1] === 'NaN') ? 'Not specified' : f[1];
+    return '<div class="detail-item"><div class="detail-label">' + f[0] + '</div><div class="detail-value">' + val + '</div></div>';
   }).join('');
 }
 
@@ -835,23 +838,66 @@ function toggleAllReviews(){
   if(btn) btn.textContent = reviewsExpanded ? 'Show Less' : 'See All Reviews';
 }
 
-// Only shows offers that are actually configured and active in the DB.
-// If you haven't built a real coupon/cashback system yet, this section
-// simply stays hidden — showing nothing is honest, showing fake ones isn't.
+// Shows offers that are actually configured and active in the DB.
+// Two sources are merged here:
+//  1) platform_offers — platform-wide banners (unchanged, as before).
+//  2) promotions — merchant-created Discounts/Coupons/Flash Sales from
+//     marchentpromotions.html. Those rows carry an applicable_products
+//     array (the products the merchant tapped in the promo builder) plus
+//     start_date/end_date/status. Previously this function never queried
+//     'promotions' at all, so a merchant's own discount/coupon/flash sale
+//     never appeared on the product page even though it was saved fine.
 // Expected table: platform_offers(title text, description text, icon_class text, is_active bool)
 async function loadRealOffers(){
   const section = document.getElementById('offersSection');
   const list = document.getElementById('offersList');
   if (!supabase || !supabase.from) return;
   try {
-    const { data, error } = await supabase.from('platform_offers').select('*').eq('is_active', true);
-    if (error || !data || data.length === 0) { section.style.display = 'none'; return; }
-    list.innerHTML = data.map(function(o){
-      return '<div class="offer-card">' +
-        '<div class="offer-icon coupon"><i class="' + (o.icon_class || 'fas fa-tag') + '"></i></div>' +
-        '<div><div class="offer-text"><strong>' + escapeHtml(o.title || 'Offer') + '</strong> ' + escapeHtml(o.description || '') + '</div></div>' +
-      '</div>';
-    }).join('');
+    let cards = [];
+
+    // 1) Platform-wide offers (existing behaviour, untouched)
+    const { data: platformOffers } = await supabase.from('platform_offers').select('*').eq('is_active', true);
+    if (platformOffers && platformOffers.length > 0) {
+      cards = cards.concat(platformOffers.map(function(o){
+        return '<div class="offer-card">' +
+          '<div class="offer-icon coupon"><i class="' + (o.icon_class || 'fas fa-tag') + '"></i></div>' +
+          '<div><div class="offer-text"><strong>' + escapeHtml(o.title || 'Offer') + '</strong> ' + escapeHtml(o.description || '') + '</div></div>' +
+        '</div>';
+      }));
+    }
+
+    // 2) Merchant promotions (discounts, coupons, flash sales) linked to this product
+    if (product.id) {
+      const { data: promos } = await supabase.from('promotions').select('*')
+        .in('type', ['discount', 'flash_sale', 'coupon']);
+      if (promos && promos.length > 0) {
+        const now = new Date();
+        const pid = String(product.id);
+        const live = promos.filter(function(pr){
+          const isPaused = pr.status === 'paused' || pr.is_active === false;
+          if (isPaused) return false;
+          if (pr.start_date && now < new Date(pr.start_date)) return false;
+          if (pr.end_date && now > new Date(pr.end_date)) return false;
+          const applicable = Array.isArray(pr.applicable_products) ? pr.applicable_products.map(String) : [];
+          return applicable.includes(pid);
+        });
+        cards = cards.concat(live.map(function(pr){
+          const isFlash = pr.type === 'flash_sale';
+          const isCoupon = pr.type === 'coupon';
+          const iconClass = isFlash ? 'cashback' : (isCoupon ? 'wallet' : 'coupon');
+          const iconTag = isFlash ? 'fa-bolt' : (isCoupon ? 'fa-ticket' : 'fa-tag');
+          const valueText = pr.discount_type === 'percentage' ? (pr.discount_value || 0) + '% off' : 'Rs.' + (pr.discount_value || 0) + ' off';
+          const titleText = isCoupon ? ('Use code ' + (pr.code || 'COUPON')) : (pr.title || (isFlash ? 'Flash Sale' : 'Discount'));
+          return '<div class="offer-card">' +
+            '<div class="offer-icon ' + iconClass + '"><i class="fas ' + iconTag + '"></i></div>' +
+            '<div><div class="offer-text"><strong>' + escapeHtml(titleText) + '</strong> ' + escapeHtml(valueText) + '</div></div>' +
+          '</div>';
+        }));
+      }
+    }
+
+    if (cards.length === 0) { section.style.display = 'none'; return; }
+    list.innerHTML = cards.join('');
     section.style.display = 'block';
   } catch(e) { section.style.display = 'none'; }
 }
@@ -1008,7 +1054,7 @@ function addToCart(){
   if(existing >= 0){
     cart[existing].qty += quantity;
   } else {
-    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:product.isRx, merchantId:product.merchantId || null, exempt_platform_fee:false, exempt_processing_charge:false, sponsorDiscountSlotId: sponsorDiscountInfo ? sponsorDiscountInfo.slotId : null });
+    cart.push({ id:product.id, name:product.name, price:product.price, img:product.img, qty:quantity, isRx:(product.isRx === 'true'), merchantId:product.merchantId || null, exempt_platform_fee:false, exempt_processing_charge:false, sponsorDiscountSlotId: sponsorDiscountInfo ? sponsorDiscountInfo.slotId : null });
   }
   localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
@@ -1036,7 +1082,7 @@ function addSimilarToCart(id, name, price, img, isRx){
   let cart = JSON.parse(localStorage.getItem('medi_cart') || '[]');
   const existing = cart.findIndex(function(c){ return c.id === id; });
   if (existing >= 0) { cart[existing].qty += 1; }
-  else { cart.push({ id:id, name:name, price:price, img: img || SAMPLE_IMAGES[0], qty:1, isRx: isRx ? 'true' : 'false' }); }
+  else { cart.push({ id:id, name:name, price:price, img: img || SAMPLE_IMAGES[0], qty:1, isRx: !!isRx }); }
   localStorage.setItem('medi_cart', JSON.stringify(cart));
   updateCartBadge();
   showToast('Added to cart');
@@ -1182,14 +1228,8 @@ function closeZoom(){
 function toggleDetails(){
   const table = document.getElementById('detailTable');
   const btn = document.getElementById('readMoreBtn');
-  if(table.style.maxHeight === '0px' || table.style.maxHeight === ''){
-    table.style.maxHeight = 'none';
-    btn.innerHTML = 'Show Less <i class="fas fa-chevron-up"></i>';
-  } else {
-    table.style.maxHeight = '0px';
-    table.style.overflow = 'hidden';
-    btn.innerHTML = 'Read More <i class="fas fa-chevron-down"></i>';
-  }
+  const expanded = table.classList.toggle('expanded');
+  btn.innerHTML = expanded ? 'Show Less <i class="fas fa-chevron-up"></i>' : 'Read More <i class="fas fa-chevron-down"></i>';
 }
 
 function showToast(msg){

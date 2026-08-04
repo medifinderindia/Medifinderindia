@@ -38,6 +38,7 @@ function renderPrescriptionWidgetState() {
         if (defaultState) defaultState.style.display = 'flex';
         if (progressState) progressState.style.display = 'none';
         if (uploadedState) uploadedState.style.display = 'none';
+        setPrescriptionWaitingStatus('');
     }
 }
 
@@ -102,6 +103,51 @@ function blockForMissingPrescription() {
     } else {
         showToast("Upload prescription for Rx medicines.", "error");
     }
+}
+
+// Auto-picks the customer's live mobile number so they never have to retype it
+// on the prescription popup — prefers the default saved delivery address,
+// then falls back to the number they entered last time.
+function getAutoUserPhone() {
+    try {
+        const def = (savedAddresses || []).find(a => a.is_default) || (savedAddresses || [])[0];
+        if (def && def.phone) return def.phone;
+    } catch (e) {}
+    return localStorage.getItem('medi_last_phone') || '';
+}
+
+// Shows/updates the "waiting for pharmacy" status line under the uploaded
+// prescription card. Pass an empty string to hide it.
+function setPrescriptionWaitingStatus(text) {
+    const el = document.getElementById('presc-waiting-status');
+    if (!el) return;
+    if (!text) { el.style.display = 'none'; el.innerText = ''; return; }
+    el.style.display = 'block';
+    el.innerText = text;
+}
+
+// Live-watches a single broadcast prescription order so the moment ANY nearby
+// pharmacy accepts it, the customer's screen updates instantly — no refresh.
+function watchPendingPrescriptionOrder(id) {
+    if (!supabase || !id) return;
+    localStorage.setItem('medi_pending_rx_id', id);
+    setPrescriptionWaitingStatus('⏳ Waiting for a pharmacy to accept your prescription (5–10 min)...');
+    if (window._rxWatchChannel) { try { supabase.removeChannel(window._rxWatchChannel); } catch (e) {} }
+    window._rxWatchChannel = supabase
+        .channel('rx-order-' + id)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prescription_orders', filter: `id=eq.${id}` }, payload => {
+            const row = payload.new;
+            if (row.status === 'accepted') {
+                setPrescriptionWaitingStatus('✅ Prescription accepted! The pharmacy is preparing your order.');
+                showToast("Your prescription was accepted by a nearby pharmacy!", "success");
+                localStorage.removeItem('medi_pending_rx_id');
+                try { supabase.removeChannel(window._rxWatchChannel); } catch (e) {}
+            } else if (row.status === 'cancelled') {
+                setPrescriptionWaitingStatus('');
+                localStorage.removeItem('medi_pending_rx_id');
+            }
+        })
+        .subscribe();
 }
 
 let userLiveLat = 22.5726;  // fallback — real coords set by GPS
@@ -260,6 +306,11 @@ const languageMatrix = {
 document.addEventListener("DOMContentLoaded", () => {
 
     renderPrescriptionWidgetState();
+
+    // Resume the "waiting for pharmacy" live status if the user left and came
+    // back while a broadcast prescription order is still pending acceptance.
+    const _pendingRxId = localStorage.getItem('medi_pending_rx_id');
+    if (_pendingRxId) watchPendingPrescriptionOrder(_pendingRxId);
 
     detectLiveUserGPSCoordinates();
     autoFillSavedUserDataOnAuth();
@@ -1316,12 +1367,15 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Finds nearby verified pharmacies (within radiusKm) and pushes a notification
-// row into the EXISTING `merchant_notifications` table (already wired up with
-// realtime + the notification bell in marchentscript.js), so a new prescription
-// order shows up for them immediately — no new tables/columns required.
-async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines) {
-    if (!supabase) return;
+// Creates ONE shared row in `prescription_orders` (so acceptance is atomic —
+// whichever pharmacy taps Accept first wins, via the accept_prescription_order
+// RPC, and every other pharmacy's Accept button disappears live) and then
+// notifies every nearby pharmacy through the EXISTING `merchant_notifications`
+// table (already wired up with realtime + the notification bell), tagging
+// each notification with related_prescription_id so tapping it opens this
+// exact request. Returns the new prescription_orders id, or null on failure.
+async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines, customerPhone) {
+    if (!supabase) return null;
     try {
         const userLat = await new Promise((resolve) => {
             if (!navigator.geolocation) return resolve(null);
@@ -1336,7 +1390,7 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
             .from('merchants')
             .select('id, latitude, longitude, shop_name, merchant_name, status')
             .in('status', ['active', 'approved']);
-        if (error || !merchants) return;
+        if (error || !merchants) return null;
 
         let targets = merchants;
         if (userLat) {
@@ -1349,20 +1403,48 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
         }
         if (targets.length === 0) targets = merchants; // fallback: notify everyone if we couldn't get location
 
+        let userId = '', userName = '';
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            userId = userData?.user?.id || '';
+            userName = userData?.user?.user_metadata?.full_name || '';
+        } catch (e) {}
+
+        const defaultAddr = (savedAddresses || []).find(a => a.is_default) || (savedAddresses || [])[0];
+        const userAddress = defaultAddr
+            ? `${defaultAddr.address1 || ''}${defaultAddr.address2 ? ', ' + defaultAddr.address2 : ''}, ${defaultAddr.city || ''} - ${defaultAddr.pincode || ''}`
+            : (verifiedAddress || '');
+
+        const { data: rxOrder, error: rxErr } = await supabase.from('prescription_orders').insert([{
+            user_id: userId || null,
+            user_name: userName || defaultAddr?.name || 'Customer',
+            user_phone: customerPhone || '',
+            user_email: currentUserEmail || '',
+            user_address: userAddress,
+            prescription_url: prescriptionUrl,
+            medicines: selectedMedicines,
+            status: 'pending'
+        }]).select().single();
+        if (rxErr || !rxOrder) return null;
+
         const medNames = selectedMedicines.map(m => m.name).join(', ');
         const notifRows = targets.map(m => ({
             merchant_id: m.id,
             title: '🩺 New Prescription Order Nearby',
-            message: `Customer needs: ${medNames}. Prescription: ${prescriptionUrl}`,
-            type: 'order'
+            message: `Customer needs: ${medNames}. Tap to view the prescription & accept.`,
+            type: 'order',
+            related_prescription_id: rxOrder.id
         }));
         await supabase.from('merchant_notifications').insert(notifRows);
+
+        return rxOrder.id;
     } catch (e) {
-        // Non-fatal — the medicines are already in the user's cart either way.
+        return null; // Non-fatal — the medicines are already in the user's cart either way.
     }
 }
 
 function openPrescriptionSelectionPopup(medicines, prescriptionUrl) {
+    const autoPhone = getAutoUserPhone();
     let popup = document.createElement('div');
     popup.className = "modal active";
     popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
@@ -1386,26 +1468,43 @@ function openPrescriptionSelectionPopup(medicines, prescriptionUrl) {
                     </label>
                 `).join('')}
             </div>
+            <div style="margin-top:12px;text-align:left;">
+                <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:4px;"><i class="fa-solid fa-phone" style="color:#ff4d4d"></i> Your live mobile no. (pharmacy will call you on this)</label>
+                <input type="tel" id="presc-phone-input" value="${autoPhone}" maxlength="10" placeholder="10-digit mobile number" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ced4da;box-sizing:border-box;font-size:0.9rem;">
+            </div>
             <div style="display:flex;gap:10px;margin-top:15px;">
                 <button id="cancel-presc" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Dismiss</button>
-                <button id="add-presc-cart" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Verify & Add Selected</button>
+                <button id="add-presc-cart" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Submit</button>
             </div>
         </div>
     `;
     document.body.appendChild(popup);
     document.getElementById('cancel-presc').onclick = () => popup.remove();
-    document.getElementById('add-presc-cart').onclick = () => {
+    document.getElementById('add-presc-cart').onclick = async () => {
         const selectedCheckboxes = popup.querySelectorAll('.presc-select-box:checked');
         if (selectedCheckboxes.length === 0) { showToast("Please select at least one medicine!", "error"); return; }
+        const phoneInput = document.getElementById('presc-phone-input');
+        const phone = (phoneInput?.value || '').trim();
+        if (phone.length < 10) { showToast("Please enter a valid 10-digit mobile number.", "error"); return; }
+        localStorage.setItem('medi_last_phone', phone);
+
         const selectedMeds = [];
         selectedCheckboxes.forEach(box => {
             const med = { id: box.dataset.id, name: box.dataset.name, price: box.dataset.price, img: box.dataset.img };
             selectedMeds.push(med);
             addToCart({ id: med.id, name: med.name, price: med.price, img: med.img, isRx: false });
         });
+
         if (prescriptionUrl) {
-            broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMeds);
-            showToast("Sent to nearby pharmacies for confirmation!", "success");
+            const submitBtn = document.getElementById('add-presc-cart');
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Sending...'; }
+            const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMeds, phone);
+            if (rxId) {
+                watchPendingPrescriptionOrder(rxId);
+                showToast("Sent to nearby pharmacies! Waiting for your prescription acceptance (5–10 min)...", "success");
+            } else {
+                showToast("Couldn't notify pharmacies right now — please try again.", "error");
+            }
         }
         popup.remove();
         window.location.href = 'usercart.html';
@@ -1694,13 +1793,22 @@ function renderCartPage() {
         headerBar.style.display = 'flex';
         if (itemCountEl) itemCountEl.innerHTML = `<strong>${totalQty}</strong> item${totalQty !== 1 ? 's' : ''}`;
     }
-    container.innerHTML = currentCart.map(item => `
-        <div class="cart-item">
+    container.innerHTML = currentCart.map(item => {
+        const isRxItem = item.isRx === true || item.isRx === 'true';
+        const rxBlocked = isRxItem && !isPrescriptionUploaded;
+        const rxBadge = isRxItem
+            ? (rxBlocked
+                ? '<span class="cart-item-rx" style="background:#fff0f0;color:#ff4d4d;border:1px solid #ff4d4d;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-triangle-exclamation"></i> Rx</span>'
+                : '<span class="cart-item-rx" style="background:#f0fff5;color:#2ed573;border:1px solid #2ed573;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Rx Verified</span>')
+            : '';
+        return `
+        <div class="cart-item"${rxBlocked ? ' style="border:1px solid #ff4d4d;background:#fff8f8;border-radius:10px;"' : ''}>
             <div class="cart-item-left">
                 <img class="cart-item-img" src="${item.img}" onerror="this.src='https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=200'">
                 <div class="cart-item-info">
-                    <h4 class="cart-item-name">${item.name}${item.isRx ? '<span class="cart-item-rx"><i class="fa-solid fa-prescription"></i> Rx</span>' : ''}</h4>
+                    <h4 class="cart-item-name">${item.name}${rxBadge}</h4>
                     <p class="cart-item-price">₹${item.price}</p>
+                    ${rxBlocked ? `<p onclick="blockForMissingPrescription()" style="margin:2px 0 0;font-size:0.72rem;color:#ff4d4d;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-arrow-up"></i> Upload prescription fast — order won't be placed without it</p>` : ''}
                     <div class="cart-item-qty">
                         <button class="cart-item-qty-btn" onclick="changeCartQty('${item.id}',-1)">-</button>
                         <span class="cart-item-qty-num">${item.qty}</span>
@@ -1710,7 +1818,8 @@ function renderCartPage() {
             </div>
             <button class="cart-item-remove" onclick="removeFromCart('${item.id}')"><i class="fa-solid fa-trash-can"></i></button>
         </div>
-    `).join('');
+    `;
+    }).join('');
     recalculateBill();
 }
 
@@ -2020,8 +2129,13 @@ async function processFinalOrderPayload() {
                 }
                 for (const item of currentCart) {
                     if (item.id && item.qty) {
+                        // supabase-js resolves with {error} on a failed RPC call, it does
+                        // NOT throw — so the try/catch fallback here never actually ran
+                        // when decrement_stock was missing (404), and stock silently never
+                        // decremented. Check the returned error explicitly instead.
                         try {
-                            await supabase.rpc('decrement_stock', { med_id: item.id, qty: item.qty });
+                            const { error: rpcErr } = await supabase.rpc('decrement_stock', { med_id: item.id, qty: item.qty });
+                            if (rpcErr) throw rpcErr;
                         } catch (e) {
                             try {
                                 const { data: currMed } = await supabase.from('medicines').select('stock_qty').eq('id', item.id).single();
@@ -2659,10 +2773,11 @@ async function setupMapPageModules() {
             return;
         }
         displayGrid.innerHTML = shops.map(shop => {
+            // Straight-line placeholder shown immediately; replaced below with the
+            // real road distance/duration from OSRM once it resolves (was previously
+            // a made-up "distKm * 6 + 5" formula that produced nonsense like "0 m 5 min").
             const distKm = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng);
-            const etaMins = Math.round(distKm * 6 + 5);
-            const etaLabel = etaMins < 60 ? `${etaMins} min` : `${Math.floor(etaMins/60)}h ${etaMins%60}m`;
-            const distLabel = distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`;
+            const distLabel = distKm < 0.1 ? `< 100 m` : (distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`);
             return `
                 <div class="shop-card" data-shop-id="${shop.id}">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -2673,8 +2788,8 @@ async function setupMapPageModules() {
                             </div>
                             <p style="margin:2px 0;font-size:0.75rem;color:#747d8c;"><i class="fa-solid fa-location-dot"></i> ${shop.address || shop.city || 'Location set'}</p>
                             <div style="display:flex;gap:12px;margin-top:6px;">
-                                <span style="font-size:0.73rem;color:#1c82aa;font-weight:600;"><i class="fa-solid fa-route"></i> ${distLabel}</span>
-                                <span style="font-size:0.73rem;color:#2ed573;font-weight:600;"><i class="fa-solid fa-clock"></i> ${etaLabel}</span>
+                                <span class="shop-dist-label" data-shop-dist="${shop.id}" style="font-size:0.73rem;color:#1c82aa;font-weight:600;"><i class="fa-solid fa-route"></i> ${distLabel}</span>
+                                <span class="shop-eta-label" data-shop-eta="${shop.id}" style="font-size:0.73rem;color:#2ed573;font-weight:600;"><i class="fa-solid fa-clock"></i> <i class="fa-solid fa-spinner fa-spin"></i></span>
                                 ${shop.license === 'Verified' ? '<span style="font-size:0.7rem;color:#28a745;font-weight:600;"><i class="fa-solid fa-circle-check"></i> Verified</span>' : ''}
                             </div>
                         </div>
@@ -2682,6 +2797,17 @@ async function setupMapPageModules() {
                     </div>
                 </div>`;
         }).join('');
+
+        // Fill in the real road distance/ETA per shop from OSRM (falls back to the
+        // straight-line estimate already on screen if the routing request fails).
+        shops.forEach(async (shop) => {
+            const route = await fetchRoadRoute(userLiveLat, userLiveLng, shop.lat, shop.lng);
+            if (!route) return;
+            const distEl = displayGrid.querySelector(`[data-shop-dist="${shop.id}"]`);
+            const etaEl = displayGrid.querySelector(`[data-shop-eta="${shop.id}"]`);
+            if (distEl) distEl.innerHTML = `<i class="fa-solid fa-route"></i> ${route.distanceKm < 0.1 ? '< 100 m' : (route.distanceKm < 1 ? Math.round(route.distanceKm * 1000) + ' m' : route.distanceKm.toFixed(1) + ' km')}`;
+            if (etaEl) etaEl.innerHTML = `<i class="fa-solid fa-clock"></i> ${route.durationMin < 1 ? '1 min' : (route.durationMin < 60 ? route.durationMin + ' min' : Math.floor(route.durationMin/60) + 'h ' + (route.durationMin%60) + 'm')}`;
+        });
 
         displayGrid.querySelectorAll('.run-routing-trigger').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -3055,8 +3181,17 @@ function setupProfilePageModules() {
         if (!uid) { renderSavedAddressList(); return; }
         try {
             const { data, error } = await supabase.from('user_addresses').select('*').eq('user_id', uid).order('is_default', { ascending: false }).order('created_at', { ascending: false });
-            if (!error && data) savedAddresses = data;
-        } catch (e) {}
+            if (error) {
+                // Previously swallowed silently — a saved address would then just
+                // never appear in the list with no indication why. Surface it.
+                console.error('user_addresses load failed:', error);
+                showToast("Couldn't load your saved addresses: " + (error.message || error.hint || 'unknown error'), "error");
+            } else if (data) {
+                savedAddresses = data;
+            }
+        } catch (e) {
+            console.error('user_addresses load failed:', e);
+        }
         renderSavedAddressList();
 
         const defaultAddr = savedAddresses.find(a => a.is_default) || savedAddresses[0];
