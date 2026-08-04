@@ -2336,6 +2336,14 @@ function listenToUserOrders() {
             const statusText = (updated.status || '').toLowerCase();
             const statusMap = { pending: 'Order Placed', accepted: 'Accepted by pharmacy', arrived_at_store: 'Rider at pharmacy', picked_up: 'Picked up by rider', shipped: 'Out for delivery', delivered: 'Delivered!', broadcasted: 'Rider search active', cancelled: 'Order cancelled' };
             showToast(statusMap[statusText] || `Order status: ${updated.status}`, statusText === 'delivered' ? 'success' : statusText === 'cancelled' ? 'error' : 'info');
+
+            // ✅ NEW: ট্র্যাকিং modal যদি এই order এর জন্যই খোলা থাকে, তাহলে সাথে সাথেই সেটাও রিফ্রেশ
+            // করা হবে — আগে শুধু অর্ডার কার্ড আর toast আপডেট হতো, modal বন্ধ করে আবার না খুললে
+            // পুরনো (stale) স্টেপ/স্ট্যাটাসই দেখাত।
+            const trackingModal = document.getElementById('tracking-modal');
+            if (trackingModal && trackingModal.classList.contains('active') && trackingModal.dataset.trackingOrderId === id && typeof window.openLiveTrackingModal === 'function') {
+                window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 20, updated.status, updated.rider_id || null);
+            }
         })
         .subscribe();
 }
@@ -2377,7 +2385,7 @@ function renderOrdersUI(filterMode) {
                     <div class="order-action-area" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:8px;">
                         <span style="font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:20px;background:#fff9db;color:#f59f00;">${statusLabel}</span>
                         <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-                            <button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openLiveTrackingModal('${order.order_id || order.id}','${order.transit_mode||'Bike'}',${order.shop_lat||22.578},${order.shop_lng||88.365},${order.eta_minutes||20},'${order.status}')">Track</button>
+                            <button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openLiveTrackingModal('${order.order_id || order.id}','${order.transit_mode||'Bike'}',${order.shop_lat||22.578},${order.shop_lng||88.365},${order.eta_minutes||20},'${order.status}',${order.rider_id || 'null'})">Track</button>
                             <button style="background:#2ed573;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openDeliveryBoyVerificationModal('${order.order_id || order.id}')">View OTP</button>
                             <button style="background:#ff4d4d;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="handleCancelOrderFlow('${order.order_id || order.id}','${order.status}')">Cancel</button>
                         </div>
@@ -2524,40 +2532,146 @@ window.handleReturnOrder = async function(orderId) {
     }
 };
 
-window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat = 22.578, shopLng = 88.365, baseEta = 20, currentStatus = "Active") {
+// ✅ NEW: tracking modal-এর ভেতরের Leaflet map + rider live marker এর state — বারবার modal
+// খোলা/বন্ধ হলে যাতে পুরনো map instance/subscription লিক না হয়ে যায় তাই এখানে রাখা হলো।
+window._trackingMapState = { map: null, riderMarker: null, shopMarker: null, riderChannel: null };
+
+function teardownTrackingMap() {
+    const st = window._trackingMapState;
+    if (st.riderChannel && typeof supabase !== 'undefined' && supabase) {
+        try { supabase.removeChannel(st.riderChannel); } catch (e) {}
+    }
+    if (st.map) {
+        try { st.map.remove(); } catch (e) {}
+    }
+    window._trackingMapState = { map: null, riderMarker: null, shopMarker: null, riderChannel: null };
+}
+
+async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, statusText) {
+    teardownTrackingMap(); // আগের modal session এর কোনো map/channel থাকলে সরিয়ে ফেলা
+
+    mapContainer.innerHTML = `<div id="tracking-live-map" style="height:220px;border-radius:12px;overflow:hidden;"></div>
+        <p id="tracking-live-caption" style="text-align:center;font-size:0.75rem;color:#747d8c;margin:8px 0 0 0;">${riderId ? 'Waiting for rider location…' : (statusText === 'broadcasted' ? 'Looking for a nearby rider…' : 'Rider will appear here once assigned')}</p>`;
+
+    // Leaflet map ছোট় হয়ে থাকা মডালের ভেতর init হওয়ার সময় সঠিক সাইজ না ধরতে পারলে ধূসর বক্স
+    // দেখায় — তাই একটু delay দিয়ে invalidateSize() কল করা হচ্ছে।
+    setTimeout(() => {
+        const map = L.map('tracking-live-map', { zoomControl: false, attributionControl: false }).setView([shopLat, shopLng], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+        const shopIcon = L.divIcon({ html: '<div style="background:#e02020;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(224,32,32,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:12px;"></i></div>', className: 'custom-div-icon', iconSize: [26, 26] });
+        window._trackingMapState.map = map;
+        window._trackingMapState.shopMarker = L.marker([shopLat, shopLng], { icon: shopIcon }).addTo(map).bindPopup('Pharmacy');
+        map.invalidateSize();
+
+        if (!riderId || !supabase) return;
+
+        const riderIcon = L.divIcon({ html: '<div style="background:#1c82aa;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(28,130,170,0.4);"><i class="fa-solid fa-motorcycle" style="color:#fff;font-size:13px;"></i></div>', className: 'custom-div-icon', iconSize: [28, 28] });
+
+        async function refreshRiderPosition() {
+            try {
+                const { data: rider } = await supabase.from('riders').select('current_lat, current_lon, name').eq('id', riderId).maybeSingle();
+                const caption = document.getElementById('tracking-live-caption');
+                if (!rider || !rider.current_lat || !rider.current_lon) return;
+                const pos = [rider.current_lat, rider.current_lon];
+                if (window._trackingMapState.riderMarker) {
+                    window._trackingMapState.riderMarker.setLatLng(pos);
+                } else {
+                    window._trackingMapState.riderMarker = L.marker(pos, { icon: riderIcon }).addTo(map).bindPopup(rider.name || 'Your rider');
+                }
+                if (caption) caption.textContent = `${rider.name || 'Rider'} is on the way`;
+                // শপ + রাইডার — দুটো marker-ই ভিউতে ফিট হবে এমনভাবে zoom/pan করা
+                const bounds = L.latLngBounds([[shopLat, shopLng], pos]);
+                map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+            } catch (e) { /* silent — network hiccup এ map ভেঙে না যাক */ }
+        }
+
+        refreshRiderPosition();
+
+        // ✅ realtime: rider এর অবস্থান বদলালেই সাথে সাথেই marker সরে যাবে (polling লাগবে না)
+        window._trackingMapState.riderChannel = supabase
+            .channel(`tracking-rider-${riderId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'riders', filter: `id=eq.${riderId}` }, (payload) => {
+                const r = payload.new;
+                if (!r.current_lat || !r.current_lon) return;
+                const pos = [r.current_lat, r.current_lon];
+                if (window._trackingMapState.riderMarker) window._trackingMapState.riderMarker.setLatLng(pos);
+            })
+            .subscribe();
+    }, 150);
+}
+
+window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat = 22.578, shopLng = 88.365, baseEta = 20, currentStatus = "Active", riderId = null) {
     const modal = document.getElementById('tracking-modal');
     if (!modal) return;
     modal.style.display = "flex";
     modal.classList.add('active');
+    modal.dataset.trackingOrderId = orderId; // ✅ NEW: চালু থাকা modal live status update এর জন্য কোন order tracking হচ্ছে সেটা মনে রাখা
     const modalOrderId = document.getElementById('modal-order-id');
     if (modalOrderId) modalOrderId.innerText = `Order Tracking: ${orderId}`;
     const stepPlaced = document.getElementById('step-placed');
     const stepShipping = document.getElementById('step-shipping');
     const stepDelivery = document.getElementById('step-delivery');
+    const status = (currentStatus || '').toLowerCase();
+
     if (stepPlaced) stepPlaced.className = "timeline-step finished";
     if (stepShipping) stepShipping.className = "timeline-step";
     if (stepDelivery) stepDelivery.className = "timeline-step";
-    if (currentStatus === "accepted") {
-        if (stepPlaced) stepPlaced.className = "timeline-step finished";
+
+    if (status === "accepted") {
         const t = stepPlaced?.querySelector('.text');
         if (t) t.innerText = "Accepted & Packed";
-    } else if (currentStatus === "shipped" || currentStatus === "arrived_at_store" || currentStatus === "picked_up") {
-        if (stepPlaced) stepPlaced.className = "timeline-step finished";
+    } else if (status === "broadcasted" || status === "shipped" || status === "arrived_at_store" || status === "picked_up") {
+        // ✅ FIX: আগে এখানে "broadcasted" চেক করা হতো না, তাই merchant ship করার পর rider এর জন্য
+        // search চলাকালীন (status='broadcasted') progress bar-এ Shipping step active দেখাত না।
         if (stepShipping) stepShipping.className = "timeline-step active";
+    } else if (status === "delivered") {
+        // ✅ FIX: আগে delivered হলেও step-delivery কখনো finished মার্ক হতো না — শেষ ধাপ চিরকাল ফাঁকা থেকে যেত।
+        if (stepShipping) stepShipping.className = "timeline-step finished";
+        if (stepDelivery) stepDelivery.className = "timeline-step finished";
+    } else if (status === "cancelled") {
+        if (stepShipping) stepShipping.className = "timeline-step cancelled";
+        if (stepDelivery) stepDelivery.className = "timeline-step cancelled";
     }
+
     const mapContainer = modal.querySelector('.map-container');
     if (mapContainer) {
-        mapContainer.innerHTML = `
-            <div style="background:#fff3f3;padding:16px;border-radius:12px;text-align:center;border:1px solid #ffe4e4;">
-                <i class="fa-solid fa-clock" style="font-size:2rem;color:#e02020;margin-bottom:8px;display:block;"></i>
-                <p style="font-size:0.85rem;font-weight:700;color:#e02020;margin:0 0 4px 0;">Estimated Delivery</p>
-                <p style="font-size:1.5rem;font-weight:800;color:#2f3542;margin:0;"><span id="live-countdown-val">${baseEta}</span> mins</p>
-                <p style="font-size:0.75rem;color:#747d8c;margin:6px 0 0 0;">Live tracking will be available once rider is assigned</p>
-            </div>
-        `;
+        // ✅ FIX: আগে এই বক্সে সবসময় "Live tracking will be available once rider is assigned" লেখা
+        // দেখাত, rider আসলে assign/picked up হয়ে থাকলেও, আর কোনো real map ছিলই না (index.html-এ
+        // Leaflet লোড করা থাকলেও ব্যবহার হচ্ছিল না)। এখন status অনুযায়ী আসল অবস্থা + Leaflet map দেখাবে।
+        if (status === "delivered") {
+            teardownTrackingMap();
+            mapContainer.innerHTML = `
+                <div style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:center;border:1px solid #bbf7d0;">
+                    <i class="fa-solid fa-circle-check" style="font-size:2rem;color:#16a34a;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.95rem;font-weight:700;color:#16a34a;margin:0;">Delivered successfully</p>
+                </div>
+            `;
+        } else if (status === "cancelled") {
+            teardownTrackingMap();
+            mapContainer.innerHTML = `
+                <div style="background:#fef2f2;padding:16px;border-radius:12px;text-align:center;border:1px solid #fecaca;">
+                    <i class="fa-solid fa-circle-xmark" style="font-size:2rem;color:#dc2626;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.95rem;font-weight:700;color:#dc2626;margin:0;">Order was cancelled</p>
+                </div>
+            `;
+        } else if (typeof L !== 'undefined') {
+            // Leaflet লোড হয়ে থাকলে real map দেখাও (pending/accepted/broadcasted/shipped/picked_up সব ক্ষেত্রেই —
+            // শুধু rider assign না হলে rider marker থাকবে না, শপ marker সবসময় থাকবে)
+            renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, status);
+        } else {
+            mapContainer.innerHTML = `
+                <div style="background:#fff3f3;padding:16px;border-radius:12px;text-align:center;border:1px solid #ffe4e4;">
+                    <i class="fa-solid fa-clock" style="font-size:2rem;color:#e02020;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.85rem;font-weight:700;color:#e02020;margin:0 0 4px 0;">Estimated Delivery</p>
+                    <p style="font-size:1.5rem;font-weight:800;color:#2f3542;margin:0;"><span id="live-countdown-val">${baseEta}</span> mins</p>
+                </div>
+            `;
+        }
         document.getElementById('close-tracking-modal').onclick = () => {
             modal.classList.remove('active');
             modal.style.display = "none";
+            modal.dataset.trackingOrderId = '';
+            teardownTrackingMap(); // ✅ NEW: modal বন্ধ হলে map/realtime subscription ক্লিনআপ করা, মেমরি লিক এড়াতে
         };
     }
 };

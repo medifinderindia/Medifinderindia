@@ -1088,6 +1088,30 @@
         }
 
         // ====== STATS ======
+        // ✅ FIX: usersChange/merchantsChange/ridersChange/revenueChange স্প্যানগুলো আগে HTML এ
+        // hardcode করা "+0%" ছিল আর কোনো কোডই সেগুলো টাচ করত না, তাই সবসময় "+0%" আটকে থাকত।
+        // এখন প্রতিবার refresh এ localStorage তে আগের ভ্যালু রেখে real % change বের করা হয়।
+        function updateChangeTag(elId, currentVal) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const storeKey = 'admin_stat_prev_' + elId;
+            const prevRaw = localStorage.getItem(storeKey);
+            const prev = prevRaw !== null ? parseFloat(prevRaw) : null;
+
+            if (prev === null) {
+                el.textContent = '—';
+            } else if (prev === 0) {
+                el.textContent = currentVal > 0 ? '↑ New' : '— 0%';
+            } else {
+                const pct = ((currentVal - prev) / prev) * 100;
+                const sign = pct > 0 ? '↑ +' : pct < 0 ? '↓ ' : '— ';
+                el.textContent = `${sign}${Math.abs(pct).toFixed(1)}%`;
+                el.classList.toggle('up', pct >= 0);
+                el.classList.toggle('down', pct < 0);
+            }
+            localStorage.setItem(storeKey, String(currentVal));
+        }
+
         async function loadStats() {
             try {
                 const [usersRes, merchantsRes, ridersRes, revenueRes] = await Promise.allSettled([
@@ -1099,31 +1123,52 @@
 
                 // Users
                 if (usersRes.status === 'fulfilled' && !usersRes.value.error) {
-                    document.getElementById('totalUsers').textContent = formatNumber(usersRes.value.count);
+                    const usersCount = usersRes.value.count || 0;
+                    document.getElementById('totalUsers').textContent = formatNumber(usersCount);
+                    updateChangeTag('usersChange', usersCount);
                 } else {
                     document.getElementById('totalUsers').textContent = '0';
+                    if (usersRes.status === 'fulfilled' && usersRes.value.error) {
+                        showToast('Users count error: ' + usersRes.value.error.message, 'error');
+                    }
                 }
 
                 // Merchants
                 if (merchantsRes.status === 'fulfilled' && !merchantsRes.value.error) {
-                    document.getElementById('activeMerchants').textContent = formatNumber(merchantsRes.value.count);
+                    const merchantsCount = merchantsRes.value.count || 0;
+                    document.getElementById('activeMerchants').textContent = formatNumber(merchantsCount);
+                    updateChangeTag('merchantsChange', merchantsCount);
                 } else {
                     document.getElementById('activeMerchants').textContent = '0';
+                    if (merchantsRes.status === 'fulfilled' && merchantsRes.value.error) {
+                        showToast('Merchants count error: ' + merchantsRes.value.error.message, 'error');
+                    }
                 }
 
                 // Riders
                 if (ridersRes.status === 'fulfilled' && !ridersRes.value.error) {
-                    document.getElementById('onlineRiders').textContent = formatNumber(ridersRes.value.count);
+                    const ridersCount = ridersRes.value.count || 0;
+                    document.getElementById('onlineRiders').textContent = formatNumber(ridersCount);
+                    updateChangeTag('ridersChange', ridersCount);
                 } else {
                     document.getElementById('onlineRiders').textContent = '0';
+                    // ✅ আগে এই error সাইলেন্টলি গিলে ফেলা হতো, তাই "0 Online Riders" কেন দেখাচ্ছে
+                    // বোঝার উপায় ছিল না (RLS ব্লক করছে নাকি সত্যিই কেউ অনলাইন নেই)। এখন টোস্টে দেখাবে।
+                    if (ridersRes.status === 'fulfilled' && ridersRes.value.error) {
+                        showToast('Riders count error: ' + ridersRes.value.error.message, 'error');
+                    }
                 }
 
                 // Revenue
                 if (revenueRes.status === 'fulfilled' && !revenueRes.value.error) {
                     const total = revenueRes.value.data.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
                     document.getElementById('todayRevenue').textContent = '₹' + formatNumber(Math.round(total));
+                    updateChangeTag('revenueChange', total);
                 } else {
                     document.getElementById('todayRevenue').textContent = '₹0';
+                    if (revenueRes.status === 'fulfilled' && revenueRes.value.error) {
+                        showToast('Revenue load error: ' + revenueRes.value.error.message, 'error');
+                    }
                 }
             } catch (err) { showToast("Stats load failed: " + (err.message || err), "error"); }
         }
