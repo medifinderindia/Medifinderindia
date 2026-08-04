@@ -514,13 +514,14 @@ function listenToAvailableOrders() {
         // বাদ দেওয়া হলো। এখন order শুধু merchant broadcast করলেই (status → 'broadcasted')
         // rider এর কাছে live আসবে, নিচের UPDATE listener দিয়ে।
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-            if (payload.new.status === 'broadcasted' && !payload.new.rider_id) {
+            const isBroadcastLike = (payload.new.status === 'broadcasted' || payload.new.status === 'shipped');
+            if (isBroadcastLike && !payload.new.rider_id) {
                 if (!isOnDuty) return;
                 if (!document.getElementById(`order-${payload.new.order_id}`) && !isOrderRejectedByMe(payload.new.order_id)) {
                     renderAvailableOrder(payload.new);
-                    fireNewOrderNotification(payload.new); // 🔴 merchant broadcast করার সাথে সাথেই notification
+                    fireNewOrderNotification(payload.new); // 🔴 merchant ship করার সাথে সাথেই notification
                 }
-            } else if (payload.new.status !== 'broadcasted') {
+            } else if (!isBroadcastLike) {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) card.remove();
                 checkIfOrdersEmpty();
@@ -927,7 +928,9 @@ async function fetchPendingOrdersSnapshot() {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
-            .eq('status', 'broadcasted'); // ✅ FIX: শুধু broadcasted, 'pending' না — merchant broadcast না করলে rider দেখবে না
+            .in('status', ['broadcasted', 'shipped']); // ✅ FIX: merchant এর "Ship" বাটন আসলে status='shipped' সেট করে (না 'broadcasted'),
+            // কিন্তু এই query আগে শুধু 'broadcasted' খুঁজত — ফলে merchant ship করলেও rider এর কাছে order কখনো আসত না।
+            // এখন দুটো status-ই match করবে যাতে ship করা মাত্রই rider এর available orders list এ চলে আসে।
         if (error) throw error;
 
         clearOrdersSkeleton(container); // ✅ real data চলে এসেছে, এখন shimmer সরিয়ে দাও
@@ -1752,6 +1755,8 @@ async function runOnlinePlateValidationCheck() {
         await sendKycToAdmin('Vehicle_Plate', { plate: plateInput, vehicle_type: typeInput, plate_img: publicUrl });
         await saveRiderProfileToDatabase();
         showToast("Vehicle plate documents submitted for KYC review!", "success");
+        const vehicleEditFormEl = document.getElementById('vehicleEditForm');
+        if (vehicleEditFormEl) vehicleEditFormEl.dataset.userEditing = 'false';
         closeSubPage('vehicleSetupPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
@@ -1790,6 +1795,8 @@ async function runGovLicenseVerificationQuery() {
         await sendKycToAdmin('Driver_License', { license_no: licenseInput, license_img: publicUrl });
         await saveRiderProfileToDatabase();
         showToast("Driver license submitted for KYC review!", "success");
+        const licenseEditFormEl = document.getElementById('licenseEditForm');
+        if (licenseEditFormEl) licenseEditFormEl.dataset.userEditing = 'false';
         closeSubPage('licensePage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
@@ -1829,6 +1836,8 @@ async function runAadhaarVerificationQuery() {
 
         await sendKycToAdmin('Aadhaar', { aadhaar_no: aadhaarInput, aadhaar_img: publicUrl });
         showToast("Aadhaar submitted for KYC review!", "success");
+        const aadhaarEditFormEl = document.getElementById('aadhaarEditForm');
+        if (aadhaarEditFormEl) aadhaarEditFormEl.dataset.userEditing = 'false';
         closeSubPage('aadhaarPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
@@ -1868,6 +1877,8 @@ async function runPanVerificationQuery() {
 
         await sendKycToAdmin('PAN', { pan_no: panInput, pan_img: publicUrl });
         showToast("PAN card submitted for KYC review!", "success");
+        const panEditFormEl = document.getElementById('panEditForm');
+        if (panEditFormEl) panEditFormEl.dataset.userEditing = 'false';
         closeSubPage('panPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
@@ -2059,6 +2070,59 @@ function initBottomNav() {
     });
 }
 
+// ✅ NEW: KYC ডকুমেন্ট আপলোডের পর আর সরাসরি upload ফর্ম না দেখিয়ে, আগে যা সাবমিট করা হয়েছিল
+// তার লক করা প্রিভিউ (status + image + number) দেখায়। শুধু "Edit" চাপলেই ফর্ম খোলে।
+// prefix: 'vehicle' | 'license' | 'aadhaar' | 'pan'
+function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel, numberValue }) {
+    const lockedView = document.getElementById(prefix + 'LockedView');
+    const editForm = document.getElementById(prefix + 'EditForm');
+    const badge = document.getElementById(prefix + 'LockedStatusBadge');
+    const img = document.getElementById(prefix + 'LockedImg');
+    const reasonEl = document.getElementById(prefix + 'LockedReason');
+    if (!lockedView || !editForm) return;
+
+    // যদি এখনো কিছু সাবমিটই না করে থাকে, তাহলে সরাসরি upload ফর্ম দেখাও
+    if (!hasKyc) {
+        lockedView.classList.add('hidden');
+        editForm.style.display = '';
+        return;
+    }
+
+    // ইউজার যদি এইমাত্র "Edit" চেপে থাকে (এই সেশনে), তাহলে ফর্ম খোলা রাখো — জোর করে লক করে দিও না
+    if (editForm.dataset.userEditing === 'true') return;
+
+    lockedView.classList.remove('hidden');
+    editForm.style.display = 'none';
+
+    if (badge) {
+        badge.classList.remove('verified', 'rejected');
+        if (verified) { badge.textContent = 'Verified'; badge.classList.add('verified'); }
+        else if (reason) { badge.textContent = 'Rejected'; badge.classList.add('rejected'); }
+        else { badge.textContent = 'Pending Review'; }
+    }
+    if (img) {
+        if (imgUrl) { img.src = imgUrl; img.style.display = ''; }
+        else { img.style.display = 'none'; }
+    }
+    const numberEl = document.getElementById(prefix + 'Locked' + numberLabel);
+    if (numberEl) numberEl.textContent = numberValue || '—';
+    if (reasonEl) {
+        if (reason) { reasonEl.textContent = 'Rejection reason: ' + reason; reasonEl.style.display = ''; }
+        else { reasonEl.style.display = 'none'; }
+    }
+}
+
+// "Edit" বাটনে ক্লিক করলে লক করা ভিউ থেকে upload ফর্মে যাওয়া
+function enableKycEdit(prefix) {
+    const lockedView = document.getElementById(prefix + 'LockedView');
+    const editForm = document.getElementById(prefix + 'EditForm');
+    if (lockedView) lockedView.classList.add('hidden');
+    if (editForm) {
+        editForm.style.display = '';
+        editForm.dataset.userEditing = 'true'; // পরের রিফ্রেশে আবার জোর করে লক না হয়ে যায়
+    }
+}
+
 async function loadCurrentRiderProfileStatus() {
     if (window.location.pathname.includes('index.html')) return; 
 
@@ -2104,9 +2168,11 @@ async function loadCurrentRiderProfileStatus() {
         // ✅ NOTE: aadhaar_no/pan_no কলাম rider_kyc টেবিলে না থাকলে ফলব্যাক করা হয়, যাতে
         // পুরনো Vehicle/License স্ট্যাটাস ভেঙে না যায়। নতুন কলাম যোগ করার SQL নিচে দেওয়া হলো।
         let kycData = null;
+        // ✅ NEW: image URL + number কলামগুলোও আনা হচ্ছে যাতে locked/view mode-এ আগে যা আপলোড
+        // হয়েছিল তার প্রিভিউ দেখানো যায় (নিচের applyKycLockUI দেখুন)
         const res1 = await supabaseClient
             .from('rider_kyc')
-            .select('verified, rejection_reason, aadhaar_no, pan_no')
+            .select('verified, rejection_reason, aadhaar_no, aadhaar_img, pan_no, pan_img, license_no, license_img, plate_no, plate_img, vehicle_img')
             .eq('rider_id', rId)
             .maybeSingle();
         if (res1.error) {
@@ -2128,6 +2194,16 @@ async function loadCurrentRiderProfileStatus() {
 
         // ✅ NEW: গ্লোবাল ফ্ল্যাগ — Driving License/KYC verified না হলে Accept Order বাটন লক থাকবে (দেখুন acceptOrder ও renderAvailableOrder)
         window._riderLicenseVerified = (kycVerified === true);
+
+        // ✅ NEW: প্রতিটা ডকুমেন্টের জন্য লক করা প্রিভিউ/এডিট UI আপডেট করা।
+        // rider_kyc একটাই shared row সব ৪টা ডকুমেন্টের জন্য, তাই শুধু hasKyc (রো আছে কিনা) দিয়ে বিচার
+        // করলে যেটা আসলে upload-ই করা হয়নি সেটাও লক দেখাবে। তাই সেই নির্দিষ্ট ডকুমেন্টের নিজস্ব
+        // no./ছবি আসলেই সাবমিট করা আছে কিনা সেটা আলাদাভাবে চেক করা হচ্ছে।
+        const vehicleImgVal = kycData?.vehicle_img || kycData?.plate_img;
+        applyKycLockUI('vehicle', { hasKyc: hasKyc && !!(kycData?.plate_no || vehicleImgVal), verified: kycVerified, reason: kycReason, imgUrl: vehicleImgVal, numberLabel: 'Plate', numberValue: kycData?.plate_no });
+        applyKycLockUI('license', { hasKyc: hasKyc && !!(kycData?.license_no || kycData?.license_img), verified: kycVerified, reason: kycReason, imgUrl: kycData?.license_img, numberLabel: 'No', numberValue: kycData?.license_no });
+        applyKycLockUI('aadhaar', { hasKyc: hasKyc && !!(kycData?.aadhaar_no || kycData?.aadhaar_img), verified: kycVerified, reason: kycReason, imgUrl: kycData?.aadhaar_img, numberLabel: 'No', numberValue: kycData?.aadhaar_no });
+        applyKycLockUI('pan', { hasKyc: hasKyc && !!(kycData?.pan_no || kycData?.pan_img), verified: kycVerified, reason: kycReason, imgUrl: kycData?.pan_img, numberLabel: 'No', numberValue: kycData?.pan_no });
 
         if (document.getElementById("vehicleStatusTag")) {
             if (kycVerified) {
@@ -2273,8 +2349,8 @@ async function loadCurrentRiderProfileStatus() {
         if (document.getElementById('bankAccountNumberInput') && riderProfile.account_number) {
             document.getElementById('bankAccountNumberInput').value = riderProfile.account_number;
         }
-        if (document.getElementById('bankBranchInput') && riderProfile.branch_name) {
-            document.getElementById('bankBranchInput').value = riderProfile.branch_name;
+        if (document.getElementById('bankBranchInput') && riderProfile.branch) {
+            document.getElementById('bankBranchInput').value = riderProfile.branch;
         }
         if (document.getElementById('bankifscinput') && riderProfile.ifsc_code) {
             document.getElementById('bankifscinput').value = riderProfile.ifsc_code;
