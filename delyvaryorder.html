@@ -2,145 +2,387 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Tracking | MediFinder</title>
-    <link rel="stylesheet" href="delyvaryorder.css?v=13">
-      <link rel="icon" type="image/png" href="favicon.png">
+    <title>MediFinder - Rider Profile Configuration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="delyvaryprofile.css?v=13">
+    <!-- ✅ NEW: KYC locked/view-mode styling (self-contained since delyvaryprofile.css wasn't provided) -->
+    <style>
+        .kyc-locked-view.hidden { display: none; }
+        .kyc-locked-view { display: flex; flex-direction: column; gap: 12px; }
+        .kyc-locked-status-badge { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; background: #fef3c7; color: #d97706; }
+        .kyc-locked-status-badge.verified { background: #dcfce7; color: #16a34a; }
+        .kyc-locked-status-badge.rejected { background: #fee2e2; color: #dc2626; }
+        .kyc-locked-img { width: 100%; max-height: 200px; object-fit: contain; background: #f8f9fa; border-radius: 12px; border: 1px solid #eef2f5; padding: 6px; }
+        .kyc-locked-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8f9fa; border-radius: 10px; font-size: 0.85rem; color: #2f3542; }
+        .kyc-locked-reason { font-size: 0.8rem; color: #dc2626; background: #fee2e2; padding: 10px 14px; border-radius: 10px; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <style>
-        /* কল বাটনের জন্য প্রিমিয়াম স্টাইল */
-        .btn-call-user {
-            background: #2ec4b6;
-            color: #fff;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-        .btn-call-user:hover {
-            background: #249b90;
-        }
-    </style>
 </head>
 <body>
 
-    <div class="app-layout">
-        <header class="main-header"> 
-            <div class="header-container"> 
-                <div class="logo-side"> 
-                    <img src="1779304435608.png" alt="MediFinder Logo" class="brand-logo" onerror="this.src='https://images.unsplash.com/photo-1631549916768-4f345e4e230f?w=400'">
-                    <div>
-                        <h1 class="logo-title">MEDI <span class="red-accent">FINDER</span></h1>
-                        <span class="sub-tag">Rider Express</span>
-                    </div>
-                </div>
+    <div class="app-container">
+        <header class="navbar">
+            <div class="logo-area">
+                <img src="1779304435608.png" alt="MediFinder Logo" class="app-logo">
+                <span class="logo-text">MEDI <span class="text-highlight">FINDER</span></span>
             </div>
         </header>
 
-        <main class="dashboard-grid">
-            
-            <section class="section-card">
-                <div class="card-header-premium">
-                    <div class="title-block">
-                        <div class="icon-wrap red-bg">
-                            <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
-                        </div>
-                        <div>
-                            <h3>Live Route Tracking</h3>
-                            <p>Realtime delivery navigation</p>
-                        </div>
+        <main class="main-content" id="mainContentSection">
+            <div id="profileViewSegment">
+                <section class="profile-card-header">
+                    <div class="avatar-wrapper">
+                        <img id="avatarDisplayImage" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar Graphic">
+                        <label for="avatarFileUpload" class="camera-btn-trigger">
+                            <i class="fa-solid fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatarFileUpload" accept="image/*" onchange="processAvatarUpdate(event)" style="display:none;">
                     </div>
-                    <div id="vehiclePillBox" class="vehicle-pill bike-mode">
-                        <i id="vehiclePillIcon" class="fa-solid fa-motorcycle"></i> 
-                        <span id="vehiclePillText" style="text-transform: uppercase;">Bike</span>
-                    </div>
-                </div>
 
-                <div class="live-map-wrapper" style="position:relative;">
-                    <div id="zomatoRealMap"></div>
-                    <!-- ✅ NEW: My Location floating button — ক্লিক করলে GPS permission নিয়ে নিজের অবস্থানে zoom করবে -->
-                    <button id="myLocationBtn" class="my-location-btn" onclick="focusMyLocationOnMap()" title="My Location">
-                        <i class="fa-solid fa-location-crosshairs"></i>
+                    <div class="identity-group">
+                        <h2 id="profileDisplayName" class="tr-text" data-en="Rider" data-bn="রাইডার" data-hi="राइडर">Rider</h2>
+                        <p id="profileDisplayUsername">@...</p>
+                        <button class="edit-basics-btn" onclick="triggerProfileNameEdit()">
+                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
+                        </button>
+                    </div>
+
+                    <!-- ✅ NEW: Total Lifetime Income — profile header এর ডান পাশে, completed delivery অনুযায়ী calculate হয় -->
+                    <div class="income-block">
+                        <span class="income-label tr-text" data-en="Total Lifetime Income" data-bn="মোট আজীবন আয়" data-hi="कुल आजीवन आय">Total Lifetime Income</span>
+                        <span class="income-value" id="totalLifetimeIncome">₹0</span>
+                    </div>
+                </section>
+
+                <div class="menu-list-section">
+                    <h3 class="menu-group-title tr-text" data-en="Account Details &amp; Legal" data-bn="অ্যাকাউন্ট বিবরণ ও আইনি নথি" data-hi="खाता विवरण और कानूनी">Account Details &amp; Legal</h3>
+                    
+                    <!-- Vehicle Verification -->
+                    <div class="menu-item-button" onclick="openSubPage('vehicleSetupPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box vehicle-icon"><i class="fa-solid fa-truck"></i></div>
+                            <span class="tr-text" data-en="Vehicle Verification" data-bn="যানবাহন যাচাইকরণ" data-hi="वाहन सत्यापन">Vehicle Verification</span>
+                        </div>
+                        <div class="status-indicator-dot" id="vehicleStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- Driving License Verification -->
+                    <div class="menu-item-button" id="licenseSection" onclick="openSubPage('licensePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-id-card"></i></div>
+                            <span class="tr-text" data-en="Driving License" data-bn="ড্রাইভিং লাইসেন্স" data-hi="ड्राइविंग लाइसेंस">Driving License</span>
+                        </div>
+                        <div class="status-indicator-dot" id="licenseStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- ✅ NEW: Aadhaar Card Verification -->
+                    <div class="menu-item-button" onclick="openSubPage('aadhaarPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box" style="background:#e0f2fe; color:#0284c7;"><i class="fa-solid fa-address-card"></i></div>
+                            <span class="tr-text" data-en="Aadhaar Card" data-bn="আধার কার্ড" data-hi="आधार कार्ड">Aadhaar Card</span>
+                        </div>
+                        <div class="status-indicator-dot" id="aadhaarStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- ✅ NEW: PAN Card Verification -->
+                    <div class="menu-item-button" onclick="openSubPage('panPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box" style="background:#f3e8ff; color:#9333ea;"><i class="fa-solid fa-credit-card"></i></div>
+                            <span class="tr-text" data-en="PAN Card" data-bn="প্যান কার্ড" data-hi="पैन कार्ड">PAN Card</span>
+                        </div>
+                        <div class="status-indicator-dot" id="panStatusTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <!-- Bank & Payment -->
+                    <div class="menu-item-button" onclick="openSubPage('payoutConfigPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box bank-icon"><i class="fa-solid fa-bank"></i></div>
+                            <span class="tr-text" data-en="Bank &amp; Payment" data-bn="ব্যাংক ও পেমেন্ট" data-hi="बैंक और भुगतान">Bank &amp; Payment</span>
+                        </div>
+                        <div class="status-indicator-dot" id="payoutVerificationTag" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fee2e2; color: #ef4444;">Unverified</div>
+                    </div>
+
+                    <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
+
+                    <!-- ✅ App Language সরানো হলো এখানে — আগে "Financial & Activity" গ্রুপে ছিল, স্পেক অনুযায়ী সেই গ্রুপ থেকে সরিয়ে Bank & Payment কে জায়গা দেওয়া হয়েছে -->
+                    <div class="menu-item-button" onclick="openSubPage('languagePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box language-icon"><i class="fa-solid fa-language"></i></div>
+                            <span class="tr-text" data-en="App Language" data-bn="অ্যাপের ভাষা পরিবর্তন" data-hi="ऐप की भाषा">App Language</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="openSubPage('supportPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box support-icon"><i class="fa-solid fa-headset"></i></div>
+                            <span class="tr-text" data-en="Support Desk" data-bn="সাপোর্ট ডেস্ক" data-hi="सहायता डेस्क">Support Desk</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                        <div class="menu-item-left">
+                            <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
+                            <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                        <div class="menu-item-left">
+                            <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
+                            <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <button id="logoutBtn" class="logout-action-btn-premium" onclick="processGlobalLogout()">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
                     </button>
                 </div>
-                
-                <div class="map-bottom-bar" style="margin: 0 16px 16px 16px;">
-                    <div class="info-meta">
-                        <span class="label">Distance Left</span>
-                        <span class="value" id="distanceLeftValue">0 km</span>
-                    </div>
-                    <div class="info-meta">
-                        <span class="label">ETA</span>
-                        <span class="value emphasis" id="etaValue">--</span>
-                    </div>
-                    <div class="info-meta">
-                        <span class="label">Payment Status</span>
-                        <span class="value emphasis" id="paymentStatusValue">Loading...</span>
-                    </div>
-                </div>
-            </section>
-
-            <section class="right-queue-area">
-                <div class="queue-header">
-                    <h2><i class="fa-solid fa-box"></i> Active Parcel <span class="counter-q" id="orderCount">0</span></h2>
-                    <p class="queue-hint">Tap on the card or timer to open OTP Verification</p>
-                </div>
-
-                <div id="activeOrdersContainer" class="orders-scroll-area">
-                    </div>
-            </section>
-
-        </main>
-
-        <div class="otp-modal-overlay hidden" id="otpModal">
-            <div class="otp-modal-card">
-                <div id="otpFormContent">
-                    <div class="otp-header">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <h3>Parcel Verification</h3>
-                        <p>Enter the 6-digit delivery code from customer</p>
-                    </div>
-                    <input type="text" id="otpInput" class="otp-input-field" placeholder="000000" maxlength="6" autocomplete="off">
-                    <div class="otp-actions">
-                        <button class="btn-modal-close" onclick="closeOtpModal()">Cancel</button>
-                        <button class="btn-modal-submit" onclick="verifyOtpCode()">Verify & Complete</button>
-                    </div>
-                </div>
-
-                <div class="success-checkmark" id="successCheckmark">
-                    <div class="check-icon"></div>
-                    <h3 style="margin-top: 20px; font-weight: 700; color: var(--success-green);">Verification Successful!</h3>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">Earnings credited to your wallet balance.</p>
-                </div>
             </div>
-        </div>
+        </main>
 
         <nav class="bottom-nav">
             <a class="nav-item" href="delyvaryhome.html"><i class="fa-solid fa-house"></i><span>HOME</span></a>
-            <a class="nav-item active" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
+            <a class="nav-item" href="delyvaryorder.html"><i class="fa-solid fa-route"></i><span>DELIVERY</span></a>
             <a class="nav-item" href="delyvaryearning.html"><i class="fa-solid fa-wallet"></i><span>EARNING</span></a>
-            <a class="nav-item" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
+            <a class="nav-item active" href="delyvaryprofile.html"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></a>
         </nav>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <!-- SUB-PAGES -->
+    <div id="vehicleSetupPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('vehicleSetupPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Vehicle Verification</h3>
+            </div>
+            <div class="sub-page-body">
+                <!-- ✅ NEW: pending/verified থাকলে এই লক করা ভিউ দেখাবে, ফর্ম না -->
+                <div id="vehicleLockedView" class="kyc-locked-view hidden">
+                    <div class="kyc-locked-status-badge" id="vehicleLockedStatusBadge">Pending Review</div>
+                    <img id="vehicleLockedImg" class="kyc-locked-img" alt="Submitted plate image">
+                    <div class="kyc-locked-row"><span>Plate No.</span><strong id="vehicleLockedPlate">—</strong></div>
+                    <div class="kyc-locked-reason" id="vehicleLockedReason" style="display:none;"></div>
+                    <button class="action-btn-accent-premium" style="background:#64748b;" onclick="enableKycEdit('vehicle')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div id="vehicleEditForm">
+                    <div class="input-element-row-premium">
+                        <label>Active Transport Mode</label>
+                        <select id="vehicleTypeSelector">
+                            <option value="bike">Motorcycle / Scooter / EV</option>
+                            <option value="van">Van</option>
+                            <option value="truck">Truck</option>
+                        </select>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Registration Plate ID</label>
+                        <input type="text" id="vehiclePlateInput" placeholder="e.g., WB-24-XXXX">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload Plate Image</label>
+                        <input type="file" id="plateImageInput" accept="image/*">
+                    </div>
+                    <button class="action-btn-accent-premium" onclick="runOnlinePlateValidationCheck()">Save Vehicle Log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="licensePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('licensePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Driving License</h3>
+            </div>
+            <div class="sub-page-body">
+                <div id="licenseLockedView" class="kyc-locked-view hidden">
+                    <div class="kyc-locked-status-badge" id="licenseLockedStatusBadge">Pending Review</div>
+                    <img id="licenseLockedImg" class="kyc-locked-img" alt="Submitted license image">
+                    <div class="kyc-locked-row"><span>License No.</span><strong id="licenseLockedNo">—</strong></div>
+                    <div class="kyc-locked-reason" id="licenseLockedReason" style="display:none;"></div>
+                    <button class="action-btn-accent-premium" style="background:#64748b;" onclick="enableKycEdit('license')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div id="licenseEditForm">
+                    <div class="input-element-row-premium">
+                        <label>License Serial Number</label>
+                        <input type="text" id="licenseStringInput" placeholder="e.g., DL-1234567890">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload License Image</label>
+                        <input type="file" id="licenseImageInput" accept="image/*">
+                    </div>
+                    <button class="action-btn-accent-premium" onclick="runGovLicenseVerificationQuery()">Verify via Admin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Aadhaar Card sub-page -->
+    <div id="aadhaarPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('aadhaarPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Aadhaar Card</h3>
+            </div>
+            <div class="sub-page-body">
+                <div id="aadhaarLockedView" class="kyc-locked-view hidden">
+                    <div class="kyc-locked-status-badge" id="aadhaarLockedStatusBadge">Pending Review</div>
+                    <img id="aadhaarLockedImg" class="kyc-locked-img" alt="Submitted Aadhaar image">
+                    <div class="kyc-locked-row"><span>Aadhaar No.</span><strong id="aadhaarLockedNo">—</strong></div>
+                    <div class="kyc-locked-reason" id="aadhaarLockedReason" style="display:none;"></div>
+                    <button class="action-btn-accent-premium" style="background:#64748b;" onclick="enableKycEdit('aadhaar')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div id="aadhaarEditForm">
+                    <div class="input-element-row-premium">
+                        <label>Aadhaar Number</label>
+                        <input type="text" id="aadhaarStringInput" placeholder="12-digit Aadhaar number" maxlength="14" inputmode="numeric">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload Aadhaar Image</label>
+                        <input type="file" id="aadhaarImageInput" accept="image/*">
+                    </div>
+                    <button class="action-btn-accent-premium" onclick="runAadhaarVerificationQuery()">Verify via Admin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: PAN Card sub-page -->
+    <div id="panPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('panPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>PAN Card</h3>
+            </div>
+            <div class="sub-page-body">
+                <div id="panLockedView" class="kyc-locked-view hidden">
+                    <div class="kyc-locked-status-badge" id="panLockedStatusBadge">Pending Review</div>
+                    <img id="panLockedImg" class="kyc-locked-img" alt="Submitted PAN image">
+                    <div class="kyc-locked-row"><span>PAN No.</span><strong id="panLockedNo">—</strong></div>
+                    <div class="kyc-locked-reason" id="panLockedReason" style="display:none;"></div>
+                    <button class="action-btn-accent-premium" style="background:#64748b;" onclick="enableKycEdit('pan')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+                <div id="panEditForm">
+                    <div class="input-element-row-premium">
+                        <label>PAN Number</label>
+                        <input type="text" id="panStringInput" placeholder="e.g., ABCDE1234F" maxlength="10" style="text-transform:uppercase;">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload PAN Image</label>
+                        <input type="file" id="panImageInput" accept="image/*">
+                    </div>
+                    <button class="action-btn-accent-premium" onclick="runPanVerificationQuery()">Verify via Admin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="payoutConfigPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('payoutConfigPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Bank & Payment</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium">
+                    <label>Bank Name</label>
+                    <input type="text" id="bankNameInput" placeholder="e.g., State Bank of India">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Account Holder Name</label>
+                    <input type="text" id="bankAccountInput" placeholder="Full Name (as per bank record)">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Account Number</label>
+                    <input type="text" id="bankAccountNumberInput" placeholder="Bank Account Number" inputmode="numeric">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>IFSC Code</label>
+                    <input type="text" id="bankifscinput" placeholder="SBIN000XXXX">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Branch</label>
+                    <input type="text" id="bankBranchInput" placeholder="Branch Name / Location">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>UPI ID <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
+                    <input type="text" id="upiIdInput" placeholder="username@upi">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Passbook / Cancelled Cheque Photo <span style="color:var(--settled-red);">*Required</span></label>
+                    <input type="file" id="passbookImageInput" accept="image/*">
+                    <small style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Max size 200 KB — bank details can't be verified without this.</small>
+                </div>
+                <button class="action-btn-accent-premium" onclick="verifyAndSubmitFinancials()">Save &amp; Submit for Verification</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: App Language (আগে এই div-ই ছিল না, তাই বাটনে ক্লিক করলে কিছুই হতো না) -->
+    <div id="languagePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>App Language</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium" style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('en')">🇬🇧 <span>English</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('bn')">🅱️ <span>বাংলা (Bengali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('hi')">🕉️ <span>हिंदी (Hindi)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ne')">🏔️ <span>नेपाली (Nepali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('sat')">🌾 <span>ᱥᱟᱱᱛᱟᱲᱤ (Santali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ur')">🕌 <span>اردو (Urdu)</span></button>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;">
+                    English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে,
+                    কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ যোগ করতে প্রতিটা পেজে সেই ভাষার লাইন বসাতে হবে —
+                    সেটা চাইলে পরের ধাপে করে দেব।
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Support Desk (আগে এই div-ও ছিল না) -->
+    <div id="supportPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Support Desk</h3>
+            </div>
+            <div class="sub-page-body" style="display:flex; flex-direction:column; gap:12px;">
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block;" href="tel:+919593625498">
+                    <i class="fa-solid fa-phone"></i> Call Support 
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#25D366;" href="https://wa.me/919382262825" target="_blank">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Chat 
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#0284c7;" href="medifinderindia@gmail.com">
+                    <i class="fa-solid fa-envelope"></i> Email Support 
+                </a>
+                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
+                    We're here to help! If you have any questions or need assistance, feel free to reach out to us.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Terms & Privacy both open dboyt&c.html directly (real page, no popup needed) -->
+
     <script src="prod-utils.js?v=13"></script>
     <script src="delyvaryscript.js?v=13"></script>
 </body>

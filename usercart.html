@@ -85,6 +85,9 @@
             <div class="free-delivery-bar"><div class="free-delivery-bar-fill" id="free-delivery-fill" style="width:0%"></div></div>
         </div>
 
+        <input type="file" id="cart-rx-camera-input" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="cart-rx-file-input" accept="image/*,application/pdf" style="display:none;">
+
         <div id="cart-items-container">
             <div class="cart-empty-state">
                 <div class="cart-empty-icon"><i class="fa-solid fa-basket-shopping"></i></div>
@@ -98,13 +101,14 @@
             
             <div class="verification-box">
                 <h3><i class="fa-solid fa-location-dot"></i> Delivery Address</h3>
-                <div class="address-form" id="address-form">
+                <div class="address-form" id="address-form" style="display:none;">
+                    <input type="hidden" id="cart-editing-address-id" value="">
                     <div class="address-row">
-                        <input type="text" id="addr-house" placeholder="House/Flat/Building No." autocomplete="address-line1">
+                        <input type="text" id="addr-house" placeholder="House/Flat/Building No. (Address 1)" autocomplete="address-line1">
                         <input type="text" id="addr-name" placeholder="Full Name" autocomplete="name">
                     </div>
                     <div class="address-row">
-                        <input type="text" id="addr-area" placeholder="Area/Street/Locality" autocomplete="address-line2">
+                        <input type="text" id="addr-area" placeholder="Area/Street/Locality (Address 2)" autocomplete="address-line2">
                     </div>
                     <div class="address-row">
                         <input type="text" id="addr-city" placeholder="City" autocomplete="address-level2">
@@ -120,9 +124,12 @@
                     <p id="addr-status-msg"></p>
                 </div>
                 <div id="saved-address-box" style="display:none;">
-                    <div class="saved-address-card" id="saved-address-display"></div>
-                    <button class="change-address-btn" id="change-address-btn"><i class="fa-solid fa-pen"></i> Change</button>
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                        <div class="saved-address-card" id="saved-address-display" style="flex:1;"></div>
+                        <button class="change-address-btn" id="change-address-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    </div>
                 </div>
+                <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #e02020;background:#fff8f8;color:#e02020;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
             </div>
 
             <div class="coupon-box">
@@ -305,7 +312,7 @@
         <div class="hamburger-menu-panel">
             <div class="hamburger-header">
                 <div class="hamburger-profile">
-                    <div class="hamburger-profile-pic"><img src="1779304435608.png" alt="Profile"></div>
+                    <div class="hamburger-profile-pic"><img id="hamburger-avatar-img" src="1779304435608.png" alt="Profile"></div>
                     <div class="hamburger-profile-info">
                         <h3 id="hamburger-user-name">Guest User</h3>
                         <p><i class="fa-solid fa-id-badge"></i> <span id="hamburger-user-id">MF000000</span></p>

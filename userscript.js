@@ -341,6 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }).catch(() => {});
     initModalRatingStars();
     initScrollToTop();
+    initHomeStickyScroll();
     initWishlistButtons();
     initVoiceSearch();
     initServicesMenu();
@@ -540,7 +541,7 @@ function detectLiveUserGPSCoordinates() {
 // logged-in user, because the async session/profile fetch never wrote back
 // to the hamburger elements. This is called both immediately (from cache)
 // and again once the real session resolves.
-function applyUserIdentityToUI(name, uid, email) {
+function applyUserIdentityToUI(name, uid, email, avatarUrl) {
     const nameTargets = ['user-name', 'new-name-input', 'hamburger-user-name'];
     nameTargets.forEach(id => {
         const el = document.getElementById(id);
@@ -557,12 +558,18 @@ function applyUserIdentityToUI(name, uid, email) {
         const usernameEl = document.getElementById('user-username');
         if (usernameEl) usernameEl.innerText = email;
     }
+    // Item 4: the hamburger avatar (and the profile page's own picture, if
+    // present) previously never got a real photo — only a static logo image.
+    if (avatarUrl) {
+        document.querySelectorAll('#hamburger-avatar-img, #profile-pic').forEach(img => { img.src = avatarUrl; });
+    }
 }
 
 async function autoFillSavedUserDataOnAuth() {
     const cachedName = localStorage.getItem('medi_profile_name');
     const cachedUid = localStorage.getItem('medi_user_uid');
-    applyUserIdentityToUI(cachedName, cachedUid, null);
+    const cachedAvatar = localStorage.getItem('medi_profile_avatar');
+    applyUserIdentityToUI(cachedName, cachedUid, null, cachedAvatar);
     if (verifiedAddress && document.getElementById('current-address')) {
         document.getElementById('current-address').innerText = verifiedAddress;
     }
@@ -596,19 +603,47 @@ async function autoFillSavedUserDataOnAuth() {
                     .eq('email', userEmail)
                     .limit(1);
 
-                if (!profileError && profileArray && profileArray.length > 0) {
-                    const profile = profileArray[0];
-                    if (profile.full_name) {
-                        localStorage.setItem('medi_profile_name', profile.full_name);
-                        applyUserIdentityToUI(profile.full_name, null, userEmail);
-                    }
-                    if (profile.address && document.getElementById('current-address')) {
-                        document.getElementById('current-address').innerText = profile.address;
-                        localStorage.setItem('medi_verified_address', profile.address);
-                    }
-                } else if (userEmail) {
-                    // No profile row found yet, still show the email as username
-                    applyUserIdentityToUI(null, null, userEmail);
+                // Item 4: when someone signs up with Google/email and no `profiles`
+                // row exists yet (or one exists but is missing a name/photo), Google
+                // already gave us that info on the auth session itself
+                // (user_metadata.full_name / .name and .avatar_url / .picture) —
+                // previously this was never read, so the account looked nameless
+                // and photo-less everywhere until the person manually edited their
+                // profile. Now it's backfilled automatically and saved so it's
+                // there for good.
+                const meta = session.user.user_metadata || {};
+                const metaName = meta.full_name || meta.name || '';
+                const metaAvatar = meta.avatar_url || meta.picture || '';
+
+                let profile = (!profileError && profileArray && profileArray.length > 0) ? profileArray[0] : null;
+                const resolvedName = (profile && profile.full_name) || metaName || '';
+                const resolvedAvatar = (profile && profile.avatar_url) || metaAvatar || '';
+
+                if (resolvedName) {
+                    localStorage.setItem('medi_profile_name', resolvedName);
+                }
+                if (resolvedAvatar) {
+                    localStorage.setItem('medi_profile_avatar', resolvedAvatar);
+                }
+                applyUserIdentityToUI(resolvedName || null, null, userEmail, resolvedAvatar || null);
+
+                if (profile && profile.address && document.getElementById('current-address')) {
+                    document.getElementById('current-address').innerText = profile.address;
+                    localStorage.setItem('medi_verified_address', profile.address);
+                }
+
+                // Persist the backfilled name/photo into `profiles` so this only
+                // ever has to happen once per account, not on every login.
+                const needsBackfill = (!profile && (metaName || metaAvatar)) ||
+                    (profile && ((!profile.full_name && metaName) || (!profile.avatar_url && metaAvatar)));
+                if (needsBackfill) {
+                    try {
+                        await supabase.from('profiles').upsert({
+                            email: userEmail,
+                            full_name: (profile && profile.full_name) || metaName || null,
+                            avatar_url: (profile && profile.avatar_url) || metaAvatar || null
+                        }, { onConflict: 'email' });
+                    } catch (e) {}
                 }
 
                 const { data: dbPatients } = await supabase.from('patients').select('*').eq('user_email', userEmail);
@@ -1064,10 +1099,24 @@ async function setupHomePageModules() {
         "Ranitidine", "Albendazole", "Metronidazole", "Ciprofloxacin"
     ];
 
+    // Item 1: while actively searching, hide everything except the search bar
+    // itself and the results grid — quick services, slider, prescription
+    // upload, and the category chips all disappear so the results are the
+    // only thing under the search box, and come back once the query is cleared.
+    function setSearchModeSections(isSearching) {
+        if (merchantFilterId) return; // seller-storefront mode already hides these permanently
+        ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'].forEach(cls => {
+            const el = document.querySelector('.' + cls);
+            if (el) el.style.display = isSearching ? 'none' : '';
+        });
+    }
+    window.setSearchModeSections = setSearchModeSections;
+
     if (homeSearchInput) {
         homeSearchInput.addEventListener('input', (e) => {
             const query = e.target.value.trim().toLowerCase();
             if (clearSearchBtn) clearSearchBtn.style.display = query.length > 0 ? "block" : "none";
+            setSearchModeSections(query.length > 0);
 
             // Show suggestions from 2 characters onwards
             if (query.length >= 2 && suggestionsBox) {
@@ -1144,6 +1193,7 @@ async function setupHomePageModules() {
             clearSearchBtn.style.display = "none";
             if (suggestionsBox) suggestionsBox.style.display = 'none';
             if (noProductsMsg) noProductsMsg.style.display = "none";
+            setSearchModeSections(false);
             const totalGridCards = productsGrid.querySelectorAll('.product-card');
             totalGridCards.forEach(card => {
                 card.style.display = "block";
@@ -1226,26 +1276,18 @@ async function setupHomePageModules() {
             finishProgress();
         }
 
-        showToast("Verifying prescription with AI...", "info");
-        const aiResult = isImage ? await analyzePrescriptionWithGemini(file) : { status: "SUCCESS", medicines: [] };
-
-        if (aiResult.status === "FAILED") {
-            showToast(`Prescription failed: ${aiResult.reason}`, "error");
-            isPrescriptionUploaded = false;
-            localStorage.setItem('medi_presc_uploaded_status', 'false');
-            activePrescription = null;
-            localStorage.removeItem('medi_active_prescription');
-            renderPrescriptionWidgetState();
-            return;
-        }
-
         isPrescriptionUploaded = true;
         localStorage.setItem('medi_presc_uploaded_status', 'true');
         renderPrescriptionWidgetState();
-
         showToast("Prescription uploaded successfully!", "success");
-        if (aiResult.medicines && aiResult.medicines.length > 0) {
-            openPrescriptionSelectionPopup(aiResult.medicines, uploadedPrescriptionUrl);
+
+        // The AI (Gemini) auto-read step has been removed — it was failing with
+        // 401 Unauthorized and isn't needed for the actual business flow: the
+        // slip just needs to reach nearby pharmacies. Instead, show a quick
+        // phone-number confirmation sheet, and broadcast the moment it's
+        // submitted (no medicine detection/selection involved anymore).
+        if (uploadedPrescriptionUrl) {
+            openPrescriptionPhoneConfirmSheet(uploadedPrescriptionUrl);
         }
     }
 
@@ -1292,11 +1334,7 @@ async function setupHomePageModules() {
             const modalPrice = document.getElementById('modal-price')?.innerText?.replace('₹', '');
             const modalImg = document.getElementById('modal-main-img')?.src;
             const isRxAttr = document.getElementById('product-detail-modal').getAttribute('data-modal-rx') === 'true';
-            
-            if (isRxAttr && !isPrescriptionUploaded) {
-                blockForMissingPrescription();
-                return;
-            }
+
             addToCart({
                 id: "p_modal_" + Math.floor(Math.random() * 100),
                 name: modalName,
@@ -1423,15 +1461,19 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
             user_address: userAddress,
             prescription_url: prescriptionUrl,
             medicines: selectedMedicines,
-            status: 'pending'
+            status: 'pending',
+            delivery_otp: generateSecureSixDigitOTP()
         }]).select().single();
         if (rxErr || !rxOrder) return null;
 
         const medNames = selectedMedicines.map(m => m.name).join(', ');
+        const notifMessage = medNames
+            ? `Customer needs: ${medNames}. Tap to view the prescription & accept.`
+            : `Customer uploaded a prescription. Tap to view & accept.`;
         const notifRows = targets.map(m => ({
             merchant_id: m.id,
             title: '🩺 New Prescription Order Nearby',
-            message: `Customer needs: ${medNames}. Tap to view the prescription & accept.`,
+            message: notifMessage,
             type: 'order',
             related_prescription_id: rxOrder.id
         }));
@@ -1443,71 +1485,68 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
     }
 }
 
-function openPrescriptionSelectionPopup(medicines, prescriptionUrl) {
+// Item 3: rendered as a bottom sheet (slides up from the bottom of the
+// screen, like the rest of the app's mobile modals) instead of a centered
+// dialog. The prescription itself has ALREADY been sent to nearby pharmacies
+// by this point (see handlePrescriptionFile) — this sheet is now just an
+// optional "add the medicines AI could read off your slip to your cart"
+// helper, so it no longer re-broadcasts anything.
+// Replaces the old AI medicine-matching sheet. This is now the only step
+// between "file uploaded to storage" and "nearby pharmacies notified" — a
+// quick bottom sheet showing the prescription number/reference and asking
+// for (or confirming) the phone number the pharmacy should call. Submitting
+// it is what actually triggers the broadcast.
+function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
     const autoPhone = getAutoUserPhone();
+    if (!document.getElementById('presc-bottom-sheet-css')) {
+        const style = document.createElement('style');
+        style.id = 'presc-bottom-sheet-css';
+        style.textContent = `
+            @keyframes prescSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+            .presc-bottom-sheet { animation: prescSheetUp 0.28s cubic-bezier(0.2,0.8,0.2,1); }
+        `;
+        document.head.appendChild(style);
+    }
+    const refNo = 'RX-' + Date.now().toString().slice(-8);
     let popup = document.createElement('div');
     popup.className = "modal active";
-    popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
+    popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-end;z-index:10000;`;
     popup.innerHTML = `
-        <div class="modal-content" style="background:#fff;width:100%;max-width:450px;border-radius:16px;padding:20px;box-sizing:border-box;border-top:5px solid #ff4d4d;">
-            <h3><i class="fa-solid fa-file-prescription" style="color:#ff4d4d"></i> Pharmacist Verification Gate</h3>
-            <p style="font-size:0.8rem;color:#6c757d;margin-bottom:12px;background:#fff5f5;padding:8px;border-radius:6px;border-left:3px solid #ff4d4d;">
-                <strong>🛡️ সেফটি ইন্টিগ্রেশন:</strong> কোনো ভুল ওষুধ ডেলিভারি এড়াতে রেজিস্টার্ড ফার্মাসিস্ট ম্যানুয়ালি এআই এক্সট্র্যাক্টেড ডাটা ভেরিফাই করছেন।
-            </p>
-            <div id="presc-list" style="display:flex;flex-direction:column;gap:8px;max-height:250px;overflow-y:auto;text-align:left;">
-                ${medicines.map(m => `
-                    <label style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#f8f9fa;border-radius:8px;border:1px solid #e1e2e6;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <img src="${m.img}" style="width:40px;height:40px;object-fit:contain;">
-                            <div>
-                                <strong style="font-size:0.85rem;">${m.name}</strong>
-                                <p style="margin:0;font-size:0.8rem;color:#ff4d4d;">₹${m.price}</p>
-                            </div>
-                        </div>
-                        <input type="checkbox" class="presc-select-box" data-id="${m.id}" data-name="${m.name}" data-price="${m.price}" data-img="${m.img}" checked style="width:18px;height:18px;">
-                    </label>
-                `).join('')}
-            </div>
-            <div style="margin-top:12px;text-align:left;">
+        <div class="modal-content presc-bottom-sheet" style="background:#fff;width:100%;max-width:600px;border-radius:20px 20px 0 0;padding:20px;box-sizing:border-box;border-top:5px solid #ff4d4d;max-height:85vh;overflow-y:auto;text-align:left;">
+            <div style="width:40px;height:4px;background:#e1e2e6;border-radius:2px;margin:0 auto 12px;"></div>
+            <h3 style="margin:0 0 4px;"><i class="fa-solid fa-file-prescription" style="color:#ff4d4d"></i> Prescription Uploaded</h3>
+            <p style="font-size:0.78rem;color:#6c757d;margin:0 0 12px;">Reference No: <strong>${refNo}</strong></p>
+            <div style="margin-bottom:6px;">
                 <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:4px;"><i class="fa-solid fa-phone" style="color:#ff4d4d"></i> Your live mobile no. (pharmacy will call you on this)</label>
                 <input type="tel" id="presc-phone-input" value="${autoPhone}" maxlength="10" placeholder="10-digit mobile number" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ced4da;box-sizing:border-box;font-size:0.9rem;">
             </div>
             <div style="display:flex;gap:10px;margin-top:15px;">
-                <button id="cancel-presc" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Dismiss</button>
-                <button id="add-presc-cart" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Submit</button>
+                <button id="cancel-presc" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
+                <button id="submit-presc-phone" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Send to Nearby Pharmacies</button>
             </div>
         </div>
     `;
     document.body.appendChild(popup);
     document.getElementById('cancel-presc').onclick = () => popup.remove();
-    document.getElementById('add-presc-cart').onclick = async () => {
-        const selectedCheckboxes = popup.querySelectorAll('.presc-select-box:checked');
-        if (selectedCheckboxes.length === 0) { showToast("Please select at least one medicine!", "error"); return; }
+    document.getElementById('submit-presc-phone').onclick = async () => {
         const phoneInput = document.getElementById('presc-phone-input');
         const phone = (phoneInput?.value || '').trim();
         if (phone.length < 10) { showToast("Please enter a valid 10-digit mobile number.", "error"); return; }
         localStorage.setItem('medi_last_phone', phone);
 
-        const selectedMeds = [];
-        selectedCheckboxes.forEach(box => {
-            const med = { id: box.dataset.id, name: box.dataset.name, price: box.dataset.price, img: box.dataset.img };
-            selectedMeds.push(med);
-            addToCart({ id: med.id, name: med.name, price: med.price, img: med.img, isRx: false });
-        });
+        const submitBtn = document.getElementById('submit-presc-phone');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Sending...'; }
 
-        if (prescriptionUrl) {
-            const submitBtn = document.getElementById('add-presc-cart');
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Sending...'; }
-            const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMeds, phone);
-            if (rxId) {
-                watchPendingPrescriptionOrder(rxId);
-                showToast("Sent to nearby pharmacies! Waiting for your prescription acceptance (5–10 min)...", "success");
-            } else {
-                showToast("Couldn't notify pharmacies right now — please try again.", "error");
-            }
+        const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [], phone);
+        if (rxId) {
+            watchPendingPrescriptionOrder(rxId);
+            showToast("Sent to nearby pharmacies! Waiting for acceptance (5–10 min)...", "success");
+            // Refresh the order list right away if we're already on that page.
+            if (document.getElementById('order-list')) refreshOrdersFromServer();
+        } else {
+            showToast("Couldn't notify pharmacies right now — please try again.", "error");
         }
         popup.remove();
-        window.location.href = 'usercart.html';
     };
 }
 
@@ -1557,12 +1596,13 @@ function updateProductCount() {
     badge.textContent = `${count} items`;
 }
 
+// Item 5: Rx medicines are no longer blocked from the cart entirely. They're
+// added like anything else, but flagged unverified (rxVerified: false) until
+// their OWN prescription is uploaded from the cart page. A confirmation
+// message explains this and offers to take the user to the cart — it no
+// longer force-navigates to the home page.
 function addToCart(product) {
     const isControlledRx = product.isRx === true || product.isRx === 'true';
-    if (isControlledRx && !isPrescriptionUploaded) {
-        blockForMissingPrescription();
-        return;
-    }
     const existing = currentCart.find(item => item.id === product.id);
     if (existing) {
         existing.qty += 1;
@@ -1574,14 +1614,36 @@ function addToCart(product) {
             img: product.img,
             qty: 1,
             isRx: isControlledRx,
+            rxVerified: isControlledRx ? false : true,
             merchantId: product.merchantId || product.merchant_id || '',
             exempt_platform_fee: product.id === "p2",
             exempt_processing_charge: product.id === "p4"
         });
     }
     localStorage.setItem('medi_cart', JSON.stringify(currentCart));
-    showToast(`${product.name} added to cart!`, "success");
+
+    if (isControlledRx) {
+        promptRxUploadOnAdd(product.name);
+    } else {
+        showToast(`${product.name} added to cart!`, "success");
+    }
     if (document.getElementById('cart-items-container')) renderCartPage();
+}
+
+// Replaces the old blockForMissingPrescription() flow for the "add to cart"
+// moment specifically — the medicine IS already in the cart at this point,
+// so Confirm just takes the user to the cart (where the real upload lives)
+// instead of redirecting to the home page and dropping the item.
+function promptRxUploadOnAdd(name) {
+    const msg = `"${name}" requires a doctor's prescription. It has been added to your cart — please upload the prescription there to continue with your order.`;
+    const onCartPage = !!document.getElementById('cart-items-container');
+    if (typeof showConfirmationModal === 'function') {
+        showConfirmationModal(msg, () => {
+            if (!onCartPage) window.location.href = 'usercart.html';
+        });
+    } else {
+        showToast(`${name} added — upload its prescription in the cart to continue.`, "info");
+    }
 }
 
 // ============================================================
@@ -1591,17 +1653,39 @@ function setupCartPageModules() {
     if (!document.getElementById('cart-items-container')) return;
     renderCartPage();
 
-    loadSavedAddress();
+    const cartRxCameraInput = document.getElementById('cart-rx-camera-input');
+    if (cartRxCameraInput) cartRxCameraInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleCartRxUpload(e.target.files[0]);
+        e.target.value = "";
+    });
+    const cartRxFileInput = document.getElementById('cart-rx-file-input');
+    if (cartRxFileInput) cartRxFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleCartRxUpload(e.target.files[0]);
+        e.target.value = "";
+    });
+
+    loadCartDeliveryAddress();
 
     const saveAddrBtn = document.getElementById('save-address-btn');
     if (saveAddrBtn) saveAddrBtn.addEventListener('click', saveDeliveryAddress);
 
+    // Item 10: Edit opens the form pre-filled with the saved address (instead
+    // of a blank form) so editing means editing, not starting over.
     const changeAddrBtn = document.getElementById('change-address-btn');
     if (changeAddrBtn) changeAddrBtn.addEventListener('click', () => {
         const addrForm = document.getElementById('address-form');
         const savedBox = document.getElementById('saved-address-box');
         if (addrForm) addrForm.style.display = 'flex';
         if (savedBox) savedBox.style.display = 'none';
+    });
+
+    // Item 10: with no saved address at all, the form stays hidden until the
+    // person explicitly taps "Add Now" — it no longer shows by default.
+    const addNowBtn = document.getElementById('add-now-address-btn');
+    if (addNowBtn) addNowBtn.addEventListener('click', () => {
+        const addrForm = document.getElementById('address-form');
+        if (addrForm) addrForm.style.display = 'flex';
+        addNowBtn.style.display = 'none';
     });
 
     const applyCouponBtn = document.getElementById('apply-coupon-btn');
@@ -1645,10 +1729,41 @@ function setupCartPageModules() {
     }
 }
 
-function loadSavedAddress() {
-    const saved = JSON.parse(localStorage.getItem('medi_delivery_address') || 'null');
-    if (saved && saved.house && saved.name) {
-        showSavedAddress(saved);
+// Item 10: the cart's delivery-address box now shows the SAME address book
+// used on the profile page (`user_addresses`, address1/address2) instead of
+// a separate address only ever saved locally to this one browser. Falls back
+// to the old local `medi_delivery_address` for a guest / offline session.
+async function loadCartDeliveryAddress() {
+    const addNowBtn = document.getElementById('add-now-address-btn');
+    const form = document.getElementById('address-form');
+    const box = document.getElementById('saved-address-box');
+
+    let addr = null;
+    if (supabase) {
+        try {
+            const uid = await getCurrentAuthUserId();
+            if (uid) {
+                const { data } = await supabase.from('user_addresses').select('*').eq('user_id', uid).order('is_default', { ascending: false }).order('created_at', { ascending: false }).limit(1);
+                if (data && data.length > 0) {
+                    const a = data[0];
+                    addr = { id: a.id, name: a.name, phone: a.phone, house: a.address1, area: a.address2 || '', city: a.city, pincode: a.pincode, landmark: a.landmark || '' };
+                }
+            }
+        } catch (e) {}
+    }
+    if (!addr) {
+        addr = JSON.parse(localStorage.getItem('medi_delivery_address') || 'null');
+    }
+
+    if (addr && addr.house && addr.name) {
+        showSavedAddress(addr);
+        if (addNowBtn) addNowBtn.style.display = 'none';
+    } else {
+        // Nothing saved anywhere yet — hide both the form and the saved box,
+        // show only "Add Now".
+        if (form) form.style.display = 'none';
+        if (box) box.style.display = 'none';
+        if (addNowBtn) addNowBtn.style.display = 'block';
     }
 }
 
@@ -1656,13 +1771,23 @@ function showSavedAddress(addr) {
     const form = document.getElementById('address-form');
     const box = document.getElementById('saved-address-box');
     const display = document.getElementById('saved-address-display');
+    const addNowBtn = document.getElementById('add-now-address-btn');
     if (form) form.style.display = 'none';
     if (box) box.style.display = 'block';
+    if (addNowBtn) addNowBtn.style.display = 'none';
     if (display) {
         display.innerHTML = `<strong><i class="fa-solid fa-user"></i> ${addr.name}</strong>
             <i class="fa-solid fa-phone" style="color:#e02020"></i> ${addr.phone}<br>
-            <i class="fa-solid fa-location-dot" style="color:#e02020"></i> ${addr.house}, ${addr.area}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}`;
+            <i class="fa-solid fa-location-dot" style="color:#e02020"></i> ${addr.house}${addr.area ? ', ' + addr.area : ''}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}`;
     }
+    // Keep the manual-form fields pre-filled too, so tapping Edit shows this
+    // address instead of a blank form.
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setVal('addr-house', addr.house); setVal('addr-name', addr.name); setVal('addr-area', addr.area);
+    setVal('addr-city', addr.city); setVal('addr-pincode', addr.pincode); setVal('addr-phone', addr.phone);
+    setVal('addr-landmark', addr.landmark);
+    const editingIdEl = document.getElementById('cart-editing-address-id');
+    if (editingIdEl) editingIdEl.value = addr.id || '';
 }
 
 // Checks the pincode against the admin's service_zones registry (same table
@@ -1717,6 +1842,30 @@ async function saveDeliveryAddress() {
     localStorage.setItem('medi_delivery_address', JSON.stringify(addr));
     localStorage.setItem('medi_verified_address', `${house}, ${area}, ${city} - ${pincode}${landmark ? ', Near ' + landmark : ''}`);
     isPincodeVerified = true;
+
+    // Item 10: also persist to the shared `user_addresses` book (same table
+    // the profile page uses) so this becomes the one real saved address
+    // instead of only living in this browser's localStorage.
+    if (supabase) {
+        try {
+            const uid = await getCurrentAuthUserId();
+            if (uid) {
+                const editingId = document.getElementById('cart-editing-address-id')?.value || '';
+                const payload = { user_id: uid, tag: 'Home', name, phone, address1: house, address2: area || null, landmark: landmark || null, city, state: '', pincode, is_default: true };
+                await supabase.from('user_addresses').update({ is_default: false }).eq('user_id', uid);
+                if (editingId) {
+                    const { data } = await supabase.from('user_addresses').update(payload).eq('id', editingId).select().single();
+                    if (data) addr.id = data.id;
+                } else {
+                    const { data } = await supabase.from('user_addresses').insert([payload]).select().single();
+                    if (data) addr.id = data.id;
+                }
+            }
+        } catch (e) {
+            // Non-fatal — localStorage copy above already covers this session/order.
+        }
+    }
+
     if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = '✓ Address saved!'; }
     showSavedAddress(addr);
     recalculateBill();
@@ -1795,20 +1944,32 @@ function renderCartPage() {
     }
     container.innerHTML = currentCart.map(item => {
         const isRxItem = item.isRx === true || item.isRx === 'true';
-        const rxBlocked = isRxItem && !isPrescriptionUploaded;
+        const rxBlocked = isRxItem && !item.rxVerified;
         const rxBadge = isRxItem
             ? (rxBlocked
                 ? '<span class="cart-item-rx" style="background:#fff0f0;color:#ff4d4d;border:1px solid #ff4d4d;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-triangle-exclamation"></i> Rx</span>'
                 : '<span class="cart-item-rx" style="background:#f0fff5;color:#2ed573;border:1px solid #2ed573;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Rx Verified</span>')
             : '';
+        // Item 5: a per-item green tick over the thumbnail once THIS item's
+        // own prescription has been uploaded and verified — not a global flag.
+        const rxTick = (isRxItem && item.rxVerified) ? '<span class="cart-item-rx-tick" style="position:absolute;bottom:-4px;right:-4px;background:#2ed573;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;border:2px solid #fff;"><i class="fa-solid fa-check"></i></span>' : '';
+        const uploadRow = rxBlocked ? `
+                    <div class="cart-rx-upload-row" style="display:flex;gap:8px;margin-top:6px;">
+                        <button type="button" class="cart-rx-upload-btn" data-cart-id="${item.id}" data-mode="camera" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;border-radius:8px;border:1px solid #ff4d4d;background:#fff;color:#ff4d4d;font-size:0.72rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-camera"></i> Camera</button>
+                        <button type="button" class="cart-rx-upload-btn" data-cart-id="${item.id}" data-mode="gallery" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;border-radius:8px;border:1px solid #ff4d4d;background:#fff;color:#ff4d4d;font-size:0.72rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-image"></i> Gallery</button>
+                    </div>
+                    <p style="margin:4px 0 0;font-size:0.68rem;color:#ff4d4d;">Upload this medicine's prescription — order won't be placed without it</p>` : '';
         return `
         <div class="cart-item"${rxBlocked ? ' style="border:1px solid #ff4d4d;background:#fff8f8;border-radius:10px;"' : ''}>
             <div class="cart-item-left">
-                <img class="cart-item-img" src="${item.img}" onerror="this.src='https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=200'">
+                <div style="position:relative;">
+                    <img class="cart-item-img" src="${item.img}" onerror="this.src='https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=200'">
+                    ${rxTick}
+                </div>
                 <div class="cart-item-info">
                     <h4 class="cart-item-name">${item.name}${rxBadge}</h4>
                     <p class="cart-item-price">₹${item.price}</p>
-                    ${rxBlocked ? `<p onclick="blockForMissingPrescription()" style="margin:2px 0 0;font-size:0.72rem;color:#ff4d4d;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-arrow-up"></i> Upload prescription fast — order won't be placed without it</p>` : ''}
+                    ${uploadRow}
                     <div class="cart-item-qty">
                         <button class="cart-item-qty-btn" onclick="changeCartQty('${item.id}',-1)">-</button>
                         <span class="cart-item-qty-num">${item.qty}</span>
@@ -1820,7 +1981,55 @@ function renderCartPage() {
         </div>
     `;
     }).join('');
+
+    // Wire the per-item camera/gallery buttons through ONE shared hidden file
+    // input pair (see usercart.html) rather than one input per cart row.
+    container.querySelectorAll('.cart-rx-upload-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            pendingRxCartItemId = btn.dataset.cartId;
+            const input = document.getElementById(btn.dataset.mode === 'camera' ? 'cart-rx-camera-input' : 'cart-rx-file-input');
+            if (input) input.click();
+        });
+    });
     recalculateBill();
+}
+
+// Item 5 + Item 3: uploading a cart-item's prescription both marks that
+// specific item verified (green tick, order unblocked) AND immediately
+// broadcasts the slip to nearby pharmacies, reusing the same notification
+// pipeline as the home page prescription-upload widget.
+let pendingRxCartItemId = null;
+async function handleCartRxUpload(file) {
+    if (!file || !pendingRxCartItemId) return;
+    const item = currentCart.find(i => i.id === pendingRxCartItemId);
+    if (!item) { pendingRxCartItemId = null; return; }
+
+    showToast('Uploading prescription...', 'info');
+    let prescriptionUrl = '';
+    if (supabase) {
+        const fileExt = file.name.split('.').pop();
+        const storagePath = `live_slips/cart_${Date.now()}_${item.id}.${fileExt}`;
+        const { error } = await supabase.storage.from('media').upload(storagePath, file);
+        if (error) {
+            showToast("Upload failed: " + error.message, "error");
+            pendingRxCartItemId = null;
+            return;
+        }
+        const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+        prescriptionUrl = urlData.publicUrl;
+    }
+
+    item.rxVerified = true;
+    localStorage.setItem('medi_cart', JSON.stringify(currentCart));
+    showToast(`Prescription verified for ${item.name}!`, "success");
+    renderCartPage();
+
+    // Broadcast to nearby pharmacies right away — doesn't block the UI.
+    if (prescriptionUrl) {
+        broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [{ id: item.id, name: item.name, price: item.price, img: item.img }], getAutoUserPhone())
+            .then(rxId => { if (rxId) watchPendingPrescriptionOrder(rxId); });
+    }
+    pendingRxCartItemId = null;
 }
 
 window.clearAllCart = function() {
@@ -1950,9 +2159,12 @@ async function processFinalOrderPayload() {
         showToast("Please enter your delivery address first!", "error");
         return;
     }
-    const cartHasRxItem = currentCart.some(item => item.isRx === true || item.isRx === 'true');
-    if (cartHasRxItem && !isPrescriptionUploaded) {
-        showToast("Order blocked! Upload prescription for Rx medicines.", "error");
+    // Item 5: each Rx item now needs its OWN uploaded/verified prescription
+    // (item.rxVerified, set once that specific item's camera/gallery upload
+    // succeeds in the cart) rather than one global flag for the whole cart.
+    const unverifiedRxItem = currentCart.find(item => (item.isRx === true || item.isRx === 'true') && !item.rxVerified);
+    if (unverifiedRxItem) {
+        showToast(`Order blocked! Upload prescription for "${unverifiedRxItem.name}" first.`, "error");
         return;
     }
 
@@ -1983,7 +2195,7 @@ async function processFinalOrderPayload() {
                 // client-side cart flag alone isn't trustworthy since it could
                 // be bypassed by editing localStorage.
                 const dbIsRx = med.prescription_req ? med.prescription_req === 'Yes' : (med.is_rx === true);
-                if (dbIsRx && !isPrescriptionUploaded) {
+                if (dbIsRx && !item.rxVerified) {
                     showToast(`Order blocked! "${med.product_name}" requires a prescription upload.`, "error");
                     return;
                 }
@@ -2258,6 +2470,25 @@ function createConfetti() {
 // ============================================================
 // ORDERS PAGE
 // ============================================================
+// Turns a `prescription_orders` row into the same shape renderOrdersUI
+// already knows how to draw a card for — the prescription photo stands in
+// for a product image, and there's no billed total yet since the pharmacy
+// hasn't confirmed/priced the medicines.
+function mapPrescriptionOrderToCard(rx) {
+    const statusMap = { pending: 'pending', accepted: 'accepted', cancelled: 'cancelled' };
+    return {
+        order_id: 'RX-' + rx.id,
+        is_prescription_order: true,
+        rx_id: rx.id,
+        status: statusMap[rx.status] || rx.status || 'pending',
+        date_string: rx.created_at ? new Date(rx.created_at).toLocaleDateString('en-GB') : '',
+        items_img: rx.prescription_url,
+        items_text: rx.status === 'accepted' ? 'Prescription accepted — pharmacy is preparing your medicines' : 'Prescription sent to nearby pharmacies',
+        total_bill: 'To be confirmed by pharmacy',
+        delivery_secure_code: rx.delivery_otp || ''
+    };
+}
+
 async function refreshOrdersFromServer() {
     const listContainer = document.getElementById('order-list');
     if (!listContainer) return;
@@ -2270,9 +2501,24 @@ async function refreshOrdersFromServer() {
                     .or(`user_id.eq.${session.user.id},customer_phone.eq.${session.user.phone || ''},user_email.eq.${session.user.email || ''}`)
                     .order('created_at', { ascending: false })
                     .limit(20);
-                if (dbOrders && dbOrders.length > 0) {
-                    const active = dbOrders.filter(o => !['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
-                    const completed = dbOrders.filter(o => ['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
+
+                // Item 3/5: prescription orders now show up in the same order
+                // list as regular medicine orders instead of being invisible
+                // here — with the prescription image standing in for the
+                // product photo, and status/OTP wired the same way.
+                const { data: dbRxOrders } = await supabase.from('prescription_orders')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                const allOrders = [
+                    ...(dbOrders || []),
+                    ...((dbRxOrders || []).map(mapPrescriptionOrderToCard))
+                ];
+                if (allOrders.length > 0) {
+                    const active = allOrders.filter(o => !['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
+                    const completed = allOrders.filter(o => ['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
                     localStorage.setItem('medi_active_orders', JSON.stringify(active));
                     localStorage.setItem('medi_completed_orders', JSON.stringify(completed));
                 }
@@ -2309,43 +2555,63 @@ async function setupOrdersPageModules() {
 }
 
 let userOrdersChannel = null;
+let userRxOrdersChannel = null;
 function listenToUserOrders() {
-    if (!supabase || userOrdersChannel) return;
-    userOrdersChannel = supabase
-        .channel('user-orders-realtime')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-            const updated = payload.new;
-            if (updated.user_email !== currentUserEmail) return;
-            let active = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
-            let completed = JSON.parse(localStorage.getItem('medi_completed_orders')) || [];
-            const id = updated.order_id || updated.id;
-            const idxActive = active.findIndex(o => (o.order_id || o.id) === id);
-            const idxCompleted = completed.findIndex(o => (o.order_id || o.id) === id);
-            if (['delivered', 'cancelled'].includes((updated.status || '').toLowerCase())) {
-                if (idxActive !== -1) { completed.push(active.splice(idxActive, 1)[0]); }
-                else if (idxCompleted !== -1) { completed[idxCompleted] = updated; }
-                else { completed.unshift(updated); }
-            } else {
-                if (idxActive !== -1) { active[idxActive] = { ...active[idxActive], ...updated }; }
-                else { active.unshift(updated); }
-            }
-            localStorage.setItem('medi_active_orders', JSON.stringify(active));
-            localStorage.setItem('medi_completed_orders', JSON.stringify(completed));
-            const currentTab = document.querySelector('.tab-btn.active')?.dataset?.filter || 'active';
-            renderOrdersUI(currentTab);
-            const statusText = (updated.status || '').toLowerCase();
-            const statusMap = { pending: 'Order Placed', accepted: 'Accepted by pharmacy', arrived_at_store: 'Rider at pharmacy', picked_up: 'Picked up by rider', shipped: 'Out for delivery', delivered: 'Delivered!', broadcasted: 'Rider search active', cancelled: 'Order cancelled' };
-            showToast(statusMap[statusText] || `Order status: ${updated.status}`, statusText === 'delivered' ? 'success' : statusText === 'cancelled' ? 'error' : 'info');
+    if (!supabase) return;
+    if (!userOrdersChannel) {
+        userOrdersChannel = supabase
+            .channel('user-orders-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+                const updated = payload.new;
+                if (updated.user_email !== currentUserEmail) return;
+                let active = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
+                let completed = JSON.parse(localStorage.getItem('medi_completed_orders')) || [];
+                const id = updated.order_id || updated.id;
+                const idxActive = active.findIndex(o => (o.order_id || o.id) === id);
+                const idxCompleted = completed.findIndex(o => (o.order_id || o.id) === id);
+                if (['delivered', 'cancelled'].includes((updated.status || '').toLowerCase())) {
+                    if (idxActive !== -1) { completed.push(active.splice(idxActive, 1)[0]); }
+                    else if (idxCompleted !== -1) { completed[idxCompleted] = updated; }
+                    else { completed.unshift(updated); }
+                } else {
+                    if (idxActive !== -1) { active[idxActive] = { ...active[idxActive], ...updated }; }
+                    else { active.unshift(updated); }
+                }
+                localStorage.setItem('medi_active_orders', JSON.stringify(active));
+                localStorage.setItem('medi_completed_orders', JSON.stringify(completed));
+                const currentTab = document.querySelector('.tab-btn.active')?.dataset?.filter || 'active';
+                renderOrdersUI(currentTab);
+                const statusText = (updated.status || '').toLowerCase();
+                const statusMap = { pending: 'Order Placed', accepted: 'Accepted by pharmacy', arrived_at_store: 'Rider at pharmacy', picked_up: 'Picked up by rider', shipped: 'Out for delivery', delivered: 'Delivered!', broadcasted: 'Rider search active', cancelled: 'Order cancelled' };
+                showToast(statusMap[statusText] || `Order status: ${updated.status}`, statusText === 'delivered' ? 'success' : statusText === 'cancelled' ? 'error' : 'info');
 
-            // ✅ NEW: ট্র্যাকিং modal যদি এই order এর জন্যই খোলা থাকে, তাহলে সাথে সাথেই সেটাও রিফ্রেশ
-            // করা হবে — আগে শুধু অর্ডার কার্ড আর toast আপডেট হতো, modal বন্ধ করে আবার না খুললে
-            // পুরনো (stale) স্টেপ/স্ট্যাটাসই দেখাত।
-            const trackingModal = document.getElementById('tracking-modal');
-            if (trackingModal && trackingModal.classList.contains('active') && trackingModal.dataset.trackingOrderId === id && typeof window.openLiveTrackingModal === 'function') {
-                window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 20, updated.status, updated.rider_id || null);
-            }
-        })
-        .subscribe();
+                // ✅ NEW: ট্র্যাকিং modal যদি এই order এর জন্যই খোলা থাকে, তাহলে সাথে সাথেই সেটাও রিফ্রেশ
+                // করা হবে — আগে শুধু অর্ডার কার্ড আর toast আপডেট হতো, modal বন্ধ করে আবার না খুললে
+                // পুরনো (stale) স্টেপ/স্ট্যাটাসই দেখাত।
+                const trackingModal = document.getElementById('tracking-modal');
+                if (trackingModal && trackingModal.classList.contains('active') && trackingModal.dataset.trackingOrderId === id && typeof window.openLiveTrackingModal === 'function') {
+                    window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 20, updated.status, updated.rider_id || null);
+                }
+            })
+            .subscribe();
+    }
+    // Mirrors the same pattern for prescription orders — the moment a pharmacy
+    // accepts/cancels one, the order list and toast update without a refresh.
+    if (!userRxOrdersChannel) {
+        userRxOrdersChannel = supabase
+            .channel('user-rx-orders-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prescription_orders' }, (payload) => {
+                const updated = payload.new;
+                if (updated.user_id !== currentAuthUserId) return;
+                refreshOrdersFromServer();
+                const statusText = (updated.status || '').toLowerCase();
+                const rxStatusMap = { accepted: 'Your prescription was accepted by a pharmacy!', cancelled: 'Your prescription order was cancelled.' };
+                if (rxStatusMap[statusText]) {
+                    showToast(rxStatusMap[statusText], statusText === 'accepted' ? 'success' : 'error');
+                }
+            })
+            .subscribe();
+    }
 }
 
 function renderOrdersUI(filterMode) {
@@ -2360,22 +2626,32 @@ function renderOrdersUI(filterMode) {
             return;
         }
         listContainer.innerHTML = activeOrders.map(order => {
+        const isRx = !!order.is_prescription_order;
         let statusLabel = "Ordered";
                 const s = (order.status || '').toLowerCase();
-                if (s === "pending") statusLabel = "Order Placed";
+                if (isRx) {
+                    statusLabel = s === 'accepted' ? 'Accepted — Preparing' : 'Sent to Pharmacies';
+                } else if (s === "pending") statusLabel = "Order Placed";
                 else if (s === "accepted") statusLabel = "Accepted";
                 else if (s === "arrived_at_store") statusLabel = "At Pharmacy";
                 else if (s === "picked_up" || s === "shipped" || s === "broadcasted") statusLabel = "Out for Delivery";
                 else if (s === "delivered") statusLabel = "Delivered";
                 else if (s === "cancelled") statusLabel = "Cancelled";
+            const actionButtons = isRx
+                ? `<button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openRxOrderTrackingModal('${order.rx_id}','${order.status}')">Track</button>
+                   <button style="background:#2ed573;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openDeliveryBoyVerificationModal('${order.order_id}', true)">View OTP</button>
+                   ${s === 'pending' ? `<button style="background:#ff4d4d;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="handleCancelOrderFlow('${order.order_id}','${order.status}')">Cancel</button>` : ''}`
+                : `<button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openLiveTrackingModal('${order.order_id || order.id}','${order.transit_mode||'Bike'}',${order.shop_lat||22.578},${order.shop_lng||88.365},${order.eta_minutes||20},'${order.status}',${order.rider_id || 'null'})">Track</button>
+                   <button style="background:#2ed573;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openDeliveryBoyVerificationModal('${order.order_id || order.id}')">View OTP</button>
+                   <button style="background:#ff4d4d;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="handleCancelOrderFlow('${order.order_id || order.id}','${order.status}')">Cancel</button>`;
             return `
                 <div class="single-order-card" id="order-card-${order.order_id || order.id}" data-status="active" style="margin-bottom:12px;display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:14px;background:#ffffff;border-radius:16px;border:1px solid #eef2f5;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
                     <div class="order-info-wrapper" style="display:flex;align-items:center;gap:12px;flex:1;">
                         <div class="order-img-box" style="width:60px;height:60px;background:#f8f9fa;border-radius:10px;padding:4px;display:flex;justify-content:center;align-items:center;flex-shrink:0;border:1px solid #f1f2f6;">
-                            <img src="${order.items_img}" alt="Medicine Box" style="max-width:100%;max-height:100%;object-fit:contain;">
+                            <img src="${order.items_img}" alt="${isRx ? 'Prescription' : 'Medicine Box'}" style="max-width:100%;max-height:100%;object-fit:${isRx ? 'cover' : 'contain'};${isRx ? 'border-radius:8px;' : ''}">
                         </div>
                         <div class="order-meta">
-                            <h4 style="font-size:0.85rem;color:#2f3542;font-weight:700;margin-bottom:2px;">ID: ${order.order_id || order.id}</h4>
+                            <h4 style="font-size:0.85rem;color:#2f3542;font-weight:700;margin-bottom:2px;">ID: ${order.order_id || order.id}${isRx ? ' <i class="fa-solid fa-file-prescription" style="color:#ff4d4d;"></i>' : ''}</h4>
                             <p style="margin:0;font-size:0.75rem;color:#747d8c;">Date: ${order.date_string}</p>
                             <p style="margin:0;font-size:0.75rem;color:#747d8c;">${order.items_text}</p>
                             <p style="font-weight:700;color:#1c82aa;margin-top:2px;">Total: ${order.total_bill}</p>
@@ -2385,9 +2661,7 @@ function renderOrdersUI(filterMode) {
                     <div class="order-action-area" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:8px;">
                         <span style="font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:20px;background:#fff9db;color:#f59f00;">${statusLabel}</span>
                         <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-                            <button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openLiveTrackingModal('${order.order_id || order.id}','${order.transit_mode||'Bike'}',${order.shop_lat||22.578},${order.shop_lng||88.365},${order.eta_minutes||20},'${order.status}',${order.rider_id || 'null'})">Track</button>
-                            <button style="background:#2ed573;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openDeliveryBoyVerificationModal('${order.order_id || order.id}')">View OTP</button>
-                            <button style="background:#ff4d4d;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="handleCancelOrderFlow('${order.order_id || order.id}','${order.status}')">Cancel</button>
+                            ${actionButtons}
                         </div>
                     </div>
                 </div>
@@ -2442,6 +2716,28 @@ function renderOrdersUI(filterMode) {
 }
 
 window.handleCancelOrderFlow = function(orderId, pipelineStatus) {
+    // Prescription orders route to their own, much simpler cancel path — they
+    // live in `prescription_orders`, not `orders`, and can only be cancelled
+    // before a pharmacy accepts.
+    if (String(orderId).startsWith('RX-')) {
+        const rxId = orderId.replace(/^RX-/, '');
+        if ((pipelineStatus || '').toLowerCase() !== 'pending') {
+            showToast("This prescription has already been accepted and can't be cancelled here.", "error");
+            return;
+        }
+        showConfirmationModal("Cancel this prescription order?", async () => {
+            let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
+            activeOrdersList = activeOrdersList.filter(o => (o.order_id || o.id) !== orderId);
+            localStorage.setItem('medi_active_orders', JSON.stringify(activeOrdersList));
+            if (supabase) {
+                try { await supabase.from('prescription_orders').update({ status: 'cancelled' }).eq('id', rxId); }
+                catch (e) { showToast('Cancel failed: ' + (e.message || e), 'error'); }
+            }
+            showToast("Prescription order cancelled.", "info");
+            refreshOrdersFromServer();
+        });
+        return;
+    }
     const ps = (pipelineStatus || '').toLowerCase();
     if (ps === "shipped" || ps === "broadcasted" || ps === "picked_up" || ps === "delivered") {
         showToast("This order is out for delivery and cannot be canceled.", "error");
@@ -2676,15 +2972,58 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
     }
 };
 
-window.openDeliveryBoyVerificationModal = async function(orderId) {
+// Simple step-tracker for prescription orders — there's no rider/shop
+// assignment system for these yet (only pending → accepted → cancelled), so
+// this deliberately doesn't pretend to show a live map/ETA like a real
+// medicine order; it just shows honestly where the request stands.
+window.openRxOrderTrackingModal = function(rxId, status) {
+    const s = (status || '').toLowerCase();
+    const steps = [
+        { key: 'pending', label: 'Sent to nearby pharmacies', icon: 'fa-paper-plane' },
+        { key: 'accepted', label: 'Accepted — pharmacy preparing your medicines', icon: 'fa-box-open' },
+    ];
+    if (s === 'cancelled') {
+        steps.push({ key: 'cancelled', label: 'Cancelled', icon: 'fa-circle-xmark' });
+    }
+    const activeIndex = steps.findIndex(st => st.key === s);
+    let popup = document.createElement('div');
+    popup.className = "modal active";
+    popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
+    popup.innerHTML = `
+        <div class="modal-content" style="background:#fff;width:100%;max-width:400px;border-radius:16px;padding:20px;box-sizing:border-box;border-top:5px solid #ff4d4d;">
+            <h3 style="color:#ff4d4d;margin:0 0 16px;"><i class="fa-solid fa-file-prescription"></i> Prescription RX-${rxId}</h3>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                ${steps.map((st, i) => `
+                    <div style="display:flex;align-items:center;gap:12px;opacity:${i <= activeIndex ? '1' : '0.4'};">
+                        <div style="width:32px;height:32px;border-radius:50%;background:${i <= activeIndex ? (st.key === 'cancelled' ? '#ff4d4d' : '#2ed573') : '#f1f2f6'};color:${i <= activeIndex ? '#fff' : '#999'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fa-solid ${st.icon}"></i>
+                        </div>
+                        <span style="font-size:0.85rem;font-weight:600;color:#2f3542;">${st.label}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <button type="button" id="close-rx-tracking-modal" style="margin-top:20px;width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Close</button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+    document.getElementById('close-rx-tracking-modal').onclick = () => popup.remove();
+};
+
+window.openDeliveryBoyVerificationModal = async function(orderId, isRx) {
     let currentSecureOTP = "123456";
+    const rxId = isRx ? orderId.replace(/^RX-/, '') : null;
     let activeOrders = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
     let targetOrder = activeOrders.find(o => (o.order_id || o.id) === orderId);
     if (targetOrder) currentSecureOTP = targetOrder.delivery_secure_code || "123456";
     if (supabase) {
         try {
-            const { data, error } = await supabase.from('orders').select('delivery_secure_code').eq('order_id', orderId).single();
-            if (!error && data && data.delivery_secure_code) currentSecureOTP = data.delivery_secure_code;
+            if (isRx) {
+                const { data, error } = await supabase.from('prescription_orders').select('delivery_otp').eq('id', rxId).single();
+                if (!error && data && data.delivery_otp) currentSecureOTP = data.delivery_otp;
+            } else {
+                const { data, error } = await supabase.from('orders').select('delivery_secure_code').eq('order_id', orderId).single();
+                if (!error && data && data.delivery_secure_code) currentSecureOTP = data.delivery_secure_code;
+            }
         } catch(e) {}
     }
     let popup = document.createElement('div');
@@ -2697,8 +3036,8 @@ window.openDeliveryBoyVerificationModal = async function(orderId) {
             <p style="font-size:0.85rem;color:#6c757d;margin-bottom:15px;">Share this 6-digit secure code with the delivery agent to confirm parcel handover.</p>
             <div id="view-delivery-otp" style="width:80%;margin:0 auto;padding:12px;font-size:1.8rem;font-weight:bold;color:#ff4d4d;letter-spacing:4px;border:2px dashed #ff4d4d;background:#f8f9fa;border-radius:8px;">${currentSecureOTP}</div>
             <div style="display:flex;gap:10px;margin-top:16px;">
-                <button type="button" id="close-otp-modal" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
-                <button type="button" id="submit-otp-verification" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Confirm & Complete</button>
+                <button type="button" id="close-otp-modal" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Close</button>
+                ${isRx ? '' : '<button type="button" id="submit-otp-verification" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Confirm & Complete</button>'}
             </div>
         </div>
     `;
@@ -2706,6 +3045,7 @@ window.openDeliveryBoyVerificationModal = async function(orderId) {
     document.getElementById('close-otp-modal').onclick = () => {
         popup.remove();
     };
+    if (isRx) return; // prescription orders don't yet have a self-serve "mark delivered" step
     document.getElementById('submit-otp-verification').onclick = async () => {
         let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
         let completedOrdersList = JSON.parse(localStorage.getItem('medi_completed_orders')) || [];
@@ -3065,8 +3405,10 @@ function setupProfilePageModules() {
     const currentAddressText = document.getElementById('current-address');
     if (currentAddressText && verifiedAddress) currentAddressText.innerText = verifiedAddress;
     const profileImgElement = document.getElementById('profile-pic');
+    const dbAvatarUrl = localStorage.getItem('medi_profile_avatar');
     const systemCachedPhoto = localStorage.getItem('medi_saved_profile_image');
-    if (systemCachedPhoto && profileImgElement) profileImgElement.src = systemCachedPhoto;
+    if (dbAvatarUrl && profileImgElement) profileImgElement.src = dbAvatarUrl;
+    else if (systemCachedPhoto && profileImgElement) profileImgElement.src = systemCachedPhoto;
 
     const photoUploadInput = document.getElementById('upload-photo');
     if (photoUploadInput) {
@@ -3088,7 +3430,15 @@ function setupProfilePageModules() {
                         await supabase.storage.from('media').upload(path, chosenFile, { upsert: true });
                         const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
                         if (urlData?.publicUrl) {
-                            await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', session.user.id);
+                            // Item 4: this used to filter by `id`, but every other
+                            // write to `profiles` on this page keys off `email` —
+                            // so on a row keyed by email, .eq('id', ...) matched
+                            // nothing and the photo silently never saved. Also
+                            // upsert (not update-only) so a brand-new account with
+                            // no profiles row yet still gets one created here.
+                            await supabase.from('profiles').upsert({ email: session.user.email, avatar_url: urlData.publicUrl }, { onConflict: 'email' });
+                            localStorage.setItem('medi_profile_avatar', urlData.publicUrl);
+                            document.querySelectorAll('#hamburger-avatar-img').forEach(img => { img.src = urlData.publicUrl; });
                         }
                     }
                 } catch (err) {}
@@ -3108,7 +3458,7 @@ function setupProfilePageModules() {
                     try {
                         const { data: { session } } = await supabase.auth.getSession();
                         if (session && session.user) {
-                            await supabase.from('profiles').upsert({ email: session.user.email, full_name: rawEnteredName });
+                            await supabase.from('profiles').upsert({ email: session.user.email, full_name: rawEnteredName }, { onConflict: 'email' });
                         }
                     } catch(err) { }
                 }
@@ -3841,54 +4191,6 @@ function initModalRatingStars() {
     };
 }
 
-/* ==========================================================================
-   GEMINI AI PRESCRIPTION PARSER
-   ========================================================================== */
-function fileToGenerativePart(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64Data = reader.result.split(',')[1];
-            resolve({ inlineData: { data: base64Data, mimeType: file.type } });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-async function analyzePrescriptionWithGemini(file) {
-    const GEMINI_API_KEY = "AQ.Ab8RN6LX5AZs3yOlKj2ZgTWJcoQCStf8FBMo-gh09u1b7XzUzg";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    try {
-        const imagePart = await fileToGenerativePart(file);
-        const prompt = `
-            Analyze this image carefully.
-            Step 1: Check if this image is a real doctor's medical prescription or hospital diagnostic slip containing medicines.
-            Step 2: If it is NOT a prescription, reply EXACTLY: {"status": "FAILED", "reason": "Not a valid medical prescription"}.
-            Step 3: If it IS a valid prescription, extract up to 2-3 major medicine names. Reply EXACTLY in this format:
-            {
-              "status": "SUCCESS",
-              "medicines": [
-                {"id": "gem_p1", "name": "Medicine Name 1", "price": 120.00, "img": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400"},
-                {"id": "gem_p2", "name": "Medicine Name 2", "price": 35.00, "img": "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400"}
-              ]
-            }
-            Return ONLY clean raw JSON text. No markdown.
-        `;
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, imagePart] }] })
-        });
-        const result = await response.json();
-        if (result.error) { return { status: "FAILED", reason: "Invalid API Key or API configuration error." }; }
-        const responseText = result.candidates[0].content.parts[0].text.trim();
-        return JSON.parse(responseText);
-    } catch (error) {
-        return { status: "FAILED", reason: "AI Core Parsing Interrupted or Formatting Failure" };
-    }
-}
-
 // showToast is provided by prod-utils.js — creates its own container on any page
 
 /* ==========================================================================
@@ -3913,38 +4215,105 @@ function initScrollToTop() {
 }
 
 /* ==========================================================================
-   WISHLIST BUTTONS
+   HOME PAGE STICKY SCROLL (Item 2)
+   As the medicine list is scrolled, the header, quick-services menu,
+   slider and prescription-upload card scroll away normally with the page —
+   but the search bar and the category chip row lock in place at the top
+   so they stay reachable, with the product grid scrolling underneath them.
    ========================================================================== */
-function initWishlistButtons() {
-    const wishlistBtns = document.querySelectorAll('.wishlist-btn');
-    const savedWishlist = JSON.parse(localStorage.getItem('medi_wishlist')) || [];
+function initHomeStickyScroll() {
+    const searchSection = document.querySelector('.truemeds-search-section');
+    const categoriesSection = document.querySelector('.categories-section');
+    if (!searchSection || !categoriesSection) return; // not the home page
 
-    // Restore saved wishlist state
-    savedWishlist.forEach(id => {
-        const btn = document.querySelector(`.wishlist-btn[data-id="${id}"]`);
-        if (btn) {
-            btn.classList.add('active');
-            btn.innerHTML = '<i class="fa-solid fa-heart"></i>';
-        }
-    });
+    if (!document.getElementById('home-sticky-scroll-css')) {
+        const style = document.createElement('style');
+        style.id = 'home-sticky-scroll-css';
+        style.textContent = `
+            .truemeds-search-section { position: sticky; top: 0; z-index: 60; background: #fff; }
+            .categories-section { position: sticky; z-index: 55; background: #fff; padding-top: 8px; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // The category row locks in right below the search bar — measured live
+    // (instead of a hardcoded px value) so it lines up correctly on every
+    // screen size and after fonts/images finish loading.
+    function positionCategoriesLock() {
+        categoriesSection.style.top = searchSection.offsetHeight + 'px';
+    }
+    positionCategoriesLock();
+    window.addEventListener('resize', positionCategoriesLock);
+    setTimeout(positionCategoriesLock, 400); // after images/fonts settle
+}
+
+/* ==========================================================================
+   WISHLIST BUTTONS (Item 7)
+   Previously this only ever wrote to localStorage, so the wishlist vanished
+   on refresh/new device. Now it's backed by a real `user_wishlist` table
+   (see wishlist_migration.sql) keyed on the logged-in user's auth id —
+   localStorage is kept only as an instant-paint cache / guest fallback.
+   ========================================================================== */
+async function initWishlistButtons() {
+    const wishlistBtns = document.querySelectorAll('.wishlist-btn');
+    if (wishlistBtns.length === 0) return;
+    let savedWishlist = JSON.parse(localStorage.getItem('medi_wishlist')) || [];
+
+    // Paint instantly from the local cache first (no flash of "unliked" state),
+    // then reconcile with the real database once the session resolves.
+    function paintFromSet(idSet) {
+        wishlistBtns.forEach(btn => {
+            const id = btn.dataset.id;
+            const active = idSet.includes(String(id));
+            btn.classList.toggle('active', active);
+            btn.innerHTML = active ? '<i class="fa-solid fa-heart"></i>' : '<i class="fa-regular fa-heart"></i>';
+        });
+    }
+    paintFromSet(savedWishlist);
+
+    const uid = await getCurrentAuthUserId();
+    if (supabase && uid) {
+        try {
+            const { data, error } = await supabase.from('user_wishlist').select('medicine_id').eq('user_id', uid);
+            if (!error && data) {
+                savedWishlist = data.map(r => String(r.medicine_id));
+                localStorage.setItem('medi_wishlist', JSON.stringify(savedWishlist));
+                paintFromSet(savedWishlist);
+            }
+        } catch (e) {}
+    }
 
     wishlistBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
-            btn.classList.toggle('active');
-            
-            if (btn.classList.contains('active')) {
-                btn.innerHTML = '<i class="fa-solid fa-heart"></i>';
-                savedWishlist.push(id);
+            const isNowActive = !btn.classList.contains('active');
+            btn.classList.toggle('active', isNowActive);
+            btn.innerHTML = isNowActive ? '<i class="fa-solid fa-heart"></i>' : '<i class="fa-regular fa-heart"></i>';
+
+            if (isNowActive) {
+                if (!savedWishlist.includes(id)) savedWishlist.push(id);
                 showToast('Added to wishlist!', 'info');
             } else {
-                btn.innerHTML = '<i class="fa-regular fa-heart"></i>';
                 const idx = savedWishlist.indexOf(id);
                 if (idx > -1) savedWishlist.splice(idx, 1);
                 showToast('Removed from wishlist', 'info');
             }
             localStorage.setItem('medi_wishlist', JSON.stringify(savedWishlist));
+
+            const userId = await getCurrentAuthUserId();
+            if (supabase && userId) {
+                try {
+                    if (isNowActive) {
+                        await supabase.from('user_wishlist').upsert({ user_id: userId, medicine_id: id }, { onConflict: 'user_id,medicine_id' });
+                    } else {
+                        await supabase.from('user_wishlist').delete().eq('user_id', userId).eq('medicine_id', id);
+                    }
+                } catch (e) {
+                    // Non-fatal — UI + localStorage already reflect the change; will
+                    // reconcile with the DB again on next page load.
+                }
+            }
         });
     });
 }
