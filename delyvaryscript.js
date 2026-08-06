@@ -862,12 +862,15 @@ async function toggleDutyStatus() {
     }
 
     try {
-        let currentRiderEmail = localStorage.getItem('userEmail');
-        if (currentRiderEmail) {
-            // ✅ FIX: update() এর বদলে upsert() — riders row কোনো কারণে এখনো তৈরি না হয়ে থাকলে
-            // update() নীরবে ০ row affect করে চলে যেত (কোনো error ছাড়াই), duty_status DB তে কখনো
-            // সেট হতো না, ফলে admin dashboard "Online Riders" 0 দেখাত।
-            await supabaseClient.from('riders').upsert({ email: currentRiderEmail, duty_status: isOnDuty ? 'online' : 'offline' }, { onConflict: 'email' });
+        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল কারণ RLS policy auth_user_id
+        // ম্যাচ করে চেক করে, email না। এখন auth_user_id দিয়ে সরাসরি update() করা হচ্ছে —
+        // row তো ensureRiderDbRow() দিয়ে লগইনের সময়ই গ্যারান্টিভাবে তৈরি হয়ে যায়।
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+            await supabaseClient
+                .from('riders')
+                .update({ duty_status: isOnDuty ? 'online' : 'offline' })
+                .eq('auth_user_id', user.id);
         }
     } catch (err) {
         showToast("Duty status DB update error: " + (err.message || err), "error");
@@ -884,17 +887,17 @@ async function toggleDutyStatus() {
 async function syncDutyStatusOnPageLoad() {
     if (!supabaseClient) return;
     try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail) return;
-        // ✅ FIX: upsert() ব্যবহার করা হচ্ছে যাতে riders row না থাকলেও তৈরি হয়ে যায় (আগে
-        // update() হলে row না থাকলে কিছুই হতো না, admin panel এ রাইডার "online" দেখাত না)।
+        // ✅ FIX: এখানেও email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল। row তৈরির
+        // দায়িত্ব ensureRiderDbRow()-এর, তাই এখানে শুধু auth_user_id দিয়ে update() করা হচ্ছে।
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) return;
         await supabaseClient
             .from('riders')
-            .upsert({
-                email: currentRiderEmail,
+            .update({
                 duty_status: isOnDuty ? 'online' : 'offline',
                 last_active_at: new Date().toISOString()
-            }, { onConflict: 'email' });
+            })
+            .eq('auth_user_id', user.id);
     } catch (err) {
         // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই
     }
@@ -907,12 +910,13 @@ function startDutyHeartbeat() {
     window._dutyHeartbeatInterval = setInterval(async () => {
         if (!supabaseClient || !isOnDuty) return;
         try {
-            const currentRiderEmail = localStorage.getItem('userEmail');
-            if (!currentRiderEmail) return;
-            // ✅ FIX: upsert() ব্যবহার করা হচ্ছে (update() এর বদলে) একই কারণে উপরে বর্ণিত
+            // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে update()
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) return;
             await supabaseClient
                 .from('riders')
-                .upsert({ email: currentRiderEmail, duty_status: 'online', last_active_at: new Date().toISOString() }, { onConflict: 'email' });
+                .update({ duty_status: 'online', last_active_at: new Date().toISOString() })
+                .eq('auth_user_id', user.id);
         } catch (err) {
             // silent
         }
@@ -1526,22 +1530,25 @@ function processAvatarUpdate(event) {
 // row না থাকলে email + সম্ভব হলে Google full_name/duty_status দিয়ে একটা নতুন row বসিয়ে দেওয়া হয়।
 // row আগে থেকেই থাকলে কিছুই ওভাররাইট করা হয় না (শুধু email/duty_status এর upsert, বাকি কলাম অপরিবর্তিত থাকে)।
 async function ensureRiderDbRow(user) {
-    if (!supabaseClient || !user?.email) return;
+    if (!supabaseClient || !user?.id) return;
     try {
+        // ✅ FIX: auth_user_id দিয়ে চেক করা হচ্ছে (email দিয়ে না), কারণ RLS policy
+        // auth.uid() = auth_user_id ম্যাচ করে — email match করে না, তাই 403 আসছিল।
         const { data: existing } = await supabaseClient
             .from('riders')
             .select('id')
-            .eq('email', user.email)
+            .eq('auth_user_id', user.id)
             .maybeSingle();
 
         if (existing) return; // row already exists — nothing to do
 
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name || "";
-        await supabaseClient.from('riders').upsert({
+        await supabaseClient.from('riders').insert({
+            auth_user_id: user.id,
             email: user.email,
             full_name: googleName,
             duty_status: (localStorage.getItem("rider_duty_status") !== "off") ? 'online' : 'offline'
-        }, { onConflict: 'email' });
+        });
     } catch (err) {
         // নীরবে ফেইল হবে — এটা best-effort সেফটি-নেট, পেজ লোড ব্লক করবে না
     }
@@ -1562,7 +1569,7 @@ async function autoApplyGoogleAvatar(user) {
         const { data: existingRider } = await supabaseClient
             .from('riders')
             .select('avatar_url')
-            .eq('email', user.email)
+            .eq('auth_user_id', user.id)
             .maybeSingle();
 
         // rider যদি আগে থেকেই কাস্টম অ্যাভাটার সেট করে থাকে, সেটা ওভাররাইট করা হবে না
@@ -1572,7 +1579,11 @@ async function autoApplyGoogleAvatar(user) {
         }
 
         localStorage.setItem("rider_avatar", googlePic);
-        await supabaseClient.from('riders').upsert({ email: user.email, avatar_url: googlePic }, { onConflict: 'email' });
+        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল — এখন auth_user_id দিয়ে update()
+        await supabaseClient
+            .from('riders')
+            .update({ avatar_url: googlePic })
+            .eq('auth_user_id', user.id);
     } catch (err) {
         // silent — avatar auto-fill is a nice-to-have, not critical
     }
@@ -1580,14 +1591,15 @@ async function autoApplyGoogleAvatar(user) {
 
 async function saveRiderProfileToDatabase() {
     if (!supabaseClient) return;
-    let currentRiderEmail = localStorage.getItem('userEmail');
-    if (!currentRiderEmail) return;
 
     try {
+        // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে update()
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) return;
+
         const { error } = await supabaseClient
             .from("riders")
-            .upsert({
-                email: currentRiderEmail,
+            .update({
                 full_name: document.getElementById("profileDisplayName") ? document.getElementById("profileDisplayName").innerText : "",
                 vehicle_plate: document.getElementById("vehiclePlateInput") ? document.getElementById("vehiclePlateInput").value : "",
                 license_number: document.getElementById("licenseStringInput") ? document.getElementById("licenseStringInput").value : "",
@@ -1599,7 +1611,8 @@ async function saveRiderProfileToDatabase() {
                 ifsc_code: document.getElementById("bankifscinput") ? document.getElementById("bankifscinput").value : "",
                 upi_id: document.getElementById("upiIdInput") ? document.getElementById("upiIdInput").value : "",
                 avatar_url: localStorage.getItem("rider_avatar") || "" 
-            }, { onConflict: 'email' });
+            })
+            .eq('auth_user_id', user.id);
 
         if (error) throw error;
 
