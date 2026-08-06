@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -45,8 +45,8 @@
             --radius-sm:8px;
             --radius-lg:16px;
         }
-        html{scroll-behavior:smooth}
-        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
+        html{scroll-behavior:smooth;height:100%;-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;padding-bottom:100px;overflow-x:hidden;touch-action:manipulation;overscroll-behavior-y:none}
         
         /* Header */
         .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(26,26,46,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(224,32,32,0.2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
@@ -54,6 +54,7 @@
         .back-btn{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
         .back-btn:hover{background:rgba(224,32,32,0.3)}
         .brand{display:flex;align-items:center;gap:8px}
+        .brand-logo{height:32px;width:auto;object-fit:contain;border-radius:8px}
         .brand-icon{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:800}
         .brand-text{color:#fff;font-size:16px;font-weight:700;letter-spacing:1px}
         .brand-text span{color:var(--primary-light)}
@@ -298,6 +299,15 @@
             .action-btns{flex-direction:column}
             .modal-info-grid{grid-template-columns:1fr}
         }
+        /* The row-and-column table just doesn't fit small screens without
+           breaking, so mobile always uses the card list instead — no
+           horizontal scrolling, nothing clipped, nothing overlapping. */
+        @media(max-width:767px){
+            .orders-table-wrap{display:none!important}
+            #tableSkeleton{display:none!important}
+            .orders-card-view{display:flex!important;flex-direction:column}
+            .toolbar .view-toggle{display:none}
+        }
 
         /* Scrollbar */
         ::-webkit-scrollbar{width:6px;height:6px}
@@ -322,23 +332,9 @@
 
     <!-- Header -->
     <header class="header">
-        <div class="header-left">
-            <button class="back-btn" onclick="window.location.href='marchenthome.html'">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <div class="brand">
-                <div class="brand-icon"><i class="fas fa-plus"></i></div>
-                <div class="brand-text">MEDI<span>FINDER</span></div>
-            </div>
-        </div>
-        <div class="header-right">
-            <button class="notif-btn" onclick="showMerchantNotifications()">
-                <i class="fas fa-bell"></i>
-                <span class="notif-badge" id="notifBadge">0</span>
-            </button>
-            <button class="back-btn" onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
-            </button>
+        <div class="brand">
+            <img src="1779304435608.png" alt="Logo" class="brand-logo">
+            <div class="brand-text">MEDI<span>FINDER</span></div>
         </div>
     </header>
 
@@ -722,7 +718,6 @@
             document.getElementById('statShipped').textContent = stats.shipped;
             document.getElementById('statDelivered').textContent = stats.delivered;
             document.getElementById('statCancelled').textContent = stats.cancelled;
-            document.getElementById('notifBadge').textContent = stats.pending;
         }
 
         // ===== FILTER BY STATUS =====
@@ -1639,6 +1634,5 @@
             }
         });
     </script>
-    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

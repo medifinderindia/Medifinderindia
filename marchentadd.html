@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#e02020">
     <title>Add Medicine - Medi Finder</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -93,15 +93,7 @@
 
                             <div class="form-group medicine-only" id="compositionGroup">
                                 <label>Composition / Salt Name</label>
-                                <div class="salt-picker" id="saltPicker">
-                                    <div class="salt-search-box">
-                                        <i class="fa-solid fa-magnifying-glass"></i>
-                                        <input type="text" id="saltSearchInput" placeholder="সল্ট খুঁজুন (e.g. Paracetamol)..." autocomplete="off">
-                                    </div>
-                                    <div class="salt-chips" id="saltChips"></div>
-                                    <div class="salt-options" id="saltOptions"></div>
-                                </div>
-                                <input type="hidden" id="composition">
+                                <input type="text" id="composition" placeholder="e.g., Paracetamol 650mg + Caffeine 30mg">
                             </div>
                         </div>
 
@@ -149,19 +141,19 @@
 
                             <div class="form-row medicine-only">
                                 <div class="form-group">
-                                    <label>MFD Date</label>
-                                    <input type="date" id="mfdDate">
+                                    <label>MFD (Month / Year)</label>
+                                    <input type="month" id="mfdDate">
                                 </div>
                                 <div class="form-group">
-                                    <label>Expiry Date</label>
-                                    <input type="date" id="expiryDate">
+                                    <label>Expiry (Month / Year)</label>
+                                    <input type="month" id="expiryDate">
                                 </div>
                             </div>
 
                             <div class="form-row medicine-only">
                                 <div class="form-group">
-                                    <label>Lot Number</label>
-                                    <input type="text" id="lotNumber" placeholder="Enter Lot No (Optional)">
+                                    <label>Lot Number <span style="color:#a0aec0;font-weight:400;">(Optional)</span></label>
+                                    <input type="text" id="lotNumber" placeholder="Enter Lot No">
                                 </div>
                             </div>
 
@@ -314,88 +306,15 @@
             document.querySelectorAll('.instrument-only').forEach(el => el.style.display = (type === 'Instrument') ? '' : 'none');
 
             // ওষুধ না হলে কম্পোজিশন খালি করে দাও যাতে ভুল করে ইনস্ট্রুমেন্টে সল্ট সেভ না হয়
-            if (type !== 'Medicine') { selectedSalts = []; renderSaltChips(); }
+            if (type !== 'Medicine') { const c = document.getElementById('composition'); if (c) c.value = ''; }
 
             const sel = document.getElementById('dosageForm');
             const opts = CATEGORY_OPTIONS[type] || CATEGORY_OPTIONS.Medicine;
             sel.innerHTML = opts.map(([val, label]) => `<option value="${val}">${label}</option>`).join('');
         }
-        const COMMON_SALTS = [
-            "Paracetamol 500mg", "Paracetamol 650mg", "Ibuprofen 400mg", "Aspirin 75mg",
-            "Amoxicillin 500mg", "Amoxicillin + Clavulanic Acid 625mg", "Azithromycin 500mg",
-            "Ciprofloxacin 500mg", "Doxycycline 100mg", "Metronidazole 400mg",
-            "Cetirizine 10mg", "Levocetirizine 5mg", "Loratadine 10mg", "Chlorpheniramine Maleate 4mg",
-            "Montelukast 10mg", "Domperidone 10mg", "Ondansetron 4mg",
-            "Omeprazole 20mg", "Pantoprazole 40mg", "Rabeprazole 20mg", "Ranitidine 150mg",
-            "Metformin 500mg", "Glimepiride 2mg", "Sitagliptin 100mg", "Insulin Glargine",
-            "Amlodipine 5mg", "Atorvastatin 10mg", "Losartan 50mg", "Telmisartan 40mg",
-            "Diclofenac 50mg", "Naproxen 250mg", "Tramadol 50mg",
-            "Vitamin C 500mg", "Vitamin D3 60000 IU", "Calcium Carbonate 500mg",
-            "Iron + Folic Acid", "Multivitamin + Multimineral", "Zinc Sulphate 20mg",
-            "ORS (Oral Rehydration Salts)", "Dextromethorphan 10mg", "Salbutamol 2mg",
-            "Budesonide + Formoterol", "Diazepam 5mg"
-        ];
-        let selectedSalts = [];
-
-        function renderSaltChips() {
-            const chipsBox = document.getElementById('saltChips');
-            chipsBox.innerHTML = selectedSalts.map((s, idx) =>
-                `<span class="salt-chip">${s} <i class="fa-solid fa-xmark" onclick="removeSalt(${idx})"></i></span>`
-            ).join('');
-            document.getElementById('composition').value = selectedSalts.join(' + ');
-        }
-        function removeSalt(idx) {
-            selectedSalts.splice(idx, 1);
-            renderSaltChips();
-            renderSaltOptions(document.getElementById('saltSearchInput').value);
-        }
-        function toggleSalt(name) {
-            const i = selectedSalts.indexOf(name);
-            if (i === -1) { selectedSalts.push(name); } else { selectedSalts.splice(i, 1); }
-            renderSaltChips();
-        }
-        function renderSaltOptions(query) {
-            const optBox = document.getElementById('saltOptions');
-            const q = (query || '').trim().toLowerCase();
-            if (!q) { optBox.innerHTML = ''; optBox.classList.remove('open'); return; }
-            let matches = COMMON_SALTS.filter(s => s.toLowerCase().includes(q)).slice(0, 8);
-            let rows = matches.map(name => {
-                const checked = selectedSalts.includes(name) ? 'checked' : '';
-                return `<label class="salt-option"><input type="checkbox" ${checked} onchange="toggleSalt('${name.replace(/'/g, "\\'")}')"> ${name}</label>`;
-            }).join('');
-            if (!matches.some(m => m.toLowerCase() === q) && q.length > 1) {
-                rows += `<label class="salt-option salt-option-custom" onclick="addCustomSalt()"><i class="fa-solid fa-plus"></i> "${query}" — নিজের সল্ট হিসেবে যোগ করো</label>`;
-            }
-            optBox.innerHTML = rows || `<div class="salt-no-match">কোনো মিল পাওয়া যায়নি</div>`;
-            optBox.classList.add('open');
-        }
-        function addCustomSalt() {
-            const input = document.getElementById('saltSearchInput');
-            const val = input.value.trim();
-            if (val && !selectedSalts.includes(val)) { selectedSalts.push(val); renderSaltChips(); }
-            input.value = '';
-            renderSaltOptions('');
-        }
-        document.getElementById('saltSearchInput').addEventListener('input', (e) => renderSaltOptions(e.target.value));
-        document.getElementById('saltSearchInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); addCustomSalt(); }
-        });
-        document.addEventListener('click', (e) => {
-            if (!document.getElementById('saltPicker').contains(e.target)) {
-                document.getElementById('saltOptions').classList.remove('open');
-            }
-        });
-        // এডিট মোডে আগে থেকে সেট করা composition ভ্যালু থেকে চিপ বানানোর জন্য —
-        // marchentscript.js এডিট ডেটা লোড করার পর এটাকে কল করে
-        window.syncSaltChipsFromComposition = function () {
-            const raw = document.getElementById('composition').value || '';
-            selectedSalts = raw.split('+').map(s => s.trim()).filter(Boolean);
-            renderSaltChips();
-        };
 
         setProductType('Medicine'); // পেজ লোড হবার সাথে সাথে ডিফল্ট ক্যাটাগরি ও ফিল্ড ভিজিবিলিটি বসিয়ে দাও
     </script>
     <script src="marchentscript.js?v=13"></script>
-    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

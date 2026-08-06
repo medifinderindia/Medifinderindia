@@ -240,12 +240,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (dropdownBody) {
                     const placeholder = dropdownBody.querySelector('p.noti-item');
                     if (placeholder) dropdownBody.innerHTML = '';
-                    const itemHtml = `<div class="noti-item unread" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
-                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
-                        <p>${escapeHtml(n.message) || ''}</p>
-                        <span>Just now</span>
-                    </div>`;
-                    dropdownBody.insertAdjacentHTML('afterbegin', itemHtml);
+                    dropdownBody.insertAdjacentHTML('afterbegin', renderNotiItemHtml({ ...n, is_read: false }));
                 }
 
                 showToast(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`, 'info');
@@ -534,6 +529,9 @@ function listenToAvailableOrders() {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) card.remove();
                 checkIfOrdersEmpty();
+                // ✅ NEW: অন্য রাইডার এই অর্ডার accept করলে (বা অর্ডারটা আর available না থাকলে),
+                // এই অর্ডারের নোটিফিকেশনও নিজে থেকে সরিয়ে দেওয়া হয় — ম্যানুয়ালি ✕ করা লাগবে না
+                removeOrderNotificationByOrderId(payload.new.order_id);
             }
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, (payload) => {
@@ -1143,6 +1141,14 @@ async function verifyOtpCode() {
             } catch(e) {
                 showToast("Wallet rider ID fetch error: " + (e.message || e), "error");
             }
+            // ✅ FIX: আগে auth_user_id দিয়ে rider row খুঁজে না পেলে walletRiderId চিরকাল null
+            // থেকে যেত, ফলে wallet row rider_id=null নিয়ে সেভ হতো এবং earning page কখনোই সেটা
+            // খুঁজে পেত না (Today's Earnings / Recent History সবসময় ফাঁকা থাকতো)। এখন
+            // currentRiderId (লগইনের সময় riders টেবিল থেকে ইমেইল দিয়ে সেট হওয়া) কে fallback
+            // হিসেবে ব্যবহার করা হচ্ছে যাতে wallet row সবসময় সঠিক rider_id নিয়ে সেভ হয়।
+            if (!walletRiderId) {
+                walletRiderId = currentRiderId || localStorage.getItem("riderId") || localStorage.getItem("rider_id") || null;
+            }
             if (!walletRiderId) {
                 showToast("Could not determine rider ID for wallet. Earnings may not be recorded.", "error");
             }
@@ -1284,6 +1290,26 @@ async function initEarningsPage() {
     selectEarningsPeriod('today');       // মূল headline card — ডিফল্ট "Today"
     selectHistoryPeriod('today');        // Recent Completed History লিস্ট
     selectProfitPeriod('today');         // Profit Analysis গ্রাফ
+
+    // ✅ NEW: Earning page খোলা অবস্থাতেই riders_wallet টেবিলে নতুন কোনো এন্ট্রি এলে
+    // (এই ডিভাইস/অন্য ডিভাইস থেকে ডেলিভারি কমপ্লিট হলে) — Total Earnings, History এবং
+    // Profit গ্রাফ রিফ্রেশ ছাড়াই সাথে সাথে আপডেট হবে।
+    if (supabaseClient && currentRiderId) {
+        if (window._walletRealtimeChannel) supabaseClient.removeChannel(window._walletRealtimeChannel);
+        window._walletRealtimeChannel = supabaseClient
+            .channel('rider-wallet-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders_wallet', filter: `rider_id=eq.${currentRiderId}` }, async () => {
+                await loadEarningsFromDB();
+                const activeEarnChip = document.querySelector('#earningsPeriodFilter .period-chip.active');
+                const activeHistChip = document.querySelector('#historyPeriodFilter .period-chip.active');
+                const activeProfitChip = document.querySelector('#profitPeriodFilter .period-chip.active');
+                selectEarningsPeriod(activeEarnChip ? activeEarnChip.dataset.period : 'today');
+                selectHistoryPeriod(activeHistChip ? activeHistChip.dataset.period : 'today');
+                selectProfitPeriod(activeProfitChip ? activeProfitChip.dataset.period : 'today');
+                showToast("💰 Earnings updated!", "success");
+            })
+            .subscribe();
+    }
 }
 
 // ✅ NEW: Recent Completed History লিস্ট, DB থেকে period অনুযায়ী ফিল্টার করে রেন্ডার করা হয়
@@ -1341,11 +1367,15 @@ function selectProfitPeriod(period) {
     renderProfitGraph(period);
 }
 
+// ✅ REWRITE: আগে পুরো গ্রাফের একটাই স্ট্যাটিক রঙ (container class অনুযায়ী) থাকতো।
+// এখন trade-ideas.com এর মতো real segment-by-segment রঙিন লাইন আঁকা হয় — যেই অংশটা
+// আগের point থেকে বেড়েছে সেটা সবুজ, যেই অংশ কমেছে সেটা লাল। SVG সম্পূর্ণ ডাইনামিকভাবে
+// পুনর্নির্মাণ করা হয় (fill area + rising/falling line segments + point dots)।
 function renderProfitGraph(period) {
     const entries = getEntriesForPeriod(period);
     const [start, end] = getPeriodRange(period);
 
-    // ✅ পুরো রেঞ্জটাকে সর্বোচ্চ ৭টা bucket এ ভাগ করা হয় (দিনভিত্তিক), যাতে ছোট/বড় যেকোনো period এ গ্রাফ পড়া যায়
+    // পুরো রেঞ্জটাকে সর্বোচ্চ ৭টা bucket এ ভাগ করা হয় (দিনভিত্তিক), যাতে ছোট/বড় যেকোনো period এ গ্রাফ পড়া যায়
     const totalMs = Math.max(1, end.getTime() - start.getTime());
     const bucketCount = Math.min(7, Math.max(2, Math.round(totalMs / 86400000)) || 2);
     const bucketMs = totalMs / bucketCount;
@@ -1361,17 +1391,47 @@ function renderProfitGraph(period) {
 
     const maxVal = Math.max(...buckets, 1);
     const stepX = 100 / (bucketCount - 1 || 1);
-    const points = buckets.map((v, i) => {
-        const x = i * stepX;
-        const y = 28 - (v / maxVal) * 26; // ৩০ ভিউবক্সের মধ্যে ২৮..২ রেঞ্জে
-        return `${x},${y.toFixed(1)}`;
+    const pts = buckets.map((v, i) => ({
+        x: i * stepX,
+        y: 28 - (v / maxVal) * 26 // ৩০ ভিউবক্সের মধ্যে ২৮..২ রেঞ্জে
+    }));
+
+    const GREEN = '#16c784';
+    const RED = '#ea3943';
+
+    // --- Fill area (হালকা শেড, পুরো কার্ভের নিচে) ---
+    const fillD = `M0,30 L${pts.map(p => `${p.x},${p.y.toFixed(1)}`).join(' L')} L100,30 Z`;
+
+    // --- প্রতিটা সেগমেন্ট আলাদাভাবে সবুজ/লাল রঙে আঁকা (আগেরটার চেয়ে বাড়লে সবুজ, কমলে লাল) ---
+    let segmentsSvg = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        const rising = b.y <= a.y; // SVG y-axis উল্টো, তাই y কমা মানে value বাড়া
+        const color = rising ? GREEN : RED;
+        segmentsSvg += `<line x1="${a.x}" y1="${a.y.toFixed(1)}" x2="${b.x}" y2="${b.y.toFixed(1)}" stroke="${color}" stroke-width="2.4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+    }
+    // --- প্রতিটা পয়েন্টে ছোট্ট ডট (শেষেরটা বড়, live/latest বোঝাতে) ---
+    let dotsSvg = '';
+    pts.forEach((p, i) => {
+        const isLast = i === pts.length - 1;
+        const dotColor = i === 0 ? GREEN : (pts[i].y <= pts[i - 1].y ? GREEN : RED);
+        dotsSvg += `<circle cx="${p.x}" cy="${p.y.toFixed(1)}" r="${isLast ? 2.4 : 1.3}" fill="${dotColor}" ${isLast ? 'stroke="#fff" stroke-width="0.8"' : ''}/>`;
     });
 
-    const pathD = 'M' + points.join(' L');
-    const svgPath = document.querySelector(".chart-svg path:nth-child(2)");
-    if (svgPath) svgPath.setAttribute("d", pathD);
-    const fillPath = document.querySelector(".chart-svg path:nth-child(1)");
-    if (fillPath) fillPath.setAttribute("d", `M0,30 L${points.join(' L')} L100,30 Z`);
+    const svgEl = document.querySelector(".chart-svg");
+    if (svgEl) {
+        svgEl.innerHTML = `
+            <defs>
+                <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${GREEN}" stop-opacity="0.22"/>
+                    <stop offset="100%" stop-color="${GREEN}" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            <path d="${fillD}" fill="url(#graphGradient)"/>
+            ${segmentsSvg}
+            ${dotsSvg}
+        `;
+    }
 
     const total = buckets.reduce((s, v) => s + v, 0);
     const firstHalf = buckets.slice(0, Math.ceil(bucketCount / 2)).reduce((s, v) => s + v, 0);
@@ -1645,15 +1705,13 @@ async function verifyAndSubmitFinancials() {
     }
 
     // ✅ Passbook ছবি ছাড়া bank verify হতে পারবে না
+    // ✅ FIX: আগে 200 KB ম্যাক্স সাইজ লিমিট ছিল যেটা বেশিরভাগ ফোন ক্যামেরা ছবিতেই আটকে যেত —
+    // এখন সেই ফিক্সড 200 KB লিমিট সম্পূর্ণ সরিয়ে দেওয়া হলো, যেকোনো সাইজের ছবি আপলোড করা যাবে।
     if (!passbookImageInput || !passbookImageInput.files || passbookImageInput.files.length === 0) {
         showToast("Please upload your Passbook / Cancelled Cheque photo. Bank details can't be verified without it.", "error");
         return;
     }
     const passbookFile = passbookImageInput.files[0];
-    if (passbookFile.size > 200 * 1024) {
-        showToast("Passbook image is too large. Maximum allowed size is 200 KB.", "error");
-        return;
-    }
 
     try {
         showToast("Uploading passbook photo...", "info");
@@ -1823,8 +1881,9 @@ async function runOnlinePlateValidationCheck() {
         await saveRiderProfileToDatabase();
         showToast("Vehicle plate documents submitted for KYC review!", "success");
         const vehicleEditFormEl = document.getElementById('vehicleEditForm');
+        // ✅ FIX: আগে uploadর সাথে সাথে পুরো sub-page বন্ধ (closeSubPage) হয়ে যেত।
+        // এখন sub-page খোলাই থাকবে এবং সাথে সাথেই edit form সরে locked view (image + no. + Cancel/Edit) দেখাবে।
         if (vehicleEditFormEl) vehicleEditFormEl.dataset.userEditing = 'false';
-        closeSubPage('vehicleSetupPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
         showToast("Error saving vehicle documents: " + err.message, "error");
@@ -1863,8 +1922,8 @@ async function runGovLicenseVerificationQuery() {
         await saveRiderProfileToDatabase();
         showToast("Driver license submitted for KYC review!", "success");
         const licenseEditFormEl = document.getElementById('licenseEditForm');
+        // ✅ FIX: আগের মতো sub-page বন্ধ করে দেওয়া হয় না — এখানেই locked view (image + no. + Cancel/Edit) দেখাবে
         if (licenseEditFormEl) licenseEditFormEl.dataset.userEditing = 'false';
-        closeSubPage('licensePage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
         showToast("Error saving license documents: " + err.message, "error");
@@ -1904,8 +1963,8 @@ async function runAadhaarVerificationQuery() {
         await sendKycToAdmin('Aadhaar', { aadhaar_no: aadhaarInput, aadhaar_img: publicUrl });
         showToast("Aadhaar submitted for KYC review!", "success");
         const aadhaarEditFormEl = document.getElementById('aadhaarEditForm');
+        // ✅ FIX: sub-page বন্ধ না করে locked view (image + no. + Cancel/Edit) এখানেই দেখানো হবে
         if (aadhaarEditFormEl) aadhaarEditFormEl.dataset.userEditing = 'false';
-        closeSubPage('aadhaarPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
         showToast("Error saving Aadhaar documents: " + (err.message || err), "error");
@@ -1945,8 +2004,8 @@ async function runPanVerificationQuery() {
         await sendKycToAdmin('PAN', { pan_no: panInput, pan_img: publicUrl });
         showToast("PAN card submitted for KYC review!", "success");
         const panEditFormEl = document.getElementById('panEditForm');
+        // ✅ FIX: sub-page বন্ধ না করে locked view (image + no. + Cancel/Edit) এখানেই দেখানো হবে
         if (panEditFormEl) panEditFormEl.dataset.userEditing = 'false';
-        closeSubPage('panPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
         showToast("Error saving PAN documents: " + (err.message || err), "error");
@@ -1991,6 +2050,15 @@ function closeNotiDropdownOutside(e) {
 // ✅ FIX: আগে notification লোড হওয়ার সাথে সাথেই সবগুলো is_read=true করে দিত (auto mark-all-read),
 // ফলে badge/লাল ডট কখনো ঠিকমতো দেখাই যেত না। এখন শুধু unread count (10+ ক্যাপসহ) লোড হয় এবং
 // প্রতিটা notification ক্লিক করলে আলাদাভাবে read হবে (নিচের markNotificationAsRead ফাংশন)।
+//
+// ✅ NEW: প্রতিটা notification এ একটা ✕ (cross) বাটন থাকবে — সেটা চাপলে notification
+// DB থেকে permanently ডিলিট হয়ে যাবে, তাই রিফ্রেশ করলেও আর ফিরে আসবে না।
+// ✅ NEW: ✕ না চাপলেও ১০ দিন পর পুরনো notification অটোমেটিক ডিলিট হয়ে যায় (নিচে purge অংশ দেখুন)।
+// ✅ NEW: order-সংক্রান্ত notification-এ order_id থাকলে সেটা DOM-এ data-order-id হিসেবে বসানো
+// হয়, যাতে অন্য রাইডার অর্ডারটা accept করলে (listenToAvailableOrders এ দেখুন) মিলিয়ে সেই
+// notification নিজে থেকেই সরিয়ে দেওয়া যায়।
+const NOTI_AUTO_PURGE_DAYS = 10;
+
 async function loadDeliveryNotifications() {
     const badge = document.getElementById('noti-badge');
     const dropdownBody = document.getElementById('noti-dropdown-body');
@@ -2001,11 +2069,21 @@ async function loadDeliveryNotifications() {
         const numericRiderId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
         if (!numericRiderId) return;
 
+        // ✅ NEW: ১০ দিনের বেশি পুরনো notification গুলো ব্যাকগ্রাউন্ডে permanently ডিলিট করে দেওয়া
+        // (ম্যানুয়ালি ✕ না করলেও এই বয়সের notification আর দেখানো হবে না)
+        const purgeBeforeIso = new Date(Date.now() - NOTI_AUTO_PURGE_DAYS * 86400000).toISOString();
+        supabaseClient.from('rider_notifications')
+            .delete()
+            .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+            .lt('created_at', purgeBeforeIso)
+            .then(() => {}).catch(() => {});
+
         // Unread count (exact, capped at "10+" for display)
         const { count } = await supabaseClient.from('rider_notifications')
             .select('id', { count: 'exact', head: true })
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
-            .eq('is_read', false);
+            .eq('is_read', false)
+            .gte('created_at', purgeBeforeIso);
 
         const unread = count || 0;
         if (unread > 0) {
@@ -2016,27 +2094,103 @@ async function loadDeliveryNotifications() {
             badge.textContent = '0';
         }
 
-        // Recent notifications (read + unread) for the dropdown list
-        const { data } = await supabaseClient.from('rider_notifications')
-            .select('id, title, message, created_at, is_read')
+        // Recent notifications (read + unread) for the dropdown list.
+        // ✅ order_id কলাম থাকলে সেটাও আনার চেষ্টা করা হয় (না থাকলে fallback করে বেসিক কলামেই থামে)
+        let data;
+        const res1 = await supabaseClient.from('rider_notifications')
+            .select('id, title, message, created_at, is_read, order_id')
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+            .gte('created_at', purgeBeforeIso)
             .order('created_at', { ascending: false })
             .limit(15);
+        if (res1.error) {
+            const res2 = await supabaseClient.from('rider_notifications')
+                .select('id, title, message, created_at, is_read')
+                .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
+                .gte('created_at', purgeBeforeIso)
+                .order('created_at', { ascending: false })
+                .limit(15);
+            data = res2.data;
+        } else {
+            data = res1.data;
+        }
 
         if (dropdownBody) {
             if (data && data.length > 0) {
-                dropdownBody.innerHTML = data.map(n => `
-                    <div class="noti-item ${n.is_read ? 'read' : 'unread'}" data-noti-id="${n.id}" onclick="markNotificationAsRead(${n.id}, this)">
-                        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
-                        <p>${escapeHtml(n.message) || ''}</p>
-                        <span>${timeAgo(n.created_at)}</span>
-                    </div>`).join('');
+                dropdownBody.innerHTML = data.map(n => renderNotiItemHtml(n)).join('');
             } else {
                 dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
             }
         }
     } catch (e) {
         showToast("Notifications load error: " + (e.message || e), "error");
+    }
+}
+
+// ✅ NEW: একটা notification card এর HTML — cross(✕) বাটনসহ, একই টেমপ্লেট সবখানে (initial load + realtime insert) ব্যবহার হয়
+function renderNotiItemHtml(n) {
+    return `<div class="noti-item ${n.is_read ? 'read' : 'unread'}" data-noti-id="${n.id}" ${n.order_id ? `data-order-id="${n.order_id}"` : ''} onclick="markNotificationAsRead(${n.id}, this)">
+        <button class="noti-cross-btn" title="Remove" onclick="event.stopPropagation(); deleteNotification(${n.id}, this)"><i class="fa-solid fa-xmark"></i></button>
+        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
+        <p>${escapeHtml(n.message) || ''}</p>
+        <span>${n.created_at ? timeAgo(n.created_at) : 'Just now'}</span>
+    </div>`;
+}
+
+// ✅ NEW: ✕ বাটনে ক্লিক করলে notification permanently ডিলিট হবে (DB + UI থেকে) —
+// একবার ক্রস করলে রিফ্রেশ করলেও আর ফিরে আসবে না।
+async function deleteNotification(id, btnEl) {
+    if (!supabaseClient || !id) return;
+    const item = btnEl ? btnEl.closest('.noti-item') : document.querySelector(`.noti-item[data-noti-id="${id}"]`);
+    const wasUnread = item && item.classList.contains('unread');
+
+    if (item) {
+        item.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(12px)';
+        setTimeout(() => {
+            item.remove();
+            const dropdownBody = document.getElementById('noti-dropdown-body');
+            if (dropdownBody && dropdownBody.children.length === 0) {
+                dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
+            }
+        }, 150);
+    }
+
+    if (wasUnread) {
+        const badge = document.getElementById('noti-badge');
+        if (badge && badge.style.display !== 'none') {
+            const current = badge.textContent;
+            if (current !== '10+') {
+                const c = (parseInt(current) || 0) - 1;
+                if (c <= 0) { badge.style.display = 'none'; badge.textContent = '0'; }
+                else { badge.textContent = String(c); }
+            }
+        }
+    }
+
+    try {
+        const { error } = await supabaseClient.from('rider_notifications').delete().eq('id', id);
+        if (error) throw error;
+    } catch (e) {
+        showToast("Could not remove notification: " + (e.message || e), "error");
+    }
+}
+
+// ✅ NEW: কোনো অর্ডার আর broadcast/available না থাকলে (অন্য রাইডার accept করলে বা মার্চেন্ট
+// বাতিল করলে) — সেই অর্ডার সংক্রান্ত notification (যদি order_id মিলে) DOM ও DB থেকে সরিয়ে দেওয়া হয়।
+async function removeOrderNotificationByOrderId(orderId) {
+    if (!orderId) return;
+    document.querySelectorAll(`.noti-item[data-order-id="${orderId}"]`).forEach(el => {
+        const id = el.dataset.notiId;
+        el.remove();
+        if (id && supabaseClient) {
+            supabaseClient.from('rider_notifications').delete().eq('id', id).then(() => {}).catch(() => {});
+        }
+    });
+    const dropdownBody = document.getElementById('noti-dropdown-body');
+    if (dropdownBody && dropdownBody.children.length === 0) {
+        dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
     }
 }
 

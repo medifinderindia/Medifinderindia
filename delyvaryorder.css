@@ -833,13 +833,16 @@ body {
 }
 
 /* ============================================================ */
-/* ✅ NEW BLOCK: Header gradient (matches Home/Earning pages)     */
+/* ✅ UPDATED: Header — বাম দিকে কালো, ডান দিকে লাল; MEDI লাল, FINDER কালো */
 /* ============================================================ */
 .main-header {
-    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+    background: linear-gradient(120deg, #1a1a2e 0%, #23233a 45%, #e02020 100%) !important;
 }
-.logo-title { color: #ffffff !important; }
-.red-accent { color: #ffe8e8 !important; }
+.logo-title { color: #ff4d4d !important; }
+.red-accent {
+    color: #0d0d17 !important;
+    text-shadow: 0 0 1px rgba(255,255,255,0.55), 0 0 3px rgba(255,255,255,0.3);
+}
 .sub-tag { color: rgba(255,255,255,0.75) !important; }
 
 /* ============================================================ */

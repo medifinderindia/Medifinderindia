@@ -350,7 +350,7 @@
                 <div class="input-element-row-premium">
                     <label>Passbook / Cancelled Cheque Photo <span style="color:var(--settled-red);">*Required</span></label>
                     <input type="file" id="passbookImageInput" accept="image/*">
-                    <small style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Max size 200 KB — bank details can't be verified without this.</small>
+                    <small style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Bank details can't be verified without this photo.</small>
                 </div>
                 <button class="action-btn-accent-premium" onclick="verifyAndSubmitFinancials()">Save &amp; Submit for Verification</button>
             </div>
@@ -403,6 +403,62 @@
                 <p style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
                     We're here to help! If you have any questions or need assistance, feel free to reach out to us.
                 </p>
+
+                <!-- ✅ NEW: FAQ — কীভাবে অর্ডার accept করবেন, payout, ডকুমেন্ট আপলোড ইত্যাদি -->
+                <div style="margin-top:10px;">
+                    <h4 class="tr-text" data-en="Frequently Asked Questions" data-bn="সচরাচর জিজ্ঞাসিত প্রশ্ন" data-hi="अक्सर पूछे जाने वाले प्रश्न"
+                        style="font-size:0.95rem; font-weight:700; color:var(--dark); margin-bottom:10px;">Frequently Asked Questions</h4>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I accept a delivery order?"
+                            data-bn="কীভাবে ডেলিভারি অর্ডার Accept করব?"
+                            data-hi="डिलीवरी ऑर्डर कैसे स्वीकार करें?">How do I accept a delivery order?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Turn on 'On Duty' from the Home page. New orders will appear automatically — tap 'Accept Request' on any order card to accept it. Your Driving License must be verified first, otherwise the Accept button stays locked."
+                            data-bn="হোম পেজ থেকে 'On Duty' চালু রাখুন। নতুন অর্ডার আসলে সেটা নিজে থেকেই স্ক্রিনে দেখাবে — অর্ডার কার্ডের 'Accept Request' বাটনে চাপলেই অর্ডারটি Accept হয়ে যাবে। এর আগে আপনার Driving License ভেরিফাই করা থাকতে হবে, নাহলে Accept বাটন লক থাকবে।"
+                            data-hi="होम पेज से 'On Duty' चालू रखें। नया ऑर्डर आने पर वह अपने आप स्क्रीन पर आएगा — ऑर्डर कार्ड के 'Accept Request' बटन पर टैप करके उसे स्वीकार करें। इसके लिए पहले आपका Driving License वेरिफाई होना ज़रूरी है।">Turn on 'On Duty' from the Home page. New orders will appear automatically — tap 'Accept Request' on any order card to accept it. Your Driving License must be verified first, otherwise the Accept button stays locked.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I complete a delivery?"
+                            data-bn="কীভাবে ডেলিভারি সম্পন্ন করব?"
+                            data-hi="डिलीवरी कैसे पूरी करें?">How do I complete a delivery?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Go to the Delivery tab, follow the live map to the customer, then tap the timer/OTP card and enter the 6-digit code given by the customer to mark it delivered."
+                            data-bn="Delivery ট্যাবে গিয়ে লাইভ ম্যাপ অনুসরণ করে কাস্টমারের কাছে পৌঁছান, তারপর টাইমার/OTP কার্ডে ট্যাপ করে কাস্টমারের দেওয়া ৬-সংখ্যার কোডটি দিন — এতে ডেলিভারি সম্পন্ন হিসেবে গণ্য হবে।"
+                            data-hi="Delivery टैब में जाकर लाइव मैप फॉलो करें और ग्राहक तक पहुँचें, फिर टाइमर/OTP कार्ड पर टैप करके ग्राहक द्वारा दिया गया 6-अंकों का कोड डालें।">Go to the Delivery tab, follow the live map to the customer, then tap the timer/OTP card and enter the 6-digit code given by the customer to mark it delivered.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I request a payout?"
+                            data-bn="কীভাবে Payout রিকোয়েস্ট করব?"
+                            data-hi="Payout का अनुरोध कैसे करें?">How do I request a payout?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Open the Earning tab and tap 'Request Payout to Admin' on the Total Earnings card. Make sure your Bank & Payment details are verified in Profile first, or the payout may be delayed."
+                            data-bn="Earning ট্যাবে গিয়ে Total Earnings কার্ডে 'Request Payout to Admin' বাটনে চাপুন। Payout পাওয়ার আগে Profile-এ আপনার Bank & Payment ডিটেইলস ভেরিফাই থাকা জরুরি, নাহলে Payout দেরি হতে পারে।"
+                            data-hi="Earning टैब खोलें और Total Earnings कार्ड में 'Request Payout to Admin' बटन दबाएँ। पहले Profile में अपनी Bank & Payment जानकारी वेरिफाई करा लें, वरना Payout में देरी हो सकती है।">Open the Earning tab and tap 'Request Payout to Admin' on the Total Earnings card. Make sure your Bank & Payment details are verified in Profile first, or the payout may be delayed.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I upload my Vehicle, License, Aadhaar, PAN or Bank documents?"
+                            data-bn="কীভাবে Vehicle, License, Aadhaar, PAN বা Bank ডকুমেন্ট আপলোড করব?"
+                            data-hi="Vehicle, License, Aadhaar, PAN या Bank दस्तावेज़ कैसे अपलोड करें?">How do I upload my Vehicle, License, Aadhaar, PAN or Bank documents?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Go to Profile and tap the document you want (Vehicle, License, Aadhaar, PAN or Bank & Payment). Fill in the number and upload a clear photo, then submit. Status will show Pending Review (yellow) until admin checks it, then Verified (green) or Rejected (red) with a reason."
+                            data-bn="Profile পেজে গিয়ে যে ডকুমেন্টটা আপলোড করতে চান (Vehicle, License, Aadhaar, PAN বা Bank & Payment) সেটাতে ট্যাপ করুন। নম্বর লিখে স্পষ্ট একটি ছবি আপলোড করে Submit করুন। অ্যাডমিন চেক না করা পর্যন্ত স্ট্যাটাস হলুদ রঙে 'Pending Review' দেখাবে, তারপর সবুজ 'Verified' বা কারণসহ লাল 'Rejected' দেখাবে।"
+                            data-hi="Profile पेज में जाकर जो दस्तावेज़ अपलोड करना है (Vehicle, License, Aadhaar, PAN या Bank & Payment) उस पर टैप करें। नंबर भरें और साफ फोटो अपलोड करके Submit करें। एडमिन के जांचने तक स्टेटस पीले रंग में 'Pending Review' दिखेगा, फिर हरा 'Verified' या कारण सहित लाल 'Rejected'।">Go to Profile and tap the document you want (Vehicle, License, Aadhaar, PAN or Bank & Payment). Fill in the number and upload a clear photo, then submit. Status will show Pending Review (yellow) until admin checks it, then Verified (green) or Rejected (red) with a reason.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="A notification won't go away — how do I remove it?"
+                            data-bn="একটা Notification যাচ্ছে না — কীভাবে সরাব?"
+                            data-hi="एक सूचना नहीं हट रही — कैसे हटाएं?">A notification won't go away — how do I remove it?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order."
+                            data-bn="হোম পেজের বেল আইকনে ট্যাপ করুন, তারপর যেকোনো Notification-এর পাশের ✕ চিহ্নে চাপলে সেটা চিরতরে সরে যাবে। এছাড়া ১০ দিন পর পুরনো Notification নিজে থেকেই মুছে যায়, আর কোনো অর্ডার অন্য রাইডার Accept করে ফেললে সেই অর্ডারের Notification নিজে থেকেই সরে যায়।"
+                            data-hi="होम पेज पर बेल आइकन खोलें, फिर किसी भी सूचना के ✕ पर टैप करके उसे हमेशा के लिए हटाएं। 10 दिन बाद पुरानी सूचनाएं अपने आप हट जाती हैं, और कोई ऑर्डर दूसरे राइडर द्वारा स्वीकार होते ही उसकी सूचना अपने आप हट जाती है।">Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order.</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

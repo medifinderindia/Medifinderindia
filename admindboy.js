@@ -10,16 +10,60 @@ let riderPayouts = [];
 let riderKYC = [];
 let riderBankRequests = []; // ✅ NEW: Bank & Payment verification requests
 
-// ✅ NEW: small escaping helper used by renderBankVerification()
+// ✅ small escaping helper used across the unified KYC/bank rows and notification history
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+// ================= SHARED: GPS ↔ PIN/DISTRICT ZONE MATCHING =================
+// Used by both the Fleet Map (rider "zone suspended" check) and the Network &
+// Service Area Registry live counts (riders currently in a zone via GPS).
+// Riders only store current_lat/current_lon, so we reverse-geocode via Nominatim
+// (same service already used elsewhere in this codebase for merchants) and then
+// match the returned postcode/district against the service_zones table (pin/dist).
+async function resolveZoneForCoords(lat, lon) {
+    if (!lat || !lon) return null;
+    const cacheKey = `${Number(lat).toFixed(2)},${Number(lon).toFixed(2)}`;
+    if (geoZoneCache[cacheKey] !== undefined) return geoZoneCache[cacheKey];
+
+    try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14`);
+        const data = await resp.json();
+        const addr = data && data.address ? data.address : {};
+        const postcode = addr.postcode || '';
+        const district = addr.county || addr.state_district || addr.city_district || '';
+
+        let matchedZone = null;
+        if (postcode) matchedZone = serviceZones.find(z => String(z.pin) === String(postcode));
+        if (!matchedZone && district) {
+            matchedZone = serviceZones.find(z => (z.dist || '').toLowerCase().includes(district.toLowerCase()) || district.toLowerCase().includes((z.dist || '').toLowerCase()));
+        }
+
+        const result = matchedZone
+            ? { pin: matchedZone.pin, dist: matchedZone.dist, status: matchedZone.status }
+            : (postcode || district ? { pin: postcode, dist: district, status: null } : null);
+
+        geoZoneCache[cacheKey] = result;
+        return result;
+    } catch (e) {
+        geoZoneCache[cacheKey] = null;
+        return null;
+    }
+}
+
 let currentRiderKycFilter = 'all';
 let payoutLedger = [];
 let activeRiders = [];
 let liveMap = null;
 let riderMarkers = {};
+let mapTilesReady = false;
+
+// ✅ NEW: notification broadcast history (Feature: Broadcast Alerts history + delete + date filter)
+let notificationHistory = [];
+
+// ✅ NEW: simple in-memory cache so we don't hammer the reverse-geocoding API
+// for riders whose GPS position hasn't moved much since the last check.
+const geoZoneCache = {};
 
 // Real-time Analytics State
 let analyticsData = {
@@ -53,6 +97,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     startAnalyticsRefresh();
     loadPayoutLedger();
     updateOutageZoneSelector();
+    loadNotificationHistory();
     handleHashChange();
 });
 
@@ -106,21 +151,23 @@ async function fetchInitialData() {
         let { data: payouts } = await supabaseClient.from('rider_payouts').select('*');
         if(payouts) { riderPayouts = payouts; renderPayouts(); }
 
-        // ३. কেওয়াইসি ডাটা লোড
+        // ३. কেওয়াইসি ডাটা লোড (license, vehicle, PAN — rider_kyc টেবিলের সব কলাম)
         let { data: kyc } = await supabaseClient.from('rider_kyc').select('*');
-        if(kyc) { riderKYC = kyc; renderKYC(); }
+        if(kyc) { riderKYC = kyc; }
 
         // ४. সক্রিয় রাইডার লোড
         let { data: riders } = await supabaseClient.from('riders').select('*').eq('duty_status', 'online');
         if(riders) { activeRiders = riders; updateFleetMap(); }
 
-        // ✅ NEW ৫. Bank & Payment ভেরিফিকেশন ডাটা লোড (যাদের bank details সাবমিট করা আছে)
+        // ৫. Bank & Payment ডাটা লোড (যাদের bank details সাবমিট করা আছে) — এখন KYC কার্ডের
+        // সাথেই একই রো-তে merge হয়ে দেখানো হয় (renderKYC দেখুন)।
         let { data: bankRows } = await supabaseClient
             .from('riders')
-            .select('id, email, full_name, bank_account, ifsc_code, upi_id, bank_verified, bank_rejection_reason')
-            .not('bank_account', 'is', null)
-            .neq('bank_account', '');
-        if (bankRows) { riderBankRequests = bankRows; renderBankVerification(); }
+            .select('id, email, full_name, bank_account, ifsc_code, upi_id, bank_verified, bank_rejection_reason');
+        if (bankRows) { riderBankRequests = bankRows; }
+
+        // ✅ একসাথে render — যাতে merge করা row-এ দুটো ডাটাসেটই available থাকে
+        renderKYC();
     } catch (err) {
         showToast("Data Load Error: " + err.message, "error");
     }
@@ -143,11 +190,32 @@ function setupRealtimeSubscriptions() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
         fetchInitialData(); // covers activeRiders + riderBankRequests refresh
+        updateFleetMap();
+    })
+    // ✅ NEW: keep the Financial Settlement Ledger truly real-time (rider + merchant payouts)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_history' }, () => {
+        loadPayoutLedger();
+    })
+    // ✅ NEW: keep orders live so the fleet map status colors (with-order / on-route) stay accurate
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        updateFleetMap();
+    })
+    // ✅ NEW: keep the Broadcast Alerts history list live
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_notifications' }, () => {
+        loadNotificationHistory();
     })
     .subscribe();
 }
 
 // ================= FEATURE 1: LIVE FLEET GEOLOCATION HUB =================
+// Legend colors kept in one place so the map markers always match the legend on screen.
+const RIDER_STATUS_COLORS = {
+    activeWithOrder: '#10b981', // Active Rider (With Order)
+    idle: '#3b82f6',            // Idle Rider (No Active Order)
+    onRoute: '#f97316',         // Rider on Route (picked up, en route to customer)
+    zoneSuspended: '#ef4444'    // Zone Suspended
+};
+
 function initializeLiveMap() {
     const mapEl = document.getElementById('live-fleet-map');
     if (!mapEl) return;
@@ -156,77 +224,144 @@ function initializeLiveMap() {
         center: [26.5200, 88.4250],
         zoom: 12,
         zoomControl: true,
-        attributionControl: false
+        attributionControl: false,
+        preferCanvas: true // faster rendering for many markers
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'OpenStreetMap',
-        maxZoom: 19
-    }).addTo(liveMap);
+        maxZoom: 19,
+        updateWhenZooming: false, // smoother/faster panning-zooming on slower connections
+        keepBuffer: 4
+    });
+
+    tileLayer.on('load', () => hideMapLoadingOverlay());
+    tileLayer.addTo(liveMap);
+
+    // Safety net: hide the loading overlay even if the tile 'load' event is slow to fire
+    setTimeout(hideMapLoadingOverlay, 4000);
 
     updateFleetMap();
+}
+
+function hideMapLoadingOverlay() {
+    if (mapTilesReady) return;
+    mapTilesReady = true;
+    const overlay = document.getElementById('mapLoadingOverlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => { overlay.style.display = 'none'; }, 300);
+    }
+}
+
+// Works out a rider's live marker color + label by cross-checking their current
+// order (Active / On Route) and whether the zone they're currently sitting in
+// (matched via reverse-geocoded PIN/district) is suspended.
+async function resolveRiderMapStatus(rider, ordersByRider) {
+    // 1) Zone suspended check — wins over everything else, same as the legend implies.
+    const zoneInfo = await resolveZoneForCoords(rider.current_lat, rider.current_lon);
+    if (zoneInfo && zoneInfo.status === 'suspended') {
+        return { color: RIDER_STATUS_COLORS.zoneSuspended, label: 'Zone Suspended', zone: zoneInfo };
+    }
+
+    // 2) Order status check
+    const order = ordersByRider[String(rider.id)];
+    if (order) {
+        if (order.status === 'picked_up' || order.status === 'out_for_delivery') {
+            return { color: RIDER_STATUS_COLORS.onRoute, label: 'On Route', zone: zoneInfo };
+        }
+        return { color: RIDER_STATUS_COLORS.activeWithOrder, label: 'Active (With Order)', zone: zoneInfo };
+    }
+
+    // 3) Nothing going on — idle but online
+    return { color: RIDER_STATUS_COLORS.idle, label: 'Idle (No Active Order)', zone: zoneInfo };
 }
 
 async function updateFleetMap() {
     if (!liveMap || !supabaseClient) return;
     try {
-        // Clear existing markers
-        Object.values(riderMarkers).forEach(marker => marker.remove());
-        riderMarkers = {};
-
         // Fetch active riders with their current locations
         let { data: riders } = await supabaseClient
             .from('riders')
             .select('*')
             .eq('duty_status', 'online');
 
-        if (!riders) return;
+        if (!riders) riders = [];
 
-        riders.forEach(rider => {
-            if (rider.current_lat && rider.current_lon) {
-                let markerColor = '#3b82f6';
-                const markerHTML = `
-                    <div style="
-                        width: 30px;
-                        height: 30px;
-                        background: ${markerColor};
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-weight: bold;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                        border: 3px solid white;
-                    ">
-                        <i class="fa-solid fa-motorcycle" style="font-size: 14px;"></i>
-                    </div>
-                `;
+        // Pull in-progress orders once, then map by rider_id so we don't do a query per rider.
+        let ordersByRider = {};
+        try {
+            const { data: liveOrders } = await supabaseClient
+                .from('orders')
+                .select('rider_id, status')
+                .not('rider_id', 'is', null)
+                .not('status', 'in', '("delivered","cancelled")');
+            (liveOrders || []).forEach(o => { if (o.rider_id) ordersByRider[String(o.rider_id)] = o; });
+        } catch (e) { /* orders table might not support this filter shape everywhere — fail soft */ }
 
-                const marker = L.marker([rider.current_lat, rider.current_lon], {
-                    icon: L.divIcon({
-                        html: markerHTML,
-                        iconSize: [30, 30],
-                        className: 'rider-marker'
-                    })
-                }).addTo(liveMap);
+        const zoneFilterEl = document.getElementById('filter-zone-select');
+        const zoneFilter = zoneFilterEl ? zoneFilterEl.value : '';
 
-                marker.bindPopup(`
-                    <div style="min-width: 200px; font-size: 12px;">
-                        <strong>${rider.name || rider.email || 'N/A'}</strong><br>
-                        ID: ${rider.id}<br>
-                        Status: ${rider.duty_status || 'Active'}<br>
-                        Contact: ${rider.phone || rider.email || 'N/A'}<br>
-                    </div>
-                `);
+        // Resolve statuses in parallel, then draw — keeps the map feeling snappy.
+        const ridersWithLocation = riders.filter(r => r.current_lat && r.current_lon);
+        const resolved = await Promise.all(ridersWithLocation.map(async r => ({
+            rider: r,
+            status: await resolveRiderMapStatus(r, ordersByRider)
+        })));
 
-                riderMarkers[rider.id] = marker;
-            }
+        // Clear existing markers only after we have the new data ready — avoids a blank flash.
+        Object.values(riderMarkers).forEach(marker => marker.remove());
+        riderMarkers = {};
+
+        resolved.forEach(({ rider, status }) => {
+            if (zoneFilter === 'approved' && status.zone && status.zone.status !== 'approved') return;
+            if (zoneFilter === 'suspended' && (!status.zone || status.zone.status !== 'suspended')) return;
+
+            const markerHTML = `
+                <div style="
+                    width: 30px;
+                    height: 30px;
+                    background: ${status.color};
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+                    border: 3px solid white;
+                ">
+                    <i class="fa-solid fa-motorcycle" style="font-size: 14px;"></i>
+                </div>
+            `;
+
+            const marker = L.marker([rider.current_lat, rider.current_lon], {
+                icon: L.divIcon({
+                    html: markerHTML,
+                    iconSize: [30, 30],
+                    className: 'rider-marker'
+                })
+            }).addTo(liveMap);
+
+            marker.bindPopup(`
+                <div style="min-width: 200px; font-size: 12px;">
+                    <strong>${rider.name || rider.email || 'N/A'}</strong><br>
+                    ID: ${rider.id}<br>
+                    Status: <span style="color:${status.color}; font-weight:700;">${status.label}</span><br>
+                    ${status.zone ? `Zone: ${status.zone.pin || ''} ${status.zone.dist ? '(' + status.zone.dist + ')' : ''}<br>` : ''}
+                    Contact: ${rider.phone || rider.email || 'N/A'}<br>
+                </div>
+            `);
+
+            riderMarkers[rider.id] = marker;
         });
+
+        hideMapLoadingOverlay();
 
         const mapUpdatedEl = document.getElementById('map-last-updated');
         if (mapUpdatedEl) mapUpdatedEl.textContent = new Date().toLocaleTimeString();
     } catch (e) {
+        hideMapLoadingOverlay();
         showToast("Fleet map update error: " + (e.message || e), "error");
     }
 }
@@ -237,9 +372,7 @@ function refreshFleetMap() {
 }
 
 function filterFleetByZone() {
-    const filterEl = document.getElementById('filter-zone-select');
-    const filterValue = filterEl ? filterEl.value : '';
-    // Implementation would filter markers based on zone status
+    // Re-draw with the newly selected zone filter applied
     updateFleetMap();
 }
 
@@ -415,9 +548,10 @@ function renderAnalyticsCards() {
 async function loadPayoutLedger() {
     if (!supabaseClient) return;
     try {
+        // ✅ FIXED: was filtered to type='Rider' only — now shows BOTH rider and
+        // merchant payouts, matching the section's own subtitle ("...to riders and merchants").
         let { data: ledger } = await supabaseClient.from('payout_history')
             .select('*')
-            .eq('type', 'Rider')
             .order('created_at', { ascending: false });
 
         if (ledger) {
@@ -639,28 +773,72 @@ function clearOutageAlert() {
     }
 }
 
-// ================= EXISTING NETWORK ZONE CONTROL (UNCHANGED) =================
-function renderNetworkZones() {
+// ================= NETWORK & SERVICE AREA REGISTRY =================
+// ✅ FIXED: Riders / Merchants / Users columns were showing 0 because they read a
+// static counter column instead of the real data. Now computed live:
+//   • Users    → counted by the PIN code saved on their address (or GPS-checked pincode)
+//   • Merchants→ counted by the PIN code saved on their shop location
+//   • Riders   → counted by their live GPS position, reverse-geocoded to a PIN/district
+async function computeZoneLiveCounts() {
+    const counts = {}; // pin -> { riders: Set, merchants: 0, users: 0 }
+    serviceZones.forEach(z => { counts[z.pin] = { riders: new Set(), merchants: 0, users: 0 }; });
+    if (!supabaseClient) return counts;
+
+    try {
+        // Users — wherever their saved address pincode matches a launched zone
+        const { data: addresses } = await supabaseClient.from('user_addresses').select('user_id, pincode');
+        (addresses || []).forEach(a => {
+            if (a.pincode && counts[a.pincode]) counts[a.pincode].users += 1;
+        });
+    } catch (e) { /* fail soft — table may not be reachable in some envs */ }
+
+    try {
+        // Merchants — wherever their saved shop location pincode is
+        const { data: merchants } = await supabaseClient.from('merchants').select('id, pincode');
+        (merchants || []).forEach(m => {
+            if (m.pincode && counts[m.pincode]) counts[m.pincode].merchants += 1;
+        });
+    } catch (e) { /* fail soft */ }
+
+    try {
+        // Riders — wherever their live GPS currently places them (reverse-geocoded)
+        const onlineWithGps = activeRiders.filter(r => r.current_lat && r.current_lon);
+        await Promise.all(onlineWithGps.map(async r => {
+            const zoneInfo = await resolveZoneForCoords(r.current_lat, r.current_lon);
+            if (zoneInfo && zoneInfo.pin && counts[zoneInfo.pin]) counts[zoneInfo.pin].riders.add(r.id);
+        }));
+    } catch (e) { /* fail soft */ }
+
+    return counts;
+}
+
+async function renderNetworkZones() {
     const tbody = document.getElementById('network-table-body');
     if(!tbody) return;
-    tbody.innerHTML = "";
 
     if(serviceZones.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#94a3b8;">No Active Network Zones Found Live.</td></tr>`;
         return;
     }
 
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> Calculating live rider / merchant / user counts...</td></tr>`;
+
+    const liveCounts = await computeZoneLiveCounts();
+
+    tbody.innerHTML = "";
     serviceZones.forEach((zone) => {
         let isAppr = zone.status === 'approved';
-        let launchDate = 'Live';
+        let launchDate = zone.created_at ? new Date(zone.created_at).toLocaleDateString('en-GB') : 'Live';
+        const zc = liveCounts[zone.pin] || { riders: new Set(), merchants: 0, users: 0 };
+        const riderCount = zc.riders instanceof Set ? zc.riders.size : (zc.riders || 0);
         tbody.innerHTML += `
             <tr>
                 <td><strong>${zone.pin}</strong><br><small style="color:#64748b;">${zone.state}</small></td>
                 <td><small>${zone.dist} • ${zone.ps}<br>Corp: ${zone.muni}</small></td>
                 <td>${launchDate}</td>
-                <td><i class="fa-solid fa-person-biking" style="color:var(--medi-brand);"></i> <strong>${zone.riders}</strong> Riders</td>
-                <td><i class="fa-solid fa-store" style="color:var(--warning-orange);"></i> <strong>${zone.merchants}</strong> Shops</td>
-                <td><i class="fa-solid fa-users" style="color:#e02020;"></i> <strong>${zone.users}</strong> Users</td>
+                <td><i class="fa-solid fa-person-biking" style="color:var(--medi-brand);"></i> <strong>${riderCount}</strong> Riders</td>
+                <td><i class="fa-solid fa-store" style="color:var(--warning-orange);"></i> <strong>${zc.merchants}</strong> Shops</td>
+                <td><i class="fa-solid fa-users" style="color:#e02020;"></i> <strong>${zc.users}</strong> Users</td>
                 <td><span class="badge ${isAppr ? 'active' : 'suspended'}">${isAppr ? 'Live & Active' : 'Service Stopped'}</span></td>
                 <td>
                     <button class="btn btn-small ${isAppr ? 'btn-danger' : 'btn-success'}" onclick="toggleZoneStatus('${zone.pin}', '${zone.status}')">
@@ -840,10 +1018,16 @@ function filterRiderKyc(filterVal) {
     renderKYC();
 }
 
+// ================= UNIFIED RIDER VERIFICATION ROW (License + Vehicle + PAN + Bank) =================
+// ✅ MERGED: previously the license/vehicle KYC and the Bank verification were two separate
+// sections. Now each rider gets exactly ONE row: name + UID + approve/reject up top, then a
+// strip of document boxes (License, Vehicle Plate, PAN, Bank) each showing an image (where
+// applicable) with its number/value underneath.
 function renderKYC() {
     const container = document.getElementById('kyc-container');
     if(!container) return;
-    container.innerHTML = "";
+
+    const placeholderImg = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
     const filteredKyc = riderKYC.filter(k => {
         const isVerified = k.verified;
@@ -861,111 +1045,94 @@ function renderKYC() {
         return;
     }
 
-    filteredKyc.forEach((kyc) => {
-        let licenseImgSrc = kyc.license_img ? kyc.license_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-        let plateImgSrc = kyc.plate_img ? kyc.plate_img : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    container.innerHTML = filteredKyc.map((kyc) => {
+        const bank = riderBankRequests.find(b => String(b.id) === String(kyc.rider_id)) || {};
+
+        const licenseImgSrc = kyc.license_img || placeholderImg;
+        const plateImgSrc = kyc.plate_img || placeholderImg;
+        const panImgSrc = kyc.pan_img || placeholderImg;
 
         const isVerified = kyc.verified;
         const isRejected = kyc.rejection_reason && !kyc.verified;
-        const isPending = !isVerified && !isRejected;
 
-        let statusText = '';
-        let actionButtons = '';
-
+        let docStatusBadge = '';
+        let docActionButtons = '';
         if (isVerified) {
-            statusText = `<span class="badge active" style="font-size:12px; padding:6px 12px; background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-shield-halved"></i> VERIFIED PARTNER</span>`;
-            actionButtons = `<button class="btn btn-outline btn-small" style="margin-top:10px; background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject / Revoke</button>`;
+            docStatusBadge = `<span class="badge active"><i class="fa-solid fa-shield-halved"></i> Verified Partner</span>`;
+            docActionButtons = `<button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject / Revoke</button>`;
         } else if (isRejected) {
-            statusText = `<span class="badge" style="font-size:12px; padding:6px 12px; background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-xmark"></i> REJECTED</span>
-                          <div style="font-size:12px; color:#ef4444; margin-top:5px;"><strong>Reason:</strong> ${kyc.rejection_reason}</div>`;
-            actionButtons = `<button class="btn btn-primary btn-small" style="margin-top:10px;" onclick="approveRiderKYC('${kyc.id}')">Re-Approve Documents</button>`;
+            docStatusBadge = `<span class="badge suspended" title="${escapeHtml(kyc.rejection_reason)}"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>`;
+            docActionButtons = `<button class="btn btn-primary btn-small" onclick="approveRiderKYC('${kyc.id}')">Re-Approve</button>`;
         } else {
-            statusText = `<span class="badge pending" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-hourglass-start"></i> STATUS: PENDING</span>`;
-            actionButtons = `
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject</button>
-                    <button class="btn btn-primary btn-small" onclick="approveRiderKYC('${kyc.id}')">Approve</button>
-                </div>
+            docStatusBadge = `<span class="badge pending"><i class="fa-solid fa-hourglass-start"></i> Pending</span>`;
+            docActionButtons = `
+                <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderKYC('${kyc.id}')">Reject</button>
+                <button class="btn btn-primary btn-small" onclick="approveRiderKYC('${kyc.id}')">Approve</button>
             `;
         }
 
-        container.innerHTML += `
-            <div class="kyc-card" style="border: 1px solid #e2e8f0; border-radius:12px; padding:20px; background:#fff; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px;">
-                <div>
-                    <h4 style="color:var(--dark-bg); font-size:18px; margin-bottom:8px;">${kyc.name}</h4>
-                    <p style="font-size:13px; margin-bottom:4px;"><strong>Staff ID:</strong> ${kyc.id}</p>
-                    <p style="font-size:13px; margin-bottom:4px;"><strong>License No:</strong> ${kyc.license_no}</p>
-                    <p style="font-size:13px; margin-bottom:12px;"><strong>Number Plate:</strong> ${kyc.plate_no}</p>
-                    <div>
-                        ${statusText}
-                    </div>
-                    <div>
-                        ${actionButtons}
-                    </div>
-                </div>
-                <div class="doc-box" style="text-align:center;">
-                    <p style="font-size:11px; font-weight:600; color:#475569; margin-bottom:5px;">Driving License Image</p>
-                    <a href="${licenseImgSrc}" target="_blank">
-                        <img src="${licenseImgSrc}" alt="License Doc" style="max-height: 120px; max-width: 100%; border-radius: 6px; border:1px solid #e2e8f0;">
-                    </a>
-                </div>
-                <div class="doc-box" style="text-align:center;">
-                    <p style="font-size:11px; font-weight:600; color:#475569; margin-bottom:5px;">Vehicle Plate Image</p>
-                    <a href="${plateImgSrc}" target="_blank">
-                        <img src="${plateImgSrc}" alt="Plate Doc" style="max-height: 120px; max-width: 100%; border-radius: 6px; border:1px solid #e2e8f0;">
-                    </a>
-                </div>
-            </div>
-        `;
-    });
-}
-
-// ✅ NEW: Bank & Payment verification cards (mirrors renderKYC layout above)
-function renderBankVerification() {
-    const container = document.getElementById('bank-kyc-container');
-    if (!container) return;
-    container.innerHTML = "";
-
-    if (riderBankRequests.length === 0) {
-        container.innerHTML = `<p style="text-align:center; color:#94a3b8; width:100%; padding:20px;">No bank/payment submissions yet.</p>`;
-        return;
-    }
-
-    riderBankRequests.forEach((r) => {
-        const isVerified = r.bank_verified === true;
-        const isRejected = r.bank_verified === false && r.bank_rejection_reason;
-        let statusText = '';
-        let actionButtons = '';
-
-        if (isVerified) {
-            statusText = `<span class="badge active" style="font-size:12px; padding:6px 12px; background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-shield-halved"></i> VERIFIED</span>`;
-            actionButtons = `<button class="btn btn-outline btn-small" style="margin-top:10px; background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${r.id}')">Reject / Revoke</button>`;
-        } else if (isRejected) {
-            statusText = `<span class="badge" style="font-size:12px; padding:6px 12px; background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-xmark"></i> REJECTED</span>
-                          <div style="font-size:12px; color:#ef4444; margin-top:5px;"><strong>Reason:</strong> ${escapeHtml(r.bank_rejection_reason)}</div>`;
-            actionButtons = `<button class="btn btn-primary btn-small" style="margin-top:10px;" onclick="approveRiderBank('${r.id}')">Re-Approve</button>`;
+        const bankVerified = bank.bank_verified === true;
+        const bankRejected = bank.bank_verified === false && bank.bank_rejection_reason;
+        let bankStatusBadge = '';
+        let bankActionButtons = '';
+        if (!bank.bank_account) {
+            bankStatusBadge = `<span class="badge" style="background:#f1f5f9; color:#94a3b8;"><i class="fa-solid fa-ban"></i> Not Submitted</span>`;
+        } else if (bankVerified) {
+            bankStatusBadge = `<span class="badge active"><i class="fa-solid fa-shield-halved"></i> Bank Verified</span>`;
+            bankActionButtons = `<button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${bank.id}')">Revoke</button>`;
+        } else if (bankRejected) {
+            bankStatusBadge = `<span class="badge suspended" title="${escapeHtml(bank.bank_rejection_reason)}"><i class="fa-solid fa-circle-xmark"></i> Bank Rejected</span>`;
+            bankActionButtons = `<button class="btn btn-primary btn-small" onclick="approveRiderBank('${bank.id}')">Re-Approve</button>`;
         } else {
-            statusText = `<span class="badge pending" style="font-size:12px; padding:6px 12px;"><i class="fa-solid fa-hourglass-start"></i> STATUS: PENDING</span>`;
-            actionButtons = `
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${r.id}')">Reject</button>
-                    <button class="btn btn-primary btn-small" onclick="approveRiderBank('${r.id}')">Approve</button>
-                </div>
+            bankStatusBadge = `<span class="badge pending"><i class="fa-solid fa-hourglass-start"></i> Bank Pending</span>`;
+            bankActionButtons = `
+                <button class="btn btn-outline btn-small" style="background:#ef4444; color:#fff; border:none;" onclick="rejectRiderBank('${bank.id}')">Reject</button>
+                <button class="btn btn-primary btn-small" onclick="approveRiderBank('${bank.id}')">Approve</button>
             `;
         }
 
-        container.innerHTML += `
-            <div class="kyc-card" style="border: 1px solid #e2e8f0; border-radius:12px; padding:20px; background:#fff; margin-bottom:15px;">
-                <h4 style="color:var(--dark-bg); font-size:18px; margin-bottom:8px;">${escapeHtml(r.full_name || r.email || 'Rider #' + r.id)}</h4>
-                <p style="font-size:13px; margin-bottom:4px;"><strong>Rider ID:</strong> ${r.id}</p>
-                <p style="font-size:13px; margin-bottom:4px;"><strong>Bank Account:</strong> ${escapeHtml(r.bank_account || '-')}</p>
-                <p style="font-size:13px; margin-bottom:4px;"><strong>IFSC:</strong> ${escapeHtml(r.ifsc_code || '-')}</p>
-                <p style="font-size:13px; margin-bottom:12px;"><strong>UPI ID:</strong> ${escapeHtml(r.upi_id || '-')}</p>
-                <div>${statusText}</div>
-                <div>${actionButtons}</div>
+        return `
+        <div class="kyc-row">
+            <div class="kyc-row-top">
+                <div class="kyc-row-identity">
+                    <h4>${escapeHtml(kyc.name || bank.full_name || 'Rider')}</h4>
+                    <span class="kyc-uid">UID: ${kyc.rider_id || kyc.id}</span>
+                </div>
+                <div class="kyc-row-actions">
+                    ${docStatusBadge}
+                    ${docActionButtons}
+                </div>
             </div>
+
+            <div class="kyc-docs-strip">
+                <div class="doc-box">
+                    <div class="doc-label">Driving License</div>
+                    <a href="${licenseImgSrc}" target="_blank"><img src="${licenseImgSrc}" alt="License"></a>
+                    <div class="doc-value">${escapeHtml(kyc.license_no || '-')}</div>
+                </div>
+                <div class="doc-box">
+                    <div class="doc-label">Vehicle Plate</div>
+                    <a href="${plateImgSrc}" target="_blank"><img src="${plateImgSrc}" alt="Plate"></a>
+                    <div class="doc-value">${escapeHtml(kyc.plate_no || '-')}</div>
+                </div>
+                <div class="doc-box">
+                    <div class="doc-label">PAN Card</div>
+                    <a href="${panImgSrc}" target="_blank"><img src="${panImgSrc}" alt="PAN"></a>
+                    <div class="doc-value">${escapeHtml(kyc.pan_no || '-')}</div>
+                </div>
+                <div class="doc-box bank-box">
+                    <div class="doc-label">Bank &amp; Payment</div>
+                    <div class="doc-value small">A/C: ${escapeHtml(bank.bank_account || '-')}</div>
+                    <div class="doc-value small">IFSC: ${escapeHtml(bank.ifsc_code || '-')}</div>
+                    <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; align-items:center;">
+                        ${bankStatusBadge}
+                        <div style="display:flex; gap:6px;">${bankActionButtons}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
         `;
-    });
+    }).join('');
 }
 
 async function approveRiderKYC(riderId) {
@@ -1137,6 +1304,7 @@ async function sendRiderNotification() {
             notifPayload.rider_id = riderId;
         }
         await supabaseClient.from('rider_notifications').insert([notifPayload]);
+        loadNotificationHistory(); // ✅ refresh the history list right away
     } catch(e) {
         showToast("Notification send failed: " + (e.message || e), "error");
         return;
@@ -1163,6 +1331,86 @@ async function sendRiderNotification() {
     if (riderTitleEl) riderTitleEl.value = "";
     if (riderMsgEl) riderMsgEl.value = "";
     if (riderTargetIdEl) riderTargetIdEl.value = "";
+}
+
+// ================= FEATURE: BROADCAST ALERTS HISTORY (list + date filter + delete) =================
+async function loadNotificationHistory() {
+    if (!supabaseClient) return;
+    try {
+        const { data } = await supabaseClient
+            .from('rider_notifications')
+            .select('*')
+            .in('type', ['broadcast', 'individual'])
+            .order('created_at', { ascending: false })
+            .limit(200);
+        notificationHistory = data || [];
+        renderNotificationHistory(notificationHistory);
+    } catch (err) {
+        showToast("Could not load alert history: " + (err.message || err), "error");
+    }
+}
+
+function renderNotificationHistory(list) {
+    const container = document.getElementById('noti-history-list');
+    if (!container) return;
+
+    if (!list || list.length === 0) {
+        container.innerHTML = `<p style="text-align:center;color:#94a3b8;padding:20px;">No alerts sent yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = list.map(n => {
+        const date = new Date(n.created_at);
+        const targetLabel = n.rider_id ? `Rider ID: ${n.rider_id}` : 'All Active Riders';
+        return `
+            <div class="noti-history-item">
+                <div style="flex:1; min-width:0;">
+                    <div class="nh-title">${escapeHtml(n.title || 'Untitled Alert')}</div>
+                    <div class="nh-msg">${escapeHtml(n.message || '')}</div>
+                    <div class="nh-meta">${targetLabel} • ${date.toLocaleDateString('en-GB')} ${date.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}</div>
+                </div>
+                <button class="nh-delete" title="Delete this alert" onclick="deleteNotificationHistoryItem('${n.id}')"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterNotificationHistory() {
+    const dateEl = document.getElementById('noti-history-date-filter');
+    const date = dateEl ? dateEl.value : '';
+    if (!date) { renderNotificationHistory(notificationHistory); return; }
+
+    const filtered = notificationHistory.filter(n => {
+        const entryDate = new Date(n.created_at).toISOString().split('T')[0];
+        return entryDate === date;
+    });
+
+    if (filtered.length === 0) {
+        const container = document.getElementById('noti-history-list');
+        if (container) container.innerHTML = `<p style="text-align:center;color:#94a3b8;padding:20px;">No alerts found for the selected date.</p>`;
+        return;
+    }
+    renderNotificationHistory(filtered);
+}
+
+function clearNotificationHistoryFilter() {
+    const dateEl = document.getElementById('noti-history-date-filter');
+    if (dateEl) dateEl.value = '';
+    renderNotificationHistory(notificationHistory);
+}
+
+async function deleteNotificationHistoryItem(id) {
+    if (!supabaseClient) return;
+    showConfirmationModal("Delete this alert from history? This cannot be undone.", async () => {
+        const { error } = await supabaseClient.from('rider_notifications').delete().eq('id', id);
+        if (!error) {
+            notificationHistory = notificationHistory.filter(n => String(n.id) !== String(id));
+            filterNotificationHistory();
+            showToast("Alert deleted from history", "info");
+        } else {
+            showToast("Delete failed: " + error.message, "error");
+        }
+    });
 }
 
 // ================= STATUS POPUP HELPERS =================

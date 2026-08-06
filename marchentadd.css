@@ -25,7 +25,11 @@ body {
     padding-bottom: 85px; /* বটম ন্যাভ যেন ফর্মের সাবমিট বাটন ঢেকে না ফেলে */
     color: var(--text-main); 
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    min-height: 100dvh;
 }
+html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
 
 /* --- Premium Header Area --- */
 .top-bar { 
@@ -47,7 +51,7 @@ body {
 .logo-area .highlight { color: var(--accent); }
 
 /* --- Layout Structure --- */
-.content-body { padding: 20px; max-width: 650px; margin: 0 auto; }
+.content-body { padding: 20px; max-width: 880px; margin: 0 auto; }
 .form-container { 
     background: var(--surface); 
     padding: 28px; 

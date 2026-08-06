@@ -820,6 +820,14 @@ async function initHomePage() {
 // ➕ ২. ADD MEDICINE PAGE LOGIC (WITH STORAGE INTEGRATION)
 // ==========================================
 function initAddMedicinePage() {
+    // The MFD/Expiry fields are <input type="month"> now (merchants only
+    // pick a month + year, not a specific day), which gives a "YYYY-MM"
+    // value. The database date columns still need a full date, so store
+    // the 1st of that month.
+    function normalizeMonthDate(val) {
+        if (!val) return null;
+        return /^\d{4}-\d{2}$/.test(val) ? `${val}-01` : val;
+    }
     let currentStep = 1;
     const totalSteps = 3;
     const btnNext = document.getElementById('btnNext');
@@ -842,8 +850,8 @@ function initAddMedicinePage() {
             if (document.getElementById('manufacturer')) document.getElementById('manufacturer').value = editData.manufacturer || '';
             if (document.getElementById('brandName')) document.getElementById('brandName').value = editData.brand_name || '';
             if (document.getElementById('prescriptionReq')) document.getElementById('prescriptionReq').value = editData.prescription_req || 'No';
-            if (document.getElementById('mfdDate')) document.getElementById('mfdDate').value = editData.mfd_date || '';
-            if (document.getElementById('expiryDate')) document.getElementById('expiryDate').value = editData.expiry_date || '';
+            if (document.getElementById('mfdDate')) document.getElementById('mfdDate').value = (editData.mfd_date || '').slice(0, 7);
+            if (document.getElementById('expiryDate')) document.getElementById('expiryDate').value = (editData.expiry_date || '').slice(0, 7);
             if (document.getElementById('batchNumber')) document.getElementById('batchNumber').value = editData.batch_number || '';
             if (document.getElementById('lotNumber')) document.getElementById('lotNumber').value = editData.lot_number || '';
             if (document.getElementById('warrantyPeriod')) document.getElementById('warrantyPeriod').value = editData.warranty_period || 'No Warranty';
@@ -892,7 +900,7 @@ function initAddMedicinePage() {
             if (currentStep === 1) { btnBack.setAttribute('disabled', 'true'); } else { btnBack.removeAttribute('disabled'); }
         }
         if (btnNext) {
-            if (currentStep === totalSteps) { btnNext.innerHTML = 'Publish to Admin <i class="fa-solid fa-cloud-arrow-up"></i>'; } else { btnNext.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>'; }
+            if (currentStep === totalSteps) { btnNext.innerHTML = 'Upload Product <i class="fa-solid fa-cloud-arrow-up"></i>'; } else { btnNext.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>'; }
         }
     }
 
@@ -900,12 +908,21 @@ function initAddMedicinePage() {
         btnNext.addEventListener('click', async () => {
             if (currentStep < totalSteps) {
                 if (currentStep === 1) {
-                    const prodName = document.getElementById('prodName')?.value;
+                    const prodName = document.getElementById('prodName')?.value?.trim();
                     if (!prodName) { showToast("Please enter the product name before going to next step", "error"); return; }
                     if ((window.currentProductType || 'Medicine') === 'Medicine') {
-                        const composition = document.getElementById('composition')?.value;
-                        if (!composition) { showToast("Please select at least one Composition / Salt", "error"); return; }
+                        const composition = document.getElementById('composition')?.value?.trim();
+                        if (!composition) { showToast("Please enter the Composition / Salt Name", "error"); return; }
                     }
+                } else if (currentStep === 2) {
+                    // Every field on this step is required except Lot Number,
+                    // which stays optional — but whatever else is missing gets
+                    // named so the merchant knows exactly what to fix before
+                    // moving on.
+                    const category = document.getElementById('dosageForm')?.value?.trim();
+                    if (!category) { showToast("Please select a Category before going to next step", "error"); return; }
+                    const manufacturer = document.getElementById('manufacturer')?.value?.trim();
+                    if (!manufacturer) { showToast("Please enter the Manufacturer Company Name", "error"); return; }
                 }
                 currentStep++;
                 updateStepForm();
@@ -940,23 +957,30 @@ function initAddMedicinePage() {
     }
 
     async function uploadAllMedicineImages() {
-        const urls = [];
+        // Upload all selected images at once instead of one-by-one — this is
+        // most of why Upload used to feel slow (4 sequential round-trips).
+        const tasks = [];
         for (let i = 1; i <= 4; i++) {
             const fileInput = document.getElementById('fileInput' + i);
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                urls.push(null);
+                tasks.push(Promise.resolve(null));
                 continue;
             }
             const file = fileInput.files[0];
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}_${i}_medicine.${fileExt}`;
             const filePath = `products/${fileName}`;
-            const { error: uploadError } = await dbSupabase.storage.from('products').upload(filePath, file);
-            if (uploadError) { urls.push(null); continue; }
-            const { data: { publicUrl } } = dbSupabase.storage.from('products').getPublicUrl(filePath);
-            urls.push(publicUrl);
+            tasks.push(
+                dbSupabase.storage.from('products').upload(filePath, file)
+                    .then(({ error }) => {
+                        if (error) return null;
+                        const { data: { publicUrl } } = dbSupabase.storage.from('products').getPublicUrl(filePath);
+                        return publicUrl;
+                    })
+                    .catch(() => null)
+            );
         }
-        return urls;
+        return Promise.all(tasks);
     }
 
     async function saveMedicineToSupabase(targetStatus) {
@@ -981,8 +1005,8 @@ function initAddMedicinePage() {
         const brandName = document.getElementById('brandName')?.value || '';
         const prescriptionReq = document.getElementById('prescriptionReq')?.value || 'No';
         const productDescription = document.getElementById('productDescription')?.value || '';
-        const mfdDate = document.getElementById('mfdDate')?.value || null;
-        const expiryDate = document.getElementById('expiryDate')?.value || null;
+        const mfdDate = normalizeMonthDate(document.getElementById('mfdDate')?.value);
+        const expiryDate = normalizeMonthDate(document.getElementById('expiryDate')?.value);
         const batchNumber = document.getElementById('batchNumber')?.value || '';
         const lotNumber = document.getElementById('lotNumber')?.value || '';
         const warrantyPeriod = document.getElementById('warrantyPeriod')?.value || '';
@@ -1002,7 +1026,7 @@ function initAddMedicinePage() {
             // Show loading
             const nextBtn = document.getElementById('btnNext');
             const draftBtn = document.getElementById('btnDraft');
-            if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+            if (nextBtn) { nextBtn.disabled = true; nextBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...'; }
             if (draftBtn) { draftBtn.disabled = true; }
 
             // Upload all images (previously only imageUrls[0] was kept and the
@@ -1090,7 +1114,7 @@ function initAddMedicinePage() {
     function reEnableButtons() {
         const nextBtn = document.getElementById('btnNext');
         const draftBtn = document.getElementById('btnDraft');
-        if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Publish to Admin <i class="fa-solid fa-cloud-arrow-up"></i>'; }
+        if (nextBtn) { nextBtn.disabled = false; nextBtn.innerHTML = 'Upload Product <i class="fa-solid fa-cloud-arrow-up"></i>'; }
         if (draftBtn) { draftBtn.disabled = false; }
     }
 }

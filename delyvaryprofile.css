@@ -566,10 +566,35 @@ input[type="text"]:focus, select:focus {
 }
 
 /* ============================================================ */
-/* ✅ NEW BLOCK: Header gradient (matches Home/Earning/Delivery)  */
+/* ✅ NEW BLOCK: Support Desk FAQ accordion-style list             */
+/* ============================================================ */
+.faq-item {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    background: #fafbfc;
+}
+.faq-q {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 6px;
+}
+.faq-a {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* ============================================================ */
+/* ✅ UPDATED: Header — বাম দিকে কালো, ডান দিকে লাল; MEDI লাল, FINDER কালো */
 /* ============================================================ */
 .navbar {
-    background: linear-gradient(120deg, #e02020 0%, #ff4747 45%, #1a1a2e 100%) !important;
+    background: linear-gradient(120deg, #1a1a2e 0%, #23233a 45%, #e02020 100%) !important;
 }
-.logo-text { color: #ffffff !important; }
-.text-highlight { color: #ffe8e8 !important; }
+.logo-text { color: #ff4d4d !important; }
+.text-highlight {
+    color: #0d0d17 !important;
+    text-shadow: 0 0 1px rgba(255,255,255,0.55), 0 0 3px rgba(255,255,255,0.3);
+}

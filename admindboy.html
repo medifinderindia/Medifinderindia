@@ -291,8 +291,13 @@
     <div class="sidebar-overlay" onclick="document.querySelector('.sidebar').classList.remove('open'); this.classList.remove('active');"></div>
     <div class="sidebar">
         <div class="logo-container">
-            <h2 class="logo-text"><span class="medi">MEDI</span><span class="finder">FINDER</span></h2>
-            <span class="admin-badge">Enhanced Control Panel</span>
+            <div class="logo-mark-circle">
+                <img src="1779304435608.png" alt="MediFinder" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2972/2972185.png'">
+            </div>
+            <div class="logo-text-wrap">
+                <h2 class="logo-text"><span class="medi">Medi</span><span class="finder">Finder</span></h2>
+                <span class="admin-badge">Rider Panel</span>
+            </div>
         </div>
         <hr class="nav-divider">
         <nav class="nav-menu">
@@ -314,10 +319,6 @@
     </div>
 
     <div class="main-content">
-        <div class="welcome-hero">
-            <h1><i class="fa-solid fa-shield-heart" style="color: var(--medi-brand);"></i> Enhanced MediFinder Management Console</h1>
-            <p>Real-time Fleet Tracking • Live Analytics • Financial Ledger • Service Outage Control • Full Audit Trail</p>
-        </div>
 
         <!-- ============================================ -->
         <!-- TAB 1: ANALYTICS & REAL-TIME METRICS -->
@@ -330,24 +331,28 @@
 
             <div class="analytics-grid">
                 <div class="analytics-card active-riders">
+                    <i class="fa-solid fa-person-biking" style="font-size:20px; opacity:0.85;"></i>
                     <div class="analytics-label">Active Riders Online</div>
                     <div class="analytics-value" id="active-riders-count">0</div>
                     <div class="analytics-change" id="active-riders-change">↑ +0 from last hour</div>
                 </div>
 
                 <div class="analytics-card merchants">
+                    <i class="fa-solid fa-store" style="font-size:20px; opacity:0.85;"></i>
                     <div class="analytics-label">Active Merchants</div>
                     <div class="analytics-value" id="active-merchants-count">0</div>
                     <div class="analytics-change" id="active-merchants-change">↑ +0 new today</div>
                 </div>
 
                 <div class="analytics-card total-orders">
+                    <i class="fa-solid fa-box" style="font-size:20px; opacity:0.85;"></i>
                     <div class="analytics-label">Total Orders Today</div>
                     <div class="analytics-value" id="total-orders-count">0</div>
                     <div class="analytics-change" id="total-orders-change">↑ +0 in last hour</div>
                 </div>
 
                 <div class="analytics-card earnings">
+                    <i class="fa-solid fa-sack-dollar" style="font-size:20px; opacity:0.85;"></i>
                     <div class="analytics-label">Total Earnings</div>
                     <div class="analytics-value" id="total-earnings-count">₹0</div>
                     <div class="analytics-change" id="total-earnings-change">↑ ₹0 this hour</div>
@@ -397,7 +402,13 @@
                 </div>
             </div>
 
-            <div id="live-fleet-map"></div>
+            <div class="map-wrap">
+                <div id="live-fleet-map"></div>
+                <div class="map-loading-overlay" id="mapLoadingOverlay">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <span>Loading live fleet positions…</span>
+                </div>
+            </div>
 
             <div class="map-legend">
                 <div style="margin-bottom: 12px; font-weight: 600; color: #0f172a;">Map Legend</div>
@@ -617,6 +628,7 @@
         <div id="verification-tab" class="tab-content">
             <div class="section-header">
                 <h2><i class="fa-solid fa-id-card"></i> Rider Document Verification Center</h2>
+                <p>License, vehicle, PAN &amp; bank details — one row per rider</p>
             </div>
 
             <!-- KYC Filters -->
@@ -628,12 +640,6 @@
             </div>
 
             <div class="kyc-grid" id="kyc-container"></div>
-
-            <!-- ✅ NEW: Bank & Payment Verification -->
-            <div class="section-header" style="margin-top:36px;">
-                <h2><i class="fa-solid fa-building-columns"></i> Bank & Payment Verification</h2>
-            </div>
-            <div class="kyc-grid" id="bank-kyc-container"></div>
         </div>
 
         <!-- ============================================ -->
@@ -665,6 +671,21 @@
                     <textarea id="rider-message" rows="4" placeholder="Write full internal message details..."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="sendRiderNotification()"><i class="fa-solid fa-paper-plane"></i> Dispatch Live Rider Alert</button>
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <h3 style="margin-bottom:4px;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--btn-active-bg)"></i> Sent Alerts History</h3>
+                <p style="color:#64748b; font-size:13px;">Everything dispatched so far. Filter by date to find old messages fast, then delete what you don't need.</p>
+
+                <div class="noti-history-filter-row">
+                    <input type="date" id="noti-history-date-filter" onchange="filterNotificationHistory()">
+                    <button class="btn btn-primary btn-small" onclick="filterNotificationHistory()">Filter</button>
+                    <button class="btn btn-small" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;" onclick="clearNotificationHistoryFilter()">Clear Filter</button>
+                </div>
+
+                <div class="noti-history-list" id="noti-history-list">
+                    <p style="text-align:center;color:#94a3b8;padding:20px;">Loading sent alerts...</p>
+                </div>
             </div>
         </div>
     </div>
