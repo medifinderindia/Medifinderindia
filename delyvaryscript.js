@@ -542,6 +542,14 @@ function listenToAvailableOrders() {
             checkIfOrdersEmpty();
         })
         .subscribe();
+
+    // ✅ NEW: Safety-net — realtime event কোনো কারণে (network drop, RLS, missed event) না
+    // পৌঁছালেও, প্রতি ২০ সেকেন্ডে একবার snapshot আবার fetch হবে, যাতে rider-এর home page
+    // অনির্দিষ্টকাল খালি না থেকে যায়। এটা মূল সমস্যার (RLS/replication) বিকল্প না, শুধু fallback।
+    if (window._ordersPollInterval) clearInterval(window._ordersPollInterval);
+    window._ordersPollInterval = setInterval(() => {
+        if (isOnDuty) fetchPendingOrdersSnapshot();
+    }, 20000);
 }
 
 function renderAvailableOrder(order) {
