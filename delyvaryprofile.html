@@ -160,23 +160,42 @@
                 <h3>Vehicle Verification</h3>
             </div>
             <div class="sub-page-body">
-                <div class="input-element-row-premium">
-                    <label>Active Transport Mode</label>
-                    <select id="vehicleTypeSelector">
-                        <option value="bike">Motorcycle / Scooter / EV</option>
-                        <option value="van">Van</option>
-                        <option value="truck">Truck</option>
-                    </select>
+                <!-- ✅ NEW: আগে একবার সাবমিট করা থাকলে এই locked ভিউ দেখাবে (upload ফর্ম না দেখিয়ে) -->
+                <div id="vehicleLockedView" class="hidden" style="background:#f8fafc; border-radius:14px; padding:16px; margin-bottom:14px;">
+                    <img id="vehicleLockedImg" style="display:none; width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin-bottom:12px;" alt="Vehicle/Plate Image">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Status</span>
+                        <span id="vehicleLockedStatusBadge" style="font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:12px; background:#fef3c7; color:#d97706;">Pending Review</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Plate No</span>
+                        <span id="vehicleLockedPlate" style="font-weight:700;">—</span>
+                    </div>
+                    <p id="vehicleLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
+                    <button id="vehicleLockedEditBtn" onclick="enableKycEdit('vehicle')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
                 </div>
-                <div class="input-element-row-premium">
-                    <label>Registration Plate ID</label>
-                    <input type="text" id="vehiclePlateInput" placeholder="e.g., WB-24-XXXX">
+                <div id="vehicleEditForm">
+                    <div class="input-element-row-premium">
+                        <label>Active Transport Mode</label>
+                        <select id="vehicleTypeSelector">
+                            <option value="bike">Motorcycle / Scooter / EV</option>
+                            <option value="van">Van</option>
+                            <option value="truck">Truck</option>
+                        </select>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Registration Plate ID</label>
+                        <input type="text" id="vehiclePlateInput" placeholder="e.g., WB-24-XXXX">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload Plate Image</label>
+                        <input type="file" id="plateImageInput" accept="image/*">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runOnlinePlateValidationCheck()">Save Vehicle Log</button>
+                        <button onclick="cancelKycEdit('vehicle')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
+                    </div>
                 </div>
-                <div class="input-element-row-premium">
-                    <label>Upload Plate Image</label>
-                    <input type="file" id="plateImageInput" accept="image/*">
-                </div>
-                <button class="action-btn-accent-premium" onclick="runOnlinePlateValidationCheck()">Save Vehicle Log</button>
             </div>
         </div>
     </div>
@@ -188,15 +207,33 @@
                 <h3>Driving License</h3>
             </div>
             <div class="sub-page-body">
-                <div class="input-element-row-premium">
-                    <label>License Serial Number</label>
-                    <input type="text" id="licenseStringInput" placeholder="e.g., DL-1234567890">
+                <div id="licenseLockedView" class="hidden" style="background:#f8fafc; border-radius:14px; padding:16px; margin-bottom:14px;">
+                    <img id="licenseLockedImg" style="display:none; width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin-bottom:12px;" alt="License Image">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Status</span>
+                        <span id="licenseLockedStatusBadge" style="font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:12px; background:#fef3c7; color:#d97706;">Pending Review</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">License No</span>
+                        <span id="licenseLockedNo" style="font-weight:700;">—</span>
+                    </div>
+                    <p id="licenseLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
+                    <button id="licenseLockedEditBtn" onclick="enableKycEdit('license')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
                 </div>
-                <div class="input-element-row-premium">
-                    <label>Upload License Image</label>
-                    <input type="file" id="licenseImageInput" accept="image/*">
+                <div id="licenseEditForm">
+                    <div class="input-element-row-premium">
+                        <label>License Serial Number</label>
+                        <input type="text" id="licenseStringInput" placeholder="e.g., DL-1234567890">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload License Image</label>
+                        <input type="file" id="licenseImageInput" accept="image/*">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runGovLicenseVerificationQuery()">Verify via Admin</button>
+                        <button onclick="cancelKycEdit('license')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
+                    </div>
                 </div>
-                <button class="action-btn-accent-premium" onclick="runGovLicenseVerificationQuery()">Verify via Admin</button>
             </div>
         </div>
     </div>
@@ -209,15 +246,33 @@
                 <h3>Aadhaar Card</h3>
             </div>
             <div class="sub-page-body">
-                <div class="input-element-row-premium">
-                    <label>Aadhaar Number</label>
-                    <input type="text" id="aadhaarStringInput" placeholder="12-digit Aadhaar number" maxlength="14" inputmode="numeric">
+                <div id="aadhaarLockedView" class="hidden" style="background:#f8fafc; border-radius:14px; padding:16px; margin-bottom:14px;">
+                    <img id="aadhaarLockedImg" style="display:none; width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin-bottom:12px;" alt="Aadhaar Image">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Status</span>
+                        <span id="aadhaarLockedStatusBadge" style="font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:12px; background:#fef3c7; color:#d97706;">Pending Review</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Aadhaar No</span>
+                        <span id="aadhaarLockedNo" style="font-weight:700;">—</span>
+                    </div>
+                    <p id="aadhaarLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
+                    <button id="aadhaarLockedEditBtn" onclick="enableKycEdit('aadhaar')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
                 </div>
-                <div class="input-element-row-premium">
-                    <label>Upload Aadhaar Image</label>
-                    <input type="file" id="aadhaarImageInput" accept="image/*">
+                <div id="aadhaarEditForm">
+                    <div class="input-element-row-premium">
+                        <label>Aadhaar Number</label>
+                        <input type="text" id="aadhaarStringInput" placeholder="12-digit Aadhaar number" maxlength="14" inputmode="numeric">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload Aadhaar Image</label>
+                        <input type="file" id="aadhaarImageInput" accept="image/*">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runAadhaarVerificationQuery()">Verify via Admin</button>
+                        <button onclick="cancelKycEdit('aadhaar')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
+                    </div>
                 </div>
-                <button class="action-btn-accent-premium" onclick="runAadhaarVerificationQuery()">Verify via Admin</button>
             </div>
         </div>
     </div>
@@ -230,15 +285,33 @@
                 <h3>PAN Card</h3>
             </div>
             <div class="sub-page-body">
-                <div class="input-element-row-premium">
-                    <label>PAN Number</label>
-                    <input type="text" id="panStringInput" placeholder="e.g., ABCDE1234F" maxlength="10" style="text-transform:uppercase;">
+                <div id="panLockedView" class="hidden" style="background:#f8fafc; border-radius:14px; padding:16px; margin-bottom:14px;">
+                    <img id="panLockedImg" style="display:none; width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin-bottom:12px;" alt="PAN Image">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">Status</span>
+                        <span id="panLockedStatusBadge" style="font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:12px; background:#fef3c7; color:#d97706;">Pending Review</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted, #64748b);">PAN No</span>
+                        <span id="panLockedNo" style="font-weight:700;">—</span>
+                    </div>
+                    <p id="panLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
+                    <button id="panLockedEditBtn" onclick="enableKycEdit('pan')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
                 </div>
-                <div class="input-element-row-premium">
-                    <label>Upload PAN Image</label>
-                    <input type="file" id="panImageInput" accept="image/*">
+                <div id="panEditForm">
+                    <div class="input-element-row-premium">
+                        <label>PAN Number</label>
+                        <input type="text" id="panStringInput" placeholder="e.g., ABCDE1234F" maxlength="10" style="text-transform:uppercase;">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Upload PAN Image</label>
+                        <input type="file" id="panImageInput" accept="image/*">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runPanVerificationQuery()">Verify via Admin</button>
+                        <button onclick="cancelKycEdit('pan')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
+                    </div>
                 </div>
-                <button class="action-btn-accent-premium" onclick="runPanVerificationQuery()">Verify via Admin</button>
             </div>
         </div>
     </div>
@@ -300,10 +373,11 @@
                     <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('sat')">🌾 <span>ᱥᱟᱱᱛᱟᱲᱤ (Santali)</span></button>
                     <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ur')">🕌 <span>اردو (Urdu)</span></button>
                 </div>
-                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;">
-                    English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে,
-                    কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ যোগ করতে প্রতিটা পেজে সেই ভাষার লাইন বসাতে হবে —
-                    সেটা চাইলে পরের ধাপে করে দেব।
+                <p class="tr-text" style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;"
+                    data-en="English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update."
+                    data-bn="English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে, কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ পরের আপডেটে যোগ হবে।"
+                    data-hi="अंग्रेज़ी, बंगाली और हिंदी पूरी तरह अनुवादित हैं। नेपाली/संताली/उर्दू अभी चुनी और सेव की जा सकती हैं, पर पूरे ऐप में अनुवाद अगले अपडेट में जोड़ा जाएगा।">
+                    English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update.
                 </p>
             </div>
         </div>

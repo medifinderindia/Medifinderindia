@@ -112,25 +112,39 @@ a{text-decoration:none;color:inherit}
 .policy-item{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--text)}
 .policy-item i{color:var(--green);font-size:14px}
 .reviews-section{background:var(--card);margin-top:8px;padding:16px}
-.rating-summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
-.rating-overall{display:flex;flex-direction:column;align-items:center;gap:4px}
-.rating-big{font-size:36px;font-weight:800;color:var(--text)}
-.rating-bar-group{flex:1;min-width:150px}
-.rating-bar-row{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;color:var(--text3)}
-.rating-bar-row span:first-child{width:16px;text-align:right}
-.rating-bar{flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden}
-.rating-bar-fill{height:100%;background:var(--gold);border-radius:3px}
-.review-card{padding:14px 0;border-bottom:1px solid var(--border)}
-.review-card:last-child{border-bottom:none}
-.review-header{display:flex;align-items:center;gap:10px}
-.review-avatar{width:32px;height:32px;border-radius:50%;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
-.review-name{font-size:13px;font-weight:600}
-.review-stars i{color:var(--gold);font-size:11px}
-.review-date{font-size:11px;color:var(--text3)}
-.review-text{font-size:13px;color:var(--text);margin-top:8px;line-height:1.5}
-.review-helpful{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;color:var(--text3);cursor:pointer}
-.review-helpful:hover{color:var(--primary)}
-.see-all-btn{width:100%;padding:10px;margin-top:12px;border:1px solid var(--primary);background:transparent;color:var(--primary);font-size:14px;font-weight:600;border-radius:var(--radius);cursor:pointer;font-family:inherit}
+/* ===== NEW REVIEWS SECTION (Flipkart/Meesho style) ===== */
+.rating-circle-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
+.rating-circle{width:80px;height:80px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;color:#fff;position:relative;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.rating-circle .rc-num{font-size:26px;line-height:1}
+.rating-circle .rc-sub{font-size:10px;font-weight:600;opacity:.85}
+.rc-green{background:linear-gradient(135deg,#2e7d32,#43a047)}
+.rc-yellow{background:linear-gradient(135deg,#f57f17,#fbc02d)}
+.rc-red{background:linear-gradient(135deg,#b71c1c,#e53935)}
+.rc-grey{background:linear-gradient(135deg,#757575,#9e9e9e)}
+.rating-bar-row2{display:flex;align-items:center;gap:7px;margin:3px 0;font-size:12px}
+.rating-bar-row2 .rbl{width:10px;text-align:right;color:var(--text3)}
+.rating-bar2{flex:1;height:7px;background:#eee;border-radius:4px;overflow:hidden}
+.rating-bar2-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.rb-green{background:linear-gradient(90deg,#43a047,#66bb6a)}
+.rb-yellow{background:linear-gradient(90deg,#f57f17,#fbc02d)}
+.rb-red{background:linear-gradient(90deg,#e53935,#ef5350)}
+.rating-bar-row2 .rbc{width:28px;font-size:11px;color:var(--text3);text-align:right}
+.rv-card{padding:14px 0;border-bottom:1px solid var(--border)}
+.rv-card:last-child{border-bottom:none}
+.rv-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rv-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.rv-name{font-size:13px;font-weight:700;color:var(--text)}
+.rv-star-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:12px;font-weight:700;color:#fff;margin-top:2px}
+.rv-date{font-size:11px;color:var(--text3);margin-left:auto}
+.rv-text{font-size:13px;color:var(--text);line-height:1.55}
+.rv-photo{max-width:130px;max-height:130px;object-fit:cover;border-radius:8px;margin-top:8px;cursor:zoom-in;border:1px solid var(--border)}
+.rv-exp-tag{display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:4px}
+.rv-helpful-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.rv-helpful-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;background:#fff;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .2s}
+.rv-helpful-btn:hover,.rv-helpful-btn.voted{border-color:var(--primary);color:var(--primary)}
+.rv-helpful-btn i{font-size:12px}
+.show-more-reviews-btn{width:100%;padding:11px;margin-top:14px;border:1.5px solid var(--primary);background:#fff8f8;color:var(--primary);font-size:14px;font-weight:700;border-radius:var(--radius);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .2s}
+.show-more-reviews-btn:hover{background:#ffe0e0}
 .similar-section{background:var(--card);margin-top:8px;padding:16px}
 .similar-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
 .similar-scroll::-webkit-scrollbar{height:4px}
@@ -160,10 +174,6 @@ a{text-decoration:none;color:inherit}
 .policy-box .title{font-size:12px;font-weight:700;color:var(--text)}
 .policy-box .desc{font-size:11px;color:var(--text3);margin-top:2px}
 .sticky-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.05)}
-.qty-selector{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.qty-selector button{width:32px;height:32px;border:none;background:#fafafa;font-size:16px;cursor:pointer;font-weight:700;color:var(--text)}
-.qty-selector button:active{background:#eee}
-.qty-selector .qty{width:32px;text-align:center;font-size:14px;font-weight:700}
 .sticky-price{flex:1;text-align:right}
 .sticky-price .label{font-size:11px;color:var(--text3)}
 .sticky-price .amount{font-size:18px;font-weight:800}
@@ -347,23 +357,21 @@ a{text-decoration:none;color:inherit}
     <div style="margin-top:10px"><span class="change-link" onclick="viewSellerProducts()">View seller's other products</span></div>
   </div>
   <div class="reviews-section fade-in">
-    <div class="section-header"><i class="fas fa-star"></i> Ratings and Reviews</div>
-    <div class="rating-summary">
-      <div class="rating-overall">
-        <div class="rating-big" id="overallRating">4.3</div>
-        <div class="stars" id="overallStars"></div>
-        <div style="font-size:12px;color:var(--text3)" id="totalReviewsText"></div>
+    <div class="section-header"><i class="fas fa-star"></i> Ratings & Reviews</div>
+    <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:18px" id="ratingTopRow">
+      <div class="rating-circle-wrap">
+        <div class="rating-circle rc-grey" id="ratingCircle">
+          <span class="rc-num" id="ratingCircleNum">—</span>
+          <span class="rc-sub">out of 5</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);text-align:center" id="totalReviewsText"></div>
       </div>
-      <div class="rating-bar-group">
-        <div class="rating-bar-row"><span>5</span><div class="rating-bar"><div class="rating-bar-fill" style="width:60%"></div></div><span>60%</span></div>
-        <div class="rating-bar-row"><span>4</span><div class="rating-bar"><div class="rating-bar-fill" style="width:25%"></div></div><span>25%</span></div>
-        <div class="rating-bar-row"><span>3</span><div class="rating-bar"><div class="rating-bar-fill" style="width:10%"></div></div><span>10%</span></div>
-        <div class="rating-bar-row"><span>2</span><div class="rating-bar"><div class="rating-bar-fill" style="width:3%"></div></div><span>3%</span></div>
-        <div class="rating-bar-row"><span>1</span><div class="rating-bar"><div class="rating-bar-fill" style="width:2%"></div></div><span>2%</span></div>
-      </div>
+      <div style="flex:1" id="ratingBarGroup"></div>
     </div>
     <div id="reviewsList"></div>
-    <button class="see-all-btn" id="seeAllReviewsBtn" onclick="toggleAllReviews()">See All Reviews</button>
+    <button class="show-more-reviews-btn" id="seeAllReviewsBtn" onclick="toggleAllReviews()" style="display:none">
+      <i class="fas fa-chevron-down"></i> See All Reviews
+    </button>
   </div>
   <div class="fbt-section fade-in" id="fbtSection">
     <div class="section-header"><i class="fas fa-shopping-basket"></i> Frequently Bought Together</div>
@@ -403,7 +411,7 @@ a{text-decoration:none;color:inherit}
   <div class="policies-section fade-in">
     <div class="section-header"><i class="fas fa-shield-alt"></i> Delivery and Returns</div>
     <div class="policy-grid" id="policyGrid">
-      <div class="policy-box"><i class="fas fa-truck"></i><div><div class="title">Free Delivery</div><div class="desc">Free delivery on orders above Rs.500</div></div></div>
+      <div class="policy-box"><i class="fas fa-truck"></i><div><div class="title">Free Delivery</div><div class="desc">Free delivery on orders above Rs.499</div></div></div>
       <div class="policy-box" id="expressPolicyBox" style="display:none"><i class="fas fa-bolt"></i><div><div class="title">Express Delivery</div><div class="desc">Get medicines within a few hours</div></div></div>
       <div class="policy-box"><i class="fas fa-map-marked-alt"></i><div><div class="title">Track Order</div><div class="desc">Real-time order tracking</div></div></div>
       <div class="policy-box" id="returnPolicyBox"><i class="fas fa-undo"></i><div><div class="title" id="returnPolicyTitle">Checking return eligibility...</div><div class="desc" id="returnPolicyDesc"></div></div></div>
@@ -413,11 +421,6 @@ a{text-decoration:none;color:inherit}
   </div>
 </div>
 <div class="sticky-bar slide-up" id="stickyBar">
-  <div class="qty-selector">
-    <button onclick="changeQty(-1)">&#8722;</button>
-    <span class="qty" id="qtyDisplay">1</span>
-    <button onclick="changeQty(1)">+</button>
-  </div>
   <div class="sticky-price"><div class="label">Total</div><div class="amount" id="stickyPrice">Rs.0.00</div></div>
   <button class="add-cart-btn" onclick="addToCart()">Add to Cart</button>
   <button class="buy-now-btn" onclick="buyNow()">Buy Now</button>
@@ -638,6 +641,7 @@ function renderProduct(){
   document.getElementById('mainImage').alt = product.name;
   if(allImages.length > 1) document.getElementById('imageBadge').style.display = 'block';
   initLikeButton();
+  initWishlist();
   renderThumbnails();
   renderHighlights();
   renderDetailTable();
@@ -648,6 +652,34 @@ function renderProduct(){
   renderFBT();
   renderSimilar();
   updateStickyPrice();
+  applyStockAvailabilityUI();
+}
+
+// Item: stock=0 items were never actually blocked from Add to Cart / Buy Now
+// on this page before — only the spec table said "Out of Stock" as plain text.
+// This disables the actual buttons and shows a clear "Currently Unavailable"
+// message, matching the storefront grid behaviour.
+function applyStockAvailabilityUI(){
+  const addBtn = document.querySelector('.add-cart-btn');
+  const buyBtn = document.querySelector('.buy-now-btn');
+  const stickyBar = document.getElementById('stickyBar');
+  if (product.stock <= 0) {
+    if (addBtn) { addBtn.disabled = true; addBtn.style.opacity = '0.5'; addBtn.style.cursor = 'not-allowed'; addBtn.textContent = 'Unavailable'; }
+    if (buyBtn) { buyBtn.disabled = true; buyBtn.style.opacity = '0.5'; buyBtn.style.cursor = 'not-allowed'; buyBtn.textContent = 'Unavailable'; }
+    if (stickyBar && !document.getElementById('unavailableNotice')) {
+      const notice = document.createElement('div');
+      notice.id = 'unavailableNotice';
+      notice.style.cssText = 'position:fixed;left:0;right:0;bottom:100%;background:#333;color:#fff;text-align:center;padding:6px;font-size:0.75rem;';
+      notice.textContent = 'Currently unavailable at this time';
+      stickyBar.style.position = stickyBar.style.position || 'fixed';
+      stickyBar.appendChild(notice);
+    }
+  } else {
+    if (addBtn) { addBtn.disabled = false; addBtn.style.opacity = ''; addBtn.style.cursor = ''; }
+    if (buyBtn) { buyBtn.disabled = false; buyBtn.style.opacity = ''; buyBtn.style.cursor = ''; }
+    const existingNotice = document.getElementById('unavailableNotice');
+    if (existingNotice) existingNotice.remove();
+  }
 }
 
 function renderThumbnails(){
@@ -725,7 +757,7 @@ function renderDetailTable(){
     ['Strength', product.strength],
     ['Manufacturer', product.manufacturer],
     ['Expiry Date', product.expiry],
-    ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Out of Stock'],
+    ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Currently Unavailable'],
     ['Category', product.category],
     ['Prescription', product.isRx === 'true' ? 'Required' : 'Not Required']
   ];
@@ -744,55 +776,82 @@ function renderBreadcrumb(){
 
 let dbReviews = [];
 
+const AVATAR_COLORS = ['#e53935','#8e24aa','#3949ab','#00897b','#43a047','#fb8c00','#6d4c41','#546e7a'];
+function avatarColor(seed){
+  var code = 0;
+  for (var i=0;i<seed.length;i++) code += seed.charCodeAt(i);
+  return AVATAR_COLORS[code % AVATAR_COLORS.length];
+}
+function ratingColorClass(avg){
+  if (avg >= 4) return 'rc-green';
+  if (avg >= 3) return 'rc-yellow';
+  return 'rc-red';
+}
+
 function renderOverallRating(){
-  if (dbReviews.length === 0) {
-    document.getElementById('overallRating').textContent = '—';
-    document.getElementById('overallStars').innerHTML = '';
-    document.getElementById('totalReviewsText').textContent = 'No ratings yet';
-    document.querySelector('.rating-bar-group').innerHTML = '';
-    document.getElementById('ratingStars').innerHTML = '';
-    document.getElementById('ratingCount').textContent = 'No ratings yet';
-    return;
-  }
-  const rated = dbReviews.filter(function(r){ return r.rating != null; });
+  const circle = document.getElementById('ratingCircle');
+  const numEl = document.getElementById('ratingCircleNum');
+  const totalEl = document.getElementById('totalReviewsText');
+  const rated = dbReviews.filter(function(r){ return r.rating != null && Number.isFinite(Number(r.rating)); });
   if (rated.length === 0) {
-    document.getElementById('overallRating').textContent = '—';
-    document.getElementById('overallStars').innerHTML = '';
-    document.getElementById('totalReviewsText').textContent = 'No ratings yet';
-    document.querySelector('.rating-bar-group').innerHTML = '';
+    circle.className = 'rating-circle rc-grey';
+    numEl.textContent = '—';
+    totalEl.textContent = 'No ratings yet';
+    document.getElementById('ratingBarGroup').innerHTML = '';
     document.getElementById('ratingStars').innerHTML = '';
     document.getElementById('ratingCount').textContent = 'No ratings yet';
     return;
   }
-  const avgRating = (rated.reduce((s, r) => s + r.rating, 0) / rated.length).toFixed(1);
-  document.getElementById('overallRating').textContent = avgRating;
-  document.getElementById('overallStars').innerHTML = generateStars(parseFloat(avgRating));
-  document.getElementById('totalReviewsText').textContent = rated.length + ' rating' + (rated.length === 1 ? '' : 's');
+  const avgRating = (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1);
+  circle.className = 'rating-circle ' + ratingColorClass(parseFloat(avgRating));
+  numEl.textContent = avgRating;
+  totalEl.textContent = rated.length + ' rating' + (rated.length === 1 ? '' : 's');
   document.getElementById('ratingStars').innerHTML = generateStars(parseFloat(avgRating));
   document.getElementById('ratingCount').textContent = avgRating + ' | ' + rated.length + ' rating' + (rated.length === 1 ? '' : 's');
   renderRatingBars();
 }
 
 function renderRatingBars(){
-  const reviews = dbReviews.filter(function(r){ return r.rating != null; });
+  const reviews = dbReviews.filter(function(r){ return r.rating != null && Number.isFinite(Number(r.rating)); });
   const total = reviews.length || 1;
   const counts = {5:0,4:0,3:0,2:0,1:0};
-  reviews.forEach(function(r){ const star = Math.min(5, Math.max(1, Math.round(r.rating || 5))); counts[star]++; });
+  reviews.forEach(function(r){ const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5))); counts[star]++; });
   var barHTML = '';
   for(var i=5; i>=1; i--){
     var pct = Math.round((counts[i]/total)*100);
-    var color = i >= 4 ? 'var(--green)' : (i === 3 ? 'var(--gold)' : 'var(--primary)');
-    barHTML += '<div class="rating-bar-row"><span>' + i + '</span><div class="rating-bar"><div class="rating-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span>' + pct + '%</span></div>';
+    var barColor = i >= 4 ? 'rb-green' : (i === 3 ? 'rb-yellow' : 'rb-red');
+    barHTML += '<div class="rating-bar-row2"><span class="rbl">' + i + '</span><div class="rating-bar2"><div class="rating-bar2-fill ' + barColor + '" style="width:' + pct + '%"></div></div><span class="rbc">' + counts[i] + '</span></div>';
   }
-  document.querySelector('.rating-bar-group').innerHTML = barHTML;
+  document.getElementById('ratingBarGroup').innerHTML = barHTML;
 }
 
 async function loadProductReviews(){
-  if (!product.id || !window.supabase) { renderOverallRating(); renderReviews(); return; }
+  if (!product.id || !supabase || !supabase.from) {
+    renderOverallRating();
+    renderReviews();
+    return;
+  }
   try {
-    const { data } = await window.supabase.from('reviews').select('id, rating, review_text, review_image_url, created_at, user_id').eq('product_id', product.id).order('created_at', { ascending: false }).limit(10);
-    if (data && data.length > 0) { dbReviews = data; }
-  } catch(e) {}
+    // Use the page's own initialized Supabase client, not the library
+    // namespace on window — that one has no project URL/key attached, so
+    // this query used to fail silently every time and get swallowed by the
+    // catch below, leaving reviews permanently empty. The reviews table
+    // stores product_id numerically, so it's cast here rather than sent
+    // as a string.
+    const rawProductId = String(product.id);
+    const productId = /^\d+$/.test(rawProductId) ? Number(rawProductId) : product.id;
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('id, rating, review_text, review_image_url, created_at, user_id')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (!error) {
+      dbReviews = Array.isArray(data) ? data : [];
+    }
+  } catch(e) {
+    // Keep the page usable if the review service is temporarily unavailable.
+  }
   renderOverallRating();
   renderReviews();
 }
@@ -805,29 +864,39 @@ function renderReviews(){
     if (seeAllBtn) seeAllBtn.style.display = 'none';
     return;
   }
-  if (seeAllBtn) seeAllBtn.style.display = 'block';
-  const reviews = dbReviews;
-  const displayReviews = reviewsExpanded ? reviews : reviews.slice(0, 3);
+  if (seeAllBtn) seeAllBtn.style.display = dbReviews.length > 3 ? 'flex' : 'none';
+  const displayReviews = reviewsExpanded ? dbReviews : dbReviews.slice(0, 3);
   c.innerHTML = displayReviews.map(function(r){
-    const name = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : 'User';
-    const avatar = (r.user_id || name).charAt(0).toUpperCase();
-    const text = r.review_text || '';
+    const shortId = r.user_id ? r.user_id.substring(0, 6).toUpperCase() : 'USER';
+    const name = 'User ' + shortId;
+    const avatarChar = shortId.charAt(0);
+    const bg = avatarColor(shortId);
     const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '';
-    const helpful = r.helpful || 0;
-    const starsHtml = r.rating != null ? '<div class="review-stars">' + generateStars(r.rating) + '</div>' : '<div class="review-stars" style="color:var(--text3);font-size:11px">Photo experience</div>';
-    const imageHtml = r.review_image_url ? '<img src="' + r.review_image_url + '" alt="Review photo" style="max-width:140px;max-height:140px;object-fit:cover;border-radius:6px;margin-top:8px;cursor:zoom-in" onclick="event.stopPropagation();document.getElementById(\'zoomImage\').src=this.src;document.getElementById(\'zoomOverlay\').classList.add(\'active\')">' : '';
-    return '<div class="review-card">' +
-      '<div class="review-header">' +
-        '<div class="review-avatar">' + avatar + '</div>' +
-        '<div><div class="review-name">' + name + '</div>' +
-        starsHtml + '</div>' +
-        '<div class="review-date">' + date + '</div>' +
+    const hasRating = r.rating != null && Number.isFinite(Number(r.rating));
+    const numericRating = hasRating ? Number(r.rating) : 0;
+    const badgeHtml = hasRating
+      ? '<span class="rv-star-badge ' + ratingColorClass(numericRating) + '">' + numericRating.toFixed(1) + ' <i class="fas fa-star" style="font-size:9px"></i></span>'
+      : '<span class="rv-exp-tag"><i class="fas fa-camera"></i> Photo Experience</span>';
+    const text = r.review_text || '';
+    const imageHtml = r.review_image_url ? '<img class="rv-photo" src="' + r.review_image_url + '" alt="Review photo" onclick="event.stopPropagation();document.getElementById(\'zoomImage\').src=this.src;document.getElementById(\'zoomOverlay\').classList.add(\'active\')">' : '';
+    return '<div class="rv-card">' +
+      '<div class="rv-top">' +
+        '<div class="rv-avatar" style="background:' + bg + '">' + avatarChar + '</div>' +
+        '<div><div class="rv-name">' + name + '</div>' + badgeHtml + '</div>' +
+        '<div class="rv-date">' + date + '</div>' +
       '</div>' +
-      (text ? '<div class="review-text">' + escapeHtml(text) + '</div>' : '') +
+      (text ? '<div class="rv-text">' + escapeHtml(text) + '</div>' : '') +
       imageHtml +
-      '<div class="review-helpful" onclick="this.innerHTML=\'<i class=fa-thumbs-up></i> Helpful (' + (helpful+1) + ')\'"><i class="far fa-thumbs-up"></i> Helpful (' + helpful + ')</div>' +
+      '<div class="rv-helpful-row">' +
+        '<button class="rv-helpful-btn" onclick="markHelpful(this)"><i class="far fa-thumbs-up"></i> Helpful</button>' +
+      '</div>' +
     '</div>';
   }).join('');
+}
+
+function markHelpful(btn){
+  const voted = btn.classList.toggle('voted');
+  btn.innerHTML = voted ? '<i class="fas fa-thumbs-up"></i> Helpful (1)' : '<i class="far fa-thumbs-up"></i> Helpful';
 }
 
 let reviewsExpanded = false;
@@ -835,7 +904,9 @@ function toggleAllReviews(){
   reviewsExpanded = !reviewsExpanded;
   renderReviews();
   var btn = document.getElementById('seeAllReviewsBtn');
-  if(btn) btn.textContent = reviewsExpanded ? 'Show Less' : 'See All Reviews';
+  if(btn) btn.innerHTML = reviewsExpanded
+    ? '<i class="fas fa-chevron-up"></i> Show Less'
+    : '<i class="fas fa-chevron-down"></i> See All Reviews';
 }
 
 // Shows offers that are actually configured and active in the DB.
@@ -1040,6 +1111,10 @@ function updateStickyPrice(){
 }
 
 function addToCart(){
+  if(product.stock <= 0){
+    showToast('This medicine is currently unavailable.', 'error');
+    return;
+  }
   if(product.isRx === 'true' && !isPrescriptionUploaded){
     const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
     if (typeof showConfirmationModal === 'function') {
@@ -1167,17 +1242,74 @@ async function toggleLike(){
   }
 }
 
-function toggleWishlist(){
-  isWishlisted = !isWishlisted;
+async function initWishlist() {
+  // Paint instantly from the same shared local cache userhome.html's heart
+  // icons use, so state doesn't flash "unliked" while the DB call resolves.
+  try {
+    const savedWishlist = JSON.parse(localStorage.getItem('medi_wishlist')) || [];
+    if (product.id && savedWishlist.includes(String(product.id))) {
+      isWishlisted = true;
+      const btn = document.getElementById('wishlistBtn');
+      if (btn) { btn.classList.add('active'); btn.innerHTML = '<i class="fas fa-heart"></i>'; }
+    }
+  } catch(e) {}
+
+  const uid = await getCurrentUid();
+  if (!uid || !supabase || !product.id) return;
+  try {
+    // Same table userscript.js uses site-wide (user_wishlist, keyed on
+    // medicine_id) — not a separate 'wishlists' table, so this page's
+    // wishlist state actually stays in sync with the rest of the app.
+    const { data } = await supabase.from('user_wishlist')
+      .select('medicine_id').eq('user_id', uid).eq('medicine_id', product.id).maybeSingle();
+    if (data) {
+      isWishlisted = true;
+      const btn = document.getElementById('wishlistBtn');
+      if (btn) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="fas fa-heart"></i>';
+      }
+    }
+  } catch(e) {}
+}
+async function toggleWishlist() {
   const btn = document.getElementById('wishlistBtn');
-  if(isWishlisted){
+  const uid = await getCurrentUid();
+  if (!uid) {
+    showToast('Login করো wishlist ব্যবহার করতে');
+    return;
+  }
+  isWishlisted = !isWishlisted;
+  let savedWishlist = [];
+  try { savedWishlist = JSON.parse(localStorage.getItem('medi_wishlist')) || []; } catch(e) {}
+  const idStr = String(product.id);
+  if (isWishlisted) {
     btn.classList.add('active');
     btn.innerHTML = '<i class="fas fa-heart"></i>';
     showToast('Added to wishlist');
+    if (!savedWishlist.includes(idStr)) savedWishlist.push(idStr);
+    localStorage.setItem('medi_wishlist', JSON.stringify(savedWishlist));
+    if (supabase && product.id) {
+      try {
+        await supabase.from('user_wishlist').upsert(
+          { user_id: uid, medicine_id: product.id },
+          { onConflict: 'user_id,medicine_id' }
+        );
+      } catch(e) {}
+    }
   } else {
     btn.classList.remove('active');
     btn.innerHTML = '<i class="far fa-heart"></i>';
     showToast('Removed from wishlist');
+    const idx = savedWishlist.indexOf(idStr);
+    if (idx > -1) savedWishlist.splice(idx, 1);
+    localStorage.setItem('medi_wishlist', JSON.stringify(savedWishlist));
+    if (supabase && product.id) {
+      try {
+        await supabase.from('user_wishlist')
+          .delete().eq('user_id', uid).eq('medicine_id', product.id);
+      } catch(e) {}
+    }
   }
 }
 
@@ -1253,16 +1385,31 @@ let userCoords = null;
 // Resolves the logged-in user's id the same way the rest of the site does:
 // a cached uid in localStorage first (fast, no network round-trip), falling
 // back to a live Supabase auth check if that's missing.
+// NOTE: localStorage's 'medi_user_uid' (set in userscript.js) is only a
+// truncated, uppercased 12-char display id shown next to "User ID:" in the
+// hamburger menu — it is NOT the real Supabase auth UUID, so it can never
+// match a `user_id uuid` column or an RLS `auth.uid()` check. Every write
+// that used it here (wishlist, reviews, feedback) would silently fail once
+// a session existed. This now resolves the real UUID the same way
+// getCurrentAuthUserId() does in userscript.js, and caches that (not the
+// display id) for subsequent calls on this page.
+let cachedAuthUserId = '';
 async function getCurrentUid(){
-  const cached = localStorage.getItem('medi_user_uid');
-  if (cached) return cached;
+  if (cachedAuthUserId) return cachedAuthUserId;
   if (!supabase || !supabase.auth) return '';
   try {
-    const { data } = await supabase.auth.getUser();
-    if (data && data.user && data.user.id) return data.user.id;
-    const { data: sessionData } = await supabase.auth.getSession();
-    return (sessionData && sessionData.session && sessionData.session.user && sessionData.session.user.id) || '';
-  } catch(e) { return ''; }
+    const { data } = await supabase.auth.getSession();
+    if (data && data.session && data.session.user && data.session.user.id) {
+      cachedAuthUserId = data.session.user.id;
+      return cachedAuthUserId;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData && userData.user && userData.user.id) {
+      cachedAuthUserId = userData.user.id;
+      return cachedAuthUserId;
+    }
+  } catch(e) {}
+  return '';
 }
 
 // Delivery location now comes from the user's saved address book

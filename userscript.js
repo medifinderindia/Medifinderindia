@@ -524,6 +524,16 @@ function detectLiveUserGPSCoordinates() {
             if (document.getElementById('order-list')) {
                 setupOrdersPageModules();
             }
+            // Real GPS fix just landed — recompute the cart's distance-based
+            // delivery fee against it instead of the fallback coordinates.
+            if (document.getElementById('cart-items-container') && typeof refreshDeliveryDistanceAndBill === 'function') {
+                refreshDeliveryDistanceAndBill();
+            }
+            // Same idea for the home page's "20 Min" express badges — they were
+            // first computed against the fallback coords, so recheck them now.
+            if (document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
+                refreshExpressDeliveryBadges();
+            }
         }, (err) => {
 
         }, {
@@ -881,6 +891,28 @@ async function setupHomePageModules() {
     // turns this same grid into a single-seller store showing everything
     // that merchant has approved, still orderable exactly like any product.
     const merchantFilterId = new URLSearchParams(window.location.search).get('merchant');
+    // Quick Services "Medical Instrument" tile lands here with ?type=instrument.
+    // Filters the same grid down to whatever merchants have actually published
+    // with productType = Instrument on the merchant add-product page (marchentadd.html) —
+    // previously this param was never read, so the tile just showed the normal,
+    // unfiltered medicine home page.
+    const typeFilterParam = new URLSearchParams(window.location.search).get('type');
+    const isInstrumentMode = typeFilterParam === 'instrument';
+    if (isInstrumentMode && !merchantFilterId) {
+        const heading = document.getElementById('products-section-heading');
+        if (heading) heading.textContent = 'Medical Instruments';
+        if (!document.getElementById('instrument-mode-back-bar')) {
+            const backBar = document.createElement('div');
+            backBar.id = 'instrument-mode-back-bar';
+            backBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
+            backBar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder Home';
+            backBar.addEventListener('click', () => { window.location.href = 'userhome.html'; });
+            const productsSection = document.querySelector('.products-showcase-section');
+            if (productsSection && productsSection.parentNode) {
+                productsSection.parentNode.insertBefore(backBar, productsSection);
+            }
+        }
+    }
     if (merchantFilterId) {
         ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'].forEach(cls => {
             const el = document.querySelector('.' + cls);
@@ -939,10 +971,32 @@ async function setupHomePageModules() {
             // to and admin approves — that is the single source of truth now.
             let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved');
             if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
+            if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
             const { data: dbProducts, error: dbError } = await medQuery;
             
             if (!dbError && dbProducts && dbProducts.length > 0) {
                 allProductNames = dbProducts.map(p => p.name || p.product_name);
+
+                // "20 Min" is a real express-delivery promise, not decoration —
+                // only show it on medicines whose merchant is actually within
+                // 12km of the shopper. Fetch every relevant merchant's saved
+                // location (marchentprofile.html -> merchants.latitude/longitude)
+                // once up front and compare with haversineKm() against the same
+                // live GPS coords (userLiveLat/userLiveLng) already used for the
+                // cart delivery-fee and map-distance calculations elsewhere.
+                const merchantIdsForDistance = [...new Set(dbProducts.map(p => p.merchant_id).filter(Boolean))];
+                const merchantCoordsMap = {};
+                if (merchantIdsForDistance.length > 0) {
+                    try {
+                        const { data: merchantCoords } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIdsForDistance);
+                        if (merchantCoords) {
+                            merchantCoords.forEach(m => {
+                                if (m.latitude && m.longitude) merchantCoordsMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) };
+                            });
+                        }
+                    } catch (e) {}
+                }
+
                 productsGrid.innerHTML = dbProducts.map(prod => {
                     const sellingPrice = parseFloat(prod.selling_price || prod.unit_price || prod.price || 0);
                     const mrp = parseFloat(prod.mrp || 0);
@@ -963,9 +1017,13 @@ async function setupHomePageModules() {
                     
                     let badges = '';
                     if (isOutOfStock) {
-                        badges += '<div class="badge-express" style="background:#999;"><i class="fa-solid fa-ban"></i> Out of Stock</div>';
+                        badges += '<div class="badge-express" style="background:#999;"><i class="fa-solid fa-ban"></i> Currently Unavailable</div>';
                     } else {
-                        badges += '<div class="badge-express"><i class="fa-solid fa-bolt"></i> 20 Min</div>';
+                        const merchantCoord = merchantCoordsMap[prod.merchant_id];
+                        const withinExpressRange = merchantCoord && haversineKm(userLiveLat, userLiveLng, merchantCoord.lat, merchantCoord.lng) <= 12;
+                        if (withinExpressRange) {
+                            badges += '<div class="badge-express express-20min-badge"><i class="fa-solid fa-bolt"></i> 20 Min</div>';
+                        }
                     }
                     if (discount > 0) {
                         badges += `<div class="badge-express" style="background:#28a745; left:auto; right:8px; top:8px; font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>`;
@@ -1003,7 +1061,7 @@ async function setupHomePageModules() {
                                 ${discount > 0 ? `<span style="font-size:0.7rem; color:#28a745; font-weight:600;">${discount}% off</span>` : ''}
                             </div>
                             <div class="btn-group">
-                                <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)" ${disabledBtn}>${isOutOfStock ? 'OUT OF STOCK' : 'BUY NOW'}</button>
+                                <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)" ${disabledBtn}>${isOutOfStock ? 'UNAVAILABLE' : 'BUY NOW'}</button>
                                 <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)" ${disabledBtn}><i class="fas fa-shopping-cart"></i> CART</button>
                             </div>
                         </div>
@@ -1011,14 +1069,18 @@ async function setupHomePageModules() {
                     `;
                 }).join('');
 
-                // Update product count badge
+                // Item count badge stays hidden here — it's only ever shown while
+                // the shopper is actively typing a search query (see the search
+                // input handler below), not on the default browse view.
                 const countBadge = document.getElementById('product-count-badge');
                 if (countBadge) countBadge.textContent = `${dbProducts.length} items`;
 
-                // Update section heading dynamically (skip in seller-storefront
-                // mode — that heading is set to the seller's name separately above)
+                // The section heading is a static "Available Medicine" label now
+                // (no live count in parentheses) — skipped in seller-storefront
+                // mode (seller name) and instrument mode ("Medical Instruments"),
+                // both of which set their own heading text separately above.
                 const heading = document.getElementById('products-section-heading');
-                if (heading && !merchantFilterId) heading.textContent = `Essential Medicines (${dbProducts.length})`;
+                if (heading && !merchantFilterId && !isInstrumentMode) heading.textContent = 'Available Medicine';
 
                 if (noProductsMsg) noProductsMsg.style.display = 'none';
             } else if (dbProducts && dbProducts.length === 0) {
@@ -1099,11 +1161,29 @@ async function setupHomePageModules() {
         "Ranitidine", "Albendazole", "Metronidazole", "Ciprofloxacin"
     ];
 
+    // Flipkart-style search dock: while actively searching, the promo top-bar
+    // is removed and the search bar pins itself right under the header instead
+    // of sitting further down the page.
+    if (!document.getElementById('search-dock-css')) {
+        const dockStyle = document.createElement('style');
+        dockStyle.id = 'search-dock-css';
+        dockStyle.textContent = `
+            body.search-docked .top-bar { display: none !important; }
+            body.search-docked .truemeds-search-section { position: sticky; top: 0; z-index: 70; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        `;
+        document.head.appendChild(dockStyle);
+    }
+
     // Item 1: while actively searching, hide everything except the search bar
     // itself and the results grid — quick services, slider, prescription
     // upload, and the category chips all disappear so the results are the
     // only thing under the search box, and come back once the query is cleared.
     function setSearchModeSections(isSearching) {
+        document.body.classList.toggle('search-docked', isSearching);
+        if (isSearching) {
+            const mainScroll = document.getElementById('main-scroll');
+            if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+        }
         if (merchantFilterId) return; // seller-storefront mode already hides these permanently
         ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'].forEach(cls => {
             const el = document.querySelector('.' + cls);
@@ -1112,14 +1192,33 @@ async function setupHomePageModules() {
     }
     window.setSearchModeSections = setSearchModeSections;
 
+    // While the shopper is typing, the mic icon steps aside for a plain
+    // search button in the same spot (mic isn't useful once you're already
+    // typing) — mic comes back the moment the box is emptied.
+    const headerSearchBtn = document.getElementById('header-search-btn');
+    const micBtnEl = document.getElementById('voice-search-btn');
+    function toggleSearchIconState(showSearchIcon) {
+        if (micBtnEl) micBtnEl.style.display = showSearchIcon ? 'none' : '';
+        if (headerSearchBtn) headerSearchBtn.style.display = showSearchIcon ? '' : 'none';
+    }
+    if (headerSearchBtn && homeSearchInput) {
+        headerSearchBtn.addEventListener('click', () => {
+            homeSearchInput.blur();
+            if (suggestionsBox) suggestionsBox.style.display = 'none';
+        });
+    }
+
     if (homeSearchInput) {
         homeSearchInput.addEventListener('input', (e) => {
             const query = e.target.value.trim().toLowerCase();
             if (clearSearchBtn) clearSearchBtn.style.display = query.length > 0 ? "block" : "none";
             setSearchModeSections(query.length > 0);
+            toggleSearchIconState(query.length > 0);
+            const countBadgeToggle = document.getElementById('product-count-badge');
+            if (countBadgeToggle) countBadgeToggle.style.display = query.length > 0 ? '' : 'none';
 
-            // Show suggestions from 2 characters onwards
-            if (query.length >= 2 && suggestionsBox) {
+            // Show suggestions from the very first character typed
+            if (query.length >= 1 && suggestionsBox) {
                 const names = allProductNames.length > 0 ? allProductNames : staticMedicineList;
                 const matches = names.filter(n => n.toLowerCase().includes(query)).slice(0, 5);
                 
@@ -1194,12 +1293,13 @@ async function setupHomePageModules() {
             if (suggestionsBox) suggestionsBox.style.display = 'none';
             if (noProductsMsg) noProductsMsg.style.display = "none";
             setSearchModeSections(false);
+            toggleSearchIconState(false);
             const totalGridCards = productsGrid.querySelectorAll('.product-card');
             totalGridCards.forEach(card => {
                 card.style.display = "block";
             });
             const countBadge = document.getElementById('product-count-badge');
-            if (countBadge) countBadge.textContent = `${totalGridCards.length} items`;
+            if (countBadge) { countBadge.textContent = `${totalGridCards.length} items`; countBadge.style.display = 'none'; }
         });
     }
 
@@ -1211,6 +1311,9 @@ async function setupHomePageModules() {
                 item.classList.add('active');
                 const searchInput = document.getElementById('home-medicine-search');
                 if (searchInput) { searchInput.value = ""; if (clearSearchBtn) clearSearchBtn.style.display = "none"; }
+                toggleSearchIconState(false);
+                const catCountBadge = document.getElementById('product-count-badge');
+                if (catCountBadge) catCountBadge.style.display = 'none';
                 const targetCategory = item.getAttribute('data-category');
                 const productCards = productsGrid.querySelectorAll('.product-card');
                 let visibleCount = 0;
@@ -1404,6 +1507,43 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+// The home page's "20 Min" express badge is computed once, synchronously,
+// while the product grid is first built — using whatever GPS fix is
+// available at that instant (often still the fallback coords, since real
+// GPS resolves a moment later). This re-checks every already-rendered card
+// against the real fix once it lands, without re-fetching or re-rendering
+// the whole grid (which would duplicate event listeners).
+async function refreshExpressDeliveryBadges() {
+    if (!supabase) return;
+    const grid = document.getElementById('main-products-grid');
+    if (!grid) return;
+    const cards = Array.from(grid.querySelectorAll('.product-card')).filter(c => c.dataset.merchantId);
+    if (cards.length === 0) return;
+    const merchantIds = [...new Set(cards.map(c => c.dataset.merchantId))];
+    try {
+        const { data: merchantCoords } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIds);
+        if (!merchantCoords) return;
+        const coordMap = {};
+        merchantCoords.forEach(m => { if (m.latitude && m.longitude) coordMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) }; });
+        cards.forEach(card => {
+            const stock = parseInt(card.dataset.stock || '0');
+            if (stock <= 0) return; // "Currently Unavailable" badge stays as-is
+            const existing = card.querySelector('.express-20min-badge');
+            const coord = coordMap[card.dataset.merchantId];
+            const within = coord && haversineKm(userLiveLat, userLiveLng, coord.lat, coord.lng) <= 12;
+            if (within && !existing) {
+                const badgeEl = document.createElement('div');
+                badgeEl.className = 'badge-express express-20min-badge';
+                badgeEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 20 Min';
+                card.insertBefore(badgeEl, card.firstChild);
+            } else if (!within && existing) {
+                existing.remove();
+            }
+        });
+    } catch (e) {}
+}
+window.refreshExpressDeliveryBadges = refreshExpressDeliveryBadges;
 
 // Creates ONE shared row in `prescription_orders` (so acceptance is atomic —
 // whichever pharmacy taps Accept first wins, via the accept_prescription_order
@@ -1715,6 +1855,38 @@ function setupCartPageModules() {
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
     if (stickyPlaceBtn) stickyPlaceBtn.addEventListener('click', processFinalOrderPayload);
 
+    // Delegated backup handlers for qty +/- and remove — the container's
+    // innerHTML gets fully replaced every time the cart changes, and relying
+    // only on freshly-injected inline onclick="" attributes was unreliable
+    // (some webviews don't consistently re-bind them, and any special
+    // character in an id could silently break the inline attribute string).
+    // Delegating from the container itself — which is never replaced —
+    // guarantees the tap always resolves correctly. Existing onclick=""
+    // attributes are left in place as-is, this is purely an added safety net.
+    const cartItemsContainerEl = document.getElementById('cart-items-container');
+    if (cartItemsContainerEl && !cartItemsContainerEl.dataset.delegatedBound) {
+        cartItemsContainerEl.dataset.delegatedBound = '1';
+        cartItemsContainerEl.addEventListener('click', (e) => {
+            const qtyBtn = e.target.closest('.cart-item-qty-btn');
+            if (qtyBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const row = qtyBtn.closest('.cart-item');
+                const id = row ? row.dataset.cartId : null;
+                if (id) window.changeCartQty(id, qtyBtn.dataset.delta === '-1' ? -1 : 1);
+                return;
+            }
+            const removeBtn = e.target.closest('.cart-item-remove');
+            if (removeBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const row = removeBtn.closest('.cart-item');
+                const id = row ? row.dataset.cartId : null;
+                if (id) window.removeFromCart(id);
+            }
+        });
+    }
+
     const goOrdersBtn = document.getElementById('go-to-orders-after-success');
     if (goOrdersBtn) goOrdersBtn.onclick = () => window.location.href = 'userorder.html';
 
@@ -1776,9 +1948,15 @@ function showSavedAddress(addr) {
     if (box) box.style.display = 'block';
     if (addNowBtn) addNowBtn.style.display = 'none';
     if (display) {
-        display.innerHTML = `<strong><i class="fa-solid fa-user"></i> ${addr.name}</strong>
-            <i class="fa-solid fa-phone" style="color:#e02020"></i> ${addr.phone}<br>
-            <i class="fa-solid fa-location-dot" style="color:#e02020"></i> ${addr.house}${addr.area ? ', ' + addr.area : ''}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}`;
+        display.innerHTML = `
+            <div class="addr-premium-top">
+                <span class="addr-premium-tag"><i class="fa-solid fa-house"></i> HOME</span>
+                <span class="addr-premium-name">${addr.name}</span>
+            </div>
+            <p class="addr-premium-line"><i class="fa-solid fa-location-dot"></i> ${addr.house}${addr.area ? ', ' + addr.area : ''}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}</p>
+            <p class="addr-premium-phone"><i class="fa-solid fa-phone"></i> +91 ${addr.phone}</p>
+            <div class="addr-premium-deliver-badge"><i class="fa-solid fa-circle-check"></i> Delivering to this address</div>
+        `;
     }
     // Keep the manual-form fields pre-filled too, so tapping Edit shows this
     // address instead of a blank form.
@@ -1960,7 +2138,7 @@ function renderCartPage() {
                     </div>
                     <p style="margin:4px 0 0;font-size:0.68rem;color:#ff4d4d;">Upload this medicine's prescription — order won't be placed without it</p>` : '';
         return `
-        <div class="cart-item"${rxBlocked ? ' style="border:1px solid #ff4d4d;background:#fff8f8;border-radius:10px;"' : ''}>
+        <div class="cart-item" data-cart-id="${item.id}"${rxBlocked ? ' style="border:1px solid #ff4d4d;background:#fff8f8;border-radius:10px;"' : ''}>
             <div class="cart-item-left">
                 <div style="position:relative;">
                     <img class="cart-item-img" src="${item.img}" onerror="this.src='https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=200'">
@@ -1971,13 +2149,13 @@ function renderCartPage() {
                     <p class="cart-item-price">₹${item.price}</p>
                     ${uploadRow}
                     <div class="cart-item-qty">
-                        <button class="cart-item-qty-btn" onclick="changeCartQty('${item.id}',-1)">-</button>
+                        <button type="button" class="cart-item-qty-btn" data-delta="-1" onclick="changeCartQty('${item.id}',-1)">-</button>
                         <span class="cart-item-qty-num">${item.qty}</span>
-                        <button class="cart-item-qty-btn" onclick="changeCartQty('${item.id}',1)">+</button>
+                        <button type="button" class="cart-item-qty-btn" data-delta="1" onclick="changeCartQty('${item.id}',1)">+</button>
                     </div>
                 </div>
             </div>
-            <button class="cart-item-remove" onclick="removeFromCart('${item.id}')"><i class="fa-solid fa-trash-can"></i></button>
+            <button type="button" class="cart-item-remove" onclick="removeFromCart('${item.id}')"><i class="fa-solid fa-trash-can"></i></button>
         </div>
     `;
     }).join('');
@@ -1991,7 +2169,10 @@ function renderCartPage() {
             if (input) input.click();
         });
     });
+    // Show an immediate estimate synchronously, then refine it once the real
+    // shop-to-customer distance comes back (merchant location + live GPS).
     recalculateBill();
+    refreshDeliveryDistanceAndBill();
 }
 
 // Item 5 + Item 3: uploading a cart-item's prescription both marks that
@@ -2000,26 +2181,49 @@ function renderCartPage() {
 // pipeline as the home page prescription-upload widget.
 let pendingRxCartItemId = null;
 async function handleCartRxUpload(file) {
-    if (!file || !pendingRxCartItemId) return;
+    if (!file) return;
+    if (!pendingRxCartItemId) { showToast('Please tap Camera/Gallery on the medicine again.', 'error'); return; }
     const item = currentCart.find(i => i.id === pendingRxCartItemId);
     if (!item) { pendingRxCartItemId = null; return; }
+    const targetId = pendingRxCartItemId; // snapshot — pendingRxCartItemId is cleared below
 
     showToast('Uploading prescription...', 'info');
     let prescriptionUrl = '';
-    if (supabase) {
-        const fileExt = file.name.split('.').pop();
-        const storagePath = `live_slips/cart_${Date.now()}_${item.id}.${fileExt}`;
-        const { error } = await supabase.storage.from('media').upload(storagePath, file);
+    try {
+        if (!supabase) {
+            showToast("Can't upload right now — not connected. Please check your internet and try again.", "error");
+            pendingRxCartItemId = null;
+            return;
+        }
+        const fileExt = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
+        const storagePath = `live_slips/cart_${Date.now()}_${targetId}.${fileExt}`;
+        // NOTE: this used to pass { upsert: true }. The path is already unique
+        // (timestamp + cart item id), so upsert was never actually needed —
+        // and upsert makes supabase-js send an "x-upsert" header, which the
+        // storage API only honours when the bucket's RLS policy also grants
+        // UPDATE (not just INSERT). Only an INSERT policy exists here (same as
+        // the working home-page prescription upload, which never sets upsert),
+        // so the UPDATE-permission check was failing server-side with a plain
+        // 400 Bad Request. Dropping upsert makes this match that working path.
+        const { error } = await supabase.storage.from('media').upload(storagePath, file, {
+            contentType: file.type || 'image/jpeg'
+        });
         if (error) {
-            showToast("Upload failed: " + error.message, "error");
+            showToast("Upload failed: " + (error.message || error.error || 'please try again.'), "error");
             pendingRxCartItemId = null;
             return;
         }
         const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
         prescriptionUrl = urlData.publicUrl;
+    } catch (e) {
+        showToast("Upload failed: " + (e.message || "please try again."), "error");
+        pendingRxCartItemId = null;
+        return;
     }
 
+    // Only mark verified once the file is actually confirmed uploaded above.
     item.rxVerified = true;
+    item.prescriptionUrl = prescriptionUrl; // keep the actual slip URL so it can be attached to the order later
     localStorage.setItem('medi_cart', JSON.stringify(currentCart));
     showToast(`Prescription verified for ${item.name}!`, "success");
     renderCartPage();
@@ -2057,18 +2261,99 @@ window.removeFromCart = function(id) {
     renderCartPage();
 };
 
+// ============================================================
+// DISTANCE + PRICE BASED DELIVERY FEE ENGINE
+// The merchant sets their shop's real GPS location from the "Geolocation &
+// Address Config" panel (marchentprofile.html -> merchants.latitude /
+// merchants.longitude). The customer's live GPS (userLiveLat/userLiveLng,
+// see detectLiveUserGPSCoordinates()) is compared against every merchant
+// present in the cart via haversineKm(), and the FARTHEST shop distance
+// decides which distance band applies (worst case, since one delivery run
+// has to reach every shop in the cart). Within that band, the order
+// subtotal decides which price sub-band applies. ₹499+ subtotal is always
+// FREE on all four charges, regardless of distance.
+// ============================================================
+const FREE_DELIVERY_THRESHOLD = 499;
+let cartDeliveryDistanceKm = null; // cached by refreshDeliveryDistanceAndBill()
+
+function getDeliveryFeeTierByDistance(distanceKm, subtotal) {
+    // Distance bands: <=5km, <=12km, >12km. Only three distance figures were
+    // given (5km / 12km / "50km or more"), with nothing specified for the
+    // 12–50km gap, so everything past 12km uses the long-distance ("50km+")
+    // band. Unknown distance (no GPS fix / merchant location not set yet)
+    // also falls back to this band so delivery is never under-charged.
+    let band;
+    if (distanceKm === null || distanceKm === undefined || isNaN(distanceKm)) band = 'far';
+    else if (distanceKm <= 5) band = 'near';
+    else if (distanceKm <= 12) band = 'mid';
+    else band = 'far';
+
+    // Price sub-band: under ₹150 pays the higher rate; ₹150 up to just under
+    // the ₹499 free-delivery cutoff pays the reduced rate (only ₹150 and
+    // ₹299 thresholds were given, and nothing further, so ₹299–₹498 reuses
+    // the ₹299 figures as the lowest paid tier before delivery becomes free).
+    const priceBand = subtotal < 150 ? 'low' : 'mid';
+
+    const FEE_TABLE = {
+        near: {
+            low: { delivery: 5,  shipping: 2, platform: 2,    processing: 1.50 },
+            mid: { delivery: 5,  shipping: 2, platform: 1,    processing: 1 }
+        },
+        mid: {
+            low: { delivery: 20, shipping: 5, platform: 4,    processing: 2 },
+            mid: { delivery: 15, shipping: 3, platform: 2.50, processing: 3 }
+        },
+        far: {
+            low: { delivery: 30, shipping: 7, platform: 4,    processing: 2 },
+            mid: { delivery: 30, shipping: 4, platform: 3,    processing: 2.50 }
+        }
+    };
+    return FEE_TABLE[band][priceBand];
+}
+
+// Looks up every merchant present in the cart, computes the farthest shop
+// distance from the customer's live GPS, caches it in cartDeliveryDistanceKm,
+// then re-runs recalculateBill() so the bill reflects the real distance band
+// instead of the unknown-distance fallback. Safe to call anytime the cart or
+// the user's location changes — it always ends by calling recalculateBill().
+async function refreshDeliveryDistanceAndBill() {
+    try {
+        if (!supabase || currentCart.length === 0) { recalculateBill(); return; }
+        const merchantIds = [...new Set(currentCart.map(i => i.merchantId).filter(Boolean))];
+        if (merchantIds.length === 0) { recalculateBill(); return; }
+        const { data, error } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIds);
+        if (error || !data || data.length === 0) { recalculateBill(); return; }
+        let maxDist = null;
+        data.forEach(m => {
+            if (m.latitude && m.longitude) {
+                const d = haversineKm(userLiveLat, userLiveLng, Number(m.latitude), Number(m.longitude));
+                if (maxDist === null || d > maxDist) maxDist = d;
+            }
+        });
+        cartDeliveryDistanceKm = maxDist;
+        recalculateBill();
+    } catch (e) {
+        recalculateBill();
+    }
+}
+
 function recalculateBill() {
     let subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    // Dynamic bill rule: orders under ₹100 pay a flat ₹5 shipping charge; ₹100 and
-    // above ship free. Platform fee and order-processing charge are always free.
-    // COD adds a flat ₹10 handling charge on top, regardless of order value.
-    const SHIPPING_THRESHOLD = 100;
+    const SHIPPING_THRESHOLD = FREE_DELIVERY_THRESHOLD; // ₹499+ = FREE delivery
+    const freeDelivery = subtotal >= SHIPPING_THRESHOLD;
+
     let dynamicPlatformFee = 0;
     let dynamicProcessingCharge = 0;
-    let shipping = (subtotal > 0 && subtotal < SHIPPING_THRESHOLD) ? 5 : 0;
+    let shipping = 0;
     let delivery = 0;
+    if (subtotal > 0 && !freeDelivery) {
+        const tier = getDeliveryFeeTierByDistance(cartDeliveryDistanceKm, subtotal);
+        delivery = tier.delivery;
+        shipping = tier.shipping;
+        dynamicPlatformFee = tier.platform;
+        dynamicProcessingCharge = tier.processing;
+    }
     let cod = (selectedPaymentMethod === "COD" && subtotal > 0) ? 10 : 0;
-    const freeDelivery = subtotal >= SHIPPING_THRESHOLD;
     discountAmount = Math.min(discountAmount, subtotal);
     let grandTotal = Math.max(0, (subtotal - discountAmount) + shipping + delivery + dynamicPlatformFee + dynamicProcessingCharge + cod);
 
@@ -2101,6 +2386,8 @@ function recalculateBill() {
         if (shippingEl) shippingEl.innerText = freeDelivery ? 'FREE' : `₹${shipping.toFixed(2)}`;
         const deliveryEl = document.getElementById('bill-delivery');
         if (deliveryEl) deliveryEl.innerText = freeDelivery ? 'FREE' : `₹${delivery.toFixed(2)}`;
+        const distEl = document.getElementById('bill-delivery-distance');
+        if (distEl) distEl.innerText = (cartDeliveryDistanceKm !== null && cartDeliveryDistanceKm !== undefined) ? ` (~${cartDeliveryDistanceKm.toFixed(1)} km)` : '';
         const platEl = document.getElementById('bill-platform');
         if (platEl) platEl.innerText = `₹${dynamicPlatformFee.toFixed(2)}`;
         const chargeEl = document.getElementById('bill-order-charge');
@@ -2258,6 +2545,12 @@ async function processFinalOrderPayload() {
         }
     }
 
+    // Item: carry the uploaded prescription slip(s) through to the real order row so the
+    // merchant panel can actually display it (previously this was never saved on `orders`).
+    const rxCartItems = currentCart.filter(i => i.rxVerified && i.prescriptionUrl);
+    const orderPrescriptionRequired = rxCartItems.length > 0;
+    const orderPrescriptionUrl = rxCartItems.length > 0 ? rxCartItems[0].prescriptionUrl : null;
+
     const orderPayload = {
         order_id: orderId,
         user_id: currentUserId || null,
@@ -2282,7 +2575,9 @@ async function processFinalOrderPayload() {
         delivery_secure_code: secureDeliveryOTP,
         razorpay_payment_id: razorpayPaymentId || null,
         date_string: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
-        merchant_id: primaryMerchantId
+        merchant_id: primaryMerchantId,
+        prescription_required: orderPrescriptionRequired,
+        rx_prescription_url: orderPrescriptionUrl
     };
 
     let activeOrdersSystem = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
@@ -4336,7 +4631,10 @@ function initVoiceSearch() {
         return;
     }
 
-    // Inject listening-state styles once (no separate CSS file needed)
+    // Inject listening-state styles once (no separate CSS file needed).
+    // While listening, the mic visually moves over to the avatar's spot
+    // (left side) and a plain search button takes over the mic's old
+    // right-side slot — same swap that happens while typing.
     if (!document.getElementById('voice-search-inline-style')) {
         const style = document.createElement('style');
         style.id = 'voice-search-inline-style';
@@ -4347,6 +4645,12 @@ function initVoiceSearch() {
                 70% { box-shadow: 0 0 0 12px rgba(224,32,32,0); }
                 100% { box-shadow: 0 0 0 0 rgba(224,32,32,0); }
             }
+            .truemeds-search-bar { position: relative; }
+            .truemeds-search-bar .truemads-mic-btn,
+            .truemeds-search-bar .truemads-search-icon-btn { order: 3; transition: opacity .25s ease; }
+            .truemeds-search-bar.mic-engaged .truemeds-avatar-wrapper { display: none; }
+            .truemeds-search-bar.mic-engaged .truemads-mic-btn { order: -1; display: flex !important; }
+            .truemeds-search-bar.mic-engaged .truemads-search-icon-btn { display: flex !important; }
         `;
         document.head.appendChild(style);
     }
@@ -4386,6 +4690,8 @@ function initVoiceSearch() {
     recognition.addEventListener('start', () => {
         isListening = true;
         micBtn.classList.add('listening');
+        const searchBarEl = micBtn.closest('.truemeds-search-bar');
+        if (searchBarEl) searchBarEl.classList.add('mic-engaged');
         showToast('Listening... say the medicine name', 'info');
     });
 
@@ -4402,6 +4708,8 @@ function initVoiceSearch() {
     recognition.addEventListener('error', (event) => {
         isListening = false;
         micBtn.classList.remove('listening');
+        const searchBarElErr = micBtn.closest('.truemeds-search-bar');
+        if (searchBarElErr) searchBarElErr.classList.remove('mic-engaged');
         if (event.error === 'not-allowed' || event.error === 'permission-denied' || event.error === 'service-not-allowed') {
             showToast('Microphone access denied. Please allow mic permission in your browser settings and try again.', 'warning');
         } else if (event.error === 'no-speech') {
@@ -4416,6 +4724,8 @@ function initVoiceSearch() {
     recognition.addEventListener('end', () => {
         isListening = false;
         micBtn.classList.remove('listening');
+        const searchBarElEnd = micBtn.closest('.truemeds-search-bar');
+        if (searchBarElEnd) searchBarElEnd.classList.remove('mic-engaged');
     });
 }
 
@@ -4432,8 +4742,7 @@ function initServicesMenu() {
                     window.location.href = 'lab-booking.html?type=lab';
                     break;
                 case 'instrument':
-                    window.location.href = 'userhome.html?category=instrument';
-                    showToast('Showing medical instruments', 'info');
+                    window.location.href = 'userhome.html?type=instrument';
                     break;
                 case 'nurse':
                     window.location.href = 'nurse-booking.html';

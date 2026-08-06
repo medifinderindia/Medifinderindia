@@ -130,7 +130,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             localStorage.setItem("isLoggedIn", "true");
             localStorage.setItem("userEmail", session.user.email);
 
-            // ✅ NEW: Google দিয়ে লগইন করলে Google প্রোফাইল পিকচার অটোমেটিক অ্যাভাটার হিসেবে বসবে —
+            // ✅ FIX: আগে riders টেবিলে row শুধু autoApplyGoogleAvatar() এর ভেতরেই (এবং সেটাও
+            // শুধু Google ছবি থাকলে + local avatar cache খালি থাকলে) তৈরি হতো। ফলে email/password
+            // দিয়ে লগইন করা রাইডার বা যাদের avatar cache আগে থেকেই সেট আছে, তাদের riders টেবিলে
+            // কোনো row-ই তৈরি হতো না। এর ফলে duty_status আপডেট (toggle/heartbeat) নীরবে fail করত
+            // (admin dashboard এ "Online Riders" 0 দেখাত) এবং loadCurrentRiderProfileStatus() row
+            // না পেয়ে সাথে সাথেই থেমে যেত (name/username/KYC ব্যাজ কখনো আপডেট হতো না)।
+            // এখন লগইনের সাথে সাথেই একটা row গ্যারান্টি করা হচ্ছে।
+            await ensureRiderDbRow(session.user);
+
+            // Google দিয়ে লগইন করলে Google প্রোফাইল পিকচার অটোমেটিক অ্যাভাটার হিসেবে বসবে —
             // তবে rider যদি আগে থেকেই নিজের কাস্টম অ্যাভাটার আপলোড/সেট করে থাকে (riders.avatar_url বা
             // localStorage rider_avatar), সেটা এখানে ওভাররাইট হবে না — শুধু প্রথমবার/ফাঁকা থাকলেই বসবে।
             await autoApplyGoogleAvatar(session.user);
@@ -650,7 +659,14 @@ async function acceptOrder(orderId, orderObj) {
             showToast("Session check failed: " + (e.message || e), "error");
         }
 
-        const updatePayload = { status: 'accepted' };
+        // ✅ FIX: আগে এখানে status: 'accepted' লেখা হতো, কিন্তু merchant নিজেও order প্রথমে
+        // accept করার সময় একই 'accepted' status লেখে। ফলে merchant "Shipped" করার পরে (status:
+        // 'shipped') যখন rider Accept করত, status আবার 'accepted' এ ফিরে যেত — customer এর
+        // অর্ডার ট্র্যাকিং টাইমলাইন উল্টো দিকে চলে যেত ("Accepted by pharmacy" আবার দেখাত),
+        // "Out for Delivery" এ যেত না। এখন 'picked_up' লেখা হচ্ছে, যেটা customer পাশে
+        // (userscript.js) আগে থেকেই "Out for Delivery" ধাপ হিসেবে ম্যাপ করা আছে — তাই rider
+        // Accept করা মাত্রই customer সাথে সাথে "Out for Delivery" দেখবে।
+        const updatePayload = { status: 'picked_up' };
         if (riderBigIntId) updatePayload.rider_id = riderBigIntId;
 
         const { error } = await supabaseClient
@@ -660,7 +676,7 @@ async function acceptOrder(orderId, orderObj) {
 
         if (error) throw error;
 
-        orderObj.status = 'accepted';
+        orderObj.status = 'picked_up';
         orderObj.rider_id = riderBigIntId || riderUuid;
         localStorage.setItem("active_delivery_order", JSON.stringify(orderObj));
         showToast("Order Accepted Successfully!", "success");
@@ -840,7 +856,10 @@ async function toggleDutyStatus() {
     try {
         let currentRiderEmail = localStorage.getItem('userEmail');
         if (currentRiderEmail) {
-            await supabaseClient.from('riders').update({ duty_status: isOnDuty ? 'online' : 'offline' }).eq('email', currentRiderEmail);
+            // ✅ FIX: update() এর বদলে upsert() — riders row কোনো কারণে এখনো তৈরি না হয়ে থাকলে
+            // update() নীরবে ০ row affect করে চলে যেত (কোনো error ছাড়াই), duty_status DB তে কখনো
+            // সেট হতো না, ফলে admin dashboard "Online Riders" 0 দেখাত।
+            await supabaseClient.from('riders').upsert({ email: currentRiderEmail, duty_status: isOnDuty ? 'online' : 'offline' }, { onConflict: 'email' });
         }
     } catch (err) {
         showToast("Duty status DB update error: " + (err.message || err), "error");
@@ -859,13 +878,15 @@ async function syncDutyStatusOnPageLoad() {
     try {
         const currentRiderEmail = localStorage.getItem('userEmail');
         if (!currentRiderEmail) return;
+        // ✅ FIX: upsert() ব্যবহার করা হচ্ছে যাতে riders row না থাকলেও তৈরি হয়ে যায় (আগে
+        // update() হলে row না থাকলে কিছুই হতো না, admin panel এ রাইডার "online" দেখাত না)।
         await supabaseClient
             .from('riders')
-            .update({
+            .upsert({
+                email: currentRiderEmail,
                 duty_status: isOnDuty ? 'online' : 'offline',
                 last_active_at: new Date().toISOString()
-            })
-            .eq('email', currentRiderEmail);
+            }, { onConflict: 'email' });
     } catch (err) {
         // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই
     }
@@ -880,10 +901,10 @@ function startDutyHeartbeat() {
         try {
             const currentRiderEmail = localStorage.getItem('userEmail');
             if (!currentRiderEmail) return;
+            // ✅ FIX: upsert() ব্যবহার করা হচ্ছে (update() এর বদলে) একই কারণে উপরে বর্ণিত
             await supabaseClient
                 .from('riders')
-                .update({ duty_status: 'online', last_active_at: new Date().toISOString() })
-                .eq('email', currentRiderEmail);
+                .upsert({ email: currentRiderEmail, duty_status: 'online', last_active_at: new Date().toISOString() }, { onConflict: 'email' });
         } catch (err) {
             // silent
         }
@@ -1493,6 +1514,31 @@ function processAvatarUpdate(event) {
     }
 }
 
+// ✅ NEW: লগইন করার সাথে সাথেই riders টেবিলে ওই ইমেইলের একটা row আছে কিনা নিশ্চিত করা হয়।
+// row না থাকলে email + সম্ভব হলে Google full_name/duty_status দিয়ে একটা নতুন row বসিয়ে দেওয়া হয়।
+// row আগে থেকেই থাকলে কিছুই ওভাররাইট করা হয় না (শুধু email/duty_status এর upsert, বাকি কলাম অপরিবর্তিত থাকে)।
+async function ensureRiderDbRow(user) {
+    if (!supabaseClient || !user?.email) return;
+    try {
+        const { data: existing } = await supabaseClient
+            .from('riders')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+
+        if (existing) return; // row already exists — nothing to do
+
+        const googleName = user.user_metadata?.full_name || user.user_metadata?.name || "";
+        await supabaseClient.from('riders').upsert({
+            email: user.email,
+            full_name: googleName,
+            duty_status: (localStorage.getItem("rider_duty_status") !== "off") ? 'online' : 'offline'
+        }, { onConflict: 'email' });
+    } catch (err) {
+        // নীরবে ফেইল হবে — এটা best-effort সেফটি-নেট, পেজ লোড ব্লক করবে না
+    }
+}
+
 // ✅ NEW: Google OAuth দিয়ে লগইন করলে Google প্রোফাইল পিকচারটা রাইডারের অ্যাভাটার হিসেবে
 // অটোমেটিক বসিয়ে দেওয়া হয় — কিন্তু শুধু তখনই, যখন rider এখনো কোনো কাস্টম অ্যাভাটার
 // সেট করেনি (riders.avatar_url খালি)। এরপর rider চাইলে profile পেজ থেকে নিজে বদলে নিতে পারবে।
@@ -2093,12 +2139,20 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
 
     lockedView.classList.remove('hidden');
     editForm.style.display = 'none';
+    editForm.dataset.userEditing = 'false';
 
     if (badge) {
         badge.classList.remove('verified', 'rejected');
-        if (verified) { badge.textContent = 'Verified'; badge.classList.add('verified'); }
-        else if (reason) { badge.textContent = 'Rejected'; badge.classList.add('rejected'); }
-        else { badge.textContent = 'Pending Review'; }
+        if (verified) {
+            badge.textContent = 'Verified'; badge.classList.add('verified');
+            badge.style.background = '#dcfce7'; badge.style.color = '#16a34a';
+        } else if (reason) {
+            badge.textContent = 'Rejected'; badge.classList.add('rejected');
+            badge.style.background = '#fee2e2'; badge.style.color = '#dc2626';
+        } else {
+            badge.textContent = 'Pending Review';
+            badge.style.background = '#fef3c7'; badge.style.color = '#d97706';
+        }
     }
     if (img) {
         if (imgUrl) { img.src = imgUrl; img.style.display = ''; }
@@ -2110,6 +2164,11 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
         if (reason) { reasonEl.textContent = 'Rejection reason: ' + reason; reasonEl.style.display = ''; }
         else { reasonEl.style.display = 'none'; }
     }
+
+    // ✅ NEW: একবার admin approve করে "Verified" হয়ে গেলে আর Edit/Cancel বাটন দেখানো হবে না —
+    // শুধু ছবি আর status-ই দেখাবে, রাইডার আর নিজে থেকে বদলাতে পারবে না।
+    const editBtn = document.getElementById(prefix + 'LockedEditBtn');
+    if (editBtn) editBtn.style.display = verified ? 'none' : '';
 }
 
 // "Edit" বাটনে ক্লিক করলে লক করা ভিউ থেকে upload ফর্মে যাওয়া
@@ -2121,6 +2180,15 @@ function enableKycEdit(prefix) {
         editForm.style.display = '';
         editForm.dataset.userEditing = 'true'; // পরের রিফ্রেশে আবার জোর করে লক না হয়ে যায়
     }
+}
+
+// ✅ NEW: Edit ফর্মের পাশের "Cancel" বাটন — কোনো কিছু সেভ না করেই DB-এর আসল অবস্থা অনুযায়ী
+// আবার সঠিক ভিউতে (locked/edit) ফিরিয়ে দেয় — আগে থেকে কিছু সাবমিট করা থাকলে locked view,
+// নাহলে upload ফর্মই থেকে যাবে (খালি locked view দেখাবে না)
+function cancelKycEdit(prefix) {
+    const editForm = document.getElementById(prefix + 'EditForm');
+    if (editForm) editForm.dataset.userEditing = 'false';
+    loadCurrentRiderProfileStatus();
 }
 
 async function loadCurrentRiderProfileStatus() {
@@ -2144,9 +2212,13 @@ async function loadCurrentRiderProfileStatus() {
             .eq('email', currentRiderEmail)
             .maybeSingle();
 
-        if (error || !data) return;
-
-        const riderProfile = data;
+        // ✅ FIX: আগে row না পেলে (data null) পুরো ফাংশনটাই সাথে সাথে থেমে যেত — মানে
+        // profileDisplayName, profileDisplayUsername, KYC status badge কিছুই আপডেট হতো না,
+        // static placeholder ("Rider", "@...", "Unverified") আটকে থাকত। এখন ensureRiderDbRow()
+        // লগইনের সময়ই row গ্যারান্টি করে, তবু কোনো race condition/error হলেও নিচের কোডটা
+        // session থেকে fallback নাম দেখিয়ে চালিয়ে যাবে, পুরোপুরি থেমে যাবে না।
+        if (error) return;
+        const riderProfile = data || {};
         const rId = riderProfile.id;
         if (rId) {
             localStorage.setItem('riderId', rId);

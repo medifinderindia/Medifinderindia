@@ -14,6 +14,8 @@
     <meta property="og:title" content="MediFinder Merchant Dashboard">
     <meta property="og:description" content="Manage your pharmacy inventory, orders, and analytics">
     <meta property="og:type" content="website">
+    <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
     <title>Merchant Dashboard - MediFinder</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1125,8 +1127,11 @@
                         <button class="order-action-btn btn-accept" onclick="window._acceptOrder('${o.id}')" title="Accept"><i class="fa-solid fa-check"></i></button>
                         <button class="order-action-btn btn-reject" onclick="window._rejectOrder('${o.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
                     `;
-                } else if (s === 'accepted' || s === 'arrived_at_store' || s === 'picked_up' || s === 'shipped') {
-                    actions = `<button class="order-action-btn btn-ship" onclick="window._shipOrder('${o.id}')" title="Mark Delivered"><i class="fa-solid fa-circle-check"></i></button>`;
+                } else if (s === 'accepted' || s === 'arrived_at_store' || s === 'picked_up') {
+                    actions = `<button class="order-action-btn btn-ship" onclick="window._shipOrder('${o.id}')" title="Ship Order"><i class="fa-solid fa-truck"></i></button>`;
+                } else if (s === 'shipped') {
+                    // Once shipped, delivery is owned by the rider — merchant has no further action here.
+                    actions = `<span class="order-action-btn" style="opacity:.6;cursor:default;pointer-events:none" title="With Rider — awaiting delivery"><i class="fa-solid fa-truck-fast"></i></span>`;
                 }
                 if (o.rx_prescription_url) {
                     actions += `<button class="order-action-btn" onclick="window._viewOrderPrescription('${MedUtils.escapeAttr(o.rx_prescription_url)}')" title="View Prescription" style="background:#fff5f5;color:#e02020;"><i class="fa-solid fa-file-prescription"></i></button>`;

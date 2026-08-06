@@ -888,7 +888,7 @@
                     </td>
                     <td>
                         <span class="order-id" onclick="openOrderDetail('${order.id}')">#${id}</span>
-                        ${order.prescription_required ? '<br><span class="rx-badge"><i class="fas fa-prescription"></i> Rx</span>' : ''}
+                        ${(order.prescription_required || order.rx_prescription_url) ? '<br><span class="rx-badge"><i class="fas fa-prescription"></i> Rx</span>' : ''}
                     </td>
                     <td>
                         <div class="customer-cell">
@@ -984,6 +984,14 @@
         function getActionButtons(order) {
             const status = (order.status || 'pending').toLowerCase();
             let btns = '';
+            // Call button — only shown for orders that came with a prescription,
+            // so the merchant can quickly ring the customer to confirm medicines.
+            if (order.prescription_required || order.rx_prescription_url) {
+                const callPhone = order.customer_phone || order.profiles?.phone || '';
+                if (callPhone) {
+                    btns += `<a class="action-btn" title="Call Customer" href="tel:${callPhone}" style="text-decoration:none;display:flex;align-items:center;justify-content:center"><i class="fas fa-phone"></i></a>`;
+                }
+            }
             if (status === 'pending') {
                 btns += `<button class="action-btn accept" title="Accept" onclick="acceptOrder('${order.id}')"><i class="fas fa-check"></i></button>`;
                 btns += `<button class="action-btn reject" title="Reject" onclick="openRejectModal('${order.id}')"><i class="fas fa-times"></i></button>`;
@@ -991,7 +999,9 @@
                 btns += `<button class="action-btn ship" title="Ship" onclick="updateStatus('${order.id}','shipped')"><i class="fas fa-truck"></i></button>`;
                 btns += `<button class="action-btn reject" title="Cancel" onclick="cancelOrder('${order.id}')"><i class="fas fa-ban"></i></button>`;
             } else if (status === 'shipped') {
-                btns += `<button class="action-btn accept" title="Delivered" onclick="updateStatus('${order.id}','delivered')"><i class="fas fa-circle-check"></i></button>`;
+                // Merchant's last action is "Ship" — delivery status from here on
+                // is owned by the rider app, not the merchant panel.
+                btns += `<button class="action-btn" title="With Rider — delivery is confirmed by the rider" disabled style="opacity:.5;cursor:not-allowed"><i class="fas fa-truck-fast"></i></button>`;
             }
             return btns;
         }
@@ -1285,12 +1295,21 @@
                     </div>
                 </div>
 
-                ${order.prescription_required ? `
+                ${(order.prescription_required || order.rx_prescription_url) ? `
                 <div class="modal-section">
                     <div class="modal-section-title">Prescription</div>
                     <div class="rx-badge" style="display:inline-flex;padding:6px 12px;font-size:12px">
                         <i class="fas fa-prescription"></i> Prescription Required - ${order.prescription_verified ? '✅ Verified' : '⏳ Pending Verification'}
                     </div>
+                    ${order.rx_prescription_url ? `
+                    <div style="margin-top:8px">
+                        <button type="button" class="modal-btn modal-btn-outline" onclick="togglePrescriptionImage(this)" style="font-size:12px;padding:6px 12px">
+                            <i class="fas fa-eye"></i> View Prescription
+                        </button>
+                        <div class="rx-image-box" style="display:none;margin-top:10px">
+                            <img src="${order.rx_prescription_url}" alt="Prescription" style="max-width:100%;border-radius:8px;border:1px solid var(--border);cursor:zoom-in" onclick="window.open('${order.rx_prescription_url}','_blank')">
+                        </div>
+                    </div>` : ''}
                 </div>` : ''}
 
                 <div class="modal-section">
@@ -1351,7 +1370,8 @@
                 btns += `<button class="modal-btn modal-btn-primary" onclick="closeModal();updateStatus('${order.id}','shipped')"><i class="fas fa-truck"></i> Ship Order</button>`;
                 btns += `<button class="modal-btn modal-btn-danger" onclick="closeModal();cancelOrder('${order.id}')"><i class="fas fa-ban"></i> Cancel</button>`;
             } else if (status === 'shipped') {
-                btns += `<button class="modal-btn modal-btn-success" onclick="closeModal();updateStatus('${order.id}','delivered')"><i class="fas fa-circle-check"></i> Mark Delivered</button>`;
+                // Merchant's last action is "Ship" — the rider marks delivery, not the merchant.
+                btns += `<span class="modal-btn modal-btn-outline" style="opacity:.7;cursor:default;pointer-events:none"><i class="fas fa-truck-fast"></i> With Rider — awaiting delivery</span>`;
             }
 
             btns += `<button class="modal-btn modal-btn-outline" onclick="printInvoice('${order.id}')"><i class="fas fa-print"></i> Print</button>`;
@@ -1363,6 +1383,18 @@
 
         function closeModal() {
             document.getElementById('orderModal').classList.remove('active');
+        }
+
+        // Item: click the View Prescription button and it shows the actual
+        // uploaded prescription image immediately, right below the button.
+        function togglePrescriptionImage(btn) {
+            const box = btn.nextElementSibling;
+            if (!box) return;
+            const showing = box.style.display !== 'none';
+            box.style.display = showing ? 'none' : 'block';
+            btn.innerHTML = showing
+                ? '<i class="fas fa-eye"></i> View Prescription'
+                : '<i class="fas fa-eye-slash"></i> Hide Prescription';
         }
 
         // ===== TIMELINE =====
