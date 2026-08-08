@@ -527,6 +527,7 @@ body{position:fixed;inset:0;padding-bottom:0}
 // URL & key loaded from supabase-constants.js
 let supabase,sbProducts=[],sbDiscounts=[],sbCoupons=[],sbFlash=[],sbFeatured=[];
 let merchantId=localStorage.getItem('merchantId')||localStorage.getItem('merchant_id')||'';
+let merchantAuthId='';
 
 try{supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){/* error */}
 
@@ -726,32 +727,32 @@ try{
 if(!supabase){renderDiscounts([]);return}
 const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','discount').order('created_at',{ascending:false});
 if(!error){sbDiscounts=data||[];renderDiscounts(sbDiscounts)}
-else renderDiscounts([]);
-}catch(e){renderDiscounts([])}
+else{console.error('loadDiscounts error:',error);renderDiscounts([])}
+}catch(e){console.error('loadDiscounts exception:',e);renderDiscounts([])}
 }
 async function loadCoupons(){
 try{
 if(!supabase){renderCoupons([]);return}
 const{data,error}=await supabase.from('coupons').select('*').eq('merchant_id',merchantId).order('created_at',{ascending:false});
 if(!error){sbCoupons=data||[];renderCoupons(sbCoupons)}
-else renderCoupons([]);
-}catch(e){renderCoupons([])}
+else{console.error('loadCoupons error:',error);renderCoupons([])}
+}catch(e){console.error('loadCoupons exception:',e);renderCoupons([])}
 }
 async function loadFlashSales(){
 try{
 if(!supabase){renderFlash([]);return}
 const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','flash_sale').order('created_at',{ascending:false});
 if(!error){sbFlash=data||[];renderFlash(sbFlash)}
-else renderFlash([]);
-}catch(e){renderFlash([])}
+else{console.error('loadFlashSales error:',error);renderFlash([])}
+}catch(e){console.error('loadFlashSales exception:',e);renderFlash([])}
 }
 async function loadFeatured(){
 try{
 if(!supabase){renderFeatured([]);return}
 const{data,error}=await supabase.from('promotions').select('*').eq('merchant_id',merchantId).eq('type','featured').order('created_at',{ascending:false});
 if(!error){sbFeatured=data||[];renderFeatured(sbFeatured)}
-else renderFeatured([]);
-}catch(e){renderFeatured([])}
+else{console.error('loadFeatured error:',error);renderFeatured([])}
+}catch(e){console.error('loadFeatured exception:',e);renderFeatured([])}
 }
 async function loadPriceProducts(){
 try{
@@ -1124,6 +1125,29 @@ await Promise.all([loadDiscounts(),loadCoupons(),loadFlashSales(),loadFeatured()
 loadAnalytics();
 }
 
+// Resolves merchantId (numeric merchants.id) reliably from the logged-in
+// auth session, instead of trusting raw localStorage. merchantAuthId (the
+// Supabase Auth UUID) is also captured in case another table needs it later.
+async function resolveMerchantIds(){
+try{
+if(!supabase)throw new Error('Supabase not initialized');
+const{data:{user},error:authError}=await supabase.auth.getUser();
+if(authError||!user)throw new Error('Merchant session not found');
+merchantAuthId=user.id;
+const{data:merchant,error:merchantError}=await supabase
+.from('merchants').select('id,auth_user_id').eq('auth_user_id',user.id).maybeSingle();
+if(merchantError)throw merchantError;
+if(!merchant)throw new Error('Merchant record not found');
+merchantId=merchant.id;
+localStorage.setItem('merchantId',String(merchant.id));
+localStorage.setItem('merchant_id',String(merchant.id));
+return{numericId:merchant.id,authId:user.id};
+}catch(err){
+console.error('Merchant ID resolve failed:',err);
+throw err;
+}
+}
+
 // Lock header/bottom-nav sizes so .main scrolls independently without any jitter
 function syncLayoutHeights(){
 const header=document.querySelector('.header');
@@ -1143,16 +1167,17 @@ document.querySelectorAll('.header,.bottom-nav').forEach(el=>ro.observe(el));
 
 // Init
 (async function init(){
+try{
+await resolveMerchantIds();
+}catch(err){
+showToast('Merchant session could not be loaded','error');
+}
 document.getElementById('discountStart').value=new Date().toISOString().split('T')[0];
 const endDate=new Date();endDate.setDate(endDate.getDate()+7);
 document.getElementById('discountEnd').value=endDate.toISOString().split('T')[0];
 document.getElementById('couponStart').value=new Date().toISOString().split('T')[0];
 const expDate=new Date();expDate.setDate(expDate.getDate()+30);
 document.getElementById('couponExpiry').value=expDate.toISOString().split('T')[0];
-if(!merchantId){
-const stored=localStorage.getItem('merchantId')||localStorage.getItem('merchant_id')||localStorage.getItem('userId')||localStorage.getItem('user_id');
-if(stored){merchantId=stored;localStorage.setItem('merchantId',merchantId)}
-}
 await loadProducts();
 populateProductCheckboxes();
 refreshAll();

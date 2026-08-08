@@ -1666,6 +1666,29 @@
         let merchantNotifications = [];
         let _notifPanelOpen = false;
 
+        // 🔒 GUARANTEED-DISMISS LAYER
+        // Cross (✕) chaple notification DB theke delete korar try hoy, kintu
+        // RLS/network fail korleo eta jeno KOKHONO fire na ase, tar jonno
+        // localStorage e ekta "dismissed IDs" list rakha hocche. Fetch/realtime
+        // jotoi baar oi row ta ferot anuk, ei list-e thakle সে r screen-e uthbe na.
+        function _dismissedNotifKey() {
+            return `medifinder_dismissed_notifs_${currentMerchantId || 'anon'}`;
+        }
+        function _getDismissedNotifIds() {
+            try {
+                return new Set(JSON.parse(localStorage.getItem(_dismissedNotifKey()) || '[]'));
+            } catch (e) { return new Set(); }
+        }
+        function _addDismissedNotifId(id) {
+            try {
+                const ids = _getDismissedNotifIds();
+                ids.add(String(id));
+                // Cap list size so it doesn't grow forever
+                const arr = Array.from(ids).slice(-300);
+                localStorage.setItem(_dismissedNotifKey(), JSON.stringify(arr));
+            } catch (e) { /* localStorage unavailable, DB delete still tried below */ }
+        }
+
         async function loadMerchantNotifications() {
             if (!currentMerchantId || !db) return;
             try {
@@ -1675,10 +1698,14 @@
                     .is('related_prescription_id', null)
                     .order('created_at', { ascending: false })
                     .limit(30);
-                merchantNotifications = error ? [] : (data || []);
+                if (error) { console.error('loadMerchantNotifications failed:', error); merchantNotifications = []; }
+                else {
+                    const dismissed = _getDismissedNotifIds();
+                    merchantNotifications = (data || []).filter(n => !dismissed.has(String(n.id)));
+                }
                 updateNotifBadge();
                 if (_notifPanelOpen) renderNotifPanel();
-            } catch (err) { /* non-fatal */ }
+            } catch (err) { console.error('loadMerchantNotifications exception:', err); }
         }
 
         function updateNotifBadge() {
@@ -1768,13 +1795,23 @@
             try { await db.from('merchant_notifications').update({ is_read: true }).eq('id', id); } catch (e) {}
         };
 
-        // Removing a notification deletes it for good — it will not
-        // reappear after a refresh.
+        // Removing a notification: (1) memory theke sathe sathe hide, (2) localStorage
+        // e permanent "dismissed" mark — eta refresh/relogin/realtime kichutei
+        // uthbe na, (3) DB theke delete o try kora hoy (best-effort, ownership
+        // filter soho jate RLS pass kore), kintu delete fail korleo dismissed
+        // list-i final guarantee dey.
         window._removeNotif = async function(id) {
+            _addDismissedNotifId(id);
             merchantNotifications = merchantNotifications.filter(n => n.id !== id);
             updateNotifBadge();
             renderNotifPanel();
-            try { await db.from('merchant_notifications').delete().eq('id', id); } catch (e) {}
+            try {
+                const { error } = await db.from('merchant_notifications')
+                    .delete()
+                    .eq('id', id)
+                    .eq('merchant_id', currentMerchantId);
+                if (error) console.error('Notif DB delete failed (staying dismissed locally):', error);
+            } catch (e) { console.error('Notif DB delete exception (staying dismissed locally):', e); }
         };
 
         function setupPrescriptionRealtime() {

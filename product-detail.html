@@ -543,10 +543,20 @@ function parseParams(){
     try {
       const saved = JSON.parse(localStorage.getItem('currentProduct'));
       if (saved && saved.name) {
-        Object.assign(product, saved);
+        const savedId = product.id; // URL ?id= is always the source of truth —
+        Object.assign(product, saved); // never let a stale localStorage entry
+        if (savedId) product.id = savedId; // (e.g. from a different product) override it.
       }
     } catch(e) {}
   }
+
+  // ✅ FIX: card.dataset (used when navigateToProductDetail() stores
+  // localStorage.currentProduct) always gives STRINGS, e.g. "150.00" — and
+  // the URL params above can also leave odd values. Force these back to
+  // real numbers here, once, so nothing downstream (renderProduct(),
+  // .toFixed() calls, cart math) can ever crash on a non-numeric price.
+  product.price = Number(product.price) || 0;
+  product.mrp = Number(product.mrp) || 0;
 }
 
 // The URL/localStorage values above are only ever a snapshot taken at the
@@ -570,7 +580,7 @@ async function loadProductFromDb(){
     productLoadedFromDb = true;
     product.id = med.id;
     product.name = med.name || med.product_name || product.name;
-    product.price = parseFloat(med.selling_price ?? med.unit_price ?? product.price);
+    product.price = parseFloat(med.selling_price ?? med.unit_price ?? product.price) || 0;
     product.mrp = parseFloat(med.mrp ?? product.mrp ?? 0);
     if (med.image_url) product.img = med.image_url;
     product.img2 = med.image_url_2 || '';
@@ -656,6 +666,15 @@ async function applySponsorFirstOrderDiscount(){
 }
 
 function renderProduct(){
+  // ✅ FIX: guarantee product.price/mrp are real numbers right before we use
+  // them — this is the exact line that used to throw "toFixed is not a
+  // function" whenever price arrived as a string (e.g. sponsored-slider
+  // entries that only pass ?id=, falling back to a stale/string-typed
+  // localStorage.currentProduct). Guarding here means renderProduct() can
+  // NEVER crash on price again, no matter what fed it.
+  product.price = Number(product.price) || 0;
+  product.mrp = Number(product.mrp) || 0;
+
   document.getElementById('productName').textContent = product.name;
   document.getElementById('ratingStars').innerHTML = '';
   document.getElementById('ratingCount').textContent = 'Loading ratings...';
@@ -996,14 +1015,17 @@ function toggleAllReviews(){
 }
 
 // Shows offers that are actually configured and active in the DB.
-// Two sources are merged here:
+// Three sources are merged here:
 //  1) platform_offers — platform-wide banners (unchanged, as before).
-//  2) promotions — merchant-created Discounts/Coupons/Flash Sales from
+//  2) promotions — merchant-created Discounts/Flash Sales from
 //     marchentpromotions.html. Those rows carry an applicable_products
 //     array (the products the merchant tapped in the promo builder) plus
-//     start_date/end_date/status. Previously this function never queried
-//     'promotions' at all, so a merchant's own discount/coupon/flash sale
-//     never appeared on the product page even though it was saved fine.
+//     start_date/end_date/status.
+//  3) coupons — a SEPARATE table (marchentpromotions.html's saveCoupon()
+//     inserts here, not into 'promotions'). The old code filtered
+//     promotions for type='coupon', which never matches anything since
+//     coupons never live in that table — so merchant coupons never showed
+//     up on the product page even though they saved fine.
 // Expected table: platform_offers(title text, description text, icon_class text, is_active bool)
 async function loadRealOffers(){
   const section = document.getElementById('offersSection');
@@ -1023,10 +1045,10 @@ async function loadRealOffers(){
       }));
     }
 
-    // 2) Merchant promotions (discounts, coupons, flash sales) linked to this product
+    // 2) Merchant promotions (discounts, flash sales) linked to this product
     if (product.id) {
       const { data: promos } = await supabase.from('promotions').select('*')
-        .in('type', ['discount', 'flash_sale', 'coupon']);
+        .in('type', ['discount', 'flash_sale']);
       if (promos && promos.length > 0) {
         const now = new Date();
         const pid = String(product.id);
@@ -1040,14 +1062,36 @@ async function loadRealOffers(){
         });
         cards = cards.concat(live.map(function(pr){
           const isFlash = pr.type === 'flash_sale';
-          const isCoupon = pr.type === 'coupon';
-          const iconClass = isFlash ? 'cashback' : (isCoupon ? 'wallet' : 'coupon');
-          const iconTag = isFlash ? 'fa-bolt' : (isCoupon ? 'fa-ticket' : 'fa-tag');
+          const iconClass = isFlash ? 'cashback' : 'coupon';
+          const iconTag = isFlash ? 'fa-bolt' : 'fa-tag';
           const valueText = pr.discount_type === 'percentage' ? (pr.discount_value || 0) + '% off' : 'Rs.' + (pr.discount_value || 0) + ' off';
-          const titleText = isCoupon ? ('Use code ' + (pr.code || 'COUPON')) : (pr.title || (isFlash ? 'Flash Sale' : 'Discount'));
+          const titleText = pr.title || (isFlash ? 'Flash Sale' : 'Discount');
           return '<div class="offer-card">' +
             '<div class="offer-icon ' + iconClass + '"><i class="fas ' + iconTag + '"></i></div>' +
             '<div><div class="offer-text"><strong>' + escapeHtml(titleText) + '</strong> ' + escapeHtml(valueText) + '</div></div>' +
+          '</div>';
+        }));
+      }
+
+      // 3) Merchant coupons (separate 'coupons' table) linked to this product
+      const { data: coupons } = await supabase.from('coupons').select('*');
+      if (coupons && coupons.length > 0) {
+        const now = new Date();
+        const pid = String(product.id);
+        const liveCoupons = coupons.filter(function(c){
+          if (c.is_active === false) return false;
+          if (c.start_date && now < new Date(c.start_date)) return false;
+          if (c.end_date && now > new Date(c.end_date)) return false;
+          if (c.max_uses && c.used_count >= c.max_uses) return false;
+          const applicable = Array.isArray(c.applicable_products) ? c.applicable_products.map(String) : [];
+          return applicable.includes(pid);
+        });
+        cards = cards.concat(liveCoupons.map(function(c){
+          const valueText = c.discount_type === 'percentage' ? (c.discount_value || 0) + '% off' : 'Rs.' + (c.discount_value || 0) + ' off';
+          const minOrderText = c.min_order_amount ? (' on orders above Rs.' + c.min_order_amount) : '';
+          return '<div class="offer-card">' +
+            '<div class="offer-icon wallet"><i class="fas fa-ticket"></i></div>' +
+            '<div><div class="offer-text"><strong>Use code ' + escapeHtml(c.code || 'COUPON') + '</strong> Get ' + escapeHtml(valueText) + escapeHtml(minOrderText) + '</div></div>' +
           '</div>';
         }));
       }
@@ -1778,7 +1822,12 @@ document.addEventListener('DOMContentLoaded', function(){
   updateCartBadge();
   document.getElementById('skeleton').style.display = 'none';
   document.getElementById('mainContent').style.display = 'block';
-  renderProduct();
+  // ✅ FIX: renderProduct() used to be able to throw (bad price type) and,
+  // because it ran synchronously before this whole block, would kill
+  // everything after it too — including the loadProductFromDb() call below
+  // that would have fetched/fixed the real data. Wrapping it means the page
+  // always finishes booting and still self-heals once the DB row arrives.
+  try { renderProduct(); } catch (e) { console.error('renderProduct failed, will retry after DB fetch:', e); }
   setupSwipeCarousel();
   setupFeedbackStars();
   detectLocation();
@@ -1788,7 +1837,10 @@ document.addEventListener('DOMContentLoaded', function(){
   // page is shown immediately either way — it never waits on this.
   loadProductFromDb().then(async function(){
     await applySponsorFirstOrderDiscount();
-    if (productLoadedFromDb || sponsorDiscountInfo) renderProduct();
+    // ✅ FIX: always re-render here (not only when productLoadedFromDb /
+    // sponsorDiscountInfo is truthy) — this is the safety-net re-render for
+    // the case above where the very first renderProduct() call had thrown.
+    try { renderProduct(); } catch (e) { console.error('renderProduct retry failed:', e); }
   });
 });
 </script>

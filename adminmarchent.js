@@ -148,7 +148,7 @@ async function loadMerchantDirectory() {
         tbody.innerHTML = merchantDirectory.map(m => {
             const joined = m.created_at ? new Date(m.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
             const location = [m.city, m.district, m.pincode].filter(Boolean).join(', ') || (m.resolved_address || 'Not set');
-            const isOnline = m.license_status === 'approved' || m.license_status === 'verified';
+            const isOnline = m.license_status === 'verified';
             const statusHtml = m.license_status
                 ? `<span class="status ${isOnline ? 'online' : 'pending'}">${esc(m.license_status)}</span>`
                 : `<span class="status pending">Unverified</span>`;
@@ -793,7 +793,7 @@ async function approveKyc(id) {
         if (kycRec && kycRec.merchant_id) {
             const { error: merErr } = await supabaseClient
                 .from('merchants')
-                .update({ license_status: 'Verified' })
+                .update({ license_status: 'verified' })
                 .eq('id', kycRec.merchant_id);
             if (merErr) { showToast("Merchant status update failed: " + merErr.message, "error"); }
             await supabaseClient.from('merchant_notifications').insert({
@@ -844,7 +844,7 @@ async function rejectKyc(id, merchantId) {
     if (merchantId) {
         const { error: merErr } = await supabaseClient
             .from('merchants')
-            .update({ license_status: 'Rejected' })
+            .update({ license_status: 'unverified' })
             .eq('id', merchantId);
         if (merErr) { showToast("Merchant status update failed: " + merErr.message, "error"); }
         await supabaseClient.from('merchant_notifications').insert({

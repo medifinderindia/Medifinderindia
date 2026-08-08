@@ -4341,12 +4341,21 @@ async function loadSponsoredProducts() {
             const productImg = linkedProduct ? (linkedProduct.image_url || '') : null;
 
             if (productImg) {
-                // ✅ FIXED: "cover" was cropping product photos to fill the box
-                // (cutting off tops/edges on anything not the exact same aspect
-                // ratio as the slide). "contain" shows the whole image instead —
-                // the gradient behind it fills any leftover space so it never
-                // looks empty.
-                div.style.background = `${item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)'} center / contain no-repeat url('${productImg}')`;
+                // ✅ FIXED (image staying white): the old code jammed a
+                // gradient AND a url() into one `background` shorthand value
+                // without a comma between them. CSS only allows ONE image per
+                // background layer that way — a gradient + url() together
+                // like that is invalid, so the browser silently dropped the
+                // whole `background` declaration and the slide rendered
+                // plain white. Fix: declare them as two proper comma-
+                // separated layers (product photo on top w/ "contain" so it
+                // never gets cropped, gradient underneath w/ "cover" filling
+                // any leftover space).
+                const grad = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                div.style.backgroundImage = `url('${productImg}'), ${grad}`;
+                div.style.backgroundPosition = 'center, center';
+                div.style.backgroundSize = 'contain, cover';
+                div.style.backgroundRepeat = 'no-repeat, no-repeat';
                 div.style.backgroundBlendMode = 'normal';
             } else {
                 div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
@@ -4377,9 +4386,39 @@ async function loadSponsoredProducts() {
                 div.addEventListener('click', openOffer);
                 div.querySelector('.slide-btn')?.addEventListener('click', openOffer);
             } else if (isLinkedToProduct) {
+                // ✅ FIXED: this used to navigate with ONLY ?id=..., so
+                // product-detail.html had no name/price/img and fell back to
+                // whatever stale product was last saved in
+                // localStorage.currentProduct (wrong item, and price stored
+                // as a STRING from card.dataset — the exact cause of the
+                // "toFixed is not a function" crash + blank image). Using
+                // navigateToProductDetail() with the real linkedProduct row
+                // means the detail page opens instantly with correct,
+                // properly-typed data, same as every normal product card.
                 const goToProduct = (e) => {
                     e.stopPropagation();
-                    window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
+                    if (linkedProduct && typeof navigateToProductDetail === 'function') {
+                        navigateToProductDetail({
+                            id: linkedProduct.id,
+                            name: linkedProduct.name || linkedProduct.product_name || '',
+                            price: Number(linkedProduct.selling_price ?? linkedProduct.unit_price ?? 0),
+                            mrp: Number(linkedProduct.mrp ?? 0),
+                            img: linkedProduct.image_url || '',
+                            img2: linkedProduct.image_url_2 || '',
+                            img3: linkedProduct.image_url_3 || '',
+                            manufacturer: linkedProduct.manufacturer || '',
+                            desc: linkedProduct.description || '',
+                            isRx: (linkedProduct.prescription_req ? linkedProduct.prescription_req === 'Yes' : (linkedProduct.is_rx === true)) ? 'true' : 'false',
+                            category: linkedProduct.category || linkedProduct.dosage_form || '',
+                            stock: linkedProduct.stock_qty ?? 0,
+                            composition: linkedProduct.composition || '',
+                            dosageForm: linkedProduct.dosage_form || '',
+                            strength: linkedProduct.strength || '',
+                            productType: linkedProduct.product_type || 'Medicine'
+                        });
+                    } else {
+                        window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
+                    }
                 };
                 div.addEventListener('click', goToProduct);
                 div.querySelector('.slide-btn')?.addEventListener('click', goToProduct);

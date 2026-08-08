@@ -226,12 +226,11 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
 function paintStatusPill(el, status) {
     if (!el) return;
     const map = {
-        Verified:   { text: 'Verified',       cls: 'status-pill verified',   bg: '#2e7d32', color: '#fff' },
-        Pending:    { text: 'Pending Review',  cls: 'status-pill pending',    bg: '#ffa000', color: '#fff' },
-        Rejected:   { text: 'Rejected',        cls: 'status-pill rejected',   bg: '#ef4444', color: '#fff' },
-        Unverified: { text: 'Unverified',      cls: 'status-pill unverified', bg: '#fef2f2', color: '#ef4444' }
+        verified:   { text: 'Verified',       cls: 'status-pill verified',   bg: '#2e7d32', color: '#fff' },
+        pending:    { text: 'Pending Review',  cls: 'status-pill pending',    bg: '#ffa000', color: '#fff' },
+        unverified: { text: 'Unverified',      cls: 'status-pill unverified', bg: '#fef2f2', color: '#ef4444' }
     };
-    const s = map[status] || map.Unverified;
+    const s = map[(status || '').toLowerCase()] || map.unverified;
     el.innerText = s.text;
     el.className = s.cls;
     el.style.background = s.bg;
@@ -246,7 +245,7 @@ function renderLicenseCard(merchantData, kycImg) {
     const formState = document.getElementById('licenseFormState');
     if (!viewState || !formState) return;
 
-    const submitted = status === 'Verified' || status === 'Pending' || status === 'Rejected';
+    const submitted = status === 'verified' || status === 'pending';
 
     if (submitted) {
         viewState.style.display = '';
@@ -261,13 +260,13 @@ function renderLicenseCard(merchantData, kycImg) {
 
         const note = document.getElementById('licenseViewNote');
         if (note) {
-            if (status === 'Verified') note.innerHTML = '<span class="status-pill verified">Verified</span> Product publishing is unlocked.';
-            else if (status === 'Pending') note.innerHTML = '<span class="status-pill pending">Pending Review</span> Awaiting admin review.';
-            else note.innerHTML = '<span class="status-pill rejected">Rejected</span> Tap Edit to re-upload a valid document.';
+            if (status === 'verified') note.innerHTML = '<span class="status-pill verified">Verified</span> Product publishing is unlocked.';
+            else if (status === 'pending') note.innerHTML = '<span class="status-pill pending">Pending Review</span> Awaiting admin review.';
+            else note.innerHTML = '<span class="status-pill unverified">Unverified</span> Tap Edit to upload a valid document.';
         }
 
         const cancelBtn = document.getElementById('btnCancelLicense');
-        if (cancelBtn) cancelBtn.style.display = status === 'Verified' ? 'none' : '';
+        if (cancelBtn) cancelBtn.style.display = status === 'verified' ? 'none' : '';
     } else {
         viewState.style.display = 'none';
         formState.style.display = '';
@@ -429,7 +428,7 @@ function initNotificationSystem() {
             if (typeof renderLicenseCard === 'function') renderLicenseCard(merchant, null);
             if (typeof renderBankCard === 'function') renderBankCard(merchant);
             const verifyStatusEl = document.getElementById('verifyStatus');
-            if (merchant.license_status === 'Verified') {
+            if (merchant.license_status === 'verified') {
                 showCustomNotification(
                     `✅ Account Verified!`,
                     `Admin has verified your Government License Hub. Your shop is now official.`,
@@ -446,7 +445,7 @@ function initNotificationSystem() {
                     verifyStatusEl.className = "status-pill verified";
                     verifyStatusEl.style.background = "#2e7d32";
                 }
-            } else if (merchant.license_status === 'Pending') {
+            } else if (merchant.license_status === 'pending') {
                 if (verifyStatusEl) {
                     verifyStatusEl.innerText = "Pending Review";
                     verifyStatusEl.className = "status-pill pending";
@@ -1112,7 +1111,7 @@ function initAddMedicinePage() {
 
         try {
             const { data: merchantData, error: merchantError } = await dbSupabase.from('merchants').select('license_status').eq('id', activeId).single();
-            if (merchantError || !merchantData || merchantData.license_status !== 'Verified') {
+            if (merchantError || !merchantData || merchantData.license_status !== 'verified') {
                 showToast("Error: Your merchant account must be verified by the administrator before listing items.", "error");
                 reEnableButtons();
                 return;
@@ -1601,7 +1600,7 @@ async function initProfilePage() {
                 let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
                 if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
                 try {
-                    const { error } = await dbSupabase.from('merchants').update({ license_status: null }).eq('id', targetMerchantId);
+                    const { error } = await dbSupabase.from('merchants').update({ license_status: 'unverified' }).eq('id', targetMerchantId);
                     if (error) throw error;
                     showToast("License submission cancelled.", "success");
                     await loadCurrentMerchantStatus();
@@ -1692,7 +1691,7 @@ async function initProfilePage() {
                 await saveMerchantKyc(publicUrl, licenseNo);
 
                 const { error } = await dbSupabase.from('merchants').update({
-                    license_status: 'Pending',
+                    license_status: 'pending',
                     license_id: licenseNo
                 }).eq('id', targetMerchantId);
 
@@ -1788,12 +1787,26 @@ async function initProfilePage() {
             if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             try {
-                const { error } = await dbSupabase.from('merchants').update({ merchant_name: updatedName }).eq('id', targetMerchantId);
-                if (!error) {
-                    if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = updatedName;
-                    showToast("Shop identity updated successfully.", "success");
-                    window.closePopup('storeCoreModal');
-                } else { throw error; }
+                const { data, error } = await dbSupabase
+                    .from('merchants')
+                    .update({ merchant_name: updatedName })
+                    .eq('id', targetMerchantId)
+                    .select();
+
+                console.log("MERCHANT UPDATE ID:", targetMerchantId);
+                console.log("MERCHANT UPDATE VALUE:", updatedName);
+                console.log("MERCHANT UPDATE DATA:", data);
+                console.log("MERCHANT UPDATE ERROR:", error);
+
+                if (error) {
+                    throw new Error(
+                        `Supabase ${error.code || 'ERROR'}: ${error.message || 'Unknown error'}`
+                    );
+                }
+
+                if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = updatedName;
+                showToast("Shop identity updated successfully.", "success");
+                window.closePopup('storeCoreModal');
             } catch (err) { showToast("Save profile failed: " + err.message, "error"); }
         });
     }
@@ -1980,7 +1993,7 @@ async function loadCurrentMerchantStatus() {
             renderLicenseCard(merchantData, kycImg);
             renderBankCard(merchantData);
 
-            const unlocked = merchantData.license_status === 'Verified';
+            const unlocked = merchantData.license_status === 'verified';
             document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = unlocked ? '' : 'none');
             document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = unlocked ? '' : 'none');
             

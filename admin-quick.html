@@ -285,7 +285,7 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
       <input type="text" id="ambPincodeSearch" placeholder="Search by pincode — which area's ambulances?" inputmode="numeric" oninput="renderAmbDrivers()" style="flex:1;min-width:220px;padding:11px 14px;border:1px solid #dcdde1;border-radius:8px;">
     </div>
-    <div class="lt-toolbar">
+    <div class="lt-toolbar" id="ambDriverToolbar">
       <button class="filter-btn active" data-f="all" onclick="setAmbDriverFilter('all')">All Drivers</button>
       <button class="filter-btn" data-f="pending" onclick="setAmbDriverFilter('pending')">Pending KYC</button>
       <button class="filter-btn" data-f="verified" onclick="setAmbDriverFilter('verified')">Verified</button>
@@ -534,7 +534,7 @@ function renderBookings(){
           ${b.status==='pending' ? `<button class="btn btn-primary" onclick="setBookingStatus('${b.id}','accepted')"><i class="fa-solid fa-check"></i> Accept</button>` : ''}
           ${b.status==='pending' ? `<button class="btn btn-danger" onclick="setBookingStatus('${b.id}','cancelled')"><i class="fa-solid fa-xmark"></i> Cancel</button>` : ''}
           <button class="btn" style="background:#e2e8f0;" onclick="openReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> Receipt</button>
-          <button class="btn" style="background:#dcfce7;color:#16a34a;" onclick="shareBookingWhatsapp('${b.id}')"><i class="fa-brands fa-whatsapp"></i> Share</button>
+          <button class="btn" style="background:#dcf5e6;color:#16a34a;" onclick="shareBooking('${b.id}')"><i class="fa-brands fa-whatsapp"></i> Share</button>
         </div>
       </div>`;
   }).join('');
@@ -546,98 +546,101 @@ async function setBookingStatus(id, status){
   loadBookings();
 }
 
-function labReceiptHtml(b){
-  const addr = esc([b.addr_house,b.addr_street,b.addr_landmark,b.addr_city,b.addr_state,b.addr_pincode].filter(Boolean).join(', ')) || '—';
-  const statusColor = b.status==='accepted' ? '#16a34a' : b.status==='cancelled' ? '#dc2626' : '#b45309';
-  const statusBg = b.status==='accepted' ? '#dcfce7' : b.status==='cancelled' ? '#fee2e2' : '#fef3c7';
-  return `
-  <html><head><title>Receipt - ${esc(b.test_name)}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    *{box-sizing:border-box;}
-    body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;margin:0;padding:24px;color:#1e293b;}
-    .receipt{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08);}
-    .r-head{background:linear-gradient(135deg,#e02020,#b91c1c);padding:28px 26px;color:#fff;text-align:center;}
-    .r-head img{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#fff;padding:4px;margin-bottom:10px;}
-    .r-head h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.5px;}
-    .r-head h1 span{font-weight:400;opacity:.9;}
-    .r-head p{margin:4px 0 0;font-size:12px;opacity:.9;letter-spacing:.5px;text-transform:uppercase;}
-    .r-body{padding:24px 26px;}
-    .r-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
-    .r-title-row h2{margin:0;font-size:16px;color:#1e293b;}
-    .r-status{font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;background:${statusBg};color:${statusColor};}
-    table{width:100%;border-collapse:collapse;}
-    td{padding:9px 0;border-bottom:1px dashed #e2e8f0;font-size:13.5px;vertical-align:top;}
-    td:first-child{font-weight:700;color:#64748b;width:150px;}
-    .r-price{background:#fef2f2;border-radius:10px;padding:14px 16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;}
-    .r-price span:first-child{font-size:13px;color:#64748b;font-weight:600;}
-    .r-price span:last-child{font-size:20px;font-weight:800;color:#e02020;}
-    .r-foot{background:#f8fafc;padding:18px 26px;text-align:center;border-top:1px solid #eef2f7;}
-    .r-foot .contact{font-size:12.5px;color:#475569;margin:2px 0;}
-    .r-foot .contact i{color:#e02020;width:16px;}
-    .r-thanks{margin-top:10px;font-size:13px;font-weight:700;color:#e02020;}
-    .r-note{margin-top:14px;color:#94a3b8;font-size:11px;}
-    @media print{body{background:#fff;padding:0;}.receipt{box-shadow:none;border-radius:0;max-width:100%;}}
-  </style></head><body>
-    <div class="receipt">
-      <div class="r-head">
-        <img src="1779304435608.png" alt="MediFinder India">
-        <h1>MEDIFINDER <span>INDIA</span></h1>
-        <p>Lab Test Booking Receipt</p>
-      </div>
-      <div class="r-body">
-        <div class="r-title-row">
-          <h2>${esc(b.test_name)}</h2>
-          <span class="r-status">${esc(b.status)}</span>
-        </div>
-        <table>
-          <tr><td>Patient</td><td>${esc(b.patient_name)}</td></tr>
-          <tr><td>Phone</td><td>${esc(b.patient_phone||'—')}</td></tr>
-          <tr><td>Address</td><td>${addr}</td></tr>
-          <tr><td>Date / Time</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
-          <tr><td>Payment</td><td>${b.payment_method.toUpperCase()} — ${esc(b.payment_status)}</td></tr>
-        </table>
-        <div class="r-price"><span>Amount Paid</span><span>₹${b.test_price}</span></div>
-      </div>
-      <div class="r-foot">
-        <div class="contact"><i class="fa-solid fa-envelope"></i> medifinderindia.com</div>
-        <div class="contact"><i class="fa-solid fa-phone"></i> Helpline: 9593625498</div>
-        <div class="r-thanks">Thank You — Visit Again!</div>
-        <div class="r-note">Use your browser's Print → Save as PDF to download or share this receipt.</div>
-      </div>
-    </div>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script>window.print();<\/script>
-    </body></html>`;
+function shareBooking(id){
+  const b = allBookings.find(x=>x.id===id);
+  if(!b) return;
+  let num = prompt('WhatsApp number diye share korun (10 digit, jemon 9876543210):');
+  if(!num) return;
+  num = num.replace(/\D/g,'');
+  if(num.length===10) num = '91'+num;
+  if(num.length!==12){ alert('Sothik 10 digit WhatsApp number din.'); return; }
+
+  const addr = [b.addr_house,b.addr_street,b.addr_landmark,b.addr_city,b.addr_state,b.addr_pincode].filter(Boolean).join(', ');
+  const msg =
+`*MediFinder India — Lab Booking*
+
+Test: ${b.test_name}
+Price: ₹${b.test_price}
+Patient: ${b.patient_name}
+Date/Time: ${b.book_date||'—'} ${b.book_time||''}
+Address: ${addr||'—'}
+Status: ${b.status.toUpperCase()}
+
+Payment: ${b.payment_method.toUpperCase()} — ${b.payment_status}
+
+Any question hole call korun: 9593625498
+Dhonnobad MediFinder India bebohar korar jonyo!`;
+
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function openReceipt(id){
   const b = allBookings.find(x=>x.id===id);
   if(!b) return;
+  const addr = [b.addr_house,b.addr_street,b.addr_landmark,b.addr_city,b.addr_state,b.addr_pincode].filter(Boolean).join(', ');
   const w = window.open('', '_blank');
-  w.document.write(labReceiptHtml(b));
+  w.document.write(`
+    <html><head><title>Receipt - ${esc(b.test_name)}</title>
+    <style>
+      *{box-sizing:border-box;}
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:0;background:#f1f5f9;color:#1e293b;}
+      .receipt-wrap{max-width:640px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08);}
+      .receipt-head{background:linear-gradient(120deg,#111827,#e02020);padding:28px 30px;color:#fff;display:flex;align-items:center;gap:14px;}
+      .receipt-head img{width:52px;height:52px;border-radius:10px;background:#fff;object-fit:contain;padding:4px;}
+      .receipt-head .brand-name{font-size:21px;font-weight:800;letter-spacing:.4px;}
+      .receipt-head .brand-tag{font-size:11.5px;opacity:.85;margin-top:2px;}
+      .receipt-title{display:flex;justify-content:space-between;align-items:center;padding:18px 30px 0;}
+      .receipt-title h2{margin:0;font-size:17px;color:#e02020;}
+      .status-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;
+        background:${b.status==='accepted'?'#dcfce7':b.status==='cancelled'?'#fee2e2':'#fef3c7'};
+        color:${b.status==='accepted'?'#16a34a':b.status==='cancelled'?'#dc2626':'#b45309'};}
+      table{width:100%;border-collapse:collapse;margin:16px 0 4px;padding:0 30px;}
+      table td{padding:10px 30px;border-bottom:1px solid #f1f5f9;font-size:13.5px;}
+      table td:first-child{font-weight:700;width:170px;color:#64748b;}
+      .amount-row td{font-size:16px;font-weight:800;color:#e02020;border-bottom:none;padding-top:14px;}
+      .receipt-foot{background:#f8fafc;padding:20px 30px;margin-top:10px;border-top:1px dashed #e2e8f0;}
+      .foot-contact{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:#475569;margin-bottom:10px;}
+      .foot-contact span{display:flex;align-items:center;gap:6px;}
+      .thankyou{text-align:center;font-size:13px;font-weight:700;color:#e02020;padding:16px 30px 26px;}
+      .thankyou small{display:block;font-weight:400;color:#94a3b8;margin-top:3px;}
+      .print-hint{text-align:center;color:#94a3b8;font-size:11.5px;padding-bottom:16px;}
+      @media print{ body{background:#fff;} .print-hint{display:none;} .receipt-wrap{box-shadow:none;margin:0;border-radius:0;} }
+    </style></head><body>
+    <div class="receipt-wrap">
+      <div class="receipt-head">
+        <img src="1779304435608.png" alt="MediFinder">
+        <div>
+          <div class="brand-name">MEDIFINDER INDIA</div>
+          <div class="brand-tag">Your trusted healthcare delivery partner</div>
+        </div>
+      </div>
+      <div class="receipt-title">
+        <h2>Lab Booking Receipt</h2>
+        <span class="status-badge">${b.status}</span>
+      </div>
+      <table>
+        <tr><td>Test</td><td>${esc(b.test_name)}</td></tr>
+        <tr><td>Patient</td><td>${esc(b.patient_name)}</td></tr>
+        <tr><td>Phone</td><td>${esc(b.patient_phone||'—')}</td></tr>
+        <tr><td>Address</td><td>${esc(addr||'—')}</td></tr>
+        <tr><td>Date / Time</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
+        <tr><td>Payment</td><td>${b.payment_method.toUpperCase()} — ${b.payment_status}</td></tr>
+        <tr class="amount-row"><td>Total Amount</td><td>₹${b.test_price}</td></tr>
+      </table>
+      <div class="receipt-foot">
+        <div class="foot-contact">
+          <span>📧 medifinderindia.com</span>
+          <span>📞 Helpline: 9593625498</span>
+        </div>
+      </div>
+      <div class="thankyou">Thank you for choosing MediFinder India
+        <small>Visit again</small>
+      </div>
+      <div class="print-hint">Use your browser's Print → Save as PDF to download or share this receipt.</div>
+    </div>
+    <script>window.print();<\/script>
+    </body></html>`);
   w.document.close();
-}
-
-function shareBookingWhatsapp(id){
-  const b = allBookings.find(x=>x.id===id);
-  if(!b) return;
-  const num = prompt('Enter WhatsApp number to share this booking with (with country code, e.g. 9198XXXXXXXX):', b.patient_phone||'');
-  if(!num) return;
-  const clean = num.replace(/\D/g,'');
-  if(!clean){ alert('Please enter a valid number.'); return; }
-  const msg = [
-    '*MEDIFINDER INDIA — Lab Booking*',
-    `Test: ${b.test_name}`,
-    `Patient: ${b.patient_name}`,
-    `Date/Time: ${b.book_date||'—'} ${b.book_time||''}`,
-    `Status: ${b.status.toUpperCase()}`,
-    `Amount: ₹${b.test_price} (${b.payment_method.toUpperCase()} — ${b.payment_status})`,
-    '',
-    'Helpline: 9593625498',
-    'medifinderindia.com'
-  ].join('\n');
-  window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // ================= NURSING CONTROL =================
@@ -938,23 +941,66 @@ function openNurseReceipt(id){
   const w = window.open('', '_blank');
   w.document.write(`
     <html><head><title>Nurse Booking Receipt - ${esc(b.patient_name)}</title>
-    <style>body{font-family:sans-serif;padding:30px;color:#222;}h2{color:#e02020;}table{width:100%;border-collapse:collapse;margin-top:14px;}
-    td{padding:8px;border-bottom:1px solid #eee;}td:first-child{font-weight:700;width:200px;}</style></head><body>
-    <h2>MediFinder — Nurse Booking Receipt</h2>
-    <table>
-      <tr><td>Patient</td><td>${esc(b.patient_name)} (${b.patient_age||'—'} yrs, ${esc(b.gender||'—')})</td></tr>
-      <tr><td>Service</td><td>${esc(b.service_label)}</td></tr>
-      <tr><td>Rate × Duration</td><td>₹${b.rate} × ${b.duration} ${esc(b.rate_unit)}(s)</td></tr>
-      <tr><td>Subtotal</td><td>₹${b.subtotal}</td></tr>
-      <tr><td>Service Charge (10%)</td><td>₹${b.service_charge}</td></tr>
-      <tr><td>Total Paid</td><td><b>₹${b.total_amount}</b></td></tr>
-      <tr><td>Payment ID</td><td>${esc(b.razorpay_payment_id||'—')} (${b.payment_status})</td></tr>
-      <tr><td>Address</td><td>${esc(addr||'—')}</td></tr>
-      <tr><td>Schedule</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
-      <tr><td>Status</td><td>${b.status}</td></tr>
-      ${b.status==='approved' ? `<tr><td>Assigned Nurse</td><td>${esc(b.nurse_name||'—')} · ${esc(b.nurse_contact||'—')}</td></tr>` : ''}
-    </table>
-    <p style="margin-top:20px;color:#888;font-size:12px;">Use your browser's Print → Save as PDF to download or share this receipt.</p>
+    <style>
+      *{box-sizing:border-box;}
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:0;background:#f1f5f9;color:#1e293b;}
+      .receipt-wrap{max-width:640px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08);}
+      .receipt-head{background:linear-gradient(120deg,#111827,#e02020);padding:28px 30px;color:#fff;display:flex;align-items:center;gap:14px;}
+      .receipt-head img{width:52px;height:52px;border-radius:10px;background:#fff;object-fit:contain;padding:4px;}
+      .receipt-head .brand-name{font-size:21px;font-weight:800;letter-spacing:.4px;}
+      .receipt-head .brand-tag{font-size:11.5px;opacity:.85;margin-top:2px;}
+      .receipt-title{display:flex;justify-content:space-between;align-items:center;padding:18px 30px 0;}
+      .receipt-title h2{margin:0;font-size:17px;color:#e02020;}
+      .status-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;
+        background:${b.status==='approved'?'#dcfce7':b.status==='cancelled'?'#fee2e2':'#fef3c7'};
+        color:${b.status==='approved'?'#16a34a':b.status==='cancelled'?'#dc2626':'#b45309'};}
+      table{width:100%;border-collapse:collapse;margin:16px 0 4px;padding:0 30px;}
+      table td{padding:10px 30px;border-bottom:1px solid #f1f5f9;font-size:13.5px;}
+      table td:first-child{font-weight:700;width:190px;color:#64748b;}
+      .amount-row td{font-size:16px;font-weight:800;color:#e02020;border-bottom:none;padding-top:14px;}
+      .receipt-foot{background:#f8fafc;padding:20px 30px;margin-top:10px;border-top:1px dashed #e2e8f0;}
+      .foot-contact{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:#475569;margin-bottom:10px;}
+      .foot-contact span{display:flex;align-items:center;gap:6px;}
+      .thankyou{text-align:center;font-size:13px;font-weight:700;color:#e02020;padding:16px 30px 26px;}
+      .thankyou small{display:block;font-weight:400;color:#94a3b8;margin-top:3px;}
+      .print-hint{text-align:center;color:#94a3b8;font-size:11.5px;padding-bottom:16px;}
+      @media print{ body{background:#fff;} .print-hint{display:none;} .receipt-wrap{box-shadow:none;margin:0;border-radius:0;} }
+    </style></head><body>
+    <div class="receipt-wrap">
+      <div class="receipt-head">
+        <img src="1779304435608.png" alt="MediFinder">
+        <div>
+          <div class="brand-name">MEDIFINDER INDIA</div>
+          <div class="brand-tag">Your trusted healthcare delivery partner</div>
+        </div>
+      </div>
+      <div class="receipt-title">
+        <h2>Nurse Booking Receipt</h2>
+        <span class="status-badge">${b.status}</span>
+      </div>
+      <table>
+        <tr><td>Patient</td><td>${esc(b.patient_name)} (${b.patient_age||'—'} yrs, ${esc(b.gender||'—')})</td></tr>
+        <tr><td>Service</td><td>${esc(b.service_label)}</td></tr>
+        <tr><td>Rate × Duration</td><td>₹${b.rate} × ${b.duration} ${esc(b.rate_unit)}(s)</td></tr>
+        <tr><td>Subtotal</td><td>₹${b.subtotal}</td></tr>
+        <tr><td>Service Charge (10%)</td><td>₹${b.service_charge}</td></tr>
+        <tr><td>Payment ID</td><td>${esc(b.razorpay_payment_id||'—')} (${b.payment_status})</td></tr>
+        <tr><td>Address</td><td>${esc(addr||'—')}</td></tr>
+        <tr><td>Schedule</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
+        ${b.status==='approved' ? `<tr><td>Assigned Nurse</td><td>${esc(b.nurse_name||'—')} · ${esc(b.nurse_contact||'—')}</td></tr>` : ''}
+        <tr class="amount-row"><td>Total Paid</td><td>₹${b.total_amount}</td></tr>
+      </table>
+      <div class="receipt-foot">
+        <div class="foot-contact">
+          <span>📧 medifinderindia.com</span>
+          <span>📞 Helpline: 9593625498</span>
+        </div>
+      </div>
+      <div class="thankyou">Thank you for choosing MediFinder India
+        <small>Visit again</small>
+      </div>
+      <div class="print-hint">Use your browser's Print → Save as PDF to download or share this receipt.</div>
+    </div>
     <script>window.print();<\/script>
     </body></html>`);
   w.document.close();
@@ -971,8 +1017,7 @@ let ambFleetMarkers = {};
 
 function setAmbDriverFilter(f){
   ambDriverFilter = f;
-  document.querySelectorAll('#ambDriverList').forEach(()=>{});
-  document.querySelectorAll('#ambulance-section .lt-toolbar:first-of-type .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  document.querySelectorAll('#ambDriverToolbar .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
   renderAmbDrivers();
 }
 function setAmbBookingFilter(f){
@@ -1032,14 +1077,31 @@ function renderAmbDrivers(){
 }
 
 async function approveAmbDriver(id){
-  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:true }).eq('id', id);
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:true }).eq('id', id).select();
   if(error){ alert('Failed to approve: '+error.message); return; }
+  if(!data || data.length===0){
+    alert('Approve hoyni — Supabase RLS policy ambulance_drivers table e admin UPDATE ke block korche. adminuser SQL editor e ei policy ta run koro:\n\nCREATE POLICY "Admin can update ambulance drivers" ON ambulance_drivers FOR UPDATE TO authenticated USING (true) WITH CHECK (true);');
+    return;
+  }
+  // Optimistic update so UI reflects immediately without waiting for refetch
+  const idx = allAmbDrivers.findIndex(d=>d.id===id);
+  if(idx!==-1) allAmbDrivers[idx] = { ...allAmbDrivers[idx], ...data[0] };
+  document.getElementById('ambPendingDrivers').textContent = allAmbDrivers.filter(d=>!d.is_verified).length;
+  renderAmbDrivers();
   loadAmbDrivers();
 }
 async function revokeAmbDriver(id){
   if(!confirm('Revoke verification for this driver? They will be taken offline.')) return;
-  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:false, is_online:false }).eq('id', id);
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:false, is_online:false }).eq('id', id).select();
   if(error){ alert('Failed: '+error.message); return; }
+  if(!data || data.length===0){
+    alert('Revoke hoyni — RLS UPDATE policy check koro (upore approve-er note dekho).');
+    return;
+  }
+  const idx = allAmbDrivers.findIndex(d=>d.id===id);
+  if(idx!==-1) allAmbDrivers[idx] = { ...allAmbDrivers[idx], ...data[0] };
+  document.getElementById('ambPendingDrivers').textContent = allAmbDrivers.filter(d=>!d.is_verified).length;
+  renderAmbDrivers();
   loadAmbDrivers();
 }
 async function deleteAmbDriver(id){

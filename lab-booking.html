@@ -712,6 +712,7 @@ confirmBtn.addEventListener("click", async ()=>{
   }
 
   const payload = {
+    booking_id: `LAB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
     test_id: currentTest.id,
     test_name: currentTest.name,
     test_price: currentTest.price,
@@ -733,7 +734,7 @@ confirmBtn.addEventListener("click", async ()=>{
     payment_method: selectedPaymentMethod,
     payment_status: paymentStatus,
     razorpay_payment_id: razorpayPaymentId,
-    status: 'pending'
+    status: 'Pending'
   };
 
   const { error } = await supabaseClient.from('lab_bookings').insert(payload);
@@ -782,16 +783,19 @@ async function loadMyBookings(){
 
   list.innerHTML = data.map(b=>{
     const addr = [b.addr_house, b.addr_street, b.addr_city, b.addr_pincode].filter(Boolean).join(", ");
+    // b.status is the DB's own capitalized label (Pending/Confirmed/Sample Collected/Processing/Completed/Cancelled);
+    // map it to the existing lowercase pending/accepted/cancelled CSS classes for styling only.
+    const styleClass = b.status==='Pending' ? 'pending' : b.status==='Cancelled' ? 'cancelled' : 'accepted';
     return `
       <div class="booking-row">
         <div class="booking-row-top">
           <b>${esc(b.test_name)}</b>
-          <span class="status-tag ${b.status}">${b.status}</span>
+          <span class="status-tag ${styleClass}">${esc(b.status)}</span>
         </div>
         <div class="booking-row-meta">₹${b.test_price} · ${esc(b.book_date||'')} ${esc(b.book_time||'')} · ${b.payment_method.toUpperCase()} (${b.payment_status})</div>
         <div class="booking-row-meta">${esc(addr)}</div>
         <div class="booking-row-actions">
-          ${b.status==='pending' ? `<button class="cancel-btn" onclick="cancelMyBooking('${b.id}')">Cancel Booking</button>` : ''}
+          ${b.status==='Pending' ? `<button class="cancel-btn" onclick="cancelMyBooking('${b.id}')">Cancel Booking</button>` : ''}
           <button class="receipt-btn" onclick='shareReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Receipt</button>
         </div>
       </div>`;
@@ -800,7 +804,7 @@ async function loadMyBookings(){
 
 async function cancelMyBooking(id){
   if(!confirm('Cancel this booking?')) return;
-  const { error } = await supabaseClient.from('lab_bookings').update({status:'cancelled'}).eq('id', id).eq('status','pending');
+  const { error } = await supabaseClient.from('lab_bookings').update({status:'Cancelled'}).eq('id', id).eq('status','Pending');
   if(error){ alert(error.message); return; }
   loadMyBookings();
 }
