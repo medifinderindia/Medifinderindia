@@ -285,7 +285,7 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
       <input type="text" id="ambPincodeSearch" placeholder="Search by pincode — which area's ambulances?" inputmode="numeric" oninput="renderAmbDrivers()" style="flex:1;min-width:220px;padding:11px 14px;border:1px solid #dcdde1;border-radius:8px;">
     </div>
-    <div class="lt-toolbar">
+    <div class="lt-toolbar" id="ambDriverToolbar">
       <button class="filter-btn active" data-f="all" onclick="setAmbDriverFilter('all')">All Drivers</button>
       <button class="filter-btn" data-f="pending" onclick="setAmbDriverFilter('pending')">Pending KYC</button>
       <button class="filter-btn" data-f="verified" onclick="setAmbDriverFilter('verified')">Verified</button>
@@ -901,8 +901,7 @@ let ambFleetMarkers = {};
 
 function setAmbDriverFilter(f){
   ambDriverFilter = f;
-  document.querySelectorAll('#ambDriverList').forEach(()=>{});
-  document.querySelectorAll('#ambulance-section .lt-toolbar:first-of-type .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  document.querySelectorAll('#ambDriverToolbar .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
   renderAmbDrivers();
 }
 function setAmbBookingFilter(f){
@@ -962,14 +961,31 @@ function renderAmbDrivers(){
 }
 
 async function approveAmbDriver(id){
-  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:true }).eq('id', id);
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:true }).eq('id', id).select();
   if(error){ alert('Failed to approve: '+error.message); return; }
+  if(!data || data.length===0){
+    alert('Approve hoyni — Supabase RLS policy ambulance_drivers table e admin UPDATE ke block korche. adminuser SQL editor e ei policy ta run koro:\n\nCREATE POLICY "Admin can update ambulance drivers" ON ambulance_drivers FOR UPDATE TO authenticated USING (true) WITH CHECK (true);');
+    return;
+  }
+  // Optimistic update so UI reflects immediately without waiting for refetch
+  const idx = allAmbDrivers.findIndex(d=>d.id===id);
+  if(idx!==-1) allAmbDrivers[idx] = { ...allAmbDrivers[idx], ...data[0] };
+  document.getElementById('ambPendingDrivers').textContent = allAmbDrivers.filter(d=>!d.is_verified).length;
+  renderAmbDrivers();
   loadAmbDrivers();
 }
 async function revokeAmbDriver(id){
   if(!confirm('Revoke verification for this driver? They will be taken offline.')) return;
-  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:false, is_online:false }).eq('id', id);
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:false, is_online:false }).eq('id', id).select();
   if(error){ alert('Failed: '+error.message); return; }
+  if(!data || data.length===0){
+    alert('Revoke hoyni — RLS UPDATE policy check koro (upore approve-er note dekho).');
+    return;
+  }
+  const idx = allAmbDrivers.findIndex(d=>d.id===id);
+  if(idx!==-1) allAmbDrivers[idx] = { ...allAmbDrivers[idx], ...data[0] };
+  document.getElementById('ambPendingDrivers').textContent = allAmbDrivers.filter(d=>!d.is_verified).length;
+  renderAmbDrivers();
   loadAmbDrivers();
 }
 async function deleteAmbDriver(id){
