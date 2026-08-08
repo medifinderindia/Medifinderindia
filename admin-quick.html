@@ -11,8 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js?v=13"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
   /* ---- Ambulance Control additions ---- */
   .amb-driver-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.03);margin-bottom:14px;border-left:5px solid #cbd5e1;}
@@ -26,7 +26,8 @@
   .amb-driver-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
   .amb-online-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#cbd5e1;margin-right:5px;}
   .amb-online-dot.on{background:#16a34a;}
-  #ambFleetMap{width:100%;height:320px;border-radius:12px;margin-top:14px;}
+  #ambFleetMap{width:100%;height:320px;border-radius:12px;margin-top:14px;position:relative;overflow:hidden;z-index:1;}
+  #ambFleetMap .leaflet-container{width:100%;height:100%;border-radius:12px;}
   .amb-summary-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
   .amb-summary-chip{background:#fff;border-radius:10px;padding:12px 18px;box-shadow:0 2px 6px rgba(0,0,0,.03);min-width:130px;}
   .amb-summary-chip .n{font-size:20px;font-weight:800;color:var(--medi-color);}
@@ -232,6 +233,31 @@
       <div class="form-hint" style="margin-top:8px;">Nurse booking is only available to users at these pincodes. Empty = no pincode is open yet.</div>
     </div>
 
+    <div class="card">
+      <h3 style="margin-bottom:14px;color:var(--finder-color);">Nurse Directory</h3>
+      <p class="form-hint" style="margin:-6px 0 14px;">Add a nurse here once — then pick her from the list when approving any booking, instead of retyping her details every time.</p>
+      <div class="form-grid">
+        <div class="form-group"><label>Nurse Name</label><input type="text" id="dirName" placeholder="e.g. Sister Anjali Roy"></div>
+        <div class="form-group"><label>Contact No.</label><input type="text" id="dirContact" placeholder="e.g. 98XXXXXXXX"></div>
+        <div class="form-group"><label>WhatsApp No. (with country code)</label><input type="text" id="dirWhatsapp" placeholder="e.g. 9198XXXXXXXX"></div>
+        <div class="form-group"><label>Qualification</label><input type="text" id="dirEdu" placeholder="e.g. B.Sc Nursing, GNM"></div>
+        <div class="form-group">
+          <label>Nurse Photo</label>
+          <div class="file-mini" id="dirPhotoBox" onclick="document.getElementById('dirPhoto').click()">📎 Upload nurse photo</div>
+          <input type="file" id="dirPhoto" accept="image/*" style="display:none;">
+        </div>
+        <div class="form-group">
+          <label>Degree / Certificate</label>
+          <div class="file-mini" id="dirDegreeBox" onclick="document.getElementById('dirDegree').click()">📎 Upload degree/certificate</div>
+          <input type="file" id="dirDegree" accept="image/*,.pdf" style="display:none;">
+        </div>
+      </div>
+      <div class="button-group" style="margin-top:10px;">
+        <button class="btn btn-primary" id="saveDirBtn" onclick="saveDirNurse()"><i class="fa-solid fa-user-nurse"></i> Add to Directory</button>
+      </div>
+      <div id="nurseDirList" style="margin-top:18px;"></div>
+    </div>
+
     <div class="lt-toolbar">
       <button class="filter-btn active" data-f="all" onclick="setNurseFilter('all')">All</button>
       <button class="filter-btn" data-f="pending" onclick="setNurseFilter('pending')">Pending</button>
@@ -256,6 +282,9 @@
       <div class="amb-summary-chip"><div class="n" id="ambActiveRides">0</div><div class="l">Active Rides</div></div>
     </div>
 
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <input type="text" id="ambPincodeSearch" placeholder="Search by pincode — which area's ambulances?" inputmode="numeric" oninput="renderAmbDrivers()" style="flex:1;min-width:220px;padding:11px 14px;border:1px solid #dcdde1;border-radius:8px;">
+    </div>
     <div class="lt-toolbar">
       <button class="filter-btn active" data-f="all" onclick="setAmbDriverFilter('all')">All Drivers</button>
       <button class="filter-btn" data-f="pending" onclick="setAmbDriverFilter('pending')">Pending KYC</button>
@@ -305,7 +334,7 @@ function switchTab(e, tab){
   document.getElementById('nursing-section').classList.toggle('active-section', tab==='nursing');
   document.getElementById('ambulance-section').classList.toggle('active-section', tab==='ambulance');
   if(tab==='bookings') loadBookings();
-  if(tab==='nursing'){ loadPincodes(); loadNurseBookings(); }
+  if(tab==='nursing'){ loadPincodes(); loadNurseDirectory(); loadNurseBookings(); }
   if(tab==='ambulance'){ loadAmbDrivers(); loadAmbBookings(); setTimeout(initAmbFleetMap, 150); }
 }
 
@@ -399,11 +428,14 @@ async function saveTest(){
   const price = parseFloat(document.getElementById('tPrice').value) || 0;
   if(!name || !price){ alert('Test name and selling price are required.'); return; }
 
+  const offPercent = oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+
   const payload = {
     name,
     items: document.getElementById('tItems').value.split(',').map(s=>s.trim()).filter(Boolean),
     old_price: oldPrice,
     price,
+    off_percent: offPercent,
     fasting: document.getElementById('tFasting').value,
     bg_image_url: document.getElementById('tImage').value.trim() || null,
     pincodes: document.getElementById('tPincodes').value.split(',').map(s=>s.trim()).filter(Boolean),
@@ -432,8 +464,13 @@ async function toggleTestActive(id, newVal){
 
 async function deleteTest(id){
   if(!confirm('Delete this test permanently?')) return;
-  const { error } = await supabaseClient.from('lab_tests').delete().eq('id', id);
-  if(error){ alert(error.message); return; }
+  const { data, error } = await supabaseClient.from('lab_tests').delete().eq('id', id).select();
+  if(error){ alert('Could not delete: ' + error.message); return; }
+  if(!data || data.length===0){
+    alert('Delete was blocked by the database (0 rows removed) — this table is missing a DELETE permission in Supabase. Run the DELETE policy fix from admin-quick-fixes.sql, then try again.');
+    loadTests();
+    return;
+  }
   loadTests();
 }
 
@@ -559,6 +596,97 @@ async function removePincode(pin){
   loadPincodes();
 }
 
+// ---- Nurse Directory ----
+let allNurseDirectory = [];
+let pickedDirUrls = {}; // bookingId -> {photo_url, degree_photo_url} when picked from directory
+
+async function loadNurseDirectory(){
+  const { data, error } = await supabaseClient.from('nurses').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return; }
+  allNurseDirectory = data || [];
+  renderNurseDirectory();
+}
+
+function renderNurseDirectory(){
+  const wrap = document.getElementById('nurseDirList');
+  if(!wrap) return;
+  if(!allNurseDirectory.length){ wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-nurse"></i>No nurses added yet.</div>`; return; }
+  wrap.innerHTML = allNurseDirectory.map(n=>{
+    const wa = n.whatsapp_no ? `<a class="btn" style="background:#dcfce7;color:#16a34a;text-decoration:none;" href="https://wa.me/${esc(String(n.whatsapp_no).replace(/\D/g,''))}" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : '';
+    return `
+    <div class="nurse-card" style="border-left-color:#cbd5e1;">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+        ${n.photo_url ? `<img src="${esc(n.photo_url)}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : ''}
+        <div style="flex:1;min-width:180px;">
+          <h4 style="margin:0 0 4px;font-size:15px;color:var(--finder-color);">${esc(n.name)}</h4>
+          <div class="test-meta">${esc(n.qualification||'—')}</div>
+          <div class="test-meta">${esc(n.contact_no||'—')}</div>
+        </div>
+        ${n.degree_photo_url ? `<a class="rx-thumb-link" href="${esc(n.degree_photo_url)}" target="_blank"><i class="fa-solid fa-file-medical"></i> Degree</a>` : ''}
+      </div>
+      <div class="booking-actions">
+        ${wa}
+        <button class="icon-btn del" onclick="deleteDirNurse('${n.id}')"><i class="fa-solid fa-trash"></i> Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveDirNurse(){
+  const name = document.getElementById('dirName').value.trim();
+  if(!name){ alert('Nurse name is required.'); return; }
+  const btn = document.getElementById('saveDirBtn');
+  btn.disabled = true;
+
+  const photoFile = document.getElementById('dirPhoto').files[0];
+  const degreeFile = document.getElementById('dirDegree').files[0];
+  const [photoUrl, degreeUrl] = await Promise.all([
+    photoFile ? uploadNurseDoc(photoFile, 'nurse-photos') : Promise.resolve(null),
+    degreeFile ? uploadNurseDoc(degreeFile, 'nurse-id-proof') : Promise.resolve(null)
+  ]);
+
+  const payload = {
+    name,
+    contact_no: document.getElementById('dirContact').value.trim() || null,
+    whatsapp_no: document.getElementById('dirWhatsapp').value.trim() || null,
+    qualification: document.getElementById('dirEdu').value.trim() || null,
+    photo_url: photoUrl,
+    degree_photo_url: degreeUrl
+  };
+  const { error } = await supabaseClient.from('nurses').insert(payload);
+  btn.disabled = false;
+  if(error){ alert('Could not save: ' + error.message); return; }
+
+  document.getElementById('dirName').value = '';
+  document.getElementById('dirContact').value = '';
+  document.getElementById('dirWhatsapp').value = '';
+  document.getElementById('dirEdu').value = '';
+  document.getElementById('dirPhoto').value = '';
+  document.getElementById('dirDegree').value = '';
+  document.getElementById('dirPhotoBox').classList.remove('has-file');
+  document.getElementById('dirPhotoBox').textContent = '📎 Upload nurse photo';
+  document.getElementById('dirDegreeBox').classList.remove('has-file');
+  document.getElementById('dirDegreeBox').textContent = '📎 Upload degree/certificate';
+  loadNurseDirectory();
+}
+
+async function deleteDirNurse(id){
+  if(!confirm('Remove this nurse from the directory?')) return;
+  const { error } = await supabaseClient.from('nurses').delete().eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadNurseDirectory();
+}
+
+function pickDirNurse(bookingId, nurseId){
+  if(!nurseId){ delete pickedDirUrls[bookingId]; return; }
+  const n = allNurseDirectory.find(x=>x.id===nurseId);
+  if(!n) return;
+  document.getElementById(`n-name-${bookingId}`).value = n.name || '';
+  document.getElementById(`n-contact-${bookingId}`).value = n.contact_no || '';
+  document.getElementById(`n-edu-${bookingId}`).value = n.qualification || '';
+  pickedDirUrls[bookingId] = { photo_url: n.photo_url || null, degree_photo_url: n.degree_photo_url || null, whatsapp_no: n.whatsapp_no || null, nurse_id: n.id };
+}
+
 // ---- Nurse bookings ----
 let allNurseBookings = [];
 let nurseFilter = 'all';
@@ -595,6 +723,13 @@ function renderNurseBookings(){
       <div class="assign-form" id="assign-${b.id}">
         <div style="font-size:12.5px;font-weight:700;color:var(--medi-color);margin-bottom:10px;">Assign Nurse & Approve</div>
         <div class="form-grid">
+          <div style="grid-column:1/-1;">
+            <label>Select from Nurse Directory (optional — autofills the fields below)</label>
+            <select id="n-pick-${b.id}" onchange="pickDirNurse('${b.id}', this.value)" style="width:100%;padding:9px 12px;border:1px solid #dcdde1;border-radius:8px;font-size:13px;">
+              <option value="">— choose a saved nurse —</option>
+              ${allNurseDirectory.map(n=>`<option value="${n.id}">${esc(n.name)}</option>`).join('')}
+            </select>
+          </div>
           <div><label>Nurse Name *</label><input type="text" id="n-name-${b.id}" placeholder="e.g. Sister Anjali Roy"></div>
           <div><label>Contact</label><input type="text" id="n-contact-${b.id}" placeholder="e.g. 98XXXXXXXX"></div>
           <div><label>Email</label><input type="text" id="n-email-${b.id}" placeholder="e.g. anjali@example.com"></div>
@@ -645,6 +780,7 @@ function renderNurseBookings(){
         ${b.status==='approved' ? `<div class="nurse-bill"><b>Assigned:</b> ${esc(b.nurse_name||'—')} · ${esc(b.nurse_contact||'—')} · ${esc(b.nurse_qualification||'—')}</div>` : ''}
         <div class="booking-actions">
           ${b.contact_no ? `<a class="btn" style="background:#dcfce7;color:#16a34a;text-decoration:none;" href="tel:${esc(b.contact_no)}"><i class="fa-solid fa-phone"></i> Call</a>` : ''}
+          ${b.status==='approved' && b.nurse_whatsapp ? `<a class="btn" style="background:#dcfce7;color:#16a34a;text-decoration:none;" href="https://wa.me/${esc(String(b.nurse_whatsapp).replace(/\D/g,''))}" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp Nurse</a>` : ''}
           <button class="btn" style="background:#e2e8f0;" onclick="openNurseReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> Receipt</button>
         </div>
         ${assignForm}
@@ -671,17 +807,26 @@ document.addEventListener('change', (e)=>{
     const box = document.getElementById(e.target.id.replace('n-photo-','n-photo-box-'));
     if(e.target.files[0]){ box.classList.add('has-file'); box.textContent = '✅ ' + e.target.files[0].name; }
   }
+  if(e.target.id === 'dirPhoto' && e.target.files[0]){
+    const box = document.getElementById('dirPhotoBox');
+    box.classList.add('has-file'); box.textContent = '✅ ' + e.target.files[0].name;
+  }
+  if(e.target.id === 'dirDegree' && e.target.files[0]){
+    const box = document.getElementById('dirDegreeBox');
+    box.classList.add('has-file'); box.textContent = '✅ ' + e.target.files[0].name;
+  }
 });
 
 async function approveNurseBooking(id){
   const name = document.getElementById(`n-name-${id}`).value.trim();
   if(!name){ alert('Nurse name is required to approve.'); return; }
 
+  const picked = pickedDirUrls[id];
   const aadharFile = document.getElementById(`n-aadhar-${id}`).files[0];
   const photoFile = document.getElementById(`n-photo-${id}`).files[0];
   const [aadharUrl, photoUrl] = await Promise.all([
-    aadharFile ? uploadNurseDoc(aadharFile, 'nurse-id-proof') : Promise.resolve(null),
-    photoFile ? uploadNurseDoc(photoFile, 'nurse-photos') : Promise.resolve(null)
+    aadharFile ? uploadNurseDoc(aadharFile, 'nurse-id-proof') : Promise.resolve(picked ? picked.degree_photo_url : null),
+    photoFile ? uploadNurseDoc(photoFile, 'nurse-photos') : Promise.resolve(picked ? picked.photo_url : null)
   ]);
 
   const payload = {
@@ -694,10 +839,13 @@ async function approveNurseBooking(id){
     nurse_qualification: document.getElementById(`n-edu-${id}`).value.trim() || null,
     nurse_courses: document.getElementById(`n-courses-${id}`).value.trim() || null,
     nurse_aadhar_url: aadharUrl,
-    nurse_photo_url: photoUrl
+    nurse_photo_url: photoUrl,
+    nurse_whatsapp: picked ? picked.whatsapp_no : null,
+    nurse_id: picked ? picked.nurse_id : null
   };
   const { error } = await supabaseClient.from('nurse_bookings').update(payload).eq('id', id);
   if(error){ alert(error.message); return; }
+  delete pickedDirUrls[id];
   loadNurseBookings();
 }
 
@@ -775,6 +923,9 @@ function renderAmbDrivers(){
   if(ambDriverFilter==='pending') list = list.filter(d=>!d.is_verified);
   if(ambDriverFilter==='verified') list = list.filter(d=>d.is_verified);
 
+  const pinQuery = (document.getElementById('ambPincodeSearch')?.value || '').trim();
+  if(pinQuery) list = list.filter(d=> String(d.pincode||'').includes(pinQuery));
+
   const wrap = document.getElementById('ambDriverList');
   if(list.length===0){ wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-medical"></i>No drivers found.</div>`; return; }
 
@@ -787,6 +938,7 @@ function renderAmbDrivers(){
       <div class="amb-driver-grid">
         <div><b>Phone</b><span>${esc(d.phone)}</span></div>
         <div><b>Plate Number</b><span>${esc(d.plate_number)}</span></div>
+        <div><b>Pincode</b><span>${esc(d.pincode||'—')}</span></div>
         <div><b>Wallet Due (5%)</b><span>₹${Number(d.wallet_due||0).toFixed(2)}</span></div>
         <div><b>Total Rides</b><span>${d.total_rides||0}</span></div>
       </div>
@@ -823,9 +975,17 @@ async function deleteAmbDriver(id){
 
 function initAmbFleetMap(){
   const el = document.getElementById('ambFleetMap');
-  if(!el || ambFleetMapObj) { plotAmbFleet(); return; }
-  ambFleetMapObj = L.map(el, { zoomControl:true, attributionControl:false }).setView([22.5726, 88.3639], 11); // default West Bengal view
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(ambFleetMapObj);
+  if(!el) return;
+  if(!ambFleetMapObj){
+    ambFleetMapObj = L.map(el, { zoomControl:true, attributionControl:false }).setView([22.5726, 88.3639], 11); // default West Bengal view
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(ambFleetMapObj);
+  }
+  // resize a few times as the tab/section finishes laying out — a single early
+  // invalidateSize() can run before the container has its real width/height,
+  // which left the map looking cut off/squashed until the window was resized.
+  requestAnimationFrame(()=>ambFleetMapObj.invalidateSize());
+  setTimeout(()=>ambFleetMapObj.invalidateSize(), 200);
+  setTimeout(()=>ambFleetMapObj.invalidateSize(), 500);
   plotAmbFleet();
 }
 function plotAmbFleet(){
@@ -835,7 +995,14 @@ function plotAmbFleet(){
     if(!online.find(d=>d.id===id)){ ambFleetMapObj.removeLayer(ambFleetMarkers[id]); delete ambFleetMarkers[id]; }
   });
   online.forEach(d=>{
-    const icon = L.divIcon({ className:'', html:'<div style="font-size:22px;">🚑</div>' });
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:34px;height:34px;background:#e02020;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35);">
+              <i class="fa-solid fa-car" style="color:#fff;font-size:16px;"></i>
+            </div>`,
+      iconSize:[34,34],
+      iconAnchor:[17,17]
+    });
     if(ambFleetMarkers[d.id]) ambFleetMarkers[d.id].setLatLng([d.current_lat, d.current_lon]);
     else ambFleetMarkers[d.id] = L.marker([d.current_lat, d.current_lon], { icon }).addTo(ambFleetMapObj).bindPopup(`${esc(d.driver_name)} — ${esc(d.plate_number)}`);
   });
@@ -890,6 +1057,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   supabaseClient.channel('nurse_bookings_admin')
     .on('postgres_changes', {event:'*', schema:'public', table:'nurse_bookings'}, ()=>{
       if(document.getElementById('nursing-section').classList.contains('active-section')) loadNurseBookings();
+    })
+    .subscribe();
+
+  supabaseClient.channel('nurses_directory_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'nurses'}, ()=>{
+      if(document.getElementById('nursing-section').classList.contains('active-section')) loadNurseDirectory();
     })
     .subscribe();
 
