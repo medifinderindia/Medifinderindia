@@ -432,6 +432,7 @@ async function saveTest(){
 
   const payload = {
     name,
+    test_name: name,
     items: document.getElementById('tItems').value.split(',').map(s=>s.trim()).filter(Boolean),
     old_price: oldPrice,
     price,
@@ -441,6 +442,11 @@ async function saveTest(){
     pincodes: document.getElementById('tPincodes').value.split(',').map(s=>s.trim()).filter(Boolean),
     active: document.getElementById('tActive').checked
   };
+  if(!id){
+    // test_code is only generated for a brand-new test — keep the original
+    // code on edits instead of overwriting it every save
+    payload.test_code = `LAB-${Date.now()}`;
+  }
 
   const btn = document.getElementById('saveTestBtn');
   btn.disabled = true;
