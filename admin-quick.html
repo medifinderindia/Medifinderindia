@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#e02020">
+<title>MediFinder Admin — Lab Tests</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="adminuser.css?v=13">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js?v=13"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  /* ---- Ambulance Control additions ---- */
+  .amb-driver-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.03);margin-bottom:14px;border-left:5px solid #cbd5e1;}
+  .amb-driver-card.pending{border-left-color:#f59e0b;}
+  .amb-driver-card.verified{border-left-color:#16a34a;}
+  .amb-driver-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+  .amb-driver-top h4{margin:0;font-size:16px;color:var(--finder-color);}
+  .amb-driver-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:13px;color:#475569;margin:10px 0;}
+  .amb-driver-grid b{display:block;color:#1e293b;font-size:12px;margin-bottom:2px;}
+  .amb-kyc-thumb{width:100%;max-width:160px;border-radius:8px;display:block;margin-top:4px;}
+  .amb-driver-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .amb-online-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#cbd5e1;margin-right:5px;}
+  .amb-online-dot.on{background:#16a34a;}
+  #ambFleetMap{width:100%;height:320px;border-radius:12px;margin-top:14px;}
+  .amb-summary-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+  .amb-summary-chip{background:#fff;border-radius:10px;padding:12px 18px;box-shadow:0 2px 6px rgba(0,0,0,.03);min-width:130px;}
+  .amb-summary-chip .n{font-size:20px;font-weight:800;color:var(--medi-color);}
+  .amb-summary-chip .l{font-size:11.5px;color:#7f8c8d;}
+</style>
+  /* ---- page-specific additions on top of adminuser.css ---- */
+  .lt-toolbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .lt-toolbar button.filter-btn{
+    background:#e2e8f0;color:#1e293b;border:none;padding:9px 16px;border-radius:20px;
+    font-weight:600;font-size:13.5px;cursor:pointer;transition:.2s;
+  }
+  .lt-toolbar button.filter-btn.active{background:var(--medi-color);color:#fff;}
+
+  .test-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-top:20px;}
+  .test-card{background:#fff;border:1px solid #edf2f7;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.03);}
+  .test-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .test-thumb{width:48px;height:48px;border-radius:50%;object-fit:cover;background:#f4f7f9;border:2px solid var(--medi-color);flex-shrink:0;}
+  .test-thumb.placeholder{display:flex;align-items:center;justify-content:center;color:#c8ccd4;font-size:18px;}
+  .test-card-head h4{margin:0;font-size:15px;color:var(--finder-color);word-break:break-word;}
+  .test-meta{font-size:12.5px;color:#7f8c8d;line-height:1.6;word-break:break-word;}
+  .test-price-line{margin:8px 0;font-weight:700;color:var(--medi-color);}
+  .test-price-line s{color:#a0aec0;font-weight:400;margin-right:6px;}
+  .pin-chip{display:inline-block;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin:2px 3px 0 0;}
+  .test-card-actions{display:flex;gap:8px;margin-top:12px;}
+  .icon-btn{border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}
+  .icon-btn.edit{background:#dbeafe;color:#1d4ed8;}
+  .icon-btn.del{background:#fee2e2;color:#dc2626;}
+  .icon-btn.toggle-on{background:#dcfce7;color:#16a34a;}
+  .icon-btn.toggle-off{background:#f1f5f9;color:#64748b;}
+
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:640px){.form-grid{grid-template-columns:1fr;}}
+  .form-hint{font-size:12px;color:#94a3b8;margin-top:4px;}
+
+  .booking-card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 6px rgba(0,0,0,.03);margin-bottom:14px;border-left:5px solid #cbd5e1;}
+  .booking-card.pending{border-left-color:#f59e0b;}
+  .booking-card.accepted{border-left-color:#16a34a;}
+  .booking-card.cancelled{border-left-color:#dc2626;}
+  .booking-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+  .booking-top h4{margin:0;font-size:16px;color:var(--finder-color);word-break:break-word;}
+  .status-pill{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+  .status-pill.pending{background:#fef3c7;color:#b45309;}
+  .status-pill.accepted{background:#dcfce7;color:#16a34a;}
+  .status-pill.cancelled{background:#fee2e2;color:#dc2626;}
+  .booking-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:13px;color:#475569;margin:10px 0;}
+  .booking-grid b{display:block;color:#1e293b;font-size:12px;margin-bottom:2px;}
+  .booking-grid span, .booking-grid div{word-break:break-word;overflow-wrap:break-word;}
+  .rx-thumb-link{display:inline-flex;align-items:center;gap:6px;color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;}
+  .booking-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;}
+  .empty-state i{font-size:34px;margin-bottom:12px;display:block;}
+
+  /* fix long text ever breaking the layout, mobile + desktop */
+  .card, .test-card, .booking-card, .custom-table td, .custom-table th{
+    overflow-wrap:break-word;word-break:break-word;
+  }
+  .table-container{max-width:100%;}
+
+  /* ---- Nursing Control additions ---- */
+  .pin-chip-admin{
+    display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:600;
+    padding:4px 10px 4px 12px;border-radius:14px;margin:3px 4px 0 0;
+  }
+  .pin-chip-admin button{border:none;background:none;color:#4338ca;cursor:pointer;font-size:13px;padding:0;line-height:1;}
+  .nurse-card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 6px rgba(0,0,0,.03);margin-bottom:14px;border-left:5px solid #cbd5e1;}
+  .nurse-card.pending{border-left-color:#f59e0b;}
+  .nurse-card.approved{border-left-color:#16a34a;}
+  .nurse-card.cancelled{border-left-color:#dc2626;}
+  .nurse-bill{background:#f8fafc;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px;}
+  .nurse-bill .row-line{display:flex;justify-content:space-between;padding:2px 0;color:#475569;}
+  .nurse-bill .row-line.total{font-weight:800;color:var(--medi-color);border-top:1px dashed #cbd5e1;margin-top:4px;padding-top:6px;}
+  .assign-form{margin-top:14px;border-top:1px dashed #e2e8f0;padding-top:14px;}
+  .assign-form .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.assign-form .form-grid{grid-template-columns:1fr;}}
+  .assign-form input[type="text"], .assign-form input[type="date"]{
+    width:100%;padding:9px 12px;border:1px solid #dcdde1;border-radius:8px;font-size:13px;
+  }
+  .assign-form label{display:block;font-size:11.5px;font-weight:700;color:#5b463d;margin-bottom:4px;}
+  .file-mini{border:1.5px dashed #dcdde1;border-radius:8px;padding:10px;text-align:center;font-size:12px;color:#7a5f52;cursor:pointer;}
+  .file-mini.has-file{border-color:#16a34a;color:#16a34a;font-weight:700;}
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" id="menuToggle"><i class="fa-solid fa-bars"></i></button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo-container">
+    <img src="1779304435608.png" class="admin-logo" alt="logo">
+    <div class="logo-text"><span class="medi">MEDI</span><span class="finder">FINDER</span></div>
+  </div>
+  <hr class="nav-divider">
+  <nav class="nav-menu">
+    <button class="nav-item" onclick="window.location.href='admin-dashboard.html'"><i class="fa-solid fa-gauge"></i> Dashboard</button>
+    <button class="nav-item" onclick="window.location.href='adminuser.html'"><i class="fa-solid fa-users"></i> Admin Users</button>
+    <button class="nav-item active" data-tab="tests" onclick="switchTab(event,'tests')"><i class="fa-solid fa-flask"></i> Lab Tests</button>
+    <button class="nav-item" data-tab="bookings" onclick="switchTab(event,'bookings')"><i class="fa-solid fa-clipboard-list"></i> Lab Bookings</button>
+    <button class="nav-item" data-tab="nursing" onclick="switchTab(event,'nursing')"><i class="fa-solid fa-user-nurse"></i> Nursing Control</button>
+    <button class="nav-item" data-tab="ambulance" onclick="switchTab(event,'ambulance')"><i class="fa-solid fa-truck-medical"></i> Ambulance Control</button>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="lab-booking.html" class="role-btn user-btn" style="text-decoration:none;"><i class="fa-solid fa-eye"></i> View User Page</a>
+  </div>
+</aside>
+
+<main class="main-content">
+
+  <!-- ================= TESTS TAB ================= -->
+  <section id="tests-section" class="dashboard-section active-section">
+    <div class="section-header">
+      <h2>Lab Tests</h2>
+      <p>Add a test and it appears on the user booking page immediately — nothing shows there until you add it here.</p>
+    </div>
+
+    <div class="card">
+      <h3 id="formTitle" style="margin-bottom:18px;color:var(--finder-color);">Add New Test</h3>
+      <input type="hidden" id="testId">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Test Name</label>
+          <input type="text" id="tName" placeholder="e.g. Full Body Health Checkup">
+        </div>
+        <div class="form-group">
+          <label>Included Items (comma separated)</label>
+          <input type="text" id="tItems" placeholder="e.g. CBC, Thyroid Profile, Lipid Profile">
+        </div>
+        <div class="form-group">
+          <label>Old Price (₹)</label>
+          <input type="text" id="tOldPrice" inputmode="numeric" placeholder="e.g. 1499">
+        </div>
+        <div class="form-group">
+          <label>Selling Price (₹)</label>
+          <input type="text" id="tPrice" inputmode="numeric" placeholder="e.g. 999">
+          <div class="form-hint">Offer % is calculated automatically from these two prices.</div>
+        </div>
+        <div class="form-group">
+          <label>Fasting</label>
+          <select id="tFasting">
+            <option value="after">No fasting needed (after food)</option>
+            <option value="before">Fasting required (before food)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Background Image Link</label>
+          <input type="text" id="tImage" placeholder="https://... (shown as a round image on the test card)">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Serviceable Pincodes (comma separated — leave empty to serve everywhere)</label>
+          <input type="text" id="tPincodes" placeholder="e.g. 711101, 700001, 711201">
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600;">
+            <input type="checkbox" id="tActive" checked style="width:auto;"> Active (visible to users)
+          </label>
+        </div>
+      </div>
+      <div class="button-group" style="margin-top:10px;">
+        <button class="btn btn-primary" id="saveTestBtn" onclick="saveTest()"><i class="fa-solid fa-floppy-disk"></i> Save Test</button>
+        <button class="btn" id="cancelEditBtn" onclick="resetForm()" style="display:none;background:#e2e8f0;">Cancel Edit</button>
+      </div>
+    </div>
+
+    <div class="lt-toolbar">
+      <button class="filter-btn active" data-f="all" onclick="setTestFilter('all')">All</button>
+      <button class="filter-btn" data-f="active" onclick="setTestFilter('active')">Active</button>
+      <button class="filter-btn" data-f="inactive" onclick="setTestFilter('inactive')">Inactive</button>
+    </div>
+    <div class="test-grid" id="testGrid"></div>
+  </section>
+
+  <!-- ================= BOOKINGS TAB ================= -->
+  <section id="bookings-section" class="dashboard-section">
+    <div class="section-header">
+      <h2>Lab Bookings</h2>
+      <p>Accept a booking to lock it in — the cancel option disappears for the user once accepted.</p>
+    </div>
+
+    <div class="lt-toolbar">
+      <button class="filter-btn active" data-f="all" onclick="setBookingFilter('all')">All</button>
+      <button class="filter-btn" data-f="pending" onclick="setBookingFilter('pending')">Pending</button>
+      <button class="filter-btn" data-f="accepted" onclick="setBookingFilter('accepted')">Accepted</button>
+      <button class="filter-btn" data-f="cancelled" onclick="setBookingFilter('cancelled')">Cancelled</button>
+    </div>
+
+    <div id="bookingsList"></div>
+  </section>
+
+  <!-- ================= NURSING CONTROL TAB ================= -->
+  <section id="nursing-section" class="dashboard-section">
+    <div class="section-header">
+      <h2>Nursing Control</h2>
+      <p>Open pincodes for nurse service, then review, assign a nurse to, and approve booking requests.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:14px;color:var(--finder-color);">Serviceable Pincodes</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <input type="text" id="newPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6" style="flex:1;min-width:160px;padding:11px 14px;border:1px solid #dcdde1;border-radius:8px;">
+        <button class="btn btn-primary" onclick="addPincode()"><i class="fa-solid fa-plus"></i> Add Pincode</button>
+      </div>
+      <div id="pincodeChips"></div>
+      <div class="form-hint" style="margin-top:8px;">Nurse booking is only available to users at these pincodes. Empty = no pincode is open yet.</div>
+    </div>
+
+    <div class="lt-toolbar">
+      <button class="filter-btn active" data-f="all" onclick="setNurseFilter('all')">All</button>
+      <button class="filter-btn" data-f="pending" onclick="setNurseFilter('pending')">Pending</button>
+      <button class="filter-btn" data-f="approved" onclick="setNurseFilter('approved')">Approved</button>
+      <button class="filter-btn" data-f="cancelled" onclick="setNurseFilter('cancelled')">Cancelled</button>
+    </div>
+
+    <div id="nurseBookingsList"></div>
+  </section>
+
+  <!-- ================= AMBULANCE CONTROL TAB ================= -->
+  <section id="ambulance-section" class="dashboard-section">
+    <div class="section-header">
+      <h2>Ambulance Control</h2>
+      <p>Verify driver &amp; vehicle KYC, watch the live fleet, and review ride history.</p>
+    </div>
+
+    <div class="amb-summary-row">
+      <div class="amb-summary-chip"><div class="n" id="ambTotalDrivers">0</div><div class="l">Total Drivers</div></div>
+      <div class="amb-summary-chip"><div class="n" id="ambOnlineDrivers">0</div><div class="l">Online Now</div></div>
+      <div class="amb-summary-chip"><div class="n" id="ambPendingDrivers">0</div><div class="l">Pending KYC</div></div>
+      <div class="amb-summary-chip"><div class="n" id="ambActiveRides">0</div><div class="l">Active Rides</div></div>
+    </div>
+
+    <div class="lt-toolbar">
+      <button class="filter-btn active" data-f="all" onclick="setAmbDriverFilter('all')">All Drivers</button>
+      <button class="filter-btn" data-f="pending" onclick="setAmbDriverFilter('pending')">Pending KYC</button>
+      <button class="filter-btn" data-f="verified" onclick="setAmbDriverFilter('verified')">Verified</button>
+    </div>
+    <div id="ambDriverList"></div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-bottom:10px;color:var(--finder-color);">Live Fleet Map</h3>
+      <div id="ambFleetMap"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-bottom:14px;color:var(--finder-color);">Ride History</h3>
+      <div class="lt-toolbar">
+        <button class="filter-btn active" data-f="all" onclick="setAmbBookingFilter('all')">All</button>
+        <button class="filter-btn" data-f="searching" onclick="setAmbBookingFilter('searching')">Searching</button>
+        <button class="filter-btn" data-f="accepted" onclick="setAmbBookingFilter('accepted')">In Progress</button>
+        <button class="filter-btn" data-f="completed" onclick="setAmbBookingFilter('completed')">Completed</button>
+        <button class="filter-btn" data-f="cancelled" onclick="setAmbBookingFilter('cancelled')">Cancelled</button>
+      </div>
+      <div id="ambBookingList"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+let supabaseClient = null;
+if (typeof supabase !== 'undefined') {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+}
+function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---------------- Mobile sidebar ----------------
+const sidebar = document.getElementById('sidebar');
+const overlayEl = document.getElementById('sidebarOverlay');
+document.getElementById('menuToggle').addEventListener('click', ()=>{ sidebar.classList.add('open'); overlayEl.classList.add('active'); });
+overlayEl.addEventListener('click', ()=>{ sidebar.classList.remove('open'); overlayEl.classList.remove('active'); });
+
+// ---------------- Tabs ----------------
+function switchTab(e, tab){
+  document.querySelectorAll('.nav-item[data-tab]').forEach(b=>b.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  document.getElementById('tests-section').classList.toggle('active-section', tab==='tests');
+  document.getElementById('bookings-section').classList.toggle('active-section', tab==='bookings');
+  document.getElementById('nursing-section').classList.toggle('active-section', tab==='nursing');
+  document.getElementById('ambulance-section').classList.toggle('active-section', tab==='ambulance');
+  if(tab==='bookings') loadBookings();
+  if(tab==='nursing'){ loadPincodes(); loadNurseBookings(); }
+  if(tab==='ambulance'){ loadAmbDrivers(); loadAmbBookings(); setTimeout(initAmbFleetMap, 150); }
+}
+
+// ================= TESTS =================
+let allTests = [];
+let testFilter = 'all';
+function setTestFilter(f){
+  testFilter = f;
+  document.querySelectorAll('#tests-section .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  renderTests();
+}
+
+async function loadTests(){
+  const { data, error } = await supabaseClient.from('lab_tests').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return; }
+  allTests = data || [];
+  renderTests();
+}
+
+function renderTests(){
+  const grid = document.getElementById('testGrid');
+  let list = allTests;
+  if(testFilter==='active') list = list.filter(t=>t.active);
+  if(testFilter==='inactive') list = list.filter(t=>!t.active);
+
+  if(!list.length){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fa-solid fa-vial-circle-check"></i>No tests here yet.</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(t=>{
+    const pins = (t.pincodes||[]).length ? t.pincodes.map(p=>`<span class="pin-chip">${esc(p)}</span>`).join('') : `<span class="pin-chip">All pincodes</span>`;
+    const thumb = t.bg_image_url
+      ? `<img src="${esc(t.bg_image_url)}" class="test-thumb" alt="">`
+      : `<div class="test-thumb placeholder"><i class="fa-solid fa-flask"></i></div>`;
+    return `
+      <div class="test-card">
+        <div class="test-card-head">
+          ${thumb}
+          <h4>${esc(t.name)}</h4>
+        </div>
+        <div class="test-meta">${(t.items||[]).map(esc).join(' • ')}</div>
+        <div class="test-price-line"><s>₹${t.old_price}</s> ₹${t.price} <span style="color:#16a34a;">(${t.off_percent}% OFF)</span></div>
+        <div class="test-meta">${t.fasting==='before' ? '⚠️ Fasting required' : '✅ No fasting needed'}</div>
+        <div style="margin-top:8px;">${pins}</div>
+        <span class="status-badge ${t.active?'status-active':'status-hidden'}" style="margin-top:10px;">${t.active?'ACTIVE':'HIDDEN'}</span>
+        <div class="test-card-actions">
+          <button class="icon-btn edit" onclick="editTest('${t.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="icon-btn ${t.active?'toggle-off':'toggle-on'}" onclick="toggleTestActive('${t.id}', ${!t.active})">${t.active?'Hide':'Activate'}</button>
+          <button class="icon-btn del" onclick="deleteTest('${t.id}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function resetForm(){
+  document.getElementById('testId').value = '';
+  document.getElementById('tName').value = '';
+  document.getElementById('tItems').value = '';
+  document.getElementById('tOldPrice').value = '';
+  document.getElementById('tPrice').value = '';
+  document.getElementById('tFasting').value = 'after';
+  document.getElementById('tImage').value = '';
+  document.getElementById('tPincodes').value = '';
+  document.getElementById('tActive').checked = true;
+  document.getElementById('formTitle').textContent = 'Add New Test';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
+function editTest(id){
+  const t = allTests.find(x=>x.id===id);
+  if(!t) return;
+  document.getElementById('testId').value = t.id;
+  document.getElementById('tName').value = t.name;
+  document.getElementById('tItems').value = (t.items||[]).join(', ');
+  document.getElementById('tOldPrice').value = t.old_price;
+  document.getElementById('tPrice').value = t.price;
+  document.getElementById('tFasting').value = t.fasting;
+  document.getElementById('tImage').value = t.bg_image_url || '';
+  document.getElementById('tPincodes').value = (t.pincodes||[]).join(', ');
+  document.getElementById('tActive').checked = t.active;
+  document.getElementById('formTitle').textContent = 'Edit Test';
+  document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function saveTest(){
+  const id = document.getElementById('testId').value;
+  const name = document.getElementById('tName').value.trim();
+  const oldPrice = parseFloat(document.getElementById('tOldPrice').value) || 0;
+  const price = parseFloat(document.getElementById('tPrice').value) || 0;
+  if(!name || !price){ alert('Test name and selling price are required.'); return; }
+
+  const payload = {
+    name,
+    items: document.getElementById('tItems').value.split(',').map(s=>s.trim()).filter(Boolean),
+    old_price: oldPrice,
+    price,
+    fasting: document.getElementById('tFasting').value,
+    bg_image_url: document.getElementById('tImage').value.trim() || null,
+    pincodes: document.getElementById('tPincodes').value.split(',').map(s=>s.trim()).filter(Boolean),
+    active: document.getElementById('tActive').checked
+  };
+
+  const btn = document.getElementById('saveTestBtn');
+  btn.disabled = true;
+  let error;
+  if(id){
+    ({error} = await supabaseClient.from('lab_tests').update(payload).eq('id', id));
+  } else {
+    ({error} = await supabaseClient.from('lab_tests').insert(payload));
+  }
+  btn.disabled = false;
+  if(error){ alert('Could not save: ' + error.message); return; }
+  resetForm();
+  loadTests();
+}
+
+async function toggleTestActive(id, newVal){
+  const { error } = await supabaseClient.from('lab_tests').update({active:newVal}).eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadTests();
+}
+
+async function deleteTest(id){
+  if(!confirm('Delete this test permanently?')) return;
+  const { error } = await supabaseClient.from('lab_tests').delete().eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadTests();
+}
+
+// ================= BOOKINGS =================
+let allBookings = [];
+let bookingFilter = 'all';
+function setBookingFilter(f){
+  bookingFilter = f;
+  document.querySelectorAll('#bookings-section .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  renderBookings();
+}
+
+async function loadBookings(){
+  const { data, error } = await supabaseClient.from('lab_bookings').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return; }
+  allBookings = data || [];
+  renderBookings();
+}
+
+function renderBookings(){
+  const wrap = document.getElementById('bookingsList');
+  let list = allBookings;
+  if(bookingFilter!=='all') list = list.filter(b=>b.status===bookingFilter);
+
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-clipboard"></i>No bookings here yet.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map(b=>{
+    const addr = [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_state, b.addr_pincode].filter(Boolean).join(', ');
+    const rx = b.prescription_url
+      ? `<a class="rx-thumb-link" href="${esc(b.prescription_url)}" target="_blank"><i class="fa-solid fa-file-medical"></i> View Prescription</a>`
+      : `<span style="color:#94a3b8;font-size:13px;">No prescription uploaded</span>`;
+    const mapsLink = (b.lat && b.lng) ? `<a href="https://maps.google.com/?q=${b.lat},${b.lng}" target="_blank" style="color:#1d4ed8;font-weight:600;">Open Map</a>` : '—';
+
+    return `
+      <div class="booking-card ${b.status}">
+        <div class="booking-top">
+          <h4>${esc(b.test_name)} — ₹${b.test_price}</h4>
+          <span class="status-pill ${b.status}">${b.status}</span>
+        </div>
+        <div class="booking-grid">
+          <div><b>Patient</b>${esc(b.patient_name)}</div>
+          <div><b>Phone</b>${esc(b.patient_phone||'—')}</div>
+          <div><b>Pincode</b>${esc(b.addr_pincode)}</div>
+          <div><b>Date / Time</b>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</div>
+          <div><b>Payment</b>${b.payment_method.toUpperCase()} — ${b.payment_status}</div>
+          <div><b>Live Location</b>${mapsLink}</div>
+          <div style="grid-column:1/-1;"><b>Address</b>${esc(addr||'—')}</div>
+          <div style="grid-column:1/-1;"><b>Prescription</b>${rx}</div>
+        </div>
+        <div class="booking-actions">
+          ${b.patient_phone ? `<a class="btn" style="background:#dcfce7;color:#16a34a;text-decoration:none;" href="tel:${esc(b.patient_phone)}"><i class="fa-solid fa-phone"></i> Call</a>` : ''}
+          ${b.status==='pending' ? `<button class="btn btn-primary" onclick="setBookingStatus('${b.id}','accepted')"><i class="fa-solid fa-check"></i> Accept</button>` : ''}
+          ${b.status==='pending' ? `<button class="btn btn-danger" onclick="setBookingStatus('${b.id}','cancelled')"><i class="fa-solid fa-xmark"></i> Cancel</button>` : ''}
+          <button class="btn" style="background:#e2e8f0;" onclick="openReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> Receipt</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function setBookingStatus(id, status){
+  const { error } = await supabaseClient.from('lab_bookings').update({status}).eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadBookings();
+}
+
+function openReceipt(id){
+  const b = allBookings.find(x=>x.id===id);
+  if(!b) return;
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Receipt - ${esc(b.test_name)}</title>
+    <style>body{font-family:sans-serif;padding:30px;color:#222;}h2{color:#e02020;}table{width:100%;border-collapse:collapse;margin-top:14px;}
+    td{padding:8px;border-bottom:1px solid #eee;}td:first-child{font-weight:700;width:180px;}</style></head><body>
+    <h2>MediFinder — Booking Receipt</h2>
+    <table>
+      <tr><td>Test</td><td>${esc(b.test_name)}</td></tr>
+      <tr><td>Price</td><td>₹${b.test_price}</td></tr>
+      <tr><td>Patient</td><td>${esc(b.patient_name)}</td></tr>
+      <tr><td>Phone</td><td>${esc(b.patient_phone||'—')}</td></tr>
+      <tr><td>Address</td><td>${esc([b.addr_house,b.addr_street,b.addr_landmark,b.addr_city,b.addr_state,b.addr_pincode].filter(Boolean).join(', '))}</td></tr>
+      <tr><td>Date / Time</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
+      <tr><td>Payment</td><td>${b.payment_method.toUpperCase()} — ${b.payment_status}</td></tr>
+      <tr><td>Status</td><td>${b.status}</td></tr>
+    </table>
+    <p style="margin-top:20px;color:#888;font-size:12px;">Use your browser's Print → Save as PDF to download or share this receipt.</p>
+    <script>window.print();<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+// ================= NURSING CONTROL =================
+
+// ---- Serviceable pincodes ----
+let openPincodes = [];
+async function loadPincodes(){
+  const { data, error } = await supabaseClient.from('nurse_service_areas').select('pincode').order('pincode');
+  if(error){ console.error(error); return; }
+  openPincodes = (data||[]).map(r=>r.pincode);
+  renderPincodeChips();
+}
+function renderPincodeChips(){
+  const wrap = document.getElementById('pincodeChips');
+  if(!openPincodes.length){ wrap.innerHTML = `<span style="font-size:12.5px;color:#94a3b8;">No pincodes opened yet.</span>`; return; }
+  wrap.innerHTML = openPincodes.map(p=>`
+    <span class="pin-chip-admin">${esc(p)} <button onclick="removePincode('${esc(p)}')" title="Remove"><i class="fa-solid fa-xmark"></i></button></span>
+  `).join('');
+}
+async function addPincode(){
+  const input = document.getElementById('newPincode');
+  const pin = input.value.trim();
+  if(!pin){ return; }
+  const { error } = await supabaseClient.from('nurse_service_areas').insert({pincode: pin});
+  if(error){ alert(error.message.includes('duplicate') ? 'That pincode is already open.' : error.message); return; }
+  input.value = '';
+  loadPincodes();
+}
+async function removePincode(pin){
+  const { error } = await supabaseClient.from('nurse_service_areas').delete().eq('pincode', pin);
+  if(error){ alert(error.message); return; }
+  loadPincodes();
+}
+
+// ---- Nurse bookings ----
+let allNurseBookings = [];
+let nurseFilter = 'all';
+function setNurseFilter(f){
+  nurseFilter = f;
+  document.querySelectorAll('#nursing-section .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  renderNurseBookings();
+}
+
+async function loadNurseBookings(){
+  const { data, error } = await supabaseClient.from('nurse_bookings').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return; }
+  allNurseBookings = data || [];
+  renderNurseBookings();
+}
+
+function renderNurseBookings(){
+  const wrap = document.getElementById('nurseBookingsList');
+  let list = allNurseBookings;
+  if(nurseFilter!=='all') list = list.filter(b=>b.status===nurseFilter);
+
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-nurse"></i>No nurse bookings here yet.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map(b=>{
+    const addr = [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_state, b.addr_pincode].filter(Boolean).join(', ');
+    const rx = b.prescription_url
+      ? `<a class="rx-thumb-link" href="${esc(b.prescription_url)}" target="_blank"><i class="fa-solid fa-file-medical"></i> View Prescription</a>`
+      : `<span style="color:#94a3b8;font-size:13px;">No prescription uploaded</span>`;
+
+    const assignForm = b.status === 'pending' ? `
+      <div class="assign-form" id="assign-${b.id}">
+        <div style="font-size:12.5px;font-weight:700;color:var(--medi-color);margin-bottom:10px;">Assign Nurse & Approve</div>
+        <div class="form-grid">
+          <div><label>Nurse Name *</label><input type="text" id="n-name-${b.id}" placeholder="e.g. Sister Anjali Roy"></div>
+          <div><label>Contact</label><input type="text" id="n-contact-${b.id}" placeholder="e.g. 98XXXXXXXX"></div>
+          <div><label>Email</label><input type="text" id="n-email-${b.id}" placeholder="e.g. anjali@example.com"></div>
+          <div><label>Religion</label><input type="text" id="n-religion-${b.id}" placeholder="optional"></div>
+          <div><label>Joined Date</label><input type="date" id="n-join-${b.id}"></div>
+          <div><label>Qualification</label><input type="text" id="n-edu-${b.id}" placeholder="e.g. B.Sc Nursing"></div>
+          <div style="grid-column:1/-1;"><label>Courses Completed</label><input type="text" id="n-courses-${b.id}" placeholder="e.g. GNM, Critical Care, BLS Certified"></div>
+          <div>
+            <label>Aadhaar / ID Proof</label>
+            <div class="file-mini" id="n-aadhar-box-${b.id}" onclick="document.getElementById('n-aadhar-${b.id}').click()">📎 Upload ID proof</div>
+            <input type="file" id="n-aadhar-${b.id}" accept="image/*,.pdf" style="display:none;">
+          </div>
+          <div>
+            <label>Passport-size Photo</label>
+            <div class="file-mini" id="n-photo-box-${b.id}" onclick="document.getElementById('n-photo-${b.id}').click()">📎 Upload photo</div>
+            <input type="file" id="n-photo-${b.id}" accept="image/*" style="display:none;">
+          </div>
+        </div>
+        <div class="button-group" style="margin-top:12px;">
+          <button class="btn btn-primary" onclick="approveNurseBooking('${b.id}')"><i class="fa-solid fa-check"></i> Approve Booking</button>
+          <button class="btn btn-danger" onclick="setNurseBookingStatus('${b.id}','cancelled')"><i class="fa-solid fa-xmark"></i> Reject</button>
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div class="nurse-card ${b.status}">
+        <div class="booking-top">
+          <h4>${esc(b.patient_name)} — ${esc(b.service_label)}</h4>
+          <span class="status-pill ${b.status}">${b.status}</span>
+        </div>
+        <div class="booking-grid">
+          <div><b>Age / Gender</b>${b.patient_age||'—'} yrs · ${esc(b.gender||'—')}</div>
+          <div><b>Religion</b>${esc(b.patient_religion||'—')}</div>
+          <div><b>Contact</b>${esc(b.contact_no||'—')}</div>
+          <div><b>WhatsApp</b>${esc(b.whatsapp_no||'—')}</div>
+          <div><b>Schedule</b>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</div>
+          <div><b>Payment ID</b>${esc(b.razorpay_payment_id||'—')} (${b.payment_status})</div>
+          <div style="grid-column:1/-1;"><b>Address</b>${esc(addr||'—')}</div>
+          <div style="grid-column:1/-1;"><b>Prescription</b>${rx}</div>
+        </div>
+        <div class="nurse-bill">
+          <div class="row-line"><span>Rate × Duration</span><span>₹${b.rate} × ${b.duration} ${esc(b.rate_unit)}(s)</span></div>
+          <div class="row-line"><span>Subtotal</span><span>₹${b.subtotal}</span></div>
+          <div class="row-line"><span>Service Charge (10%)</span><span>₹${b.service_charge}</span></div>
+          <div class="row-line total"><span>Total Paid</span><span>₹${b.total_amount}</span></div>
+        </div>
+        ${b.status==='approved' ? `<div class="nurse-bill"><b>Assigned:</b> ${esc(b.nurse_name||'—')} · ${esc(b.nurse_contact||'—')} · ${esc(b.nurse_qualification||'—')}</div>` : ''}
+        <div class="booking-actions">
+          ${b.contact_no ? `<a class="btn" style="background:#dcfce7;color:#16a34a;text-decoration:none;" href="tel:${esc(b.contact_no)}"><i class="fa-solid fa-phone"></i> Call</a>` : ''}
+          <button class="btn" style="background:#e2e8f0;" onclick="openNurseReceipt('${b.id}')"><i class="fa-solid fa-receipt"></i> Receipt</button>
+        </div>
+        ${assignForm}
+      </div>`;
+  }).join('');
+}
+
+async function uploadNurseDoc(file, prefix){
+  const ext = file.name.split('.').pop();
+  const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabaseClient.storage.from('media').upload(path, file, { contentType: file.type });
+  if(error){ alert(error.message); return null; }
+  const { data } = supabaseClient.storage.from('media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// picked-file preview for the two mini upload boxes
+document.addEventListener('change', (e)=>{
+  if(e.target.id && e.target.id.startsWith('n-aadhar-')){
+    const box = document.getElementById(e.target.id.replace('n-aadhar-','n-aadhar-box-'));
+    if(e.target.files[0]){ box.classList.add('has-file'); box.textContent = '✅ ' + e.target.files[0].name; }
+  }
+  if(e.target.id && e.target.id.startsWith('n-photo-')){
+    const box = document.getElementById(e.target.id.replace('n-photo-','n-photo-box-'));
+    if(e.target.files[0]){ box.classList.add('has-file'); box.textContent = '✅ ' + e.target.files[0].name; }
+  }
+});
+
+async function approveNurseBooking(id){
+  const name = document.getElementById(`n-name-${id}`).value.trim();
+  if(!name){ alert('Nurse name is required to approve.'); return; }
+
+  const aadharFile = document.getElementById(`n-aadhar-${id}`).files[0];
+  const photoFile = document.getElementById(`n-photo-${id}`).files[0];
+  const [aadharUrl, photoUrl] = await Promise.all([
+    aadharFile ? uploadNurseDoc(aadharFile, 'nurse-id-proof') : Promise.resolve(null),
+    photoFile ? uploadNurseDoc(photoFile, 'nurse-photos') : Promise.resolve(null)
+  ]);
+
+  const payload = {
+    status: 'approved',
+    nurse_name: name,
+    nurse_contact: document.getElementById(`n-contact-${id}`).value.trim() || null,
+    nurse_email: document.getElementById(`n-email-${id}`).value.trim() || null,
+    nurse_religion: document.getElementById(`n-religion-${id}`).value.trim() || null,
+    nurse_join_date: document.getElementById(`n-join-${id}`).value || null,
+    nurse_qualification: document.getElementById(`n-edu-${id}`).value.trim() || null,
+    nurse_courses: document.getElementById(`n-courses-${id}`).value.trim() || null,
+    nurse_aadhar_url: aadharUrl,
+    nurse_photo_url: photoUrl
+  };
+  const { error } = await supabaseClient.from('nurse_bookings').update(payload).eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadNurseBookings();
+}
+
+async function setNurseBookingStatus(id, status){
+  const { error } = await supabaseClient.from('nurse_bookings').update({status}).eq('id', id);
+  if(error){ alert(error.message); return; }
+  loadNurseBookings();
+}
+
+function openNurseReceipt(id){
+  const b = allNurseBookings.find(x=>x.id===id);
+  if(!b) return;
+  const addr = [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_state, b.addr_pincode].filter(Boolean).join(', ');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Nurse Booking Receipt - ${esc(b.patient_name)}</title>
+    <style>body{font-family:sans-serif;padding:30px;color:#222;}h2{color:#e02020;}table{width:100%;border-collapse:collapse;margin-top:14px;}
+    td{padding:8px;border-bottom:1px solid #eee;}td:first-child{font-weight:700;width:200px;}</style></head><body>
+    <h2>MediFinder — Nurse Booking Receipt</h2>
+    <table>
+      <tr><td>Patient</td><td>${esc(b.patient_name)} (${b.patient_age||'—'} yrs, ${esc(b.gender||'—')})</td></tr>
+      <tr><td>Service</td><td>${esc(b.service_label)}</td></tr>
+      <tr><td>Rate × Duration</td><td>₹${b.rate} × ${b.duration} ${esc(b.rate_unit)}(s)</td></tr>
+      <tr><td>Subtotal</td><td>₹${b.subtotal}</td></tr>
+      <tr><td>Service Charge (10%)</td><td>₹${b.service_charge}</td></tr>
+      <tr><td>Total Paid</td><td><b>₹${b.total_amount}</b></td></tr>
+      <tr><td>Payment ID</td><td>${esc(b.razorpay_payment_id||'—')} (${b.payment_status})</td></tr>
+      <tr><td>Address</td><td>${esc(addr||'—')}</td></tr>
+      <tr><td>Schedule</td><td>${esc(b.book_date||'—')} ${esc(b.book_time||'')}</td></tr>
+      <tr><td>Status</td><td>${b.status}</td></tr>
+      ${b.status==='approved' ? `<tr><td>Assigned Nurse</td><td>${esc(b.nurse_name||'—')} · ${esc(b.nurse_contact||'—')}</td></tr>` : ''}
+    </table>
+    <p style="margin-top:20px;color:#888;font-size:12px;">Use your browser's Print → Save as PDF to download or share this receipt.</p>
+    <script>window.print();<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+// ================= AMBULANCE CONTROL =================
+const AMB_TYPE_LABEL = { non_ac:'Non-AC', ac:'AC / Oxygen', icu:'ICU / Advanced' };
+let allAmbDrivers = [];
+let allAmbBookings = [];
+let ambDriverFilter = 'all';
+let ambBookingFilter = 'all';
+let ambFleetMapObj = null;
+let ambFleetMarkers = {};
+
+function setAmbDriverFilter(f){
+  ambDriverFilter = f;
+  document.querySelectorAll('#ambDriverList').forEach(()=>{});
+  document.querySelectorAll('#ambulance-section .lt-toolbar:first-of-type .filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  renderAmbDrivers();
+}
+function setAmbBookingFilter(f){
+  ambBookingFilter = f;
+  document.querySelectorAll('#ambulance-section .lt-toolbar').forEach(bar=>{
+    if(bar.querySelector('[data-f="completed"]')) bar.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  });
+  renderAmbBookings();
+}
+
+async function loadAmbDrivers(){
+  const { data, error } = await supabaseClient.from('ambulance_drivers').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return; }
+  allAmbDrivers = data || [];
+  document.getElementById('ambTotalDrivers').textContent = allAmbDrivers.length;
+  document.getElementById('ambOnlineDrivers').textContent = allAmbDrivers.filter(d=>d.is_online).length;
+  document.getElementById('ambPendingDrivers').textContent = allAmbDrivers.filter(d=>!d.is_verified).length;
+  renderAmbDrivers();
+  plotAmbFleet();
+}
+
+function renderAmbDrivers(){
+  let list = allAmbDrivers.slice();
+  if(ambDriverFilter==='pending') list = list.filter(d=>!d.is_verified);
+  if(ambDriverFilter==='verified') list = list.filter(d=>d.is_verified);
+
+  const wrap = document.getElementById('ambDriverList');
+  if(list.length===0){ wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-medical"></i>No drivers found.</div>`; return; }
+
+  wrap.innerHTML = list.map(d => `
+    <div class="amb-driver-card ${d.is_verified ? 'verified':'pending'}">
+      <div class="amb-driver-top">
+        <h4><span class="amb-online-dot ${d.is_online?'on':''}"></span>${esc(d.driver_name)} — ${AMB_TYPE_LABEL[d.vehicle_type]||d.vehicle_type}</h4>
+        <span class="status-pill ${d.is_verified?'accepted':'pending'}">${d.is_verified?'Verified':'Pending KYC'}</span>
+      </div>
+      <div class="amb-driver-grid">
+        <div><b>Phone</b><span>${esc(d.phone)}</span></div>
+        <div><b>Plate Number</b><span>${esc(d.plate_number)}</span></div>
+        <div><b>Wallet Due (5%)</b><span>₹${Number(d.wallet_due||0).toFixed(2)}</span></div>
+        <div><b>Total Rides</b><span>${d.total_rides||0}</span></div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        ${d.vehicle_photo_url ? `<div><b style="font-size:11.5px;color:#64748b;">Vehicle Photo</b><img class="amb-kyc-thumb" src="${d.vehicle_photo_url}"></div>` : ''}
+        ${d.plate_photo_url ? `<div><b style="font-size:11.5px;color:#64748b;">Plate Photo</b><img class="amb-kyc-thumb" src="${d.plate_photo_url}"></div>` : ''}
+      </div>
+      <div class="amb-driver-actions">
+        ${!d.is_verified ? `<button class="btn btn-primary" onclick="approveAmbDriver('${d.id}')"><i class="fa-solid fa-check"></i> Approve</button>` : ''}
+        ${d.is_verified ? `<button class="icon-btn toggle-off" onclick="revokeAmbDriver('${d.id}')"><i class="fa-solid fa-ban"></i> Revoke</button>` : ''}
+        <button class="icon-btn del" onclick="deleteAmbDriver('${d.id}')"><i class="fa-solid fa-trash"></i> Remove</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveAmbDriver(id){
+  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:true }).eq('id', id);
+  if(error){ alert('Failed to approve: '+error.message); return; }
+  loadAmbDrivers();
+}
+async function revokeAmbDriver(id){
+  if(!confirm('Revoke verification for this driver? They will be taken offline.')) return;
+  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_verified:false, is_online:false }).eq('id', id);
+  if(error){ alert('Failed: '+error.message); return; }
+  loadAmbDrivers();
+}
+async function deleteAmbDriver(id){
+  if(!confirm('Permanently remove this driver?')) return;
+  const { error } = await supabaseClient.from('ambulance_drivers').delete().eq('id', id);
+  if(error){ alert('Failed: '+error.message); return; }
+  loadAmbDrivers();
+}
+
+function initAmbFleetMap(){
+  const el = document.getElementById('ambFleetMap');
+  if(!el || ambFleetMapObj) { plotAmbFleet(); return; }
+  ambFleetMapObj = L.map(el, { zoomControl:true, attributionControl:false }).setView([22.5726, 88.3639], 11); // default West Bengal view
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(ambFleetMapObj);
+  plotAmbFleet();
+}
+function plotAmbFleet(){
+  if(!ambFleetMapObj) return;
+  const online = allAmbDrivers.filter(d=>d.is_online && d.current_lat && d.current_lon);
+  Object.keys(ambFleetMarkers).forEach(id=>{
+    if(!online.find(d=>d.id===id)){ ambFleetMapObj.removeLayer(ambFleetMarkers[id]); delete ambFleetMarkers[id]; }
+  });
+  online.forEach(d=>{
+    const icon = L.divIcon({ className:'', html:'<div style="font-size:22px;">🚑</div>' });
+    if(ambFleetMarkers[d.id]) ambFleetMarkers[d.id].setLatLng([d.current_lat, d.current_lon]);
+    else ambFleetMarkers[d.id] = L.marker([d.current_lat, d.current_lon], { icon }).addTo(ambFleetMapObj).bindPopup(`${esc(d.driver_name)} — ${esc(d.plate_number)}`);
+  });
+  if(online.length>0){
+    ambFleetMapObj.fitBounds(online.map(d=>[d.current_lat,d.current_lon]), { padding:[40,40] });
+  }
+}
+
+async function loadAmbBookings(){
+  const { data, error } = await supabaseClient.from('ambulance_bookings').select('*').order('created_at', {ascending:false}).limit(100);
+  if(error){ console.error(error); return; }
+  allAmbBookings = data || [];
+  document.getElementById('ambActiveRides').textContent = allAmbBookings.filter(b=>['searching','accepted','arriving','picked_up'].includes(b.status)).length;
+  renderAmbBookings();
+}
+function renderAmbBookings(){
+  let list = allAmbBookings.slice();
+  if(ambBookingFilter!=='all') list = list.filter(b=> ambBookingFilter==='accepted' ? ['accepted','arriving','picked_up'].includes(b.status) : b.status===ambBookingFilter);
+
+  const wrap = document.getElementById('ambBookingList');
+  if(list.length===0){ wrap.innerHTML = `<div class="empty-state"><i class="fa-solid fa-clipboard-list"></i>No bookings found.</div>`; return; }
+
+  wrap.innerHTML = list.map(b => `
+    <div class="booking-card ${['completed'].includes(b.status)?'accepted': b.status==='cancelled'?'cancelled':'pending'}">
+      <div class="booking-top"><h4>${esc(b.patient_name||'Patient')} — ${AMB_TYPE_LABEL[b.vehicle_type]||b.vehicle_type}</h4><span class="status-pill ${b.status==='completed'?'accepted':b.status==='cancelled'?'cancelled':'pending'}">${b.status.replace('_',' ')}</span></div>
+      <div class="booking-grid">
+        <div><b>Contact</b><span>${esc(b.contact_phone)}</span></div>
+        <div><b>Pickup</b><span>${esc(b.pickup_address)}</span></div>
+        <div><b>Drop</b><span>${esc(b.drop_address)}</span></div>
+        <div><b>Distance</b><span>${b.distance_km ? b.distance_km.toFixed(1)+' km' : '—'}</span></div>
+        <div><b>Fare</b><span>₹${b.fare_final || b.fare_estimate || 0}</span></div>
+        <div><b>Booked At</b><span>${new Date(b.created_at).toLocaleString()}</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ---------------- Init + realtime ----------------
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadTests();
+
+  supabaseClient.channel('lab_tests_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'lab_tests'}, loadTests)
+    .subscribe();
+
+  supabaseClient.channel('lab_bookings_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'lab_bookings'}, ()=>{
+      if(document.getElementById('bookings-section').classList.contains('active-section')) loadBookings();
+    })
+    .subscribe();
+
+  supabaseClient.channel('nurse_bookings_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'nurse_bookings'}, ()=>{
+      if(document.getElementById('nursing-section').classList.contains('active-section')) loadNurseBookings();
+    })
+    .subscribe();
+
+  supabaseClient.channel('nurse_areas_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'nurse_service_areas'}, ()=>{
+      if(document.getElementById('nursing-section').classList.contains('active-section')) loadPincodes();
+    })
+    .subscribe();
+
+  supabaseClient.channel('ambulance_drivers_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'ambulance_drivers'}, ()=>{
+      if(document.getElementById('ambulance-section').classList.contains('active-section')) loadAmbDrivers();
+    })
+    .subscribe();
+
+  supabaseClient.channel('ambulance_bookings_admin')
+    .on('postgres_changes', {event:'*', schema:'public', table:'ambulance_bookings'}, ()=>{
+      if(document.getElementById('ambulance-section').classList.contains('active-section')) loadAmbBookings();
+    })
+    .subscribe();
+});
+</script>
+</body>
+</html>

@@ -14,7 +14,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="delyvaryprofile.css?v=13">
+    <link rel="stylesheet" href="delyvaryprofile.css?v=16">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
 </head>
@@ -172,7 +172,10 @@
                         <span id="vehicleLockedPlate" style="font-weight:700;">—</span>
                     </div>
                     <p id="vehicleLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
-                    <button id="vehicleLockedEditBtn" onclick="enableKycEdit('vehicle')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                    <div id="vehicleLockedActions" style="display:flex; gap:10px;">
+                        <button id="vehicleLockedEditBtn" onclick="enableKycEdit('vehicle')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                        <button id="vehicleLockedCancelBtn" onclick="cancelKycSubmission('vehicle')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel KYC</button>
+                    </div>
                 </div>
                 <div id="vehicleEditForm">
                     <div class="input-element-row-premium">
@@ -191,10 +194,7 @@
                         <label>Upload Plate Image</label>
                         <input type="file" id="plateImageInput" accept="image/*">
                     </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runOnlinePlateValidationCheck()">Save Vehicle Log</button>
-                        <button onclick="cancelKycEdit('vehicle')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
-                    </div>
+                    <button class="action-btn-accent-premium" style="width:100%;" onclick="runOnlinePlateValidationCheck()">Upload Document</button>
                 </div>
             </div>
         </div>
@@ -218,7 +218,10 @@
                         <span id="licenseLockedNo" style="font-weight:700;">—</span>
                     </div>
                     <p id="licenseLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
-                    <button id="licenseLockedEditBtn" onclick="enableKycEdit('license')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                    <div id="licenseLockedActions" style="display:flex; gap:10px;">
+                        <button id="licenseLockedEditBtn" onclick="enableKycEdit('license')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                        <button id="licenseLockedCancelBtn" onclick="cancelKycSubmission('license')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel KYC</button>
+                    </div>
                 </div>
                 <div id="licenseEditForm">
                     <div class="input-element-row-premium">
@@ -229,10 +232,7 @@
                         <label>Upload License Image</label>
                         <input type="file" id="licenseImageInput" accept="image/*">
                     </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runGovLicenseVerificationQuery()">Verify via Admin</button>
-                        <button onclick="cancelKycEdit('license')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
-                    </div>
+                    <button class="action-btn-accent-premium" style="width:100%;" onclick="runGovLicenseVerificationQuery()">Upload Document</button>
                 </div>
             </div>
         </div>
@@ -257,7 +257,10 @@
                         <span id="aadhaarLockedNo" style="font-weight:700;">—</span>
                     </div>
                     <p id="aadhaarLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
-                    <button id="aadhaarLockedEditBtn" onclick="enableKycEdit('aadhaar')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                    <div id="aadhaarLockedActions" style="display:flex; gap:10px;">
+                        <button id="aadhaarLockedEditBtn" onclick="enableKycEdit('aadhaar')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                        <button id="aadhaarLockedCancelBtn" onclick="cancelKycSubmission('aadhaar')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel KYC</button>
+                    </div>
                 </div>
                 <div id="aadhaarEditForm">
                     <div class="input-element-row-premium">
@@ -268,10 +271,7 @@
                         <label>Upload Aadhaar Image</label>
                         <input type="file" id="aadhaarImageInput" accept="image/*">
                     </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runAadhaarVerificationQuery()">Verify via Admin</button>
-                        <button onclick="cancelKycEdit('aadhaar')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
-                    </div>
+                    <button class="action-btn-accent-premium" style="width:100%;" onclick="runAadhaarVerificationQuery()">Upload Document</button>
                 </div>
             </div>
         </div>
@@ -296,7 +296,10 @@
                         <span id="panLockedNo" style="font-weight:700;">—</span>
                     </div>
                     <p id="panLockedReason" style="display:none; color:#dc2626; font-size:0.8rem; margin-bottom:10px;"></p>
-                    <button id="panLockedEditBtn" onclick="enableKycEdit('pan')" style="width:100%; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                    <div id="panLockedActions" style="display:flex; gap:10px;">
+                        <button id="panLockedEditBtn" onclick="enableKycEdit('pan')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #e02020; background:#fff; color:#e02020; font-weight:700; cursor:pointer;">Edit</button>
+                        <button id="panLockedCancelBtn" onclick="cancelKycSubmission('pan')" style="flex:1; padding:10px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel KYC</button>
+                    </div>
                 </div>
                 <div id="panEditForm">
                     <div class="input-element-row-premium">
@@ -307,10 +310,7 @@
                         <label>Upload PAN Image</label>
                         <input type="file" id="panImageInput" accept="image/*">
                     </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="action-btn-accent-premium" style="flex:1;" onclick="runPanVerificationQuery()">Verify via Admin</button>
-                        <button onclick="cancelKycEdit('pan')" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
-                    </div>
+                    <button class="action-btn-accent-premium" style="width:100%;" onclick="runPanVerificationQuery()">Upload Document</button>
                 </div>
             </div>
         </div>
@@ -465,7 +465,7 @@
     
     <!-- Terms & Privacy both open dboyt&c.html directly (real page, no popup needed) -->
 
-    <script src="prod-utils.js?v=13"></script>
-    <script src="delyvaryscript.js?v=13"></script>
+    <script src="prod-utils.js?v=16"></script>
+    <script src="delyvaryscript.js?v=16"></script>
 </body>
 </html>

@@ -529,6 +529,14 @@ input[type="text"]:focus, select:focus {
     display: none !important; 
 }
 
+/* ✅ FIX: এই ফাইলে আগে শুধু .sub-page-overlay.hidden ছিল — plain .hidden class
+   (vehicleLockedView, licenseLockedView, aadhaarLockedView, panLockedView ইত্যাদির উপর
+   ব্যবহৃত) এর জন্য কোনো CSS rule-ই ছিল না, ফলে classList.add('hidden') করলেও element
+   আসলে হাইড হতো না — এই কারণেই Locked View আর Edit Form একসাথে দেখা যাচ্ছিল। */
+.hidden {
+    display: none !important;
+}
+
 .sub-page-content {
     background: #ffffff; 
     width: 100%; 

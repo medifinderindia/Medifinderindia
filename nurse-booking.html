@@ -18,12 +18,21 @@
     --gold:#ffa502;
   }
   *{box-sizing:border-box;}
+  html,body{max-width:100%;overflow-x:hidden;}
   body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--cream);color:var(--ink);}
-  .ribbon{background:var(--maroon-deep);color:#ffe3dc;font-size:11px;letter-spacing:1px;text-align:center;padding:6px 8px;font-weight:700;}
+  .ribbon{background:var(--maroon-deep);color:#ffe3dc;font-size:11px;letter-spacing:1px;text-align:center;padding:6px 0;font-weight:700;}
+  /* Auto-scrolling ticker line, same technique as userhome.html's
+     #top-delivery-bar (.top-bar / .top-bar-scroll / scrollBanner). */
+  .ribbon-track{overflow:hidden;white-space:nowrap;width:100%;}
+  .ribbon-scroll{display:inline-block;white-space:nowrap;animation: ribbonScroll 18s linear infinite;}
+  @keyframes ribbonScroll{
+    0%{ transform:translateX(100vw); }
+    100%{ transform:translateX(-100%); }
+  }
   header{background:#fff;padding:14px 16px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;}
-  .header-top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .brand{display:flex;align-items:center;gap:12px;}
-  .brand-mark img{width:45px;height:45px;border-radius:12px;}
+  .header-top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand-mark img{width:45px;height:45px;border-radius:50%;object-fit:cover;border:2px solid var(--maroon);}
   .brand-text h1{margin:0;font-size:26px;font-weight:900;letter-spacing:1px;}
   .brand-text .medi{color:#d50000;}
   .brand-text .finder{color:#000;}
@@ -42,70 +51,39 @@
   .promo .badge{background:rgba(255,255,255,.2);display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px;margin-bottom:8px;}
   .promo h2{margin:0 0 4px;font-size:18px;}
   .promo p{margin:0;font-size:12.5px;color:#ffe3dc;}
-  .book-cta{
-    margin-top:12px;width:100%;border:none;padding:13px;border-radius:10px;
-    font-size:15px;font-weight:800;cursor:pointer;background:#fff;color:var(--maroon-deep);
-  }
+  .book-cta{margin-top:12px;width:100%;border:none;padding:13px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;background:#fff;color:var(--maroon-deep);}
 
   .section-title{padding:22px 16px 6px;}
   .section-title h2{margin:0 0 4px;font-size:18px;color:var(--maroon-deep);border-left:4px solid var(--maroon);padding-left:10px;}
   .section-title p{margin:0 0 0 14px;font-size:12px;color:#7a5f52;}
 
-  /* ---------- Booking list ---------- */
   .bookings{padding:14px 16px 30px;display:flex;flex-direction:column;gap:14px;}
-  .empty-state{
-    text-align:center;padding:40px 20px;color:#9c7b6d;font-size:13px;
-    background:#fff;border:1px dashed var(--line);border-radius:14px;
-  }
-  .bcard{
-    background:#fff;border:1px solid var(--line);border-radius:14px;
-    padding:16px;box-shadow:0 3px 10px rgba(122,13,13,.06);
-  }
-  .bcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .empty-state{text-align:center;padding:40px 20px;color:#9c7b6d;font-size:13px;background:#fff;border:1px dashed var(--line);border-radius:14px;}
+  .bcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 3px 10px rgba(122,13,13,.06);overflow-wrap:break-word;}
+  .bcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
   .bcard-top h3{margin:0 0 3px;font-size:15.5px;color:var(--ink);}
   .bcard-top .meta{font-size:12px;color:#7a5f52;}
-  .status-pill{
-    font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;letter-spacing:.3px;
-  }
+  .status-pill{font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;letter-spacing:.3px;}
   .status-pill.pending{background:#fbf0dd;color:#8a6a3a;}
   .status-pill.approved{background:#e8f3ec;color:var(--success);}
+  .status-pill.cancelled{background:#fde8e8;color:var(--maroon-deep);}
   .bcard hr{border:none;border-top:1px solid var(--line);margin:12px 0;}
-  .bcard .row-line{display:flex;justify-content:space-between;font-size:12.5px;color:#5b463d;padding:3px 0;}
-  .bcard .row-line b{color:var(--ink);}
-  .rx-thumb{
-    width:100%;max-height:140px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--line);
-  }
-  .nurse-box{
-    margin-top:12px;background:var(--cream-2);border-radius:12px;padding:12px 14px;
-  }
+  .bcard .row-line{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:#5b463d;padding:3px 0;}
+  .bcard .row-line b{color:var(--ink);text-align:right;}
+  .bill-box{background:var(--cream-2);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12.5px;}
+  .bill-box .total-line{display:flex;justify-content:space-between;font-weight:800;color:var(--maroon-deep);font-size:14px;margin-top:6px;border-top:1px dashed #e5c3c0;padding-top:6px;}
+  .nurse-box{margin-top:12px;background:var(--cream-2);border-radius:12px;padding:12px 14px;}
   .nurse-box .n-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-  .nurse-box .n-avatar{
-    width:40px;height:40px;border-radius:50%;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
-    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;
-  }
+  .nurse-box .n-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;object-fit:cover;}
   .nurse-box .n-name{font-weight:800;font-size:14px;color:var(--maroon-deep);}
   .nurse-box .n-sub{font-size:11.5px;color:#7a5f52;}
   .nurse-box .n-detail{font-size:12.5px;color:#5b463d;line-height:1.6;}
-
-  .demo-admin{
-    margin-top:12px;border-top:1px dashed var(--line);padding-top:10px;
-  }
-  .demo-admin summary{
-    font-size:11px;color:#a08072;cursor:pointer;font-weight:700;letter-spacing:.3px;
-  }
-  .demo-admin .field{margin-top:8px;}
-  .demo-admin label{display:block;font-size:11.5px;font-weight:700;color:#5b463d;margin-bottom:4px;}
-  .demo-admin input{
-    width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;background:var(--cream);
-  }
-  .demo-admin button{
-    margin-top:10px;width:100%;border:none;padding:9px;border-radius:8px;font-size:12.5px;font-weight:700;
-    background:var(--success);color:#fff;cursor:pointer;
-  }
+  .bcard-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .bcard-actions button{border:none;padding:9px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .receipt-btn{background:#e2e8f0;color:#1e293b;}
 
   footer{text-align:center;padding:22px 16px 30px;font-size:12px;color:#9c7b6d;}
 
-  /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(28,20,20,.55);display:none;align-items:flex-end;justify-content:center;z-index:50;}
   .overlay.active{display:flex;}
   .sheet{background:#fff;width:100%;max-width:460px;border-radius:18px 18px 0 0;padding:0 0 22px;animation:slideUp .25s ease;max-height:92vh;overflow-y:auto;}
@@ -123,24 +101,30 @@
   .field textarea{resize:vertical;min-height:70px;}
   .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--maroon-bright);outline-offset:1px;}
   .row2{display:flex;gap:10px;}
-  .row2 .field{flex:1;}
+  .row2 .field{flex:1;min-width:0;}
   .gender-row{display:flex;gap:10px;}
-  .gender-opt{
-    flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;
-    font-size:13px;font-weight:700;color:#5b463d;cursor:pointer;background:var(--cream);
-  }
+  .gender-opt{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;font-size:13px;font-weight:700;color:#5b463d;cursor:pointer;background:var(--cream);}
   .gender-opt.active{background:var(--maroon-bright);border-color:var(--maroon-bright);color:#fff;}
-  .file-drop{
-    border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;
-    font-size:12.5px;color:#7a5f52;cursor:pointer;background:var(--cream);
-  }
+  .file-drop{border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;font-size:12.5px;color:#7a5f52;cursor:pointer;background:var(--cream);}
   .file-drop.has-file{border-color:var(--success);color:var(--success);font-weight:700;}
   .rx-preview{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:10px;display:none;}
   .err-msg{font-size:11.5px;color:var(--maroon-bright);margin-top:4px;display:none;}
-  .confirm-btn{
-    width:100%;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
-    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));color:#fff;margin-top:6px;
+  .confirm-btn{width:100%;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));color:#fff;margin-top:6px;}
+  .confirm-btn:disabled{opacity:.55;cursor:not-allowed;}
+
+  /* ---------- Service type picker ---------- */
+  .svc-list{display:flex;flex-direction:column;gap:10px;}
+  .svc-opt{
+    border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:var(--cream);
   }
+  .svc-opt.active{border-color:var(--maroon);background:var(--cream-2);}
+  .svc-opt .svc-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .svc-opt .svc-name{font-weight:800;font-size:13.5px;color:var(--maroon-deep);}
+  .svc-opt .svc-rate{font-weight:800;font-size:13.5px;color:var(--ink);white-space:nowrap;}
+  .svc-opt .svc-scope{font-size:11.5px;color:#7a5f52;margin-top:4px;line-height:1.5;}
+  .pin-note{font-size:12px;padding:9px 10px;border-radius:8px;margin-top:6px;background:var(--cream-2);color:#7a5f52;}
+  .pin-note.err{background:#fde8e8;color:var(--maroon-deep);font-weight:700;}
+  .pin-note.ok{background:#e8f3ec;color:var(--success);font-weight:700;}
 
   .toast{
     position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
@@ -152,10 +136,11 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
 
-<div class="ribbon">CERTIFIED HOME NURSES &nbsp;·&nbsp; VERIFIED & BACKGROUND CHECKED</div>
+<div class="ribbon"><div class="ribbon-track"><span class="ribbon-scroll">CERTIFIED HOME NURSES &nbsp;·&nbsp; VERIFIED & BACKGROUND CHECKED</span></div></div>
 
 <header>
   <div class="header-top-row">
@@ -179,11 +164,9 @@
   <p>Track your request status below — Pending, then Approved with nurse details</p>
 </div>
 
-<div class="bookings" id="bookingsWrap"></div>
+<div class="bookings" id="bookingsWrap"><div class="empty-state">Loading...</div></div>
 
-<footer>
-  © MediFinder · Home Nurse Booking Network
-</footer>
+<footer>© MediFinder · Home Nurse Booking Network</footer>
 
 <!-- Booking Form Sheet -->
 <div class="overlay" id="overlay">
@@ -195,19 +178,10 @@
     <div class="sheet-body">
 
       <div class="field-group-title">Patient Details</div>
-      <div class="field">
-        <label>Full Name *</label>
-        <input type="text" id="patientName" placeholder="e.g. Ramesh Das">
-      </div>
+      <div class="field"><label>Full Name *</label><input type="text" id="patientName" placeholder="e.g. Ramesh Das"></div>
       <div class="row2">
-        <div class="field">
-          <label>Age *</label>
-          <input type="number" id="patientAge" placeholder="e.g. 62" min="0" max="120">
-        </div>
-        <div class="field">
-          <label>Caste (optional)</label>
-          <input type="text" id="patientCaste" placeholder="e.g. General / OBC / SC / ST">
-        </div>
+        <div class="field"><label>Age *</label><input type="number" id="patientAge" placeholder="e.g. 62" min="0" max="120"></div>
+        <div class="field"><label>Religion (optional)</label><input type="text" id="patientReligion" placeholder="e.g. Hindu / Muslim / Christian"></div>
       </div>
       <div class="field">
         <label>Gender *</label>
@@ -217,15 +191,24 @@
         </div>
       </div>
 
+      <div class="field-group-title">Service Needed *</div>
+      <div class="svc-list" id="svcList"></div>
+
+      <div class="row2" style="margin-top:12px;">
+        <div class="field" id="durationField">
+          <label id="durationLabel">Number of Days *</label>
+          <input type="number" id="duration" min="1" value="1">
+        </div>
+      </div>
+      <div class="bill-box" id="billBox" style="display:none;">
+        <div class="row-line"><span>Rate</span><b id="billRate">—</b></div>
+        <div class="row-line"><span>Subtotal</span><b id="billSubtotal">—</b></div>
+        <div class="row-line"><span>Service Charge (10%)</span><b id="billCharge">—</b></div>
+        <div class="total-line"><span>Total Bill</span><span id="billTotal">₹0</span></div>
+      </div>
+
       <div class="field-group-title">Medical Details</div>
-      <div class="field">
-        <label>Problem / Reason for Booking *</label>
-        <textarea id="problemDesc" placeholder="e.g. Daily insulin injection, wound dressing after surgery..."></textarea>
-      </div>
-      <div class="field">
-        <label>Doctor You Are Consulting</label>
-        <input type="text" id="doctorName" placeholder="e.g. Dr. S. Bhattacharya">
-      </div>
+      <div class="field"><label>Doctor You Are Consulting</label><input type="text" id="doctorName" placeholder="e.g. Dr. S. Bhattacharya"></div>
       <div class="field">
         <label>Prescription Image</label>
         <div class="file-drop" id="fileDrop">📎 Tap to upload prescription photo</div>
@@ -235,61 +218,32 @@
 
       <div class="field-group-title">Schedule</div>
       <div class="row2">
-        <div class="field">
-          <label>Date *</label>
-          <input type="date" id="bookDate">
-        </div>
-        <div class="field">
-          <label>Time *</label>
-          <input type="time" id="bookTime">
-        </div>
+        <div class="field"><label>Start Date *</label><input type="date" id="bookDate"></div>
+        <div class="field"><label>Time *</label><input type="time" id="bookTime"></div>
       </div>
 
       <div class="field-group-title">Address</div>
-      <div class="field">
-        <label>House No. / Flat / Building *</label>
-        <input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments">
-      </div>
-      <div class="field">
-        <label>Street / Area / Locality *</label>
-        <input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road">
-      </div>
-      <div class="field">
-        <label>Landmark (optional)</label>
-        <input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir">
-      </div>
+      <div class="field"><label>House No. / Flat / Building *</label><input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments"></div>
+      <div class="field"><label>Street / Area / Locality *</label><input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road"></div>
+      <div class="field"><label>Landmark (optional)</label><input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir"></div>
       <div class="row2">
-        <div class="field">
-          <label>City / Town *</label>
-          <input type="text" id="addrCity" placeholder="e.g. Howrah">
-        </div>
-        <div class="field">
-          <label>Pincode *</label>
-          <input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6">
-        </div>
+        <div class="field"><label>City / Town *</label><input type="text" id="addrCity" placeholder="e.g. Howrah"></div>
+        <div class="field"><label>Pincode *</label><input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6"></div>
       </div>
+      <div class="pin-note" id="pinNote">Enter your pincode to check nurse availability in your area.</div>
       <div class="field">
         <label>State</label>
-        <select id="addrState">
-          <option value="West Bengal" selected>West Bengal</option>
-          <option value="Other">Other</option>
-        </select>
+        <select id="addrState"><option value="West Bengal" selected>West Bengal</option><option value="Other">Other</option></select>
       </div>
 
       <div class="field-group-title">Contact</div>
       <div class="row2">
-        <div class="field">
-          <label>Contact No. *</label>
-          <input type="tel" id="contactNo" placeholder="e.g. 98XXXXXXXX">
-        </div>
-        <div class="field">
-          <label>WhatsApp No. *</label>
-          <input type="tel" id="whatsappNo" placeholder="e.g. 98XXXXXXXX">
-        </div>
+        <div class="field"><label>Contact No. *</label><input type="tel" id="contactNo" placeholder="e.g. 98XXXXXXXX"></div>
+        <div class="field"><label>WhatsApp No. *</label><input type="tel" id="whatsappNo" placeholder="e.g. 98XXXXXXXX"></div>
       </div>
 
       <div class="err-msg" id="errMsg">Please fill all required (*) fields.</div>
-      <button class="confirm-btn" id="confirmBtn">Submit Booking Request</button>
+      <button class="confirm-btn" id="confirmBtn">Pay & Submit Booking Request</button>
     </div>
   </div>
 </div>
@@ -298,39 +252,93 @@
 
 <script>
 /* ============================================================
-   NURSE BOOKING — form + status tracker (Pending / Approved)
-   Storage: localStorage (swap with Supabase table where marked)
+   NURSE BOOKING — service-type based pricing, pincode gating,
+   Razorpay payment before submit, Supabase-backed status tracking
    ============================================================ */
-const STORAGE_KEY = "mf_nurse_bookings";
+let supabaseClient = null;
+if (typeof supabase !== 'undefined') {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+}
+function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// Set your WhatsApp admin/team number here (country code, no + or spaces).
 const WHATSAPP_NUMBER = ""; // e.g. "918900000000"
 
-function getBookings(){ return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-function saveBookings(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
-
-// ---------------- Live notification bridge to userhome.html ----------------
-// Uses the SAME Supabase project as the rest of MediFinder so these events
-// land in the `notifications` table and show up instantly in the bell icon
-// on userhome.html (it already has a realtime subscription on this table).
-// NOTE: SUPABASE_URL / SUPABASE_ANON_KEY below are read from supabase-constants.js —
-// if your file defines them under different variable names, update this block to match.
-let sbClient = null;
-try{
-  if(window.supabase && typeof SUPABASE_URL !== "undefined" && typeof SUPABASE_ANON_KEY !== "undefined"){
-    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-}catch(e){}
-
+// Same bridge used elsewhere: writes into the shared `notifications` table so
+// this shows up instantly in the bell icon on userhome.html.
 async function pushHomeNotification(title, message){
-  if(!sbClient) return;
+  if(!supabaseClient) return;
   try{
-    const { data:{ session } } = await sbClient.auth.getSession();
+    const { data:{ session } } = await supabaseClient.auth.getSession();
     const uid = session && session.user ? session.user.id : null;
-    await sbClient.from("notifications").insert([{
-      user_id: uid, type: "nurse_booking", title, message
-    }]);
+    await supabaseClient.from("notifications").insert([{ user_id: uid, type: "nurse_booking", title, message }]);
   }catch(e){}
+}
+
+// ---------------- Fixed service catalogue ----------------
+const SERVICES = [
+  { key:"ayah", label:"আয়া / সাধারণ পরিচারক (Ayah / Basic Attendant)", scope:"বয়স্ক মানুষের সঙ্গী হওয়া, স্নান করানো, খাওয়ানো, হাঁটাচলায় সাহায্য করা।", rate:600, unit:"day" },
+  { key:"gda", label:"জিডিএ (General Duty Assistant)", scope:"ওষুধ ম্যানেজমেন্ট, সুগার-প্রেসার মাপা, নেবুলাইজার দেওয়া, রাইলস টিউবে খাওয়ানো।", rate:800, unit:"day" },
+  { key:"anm_gnm", label:"এএনএম / জিএনএম নার্স (ANM / GNM Skilled Nurse)", scope:"স্যালাইন ও আইভি (IV) চ্যানেল করা, ক্যাথেটার বদলানো, ড্রেসিং, ইনজেকশন দেওয়া।", rate:1000, unit:"day" },
+  { key:"icu_critical", label:"আইসিইউ / ক্রিটিক্যাল কেয়ার (ICU / Critical Care Nurse)", scope:"ভেন্টিলেটর বা ট্র্যাকিওস্টমি ব্যাকগ্রাউন্ডের রোগী, প্যালিয়াটিভ কেয়ার, ২৪ ঘণ্টা কড়া নজরদারি।", rate:2000, unit:"day" },
+  { key:"per_visit", label:"প্রতি ভিজিট (Per Visit — injection, dressing, catheter change)", scope:"শুধুমাত্র ইনজেকশন দেওয়া, ড্রেসিং করা বা ক্যাথেটার চেঞ্জ করার জন্য।", rate:300, unit:"visit" }
+];
+const SERVICE_CHARGE_PCT = 0.10;
+let selectedService = null;
+
+const svcList = document.getElementById('svcList');
+svcList.innerHTML = SERVICES.map(s=>`
+  <div class="svc-opt" data-key="${s.key}">
+    <div class="svc-top">
+      <span class="svc-name">${s.label}</span>
+      <span class="svc-rate">₹${s.rate}/${s.unit}</span>
+    </div>
+    <div class="svc-scope">${s.scope}</div>
+  </div>
+`).join('');
+svcList.addEventListener('click', (e)=>{
+  const opt = e.target.closest('.svc-opt');
+  if(!opt) return;
+  selectedService = SERVICES.find(s=>s.key===opt.dataset.key);
+  document.querySelectorAll('.svc-opt').forEach(o=>o.classList.toggle('active', o===opt));
+  document.getElementById('durationLabel').textContent = selectedService.unit==='visit' ? 'Number of Visits *' : 'Number of Days *';
+  recalcBill();
+});
+
+const durationInput = document.getElementById('duration');
+durationInput.addEventListener('input', recalcBill);
+function recalcBill(){
+  const billBox = document.getElementById('billBox');
+  if(!selectedService){ billBox.style.display='none'; return; }
+  const days = Math.max(1, parseInt(durationInput.value)||1);
+  const subtotal = selectedService.rate * days;
+  const charge = Math.round(subtotal * SERVICE_CHARGE_PCT);
+  const total = subtotal + charge;
+  document.getElementById('billRate').textContent = `₹${selectedService.rate} × ${days} ${selectedService.unit}${days>1?'s':''}`;
+  document.getElementById('billSubtotal').textContent = `₹${subtotal}`;
+  document.getElementById('billCharge').textContent = `₹${charge}`;
+  document.getElementById('billTotal').textContent = `₹${total}`;
+  billBox.style.display = 'block';
+}
+
+// ---------------- Pincode availability gate ----------------
+const addrPincode = document.getElementById('addrPincode');
+const pinNote = document.getElementById('pinNote');
+let pincodeOk = false;
+addrPincode.addEventListener('blur', checkPincodeAvailability);
+async function checkPincodeAvailability(){
+  const pin = addrPincode.value.trim();
+  if(!pin){ pinNote.className='pin-note'; pinNote.textContent='Enter your pincode to check nurse availability in your area.'; pincodeOk=false; return; }
+  const { data, error } = await supabaseClient.from('nurse_service_areas').select('pincode').eq('pincode', pin).maybeSingle();
+  if(error){ pinNote.className='pin-note'; pinNote.textContent='Could not verify pincode right now.'; pincodeOk=false; return; }
+  if(data){
+    pinNote.className='pin-note ok';
+    pinNote.textContent = `✅ Nurse service is available at pincode ${pin}.`;
+    pincodeOk = true;
+  } else {
+    pinNote.className='pin-note err';
+    pinNote.textContent = `❌ Sorry, nurse service isn't available at pincode ${pin} yet.`;
+    pincodeOk = false;
+  }
 }
 
 // ---------------- Form elements ----------------
@@ -342,9 +350,8 @@ const errMsg = document.getElementById("errMsg");
 
 const patientName = document.getElementById("patientName");
 const patientAge = document.getElementById("patientAge");
-const patientCaste = document.getElementById("patientCaste");
+const patientReligion = document.getElementById("patientReligion");
 const genderOpts = document.querySelectorAll(".gender-opt");
-const problemDesc = document.getElementById("problemDesc");
 const doctorName = document.getElementById("doctorName");
 const fileDrop = document.getElementById("fileDrop");
 const rxFile = document.getElementById("rxFile");
@@ -355,14 +362,14 @@ const addrHouse = document.getElementById("addrHouse");
 const addrStreet = document.getElementById("addrStreet");
 const addrLandmark = document.getElementById("addrLandmark");
 const addrCity = document.getElementById("addrCity");
-const addrPincode = document.getElementById("addrPincode");
 const addrState = document.getElementById("addrState");
 const contactNo = document.getElementById("contactNo");
 const whatsappNo = document.getElementById("whatsappNo");
 
 let selectedGender = "";
-let rxImageData = "";
+let selectedRxFile = null;
 let sheetOpenViaHistory = false;
+let currentUser = null;
 
 genderOpts.forEach(opt=>{
   opt.addEventListener("click", ()=>{
@@ -376,10 +383,10 @@ fileDrop.addEventListener("click", ()=> rxFile.click());
 rxFile.addEventListener("change", ()=>{
   const file = rxFile.files[0];
   if(!file) return;
+  selectedRxFile = file;
   const reader = new FileReader();
   reader.onload = (e)=>{
-    rxImageData = e.target.result; // base64 — for production, upload to Supabase Storage instead
-    rxPreview.src = rxImageData;
+    rxPreview.src = e.target.result;
     rxPreview.style.display = "block";
     fileDrop.textContent = "✅ " + file.name;
     fileDrop.classList.add("has-file");
@@ -388,113 +395,132 @@ rxFile.addEventListener("change", ()=>{
 });
 
 function resetForm(){
-  [patientName, patientAge, patientCaste, problemDesc, doctorName, addrHouse, addrStreet,
+  [patientName, patientAge, patientReligion, doctorName, addrHouse, addrStreet,
    addrLandmark, addrCity, addrPincode, contactNo, whatsappNo].forEach(f=>f.value="");
   addrState.value = "West Bengal";
   genderOpts.forEach(o=>o.classList.remove("active"));
   selectedGender = "";
-  rxImageData = "";
+  selectedRxFile = null;
   rxPreview.style.display = "none";
   fileDrop.textContent = "📎 Tap to upload prescription photo";
   fileDrop.classList.remove("has-file");
+  selectedService = null;
+  document.querySelectorAll('.svc-opt').forEach(o=>o.classList.remove('active'));
+  durationInput.value = 1;
+  document.getElementById('billBox').style.display = 'none';
+  pinNote.className='pin-note'; pinNote.textContent='Enter your pincode to check nurse availability in your area.';
+  pincodeOk = false;
   const today = new Date();
   bookDate.value = today.toISOString().split("T")[0];
   bookTime.value = "09:00";
   errMsg.style.display = "none";
 }
 
-function openSheet(){
-  resetForm();
-  overlay.classList.add("active");
-  history.pushState({sheet:true}, "");
-  sheetOpenViaHistory = true;
-}
+function openSheet(){ resetForm(); overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; }
 function closeSheetUI(){ overlay.classList.remove("active"); }
-window.addEventListener("popstate", ()=>{
-  if(overlay.classList.contains("active")) closeSheetUI();
-  sheetOpenViaHistory = false;
-});
+window.addEventListener("popstate", ()=>{ if(overlay.classList.contains("active")) closeSheetUI(); sheetOpenViaHistory = false; });
 openBookBtn.addEventListener("click", openSheet);
-closeX.addEventListener("click", ()=>{
-  if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
-});
-overlay.addEventListener("click",(e)=>{
-  if(e.target === overlay){
-    if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
-  }
-});
+closeX.addEventListener("click", ()=>{ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } });
+overlay.addEventListener("click",(e)=>{ if(e.target === overlay){ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } } });
 
-confirmBtn.addEventListener("click", ()=>{
+// Reuses the same Razorpay Checkout pattern as the main order flow / lab booking.
+function openRazorpayCheckout(amountRupees, customerName, customerPhone){
+  return new Promise((resolve)=>{
+    if(typeof Razorpay === 'undefined'){ alert("Payment gateway failed to load. Please try again."); resolve(null); return; }
+    const options = {
+      key: "rzp_test_TDK3YbLhmu0A30", // TEST KEY — replace with the live key before going to production
+      amount: Math.round(amountRupees * 100),
+      currency: "INR",
+      name: "MediFinder",
+      description: "Home Nurse Booking Payment",
+      prefill: { name: customerName || '', contact: customerPhone || '' },
+      theme: { color: "#e02020" },
+      handler: function(response){ resolve(response.razorpay_payment_id); },
+      modal: { ondismiss: function(){ resolve(null); } }
+    };
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(){ alert("Payment failed. Please try again."); resolve(null); });
+    rzp.open();
+  });
+}
+
+async function uploadToMedia(file, prefix){
+  const ext = file.name.split('.').pop();
+  const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabaseClient.storage.from('media').upload(path, file, { contentType: file.type });
+  if(error){ console.error(error); return null; }
+  const { data } = supabaseClient.storage.from('media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+confirmBtn.addEventListener("click", async ()=>{
   const required = [
-    patientName.value.trim(), patientAge.value.trim(), selectedGender,
-    problemDesc.value.trim(), bookDate.value, bookTime.value,
-    addrHouse.value.trim(), addrStreet.value.trim(), addrCity.value.trim(),
-    addrPincode.value.trim(), contactNo.value.trim(), whatsappNo.value.trim()
+    patientName.value.trim(), patientAge.value.trim(), selectedGender, selectedService,
+    bookDate.value, bookTime.value, addrHouse.value.trim(), addrStreet.value.trim(),
+    addrCity.value.trim(), addrPincode.value.trim(), contactNo.value.trim(), whatsappNo.value.trim()
   ];
-  if(required.some(v=>!v)){
-    errMsg.style.display = "block";
-    return;
-  }
+  if(required.some(v=>!v)){ errMsg.textContent = "Please fill all required (*) fields, including a service type."; errMsg.style.display = "block"; return; }
+  await checkPincodeAvailability();
+  if(!pincodeOk){ errMsg.textContent = "Nurse service isn't available at this pincode yet."; errMsg.style.display = "block"; return; }
   errMsg.style.display = "none";
 
-  const booking = {
-    id: "NB" + Date.now(),
-    status: "pending",
-    createdAt: Date.now(),
-    patientName: patientName.value.trim(),
-    age: patientAge.value.trim(),
+  const days = Math.max(1, parseInt(durationInput.value)||1);
+  const subtotal = selectedService.rate * days;
+  const charge = Math.round(subtotal * SERVICE_CHARGE_PCT);
+  const total = subtotal + charge;
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Processing payment...";
+  const paymentId = await openRazorpayCheckout(total, patientName.value.trim(), contactNo.value.trim());
+  if(!paymentId){
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Pay & Submit Booking Request";
+    return;
+  }
+
+  let prescriptionUrl = null;
+  if(selectedRxFile) prescriptionUrl = await uploadToMedia(selectedRxFile, 'nurse-prescriptions');
+
+  const payload = {
+    user_id: currentUser?.id || null,
+    patient_name: patientName.value.trim(),
+    patient_age: parseInt(patientAge.value) || null,
+    patient_religion: patientReligion.value.trim() || null,
     gender: selectedGender,
-    caste: patientCaste.value.trim(),
-    problem: problemDesc.value.trim(),
-    doctorName: doctorName.value.trim(),
-    rxImage: rxImageData,
-    date: bookDate.value,
-    time: bookTime.value,
-    address: {
-      house: addrHouse.value.trim(), street: addrStreet.value.trim(),
-      landmark: addrLandmark.value.trim(), city: addrCity.value.trim(),
-      pincode: addrPincode.value.trim(), state: addrState.value
-    },
-    contactNo: contactNo.value.trim(),
-    whatsappNo: whatsappNo.value.trim(),
-    nurse: null // filled when admin approves: { name, qualification, courses }
+    service_type: selectedService.key,
+    service_label: selectedService.label,
+    scope_of_work: selectedService.scope,
+    rate: selectedService.rate,
+    rate_unit: selectedService.unit,
+    duration: days,
+    subtotal, service_charge: charge, total_amount: total,
+    doctor_name: doctorName.value.trim() || null,
+    prescription_url: prescriptionUrl,
+    book_date: bookDate.value,
+    book_time: bookTime.value,
+    addr_house: addrHouse.value.trim(), addr_street: addrStreet.value.trim(),
+    addr_landmark: addrLandmark.value.trim() || null, addr_city: addrCity.value.trim(),
+    addr_pincode: addrPincode.value.trim(), addr_state: addrState.value,
+    contact_no: contactNo.value.trim(), whatsapp_no: whatsappNo.value.trim(),
+    payment_method: 'razorpay', payment_status: 'paid', razorpay_payment_id: paymentId,
+    status: 'pending'
   };
 
-  const list = getBookings();
-  list.unshift(booking);
-  saveBookings(list);
-  // TODO (production): insert this booking into a Supabase `nurse_bookings` table
-  // instead of localStorage, and upload rxImage to Supabase Storage, storing the URL.
+  const { error } = await supabaseClient.from('nurse_bookings').insert(payload);
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = "Pay & Submit Booking Request";
+  if(error){ alert("Payment succeeded but booking could not be saved: " + error.message + "\nPlease contact support with payment ID " + paymentId); return; }
 
-  sendWhatsAppNotification(booking);
-  pushHomeNotification("Nurse Booking Received", `Your nurse booking request for ${booking.patientName} on ${booking.date} is pending review.`);
+  sendWhatsAppNotification(payload, paymentId);
+  pushHomeNotification("Nurse Booking Received", `Your nurse booking request for ${payload.patient_name} on ${payload.book_date} is pending review.`);
   renderBookings();
-
   if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
-  showToast("Booking submitted! Status: Pending ⏳");
+  showToast("Payment received! Booking submitted — pending nurse assignment ⏳");
 });
 
-function sendWhatsAppNotification(b){
-  const fullAddress = [b.address.house, b.address.street, b.address.landmark, b.address.city, b.address.state, b.address.pincode].filter(Boolean).join(", ");
-  const message =
-`🧑‍⚕️ *MediFinder — New Nurse Booking Request*
-
-*Patient:* ${b.patientName} (${b.age} yrs, ${b.gender})
-*Caste:* ${b.caste || "(not provided)"}
-*Problem:* ${b.problem}
-*Doctor Consulting:* ${b.doctorName || "(not provided)"}
-*Prescription Image:* ${b.rxImage ? "Attached in system (see admin panel)" : "(not uploaded)"}
-
-*Date:* ${b.date}
-*Time:* ${b.time}
-*Address:* ${fullAddress}
-
-*Contact No:* ${b.contactNo}
-*WhatsApp No:* ${b.whatsappNo}
-
-*Booking ID:* ${b.id}
-*Status:* Pending — please review & approve.`;
-
+function sendWhatsAppNotification(b, paymentId){
+  const fullAddress = [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_state, b.addr_pincode].filter(Boolean).join(", ");
+  const message = `🧑‍⚕️ *MediFinder — New Nurse Booking Request*\n\n*Patient:* ${b.patient_name} (${b.patient_age} yrs, ${b.gender})\n*Service:* ${b.service_label}\n*Duration:* ${b.duration} ${b.rate_unit}(s)\n*Total Paid:* ₹${b.total_amount} (Payment ID: ${paymentId})\n\n*Date:* ${b.book_date}\n*Time:* ${b.book_time}\n*Address:* ${fullAddress}\n\n*Contact No:* ${b.contact_no}\n*WhatsApp No:* ${b.whatsapp_no}\n\n*Status:* Pending — please assign a nurse in the admin panel.`;
   const encoded = encodeURIComponent(message);
   const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, "_blank");
@@ -502,101 +528,85 @@ function sendWhatsAppNotification(b){
 
 // ---------------- Render bookings ----------------
 const bookingsWrap = document.getElementById("bookingsWrap");
+let myBookings = [];
 
-function renderBookings(){
-  const list = getBookings();
-  if(list.length === 0){
+async function renderBookings(){
+  if(!currentUser){
+    bookingsWrap.innerHTML = `<div class="empty-state">Log in to see your nurse bookings.</div>`;
+    return;
+  }
+  const { data, error } = await supabaseClient.from('nurse_bookings').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
+  if(error){ bookingsWrap.innerHTML = `<div class="empty-state">Could not load bookings.</div>`; return; }
+  myBookings = data || [];
+
+  if(myBookings.length === 0){
     bookingsWrap.innerHTML = `<div class="empty-state">No bookings yet. Tap "Book Nurse Now" above to request a home nurse.</div>`;
     return;
   }
-  bookingsWrap.innerHTML = list.map(b=>{
-    const d = new Date(b.createdAt);
+
+  bookingsWrap.innerHTML = myBookings.map(b=>{
+    const d = new Date(b.created_at);
     const submittedStr = d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
-    const fullAddress = [b.address.house, b.address.street, b.address.city, b.address.pincode].filter(Boolean).join(", ");
-    const nurseBlock = b.status === "approved" && b.nurse ? `
+    const fullAddress = [b.addr_house, b.addr_street, b.addr_city, b.addr_pincode].filter(Boolean).join(", ");
+    const statusLabel = b.status === "approved" ? "✅ Approved" : (b.status === "cancelled" ? "❌ Cancelled" : "⏳ Pending");
+
+    const nurseBlock = (b.status === "approved" && b.nurse_name) ? `
       <div class="nurse-box">
         <div class="n-head">
-          <div class="n-avatar">${b.nurse.name.charAt(0).toUpperCase()}</div>
+          ${b.nurse_photo_url ? `<img class="n-avatar" src="${esc(b.nurse_photo_url)}" alt="">` : `<div class="n-avatar">${esc(b.nurse_name.charAt(0).toUpperCase())}</div>`}
           <div>
-            <div class="n-name">${b.nurse.name}</div>
+            <div class="n-name">${esc(b.nurse_name)}</div>
             <div class="n-sub">Assigned Nurse</div>
           </div>
         </div>
         <div class="n-detail">
-          <b>Education:</b> ${b.nurse.qualification || "—"}<br>
-          <b>Courses Completed:</b> ${b.nurse.courses || "—"}
+          <b>Education:</b> ${esc(b.nurse_qualification || "—")}<br>
+          <b>Courses Completed:</b> ${esc(b.nurse_courses || "—")}<br>
+          <b>Contact:</b> ${esc(b.nurse_contact || "—")} ${b.nurse_email ? ' · '+esc(b.nurse_email) : ''}
         </div>
       </div>
-    ` : "";
-
-    const adminBlock = b.status === "pending" ? `
-      <details class="demo-admin">
-        <summary>⚙️ Demo: Simulate Admin Approval</summary>
-        <div class="field">
-          <label>Nurse Name</label>
-          <input type="text" data-role="n-name" placeholder="e.g. Sister Anjali Roy">
-        </div>
-        <div class="field">
-          <label>Education</label>
-          <input type="text" data-role="n-edu" placeholder="e.g. B.Sc Nursing, Calcutta University">
-        </div>
-        <div class="field">
-          <label>Courses Completed</label>
-          <input type="text" data-role="n-courses" placeholder="e.g. GNM, Critical Care Nursing, BLS Certified">
-        </div>
-        <button class="approve-btn" data-id="${b.id}">Approve Booking</button>
-      </details>
     ` : "";
 
     return `
       <div class="bcard" data-booking-id="${b.id}">
         <div class="bcard-top">
           <div>
-            <h3>${b.patientName}</h3>
-            <div class="meta">${b.age} yrs · ${b.gender} · Requested ${submittedStr}</div>
+            <h3>${esc(b.patient_name)}</h3>
+            <div class="meta">${b.patient_age} yrs · ${esc(b.gender)} · Requested ${submittedStr}</div>
           </div>
-          <span class="status-pill ${b.status}">${b.status === "approved" ? "✅ Approved" : "⏳ Pending"}</span>
+          <span class="status-pill ${b.status}">${statusLabel}</span>
         </div>
         <hr>
-        <div class="row-line"><span>Problem</span><b>${b.problem}</b></div>
-        <div class="row-line"><span>Doctor</span><b>${b.doctorName || "—"}</b></div>
-        <div class="row-line"><span>Schedule</span><b>${b.date} · ${b.time}</b></div>
-        <div class="row-line"><span>Address</span><b>${fullAddress}</b></div>
-        <div class="row-line"><span>Contact</span><b>${b.contactNo}</b></div>
-        ${b.rxImage ? `<img class="rx-thumb" src="${b.rxImage}" alt="Prescription">` : ""}
+        <div class="row-line"><span>Service</span><b>${esc(b.service_label)}</b></div>
+        <div class="row-line"><span>Duration</span><b>${b.duration} ${esc(b.rate_unit)}(s)</b></div>
+        <div class="row-line"><span>Doctor</span><b>${esc(b.doctor_name || "—")}</b></div>
+        <div class="row-line"><span>Schedule</span><b>${esc(b.book_date)} · ${esc(b.book_time)}</b></div>
+        <div class="row-line"><span>Address</span><b>${esc(fullAddress)}</b></div>
+        <div class="bill-box">
+          <div class="row-line"><span>Rate × Duration</span><b>₹${b.rate} × ${b.duration}</b></div>
+          <div class="row-line"><span>Subtotal</span><b>₹${b.subtotal}</b></div>
+          <div class="row-line"><span>Service Charge (10%)</span><b>₹${b.service_charge}</b></div>
+          <div class="total-line"><span>Total Paid</span><span>₹${b.total_amount}</span></div>
+        </div>
+        ${b.prescription_url ? `<img class="rx-thumb" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;margin-top:8px;" src="${esc(b.prescription_url)}" alt="Prescription">` : ""}
         ${nurseBlock}
-        ${adminBlock}
+        <div class="bcard-actions">
+          <button class="receipt-btn" onclick='shareReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Receipt</button>
+        </div>
       </div>
     `;
   }).join("");
 }
-renderBookings();
 
-// ---------------- Demo approve action ----------------
-bookingsWrap.addEventListener("click",(e)=>{
-  if(!e.target.classList.contains("approve-btn")) return;
-  const card = e.target.closest(".bcard");
-  const id = e.target.getAttribute("data-id");
-  const nameVal = card.querySelector('[data-role="n-name"]').value.trim();
-  const eduVal = card.querySelector('[data-role="n-edu"]').value.trim();
-  const courseVal = card.querySelector('[data-role="n-courses"]').value.trim();
-  if(!nameVal){ card.querySelector('[data-role="n-name"]').focus(); return; }
-
-  const list = getBookings();
-  const idx = list.findIndex(x=>x.id === id);
-  if(idx === -1) return;
-  list[idx].status = "approved";
-  list[idx].nurse = { name: nameVal, qualification: eduVal, courses: courseVal };
-  saveBookings(list);
-  // TODO (production): this whole "Demo: Simulate Admin Approval" panel should NOT
-  // exist on the user-facing page. Instead, your admin panel updates the
-  // `nurse_bookings` row's status + assigned nurse in Supabase, and this page
-  // should just read the latest status (e.g. via a realtime subscription or
-  // periodic fetch keyed on the logged-in user / booking id).
-  pushHomeNotification("Nurse Booking Approved", `${nameVal} has been assigned as your nurse for ${list[idx].patientName}'s booking on ${list[idx].date}.`);
-  renderBookings();
-  showToast("Booking approved (demo) ✅");
-});
+async function shareReceipt(b){
+  const text = `MediFinder — Nurse Booking Receipt\n\nPatient: ${b.patient_name}\nService: ${b.service_label}\nRate: ₹${b.rate}/${b.rate_unit} × ${b.duration}\nSubtotal: ₹${b.subtotal}\nService Charge (10%): ₹${b.service_charge}\nTotal Paid: ₹${b.total_amount}\nPayment ID: ${b.razorpay_payment_id || '—'}\nStatus: ${b.status}`;
+  if(navigator.share){
+    try { await navigator.share({ title: 'MediFinder Nurse Receipt', text }); return; } catch(e){}
+  }
+  const w = window.open('', '_blank');
+  w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
+  w.document.close();
+}
 
 // ---------------- Toast ----------------
 let toastTimeout;
@@ -607,6 +617,17 @@ function showToast(msg){
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(()=> toast.classList.remove("show"), 2400);
 }
+
+// ---------------- Init ----------------
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const { data } = await supabaseClient.auth.getUser();
+  currentUser = data?.user || null;
+  renderBookings();
+
+  supabaseClient.channel('nurse_bookings_mine')
+    .on('postgres_changes', {event:'*', schema:'public', table:'nurse_bookings'}, renderBookings)
+    .subscribe();
+});
 </script>
 </body>
 </html>

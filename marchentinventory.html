@@ -11,7 +11,7 @@
     <title>Inventory - MediFinder Merchant</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="marchentinventory.css?v=13">
+    <link rel="stylesheet" href="marchentinventory.css?v=14">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
@@ -22,13 +22,9 @@
 <body>
     <div class="container">
         <header class="top-bar">
-            <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
             <div class="logo-area">
                 <img src="1779304435608.png" alt="Logo">
                 <h1>MEDI <span class="highlight">FINDER</span></h1>
-            </div>
-            <div class="header-actions">
-                <button class="add-btn-header" onclick="window.location.href='marchentadd.html'"><i class="fas fa-plus"></i> Add New</button>
             </div>
         </header>
 
@@ -509,6 +505,29 @@
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('sidebarOverlay').classList.toggle('open');
         }
+
+        // 📐 top-bar আর bottom-nav এর আসল রেন্ডার হওয়া উচ্চতা মেপে main-content কে
+        // ঠিক তাদের মাঝখানে বসিয়ে দেয় — কোনো ডিভাইসেই bottom-nav content এর ভেতরে ঢুকে যাবে না
+        function syncLockedLayout() {
+            const topBar = document.querySelector('.top-bar');
+            const bottomNav = document.querySelector('.bottom-nav');
+            if (topBar) document.documentElement.style.setProperty('--topbar-h', topBar.offsetHeight + 'px');
+            if (bottomNav) document.documentElement.style.setProperty('--bottomnav-h', bottomNav.offsetHeight + 'px');
+        }
+        window.addEventListener('load', syncLockedLayout);
+        window.addEventListener('resize', syncLockedLayout);
+
+        // ✨ স্ক্রল করলে টপ-বারে হালকা শ্যাডো — প্রিমিয়াম, স্মুথ ফিল
+        document.addEventListener('DOMContentLoaded', () => {
+            syncLockedLayout();
+            const mainContent = document.querySelector('.main-content');
+            const topBar = document.querySelector('.top-bar');
+            if (mainContent && topBar) {
+                mainContent.addEventListener('scroll', () => {
+                    topBar.classList.toggle('scrolled', mainContent.scrollTop > 4);
+                }, { passive: true });
+            }
+        });
     </script>
     <script>
         document.getElementById('editMrp').addEventListener('input', updateDiscountDisplay);

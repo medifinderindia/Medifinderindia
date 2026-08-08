@@ -217,8 +217,124 @@ async function saveMerchantKyc(fileUrl, licenseNo) {
     if (error) throw error;
 }
 
+// ==========================================
+// 🪪 VERIFICATION CARD RENDERER (shared by License & Bank popups)
+// Paints the small status pill on the settings card, and switches each
+// popup between its read-only "view" summary (status + image + Edit/Cancel)
+// and its editable upload form, based on the merchant's current status.
+// ==========================================
+function paintStatusPill(el, status) {
+    if (!el) return;
+    const map = {
+        Verified:   { text: 'Verified',       cls: 'status-pill verified',   bg: '#2e7d32', color: '#fff' },
+        Pending:    { text: 'Pending Review',  cls: 'status-pill pending',    bg: '#ffa000', color: '#fff' },
+        Rejected:   { text: 'Rejected',        cls: 'status-pill rejected',   bg: '#ef4444', color: '#fff' },
+        Unverified: { text: 'Unverified',      cls: 'status-pill unverified', bg: '#fef2f2', color: '#ef4444' }
+    };
+    const s = map[status] || map.Unverified;
+    el.innerText = s.text;
+    el.className = s.cls;
+    el.style.background = s.bg;
+    el.style.color = s.color;
+}
+
+function renderLicenseCard(merchantData, kycImg) {
+    const status = merchantData.license_status;
+    paintStatusPill(document.getElementById('verifyStatus'), status);
+
+    const viewState = document.getElementById('licenseViewState');
+    const formState = document.getElementById('licenseFormState');
+    if (!viewState || !formState) return;
+
+    const submitted = status === 'Verified' || status === 'Pending' || status === 'Rejected';
+
+    if (submitted) {
+        viewState.style.display = '';
+        formState.style.display = 'none';
+
+        const idText = document.getElementById('licenseViewIdText');
+        if (idText) idText.value = merchantData.license_id || '—';
+
+        const img = document.getElementById('licenseViewImg');
+        if (img && kycImg) { img.src = kycImg; img.style.display = ''; }
+        else if (img && !img.src) { img.style.display = 'none'; }
+
+        const note = document.getElementById('licenseViewNote');
+        if (note) {
+            if (status === 'Verified') note.innerHTML = '<span class="status-pill verified">Verified</span> Product publishing is unlocked.';
+            else if (status === 'Pending') note.innerHTML = '<span class="status-pill pending">Pending Review</span> Awaiting admin review.';
+            else note.innerHTML = '<span class="status-pill rejected">Rejected</span> Tap Edit to re-upload a valid document.';
+        }
+
+        const cancelBtn = document.getElementById('btnCancelLicense');
+        if (cancelBtn) cancelBtn.style.display = status === 'Verified' ? 'none' : '';
+    } else {
+        viewState.style.display = 'none';
+        formState.style.display = '';
+    }
+}
+
+function renderBankCard(merchantData) {
+    const hasBank = !!(merchantData.bank_no && merchantData.ifsc_code);
+    const status = hasBank ? (merchantData.bank_status || 'Pending') : 'Unverified';
+    paintStatusPill(document.getElementById('bankVerifyStatus'), status);
+
+    const viewState = document.getElementById('bankViewState');
+    const formState = document.getElementById('bankFormState');
+    if (!viewState || !formState) return;
+
+    if (hasBank) {
+        viewState.style.display = '';
+        formState.style.display = 'none';
+
+        const noText = document.getElementById('bankViewNoText');
+        if (noText) noText.value = merchantData.bank_no || '—';
+        const ifscText = document.getElementById('bankViewIfscText');
+        if (ifscText) ifscText.value = merchantData.ifsc_code || '—';
+        const upiText = document.getElementById('bankViewUpiText');
+        if (upiText) upiText.value = merchantData.upi_id || '—';
+
+        const img = document.getElementById('bankViewImg');
+        if (img) {
+            if (merchantData.bank_image) { img.src = merchantData.bank_image; img.style.display = ''; }
+            else { img.style.display = 'none'; }
+        }
+
+        const note = document.getElementById('bankViewNote');
+        if (note) {
+            note.innerHTML = status === 'Verified'
+                ? '<span class="status-pill verified">Verified</span> Your settlement account is confirmed.'
+                : '<span class="status-pill pending">Pending Review</span> Your settlement account is on file.';
+        }
+    } else {
+        viewState.style.display = 'none';
+        formState.style.display = '';
+    }
+}
+
 // Run all modules on DOM Content Loaded
 document.addEventListener("DOMContentLoaded", async () => {
+
+    // Measure the REAL rendered height of the locked top-bar and bottom-nav
+    // (same technique used on marchentpromotions.html) and publish them as
+    // CSS custom properties, so merchant-shared.css can size the scrollable
+    // .content-body to fit exactly between them — no guessed pixel values,
+    // stays correct even if fonts/safe-area/wrapping change the bar height.
+    function syncLayoutHeights() {
+        const header = document.querySelector('.top-bar, header.header, .header');
+        const nav = document.querySelector('.bottom-nav');
+        if (header) document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+        if (nav) document.documentElement.style.setProperty('--bottomnav-h', nav.offsetHeight + 'px');
+    }
+    syncLayoutHeights();
+    window.addEventListener('load', syncLayoutHeights);
+    window.addEventListener('resize', syncLayoutHeights);
+    window.addEventListener('orientationchange', syncLayoutHeights);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', syncLayoutHeights);
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(syncLayoutHeights);
+        document.querySelectorAll('.top-bar, .header, .bottom-nav').forEach(el => ro.observe(el));
+    }
 
     if (!dbSupabase) {
 
@@ -310,6 +426,8 @@ function initNotificationSystem() {
         .channel('profile-alerts')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'merchants' }, payload => {
             const merchant = payload.new;
+            if (typeof renderLicenseCard === 'function') renderLicenseCard(merchant, null);
+            if (typeof renderBankCard === 'function') renderBankCard(merchant);
             const verifyStatusEl = document.getElementById('verifyStatus');
             if (merchant.license_status === 'Verified') {
                 showCustomNotification(
@@ -856,6 +974,11 @@ function initAddMedicinePage() {
             if (document.getElementById('lotNumber')) document.getElementById('lotNumber').value = editData.lot_number || '';
             if (document.getElementById('warrantyPeriod')) document.getElementById('warrantyPeriod').value = editData.warranty_period || 'No Warranty';
             if (document.getElementById('modelNumber')) document.getElementById('modelNumber').value = editData.model_number || '';
+            if (document.getElementById('itemColor')) document.getElementById('itemColor').value = editData.item_color || '';
+            if (document.getElementById('deviceType')) document.getElementById('deviceType').value = editData.device_type || '';
+            if (document.getElementById('displaySpec')) document.getElementById('displaySpec').value = editData.display_spec || '';
+            if (document.getElementById('batteryInfo')) document.getElementById('batteryInfo').value = editData.battery_info || '';
+            if (document.getElementById('measurementRange')) document.getElementById('measurementRange').value = editData.measurement_range || '';
             if (document.getElementById('unitPrice')) document.getElementById('unitPrice').value = editData.unit_price || '';
             if (document.getElementById('mrpPrice')) document.getElementById('mrpPrice').value = editData.mrp || '';
             if (document.getElementById('discountPct')) {
@@ -868,7 +991,7 @@ function initAddMedicinePage() {
             if (document.getElementById('unitType')) document.getElementById('unitType').value = editData.unit_type || 'Strip';
             if (document.getElementById('rackLocation')) document.getElementById('rackLocation').value = editData.rack_location || '';
             if (document.getElementById('sideEffects')) document.getElementById('sideEffects').value = editData.side_effects || '';
-            if (document.getElementById('productDescription')) document.getElementById('productDescription').value = editData.description || '';
+            if (document.getElementById('productDescription')) document.getElementById('productDescription').value = (editData.description || '').toUpperCase();
             // Load existing image if available
             if (editData.image_url) {
                 const img1 = document.getElementById('imagePreview1');
@@ -1011,6 +1134,11 @@ function initAddMedicinePage() {
         const lotNumber = document.getElementById('lotNumber')?.value || '';
         const warrantyPeriod = document.getElementById('warrantyPeriod')?.value || '';
         const modelNumber = document.getElementById('modelNumber')?.value || '';
+        const itemColor = document.getElementById('itemColor')?.value || '';
+        const deviceType = document.getElementById('deviceType')?.value || '';
+        const displaySpec = document.getElementById('displaySpec')?.value || '';
+        const batteryInfo = document.getElementById('batteryInfo')?.value || '';
+        const measurementRange = document.getElementById('measurementRange')?.value || '';
         const unitPrice = parseFloat(document.getElementById('unitPrice')?.value) || 0;
         const mrpPrice = parseFloat(document.getElementById('mrpPrice')?.value) || null;
         const drugType = document.getElementById('drugType')?.value || 'Branded';
@@ -1068,6 +1196,11 @@ function initAddMedicinePage() {
                 lot_number: lotNumber,
                 warranty_period: warrantyPeriod,
                 model_number: modelNumber,
+                item_color: itemColor,
+                device_type: deviceType,
+                display_spec: displaySpec,
+                battery_info: batteryInfo,
+                measurement_range: measurementRange,
                 unit_price: unitPrice,
                 mrp: mrpPrice,
                 selling_price: unitPrice,
@@ -1451,6 +1584,62 @@ async function initProfilePage() {
         }
     };
 
+    // 🪪 লাইসেন্স ভিউ-স্টেট: Edit / Cancel বাটন হ্যান্ডলার
+    const btnEditLicense = document.getElementById('btnEditLicense');
+    const btnCancelLicense = document.getElementById('btnCancelLicense');
+    if (btnEditLicense) {
+        btnEditLicense.addEventListener('click', () => {
+            const vs = document.getElementById('licenseViewState');
+            const fs = document.getElementById('licenseFormState');
+            if (vs) vs.style.display = 'none';
+            if (fs) fs.style.display = '';
+        });
+    }
+    if (btnCancelLicense) {
+        btnCancelLicense.addEventListener('click', () => {
+            showConfirmationModal("Cancel this license submission? You'll need to re-upload before you can publish products.", async () => {
+                let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
+                if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
+                try {
+                    const { error } = await dbSupabase.from('merchants').update({ license_status: null }).eq('id', targetMerchantId);
+                    if (error) throw error;
+                    showToast("License submission cancelled.", "success");
+                    await loadCurrentMerchantStatus();
+                } catch (err) {
+                    showToast("Cancel failed: " + err.message, "error");
+                }
+            });
+        });
+    }
+
+    // 🏦 ব্যাংক ভিউ-স্টেট: Edit / Cancel বাটন হ্যান্ডলার
+    const btnEditBank = document.getElementById('btnEditBank');
+    const btnCancelBank = document.getElementById('btnCancelBank');
+    if (btnEditBank) {
+        btnEditBank.addEventListener('click', () => {
+            const vs = document.getElementById('bankViewState');
+            const fs = document.getElementById('bankFormState');
+            if (vs) vs.style.display = 'none';
+            if (fs) fs.style.display = '';
+        });
+    }
+    if (btnCancelBank) {
+        btnCancelBank.addEventListener('click', () => {
+            showConfirmationModal("Remove these bank details? You can add them again anytime.", async () => {
+                let targetMerchantId = window.currentMerchantId || currentMerchantData?.id || (localStorage.getItem('merchantId') || localStorage.getItem('merchant_id'));
+                if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
+                try {
+                    const { error } = await dbSupabase.from('merchants').update({ bank_no: null, ifsc_code: null, upi_id: null, bank_image: null }).eq('id', targetMerchantId);
+                    if (error) throw error;
+                    showToast("Bank details removed.", "success");
+                    await loadCurrentMerchantStatus();
+                } catch (err) {
+                    showToast("Cancel failed: " + err.message, "error");
+                }
+            });
+        });
+    }
+
     if (licenseUploadZone && licenseFileInput) {
         licenseUploadZone.onclick = () => licenseFileInput.click();
         licenseFileInput.onchange = (e) => {
@@ -1735,6 +1924,16 @@ async function loadCurrentMerchantStatus() {
 
         if (merchantData) {
             currentMerchantData = merchantData;
+
+            let kycImg = null;
+            try {
+                const { data: kycRow } = await dbSupabase
+                    .from('merchant_kyc')
+                    .select('license_img')
+                    .eq('merchant_id', merchantData.id)
+                    .maybeSingle();
+                kycImg = kycRow?.license_img || null;
+            } catch (e) { /* non-fatal — view state just falls back to no image */ }
             
             window.currentMerchantId = merchantData.id;
             localStorage.setItem("merchantId", String(merchantData.id));
@@ -1778,38 +1977,12 @@ async function loadCurrentMerchantStatus() {
                 // দুটোর কোনোটাই না থাকলে HTML-এ সেট করা নিরপেক্ষ প্লেসহোল্ডার আইকনটাই থেকে যাবে
             }
 
-            const verifyStatusEl = document.getElementById('verifyStatus');
-            if (verifyStatusEl) {
-                if (merchantData.license_status === 'Verified') {
-                    verifyStatusEl.innerText = "Verified";
-                    verifyStatusEl.className = "status-pill verified";
-                    verifyStatusEl.style.background = "#2e7d32";
-                    verifyStatusEl.style.color = "#fff";
-                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = '');
-                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = '');
-                } else if (merchantData.license_status === 'Pending') {
-                    verifyStatusEl.innerText = "Pending Review";
-                    verifyStatusEl.className = "status-pill pending";
-                    verifyStatusEl.style.background = "#ffa000";
-                    verifyStatusEl.style.color = "#fff";
-                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
-                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
-                } else if (merchantData.license_status === 'Rejected') {
-                    verifyStatusEl.innerText = "Rejected";
-                    verifyStatusEl.className = "status-pill rejected";
-                    verifyStatusEl.style.background = "#ef4444";
-                    verifyStatusEl.style.color = "#fff";
-                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
-                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
-                } else {
-                    verifyStatusEl.innerText = "Unverified";
-                    verifyStatusEl.className = "status-pill unverified";
-                    verifyStatusEl.style.background = "#ef4444";
-                    verifyStatusEl.style.color = "#fff";
-                    document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = 'none');
-                    document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = 'none');
-                }
-            }
+            renderLicenseCard(merchantData, kycImg);
+            renderBankCard(merchantData);
+
+            const unlocked = merchantData.license_status === 'Verified';
+            document.getElementById('bankCard') && (document.getElementById('bankCard').style.display = unlocked ? '' : 'none');
+            document.getElementById('geoCard') && (document.getElementById('geoCard').style.display = unlocked ? '' : 'none');
             
             if(document.getElementById('pinCodeInput')) document.getElementById('pinCodeInput').value = merchantData.pincode || '';
             if(document.getElementById('cityInput')) document.getElementById('cityInput').value = merchantData.city || '';

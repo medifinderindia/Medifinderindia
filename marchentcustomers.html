@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,9 +19,9 @@
 <script src="prod-utils.js?v=13"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:rgba(224,32,32,.12);--accent:#1a1a2e;--bg:#0f0f1a;--card:rgba(26,26,46,.65);--card-border:rgba(224,32,32,.15);--glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.08);--text:#f0f0f5;--text-dim:rgba(240,240,245,.55);--text-mid:rgba(240,240,245,.75);--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;--gold:#ffd700;--radius:14px;--radius-sm:10px;--radius-xs:6px}
-html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
-body{padding-bottom:100px}
+:root{--primary:#e02020;--primary-dark:#b81a1a;--primary-light:rgba(224,32,32,.12);--accent:#1a1a2e;--bg:#0f0f1a;--card:rgba(26,26,46,.65);--card-border:rgba(224,32,32,.15);--glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.08);--text:#f0f0f5;--text-dim:rgba(240,240,245,.55);--text-mid:rgba(240,240,245,.75);--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;--gold:#ffd700;--radius:14px;--radius-sm:10px;--radius-xs:6px;--header-h:60px;--bottomnav-h:68px}
+html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100%;height:100dvh;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;overscroll-behavior-y:none;touch-action:manipulation}
+body{position:fixed;inset:0;padding-bottom:0}
 a{text-decoration:none;color:inherit}
 
 /* Scrollbar */
@@ -30,7 +30,7 @@ a{text-decoration:none;color:inherit}
 ::-webkit-scrollbar-thumb{background:rgba(224,32,32,.3);border-radius:4px}
 
 /* Header */
-.header{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(15,15,26,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 16px;z-index:1000;gap:12px}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(15,15,26,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;padding:0 16px;z-index:1000;gap:12px;transform:translateZ(0);will-change:transform;backface-visibility:hidden}
 .header-back{width:36px;height:36px;border-radius:10px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:14px;transition:all .2s}
 .header-back:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
 .header-brand{display:flex;align-items:center;gap:8px;flex:1}
@@ -62,7 +62,7 @@ a{text-decoration:none;color:inherit}
 .sidebar-logout:hover{background:rgba(239,68,68,.1)}
 
 /* Main */
-.main{padding-top:72px;padding-left:0;padding-right:0}
+.main{position:fixed;top:var(--header-h);bottom:var(--bottomnav-h);left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;will-change:scroll-position}
 .container{max-width:1200px;margin:0 auto;padding:0 16px}
 
 /* Section */
@@ -248,7 +248,8 @@ a{text-decoration:none;color:inherit}
 .tab:hover:not(.active){color:var(--text)}
 
 /* Bottom Nav */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:68px;background:rgba(15,15,26,.95);backdrop-filter:blur(24px);border-top:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-around;z-index:1000;padding-bottom:env(safe-area-inset-bottom)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:68px;background:rgba(15,15,26,.95);backdrop-filter:blur(24px);border-top:1px solid var(--glass-border);z-index:1000;padding-bottom:env(safe-area-inset-bottom);transform:translateZ(0);will-change:transform;backface-visibility:hidden}
+.bottom-nav-inner{display:flex;align-items:center;justify-content:space-between;height:100%;max-width:600px;margin:0 auto;padding:0 24px}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 12px;border-radius:12px;transition:all .2s;position:relative}
 .nav-item i{font-size:18px;color:var(--text-dim);transition:color .2s}
 .nav-item span{font-size:10px;color:var(--text-dim);font-weight:500;transition:color .2s}
@@ -259,7 +260,6 @@ a{text-decoration:none;color:inherit}
 
 /* Responsive */
 @media(min-width:768px){
-.main{padding-left:0}
 .stats-grid{grid-template-columns:repeat(4,1fr)}
 .analytics-grid{grid-template-columns:repeat(2,1fr)}
 .segment-chart-wrap{flex-direction:row}
@@ -275,14 +275,9 @@ a{text-decoration:none;color:inherit}
 
 <!-- Header -->
 <header class="header">
-  <div class="header-back" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
   <div class="header-brand">
-    <div class="header-logo">M</div>
+    <img src="1779304435608.png" alt="Logo" style="height:30px;width:auto;object-fit:contain;border-radius:6px;">
     <div class="header-title">MEDI<span>FINDER</span></div>
-  </div>
-  <div class="header-notif" onclick="showMerchantNotifications()">
-    <i class="fas fa-bell"></i>
-    <div class="badge" id="notifBadge" style="display:none">0</div>
   </div>
 </header>
 
@@ -463,11 +458,13 @@ a{text-decoration:none;color:inherit}
 
 <!-- Bottom Nav -->
 <nav class="bottom-nav">
+<div class="bottom-nav-inner">
   <a href="marchenthome.html" class="nav-item"><i class="fas fa-home"></i><span>HOME</span></a>
   <a href="marchentorders.html" class="nav-item"><i class="fas fa-shopping-bag"></i><span>ORDERS</span></a>
   <div class="nav-item center-btn" onclick="showToast('Add functionality','info')"><i class="fas fa-plus"></i></div>
   <a href="marchentinventory.html" class="nav-item"><i class="fas fa-pills"></i><span>INVENTORY</span></a>
   <a href="marchentprofile.html" class="nav-item"><i class="fas fa-user"></i><span>PROFILE</span></a>
+</div>
 </nav>
 
 <script>
@@ -969,10 +966,26 @@ function formatDate(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDat
 function formatDateTime(d){if(!d)return'';const dt=new Date(d);return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
 function handleLogout(){showToast('Logged out','info');setTimeout(()=>window.location.href='marchenthome.html',800)}
 
+// Lock header/bottom-nav sizes so .main scrolls independently without any jitter
+function syncLayoutHeights(){
+const header=document.querySelector('.header');
+const nav=document.querySelector('.bottom-nav');
+if(header)document.documentElement.style.setProperty('--header-h',header.offsetHeight+'px');
+if(nav)document.documentElement.style.setProperty('--bottomnav-h',nav.offsetHeight+'px');
+}
+syncLayoutHeights();
+window.addEventListener('load',syncLayoutHeights);
+window.addEventListener('resize',syncLayoutHeights);
+window.addEventListener('orientationchange',syncLayoutHeights);
+if(window.visualViewport)window.visualViewport.addEventListener('resize',syncLayoutHeights);
+if(window.ResizeObserver){
+const ro=new ResizeObserver(syncLayoutHeights);
+document.querySelectorAll('.header,.bottom-nav').forEach(el=>ro.observe(el));
+}
+
 // Close modals on overlay click
 document.getElementById('customerModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
 document.getElementById('messageModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMessageModal()});
 </script>
-    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

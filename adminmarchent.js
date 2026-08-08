@@ -33,14 +33,14 @@ if (typeof supabase !== 'undefined') {
 }
 
 // ডাটাবেস কানেকশন স্ট্যাটাস আপডেটার
+// ✅ FIXED: now targets the small conn-dot pill next to the page title
+// (the old "Database Status" card was removed along with the hero banner).
 function updateDbStatus(isSuccess, message) {
     const dbStatusText = document.getElementById('db-status-text');
     if (!dbStatusText) return;
-    if (isSuccess) {
-        dbStatusText.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #10b981;"></i> ${message}`;
-    } else {
-        dbStatusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> ${message}`;
-    }
+    dbStatusText.classList.toggle('ok', isSuccess);
+    dbStatusText.classList.toggle('fail', !isSuccess);
+    dbStatusText.innerHTML = `<span class="dot"></span> ${message}`;
 }
 
 // সব রিয়েল-টাইম এবং ইনিশিয়াল ডেটা ফেচিং রান করা
@@ -49,6 +49,7 @@ function initializeAllDataStreams() {
     loadMerchantPayouts();
     loadMerchantVerification();
     loadMerchantLedger();
+    loadMerchantDirectory();
     initRealtimeMerchantStreams();
 }
 
@@ -105,6 +106,68 @@ function initRealtimeMerchantStreams() {
             loadMerchantLedger();
         })
         .subscribe();
+
+    // ✅ NEW: মার্চেন্ট ডিরেক্টরি রিয়েল-টাইম ট্র্যাকিং (নতুন মার্চেন্ট জয়েন করলে/আপডেট হলে সাথে সাথে দেখাবে)
+    supabaseClient
+        .channel('realtime-merchant-directory')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'merchants' }, () => {
+            loadMerchantDirectory();
+        })
+        .subscribe();
+}
+
+// ==========================================
+// NEW: Merchant Directory — full merchant list with contact, location & join date.
+// This is what now shows the moment "Merchant View" is opened, replacing the
+// old banner + bare "Database Status" card that had no actual merchant data on it.
+// ==========================================
+let merchantDirectory = [];
+
+async function loadMerchantDirectory() {
+    if (!supabaseClient) return;
+    const tbody = document.getElementById('merchant-directory-table');
+    const emptyMsg = document.getElementById('directory-empty-msg');
+    try {
+        const { data, error } = await supabaseClient
+            .from('merchants')
+            .select('id, shop_name, merchant_name, phone, email, city, district, pincode, resolved_address, license_status, created_at')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+
+        merchantDirectory = data || [];
+        populateMerchantNotifTargetSelect();
+
+        if (!tbody) return;
+        if (merchantDirectory.length === 0) {
+            tbody.innerHTML = '';
+            if (emptyMsg) emptyMsg.style.display = 'block';
+            return;
+        }
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        tbody.innerHTML = merchantDirectory.map(m => {
+            const joined = m.created_at ? new Date(m.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const location = [m.city, m.district, m.pincode].filter(Boolean).join(', ') || (m.resolved_address || 'Not set');
+            const isOnline = m.license_status === 'approved' || m.license_status === 'verified';
+            const statusHtml = m.license_status
+                ? `<span class="status ${isOnline ? 'online' : 'pending'}">${esc(m.license_status)}</span>`
+                : `<span class="status pending">Unverified</span>`;
+            return `
+                <tr>
+                    <td>
+                        <strong>${esc(m.shop_name || 'Unnamed Store')}</strong><br>
+                        <small style="color:#64748b;"><i class="fa-solid fa-user"></i> ${esc(m.merchant_name || 'N/A')}</small>
+                    </td>
+                    <td>${m.phone ? `<a href="tel:${esc(m.phone)}" style="color:#1a1a2e; text-decoration:none;"><i class="fa-solid fa-phone" style="color:#10b981;"></i> ${esc(m.phone)}</a>` : 'N/A'}</td>
+                    <td><small>${esc(location)}</small></td>
+                    <td>${joined}</td>
+                    <td>${statusHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444; padding:20px;">Failed to load merchants: ${esc(e.message || e)}</td></tr>`;
+    }
 }
 
 // ==========================================
@@ -815,6 +878,24 @@ function filterKyc(filter) {
 // ==========================================
 // 7. Merchant Alerts & Broadcast Logic
 // ==========================================
+// ✅ NEW: fills the "Select Merchant" dropdown from the already-loaded merchant
+// directory, using each merchant's real numeric UID as the option value. This
+// replaces the old freeform "Shop ID" text box, which is what was producing
+// .eq('id', parseInt(shopId)) → NaN → the 400 error on merchants?id=eq.NaN
+// (an admin typing something like "SHOP-7741" can never parseInt() cleanly).
+function populateMerchantNotifTargetSelect() {
+    const sel = document.getElementById('merchant-target-id');
+    if (!sel) return;
+    const prevValue = sel.value;
+    if (merchantDirectory.length === 0) {
+        sel.innerHTML = '<option value="">No merchants found</option>';
+        return;
+    }
+    sel.innerHTML = '<option value="">Select a merchant…</option>' +
+        merchantDirectory.map(m => `<option value="${m.id}">${esc(m.shop_name || 'Unnamed Store')} — ${esc(m.phone || 'no phone')} (UID: ${m.id})</option>`).join('');
+    if (prevValue && merchantDirectory.some(m => String(m.id) === String(prevValue))) sel.value = prevValue;
+}
+
 function toggleMerchantInput() {
     const targetEl = document.getElementById('merchant-notif-target');
     const target = targetEl ? targetEl.value : '';
@@ -822,6 +903,7 @@ function toggleMerchantInput() {
     if (group) {
         group.style.display = (target === 'individual') ? 'block' : 'none';
     }
+    if (target === 'individual') populateMerchantNotifTargetSelect();
 }
 
 async function sendMerchantNotification() {
@@ -831,7 +913,9 @@ async function sendMerchantNotification() {
     const messageEl = document.getElementById('merchant-notif-message');
 
     const target = targetEl ? targetEl.value : '';
-    const shopId = shopIdEl ? shopIdEl.value.trim() : '';
+    // ✅ Now always a real merchants.id (the UID) picked straight from the dropdown —
+    // never free-typed text, so there's nothing left to fail to parse.
+    const selectedMerchantId = shopIdEl ? shopIdEl.value : '';
     const title = titleEl ? titleEl.value.trim() : '';
     const message = messageEl ? messageEl.value.trim() : '';
 
@@ -840,45 +924,43 @@ async function sendMerchantNotification() {
         return;
     }
 
-    if (target === 'individual' && !shopId) {
-        showToast("Please map a target unique Merchant Shop ID!", "error");
+    if (target === 'individual' && !selectedMerchantId) {
+        showToast("Please select a merchant to send this to!", "error");
         return;
     }
 
-    if (supabaseClient) {
-        let resolvedMerchantId = null;
-        if (target === 'individual' && shopId) {
-            try {
-                const { data: shopMerchant } = await supabaseClient.from('merchants').select('id').eq('shop_name', shopId).maybeSingle();
-                if (shopMerchant) {
-                    resolvedMerchantId = shopMerchant.id;
-                } else {
-                    const { data: byId } = await supabaseClient.from('merchants').select('id').eq('id', parseInt(shopId)).maybeSingle();
-                    if (byId) resolvedMerchantId = byId.id;
-                }
-            } catch (e) { showToast("Merchant lookup failed: " + (e.message || e), "error"); }
-        }
+    if (!supabaseClient) return;
 
-        const insertData = {
-            merchant_id: resolvedMerchantId,
-            title: title,
-            message: message,
-            type: 'info',
-            category: 'admin',
-            is_read: false,
-            created_at: new Date().toISOString()
-        };
+    // ✅ FIXED: previously, if merchant lookup failed for any reason, the code
+    // silently fell through and inserted the row with merchant_id: null anyway —
+    // which meant an "individual" alert could quietly go out as if it were a
+    // broadcast, or effectively nowhere. Now the send is aborted with a clear
+    // error instead of silently mis-targeting.
+    const resolvedMerchantId = target === 'individual' ? parseInt(selectedMerchantId) : null;
+    if (target === 'individual' && (!resolvedMerchantId || isNaN(resolvedMerchantId))) {
+        showToast("Could not resolve that merchant's UID — please re-select and try again.", "error");
+        return;
+    }
 
-        const { error } = await supabaseClient.from('merchant_notifications').insert(insertData);
+    const insertData = {
+        merchant_id: resolvedMerchantId,
+        title: title,
+        message: message,
+        type: 'info',
+        category: 'admin',
+        is_read: false,
+        created_at: new Date().toISOString()
+    };
 
-        if (!error) {
-            showToast("Broadcast alert system pipeline successfully deployed!", "success");
-            if (titleEl) titleEl.value = "";
-            if (messageEl) messageEl.value = "";
-            if (shopIdEl) shopIdEl.value = "";
-            closePopup('notifications-modal');
-        } else {
-            showToast("Failed to broadcast alert message: " + error.message, "error");
-        }
+    const { error } = await supabaseClient.from('merchant_notifications').insert(insertData);
+
+    if (!error) {
+        showToast("Broadcast alert system pipeline successfully deployed!", "success");
+        if (titleEl) titleEl.value = "";
+        if (messageEl) messageEl.value = "";
+        if (shopIdEl) shopIdEl.value = "";
+        closePopup('notifications-modal');
+    } else {
+        showToast("Failed to broadcast alert message: " + error.message, "error");
     }
 }

@@ -95,6 +95,10 @@
         .toggle .slider:before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.3s}
         .toggle input:checked+.slider{background:var(--primary)}
         .toggle input:checked+.slider:before{transform:translateX(18px)}
+        .toggle.expired input:checked+.slider{background:#94a3b8}
+
+        .expiry-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#fee2e2;color:var(--danger);text-transform:uppercase;letter-spacing:0.4px}
+        .expiry-badge.soon{background:#fef3c7;color:#d97706}
 
         /* Toast */
         .toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;display:flex;align-items:center;gap:8px}
@@ -200,6 +204,15 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label>Valid Until (optional — auto-removed from app after this date)</label>
+                        <input type="date" id="spValidUntil">
+                    </div>
+                    <div class="form-group">
+                        <!-- spacer to keep the grid aligned -->
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label>Gradient</label>
                         <select id="spGradient">
                             <option value="linear-gradient(135deg, #e02020, #ff6b6b)">Red</option>
@@ -290,30 +303,80 @@
             document.getElementById('sidebarOverlay').classList.toggle('open');
         }
 
+        // ✅ Cache of the last-loaded rows, keyed by id — used by editItem() so we
+        // never have to embed raw JSON (with the title/subtitle text inside it)
+        // straight into an onclick="" attribute. That used to silently break —
+        // and drop the saved link/offer — the moment a title or subtitle
+        // contained an apostrophe or quote (e.g. "Grandma's Vitamin C").
+        let sponsoredProductsCache = {};
+
+        function todayISODate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        // ✅ NEW: Auto-off sweep — anything past its "Valid Until" date but still
+        // marked Active gets flipped to Inactive automatically, so an expired
+        // offer never lingers live in the admin panel or the user app.
+        async function sweepExpiredSponsors(rows) {
+            if (!db) return rows;
+            const today = todayISODate();
+            const expiredStillActive = rows.filter(p => p.valid_until && p.valid_until < today && p.is_active);
+            if (expiredStillActive.length === 0) return rows;
+            try {
+                await db.from('sponsored_products').update({ is_active: false }).in('id', expiredStillActive.map(p => p.id));
+                expiredStillActive.forEach(p => { p.is_active = false; });
+            } catch (e) { /* fail soft — still show the correct badge below even if the write fails */ }
+            return rows;
+        }
+
         async function loadProducts() {
             if (!db) return;
             try {
-                const { data, error } = await db.from('sponsored_products').select('*').order('sort_order');
+                let { data, error } = await db.from('sponsored_products').select('*').order('sort_order');
                 if (error) { showToast('Load error: ' + error.message, 'error'); return; }
+                data = await sweepExpiredSponsors(data || []);
+
+                sponsoredProductsCache = {};
+                data.forEach(p => { sponsoredProductsCache[p.id] = p; });
+
                 const list = document.getElementById('productsList');
                 if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><p>No sponsored products yet</p></div>'; return; }
-                list.innerHTML = data.map(p => `
+
+                const today = todayISODate();
+                list.innerHTML = data.map(p => {
+                    const isExpired = p.valid_until && p.valid_until < today;
+                    let expiryBadge = '';
+                    if (p.valid_until) {
+                        if (isExpired) {
+                            expiryBadge = `<span class="expiry-badge">Expired ${p.valid_until}</span>`;
+                        } else {
+                            expiryBadge = `<span class="expiry-badge soon">Valid till ${p.valid_until}</span>`;
+                        }
+                    }
+                    const discountBadge = p.first_order_discount_percent ? `<span style="font-size:11px;font-weight:700;color:var(--primary);">${p.first_order_discount_percent}% OFF</span>` : '';
+                    return `
                 <div class="list-item">
                     <div class="gradient-preview" style="background:${p.gradient}">
                         <i class="${p.icon_class}"></i>
                     </div>
                     <div class="list-info">
-                        <h4>${p.tag} — ${p.title}</h4>
-                        <p>${p.subtitle} | Sort: ${p.sort_order} | ${p.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'}</p>
+                        <h4>${escapeHtml(p.tag)} — ${escapeHtml(p.title)}</h4>
+                        <p>${escapeHtml(p.subtitle || '')} | Sort: ${p.sort_order} | ${p.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'} ${discountBadge ? ' | ' + discountBadge : ''} ${expiryBadge ? ' | ' + expiryBadge : ''}</p>
                     </div>
                     <div class="list-actions">
-                        <label class="toggle"><input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleActive('${p.id}', this.checked)"><span class="slider"></span></label>
-                        <button class="btn btn-primary btn-sm" onclick='editItem(${JSON.stringify(p)})'><i class="fas fa-edit"></i></button>
+                        <label class="toggle ${isExpired ? 'expired' : ''}" title="${isExpired ? 'Expired — reactivating will not un-expire it, extend Valid Until first' : ''}"><input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleActive('${p.id}', this.checked)"><span class="slider"></span></label>
+                        <button class="btn btn-primary btn-sm" onclick="editItem('${p.id}')"><i class="fas fa-edit"></i></button>
                         <button class="btn btn-danger btn-sm" onclick="deleteItem('${p.id}')"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
-            `).join('');
+            `;
+                }).join('');
             } catch(e) { showToast('Load error: ' + (e.message || e), 'error'); }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         document.getElementById('sponsoredForm').addEventListener('submit', async (e) => {
@@ -327,9 +390,15 @@
                 gradient: document.getElementById('spGradient').value,
                 icon_class: document.getElementById('spIcon').value,
                 btn_text: document.getElementById('spBtnText').value,
-                btn_action: document.getElementById('spBtnAction').value,
+                // ✅ FIXED: the pasted/fetched link is saved exactly as typed/normalized —
+                // nothing here was ever stripping it, the real bug was the fragile
+                // onclick='editItem(${JSON.stringify(p)})' below silently breaking the
+                // Edit button (and therefore re-saving) whenever the title/subtitle had
+                // a quote in it. That's fixed by the id-lookup version of editItem() above.
+                btn_action: document.getElementById('spBtnAction').value.trim(),
                 sort_order: parseInt(document.getElementById('spSort').value) || 0,
                 first_order_discount_percent: parseInt(document.getElementById('spFirstOrderDiscount').value) || null,
+                valid_until: document.getElementById('spValidUntil').value || null,
                 is_active: true
             };
             try {
@@ -347,15 +416,18 @@
             loadProducts();
         });
 
-        function editItem(p) {
+        function editItem(id) {
+            const p = sponsoredProductsCache[id];
+            if (!p) { showToast('Could not find that item — refresh and try again', 'error'); return; }
             document.getElementById('editId').value = p.id;
-            document.getElementById('spTitle').value = p.title;
-            document.getElementById('spSubtitle').value = p.subtitle;
-            document.getElementById('spTag').value = p.tag;
-            document.getElementById('spBtnText').value = p.btn_text;
+            document.getElementById('spTitle').value = p.title || '';
+            document.getElementById('spSubtitle').value = p.subtitle || '';
+            document.getElementById('spTag').value = p.tag || '';
+            document.getElementById('spBtnText').value = p.btn_text || '';
             document.getElementById('spBtnAction').value = p.btn_action || '';
             document.getElementById('spSort').value = p.sort_order;
             document.getElementById('spFirstOrderDiscount').value = p.first_order_discount_percent || '';
+            document.getElementById('spValidUntil').value = p.valid_until || '';
             document.getElementById('spGradient').value = p.gradient;
             document.getElementById('spIcon').value = p.icon_class;
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Sponsored Product';
@@ -368,6 +440,7 @@
             document.getElementById('sponsoredForm').reset();
             document.getElementById('editId').value = '';
             document.getElementById('spSort').value = '0';
+            document.getElementById('spValidUntil').value = '';
             document.getElementById('linkedProductPreview').style.display = 'none';
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add Sponsored Product';
         }

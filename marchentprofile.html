@@ -6,12 +6,17 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#e02020">
     <title>Medi Finder - Merchant Profile</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <!-- merchant-shared.css loads first on purpose: this page's own stylesheet
+         (marchentprofile.css) and the <style> block below load AFTER it, so
+         our full-screen / locked-header / bottom-sheet fixes always win instead
+         of getting silently overridden by the shared stylesheet. -->
+    <link rel="stylesheet" href="merchant-shared.css?v=14">
     <link rel="stylesheet" href="marchentprofile.css?v=13">
     <style>
         /* Small, tidy card-style Logout button */
@@ -46,6 +51,34 @@
             color: #128C7E;
         }
         .popup-channel.whatsapp i { color: #25D366; }
+        .channel-logo { width: 24px; height: 24px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+        /* On mobile, popups render as a bottom sheet: edge-to-edge width,
+           rounded top corners, and sized to fit their own content (with a
+           small drag-handle for a premium feel) instead of being forced to
+           fill the full screen height — that was leaving a lot of empty
+           space under short popups like Help Desk. */
+        @media (max-width: 640px) {
+            .custom-popup-modal { align-items: flex-end; }
+            .popup-content-box {
+                width: 100%;
+                max-width: 100%;
+                max-height: 88dvh;
+                border-radius: 22px 22px 0 0;
+                margin: 0;
+                padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+            }
+            .popup-content-box::before {
+                content: '';
+                position: sticky;
+                top: -6px;
+                display: block;
+                width: 40px;
+                height: 4px;
+                border-radius: 4px;
+                background: #e2e8f0;
+                margin: 0 auto 14px auto;
+            }
+        }
     </style>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
@@ -55,7 +88,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <script src="marchentscript.js?v=13"></script>
-    <link rel="stylesheet" href="merchant-shared.css?v=14">
 </head>
 <body>
     <div class="container">
@@ -106,7 +138,7 @@
                     <div class="settings-glass-card" id="bankCard" onclick="openPopup('bankModal')">
                         <div class="card-title-row">
                             <h3><i class="fa-solid fa-bank"></i> Bank Account Details (KYC)</h3>
-                            <span class="live-status" style="background:#e0f2fe; color:#0369a1;">Configure</span>
+                            <div id="bankVerifyStatus" class="status-pill unverified">Unverified</div>
                         </div>
                         <p class="section-desc">Manage bank accounts, IFSC code, and settlement UPI IDs.</p>
                     </div>
@@ -145,6 +177,13 @@
                         </div>
                         <p class="section-desc">Direct links to get connected via Call, WhatsApp, or Email support.</p>
                     </div>
+
+                    <div class="settings-glass-card" onclick="openPopup('faqModal')">
+                        <div class="card-title-row">
+                            <h3><i class="fa-solid fa-circle-question"></i> Quick FAQ Guide</h3>
+                        </div>
+                        <p class="section-desc">How to add products, ship orders, and handle prescriptions.</p>
+                    </div>
                     
                     <button type="button" class="menu-item logout-btn" id="logoutActionBtn">
                         <i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span>
@@ -172,31 +211,58 @@
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('bankModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-bank"></i> Bank Account Details (KYC)</h3>
-            <p class="popup-section-desc">Configure your payout bank parameters and virtual payment address (UPI).</p>
-            <hr><br>
-            <div class="form-group-premium">
-                <label>Bank Account Number</label>
-                <input type="text" id="bankNoInput" placeholder="e.g., 302104569871">
-            </div>
-            <div class="form-group-premium">
-                <label>IFSC Code</label>
-                <input type="text" id="bankIfscInput" placeholder="e.g., SBIN0001234" style="text-transform: uppercase;">
-            </div>
-            <div class="form-group-premium">
-                <label>Settlement UPI ID</label>
-                <input type="text" id="bankUpiInput" placeholder="e.g., shopname@apl">
-            </div>
-            <div class="form-group-premium">
-                <label>Passbook / Cancelled Cheque Image</label>
-                <div class="popup-file-zone" id="bankImageUploadZone">
-                    <i class="fa-solid fa-money-check-dollar"></i><br>
-                    <span id="bankFileNameDisplay">Drop or click to upload bank document image</span>
-                    <input type="file" id="bankImageFile" accept="image/*" style="display:none;">
+
+            <!-- Already saved: read-only summary -->
+            <div id="bankViewState" style="display:none;">
+                <p class="popup-section-desc" id="bankViewNote">Your settlement account is on file.</p>
+                <hr><br>
+                <img id="bankViewImg" src="" alt="Bank document" style="width:100%;max-height:180px;object-fit:contain;border-radius:12px;border:1px solid var(--border);background:#f8fafc;margin-bottom:14px;display:none;">
+                <div class="form-group-premium">
+                    <label>Bank Account Number</label>
+                    <input type="text" id="bankViewNoText" readonly class="popup-readonly">
+                </div>
+                <div class="form-group-premium">
+                    <label>IFSC Code</label>
+                    <input type="text" id="bankViewIfscText" readonly class="popup-readonly">
+                </div>
+                <div class="form-group-premium">
+                    <label>Settlement UPI ID</label>
+                    <input type="text" id="bankViewUpiText" readonly class="popup-readonly">
+                </div>
+                <div id="bankViewActions" style="display:flex;gap:10px;margin-top:10px;">
+                    <button type="button" class="popup-submit-btn" style="background:#475569;" id="btnEditBank"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <button type="button" class="popup-submit-btn" style="background:#fff;color:#ef4444;border:1.5px solid #fecaca;" id="btnCancelBank"><i class="fa-solid fa-rotate-left"></i> Cancel</button>
                 </div>
             </div>
-            <button class="popup-submit-btn success-btn" id="btnSaveBankDetails">
-                <i class="fa-solid fa-floppy-disk"></i> Save Bank Account Assets
-            </button>
+
+            <!-- No bank details saved yet, or Edit was tapped -->
+            <div id="bankFormState">
+                <p class="popup-section-desc">Configure your payout bank parameters and virtual payment address (UPI).</p>
+                <hr><br>
+                <div class="form-group-premium">
+                    <label>Bank Account Number</label>
+                    <input type="text" id="bankNoInput" placeholder="e.g., 302104569871">
+                </div>
+                <div class="form-group-premium">
+                    <label>IFSC Code</label>
+                    <input type="text" id="bankIfscInput" placeholder="e.g., SBIN0001234" style="text-transform: uppercase;">
+                </div>
+                <div class="form-group-premium">
+                    <label>Settlement UPI ID</label>
+                    <input type="text" id="bankUpiInput" placeholder="e.g., shopname@apl">
+                </div>
+                <div class="form-group-premium">
+                    <label>Passbook / Cancelled Cheque Image</label>
+                    <div class="popup-file-zone" id="bankImageUploadZone">
+                        <i class="fa-solid fa-money-check-dollar"></i><br>
+                        <span id="bankFileNameDisplay">Drop or click to upload bank document image</span>
+                        <input type="file" id="bankImageFile" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+                <button class="popup-submit-btn success-btn" id="btnSaveBankDetails">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Bank Account Assets
+                </button>
+            </div>
         </div>
     </div>
 
@@ -204,23 +270,42 @@
         <div class="popup-content-box">
             <button class="close-popup-btn" onclick="closePopup('licenseModal')"><i class="fa-solid fa-xmark"></i></button>
             <h3><i class="fa-solid fa-file-shield"></i> Government License Hub</h3>
-            <p class="popup-section-desc">Upload your drug license to unlock product publishing and customer sales.</p>
-            <hr><br>
-            <div class="form-group-premium">
-                <label>License ID / Number</label>
-                <input type="text" id="licenseIdInput" placeholder="e.g., DL-98745-WB">
-            </div>
-            <div class="form-group-premium">
-                <label>Upload Document Image <span style="color:red;">*</span></label>
-                <div class="popup-file-zone" id="licenseUploadZone">
-                    <i class="fa-solid fa-cloud-arrow-up"></i><br>
-                    <span id="fileNameDisplay">Drop or click to upload license file</span>
-                    <input type="file" id="licenseFile" accept="image/*,application/pdf" style="display:none;">
+
+            <!-- Already submitted: read-only summary, no upload form visible -->
+            <div id="licenseViewState" style="display:none;">
+                <p class="popup-section-desc" id="licenseViewNote">Your license has been submitted for review.</p>
+                <hr><br>
+                <img id="licenseViewImg" src="" alt="License document" style="width:100%;max-height:220px;object-fit:contain;border-radius:12px;border:1px solid var(--border);background:#f8fafc;margin-bottom:14px;">
+                <div class="form-group-premium">
+                    <label>License ID / Number</label>
+                    <input type="text" id="licenseViewIdText" readonly class="popup-readonly">
+                </div>
+                <div id="licenseViewActions" style="display:flex;gap:10px;margin-top:10px;">
+                    <button type="button" class="popup-submit-btn" style="background:#475569;" id="btnEditLicense"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <button type="button" class="popup-submit-btn" style="background:#fff;color:#ef4444;border:1.5px solid #fecaca;" id="btnCancelLicense"><i class="fa-solid fa-rotate-left"></i> Cancel Submission</button>
                 </div>
             </div>
-            <button class="popup-submit-btn success-btn" id="btnVerifyLicense" style="opacity: 0.5; cursor: not-allowed;" disabled>
-                <i class="fa-solid fa-circle-check"></i> Run Online Verification Check
-            </button>
+
+            <!-- No submission yet (or re-submitting after Edit / Rejected / Cancel) -->
+            <div id="licenseFormState">
+                <p class="popup-section-desc">Upload your drug license to unlock product publishing and customer sales.</p>
+                <hr><br>
+                <div class="form-group-premium">
+                    <label>License ID / Number</label>
+                    <input type="text" id="licenseIdInput" placeholder="e.g., DL-98745-WB">
+                </div>
+                <div class="form-group-premium">
+                    <label>Upload Document Image <span style="color:red;">*</span></label>
+                    <div class="popup-file-zone" id="licenseUploadZone">
+                        <i class="fa-solid fa-cloud-arrow-up"></i><br>
+                        <span id="fileNameDisplay">Drop or click to upload license file</span>
+                        <input type="file" id="licenseFile" accept="image/*,application/pdf" style="display:none;">
+                    </div>
+                </div>
+                <button class="popup-submit-btn success-btn" id="btnVerifyLicense" style="opacity: 0.5; cursor: not-allowed;" disabled>
+                    <i class="fa-solid fa-circle-check"></i> Run Online Verification Check
+                </button>
+            </div>
         </div>
     </div>
 
@@ -317,9 +402,40 @@
             <h3><i class="fa-solid fa-headset"></i> Help Desk</h3>
             <hr><br>
             <div class="popup-support-channels">
-                <a href="tel:9593625498" class="popup-channel phone"><i class="fa-solid fa-phone-volume"></i> Call Helpline: +91 9593625498</a>
-                <a href="https://wa.me/919382262825" target="_blank" rel="noopener" class="popup-channel whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp: +91 9382262825</a>
-                <a href="mailto:medifinderindia@gmail.com" class="popup-channel mail"><i class="fa-solid fa-message"></i> mail now</a>
+                <a href="tel:9593625498" class="popup-channel phone"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_b-ZNcKTmwo-dJM52suKJYZgKO2NYYF-tAmogIpiPHWNKgBAJvGFuLUmB&s=10" alt="Call" class="channel-logo"> Call Helpline</a>
+                <a href="https://wa.me/919382262825" target="_blank" rel="noopener" class="popup-channel whatsapp"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSiRKz-wZOmQ2bzEusZ8Mhv7ZciiZsdI88WKmTh1IPWEw&s=10" alt="WhatsApp" class="channel-logo"> WhatsApp Support</a>
+                <a href="mailto:medifinderindia@gmail.com" class="popup-channel mail"><img src="https://media.istockphoto.com/id/1162427212/vector/email-icon-flat-red-round-button-vector-illustration.jpg?s=612x612&w=0&k=20&c=mNBnzCufAK5g2YfvGTUMnfRho_r6IT8PxWDjjjxLihw=" alt="Email" class="channel-logo"> Email Support</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="faqModal" class="custom-popup-modal" onclick="closePopupOutside(event, 'faqModal')">
+        <div class="popup-content-box">
+            <button class="close-popup-btn" onclick="closePopup('faqModal')"><i class="fa-solid fa-xmark"></i></button>
+            <h3><i class="fa-solid fa-circle-question"></i> Quick FAQ Guide</h3>
+            <p class="popup-section-desc">Fast answers to the questions merchants ask most.</p>
+            <hr><br>
+            <div class="premium-accordion">
+                <details class="help-item" open>
+                    <summary>How do I add a new product?</summary>
+                    <p>Tap the red ADD button in the bottom navigation bar. Fill in the product details across the three steps — Basics, Info, and Assets — then tap Upload Product. It goes live once admin approves it (usually shown as "Pending" until then).</p>
+                </details>
+                <details class="help-item">
+                    <summary>How do I ship an accepted order?</summary>
+                    <p>Open the Orders page from the bottom navigation. Accepted orders appear there with the customer's details — pack the items and hand them to your regular delivery partner or rider. Mark the order as Shipped once it's out for delivery.</p>
+                </details>
+                <details class="help-item">
+                    <summary>How do I handle a prescription order?</summary>
+                    <p>When a customer nearby needs a prescription medicine, you'll get a request in the Prescription panel on the Home page (tap the prescription icon in the header). Review the uploaded prescription image, then Accept or Decline — accepting reserves it for you and reduces stock automatically.</p>
+                </details>
+                <details class="help-item">
+                    <summary>Why can't I publish products yet?</summary>
+                    <p>Your government drug license needs to be verified first. Upload it from Profile → Government License Hub. Product publishing unlocks automatically once an admin marks it Verified.</p>
+                </details>
+                <details class="help-item">
+                    <summary>How do I get my license or bank details verified?</summary>
+                    <p>Open Government License Hub or Bank Account Details (KYC) from Profile, fill in the details, and upload the document image, then save. Your submission shows as Pending Review — an admin checks it and marks it Verified (or Rejected, in which case you can re-upload). While Pending, you can still Edit or Cancel the submission from the same card.</p>
+                </details>
             </div>
         </div>
     </div>
@@ -340,6 +456,5 @@
             if (c) { var el = document.getElementById('profileDisplay'); if (el) el.src = c; }
         })();
     </script>
-    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

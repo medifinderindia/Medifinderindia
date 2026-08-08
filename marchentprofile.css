@@ -9,6 +9,7 @@
     --text-muted: #64748b;
     --radius-premium: 20px;
     --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    --topbar-h: 78px;
 }
 
 * { 
@@ -26,16 +27,25 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* --- Header Branding --- */
+/* --- Header Branding ---
+   Locked to the viewport (position: fixed, not sticky) so it never scrolls
+   away or gets clipped by an ancestor's overflow/transform — only the
+   content below it should scroll. */
 .top-bar { 
     display: flex; 
     align-items: center; 
     background: var(--surface); 
     padding: 16px 24px; 
     border-bottom: 1px solid var(--border); 
-    position: sticky; 
+    position: fixed; 
     top: 0; 
-    z-index: 100; 
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: var(--topbar-h);
+    box-sizing: border-box;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    z-index: 500; 
 }
 .logo-area
  { display: flex; 
@@ -55,7 +65,32 @@ body {
 
 .logo-area .highlight { color: var(--accent); }
 
-.content-body { padding: 24px; max-width: 680px; margin: 0 auto; }
+.content-body {
+    padding: 24px;
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+/* --- Full-screen layout override ---
+   merchant-shared.css frames the app like a small phone card floating in
+   the middle of the page on wider screens. This page should always fill
+   the full browser width/height instead, on both desktop and mobile, so
+   we reset the shared container/frame rules here. */
+.container {
+    max-width: 100% !important;
+    width: 100%;
+    margin: 0 !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-shadow: none !important;
+    transform: none !important;
+}
+.main-content {
+    max-width: 100% !important;
+    width: 100%;
+    transform: none !important;
+}
+html, body { overflow-x: hidden; }
 
 /* --- Premium Profile Header Card --- */
 .profile-hero-card { 
@@ -109,10 +144,10 @@ body {
     padding: 24px; 
     box-shadow: var(--shadow-premium); 
 }
-.card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-.settings-glass-card h3 { font-size: clamp(14px, 2.4vw, 16px); font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; }
-.settings-glass-card h3 i { color: var(--primary); font-size: clamp(15px, 2.6vw, 17px); }
-.live-status { font-size: 11px; background: #fff1f2; color: var(--primary); font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.card-title-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 18px; }
+.settings-glass-card h3 { flex: 1 1 auto; min-width: 0; font-size: clamp(13px, 2.4vw, 16px); font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; word-break: break-word; }
+.settings-glass-card h3 i { color: var(--primary); font-size: clamp(15px, 2.6vw, 17px); flex-shrink: 0; }
+.live-status { flex-shrink: 0; margin-left: auto; font-size: 11px; background: #fff1f2; color: var(--primary); font-weight: 700; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
 .section-desc { font-size: clamp(12px, 2vw, 13px); color: var(--text-muted); margin-bottom: 15px; line-height: 1.5; }
 
 /* --- Elegant Inputs --- */
@@ -139,9 +174,11 @@ body {
 .premium-file-zone span { font-size: 13px; color: #64748b; font-weight: 500; }
 
 /* --- Status Pills --- */
-.status-pill { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 30px; }
+.status-pill { display: inline-block; flex-shrink: 0; margin-left: auto; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 30px; white-space: nowrap; }
 .status-pill.unverified { background: #fef2f2; color: #ef4444; }
 .status-pill.verified { background: #f0fdf4; color: #22c55e; }
+.status-pill.pending { background: #fffbeb; color: #b45309; }
+.status-pill.rejected { background: #fef2f2; color: #ef4444; }
 
 /* --- NEW: Help Desk Accordion (সহায়তা কেন্দ্র) --- */
 .premium-accordion { 

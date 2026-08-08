@@ -899,6 +899,14 @@ async function setupHomePageModules() {
     const typeFilterParam = new URLSearchParams(window.location.search).get('type');
     const isInstrumentMode = typeFilterParam === 'instrument';
     if (isInstrumentMode && !merchantFilterId) {
+        // Instrument listing is a stripped-down version of the home page —
+        // quick services, the prescription-upload card, and the medicine
+        // category chips don't apply here, so they stay hidden regardless
+        // of search state. The search bar and bottom-nav are left untouched.
+        ['quick-services-menu', 'prescription-upload-section', 'categories-section'].forEach(cls => {
+            const el = document.querySelector('.' + cls);
+            if (el) el.style.display = 'none';
+        });
         const heading = document.getElementById('products-section-heading');
         if (heading) heading.textContent = 'Medical Instruments';
         if (!document.getElementById('instrument-mode-back-bar')) {
@@ -1042,7 +1050,7 @@ async function setupHomePageModules() {
                     const disabledBtn = isOutOfStock ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
                     
                     return `
-                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}">
+                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}">
                         ${badges}
                         <div class="img-container">
                             <img src="${img}" alt="${productName}" loading="lazy">
@@ -1162,13 +1170,15 @@ async function setupHomePageModules() {
     ];
 
     // Flipkart-style search dock: while actively searching, the promo top-bar
-    // is removed and the search bar pins itself right under the header instead
-    // of sitting further down the page.
+    // AND the logo/notification header both disappear, and the search bar
+    // itself pins to the very top of the page in the header's place — same
+    // pattern as tapping the search box in the Flipkart app.
     if (!document.getElementById('search-dock-css')) {
         const dockStyle = document.createElement('style');
         dockStyle.id = 'search-dock-css';
         dockStyle.textContent = `
             body.search-docked .top-bar { display: none !important; }
+            body.search-docked header { display: none !important; }
             body.search-docked .truemeds-search-section { position: sticky; top: 0; z-index: 70; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
         `;
         document.head.appendChild(dockStyle);
@@ -1185,7 +1195,14 @@ async function setupHomePageModules() {
             if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (merchantFilterId) return; // seller-storefront mode already hides these permanently
-        ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'].forEach(cls => {
+        // In instrument mode, quick-services-menu / prescription-upload-section /
+        // categories-section are hidden permanently (see isInstrumentMode block
+        // above) — don't let clearing the search bring them back. Only the
+        // slider still toggles with search state on that page.
+        const permanentlyHiddenClasses = isInstrumentMode
+            ? ['auto-slider-section']
+            : ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'];
+        permanentlyHiddenClasses.forEach(cls => {
             const el = document.querySelector('.' + cls);
             if (el) el.style.display = isSearching ? 'none' : '';
         });
@@ -1715,6 +1732,7 @@ function navigateToProductDetail(data) {
         if (data.composition) params.set('composition', data.composition);
         if (data.dosageForm) params.set('dosageForm', data.dosageForm);
         if (data.strength) params.set('strength', data.strength);
+        if (data.productType) params.set('productType', data.productType);
         
         localStorage.setItem('currentProduct', JSON.stringify(data));
         window.location.href = `product-detail.html?${params.toString()}`;
@@ -1757,7 +1775,12 @@ function addToCart(product) {
             rxVerified: isControlledRx ? false : true,
             merchantId: product.merchantId || product.merchant_id || '',
             exempt_platform_fee: product.id === "p2",
-            exempt_processing_charge: product.id === "p4"
+            exempt_processing_charge: product.id === "p4",
+            // ✅ FIXED: this was read at checkout (see the "sponsor_discount_claims"
+            // insert further down) but never actually set anywhere, so a sponsored
+            // slot's one-time discount claim was never recorded. Now carried through
+            // from openSponsoredOfferModal() when a shopper adds a sponsored deal.
+            sponsorDiscountSlotId: product.sponsorDiscountSlotId || null
         });
     }
     localStorage.setItem('medi_cart', JSON.stringify(currentCart));
@@ -4271,31 +4294,41 @@ async function loadSponsoredProducts() {
     const slider = document.getElementById('home-slider');
     if (!slider || !supabase) return;
     try {
-        const { data, error } = await supabase
+        // ✅ NEW: auto-hide anything past its "Valid Until" date, so an expired
+        // sponsored slot disappears from the app the moment it lapses (the admin
+        // panel also auto-flips it to Inactive — see adminsponsored.html).
+        // Falls back to the plain query if the `valid_until` column doesn't exist
+        // yet on this project's `sponsored_products` table.
+        const todayStr = new Date().toISOString().split('T')[0];
+        let { data, error } = await supabase
             .from('sponsored_products')
             .select('*')
             .eq('is_active', true)
+            .or(`valid_until.is.null,valid_until.gte.${todayStr}`)
             .order('sort_order', { ascending: true });
-        if (error || !data || data.length === 0) return;
+        if (error) {
+            const fallback = await supabase.from('sponsored_products').select('*').eq('is_active', true).order('sort_order', { ascending: true });
+            data = fallback.data; error = fallback.error;
+        }
+        if (error || !data || data.length === 0) { slider.innerHTML = ''; return; }
 
         // If a sponsor slot is linked to a real product (btn_action contains ?id=...),
-        // pull that product's actual photo so the merchant's paid slot shows the real item.
+        // pull that product's actual photo AND price so the merchant's paid slot shows
+        // the real item and, for deals, the discount can be computed off the real price.
         const linkedIds = data
             .map(item => {
                 const m = (item.btn_action || '').match(/[?&]id=([^&#]+)/);
                 return m ? decodeURIComponent(m[1]) : null;
             })
             .filter(Boolean);
-        let productImageMap = {};
+        let productMap = {};
         if (linkedIds.length > 0) {
             try {
                 const { data: linkedProducts } = await supabase
                     .from('medicines')
-                    .select('id, image_url')
+                    .select('*')
                     .in('id', linkedIds);
-                (linkedProducts || []).forEach(p => {
-                    productImageMap[p.id] = p.image_url || '';
-                });
+                (linkedProducts || []).forEach(p => { productMap[p.id] = p; });
             } catch (e) { /* fall back to gradient/icon slides below */ }
         }
 
@@ -4304,18 +4337,23 @@ async function loadSponsoredProducts() {
             const div = document.createElement('div');
             div.className = 'slide' + (i === 0 ? ' active-slide' : '');
             const linkedId = (item.btn_action || '').match(/[?&]id=([^&#]+)/);
-            const productImg = linkedId ? productImageMap[decodeURIComponent(linkedId[1])] : null;
+            const linkedProduct = linkedId ? productMap[decodeURIComponent(linkedId[1])] : null;
+            const productImg = linkedProduct ? (linkedProduct.image_url || '') : null;
 
             if (productImg) {
-                // Real merchant product photo, with the chosen gradient as a subtle overlay for text contrast
-                div.style.backgroundImage = `linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.15)), url('${productImg}')`;
-                div.style.backgroundSize = 'cover';
-                div.style.backgroundPosition = 'center';
+                // ✅ FIXED: "cover" was cropping product photos to fill the box
+                // (cutting off tops/edges on anything not the exact same aspect
+                // ratio as the slide). "contain" shows the whole image instead —
+                // the gradient behind it fills any leftover space so it never
+                // looks empty.
+                div.style.background = `${item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)'} center / contain no-repeat url('${productImg}')`;
+                div.style.backgroundBlendMode = 'normal';
             } else {
                 div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
             }
 
             const isLinkedToProduct = !!linkedId;
+            const hasDeal = isLinkedToProduct && item.first_order_discount_percent > 0;
             if (isLinkedToProduct) div.style.cursor = 'pointer';
 
             div.innerHTML = `
@@ -4328,11 +4366,17 @@ async function loadSponsoredProducts() {
                 ${productImg ? '' : `<div class="slide-icon"><i class="${item.icon_class || 'fa-solid fa-capsules'}"></i></div>`}
             `;
 
-            // Whatever page path a merchant/admin typed into btn_action, a slot that's
-            // actually linked to a real product (btn_action contains ?id=...) must always
-            // land on the real Product Details page with that ID — previously it trusted
-            // the raw stored path verbatim, so a slot could open the wrong page entirely.
-            if (isLinkedToProduct) {
+            // A slot linked to a real product with a discount attached opens the
+            // focused "Sponsored Offer" view (shows ONLY that offer + lets the
+            // shopper add it to cart at the discounted price in one tap).
+            // A slot linked to a product with NO discount just goes straight to
+            // that product's page, same as before.
+            // A slot that isn't linked to a product at all opens its raw link.
+            if (hasDeal) {
+                const openOffer = (e) => { e.stopPropagation(); openSponsoredOfferModal(item, linkedProduct); };
+                div.addEventListener('click', openOffer);
+                div.querySelector('.slide-btn')?.addEventListener('click', openOffer);
+            } else if (isLinkedToProduct) {
                 const goToProduct = (e) => {
                     e.stopPropagation();
                     window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
@@ -4350,6 +4394,92 @@ async function loadSponsoredProducts() {
     } catch (e) {
 
     }
+}
+
+// ============================================================
+// SPONSORED OFFER MODAL — the "show only this offer, then let them
+// add it to cart at the discounted price" flow for sponsored slots
+// that have a first_order_discount_percent set.
+// Fully self-contained (inline styles) so it doesn't depend on any
+// class being defined in userhome.css.
+// ============================================================
+async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
+    if (!linkedProduct) { showToast('This offer is unavailable right now.', 'error'); return; }
+
+    // One discount claim per shopper per sponsor slot — if they've already used
+    // this exact deal before, just take them to the normal product page.
+    let alreadyClaimed = false;
+    try {
+        const uid = currentUserId || (supabase ? (await supabase.auth.getUser()).data?.user?.id : null);
+        if (uid && supabase) {
+            const { data: claim } = await supabase
+                .from('sponsor_discount_claims')
+                .select('id')
+                .eq('user_id', uid)
+                .eq('sponsored_product_id', sponsorItem.id)
+                .maybeSingle();
+            alreadyClaimed = !!claim;
+        }
+    } catch (e) { /* fail open — worst case they see the offer again */ }
+
+    if (alreadyClaimed) {
+        window.location.href = `product-detail.html?id=${encodeURIComponent(linkedProduct.id)}`;
+        return;
+    }
+
+    const name = linkedProduct.name || linkedProduct.product_name || 'Product';
+    const img = linkedProduct.image_url || '';
+    const originalPrice = parseFloat(linkedProduct.selling_price || linkedProduct.unit_price || linkedProduct.price || 0);
+    const pct = parseFloat(sponsorItem.first_order_discount_percent) || 0;
+    const discountedPrice = Math.max(0, +(originalPrice * (1 - pct / 100)).toFixed(2));
+
+    document.getElementById('sponsoredOfferModal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'sponsoredOfferModal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+        <div style="background:#fff;border-radius:18px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.25);">
+            <div style="position:relative;">
+                <img src="${img}" alt="${name}" style="width:100%;height:220px;object-fit:contain;background:#f8fafc;display:block;">
+                <span style="position:absolute;top:12px;left:12px;background:#e02020;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:20px;">${pct}% OFF — SPONSORED</span>
+                <button id="sponsoredOfferCloseBtn" style="position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(15,23,42,0.55);color:#fff;font-size:16px;cursor:pointer;">✕</button>
+            </div>
+            <div style="padding:20px;">
+                <h3 style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:6px;">${name}</h3>
+                <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px;">
+                    <span style="font-size:22px;font-weight:800;color:#e02020;">₹${discountedPrice}</span>
+                    ${originalPrice > discountedPrice ? `<span style="font-size:14px;color:#94a3b8;text-decoration:line-through;">₹${originalPrice}</span>` : ''}
+                </div>
+                <button id="sponsoredOfferAddBtn" style="width:100%;padding:13px;border:none;border-radius:10px;background:#e02020;color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <i class="fa-solid fa-cart-plus"></i> Add to Cart at Offer Price
+                </button>
+                <button id="sponsoredOfferViewBtn" style="width:100%;padding:11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#475569;font-weight:600;font-size:13px;margin-top:8px;cursor:pointer;">
+                    View Full Product Details
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.getElementById('sponsoredOfferCloseBtn').onclick = closeModal;
+    document.getElementById('sponsoredOfferViewBtn').onclick = () => {
+        window.location.href = `product-detail.html?id=${encodeURIComponent(linkedProduct.id)}`;
+    };
+    document.getElementById('sponsoredOfferAddBtn').onclick = () => {
+        addToCart({
+            id: linkedProduct.id,
+            name: name,
+            price: discountedPrice,
+            img: img,
+            merchantId: linkedProduct.merchant_id || '',
+            isRx: linkedProduct.is_rx || linkedProduct.isRx || false,
+            sponsorDiscountSlotId: sponsorItem.id
+        });
+        closeModal();
+    };
 }
 
 

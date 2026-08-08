@@ -11,7 +11,7 @@
     <title>Add Medicine - Medi Finder</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="marchentadd.css?v=13">
+    <link rel="stylesheet" href="marchentadd.css?v=14">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
@@ -47,11 +47,13 @@
                                 <div class="type-toggle" id="typeToggle">
                                     <label class="type-option active" id="typeOptMedicine">
                                         <input type="radio" name="productType" value="Medicine" checked onchange="setProductType('Medicine')">
-                                        <i class="fa-solid fa-pills"></i>Medicine
+                                        <img class="type-option-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqv__jPWa1t-hMeuPz_gBmV12Of-L3D7qqbpjIHT1FfA&s=10" alt="Medicine">
+                                        <span>Medicine</span>
                                     </label>
                                     <label class="type-option" id="typeOptInstrument">
                                         <input type="radio" name="productType" value="Instrument" onchange="setProductType('Instrument')">
-                                        <i class="fa-solid fa-kit-medical"></i>Instrument
+                                        <img class="type-option-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtGsIAKigwJLLw1fFyaA6e90TbDSOBegPwLlYDg9Rq1Q&s=10" alt="Instrument">
+                                        <span>Instrument</span>
                                     </label>
                                 </div>
                             </div>
@@ -174,6 +176,34 @@
                                     <input type="text" id="modelNumber" placeholder="e.g., BP-A200 (Optional)">
                                 </div>
                             </div>
+
+                            <!-- 🩺 ইনস্ট্রুমেন্ট-স্পেসিফিক ফিল্ড — কালার, টাইপ, ডিসপ্লে, ব্যাটারি, মেজারমেন্ট রেঞ্জ (শুধু Instrument সিলেক্ট করলে দেখাবে) -->
+                            <div class="form-row instrument-only">
+                                <div class="form-group">
+                                    <label>Color</label>
+                                    <input type="text" id="itemColor" placeholder="e.g., White, Black, Blue">
+                                </div>
+                                <div class="form-group">
+                                    <label>Type</label>
+                                    <input type="text" id="deviceType" placeholder="e.g., Digital, Analog, Manual">
+                                </div>
+                            </div>
+                            <div class="form-row instrument-only">
+                                <div class="form-group">
+                                    <label>Display</label>
+                                    <input type="text" id="displaySpec" placeholder="e.g., LCD Digital Display (Optional)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Battery</label>
+                                    <input type="text" id="batteryInfo" placeholder="e.g., 2 x AAA Battery / Rechargeable">
+                                </div>
+                            </div>
+                            <div class="form-row instrument-only">
+                                <div class="form-group">
+                                    <label>Measurement Range</label>
+                                    <input type="text" id="measurementRange" placeholder="e.g., 0-300 mmHg (Optional)">
+                                </div>
+                            </div>
                         </div>
 
                         <div class="step-panel" id="step-panel-3">
@@ -193,7 +223,7 @@
                                     <label>Discount %</label>
                                     <input type="number" id="discountPct" step="1" min="0" max="90" placeholder="Auto-calculated" readonly style="background:#f5f6fa;color:#e02020;font-weight:700">
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group medicine-only">
                                     <label>Drug Type</label>
                                     <select id="drugType" required>
                                         <option value="Branded">Branded Medicine</option>
@@ -209,7 +239,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Unit Type</label>
-                                    <input type="text" id="unitType" placeholder="e.g., Strip, Pcs, Bottle" required>
+                                    <select id="unitType" required></select>
                                 </div>
                             </div>
 
@@ -260,11 +290,19 @@
         function previewImage(input, previewId) {
             const preview = document.getElementById(previewId);
             if (input.files && input.files[0]) {
+                const box = input.parentElement;
+                preview.classList.remove('loaded');
+                box.classList.remove('uploading');
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     preview.src = e.target.result;
                     preview.style.display = 'block';
-                    input.parentElement.classList.add('has-img');
+                    box.classList.add('has-img', 'uploading');
+                    // পরের ফ্রেমে ক্লাস বসালে ব্রাউজার স্মুথ ফেড+স্কেল ট্রানজিশনটা প্লে করবে
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        preview.classList.add('loaded');
+                    }));
+                    setTimeout(() => box.classList.remove('uploading'), 900);
                 }
                 reader.readAsDataURL(input.files[0]);
             }
@@ -296,6 +334,19 @@
                 ["Other Medical Equipment", "Other Medical Equipment"]
             ]
         };
+        // 📦 ইউনিট টাইপ — Medicine আর Instrument এর জন্য আলাদা আলাদা অপশন লিস্ট,
+        // আগে এটা একটাই ফ্রি-টেক্সট ইনপুট ছিল, সবার জন্য একই রকম দেখাতো
+        const UNIT_TYPE_OPTIONS = {
+            Medicine: [
+                ["Strip", "Strip"], ["Bottle", "Bottle"], ["Tube", "Tube"],
+                ["Box", "Box"], ["Vial", "Vial"], ["Sachet", "Sachet"], ["Pcs", "Pcs"]
+            ],
+            Instrument: [
+                ["Piece", "Piece"], ["Set", "Set"], ["Pair", "Pair"],
+                ["Box", "Box"], ["Unit", "Unit"]
+            ]
+        };
+
         window.currentProductType = 'Medicine';
         function setProductType(type) {
             window.currentProductType = type;
@@ -311,9 +362,30 @@
             const sel = document.getElementById('dosageForm');
             const opts = CATEGORY_OPTIONS[type] || CATEGORY_OPTIONS.Medicine;
             sel.innerHTML = opts.map(([val, label]) => `<option value="${val}">${label}</option>`).join('');
+
+            // Unit Type ড্রপডাউনও টাইপ অনুযায়ী বদলে যাবে (আগের সিলেকশন থাকলে রাখার চেষ্টা করবে)
+            const unitSel = document.getElementById('unitType');
+            if (unitSel) {
+                const prevVal = unitSel.value;
+                const unitOpts = UNIT_TYPE_OPTIONS[type] || UNIT_TYPE_OPTIONS.Medicine;
+                unitSel.innerHTML = unitOpts.map(([val, label]) => `<option value="${val}">${label}</option>`).join('');
+                if (unitOpts.some(([val]) => val === prevVal)) unitSel.value = prevVal;
+            }
         }
 
         setProductType('Medicine'); // পেজ লোড হবার সাথে সাথে ডিফল্ট ক্যাটাগরি ও ফিল্ড ভিজিবিলিটি বসিয়ে দাও
+
+        // ✏️ Product Description সবসময় CAPITAL LETTERS এ সেভ হবে (ফ্লিপকার্ট স্টাইল)
+        document.addEventListener('DOMContentLoaded', function () {
+            const descEl = document.getElementById('productDescription');
+            if (descEl) {
+                descEl.addEventListener('input', function () {
+                    const pos = this.selectionStart;
+                    this.value = this.value.toUpperCase();
+                    this.setSelectionRange(pos, pos);
+                });
+            }
+        });
     </script>
     <script src="marchentscript.js?v=13"></script>
 </body>

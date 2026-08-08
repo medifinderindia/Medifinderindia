@@ -7,6 +7,7 @@
     <meta name="description" content="MediFinder Admin - Merchant KYC, Payouts, Medicine Approval, Ledger">
     <meta name="theme-color" content="#e02020">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta property="og:title" content="MediFinder Merchant Control">
     <meta property="og:description" content="Manage merchants, KYC verification, and payouts">
     <meta property="og:type" content="website">
@@ -168,13 +169,31 @@
 
     <div class="main-content">
         <div class="section-header">
-            <h1><i class="fa-solid fa-gauge"></i> Enhanced Merchant Control Center</h1>
-            <p>Connected to Supabase Live Database. Advanced ledger tracking and financial audit trail.</p>
+            <h1><i class="fa-solid fa-store"></i> Merchant Directory</h1>
+            <div class="directory-topline">
+                <p style="margin:0;">All registered merchants — contact, location &amp; join date at a glance.</p>
+                <span class="conn-dot" id="db-status-text"><span class="dot"></span> Connecting…</span>
+            </div>
         </div>
-        
-        <div class="card" style="margin-top: 20px; border-left: 5px solid #10b981;">
-            <h3><i class="fa-solid fa-database"></i> Database Status</h3>
-            <p id="db-status-text"><i class="fa-solid fa-circle-notch fa-spin"></i> Initializing Supabase client connections...</p>
+
+        <div class="directory-wrap">
+            <div class="table-container">
+                <table class="custom-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Shop &amp; Owner</th>
+                            <th>Contact No.</th>
+                            <th>Location</th>
+                            <th>Joined</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="merchant-directory-table">
+                        <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:30px;">Loading merchants...</td></tr>
+                    </tbody>
+                </table>
+                <div id="directory-empty-msg" class="no-data-msg" style="display:none">No merchants registered yet.</div>
+            </div>
         </div>
     </div>
 
@@ -379,8 +398,10 @@
                         </select>
                     </div>
                     <div class="form-group" id="merchant-id-group" style="display: none; margin-bottom: 15px;">
-                        <label style="display:block; margin-bottom:5px; font-weight:600;">Enter Merchant Shop ID</label>
-                        <input type="text" id="merchant-target-id" placeholder="e.g., SHOP-7741" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:600;">Select Merchant</label>
+                        <select id="merchant-target-id" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="">Loading merchants…</option>
+                        </select>
                     </div>
                     <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:600;">Alert Title</label>

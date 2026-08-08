@@ -246,6 +246,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showToast(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`, 'info');
             })
             .subscribe();
+
+        // ✅ NEW: rider_kyc টেবিলে admin কোনো ডকুমেন্ট verify/reject করলে — profile পেজ খোলা
+        // থাকলে রিফ্রেশ ছাড়াই সাথে সাথে Pending → Verified/Rejected UI আপডেট হয়ে যাবে
+        if (document.getElementById('vehicleStatusTag')) {
+            if (window._kycRealtimeChannel) supabaseClient.removeChannel(window._kycRealtimeChannel);
+            window._kycRealtimeChannel = supabaseClient
+                .channel('rider-kyc-realtime')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rider_kyc' }, payload => {
+                    const myId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
+                    if (payload.new.rider_id && String(payload.new.rider_id) !== String(myId)) return;
+                    const wasVerified = payload.old ? payload.old.verified : null;
+                    loadCurrentRiderProfileStatus();
+                    if (payload.new.verified === true && wasVerified !== true) {
+                        showToast("✅ Your KYC documents have been verified!", "success");
+                    } else if (payload.new.rejection_reason && !wasVerified) {
+                        showToast("⚠️ A KYC document was rejected — check Profile for details.", "error");
+                    }
+                })
+                .subscribe();
+        }
     }
 });
 
@@ -2059,6 +2079,31 @@ function closeNotiDropdownOutside(e) {
 // notification নিজে থেকেই সরিয়ে দেওয়া যায়।
 const NOTI_AUTO_PURGE_DAYS = 10;
 
+// ✅ NEW: DB থেকে delete করার সাথে সাথে localStorage-এও permanently "dismissed" হিসেবে
+// মার্ক রাখা হয় — কারণ Supabase-এ rider_notifications টেবিলে DELETE policy না থাকলে (RLS)
+// সার্ভার-সাইড delete চুপচাপ ব্যর্থ হতে পারে (কোনো error ছাড়াই), আর সেক্ষেত্রে রিফ্রেশ/dropdown
+// আবার খুললে পুরনো row-টা DB থেকে আবার চলে আসতো। এখন ক্রস করা ID localStorage-এ সেভ থাকায়,
+// DB delete কাজ করুক বা না করুক — একবার ক্রস করলে সেটা রাইডারের কাছে আর কখনো দেখাবে না।
+const DISMISSED_NOTI_KEY = 'dismissedNotificationIds';
+
+function getDismissedNotiIds() {
+    try {
+        const raw = localStorage.getItem(DISMISSED_NOTI_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+}
+
+function markNotiDismissedLocally(id) {
+    try {
+        const dismissed = getDismissedNotiIds();
+        dismissed[id] = Date.now();
+        // পুরনো (৩০ দিনের বেশি) এন্ট্রি ছেঁটে ফেলে localStorage-কে ছোট রাখা
+        const cutoff = Date.now() - 30 * 86400000;
+        Object.keys(dismissed).forEach(k => { if (dismissed[k] < cutoff) delete dismissed[k]; });
+        localStorage.setItem(DISMISSED_NOTI_KEY, JSON.stringify(dismissed));
+    } catch (e) { /* localStorage full/unavailable — চুপচাপ স্কিপ, DB delete-ই মূল ভরসা */ }
+}
+
 async function loadDeliveryNotifications() {
     const badge = document.getElementById('noti-badge');
     const dropdownBody = document.getElementById('noti-dropdown-body');
@@ -2068,6 +2113,8 @@ async function loadDeliveryNotifications() {
         if (!session?.user) return;
         const numericRiderId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
         if (!numericRiderId) return;
+
+        const dismissed = getDismissedNotiIds();
 
         // ✅ NEW: ১০ দিনের বেশি পুরনো notification গুলো ব্যাকগ্রাউন্ডে permanently ডিলিট করে দেওয়া
         // (ম্যানুয়ালি ✕ না করলেও এই বয়সের notification আর দেখানো হবে না)
@@ -2085,14 +2132,8 @@ async function loadDeliveryNotifications() {
             .eq('is_read', false)
             .gte('created_at', purgeBeforeIso);
 
-        const unread = count || 0;
-        if (unread > 0) {
-            badge.textContent = unread > 10 ? '10+' : String(unread);
-            badge.style.display = 'inline-flex';
-        } else {
-            badge.style.display = 'none';
-            badge.textContent = '0';
-        }
+        // ✅ dismissed (ক্রস করা) হিসেবে লোকালি মার্ক করা আইডিগুলো unread count থেকেও বাদ যাবে
+        let unread = count || 0;
 
         // Recent notifications (read + unread) for the dropdown list.
         // ✅ order_id কলাম থাকলে সেটাও আনার চেষ্টা করা হয় (না থাকলে fallback করে বেসিক কলামেই থামে)
@@ -2102,22 +2143,36 @@ async function loadDeliveryNotifications() {
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
             .gte('created_at', purgeBeforeIso)
             .order('created_at', { ascending: false })
-            .limit(15);
+            .limit(30);
         if (res1.error) {
             const res2 = await supabaseClient.from('rider_notifications')
                 .select('id, title, message, created_at, is_read')
                 .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
                 .gte('created_at', purgeBeforeIso)
                 .order('created_at', { ascending: false })
-                .limit(15);
+                .limit(30);
             data = res2.data;
         } else {
             data = res1.data;
         }
 
+        // ✅ FIX: যেসব ID আগে ক্রস করা হয়েছিল (localStorage-এ dismissed), সেগুলো বাদ দিয়ে রেন্ডার
+        // করা হয় — DB-তে delete সফল না হলেও (RLS ইত্যাদির কারণে) এগুলো আর কখনো ফিরে আসবে না।
+        const visibleData = (data || []).filter(n => !dismissed[n.id]).slice(0, 15);
+        const dismissedUnreadCount = (data || []).filter(n => dismissed[n.id] && !n.is_read).length;
+        unread = Math.max(0, unread - dismissedUnreadCount);
+
+        if (unread > 0) {
+            badge.textContent = unread > 10 ? '10+' : String(unread);
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+            badge.textContent = '0';
+        }
+
         if (dropdownBody) {
-            if (data && data.length > 0) {
-                dropdownBody.innerHTML = data.map(n => renderNotiItemHtml(n)).join('');
+            if (visibleData.length > 0) {
+                dropdownBody.innerHTML = visibleData.map(n => renderNotiItemHtml(n)).join('');
             } else {
                 dropdownBody.innerHTML = `<p class="noti-item" style="text-align:center;color:#999;padding:20px;">No new notifications</p>`;
             }
@@ -2137,12 +2192,16 @@ function renderNotiItemHtml(n) {
     </div>`;
 }
 
-// ✅ NEW: ✕ বাটনে ক্লিক করলে notification permanently ডিলিট হবে (DB + UI থেকে) —
-// একবার ক্রস করলে রিফ্রেশ করলেও আর ফিরে আসবে না।
+// ✅ NEW: ✕ বাটনে ক্লিক করলে notification permanently ডিলিট হবে (DB + localStorage dismissed-list
+// দুটো জায়গা থেকেই) — DB delete RLS-এর কারণে ব্যর্থ হলেও, localStorage-এর কারণে একবার ক্রস
+// করলে রিফ্রেশ করলেও আর কখনো ফিরে আসবে না।
 async function deleteNotification(id, btnEl) {
-    if (!supabaseClient || !id) return;
+    if (!id) return;
     const item = btnEl ? btnEl.closest('.noti-item') : document.querySelector(`.noti-item[data-noti-id="${id}"]`);
     const wasUnread = item && item.classList.contains('unread');
+
+    // ✅ সবার আগে localStorage-এ permanently dismissed মার্ক করে দেওয়া — এটাই আসল গ্যারান্টি
+    markNotiDismissedLocally(id);
 
     if (item) {
         item.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
@@ -2169,11 +2228,13 @@ async function deleteNotification(id, btnEl) {
         }
     }
 
+    if (!supabaseClient) return;
     try {
         const { error } = await supabaseClient.from('rider_notifications').delete().eq('id', id);
         if (error) throw error;
     } catch (e) {
-        showToast("Could not remove notification: " + (e.message || e), "error");
+        // ✅ DB delete ব্যর্থ হলেও চুপচাপ থাকা হয় (toast দেখানো হয় না) — কারণ localStorage
+        // dismissed-list ইতিমধ্যে UI-তে permanently hide করার দায়িত্ব নিয়ে নিয়েছে
     }
 }
 
@@ -2184,8 +2245,11 @@ async function removeOrderNotificationByOrderId(orderId) {
     document.querySelectorAll(`.noti-item[data-order-id="${orderId}"]`).forEach(el => {
         const id = el.dataset.notiId;
         el.remove();
-        if (id && supabaseClient) {
-            supabaseClient.from('rider_notifications').delete().eq('id', id).then(() => {}).catch(() => {});
+        if (id) {
+            markNotiDismissedLocally(id);
+            if (supabaseClient) {
+                supabaseClient.from('rider_notifications').delete().eq('id', id).then(() => {}).catch(() => {});
+            }
         }
     });
     const dropdownBody = document.getElementById('noti-dropdown-body');
@@ -2305,6 +2369,8 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
     // যদি এখনো কিছু সাবমিটই না করে থাকে, তাহলে সরাসরি upload ফর্ম দেখাও
     if (!hasKyc) {
         lockedView.classList.add('hidden');
+        lockedView.style.display = 'none';
+        editForm.classList.remove('hidden');
         editForm.style.display = '';
         return;
     }
@@ -2312,7 +2378,11 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
     // ইউজার যদি এইমাত্র "Edit" চেপে থাকে (এই সেশনে), তাহলে ফর্ম খোলা রাখো — জোর করে লক করে দিও না
     if (editForm.dataset.userEditing === 'true') return;
 
+    // ✅ FIX: শুধু inline style নয়, class দিয়েও জোর করে হাইড করা হচ্ছে — যাতে কোনো race
+    // condition বা stale render-এ Edit Form ও Locked View একসাথে দেখা না যায়
     lockedView.classList.remove('hidden');
+    lockedView.style.display = '';
+    editForm.classList.add('hidden');
     editForm.style.display = 'none';
     editForm.dataset.userEditing = 'false';
 
@@ -2340,18 +2410,21 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
         else { reasonEl.style.display = 'none'; }
     }
 
-    // ✅ NEW: একবার admin approve করে "Verified" হয়ে গেলে আর Edit/Cancel বাটন দেখানো হবে না —
-    // শুধু ছবি আর status-ই দেখাবে, রাইডার আর নিজে থেকে বদলাতে পারবে না।
+    // ✅ NEW: একবার admin approve করে "Verified" হয়ে গেলে আর Edit/Cancel KYC বাটন কোনোটাই
+    // দেখানো হবে না — শুধু ছবি আর status-ই দেখাবে (pure View Mode), রাইডার আর নিজে থেকে বদলাতে পারবে না।
     const editBtn = document.getElementById(prefix + 'LockedEditBtn');
+    const cancelBtn = document.getElementById(prefix + 'LockedCancelBtn');
     if (editBtn) editBtn.style.display = verified ? 'none' : '';
+    if (cancelBtn) cancelBtn.style.display = verified ? 'none' : '';
 }
 
 // "Edit" বাটনে ক্লিক করলে লক করা ভিউ থেকে upload ফর্মে যাওয়া
 function enableKycEdit(prefix) {
     const lockedView = document.getElementById(prefix + 'LockedView');
     const editForm = document.getElementById(prefix + 'EditForm');
-    if (lockedView) lockedView.classList.add('hidden');
+    if (lockedView) { lockedView.classList.add('hidden'); lockedView.style.display = 'none'; }
     if (editForm) {
+        editForm.classList.remove('hidden');
         editForm.style.display = '';
         editForm.dataset.userEditing = 'true'; // পরের রিফ্রেশে আবার জোর করে লক না হয়ে যায়
     }
@@ -2366,8 +2439,56 @@ function cancelKycEdit(prefix) {
     loadCurrentRiderProfileStatus();
 }
 
+// ✅ NEW: "Cancel KYC" — Pending/Rejected অবস্থায় থাকা একটা নির্দিষ্ট ডকুমেন্ট (vehicle/license/
+// aadhaar/pan) সম্পূর্ণ ডিলিট করে দেয় (rider_kyc row থেকে শুধু সেই ডকুমেন্টের no./image কলাম
+// null করা হয়, বাকি ৩টা ডকুমেন্টের ডেটা অক্ষত থাকে — কারণ rider_kyc একটাই shared row)।
+// এর ফলে Admin Panel থেকেও সেই ডকুমেন্ট চলে যাবে এবং rider app এ আবার Upload Document ফর্ম দেখাবে।
+const KYC_CANCEL_FIELDS = {
+    vehicle: { plate_no: null, plate_img: null, vehicle_img: null },
+    license: { license_no: null, license_img: null },
+    aadhaar: { aadhaar_no: null, aadhaar_img: null },
+    pan: { pan_no: null, pan_img: null }
+};
+const KYC_CANCEL_LABELS = {
+    vehicle: 'Vehicle/Plate KYC',
+    license: 'Driving License KYC',
+    aadhaar: 'Aadhaar KYC',
+    pan: 'PAN Card KYC'
+};
+async function cancelKycSubmission(prefix) {
+    if (!supabaseClient) return;
+    const fields = KYC_CANCEL_FIELDS[prefix];
+    if (!fields) return;
+
+    const confirmed = confirm(`Cancel your ${KYC_CANCEL_LABELS[prefix] || prefix + ' KYC'} submission? This will permanently delete it and you'll need to upload again.`);
+    if (!confirmed) return;
+
+    try {
+        const riderId = parseInt(currentRiderId) || parseInt(localStorage.getItem('riderId')) || null;
+        if (!riderId) { showToast("Could not determine rider ID.", "error"); return; }
+
+        const { error } = await supabaseClient.from('rider_kyc').update(fields).eq('rider_id', riderId);
+        if (error) throw error;
+
+        const editForm = document.getElementById(prefix + 'EditForm');
+        if (editForm) editForm.dataset.userEditing = 'false';
+
+        showToast("KYC submission cancelled. You can upload again anytime.", "info");
+        await loadCurrentRiderProfileStatus();
+    } catch (err) {
+        showToast("Cancel KYC failed: " + (err.message || err), "error");
+    }
+}
+
+// ✅ NEW: একাধিকবার (initial load + realtime event + upload success) loadCurrentRiderProfileStatus()
+// প্রায় একসাথে কল হলে race condition হতে পারতো — ধীরে শেষ হওয়া পুরনো কল, পরে শুরু হওয়া নতুন কলের
+// (সঠিক) DOM আপডেটকে ওভাররাইট করে পুরনো/খালি ডেটা দিয়ে বসিয়ে দিত। এখন একটা sequence number
+// দিয়ে গার্ড করা হলো — শুধু সর্বশেষ শুরু হওয়া কলটাই DOM আপডেট করতে পারবে।
+let _profileStatusCallSeq = 0;
+
 async function loadCurrentRiderProfileStatus() {
     if (window.location.pathname.includes('index.html')) return; 
+    const _mySeq = ++_profileStatusCallSeq;
 
     try {
         let currentRiderEmail = localStorage.getItem('userEmail');
@@ -2393,6 +2514,9 @@ async function loadCurrentRiderProfileStatus() {
         // লগইনের সময়ই row গ্যারান্টি করে, তবু কোনো race condition/error হলেও নিচের কোডটা
         // session থেকে fallback নাম দেখিয়ে চালিয়ে যাবে, পুরোপুরি থেমে যাবে না।
         if (error) return;
+        // ✅ এই মুহূর্তে যদি আরেকটা newer কল ইতিমধ্যে শুরু হয়ে গিয়ে থাকে, তাহলে এই (পুরনো) কল
+        // আর কোনো DOM পরিবর্তন করবে না।
+        if (_mySeq !== _profileStatusCallSeq) return;
         const riderProfile = data || {};
         const rId = riderProfile.id;
         if (rId) {
@@ -2433,6 +2557,9 @@ async function loadCurrentRiderProfileStatus() {
             kycData = res1.data;
         }
 
+        // ✅ আবার চেক — উপরের await চলাকালীন আরেকটা newer কল শুরু হয়ে থাকলে এখানেও থেমে যাও
+        if (_mySeq !== _profileStatusCallSeq) return;
+
         if (kycData) {
             hasKyc = true;
             kycVerified = kycData.verified;
@@ -2466,9 +2593,10 @@ async function loadCurrentRiderProfileStatus() {
                 document.getElementById("vehicleStatusTag").style.background = "#fef3c7";
                 document.getElementById("vehicleStatusTag").style.color = "#d97706";
             } else {
+                // ✅ FIX: Unverified এখন লাল (আগে ধূসর ছিল) — Unverified=লাল, Pending=হলুদ, Verified=সবুজ
                 document.getElementById("vehicleStatusTag").innerText = "Unverified";
-                document.getElementById("vehicleStatusTag").style.background = "#e2e8f0";
-                document.getElementById("vehicleStatusTag").style.color = "#64748b";
+                document.getElementById("vehicleStatusTag").style.background = "#fee2e2";
+                document.getElementById("vehicleStatusTag").style.color = "#ef4444";
             }
         }
 
@@ -2487,8 +2615,8 @@ async function loadCurrentRiderProfileStatus() {
                 document.getElementById("licenseStatusTag").style.color = "#d97706";
             } else {
                 document.getElementById("licenseStatusTag").innerText = "Unverified";
-                document.getElementById("licenseStatusTag").style.background = "#e2e8f0";
-                document.getElementById("licenseStatusTag").style.color = "#64748b";
+                document.getElementById("licenseStatusTag").style.background = "#fee2e2";
+                document.getElementById("licenseStatusTag").style.color = "#ef4444";
             }
         }
 
@@ -2503,7 +2631,7 @@ async function loadCurrentRiderProfileStatus() {
             } else if (hasKyc) {
                 tag.innerText = "Pending Review"; tag.style.background = "#fef3c7"; tag.style.color = "#d97706";
             } else {
-                tag.innerText = "Unverified"; tag.style.background = "#e2e8f0"; tag.style.color = "#64748b";
+                tag.innerText = "Unverified"; tag.style.background = "#fee2e2"; tag.style.color = "#ef4444";
             }
         }
 
@@ -2516,7 +2644,7 @@ async function loadCurrentRiderProfileStatus() {
             } else if (hasKyc) {
                 tag.innerText = "Pending Review"; tag.style.background = "#fef3c7"; tag.style.color = "#d97706";
             } else {
-                tag.innerText = "Unverified"; tag.style.background = "#e2e8f0"; tag.style.color = "#64748b";
+                tag.innerText = "Unverified"; tag.style.background = "#fee2e2"; tag.style.color = "#ef4444";
             }
         }
 

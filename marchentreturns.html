@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,9 +21,11 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#e02020;--primary-light:#ff4757;--primary-dark:#c01818;--dark:#1a1a2e;--dark2:#16213e;--dark3:#e02020;--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--text2:#64748b;--text3:#94a3b8;--border:#e8eaef;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#e02020;--purple:#e02020;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.12);--radius:14px;--radius-sm:10px;--glass:rgba(255,255,255,.85)}
 html{scroll-behavior:smooth}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;touch-action:manipulation;overscroll-behavior-y:none}
+html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
-.header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(224,32,32,.3)}
+.header{position:relative;flex-shrink:0;z-index:1000;background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(224,32,32,.3)}
 .header-left{display:flex;align-items:center;gap:12px}
 .hamburger{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:8px;border-radius:8px;transition:.2s}
 .hamburger:hover{background:rgba(255,255,255,.2)}
@@ -51,7 +53,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .sidebar-footer a{display:flex;align-items:center;gap:14px;padding:13px 0;color:rgba(255,255,255,.6);text-decoration:none;font-size:14px;font-weight:500;transition:.2s}
 .sidebar-footer a:hover{color:var(--primary-light)}
 .sidebar-footer a i{width:22px;text-align:center}
-.main-content{margin-top:68px;padding:16px}
+.main-content{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
 .tabs{display:flex;gap:6px;background:var(--card);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;margin-bottom:16px;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:1;min-width:0;padding:10px 6px;border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--text3);transition:.2s;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -172,7 +174,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .toast.success{background:var(--success)}
 .toast.error{background:var(--danger)}
 .toast.warning{background:var(--warning)}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:1000}
+.bottom-nav{position:relative;flex-shrink:0;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:1000}
 .bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;color:var(--text3);text-decoration:none;font-size:10px;font-weight:500;transition:.2s}
 .bottom-nav a i{font-size:18px}
 .bottom-nav a.active{color:var(--primary)}
@@ -219,17 +221,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 
 <header class="header">
   <div class="header-left">
-    <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     <div class="logo">
-      <div class="logo-icon">M</div>
+      <img src="1779304435608.png" alt="Logo" style="height:32px;width:auto;object-fit:contain;border-radius:6px;">
       <div class="logo-text">MEDI FINDER<span>MERCHANT PORTAL</span></div>
     </div>
-  </div>
-  <div class="header-right">
-    <button class="header-btn" onclick="location.reload()"><i class="fas fa-sync-alt"></i></button>
-    <button class="header-btn" onclick="showMerchantNotifications()">
-      <i class="fas fa-bell"></i><span class="badge" id="notifBadge">3</span>
-    </button>
   </div>
 </header>
 
@@ -1093,6 +1088,5 @@ document.addEventListener('DOMContentLoaded',async()=>{
   }
 });
 </script>
-    <script src="merchant-transitions.js?v=14"></script>
 </body>
 </html>

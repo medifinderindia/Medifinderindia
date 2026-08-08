@@ -22,16 +22,17 @@
 
 body { 
     background: var(--bg-light); 
-    padding-bottom: 85px; /* বটম ন্যাভ যেন ফর্মের সাবমিট বাটন ঢেকে না ফেলে */
+    padding-bottom: 0; 
     color: var(--text-main); 
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     overscroll-behavior-y: none;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden; /* body নিজে স্ক্রল হবে না, শুধু content-body স্ক্রল হবে */
 }
-html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
+html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; height: 100%; overflow: hidden; }
 
-/* --- Premium Header Area --- */
+/* --- Premium Header Area (একদম টপে লক থাকবে, স্ক্রলে নড়বে না) --- */
 .top-bar { 
     display: flex; 
     align-items: center; 
@@ -40,8 +41,10 @@ html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
     -webkit-backdrop-filter: blur(12px);
     padding: 14px 20px; 
     border-bottom: 1px solid var(--border); 
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 100;
     box-shadow: var(--shadow-sm);
 }
@@ -50,14 +53,32 @@ html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
 .logo-area h1 { font-size: 1.25rem; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; }
 .logo-area .highlight { color: var(--accent); }
 
-/* --- Layout Structure --- */
-.content-body { padding: 20px; max-width: 880px; margin: 0 auto; }
+/* --- Layout Structure ---
+   top-bar আর bottom-nav ফিক্সড থাকবে; content-body দুইটার মাঝে position:fixed করে
+   নিজে নিজে স্ক্রল হবে (top-bar/bottom-nav কখনো নড়বে না)। form-container কে
+   content-body এর সমান করে full page বানানো হয়েছে — আলাদা কার্ড/বক্স দেখাবে না। */
+.top-bar-spacer { display: none; }
+.content-body {
+    position: fixed;
+    top: 68px;      /* top-bar এর উচ্চতার সমান */
+    bottom: 78px;   /* bottom-nav এর উচ্চতার সমান */
+    left: 0;
+    right: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 0;
+    background: var(--surface);
+}
 .form-container { 
     background: var(--surface); 
-    padding: 28px; 
-    border-radius: 20px; 
-    border: 1px solid var(--border); 
-    box-shadow: var(--shadow-md); 
+    padding: 24px 20px 40px; 
+    border-radius: 0; 
+    border: none; 
+    box-shadow: none; 
+    max-width: 880px;
+    margin: 0 auto;
+    min-height: 100%;
 }
 
 /* --- Premium Form Progress Steps --- */
@@ -92,17 +113,18 @@ html { -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
 /* --- Premium Input Form Fields --- */
 .form-group { margin-bottom: 22px; }
 
-/* --- 🩺 Product Type Toggle (Medicine vs Instrument) --- */
-.type-toggle { display: flex; gap: 10px; }
+/* --- 🩺 Product Type Toggle (Medicine vs Instrument) — premium logo cards --- */
+.type-toggle { display: flex; gap: 14px; }
 .type-option {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border);
-    background: #f8fafc; font-size: 13px; font-weight: 600; color: var(--text-muted);
-    cursor: pointer; transition: all 0.2s ease;
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    padding: 18px 14px; border-radius: 16px; border: 1.5px solid var(--border);
+    background: #f8fafc; font-size: 13px; font-weight: 700; color: var(--text-muted);
+    cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .type-option input { display: none; }
-.type-option i { font-size: 15px; }
-.type-option.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+.type-option-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 12px; background: #fff; padding: 6px; box-shadow: var(--shadow-sm); transition: transform 0.25s ease; }
+.type-option.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); box-shadow: 0 6px 16px rgba(224,32,32,0.12); }
+.type-option.active .type-option-logo { transform: scale(1.08); box-shadow: 0 4px 10px rgba(224,32,32,0.18); }
 .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #4a5568; }
 .section-label { font-size: 14px !important; color: #1a202c !important; margin-bottom: 12px !important; }
 
@@ -190,12 +212,33 @@ textarea { resize: none; }
     height: 190px; /* ডেক্সটপ ভিউতে মেইন ফটো চমৎকার বড় দেখাবে */
     grid-row: span 2; 
 }
-.upload-box i { font-size: 18px; color: #a0aec0; transition: color 0.2s; }
+.upload-box i { font-size: 18px; color: #a0aec0; transition: color 0.2s, opacity 0.3s ease; }
 .upload-box.main-box i { font-size: 28px; color: var(--text-muted); }
-.upload-box p { font-size: 11px; color: #718096; text-align: center; margin-top: 6px; padding: 0 6px; font-weight: 500; }
+.upload-box p { font-size: 11px; color: #718096; text-align: center; margin-top: 6px; padding: 0 6px; font-weight: 500; transition: opacity 0.3s ease; }
 .upload-box.main-box p { font-size: 13px; }
-.upload-box img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: none; background: white; }
-.upload-box.has-img { border-style: solid; border-color: var(--primary); background: white; }
+.upload-box img { 
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; 
+    display: none; background: white; 
+    opacity: 0; 
+    transform: scale(0.94); 
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.upload-box img.loaded { opacity: 1; transform: scale(1); }
+.upload-box.has-img { border-style: solid; border-color: var(--primary); background: white; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+.upload-box.has-img i,
+.upload-box.has-img p { opacity: 0; pointer-events: none; }
+.upload-box.uploading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(224,32,32,0.15), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 0.9s ease-in-out;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
 
 /* --- Premium Actions & Footer Buttons --- */
 .form-footer { 
@@ -347,7 +390,7 @@ textarea { resize: none; }
     .upload-box.main-box i { font-size: 18px; }
     .upload-box.main-box p { font-size: 11px; }
     
-    .form-container { padding: 18px; border-radius: 16px; }
+    .form-container { padding: 18px 16px 40px; }
     .form-row { grid-template-columns: 1fr; gap: 0; } /* মোবাইলে ইনপুট রো গুলো নিচে নিচে নামবে */
 }
 

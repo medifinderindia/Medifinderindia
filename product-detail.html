@@ -173,6 +173,24 @@ a{text-decoration:none;color:inherit}
 .policy-box i{font-size:20px;color:var(--primary);flex-shrink:0;margin-top:2px}
 .policy-box .title{font-size:12px;font-weight:700;color:var(--text)}
 .policy-box .desc{font-size:11px;color:var(--text3);margin-top:2px}
+/* 🎨 Other Color variant swatches — Flipkart style */
+.variant-section{margin-top:14px}
+.variant-label{font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600}
+.variant-swatches{display:flex;gap:10px;flex-wrap:wrap}
+.variant-swatch{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:4px;border-radius:8px;border:2px solid transparent;transition:all .2s}
+.variant-swatch img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border);background:#fafafa}
+.variant-swatch.active{border-color:var(--primary)}
+.variant-swatch.active img{box-shadow:0 0 0 2px var(--primary)}
+.variant-swatch span{font-size:10px;color:var(--text3);max-width:60px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.variant-swatch.active span{color:var(--primary);font-weight:700}
+/* ⚠️ Safety / responsible-use disclaimer — premium, calm styling, not alarmist red */
+.disclaimer-section{background:var(--card);margin-top:8px;padding:18px 16px;border-top:3px solid var(--primary)}
+.disclaimer-section .section-header{margin-bottom:10px}
+.disclaimer-box{background:#fff8f0;border:1px solid #ffe0b3;border-radius:var(--radius);padding:14px;font-size:12px;line-height:1.7;color:var(--text2)}
+.disclaimer-box b{color:var(--text)}
+.disclaimer-box .dl-en{margin-bottom:10px}
+.disclaimer-box .dl-bn{padding-top:10px;border-top:1px dashed #ffe0b3}
+.disclaimer-wish{text-align:center;margin-top:14px;font-size:13px;font-weight:700;color:var(--primary)}
 .sticky-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.05)}
 .sticky-price{flex:1;text-align:right}
 .sticky-price .label{font-size:11px;color:var(--text3)}
@@ -297,8 +315,9 @@ a{text-decoration:none;color:inherit}
       <div class="stars" id="ratingStars"></div>
       <span class="rating-count" id="ratingCount"></span>
     </div>
-    <div class="sold-by">Sold by: <strong id="sellerName"></strong>
-      <span class="verified-badge" id="verifiedBadge" style="display:none"><i class="fas fa-check-circle"></i> Verified</span>
+    <div class="sold-by">Manufactured by: <strong id="sellerName"></strong>
+      <!-- Verified ব্যাজটা আর দেখানো হবে না (ইউজারের রিকোয়েস্ট অনুযায়ী) — এলিমেন্টটা রেখে দেওয়া হয়েছে কিন্তু কখনো ভিজিবল হবে না -->
+      <span class="verified-badge" id="verifiedBadge" style="display:none !important"><i class="fas fa-check-circle"></i> Verified</span>
     </div>
     <div class="price-section">
       <div class="price-row">
@@ -307,6 +326,10 @@ a{text-decoration:none;color:inherit}
         <span class="discount-badge" id="discountBadge"></span>
       </div>
       <div class="tax-note">Inclusive of all taxes</div>
+    </div>
+    <div class="variant-section" id="colorVariantSection" style="display:none">
+      <div class="variant-label">Color: <span id="selectedVariantColor" style="color:var(--text)"></span></div>
+      <div class="variant-swatches" id="colorVariantSwatches"></div>
     </div>
   </div>
   <div class="delivery-info fade-in">
@@ -419,6 +442,18 @@ a{text-decoration:none;color:inherit}
       <div class="policy-box" id="supportPolicyBox" style="display:none"><i class="fas fa-headset"></i><div><div class="title">Customer Support</div><div class="desc" id="supportPolicyDesc"></div></div></div>
     </div>
   </div>
+  <div class="disclaimer-section fade-in">
+    <div class="section-header"><i class="fas fa-info-circle"></i> Disclaimer</div>
+    <div class="disclaimer-box">
+      <div class="dl-en">
+        <b>Responsible Use Notice:</b> Medi Finder delivers medicines and healthcare products responsibly and does not condone their misuse in any form, including deliberate self-harm, or misuse targeting the elderly or vulnerable individuals. Medicines requiring a valid prescription (Rx) are dispensed strictly against a genuine prescription. If any medicine ordered through this platform is misused after delivery, the responsibility lies solely with the buyer — neither the pharmacy/seller nor Medi Finder (medifinderindia.com) shall be held liable for any resulting harm. Please consult a registered medical practitioner before use.
+      </div>
+      <div class="dl-bn">
+        <b>দায়বদ্ধতার বার্তা:</b> মেডি ফাইন্ডার দায়িত্বের সাথে ওষুধ ও স্বাস্থ্যপণ্য ডেলিভারি করে এবং এর অপব্যবহার — নিজেকে ক্ষতি করার উদ্দেশ্যে হোক বা বয়স্ক/দুর্বল মানুষের ক্ষতি করার উদ্দেশ্যে হোক — কোনোভাবেই সমর্থন করে না। যেসব ওষুধের জন্য প্রেসক্রিপশন (Rx) প্রয়োজন, তা শুধুমাত্র বৈধ প্রেসক্রিপশন থাকলেই সরবরাহ করা হয়। ডেলিভারির পর কোনো ওষুধ অপব্যবহার হলে তার সম্পূর্ণ দায় ক্রেতার — মেডিসিন শপ বা মেডি ফাইন্ডার (medifinderindia.com) এর জন্য দায়ী থাকবে না। ব্যবহারের আগে একজন নিবন্ধিত চিকিৎসকের পরামর্শ নিন।
+      </div>
+    </div>
+    <div class="disclaimer-wish"><i class="fas fa-heart" style="color:var(--primary)"></i> VISIT AGAIN, STAY WELL STAY HEALTHY </div>
+  </div>
 </div>
 <div class="sticky-bar slide-up" id="stickyBar">
   <div class="sticky-price"><div class="label">Total</div><div class="amount" id="stickyPrice">Rs.0.00</div></div>
@@ -466,7 +501,7 @@ if (!supabase) { supabase = { from: () => ({ select: () => ({ eq: () => ({ limit
 
 function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
-let product = { id:'', name:'', price:0, img:'', manufacturer:'', expiry:'', rating:0, desc:'', isRx:'false', category:'', stock:10, composition:'', dosageForm:'', strength:'' };
+let product = { id:'', name:'', price:0, img:'', manufacturer:'', expiry:'', rating:0, desc:'', isRx:'false', category:'', stock:10, composition:'', dosageForm:'', strength:'', productType:'Medicine', itemColor:'', deviceType:'', displaySpec:'', batteryInfo:'', measurementRange:'', warrantyPeriod:'', modelNumber:'', brandName:'' };
 let quantity = 1;
 let isWishlisted = false;
 let currentImageIndex = 0;
@@ -501,7 +536,8 @@ function parseParams(){
   product.composition = p.get('composition') || '';
   product.dosageForm = p.get('dosageForm') || '';
   product.strength = p.get('strength') || '';
-  
+  product.productType = p.get('productType') || 'Medicine';
+
   // Fallback to localStorage if URL params missing
   if (!p.get('name')) {
     try {
@@ -557,6 +593,19 @@ async function loadProductFromDb(){
     product.strength = med.strength || product.strength;
     product.sideEffects = med.side_effects || '';
     product.status = med.status || '';
+    // 🩺 Instrument-only স্পেসিফিকেশন — Medicine এর dosage/composition এর বদলে
+    // এইগুলো Instrument প্রোডাক্টের ডিটেইলে দেখানো হবে
+    product.productType = med.product_type || product.productType;
+    product.itemColor = med.item_color || '';
+    product.deviceType = med.device_type || '';
+    product.displaySpec = med.display_spec || '';
+    product.batteryInfo = med.battery_info || '';
+    product.measurementRange = med.measurement_range || '';
+    product.warrantyPeriod = med.warranty_period || '';
+    product.modelNumber = med.model_number || '';
+    product.brandName = med.brand_name || '';
+    product.merchantIdRaw = med.merchant_id || null;
+    product.productNameRaw = med.product_name || med.name || '';
   } catch(e) { /* keep whatever we already had from URL params */ }
 }
 
@@ -616,7 +665,7 @@ function renderProduct(){
   document.getElementById('mrpPrice').textContent = 'Rs.' + mrp.toFixed(2);
   const disc = mrp > product.price ? Math.round((1 - product.price/mrp)*100) : 0;
   document.getElementById('discountBadge').textContent = disc > 0 ? disc + '% off' : 'Best Price';
-  document.getElementById('productDesc').textContent = product.desc;
+  document.getElementById('productDesc').textContent = (product.desc || '').toUpperCase();
 
   const priceRow = document.getElementById('currentPrice')?.closest('.price-section, .price-row, div');
   let sponsorBanner = document.getElementById('sponsorDiscountBanner');
@@ -649,6 +698,7 @@ function renderProduct(){
   loadProductReviews();
   loadRealOffers();
   loadSellerInfo();
+  loadColorVariants();
   renderFBT();
   renderSimilar();
   updateStickyPrice();
@@ -738,29 +788,65 @@ function setupSwipeCarousel(){
 
 function renderHighlights(){
   const c = document.getElementById('highlights');
-  const items = [
-    'Dosage Form: ' + product.dosageForm,
-    'Strength: ' + product.strength,
-    'Manufacturer: ' + product.manufacturer,
-    'Prescription Required: ' + (product.isRx === 'true' ? 'Yes' : 'No'),
-    'Storage: Store below 25C in a dry place',
-    'Shelf Life: 36 months',
-    'Pack Size: 15 tablets per strip'
-  ];
+  const isInstrument = product.productType === 'Instrument';
+  let items;
+  if (isInstrument) {
+    // 🩺 Instrument হলে dosage/composition এর বদলে ডিভাইস স্পেসিফিকেশন দেখাবে
+    items = [
+      product.brandName ? 'Brand: ' + product.brandName : null,
+      product.deviceType ? 'Type: ' + product.deviceType : null,
+      product.itemColor ? 'Color: ' + product.itemColor : null,
+      product.displaySpec ? 'Display: ' + product.displaySpec : null,
+      product.batteryInfo ? 'Battery: ' + product.batteryInfo : null,
+      product.measurementRange ? 'Measurement Range: ' + product.measurementRange : null,
+      product.modelNumber ? 'Model No: ' + product.modelNumber : null,
+      'Warranty: ' + (product.warrantyPeriod || 'No Warranty'),
+      'Manufacturer: ' + product.manufacturer
+    ].filter(Boolean);
+  } else {
+    items = [
+      'Dosage Form: ' + product.dosageForm,
+      'Strength: ' + product.strength,
+      'Manufacturer: ' + product.manufacturer,
+      'Prescription Required: ' + (product.isRx === 'true' ? 'Yes' : 'No'),
+      'Storage: Store below 25C in a dry place',
+      'Shelf Life: 36 months',
+      'Pack Size: 15 tablets per strip'
+    ];
+  }
   c.innerHTML = items.map(function(it){ return '<li>' + it + '</li>'; }).join('');
 }
 
 function renderDetailTable(){
-  const fields = [
-    ['Composition', product.composition],
-    ['Dosage Form', product.dosageForm],
-    ['Strength', product.strength],
-    ['Manufacturer', product.manufacturer],
-    ['Expiry Date', product.expiry],
-    ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Currently Unavailable'],
-    ['Category', product.category],
-    ['Prescription', product.isRx === 'true' ? 'Required' : 'Not Required']
-  ];
+  const isInstrument = product.productType === 'Instrument';
+  let fields;
+  if (isInstrument) {
+    // 🩺 Instrument প্রোডাক্টের জন্য Composition/Dosage Form হাইড থাকবে, বদলে ডিভাইস ডিটেইলস দেখাবে
+    fields = [
+      ['Brand', product.brandName],
+      ['Type', product.deviceType],
+      ['Color', product.itemColor],
+      ['Display', product.displaySpec],
+      ['Battery', product.batteryInfo],
+      ['Measurement Range', product.measurementRange],
+      ['Model Number', product.modelNumber],
+      ['Warranty', product.warrantyPeriod],
+      ['Manufacturer', product.manufacturer],
+      ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Currently Unavailable'],
+      ['Category', product.category]
+    ];
+  } else {
+    fields = [
+      ['Composition', product.composition],
+      ['Dosage Form', product.dosageForm],
+      ['Strength', product.strength],
+      ['Manufacturer', product.manufacturer],
+      ['Expiry Date', product.expiry],
+      ['Stock', product.stock > 0 ? 'In Stock (' + product.stock + ' available)' : 'Currently Unavailable'],
+      ['Category', product.category],
+      ['Prescription', product.isRx === 'true' ? 'Required' : 'Not Required']
+    ];
+  }
   document.getElementById('detailTable').innerHTML = fields.map(function(f){
     const val = (f[1] === null || f[1] === undefined || f[1] === '' || f[1] === 'NaN') ? 'Not specified' : f[1];
     return '<div class="detail-item"><div class="detail-label">' + f[0] + '</div><div class="detail-value">' + val + '</div></div>';
@@ -983,16 +1069,59 @@ function renderReturnPolicyBox(){
   const isRx = product.isRx === 'true';
   const title = document.getElementById('returnPolicyTitle');
   const desc = document.getElementById('returnPolicyDesc');
+  // 📦 প্যাকেজিং খোলা বা ভাঙা/নষ্ট থাকলে কোনো অবস্থাতেই রিটার্ন হবে না — এই শর্তটা
+  // এখন সব ক্ষেত্রে return description এর সাথে যুক্ত থাকে
+  const packagingNote = ' Item must be unopened, unused and in original packaging — damaged, opened or broken items are not eligible for return.';
   if (isRx) {
     title.textContent = 'Non-Returnable';
-    desc.textContent = 'Prescription medicines cannot be returned';
+    desc.textContent = 'Prescription medicines cannot be returned.';
   } else if (product.price >= 500) {
     title.textContent = '7-Day Returns';
-    desc.textContent = 'Easy returns in original packaging';
+    desc.textContent = 'Easy returns within 7 days of delivery.' + packagingNote;
   } else {
     title.textContent = 'Non-Returnable';
-    desc.textContent = 'Returns available on orders above Rs.500';
+    desc.textContent = 'Returns available on orders above Rs.500.' + packagingNote;
   }
+}
+
+// 🎨 "Other Color" swatches — Flipkart style. Same product (same name +
+// same merchant) but listed separately per color gets grouped here so the
+// shopper can tap a swatch and jump straight to that color's listing.
+// Only relevant for products that actually have a color set (mainly
+// Instrument-type items — item_color is filled on the merchant add form).
+async function loadColorVariants(){
+  const section = document.getElementById('colorVariantSection');
+  const swatchWrap = document.getElementById('colorVariantSwatches');
+  const colorLabel = document.getElementById('selectedVariantColor');
+  if (!section || !swatchWrap) return;
+  if (!product.id || !supabase || !supabase.from) return;
+  const nameKey = product.productNameRaw || product.name;
+  if (!nameKey || !product.merchantIdRaw) return;
+  try {
+    const { data: rows, error } = await supabase.from('medicines')
+      .select('id, product_name, name, item_color, image_url, status')
+      .eq('merchant_id', product.merchantIdRaw)
+      .eq('product_name', nameKey);
+    if (error || !rows || rows.length < 2) return; // nothing to compare against
+    const variants = rows.filter(function(r){ return r.item_color && String(r.item_color).trim() !== '' && r.status !== 'Suspended'; });
+    if (variants.length < 2) return;
+    colorLabel.textContent = product.itemColor || '';
+    swatchWrap.innerHTML = variants.map(function(v){
+      const isActive = String(v.id) === String(product.id);
+      const img = v.image_url || SAMPLE_IMAGES[0];
+      return '<div class="variant-swatch' + (isActive ? ' active' : '') + '" onclick="' + (isActive ? '' : 'switchColorVariant(' + v.id + ')') + '">' +
+        '<img src="' + img + '" alt="' + escapeHtml(v.item_color) + '">' +
+        '<span>' + escapeHtml(v.item_color) + '</span></div>';
+    }).join('');
+    section.style.display = 'block';
+  } catch(e) { /* keep swatches hidden rather than show broken data */ }
+}
+
+// Selecting a color swatch takes the shopper to that exact listing (its own
+// id, price, stock) so whatever they Add to Cart / Buy Now matches the
+// color they picked — same behaviour as tapping a similar product card.
+function switchColorVariant(variantId){
+  window.location.href = 'product-detail.html?id=' + variantId;
 }
 
 async function loadSellerInfo(){
@@ -1019,7 +1148,7 @@ async function loadSellerInfo(){
     if (sellerLinkEl) sellerLinkEl.textContent = merchant.shop_name || merchant.merchant_name || product.manufacturer;
     const isVerified = merchant.license_status === 'Verified';
     if (isVerified) {
-      verifiedBadge.style.display = 'inline-flex';
+      // verifiedBadge.style.display intentionally NOT set — "Verified" badge stays hidden per request
       gstItem.style.display = 'flex';
       genuineItem.style.display = 'flex';
     }

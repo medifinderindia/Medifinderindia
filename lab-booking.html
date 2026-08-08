@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediFinder — Lab Test Booking</title>
 <link rel="icon" type="image/png" href="favicon.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js?v=13"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
   :root{
     --maroon-deep:#b71c1c;
@@ -18,6 +21,15 @@
     --navy:#20263b;
     --gold:#ffa502;
   }
+  *{box-sizing:border-box;}
+  html,body{max-width:100%;overflow-x:hidden;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+  }
+  .content-wrap{max-width:1180px;margin:0 auto;}
   .back-home-btn{
     display:inline-flex;
     align-items:center;
@@ -32,6 +44,7 @@
     text-decoration:none;
     box-shadow:0 6px 16px rgba(183,28,28,.28);
     transition:transform .15s ease, box-shadow .15s ease;
+    flex-shrink:0;
   }
   .back-home-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(183,28,28,.35);}
   .back-home-btn i{font-size:12px;}
@@ -40,24 +53,36 @@
     align-items:center;
     justify-content:space-between;
     gap:10px;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:'Segoe UI',system-ui,sans-serif;
-    background:var(--cream);
-    color:var(--ink);
+    flex-wrap:wrap;
   }
   /* ---------- Top ribbon ---------- */
   .ribbon{
     background:var(--maroon-deep);
     color:#ffe3dc;
     font-size:11px;
-    letter-spacing:1px;
+    letter-spacing:.6px;
     text-align:center;
-    padding:6px 8px;
+    padding:6px 0;
     font-weight:700;
+    overflow-wrap:break-word;
   }
+  /* Auto-scrolling ticker line, same technique as userhome.html's
+     #top-delivery-bar (.top-bar / .top-bar-scroll / scrollBanner). */
+  .ribbon-track{
+    overflow:hidden;
+    white-space:nowrap;
+    width:100%;
+  }
+  .ribbon-scroll{
+    display:inline-block;
+    white-space:nowrap;
+    animation: ribbonScroll 18s linear infinite;
+  }
+  @keyframes ribbonScroll{
+    0%{ transform:translateX(100vw); }
+    100%{ transform:translateX(-100%); }
+  }
+  .ribbon .sub{display:block;font-size:9.5px;font-weight:600;letter-spacing:.3px;opacity:.9;margin-top:2px;}
   /* ---------- Header ---------- */
   header{
     background:#fff;
@@ -72,443 +97,227 @@
     padding: 10px 20px;
     justify-content:space-between;
   }
- .brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
-
-.brand-mark img{
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand-mark img{
     width:45px;
     height:45px;
-    border-radius:12px;
-    transform:none;
-    background:none;
-}
-
-.brand-text h1{
-    margin:0;
-    font-size:30px;
-    font-weight:900;
-    transform:none;
-    letter-spacing:1px;
-}
-
-.brand-text .medi{
-    color:#d50000;
-}
-
-.brand-text .finder{
-    color:#000;
-}
- .search-bar{
-    width:100%;
-    height:48px;
-
-    display:flex;
-    align-items:center;
-
-    background:#fff;
-    border:1px solid #e5e5e5;
-    border-radius:28px;
-
-    overflow:hidden;
-
-    padding-left:14px;
-    margin-top:15px;
-
-    box-shadow:0 2px 8px rgba(0,0,0,.06);
-}
-
-.search-icon{
-    color:#999;
-    font-size:15px;
-    margin-right:10px;
-}
-
-.search-bar input{
-    flex:1;
-
-    border:none;
-    outline:none;
-
-    font-size:14px;
-    background:transparent;
-}
-
-.mic-btn{
-    width:48px;
-    height:48px;
-
-    border:none;
-    background:#e53935;
-
-    color:#fff;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    cursor:pointer;
-
     border-radius:50%;
-    margin:3px;
-}
-
-.mic-btn i{
-    font-size:18px;
-}
-  .quick-row{
-    display:flex;
-    gap:14px;
-    overflow-x:auto;
-    padding:14px 4px 4px;
-    scrollbar-width:none;
-  }
-  .quick-row::-webkit-scrollbar{display:none;}
-  .quick-item{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:6px;
+    object-fit:cover;
+    border:2px solid var(--maroon);
     flex-shrink:0;
-    width:64px;
+    display:block;
   }
-  .quick-icon{
-    width:48px;height:48px;
-    border-radius:14px;
-    display:flex;align-items:center;justify-content:center;
-    font-size:20px;
-    color:#fff;
+  .brand-text h1{
+    margin:0;
+    font-size:26px;
+    font-weight:900;
+    letter-spacing:.5px;
+    white-space:nowrap;
   }
-  .quick-item span{
-    font-size:10px;
-    text-align:center;
-    color:#5b463d;
-    line-height:1.2;
+  .brand-text .medi{color:#d50000;}
+  .brand-text .finder{color:#000;}
+  .search-bar{
+    width:100%;height:48px;display:flex;align-items:center;
+    background:#fff;border:1px solid #e5e5e5;border-radius:28px;
+    overflow:hidden;padding-left:14px;margin-top:15px;
+    box-shadow:0 2px 8px rgba(0,0,0,.06);
   }
-  .quick-item.active .quick-icon{
-    box-shadow:0 0 0 2px var(--maroon-bright);
+  .search-icon{color:#999;font-size:15px;margin-right:10px;}
+  .search-bar input{flex:1;border:none;outline:none;font-size:14px;background:transparent;min-width:0;}
+  .mic-btn{
+    width:48px;height:48px;border:none;background:#e53935;color:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    border-radius:50%;margin:3px;flex-shrink:0;
+    transition:background .2s;
+  }
+  .mic-btn i{font-size:18px;}
+  .mic-btn.listening{background:#b71c1c;animation:micPulse 1s ease infinite;}
+  @keyframes micPulse{
+    0%{box-shadow:0 0 0 0 rgba(229,57,53,.5);}
+    70%{box-shadow:0 0 0 10px rgba(229,57,53,0);}
+    100%{box-shadow:0 0 0 0 rgba(229,57,53,0);}
   }
 
-  /* ---------- Promo strip ---------- */
-  .promo{
+  /* ---------- Pincode gate ---------- */
+  .pincode-bar{
     margin:14px 16px 0;
-    background:linear-gradient(120deg,var(--maroon-deep),var(--maroon-bright));
+    background:#fff;
+    border:1px solid var(--line);
     border-radius:14px;
-    padding:16px;
-    color:#fff;
-    position:relative;
-    overflow:hidden;
+    padding:14px 16px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
   }
-  .promo::after{
-    content:"";
-    position:absolute;right:-40px;top:-40px;
-    width:140px;height:140px;
-    background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);
+  .pincode-bar i{color:var(--maroon);}
+  .pincode-bar input{
+    flex:1;min-width:140px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:14px;
+    outline:none;
   }
-  .promo .badge{
-    background:rgba(255,255,255,.2);
-    display:inline-block;
-    font-size:10px;
-    font-weight:700;
-    letter-spacing:1px;
-    padding:3px 9px;
-    border-radius:20px;
-    margin-bottom:8px;
+  .pincode-bar input:focus{outline:2px solid var(--maroon-bright);outline-offset:1px;}
+  .pincode-bar button{
+    border:none;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13.5px;
   }
-  .promo h2{margin:0 0 4px;font-size:18px;}
-  .promo p{margin:0;font-size:12.5px;color:#ffe3dc;}
+  .pincode-note{width:100%;font-size:12px;color:#7a5f52;}
+  .pincode-note.err{color:var(--maroon-deep);font-weight:700;}
+  .pincode-note.ok{color:var(--success);font-weight:700;}
 
   /* ---------- Section title ---------- */
-  .section-title{
-    padding:22px 16px 6px;
-  }
-  .section-title h2{
-    margin:0 0 4px;
-    font-size:18px;
-    color:var(--maroon-deep);
-    border-left:4px solid var(--maroon);
-    padding-left:10px;
-  }
-  .section-title p{
-    margin:0 0 0 14px;
-    font-size:12px;
-    color:#7a5f52;
+  .section-title{padding:22px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .section-title h2{margin:0 0 4px;font-size:18px;color:var(--maroon-deep);border-left:4px solid var(--maroon);padding-left:10px;}
+  .section-title p{margin:0 0 0 14px;font-size:12px;color:#7a5f52;}
+  .my-bookings-btn{
+    border:none;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;
+    padding:9px 16px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
   }
 
   /* ---------- Grid ---------- */
-  .grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
-    gap:16px;
-    padding:14px 16px 30px;
-  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding:14px 16px 30px;}
   .card{
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:16px 16px 14px;
-    box-shadow:0 3px 10px rgba(122,13,13,.06);
-    display:flex;
-    flex-direction:column;
-    gap:8px;
+    background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;
+    box-shadow:0 3px 10px rgba(122,13,13,.06);display:flex;flex-direction:column;gap:8px;
+    min-width:0;overflow-wrap:break-word;word-break:break-word;
   }
-  .card-head{
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
+  .card-head{display:flex;align-items:center;gap:10px;min-width:0;}
   .icon-badge{
-    width:44px;height:44px;
-    border-radius:10px;
-    background:var(--cream-2);
-    display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;
-    overflow:hidden;
+    width:44px;height:44px;border-radius:50%;background:var(--cream-2);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;
+    background-size:cover;background-position:center;border:2px solid var(--maroon-bright);
   }
   .icon-badge svg{width:26px;height:26px;}
-  .card-head h3{
-    margin:0;
-    font-size:15px;
-    color:var(--ink);
-  }
-  .card ul{
-    margin:2px 0 4px;
-    padding-left:18px;
-    font-size:12.5px;
-    color:#5b463d;
-    line-height:1.5;
-  }
-  .price-row{
-    display:flex;
-    align-items:baseline;
-    gap:8px;
-    margin-top:2px;
-  }
-  .price-old{
-    font-size:12.5px;
-    color:#a08072;
-    text-decoration:line-through;
-  }
-  .price-new{
-    font-size:19px;
-    font-weight:800;
-    color:var(--maroon-deep);
-  }
-  .off-badge{
-    margin-left:auto;
-    background:var(--success);
-    color:#fff;
-    font-size:11px;
-    font-weight:700;
-    padding:3px 8px;
-    border-radius:20px;
-  }
-  .fasting-note{
-    font-size:11.5px;
-    font-weight:700;
-    padding:5px 9px;
-    border-radius:8px;
-    width:fit-content;
-  }
+  .card-head h3{margin:0;font-size:15px;color:var(--ink);min-width:0;overflow-wrap:break-word;}
+  .card ul{margin:2px 0 4px;padding-left:18px;font-size:12.5px;color:#5b463d;line-height:1.5;overflow-wrap:break-word;}
+  .price-row{display:flex;align-items:baseline;gap:8px;margin-top:2px;flex-wrap:wrap;}
+  .price-old{font-size:12.5px;color:#a08072;text-decoration:line-through;}
+  .price-new{font-size:19px;font-weight:800;color:var(--maroon-deep);}
+  .off-badge{margin-left:auto;background:var(--success);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+  .fasting-note{font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:8px;width:fit-content;}
   .fasting-note.before{background:#fde8e8;color:#a11212;}
   .fasting-note.after{background:#e8f3ec;color:var(--success);}
-  .home-note{
-    font-size:11px;
-    color:#8a6a3a;
-    background:#fbf0dd;
-    width:fit-content;
-    padding:3px 8px;
-    border-radius:8px;
-  }
+  .home-note{font-size:11px;color:#8a6a3a;background:#fbf0dd;width:fit-content;padding:3px 8px;border-radius:8px;}
   .buy-btn{
-    margin-top:6px;
-    border:none;
-    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
-    color:#fff;
-    font-size:14.5px;
-    font-weight:700;
-    padding:11px;
-    border-radius:10px;
-    cursor:pointer;
-    letter-spacing:.4px;
+    margin-top:6px;border:none;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
+    color:#fff;font-size:14.5px;font-weight:700;padding:11px;border-radius:10px;cursor:pointer;letter-spacing:.4px;
   }
   .buy-btn:hover{filter:brightness(1.05);}
+  .empty-msg{grid-column:1/-1;text-align:center;padding:50px 16px;color:#9c7b6d;font-size:14px;}
 
-  footer{
-    text-align:center;
-    padding:22px 16px 30px;
-    font-size:12px;
-    color:#9c7b6d;
-  }
+  footer{text-align:center;padding:22px 16px 30px;font-size:12px;color:#9c7b6d;}
 
-  /* ---------- Modal ---------- */
-  .overlay{
-    position:fixed;inset:0;
-    background:rgba(28,20,20,.55);
-    display:none;
-    align-items:flex-end;
-    justify-content:center;
-    z-index:50;
-  }
+  /* ---------- Modal (booking sheet) ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(28,20,20,.55);display:none;align-items:flex-end;justify-content:center;z-index:50;}
   .overlay.active{display:flex;}
-  .sheet{
-    background:#fff;
-    width:100%;
-    max-width:460px;
-    border-radius:18px 18px 0 0;
-    padding:0 0 22px;
-    animation:slideUp .25s ease;
-    max-height:92vh;
-    overflow-y:auto;
-  }
+  .sheet{background:#fff;width:100%;max-width:460px;border-radius:18px 18px 0 0;padding:0 0 22px;animation:slideUp .25s ease;max-height:92vh;overflow-y:auto;}
   @keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
-  .sheet-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:16px 18px 8px;
-    position:sticky;top:0;
-    background:#fff;
-    border-bottom:1px solid var(--line);
-  }
-  .sheet-header h3{
-    margin:0;
-    color:var(--maroon-deep);
-    font-size:17px;
-  }
-  .close-x{
-    width:32px;height:32px;
-    border-radius:50%;
-    border:none;
-    background:var(--cream-2);
-    color:var(--maroon-deep);
-    font-size:17px;
-    font-weight:700;
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;
-  }
+  .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px;position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);}
+  .sheet-header h3{margin:0;color:var(--maroon-deep);font-size:17px;}
+  .close-x{width:32px;height:32px;border-radius:50%;border:none;background:var(--cream-2);color:var(--maroon-deep);font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .sheet-body{padding:14px 18px 0;}
-  .test-label{
-    font-size:12.5px;
-    color:#7a5f52;
-    margin-bottom:14px;
-  }
-  .field-group-title{
-    font-size:12px;
-    font-weight:700;
-    color:var(--maroon-deep);
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    margin:16px 0 8px;
-  }
-  .field{
-    margin-bottom:12px;
-  }
-  .field label{
-    display:block;
-    font-size:12px;
-    font-weight:700;
-    color:#5b463d;
-    margin-bottom:5px;
-  }
-  .field input, .field select{
-    width:100%;
-    padding:11px 12px;
-    border-radius:10px;
-    border:1px solid var(--line);
-    font-size:13.5px;
-    background:var(--cream);
-    font-family:inherit;
-  }
-  .field input:focus, .field select:focus{
-    outline:2px solid var(--maroon-bright);
-    outline-offset:1px;
-  }
+  .test-label{font-size:12.5px;color:#7a5f52;margin-bottom:14px;overflow-wrap:break-word;}
+  .field-group-title{font-size:12px;font-weight:700;color:var(--maroon-deep);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:#5b463d;margin-bottom:5px;}
+  .field input, .field select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;background:var(--cream);font-family:inherit;}
+  .field input:focus, .field select:focus{outline:2px solid var(--maroon-bright);outline-offset:1px;}
   .row2{display:flex;gap:10px;}
-  .row2 .field{flex:1;}
-  .row3{display:flex;gap:10px;}
-  .row3 .field{flex:1;}
-  .gps-status{
-    font-size:12px;
-    padding:9px 10px;
-    border-radius:8px;
-    background:var(--cream-2);
-    color:#7a5f52;
-    margin:14px 0 12px;
-  }
+  .row2 .field{flex:1;min-width:0;}
+  .gps-status{font-size:12px;padding:9px 10px;border-radius:8px;background:var(--cream-2);color:#7a5f52;margin:14px 0 12px;overflow-wrap:break-word;}
   .gps-status.ok{background:#e8f3ec;color:var(--success);}
   .gps-status.err{background:#fde8e8;color:var(--maroon-deep);}
-  .confirm-btn{
-    width:100%;
-    border:none;
-    padding:14px;
-    border-radius:10px;
-    font-size:15px;
-    font-weight:700;
-    cursor:pointer;
-    background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));
-    color:#fff;
+  .pay-options{display:flex;gap:10px;}
+  .pay-option{
+    flex:1;border:1.5px solid var(--line);border-radius:10px;padding:12px;text-align:center;
+    cursor:pointer;font-size:13px;font-weight:700;color:#5b463d;transition:.2s;
   }
+  .pay-option.selected{border-color:var(--maroon);background:var(--cream-2);color:var(--maroon-deep);}
+  .rx-upload{
+    border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;cursor:pointer;font-size:12.5px;color:#7a5f52;
+  }
+  .rx-upload.has-file{border-color:var(--success);color:var(--success);font-weight:700;}
+  .confirm-btn{width:100%;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(120deg,var(--maroon),var(--maroon-bright));color:#fff;}
   .confirm-btn:disabled{opacity:.55;cursor:not-allowed;}
+
+  /* ---------- My Bookings sheet ---------- */
+  .booking-row{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .booking-row-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .booking-row-top b{font-size:14px;overflow-wrap:break-word;}
+  .status-tag{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;white-space:nowrap;}
+  .status-tag.pending{background:#fef3c7;color:#b45309;}
+  .status-tag.accepted{background:#dcfce7;color:#16a34a;}
+  .status-tag.cancelled{background:#fee2e2;color:#dc2626;}
+  .booking-row-meta{font-size:12px;color:#7a5f52;margin-top:6px;}
+  .booking-row-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .booking-row-actions button{border:none;padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .cancel-btn{background:#fee2e2;color:#dc2626;}
+  .receipt-btn{background:#e2e8f0;color:#1e293b;}
+
+  @media (max-width:480px){
+    .brand-text h1{font-size:21px;}
+    .brand-mark img{width:38px;height:38px;}
+    .grid{grid-template-columns:1fr 1fr;gap:10px;padding:10px;}
+    .card{padding:12px;}
+    .card-head h3{font-size:13px;}
+    .price-new{font-size:16px;}
+  }
 </style>
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 </head>
 <body>
 
-<div class="ribbon">100% GENUINE TESTS GUARANTEED &nbsp;·&nbsp; FREE HOME SAMPLE COLLECTION</div>
+<div class="ribbon">
+  <div class="ribbon-track"><span class="ribbon-scroll">100% GENUINE TESTS GUARANTEED &nbsp;·&nbsp; FREE HOME SAMPLE COLLECTION &nbsp;·&nbsp;  FAST REPORTS ON WHATSAPP OR HOME DELIVERY </span></div>
+  <span class="sub"> Power By MediFinder India </span>
+</div>
 
 <header>
+<div class="content-wrap">
 <div class="header-top-row">
   <div class="brand">
       <div class="brand-mark">
           <img src="1779304435608.png" alt="MediFinder Logo">
       </div>
-
       <div class="brand-text">
-          <h1>
-              <span class="medi">MEDI</span><span class="finder">FINDER</span>
-          </h1>
+          <h1><span class="medi">MEDI</span><span class="finder">FINDER</span></h1>
       </div>
   </div>
   <a href="userhome.html" class="back-home-btn"><i class="fa-solid fa-house"></i> Back to Home</a>
 </div>
 <div class="search-bar">
-    <span class="search-icon">
-        <i class="fa-solid fa-magnifying-glass"></i>
-    </span>
-
-    <input
-        type="text"
-        id="searchInput"
-        placeholder="Search lab tests...">
-
-    <button class="mic-btn">
-        <i class="fa-solid fa-microphone"></i>
-    </button>
+    <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+    <input type="text" id="searchInput" placeholder="Search lab tests...">
+    <button class="mic-btn" id="micBtn" type="button" title="Search by voice"><i class="fa-solid fa-microphone"></i></button>
 </div>
-
-
+</div>
 </header>
 
-<div class="promo">
-  <span class="badge">HOME COLLECTION</span>
-  <h2>Book a Test, We Come to You</h2>
-  <p>Certified phlebotomists collect samples from your home anywhere in West Bengal</p>
+<div class="content-wrap">
+
+<div class="pincode-bar">
+  <i class="fa-solid fa-location-dot"></i>
+  <input type="text" id="gatePincode" placeholder="Enter your pincode to see tests available near you" inputmode="numeric" maxlength="6">
+  <button id="gateCheckBtn">Check</button>
+  <span class="pincode-note" id="gateNote">Showing tests available everywhere. Enter your pincode for tests specific to your area.</span>
 </div>
 
 <div class="section-title">
-  <h2>Lab Test Packages & Services</h2>
-  <p>Buy a test — your booking with live location goes straight to our WhatsApp team</p>
+  <div>
+    <h2>Lab Test Packages & Services</h2>
+    <p>Book a test — a certified phlebotomist collects your sample at home</p>
+  </div>
+  <button class="my-bookings-btn" id="myBookingsBtn"><i class="fa-solid fa-clipboard-list"></i> My Bookings</button>
 </div>
 
 <div class="grid" id="testGrid"></div>
 
-<footer>
-  © MediFinder · West Bengal Home Sample Collection Network
-</footer>
+</div>
+
+<footer>© MediFinder · Home Sample Collection Network</footer>
 
 <!-- Booking Sheet -->
 <div class="overlay" id="overlay">
@@ -521,56 +330,38 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
       <p class="test-label" id="sheetTestName">Test: —</p>
 
       <div class="field-group-title">Patient Details</div>
-      <div class="field">
-        <label>Full Name</label>
-        <input type="text" id="patientName" placeholder="e.g. Ramesh Das">
-      </div>
-      <div class="field">
-        <label>Phone Number</label>
-        <input type="tel" id="patientPhone" placeholder="e.g. 98XXXXXXXX">
-      </div>
+      <div class="field"><label>Full Name</label><input type="text" id="patientName" placeholder="e.g. Ramesh Das"></div>
+      <div class="field"><label>Phone Number</label><input type="tel" id="patientPhone" placeholder="e.g. 98XXXXXXXX"></div>
 
       <div class="field-group-title">Delivery Address</div>
-      <div class="field">
-        <label>House No. / Flat / Building</label>
-        <input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments">
-      </div>
-      <div class="field">
-        <label>Street / Area / Locality</label>
-        <input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road">
-      </div>
-      <div class="field">
-        <label>Landmark (optional)</label>
-        <input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir">
-      </div>
+      <div class="field"><label>House No. / Flat / Building</label><input type="text" id="addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments"></div>
+      <div class="field"><label>Street / Area / Locality</label><input type="text" id="addrStreet" placeholder="e.g. Netaji Subhas Road"></div>
+      <div class="field"><label>Landmark (optional)</label><input type="text" id="addrLandmark" placeholder="e.g. Near Kali Mandir"></div>
       <div class="row2">
-        <div class="field">
-          <label>City / Town</label>
-          <input type="text" id="addrCity" placeholder="e.g. Howrah">
-        </div>
-        <div class="field">
-          <label>Pincode</label>
-          <input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6">
-        </div>
+        <div class="field"><label>City / Town</label><input type="text" id="addrCity" placeholder="e.g. Howrah"></div>
+        <div class="field"><label>Pincode</label><input type="text" id="addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6"></div>
       </div>
       <div class="field">
         <label>State</label>
-        <select id="addrState">
-          <option value="West Bengal" selected>West Bengal</option>
-          <option value="Other">Other</option>
-        </select>
+        <select id="addrState"><option value="West Bengal" selected>West Bengal</option><option value="Other">Other</option></select>
       </div>
+
+      <div class="field-group-title">Prescription (optional)</div>
+      <div class="rx-upload" id="rxUploadBox">
+        <i class="fa-solid fa-file-arrow-up"></i> Tap to upload prescription image
+      </div>
+      <input type="file" id="rxFileInput" accept="image/*,.pdf" style="display:none;">
 
       <div class="field-group-title">Schedule</div>
       <div class="row2">
-        <div class="field">
-          <label>Date</label>
-          <input type="date" id="bookDate">
-        </div>
-        <div class="field">
-          <label>Time</label>
-          <input type="time" id="bookTime">
-        </div>
+        <div class="field"><label>Date</label><input type="date" id="bookDate"></div>
+        <div class="field"><label>Time</label><input type="time" id="bookTime"></div>
+      </div>
+
+      <div class="field-group-title">Payment Method</div>
+      <div class="pay-options">
+        <div class="pay-option selected" id="payRazorpay" data-method="razorpay"><i class="fa-solid fa-credit-card"></i><br>Pay Online</div>
+        <div class="pay-option" id="payCOD" data-method="cod"><i class="fa-solid fa-money-bill-wave"></i><br>Cash on Delivery</div>
       </div>
 
       <div class="gps-status" id="gpsStatus">📍 Getting your live location...</div>
@@ -580,76 +371,174 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
   </div>
 </div>
 
+<!-- My Bookings Sheet -->
+<div class="overlay" id="bookingsOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>My Bookings</h3>
+      <button class="close-x" id="closeBookingsX">✕</button>
+    </div>
+    <div class="sheet-body" id="myBookingsList" style="padding-bottom:20px;">
+      <p style="font-size:13px;color:#7a5f52;">Loading...</p>
+    </div>
+  </div>
+</div>
+
 <script>
-// ---------------- Icon library (inline SVG, no external images) ----------------
+// ---------------- Supabase ----------------
+let supabaseClient = null;
+if (typeof supabase !== 'undefined') {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+}
+function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---------------- Icon library (fallback when a test has no admin image) ----------------
 const icons = {
   tube: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 2v13a3 3 0 006 0V2" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><path d="M9 9h6" stroke="#a11212" stroke-width="1.6"/><path d="M9 2h6" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16" r="1.4" fill="#d21f1f"/></svg>`,
   drop: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z" stroke="#a11212" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
-  heart: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-9.3-8.8C1.2 8 2.7 5 6 5c2 0 3.3 1.2 4 2.2C10.7 6.2 12 5 14 5c3.3 0 4.8 3 3.3 6.2C15 15.4 12 20 12 20z" stroke="#c22" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
-  sun: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="#b8842c" stroke-width="1.6"/><path d="M12 2v3M12 19v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke="#b8842c" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-  pill: `<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="18" height="6" rx="3" stroke="#3d7ce0" stroke-width="1.6"/><path d="M12 9v6" stroke="#3d7ce0" stroke-width="1.6"/></svg>`,
-  liver: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 14c0-5 4-9 9-9 4 0 7 3 7 6 0 4-4 6-9 6-3 0-7-1-7-3z" stroke="#8a6a3a" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
-  kidney: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 3C5 3 3 7 3 12s2 9 6 9c3 0 3-4 5-4s2 4 5 4c2 0 3-2 3-4 0-2-2-2-2-4s2-2 2-4c0-2-1-4-3-4-3 0-3 4-5 4S12 3 9 3z" stroke="#1c7a4d" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
-  cbc: `<svg viewBox="0 0 24 24" fill="none"><circle cx="8" cy="9" r="3" stroke="#a11212" stroke-width="1.5"/><circle cx="16" cy="9" r="2" stroke="#3d7ce0" stroke-width="1.5"/><circle cx="12" cy="16" r="2.4" stroke="#e0a92b" stroke-width="1.5"/></svg>`,
-  urine: `<svg viewBox="0 0 24 24" fill="none"><path d="M8 3h8l1 4v11a3 3 0 01-3 3h-4a3 3 0 01-3-3V7l1-4z" stroke="#e0a92b" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 8h8" stroke="#e0a92b" stroke-width="1.5"/></svg>`,
-  mosquito: `<svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="12" rx="3" ry="5" stroke="#c22" stroke-width="1.5"/><path d="M12 7V2M9 9l-5-3M15 9l5-3M9 15l-5 3M15 15l5 3" stroke="#c22" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  thermo: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a2 2 0 00-2 2v9a4 4 0 104 0V5a2 2 0 00-2-2z" stroke="#a11212" stroke-width="1.5"/><circle cx="12" cy="18" r="2" fill="#a11212"/></svg>`,
-  mask: `<svg viewBox="0 0 24 24" fill="none"><path d="M3 10c0-3 4-4 9-4s9 1 9 4-4 6-9 6-9-3-9-6z" stroke="#3d7ce0" stroke-width="1.5"/></svg>`,
-  chart: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="#1c7a4d" stroke-width="1.6" stroke-linecap="round"/></svg>`
+  default: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 2v13a3 3 0 006 0V2" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><path d="M9 9h6" stroke="#a11212" stroke-width="1.6"/></svg>`
 };
 
-// ---------------- Test data (West Bengal common tests) ----------------
-const tests = [
-  {name:"Full Body Health Checkup", icon:"tube", items:["CBC","Thyroid Profile","Lipid Profile","Liver Function","Kidney Function"], old:3499, price:2274, off:35, fasting:"before"},
-  {name:"Diabetes Screening Panel", icon:"drop", items:["Fasting Blood Sugar","HbA1c","PP Blood Sugar","Lipid Profile"], old:999, price:749, off:25, fasting:"before"},
-  {name:"Thyroid Profile (T3 T4 TSH)", icon:"pill", items:["T3","T4","TSH"], old:899, price:584, off:35, fasting:"after"},
-  {name:"Heart Health Check", icon:"heart", items:["Lipid Profile","ECG","CRP","Troponin I"], old:1499, price:1124, off:25, fasting:"before"},
-  {name:"Vitamin D Test", icon:"sun", items:["25-OH Vitamin D"], old:1299, price:974, off:25, fasting:"after"},
-  {name:"Vitamin B12 Test", icon:"pill", items:["Vitamin B12"], old:999, price:749, off:25, fasting:"after"},
-  {name:"Liver Function Test (LFT)", icon:"liver", items:["SGOT","SGPT","Bilirubin","Alkaline Phosphatase"], old:899, price:584, off:35, fasting:"after"},
-  {name:"Kidney Function Test (KFT)", icon:"kidney", items:["Urea","Creatinine","Uric Acid","Electrolytes"], old:999, price:649, off:35, fasting:"after"},
-  {name:"CBC (Complete Blood Count)", icon:"cbc", items:["Hemoglobin","WBC Count","Platelet Count","RBC Count"], old:499, price:299, off:40, fasting:"after"},
-  {name:"Urine Routine Examination", icon:"urine", items:["Physical Exam","Chemical Exam","Microscopy"], old:399, price:249, off:37, fasting:"after"},
-  {name:"Dengue NS1 Antigen Test", icon:"mosquito", items:["NS1 Antigen"], old:1199, price:799, off:33, fasting:"after"},
-  {name:"Widal Test (Typhoid)", icon:"thermo", items:["Widal Slide Test"], old:399, price:249, off:37, fasting:"after"},
-  {name:"COVID-19 RT-PCR Test", icon:"mask", items:["Nasal/Throat Swab RT-PCR"], old:899, price:599, off:33, fasting:"after"},
-  {name:"HbA1c (Avg. Blood Sugar - 3mo)", icon:"chart", items:["HbA1c"], old:699, price:449, off:35, fasting:"after"},
-];
+// ---------------- State ----------------
+let allTests = [];
+let userPincode = localStorage.getItem('labGatePincode') || '';
+let currentUser = null;
+
+// ---------------- Load tests from Supabase (no more fake demo data) ----------------
+async function loadTests(){
+  const { data, error } = await supabaseClient.from('lab_tests').select('*').eq('active', true).order('created_at', {ascending:false});
+  if(error){ console.error(error); allTests = []; }
+  else allTests = data || [];
+  renderGrid(document.getElementById('searchInput').value);
+}
+
+function testMatchesPincode(t){
+  if(!userPincode) return true;
+  if(!t.pincodes || t.pincodes.length === 0) return true; // no restriction = serves everywhere
+  return t.pincodes.includes(userPincode);
+}
 
 const grid = document.getElementById("testGrid");
 function renderGrid(filter=""){
   grid.innerHTML = "";
-  tests
+  const visible = allTests
     .filter(t => t.name.toLowerCase().includes(filter.toLowerCase()))
-    .forEach((t,i)=>{
-      const realIndex = tests.indexOf(t);
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <div class="card-head">
-          <div class="icon-badge">${icons[t.icon]}</div>
-          <h3>${t.name}</h3>
-        </div>
-        <ul>${t.items.map(it=>`<li>${it}</li>`).join("")}</ul>
-        <div class="price-row">
-          <span class="price-old">₹${t.old}</span>
-          <span class="price-new">₹${t.price}</span>
-          <span class="off-badge">${t.off}% OFF</span>
-        </div>
-        <span class="fasting-note ${t.fasting}">
-          ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
-        </span>
-        <span class="home-note">🏠 Home Sample Collection Available</span>
-        <button class="buy-btn" data-index="${realIndex}">BUY NOW</button>
-      `;
-      grid.appendChild(card);
-    });
-}
-renderGrid();
+    .filter(testMatchesPincode);
 
-document.getElementById("searchInput").addEventListener("input", (e)=>{
-  renderGrid(e.target.value);
-});
+  if(!visible.length){
+    grid.innerHTML = `<div class="empty-msg">${
+      allTests.length ? "No tests available for this pincode yet. Try another pincode or check back soon." : "New tests are being added — please check back shortly."
+    }</div>`;
+    return;
+  }
+
+  visible.forEach(t=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    const badgeStyle = t.bg_image_url ? `style="background-image:url('${esc(t.bg_image_url)}');"` : '';
+    const badgeInner = t.bg_image_url ? '' : (icons[t.icon] || icons.default);
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="icon-badge" ${badgeStyle}>${badgeInner}</div>
+        <h3>${esc(t.name)}</h3>
+      </div>
+      <ul>${(t.items||[]).map(it=>`<li>${esc(it)}</li>`).join("")}</ul>
+      <div class="price-row">
+        <span class="price-old">₹${t.old_price}</span>
+        <span class="price-new">₹${t.price}</span>
+        <span class="off-badge">${t.off_percent}% OFF</span>
+      </div>
+      <span class="fasting-note ${t.fasting}">
+        ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
+      </span>
+      <span class="home-note">🏠 Home Sample Collection Available</span>
+      <button class="buy-btn" data-id="${t.id}">BUY NOW</button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById("searchInput").addEventListener("input", (e)=>{ renderGrid(e.target.value); });
+
+// ---------------- Voice search (mic button) ----------------
+(function(){
+  const micBtn = document.getElementById('micBtn');
+  const searchInput = document.getElementById('searchInput');
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if(!SpeechRecognitionAPI){
+    // Browser doesn't support voice input — hide the mic instead of
+    // leaving a dead button that does nothing when tapped.
+    if(micBtn) micBtn.style.display = 'none';
+    return;
+  }
+
+  const recognizer = new SpeechRecognitionAPI();
+  recognizer.lang = 'en-IN';
+  recognizer.interimResults = true;
+  recognizer.maxAlternatives = 1;
+  recognizer.continuous = false;
+
+  let isListening = false;
+
+  recognizer.addEventListener('start', () => {
+    isListening = true;
+    micBtn.classList.add('listening');
+    micBtn.querySelector('i').className = 'fa-solid fa-microphone-lines';
+  });
+
+  recognizer.addEventListener('result', (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join(' ');
+    searchInput.value = transcript;
+    renderGrid(transcript);
+  });
+
+  recognizer.addEventListener('error', () => {
+    if (typeof showToast === 'function') showToast('Could not hear you clearly, try again', 'error');
+  });
+
+  function stopListening(){
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.querySelector('i').className = 'fa-solid fa-microphone';
+  }
+  recognizer.addEventListener('end', stopListening);
+
+  micBtn.addEventListener('click', () => {
+    if(isListening){
+      recognizer.stop();
+      return;
+    }
+    try {
+      searchInput.value = '';
+      renderGrid('');
+      recognizer.start();
+    } catch(err) {
+      stopListening();
+    }
+  });
+})();
+
+// ---------------- Pincode gate ----------------
+const gatePincodeInput = document.getElementById('gatePincode');
+const gateNote = document.getElementById('gateNote');
+gatePincodeInput.value = userPincode;
+function applyGatePincode(){
+  const pin = gatePincodeInput.value.trim();
+  userPincode = pin;
+  localStorage.setItem('labGatePincode', pin);
+  if(!pin){
+    gateNote.className = 'pincode-note';
+    gateNote.textContent = 'Showing tests available everywhere. Enter your pincode for tests specific to your area.';
+  } else {
+    gateNote.className = 'pincode-note ok';
+    gateNote.textContent = `Showing tests serviceable at pincode ${pin}.`;
+  }
+  renderGrid(document.getElementById('searchInput').value);
+}
+document.getElementById('gateCheckBtn').addEventListener('click', applyGatePincode);
+gatePincodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') applyGatePincode(); });
+if(userPincode) applyGatePincode();
 
 // ---------------- Booking flow ----------------
 const overlay = document.getElementById("overlay");
@@ -672,24 +561,33 @@ const bookTime = document.getElementById("bookTime");
 let currentTest = null;
 let currentCoords = null;
 let sheetOpenViaHistory = false;
+let selectedPaymentMethod = 'razorpay';
+let selectedRxFile = null;
 
 // Set your WhatsApp group/admin number here (with country code, no + or spaces).
-// Leave EMPTY to let the user pick any chat/group manually when sharing.
 const WHATSAPP_NUMBER = ""; // e.g. "918900000000"
 
 grid.addEventListener("click", (e)=>{
   if(!e.target.classList.contains("buy-btn")) return;
-  const idx = e.target.getAttribute("data-index");
-  currentTest = tests[idx];
+  const id = e.target.getAttribute("data-id");
+  currentTest = allTests.find(t=>t.id===id);
+  if(!currentTest) return;
+
   sheetTestName.textContent = "Test: " + currentTest.name + " — ₹" + currentTest.price +
     (currentTest.fasting === "before" ? " (Fasting required)" : " (No fasting needed)");
 
-  [patientName, patientPhone, addrHouse, addrStreet, addrLandmark, addrCity, addrPincode].forEach(f=>f.value="");
+  [patientName, patientPhone, addrHouse, addrStreet, addrLandmark, addrCity].forEach(f=>f.value="");
+  addrPincode.value = userPincode || "";
   addrState.value = "West Bengal";
   const today = new Date();
   bookDate.value = today.toISOString().split("T")[0];
   bookTime.value = "09:00";
   currentCoords = null;
+  selectedRxFile = null;
+  document.getElementById('rxUploadBox').classList.remove('has-file');
+  document.getElementById('rxUploadBox').innerHTML = '<i class="fa-solid fa-file-arrow-up"></i> Tap to upload prescription image';
+  document.getElementById('rxFileInput').value = '';
+  selectPaymentMethod('razorpay');
   gpsStatus.className = "gps-status";
   gpsStatus.textContent = "📍 Getting your live location...";
   confirmBtn.disabled = true;
@@ -698,43 +596,38 @@ grid.addEventListener("click", (e)=>{
   getLocation();
 });
 
-// A guard history entry is pushed as soon as this page loads. This means the
-// very first phone/browser Back press always fires our own popstate handler
-// instead of exiting the page (or the app, if opened standalone from a
-// notification tap with no real history behind it) — it lands on Home instead.
+document.querySelectorAll('.pay-option').forEach(el=>{
+  el.addEventListener('click', ()=> selectPaymentMethod(el.dataset.method));
+});
+function selectPaymentMethod(method){
+  selectedPaymentMethod = method;
+  document.getElementById('payRazorpay').classList.toggle('selected', method==='razorpay');
+  document.getElementById('payCOD').classList.toggle('selected', method==='cod');
+}
+
+document.getElementById('rxUploadBox').addEventListener('click', ()=> document.getElementById('rxFileInput').click());
+document.getElementById('rxFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  selectedRxFile = file;
+  const box = document.getElementById('rxUploadBox');
+  box.classList.add('has-file');
+  box.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${esc(file.name)}`;
+});
+
 history.pushState({labBookingGuard:true}, "");
 
-function openSheet(){
-  overlay.classList.add("active");
-  history.pushState({sheet:true}, "");
-  sheetOpenViaHistory = true;
-}
-function closeSheetUI(){
-  overlay.classList.remove("active");
-}
-// Physical/back-gesture close (also triggered by the X button below)
+function openSheet(){ overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; }
+function closeSheetUI(){ overlay.classList.remove("active"); }
 window.addEventListener("popstate", ()=>{
-  if(overlay.classList.contains("active")){
-    closeSheetUI();
-    sheetOpenViaHistory = false;
-    return;
+  if(overlay.classList.contains("active")){ closeSheetUI(); sheetOpenViaHistory = false; return; }
+  if(document.getElementById('bookingsOverlay').classList.contains('active')){
+    document.getElementById('bookingsOverlay').classList.remove('active'); return;
   }
-  // No sheet open — a Back press here means the user wants to leave this
-  // page entirely, so send them Home instead of risking an exit/blank tab.
   window.location.href = "userhome.html";
 });
-closeX.addEventListener("click", ()=>{
-  if(sheetOpenViaHistory){
-    history.back(); // triggers popstate -> closeSheetUI, safe even if tapped multiple times
-  } else {
-    closeSheetUI();
-  }
-});
-overlay.addEventListener("click", (e)=>{
-  if(e.target === overlay){
-    if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
-  }
-});
+closeX.addEventListener("click", ()=>{ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } });
+overlay.addEventListener("click", (e)=>{ if(e.target === overlay){ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } } });
 
 function getLocation(){
   if(!navigator.geolocation){
@@ -744,10 +637,7 @@ function getLocation(){
   }
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
-      currentCoords = {
-        lat: pos.coords.latitude.toFixed(6),
-        lng: pos.coords.longitude.toFixed(6)
-      };
+      currentCoords = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) };
       gpsStatus.className = "gps-status ok";
       gpsStatus.textContent = "✅ Location found: " + currentCoords.lat + ", " + currentCoords.lng;
       confirmBtn.disabled = false;
@@ -761,48 +651,179 @@ function getLocation(){
   );
 }
 
-confirmBtn.addEventListener("click", ()=>{
+// Reuses the same Razorpay Checkout pattern as the main order flow.
+function openRazorpayCheckout(amountRupees, customerName, customerPhone){
+  return new Promise((resolve)=>{
+    if(typeof Razorpay === 'undefined'){
+      alert("Payment gateway failed to load. Please try Cash on Delivery.");
+      resolve(null);
+      return;
+    }
+    const options = {
+      key: "rzp_test_TDK3YbLhmu0A30", // TEST KEY — replace with the live key before going to production
+      amount: Math.round(amountRupees * 100),
+      currency: "INR",
+      name: "MediFinder",
+      description: "Lab Test Booking Payment",
+      prefill: { name: customerName || '', contact: customerPhone || '' },
+      theme: { color: "#e02020" },
+      handler: function(response){ resolve(response.razorpay_payment_id); },
+      modal: { ondismiss: function(){ resolve(null); } }
+    };
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(){ alert("Payment failed. Please try again."); resolve(null); });
+    rzp.open();
+  });
+}
+
+async function uploadPrescription(file, userId){
+  const ext = file.name.split('.').pop();
+  const path = `lab-prescriptions/${userId || 'guest'}-${Date.now()}.${ext}`;
+  const { error } = await supabaseClient.storage.from('media').upload(path, file, { contentType: file.type });
+  if(error){ console.error(error); return null; }
+  const { data } = supabaseClient.storage.from('media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+confirmBtn.addEventListener("click", async ()=>{
   const name = patientName.value.trim();
   if(!name){ patientName.focus(); return; }
   if(!currentCoords){ return; }
+  if(!addrPincode.value.trim()){ addrPincode.focus(); return; }
 
-  const addressParts = [
-    addrHouse.value.trim(),
-    addrStreet.value.trim(),
-    addrLandmark.value.trim(),
-    addrCity.value.trim(),
-    addrState.value,
-    addrPincode.value.trim()
-  ].filter(Boolean);
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Processing...";
+
+  let paymentStatus = 'pending';
+  let razorpayPaymentId = null;
+  if(selectedPaymentMethod === 'razorpay'){
+    razorpayPaymentId = await openRazorpayCheckout(currentTest.price, name, patientPhone.value.trim());
+    if(!razorpayPaymentId){
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Submit Booking";
+      return;
+    }
+    paymentStatus = 'paid';
+  }
+
+  let prescriptionUrl = null;
+  if(selectedRxFile){
+    prescriptionUrl = await uploadPrescription(selectedRxFile, currentUser?.id);
+  }
+
+  const payload = {
+    test_id: currentTest.id,
+    test_name: currentTest.name,
+    test_price: currentTest.price,
+    fasting: currentTest.fasting,
+    user_id: currentUser?.id || null,
+    patient_name: name,
+    patient_phone: patientPhone.value.trim() || null,
+    addr_house: addrHouse.value.trim() || null,
+    addr_street: addrStreet.value.trim() || null,
+    addr_landmark: addrLandmark.value.trim() || null,
+    addr_city: addrCity.value.trim() || null,
+    addr_pincode: addrPincode.value.trim(),
+    addr_state: addrState.value,
+    lat: parseFloat(currentCoords.lat),
+    lng: parseFloat(currentCoords.lng),
+    book_date: bookDate.value,
+    book_time: bookTime.value,
+    prescription_url: prescriptionUrl,
+    payment_method: selectedPaymentMethod,
+    payment_status: paymentStatus,
+    razorpay_payment_id: razorpayPaymentId,
+    status: 'pending'
+  };
+
+  const { error } = await supabaseClient.from('lab_bookings').insert(payload);
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = "Submit Booking";
+
+  if(error){
+    alert("Could not submit booking: " + error.message);
+    return;
+  }
+
+  // Optional WhatsApp copy to the admin/team, same as before.
+  const addressParts = [addrHouse.value.trim(), addrStreet.value.trim(), addrLandmark.value.trim(), addrCity.value.trim(), addrState.value, addrPincode.value.trim()].filter(Boolean);
   const fullAddress = addressParts.length ? addressParts.join(", ") : "(not provided)";
-
   const mapsLink = `https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}`;
-  const fastingText = currentTest.fasting === "before" ? "Before Food (Fasting)" : "After Food (Non-Fasting)";
-
-  const message =
-`🩺 *MediFinder — New Test Booking*
-
-*Test:* ${currentTest.name}
-*Type:* ${fastingText}
-*Price:* ₹${currentTest.price}
-
-*Patient Name:* ${name}
-*Phone:* ${patientPhone.value.trim() || "(not provided)"}
-*Address:* ${fullAddress}
-
-*Date:* ${bookDate.value}
-*Time:* ${bookTime.value}
-
-*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}
-${mapsLink}`;
-
+  const message = `🩺 *MediFinder — New Test Booking*\n\n*Test:* ${currentTest.name}\n*Price:* ₹${currentTest.price}\n*Payment:* ${selectedPaymentMethod.toUpperCase()} (${paymentStatus})\n\n*Patient Name:* ${name}\n*Phone:* ${patientPhone.value.trim() || "(not provided)"}\n*Address:* ${fullAddress}\n\n*Date:* ${bookDate.value}\n*Time:* ${bookTime.value}\n\n*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}\n${mapsLink}`;
   const encoded = encodeURIComponent(message);
-  const url = WHATSAPP_NUMBER
-    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`
-    : `https://wa.me/?text=${encoded}`;
-
+  const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, "_blank");
+
   if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
+  loadMyBookings();
+});
+
+// ---------------- My Bookings ----------------
+const bookingsOverlay = document.getElementById('bookingsOverlay');
+document.getElementById('myBookingsBtn').addEventListener('click', ()=>{
+  bookingsOverlay.classList.add('active');
+  history.pushState({bookingsSheet:true}, "");
+  loadMyBookings();
+});
+document.getElementById('closeBookingsX').addEventListener('click', ()=>{
+  history.back();
+});
+bookingsOverlay.addEventListener('click', (e)=>{ if(e.target === bookingsOverlay){ history.back(); } });
+
+async function loadMyBookings(){
+  const list = document.getElementById('myBookingsList');
+  if(!currentUser){
+    list.innerHTML = `<p style="font-size:13px;color:#7a5f52;">Log in to see your bookings.</p>`;
+    return;
+  }
+  const { data, error } = await supabaseClient.from('lab_bookings').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
+  if(error){ list.innerHTML = `<p style="font-size:13px;color:#a11212;">Could not load bookings.</p>`; return; }
+  if(!data || !data.length){ list.innerHTML = `<p style="font-size:13px;color:#7a5f52;">No bookings yet.</p>`; return; }
+
+  list.innerHTML = data.map(b=>{
+    const addr = [b.addr_house, b.addr_street, b.addr_city, b.addr_pincode].filter(Boolean).join(", ");
+    return `
+      <div class="booking-row">
+        <div class="booking-row-top">
+          <b>${esc(b.test_name)}</b>
+          <span class="status-tag ${b.status}">${b.status}</span>
+        </div>
+        <div class="booking-row-meta">₹${b.test_price} · ${esc(b.book_date||'')} ${esc(b.book_time||'')} · ${b.payment_method.toUpperCase()} (${b.payment_status})</div>
+        <div class="booking-row-meta">${esc(addr)}</div>
+        <div class="booking-row-actions">
+          ${b.status==='pending' ? `<button class="cancel-btn" onclick="cancelMyBooking('${b.id}')">Cancel Booking</button>` : ''}
+          <button class="receipt-btn" onclick='shareReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Receipt</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function cancelMyBooking(id){
+  if(!confirm('Cancel this booking?')) return;
+  const { error } = await supabaseClient.from('lab_bookings').update({status:'cancelled'}).eq('id', id).eq('status','pending');
+  if(error){ alert(error.message); return; }
+  loadMyBookings();
+}
+
+async function shareReceipt(b){
+  const text = `MediFinder Booking Receipt\n\nTest: ${b.test_name}\nPrice: ₹${b.test_price}\nPatient: ${b.patient_name}\nDate: ${b.book_date} ${b.book_time}\nStatus: ${b.status}\nPayment: ${b.payment_method.toUpperCase()} (${b.payment_status})`;
+  if(navigator.share){
+    try { await navigator.share({ title: 'MediFinder Receipt', text }); return; } catch(e){}
+  }
+  const w = window.open('', '_blank');
+  w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
+  w.document.close();
+}
+
+// ---------------- Init ----------------
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const { data } = await supabaseClient.auth.getUser();
+  currentUser = data?.user || null;
+  loadTests();
+
+  supabaseClient.channel('lab_tests_public')
+    .on('postgres_changes', {event:'*', schema:'public', table:'lab_tests'}, loadTests)
+    .subscribe();
 });
 </script>
 </body>
