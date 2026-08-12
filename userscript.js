@@ -34,6 +34,18 @@ function renderPrescriptionWidgetState() {
         if (uploadedState) uploadedState.style.display = 'flex';
         const nameEl = document.getElementById('presc-uploaded-filename');
         if (nameEl) nameEl.innerText = activePrescription.fileName || 'Prescription';
+
+        // Once a pharmacy has accepted this prescription, it's locked in —
+        // Delete and Replace both disappear so the accepted slip can't be
+        // pulled out from under the pharmacy that's already preparing it.
+        const isLocked = activePrescription.status === 'accepted';
+        const deleteBtn = document.getElementById('presc-delete-btn');
+        const replaceLbl = document.querySelector('label[for="presc-file-input"].presc-icon-action-btn');
+        if (deleteBtn) deleteBtn.style.display = isLocked ? 'none' : '';
+        if (replaceLbl) replaceLbl.style.display = isLocked ? 'none' : '';
+        if (isLocked) {
+            setPrescriptionWaitingStatus('✅ Accepted by a pharmacy — locked and can\'t be deleted until it\'s delivered.');
+        }
     } else {
         if (defaultState) defaultState.style.display = 'flex';
         if (progressState) progressState.style.display = 'none';
@@ -69,6 +81,10 @@ function animatePrescriptionProgress() {
 }
 
 window.deleteActivePrescription = function() {
+    if (activePrescription && activePrescription.status === 'accepted') {
+        showToast("This prescription has already been accepted by a pharmacy and can't be deleted.", "error");
+        return;
+    }
     showConfirmationModal("Delete this prescription? You'll need to re-upload it for Rx orders.", async () => {
         const toDelete = activePrescription;
         activePrescription = null;
@@ -91,17 +107,24 @@ window.deleteActivePrescription = function() {
 };
 
 
-// add/buy an Rx medicine without a verified prescription on file.
-function blockForMissingPrescription() {
-    const msg = "This medicine requires a doctor's prescription. Please upload it to continue.";
+// add/buy an Rx medicine without a verified prescription on file. Rx uploads
+// now live per-item on the Cart page (see promptRxUploadOnAdd) — this used
+// to scroll the Home page to its own general prescription widget, which
+// isn't what actually gates a Buy Now anymore, so it now adds the item to
+// the cart and offers to take the shopper there instead. Home's own
+// prescription-upload-section is kept only as a general "send my slip to
+// nearby pharmacies" tool, decoupled from this Buy Now flow.
+function blockForMissingPrescription(productData) {
+    if (productData) {
+        try { addToCart(productData); return; } catch (e) {}
+    }
+    const msg = "This medicine requires a doctor's prescription. Please upload it from your Cart to continue.";
     if (typeof showConfirmationModal === 'function') {
         showConfirmationModal(msg, () => {
-            window.location.href = (window.location.pathname.split('/').pop() === 'userhome.html')
-                ? '#prescription-upload-section'
-                : 'userhome.html#prescription-upload-section';
+            window.location.href = 'usercart.html';
         });
     } else {
-        showToast("Upload prescription for Rx medicines.", "error");
+        showToast("Upload prescription for Rx medicines from the Cart page.", "error");
     }
 }
 
@@ -138,13 +161,31 @@ function watchPendingPrescriptionOrder(id) {
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prescription_orders', filter: `id=eq.${id}` }, payload => {
             const row = payload.new;
             if (row.status === 'accepted') {
-                setPrescriptionWaitingStatus('✅ Prescription accepted! The pharmacy is preparing your order.');
                 showToast("Your prescription was accepted by a nearby pharmacy!", "success");
                 localStorage.removeItem('medi_pending_rx_id');
+                // Lock it in on this device — Delete/Replace disappear — but
+                // keep this SAME channel open so we still hear about delivery.
+                if (activePrescription) {
+                    activePrescription.orderId = id;
+                    activePrescription.status = 'accepted';
+                    localStorage.setItem('medi_active_prescription', JSON.stringify(activePrescription));
+                }
+                renderPrescriptionWidgetState();
+            } else if (row.status === 'delivered') {
+                showToast("Your prescription order has been delivered!", "success");
+                localStorage.removeItem('medi_pending_rx_id');
                 try { supabase.removeChannel(window._rxWatchChannel); } catch (e) {}
+                // Fulfilled — clear the widget back to its default "upload a
+                // prescription" state automatically.
+                activePrescription = null;
+                isPrescriptionUploaded = false;
+                localStorage.removeItem('medi_active_prescription');
+                localStorage.setItem('medi_presc_uploaded_status', 'false');
+                renderPrescriptionWidgetState();
             } else if (row.status === 'cancelled') {
                 setPrescriptionWaitingStatus('');
                 localStorage.removeItem('medi_pending_rx_id');
+                try { supabase.removeChannel(window._rxWatchChannel); } catch (e) {}
             }
         })
         .subscribe();
@@ -373,8 +414,9 @@ document.addEventListener('click', (e) => {
     } else if (e.target.closest('.immediate-order')) {
         e.stopPropagation();
         const isRx = card.getAttribute('data-is-rx') === 'true' || card.dataset.isRx === 'true';
-        if (isRx && !isPrescriptionUploaded) {
-            blockForMissingPrescription();
+        const existingCartItem = isRx ? currentCart.find(i => i.id === card.dataset.id) : null;
+        if (isRx && !(existingCartItem && existingCartItem.rxVerified)) {
+            blockForMissingPrescription(card.dataset);
             return;
         }
         navigateToProductDetail(card.dataset);
@@ -391,8 +433,9 @@ window.handleQuickBuyNow = function(btn) {
     const card = btn.closest('.product-card');
     if (!card) return;
     const isRx = card.getAttribute('data-is-rx') === 'true' || card.dataset.isRx === 'true';
-    if (isRx && !isPrescriptionUploaded) {
-        blockForMissingPrescription();
+    const existingCartItem = isRx ? currentCart.find(i => i.id === card.dataset.id) : null;
+    if (isRx && !(existingCartItem && existingCartItem.rxVerified)) {
+        blockForMissingPrescription(card.dataset);
         return;
     }
     navigateToProductDetail(card.dataset);
@@ -1023,23 +1066,25 @@ async function setupHomePageModules() {
                     const manufacturer = prod.manufacturer || '';
                     const productName = prod.name || prod.product_name || 'Unnamed';
                     
-                    let badges = '';
+                    let expressBadge = '';
+                    let overlayBadges = '';
                     if (isOutOfStock) {
-                        badges += '<div class="badge-express" style="background:#999;"><i class="fa-solid fa-ban"></i> Currently Unavailable</div>';
+                        expressBadge = '<div class="badge-express" style="position:static;background:#999;"><i class="fa-solid fa-ban"></i> Currently Unavailable</div>';
                     } else {
                         const merchantCoord = merchantCoordsMap[prod.merchant_id];
                         const withinExpressRange = merchantCoord && haversineKm(userLiveLat, userLiveLng, merchantCoord.lat, merchantCoord.lng) <= 12;
                         if (withinExpressRange) {
-                            badges += '<div class="badge-express express-20min-badge"><i class="fa-solid fa-bolt"></i> 20 Min</div>';
+                            expressBadge = '<div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>';
                         }
                     }
                     if (discount > 0) {
-                        badges += `<div class="badge-express" style="background:#28a745; left:auto; right:8px; top:8px; font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>`;
+                        overlayBadges += `<div class="badge-express" style="background:#28a745; left:auto; right:8px; top:8px; font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>`;
                     }
                     if (freeDelivery) {
-                        badges += '<div class="badge-express" style="background:#0d6efd; left:8px; top:auto; bottom:8px; font-size:0.65rem;"><i class="fa-solid fa-truck"></i> FREE DELIVERY</div>';
+                        overlayBadges += '<div class="badge-express" style="background:#0d6efd; left:8px; top:auto; bottom:8px; font-size:0.65rem;"><i class="fa-solid fa-truck"></i> FREE DELIVERY</div>';
                     }
 
+                    const hasRealRating = rating > 0;
                     const stars = [1,2,3,4,5].map(i => 
                         i <= Math.floor(rating) ? '<i class="fa-solid fa-star" style="color:#ffa500; font-size:0.7rem;"></i>' : 
                         (i - 0.5 <= rating ? '<i class="fa-solid fa-star-half-stroke" style="color:#ffa500; font-size:0.7rem;"></i>' : 
@@ -1051,17 +1096,20 @@ async function setupHomePageModules() {
                     
                     return `
                     <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}">
-                        ${badges}
+                        ${overlayBadges}
                         <div class="img-container">
                             <img src="${img}" alt="${productName}" loading="lazy">
                         </div>
+                        ${expressBadge ? `<div class="badge-express-row" style="display:flex; justify-content:flex-end; padding:4px 6px 0;">${expressBadge}</div>` : ''}
                         <div class="prod-info">
                             <span class="prod-cat-label">${categoryLabel}</span>
                             <h4>${productName}${rxTag}</h4>
                             ${manufacturer ? `<p style="font-size:0.7rem; color:#888; margin:2px 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${manufacturer}</p>` : ''}
                             <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
-                                <span style="background:#388e3c; color:#fff; padding:1px 5px; border-radius:3px; font-size:0.65rem; font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>
-                                <span style="color:#888; font-size:0.65rem;">${stars}</span>
+                                ${hasRealRating
+                                    ? `<span style="background:#388e3c; color:#fff; padding:1px 5px; border-radius:3px; font-size:0.65rem; font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>
+                                       <span style="color:#888; font-size:0.65rem;">${stars}</span>`
+                                    : `<span style="background:#eef1f4; color:#888; padding:1px 6px; border-radius:3px; font-size:0.65rem; font-weight:600;">New</span>`}
                             </div>
                             <div class="price" style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;">
                                 <span style="font-size:1.05rem; font-weight:700; color:#2f3542;">₹${sellingPrice.toFixed(2)}</span>
@@ -1379,7 +1427,7 @@ async function setupHomePageModules() {
             const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
             uploadedPrescriptionUrl = urlData.publicUrl;
 
-            activePrescription = { fileName: file.name, url: uploadedPrescriptionUrl, storagePath, date: new Date().toLocaleDateString('en-GB') };
+            activePrescription = { fileName: file.name, url: uploadedPrescriptionUrl, storagePath, date: new Date().toLocaleDateString('en-GB'), status: 'uploaded' };
             localStorage.setItem('medi_active_prescription', JSON.stringify(activePrescription));
 
             // Save prescription record for My Box (archive of every upload, kept even after delete/replace)
@@ -1552,10 +1600,22 @@ async function refreshExpressDeliveryBadges() {
             if (within && !existing) {
                 const badgeEl = document.createElement('div');
                 badgeEl.className = 'badge-express express-20min-badge';
+                badgeEl.style.position = 'static';
                 badgeEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 20 Min';
-                card.insertBefore(badgeEl, card.firstChild);
+                let row = card.querySelector('.badge-express-row');
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'badge-express-row';
+                    row.style.cssText = 'display:flex; justify-content:flex-end; padding:4px 6px 0;';
+                    const imgContainer = card.querySelector('.img-container');
+                    if (imgContainer && imgContainer.nextSibling) imgContainer.parentNode.insertBefore(row, imgContainer.nextSibling);
+                    else card.appendChild(row);
+                }
+                row.appendChild(badgeEl);
             } else if (!within && existing) {
+                const row = existing.closest('.badge-express-row');
                 existing.remove();
+                if (row && !row.children.length) row.remove();
             }
         });
     } catch (e) {}
@@ -1696,6 +1756,11 @@ function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
 
         const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [], phone);
         if (rxId) {
+            if (activePrescription) {
+                activePrescription.orderId = rxId;
+                activePrescription.status = 'pending';
+                localStorage.setItem('medi_active_prescription', JSON.stringify(activePrescription));
+            }
             watchPendingPrescriptionOrder(rxId);
             showToast("Sent to nearby pharmacies! Waiting for acceptance (5–10 min)...", "success");
             // Refresh the order list right away if we're already on that page.
@@ -1854,6 +1919,9 @@ function setupCartPageModules() {
     const applyCouponBtn = document.getElementById('apply-coupon-btn');
     if (applyCouponBtn) applyCouponBtn.addEventListener('click', handleCouponApplication);
 
+    const payWithUpiBtn = document.getElementById('pay-with-upi-btn');
+    if (payWithUpiBtn) payWithUpiBtn.addEventListener('click', handlePayWithUpiClick);
+
     const methodRadios = document.querySelectorAll('input[name="payment_method"]');
     methodRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -1861,11 +1929,9 @@ function setupCartPageModules() {
             e.target.closest('.pay-option').classList.add('active-option');
             selectedPaymentMethod = e.target.value;
 
-            const upiRail = document.getElementById('upi-apps-rail');
-            const netRail = document.getElementById('netbanking-rail');
+            const upiDrawer = document.getElementById('upi-pay-drawer');
             const codRow = document.getElementById('cod-fee-row');
-            if (upiRail) upiRail.style.display = (e.target.value === 'UPI') ? 'grid' : 'none';
-            if (netRail) netRail.style.display = (e.target.value === 'NETBANKING') ? 'block' : 'none';
+            if (upiDrawer) upiDrawer.style.display = (e.target.value === 'ONLINE') ? 'block' : 'none';
             if (codRow) codRow.style.display = (e.target.value === 'COD') ? 'flex' : 'none';
 
             recalculateBill();
@@ -2171,14 +2237,14 @@ function renderCartPage() {
                     <h4 class="cart-item-name">${item.name}${rxBadge}</h4>
                     <p class="cart-item-price">₹${item.price}</p>
                     ${uploadRow}
-                    <div class="cart-item-qty">
-                        <button type="button" class="cart-item-qty-btn" data-delta="-1" onclick="changeCartQty('${item.id}',-1)">-</button>
+                    <div class="cart-item-qty" style="position:relative; z-index:3; pointer-events:auto;">
+                        <button type="button" class="cart-item-qty-btn" data-delta="-1" onclick="changeCartQty('${item.id}',-1)" style="position:relative; z-index:3; pointer-events:auto; cursor:pointer;">-</button>
                         <span class="cart-item-qty-num">${item.qty}</span>
-                        <button type="button" class="cart-item-qty-btn" data-delta="1" onclick="changeCartQty('${item.id}',1)">+</button>
+                        <button type="button" class="cart-item-qty-btn" data-delta="1" onclick="changeCartQty('${item.id}',1)" style="position:relative; z-index:3; pointer-events:auto; cursor:pointer;">+</button>
                     </div>
                 </div>
             </div>
-            <button type="button" class="cart-item-remove" onclick="removeFromCart('${item.id}')"><i class="fa-solid fa-trash-can"></i></button>
+            <button type="button" class="cart-item-remove" onclick="removeFromCart('${item.id}')" style="position:relative; z-index:3; pointer-events:auto; cursor:pointer;"><i class="fa-solid fa-trash-can"></i></button>
         </div>
     `;
     }).join('');
@@ -2431,35 +2497,75 @@ function generateSecureSixDigitOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Opens the real Razorpay Checkout modal and resolves with the payment id on
-// success, or null if the payment failed / was dismissed. Previously nothing
-// in the app actually called this — selecting Razorpay just marked the order
-// "Paid" without collecting any real payment.
-function openRazorpayCheckout(amountRupees, customerName, customerPhone) {
-    return new Promise((resolve) => {
-        if (typeof Razorpay === 'undefined') {
-            showToast("Payment gateway failed to load. Please try Cash on Delivery.", "error");
-            resolve(null);
-            return;
+// ============================================================
+// UPI INTENT / DEEP-LINK PAYMENT
+// Merchant VPA: 9593625498@ibl  |  Payee name: MediFinder India
+//
+// This ONLY builds and launches a upi://pay deep link so the customer's own
+// UPI app (PhonePe/GPay/Paytm/etc.) opens with the amount pre-filled. No
+// PIN, card, or secret key is ever collected on this site — the PIN is
+// entered inside the customer's own UPI app. Because a plain deep link gives
+// no callback, this code NEVER marks an order "Paid" just because the link
+// was opened or the button was tapped — real confirmation needs a server-side
+// payment-gateway/webhook verification step, which isn't wired up yet, so
+// every UPI order is saved with payment_status "Payment verification
+// pending" (see processFinalOrderPayload below). Swap in real verification
+// there later without touching this function.
+const UPI_PAYEE_VPA = "9593625498@ibl";
+const UPI_PAYEE_NAME = "MediFinder India";
+
+function isMobileDeviceForUpi() {
+    return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
+}
+
+// Builds upi://pay?pa=...&pn=...&am=...&cu=INR with correct URL-encoding
+// (encodeURIComponent turns "@" into "%40" and spaces into "%20").
+function buildUpiDeepLink(amountRupees) {
+    const amt = (Math.round((parseFloat(amountRupees) || 0) * 100) / 100).toFixed(2);
+    return `upi://pay?pa=${encodeURIComponent(UPI_PAYEE_VPA)}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${amt}&cu=INR`;
+}
+
+// "Pay with UPI" button handler. Mobile-only intent launch; desktop just
+// shows a message. Uses the standard visibility/blur heuristic to guess
+// whether a UPI app actually intercepted the link, purely for the status
+// message shown to the customer — this is NOT payment confirmation.
+function handlePayWithUpiClick() {
+    const statusMsg = document.getElementById('upi-pay-status-msg');
+    const showStatus = (text, color) => {
+        if (!statusMsg) return;
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = color;
+        statusMsg.innerText = text;
+    };
+
+    const amountText = document.getElementById('bill-grand-total')?.innerText || document.getElementById('sticky-total-price')?.innerText || '₹0.00';
+    const amountRupees = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
+    if (amountRupees <= 0) { showToast('Your cart total is ₹0.00 — add items before paying.', 'error'); return; }
+
+    if (!isMobileDeviceForUpi()) {
+        showStatus('UPI payment is available on mobile devices.', '#ff9f43');
+        return;
+    }
+
+    const upiLink = buildUpiDeepLink(amountRupees);
+    localStorage.setItem('medi_last_upi_attempt', JSON.stringify({ amount: amountRupees.toFixed(2), time: Date.now() }));
+
+    let appOpened = false;
+    const markOpened = () => { appOpened = true; };
+    document.addEventListener('visibilitychange', markOpened, { once: true });
+    window.addEventListener('blur', markOpened, { once: true });
+
+    window.location.href = upiLink;
+
+    setTimeout(() => {
+        document.removeEventListener('visibilitychange', markOpened);
+        window.removeEventListener('blur', markOpened);
+        if (!appOpened) {
+            showStatus('No compatible UPI app found. Please use another payment method.', '#ff4d4d');
+        } else {
+            showStatus('Payment verification pending — finish the payment in your UPI app, then tap Place Order.', '#ff9f43');
         }
-        const options = {
-            key: "rzp_test_TDK3YbLhmu0A30", // TEST KEY — replace with the live key before going to production
-            amount: Math.round(amountRupees * 100), // Razorpay expects paise
-            currency: "INR",
-            name: "MediFinder",
-            description: "Medicine Order Payment",
-            prefill: { name: customerName || '', contact: customerPhone || '' },
-            theme: { color: "#e02020" },
-            handler: function (response) { resolve(response.razorpay_payment_id); },
-            modal: { ondismiss: function () { resolve(null); } }
-        };
-        const rzp = new Razorpay(options);
-        rzp.on('payment.failed', function () {
-            showToast("Payment failed. Please try again.", "error");
-            resolve(null);
-        });
-        rzp.open();
-    });
+    }, 2000);
 }
 
 async function processFinalOrderPayload() {
@@ -2523,18 +2629,12 @@ async function processFinalOrderPayload() {
     if (placeOrderBtn) { placeOrderBtn.disabled = true; placeOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
     if (stickyPlaceBtn) { stickyPlaceBtn.disabled = true; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
 
-    let razorpayPaymentId = null;
-    if (selectedPaymentMethod === 'RAZORPAY') {
-        const amountText = document.getElementById('bill-grand-total')?.innerText || "₹0.00";
-        const amountRupees = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
-        razorpayPaymentId = await openRazorpayCheckout(amountRupees, addr.name, addr.phone);
-        if (!razorpayPaymentId) {
-            showToast("Payment was not completed — order not placed.", "error");
-            if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = origPlaceBtnHTML; }
-            if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = origStickyBtnHTML; }
-            return;
-        }
-    }
+    // NOTE: there is no payment gateway/webhook wired up to confirm a UPI
+    // payment back to this page (see buildUpiDeepLink/handlePayWithUpiClick
+    // above), so placing an order under "ONLINE" never blocks on — or
+    // fabricates — a "Paid" confirmation here. It's saved with
+    // payment_status "Payment verification pending" below. Slot real
+    // server-side verification in right here once it exists.
 
     try {
     const primaryMerchantId = currentCart.find(item => item.merchantId)?.merchantId || null;
@@ -2589,14 +2689,14 @@ async function processFinalOrderPayload() {
         total_bill: grandTotal,
         total_amount: parseFloat(grandTotal.replace('₹', '')) || subtotal,
         total: subtotal,
-        payment_status: selectedPaymentMethod === "COD" ? "Pending" : "Paid",
+        payment_status: selectedPaymentMethod === "COD" ? "Pending" : "Payment verification pending",
         status: "pending",
         transit_mode: calculatedTransitMode,
         eta_minutes: calculatedETA,
         shop_lat: shopCoordinates.lat,
         shop_lng: shopCoordinates.lng,
         delivery_secure_code: secureDeliveryOTP,
-        razorpay_payment_id: razorpayPaymentId || null,
+        razorpay_payment_id: null, // kept for schema compatibility; slot a real gateway/UPI verification id in here once server-side verification exists
         date_string: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
         merchant_id: primaryMerchantId,
         prescription_required: orderPrescriptionRequired,
@@ -2717,7 +2817,7 @@ async function processFinalOrderPayload() {
         const el3 = document.getElementById('success-eta');
         const el4 = document.getElementById('success-otp-code');
         if (el1) el1.textContent = orderId;
-        if (el2) el2.textContent = selectedPaymentMethod === 'COD' ? 'Cash on Delivery' : 'Paid Online';
+        if (el2) el2.textContent = selectedPaymentMethod === 'COD' ? 'Cash on Delivery' : 'UPI — Verification Pending';
         if (el3) el3.textContent = calculatedETA + ' mins';
         if (el4) el4.textContent = secureDeliveryOTP;
         successModal.style.display = 'flex';
@@ -4686,6 +4786,7 @@ function initScrollToTop() {
    so they stay reachable, with the product grid scrolling underneath them.
    ========================================================================== */
 function initHomeStickyScroll() {
+    const header = document.querySelector('header');
     const searchSection = document.querySelector('.truemeds-search-section');
     const categoriesSection = document.querySelector('.categories-section');
     if (!searchSection || !categoriesSection) return; // not the home page
@@ -4694,10 +4795,22 @@ function initHomeStickyScroll() {
         const style = document.createElement('style');
         style.id = 'home-sticky-scroll-css';
         style.textContent = `
-            .truemeds-search-section { position: sticky; top: 0; z-index: 60; background: #fff; }
-            .categories-section { position: sticky; z-index: 55; background: #fff; padding-top: 8px; }
+            .truemeds-search-section { position: sticky; top: 0; z-index: 60; background: #fff; transition: box-shadow .2s ease; }
+            .categories-section { position: sticky; z-index: 55; background: #fff; padding-top: 8px; transition: transform .2s ease, padding-top .2s ease; }
+            header.mf-scroll-hidden { max-height: 0 !important; opacity: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; border-bottom-width: 0 !important; overflow: hidden !important; pointer-events: none !important; }
+            header { transition: max-height .25s ease, opacity .2s ease, padding .25s ease, margin .25s ease; overflow: hidden; }
+            .truemeds-search-section.mf-scroll-locked { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+            .categories-section.mf-scroll-locked { transform: scale(0.9); transform-origin: top left; padding-top: 4px; }
         `;
         document.head.appendChild(style);
+    }
+
+    // Lock the header's natural rendered height in as an inline max-height so
+    // the collapse-on-scroll transition above has a real starting point to
+    // animate from (an unset max-height can't be transitioned smoothly).
+    if (header && !header.dataset.mfMaxHeightSet) {
+        header.style.maxHeight = header.offsetHeight + 20 + 'px';
+        header.dataset.mfMaxHeightSet = '1';
     }
 
     // The category row locks in right below the search bar — measured live
@@ -4709,6 +4822,31 @@ function initHomeStickyScroll() {
     positionCategoriesLock();
     window.addEventListener('resize', positionCategoriesLock);
     setTimeout(positionCategoriesLock, 400); // after images/fonts settle
+
+    // On scroll: the header disappears (collapses to 0 height instead of just
+    // hiding, so the page content actually moves up into its place), the
+    // search bar — already sticky at top:0 — visually ends up locked exactly
+    // where the header used to be, and the category row shrinks slightly and
+    // stays locked directly under the search bar.
+    const scrollEl = document.getElementById('main-scroll');
+    const SCROLL_LOCK_THRESHOLD = 24;
+    let ticking = false;
+    function applyScrollLockState() {
+        const y = scrollEl ? scrollEl.scrollTop : window.scrollY;
+        const locked = y > SCROLL_LOCK_THRESHOLD;
+        if (header) header.classList.toggle('mf-scroll-hidden', locked);
+        searchSection.classList.toggle('mf-scroll-locked', locked);
+        categoriesSection.classList.toggle('mf-scroll-locked', locked);
+        positionCategoriesLock();
+        ticking = false;
+    }
+    applyScrollLockState();
+    (scrollEl || window).addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(applyScrollLockState);
+            ticking = true;
+        }
+    }, { passive: true });
 }
 
 /* ==========================================================================

@@ -21,8 +21,6 @@
     <link rel="stylesheet" href="usercart.css?v=13">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <!-- Razorpay Standard Checkout SDK -->
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 /* ===================== Premium truck delivery success animation =====================
    Plays once when #success-animation-modal gets .modal-revealed: a delivery
@@ -144,7 +142,7 @@
             <div class="payment-box">
                 <h3><i class="fa-solid fa-shield-inverse"></i> Select Payment Method</h3>
                 <div class="payment-options">
-                    
+
                     <label class="pay-option active-option">
                         <div class="option-header-row">
                             <input type="radio" name="payment_method" value="COD" checked>
@@ -154,46 +152,15 @@
 
                     <label class="pay-option">
                         <div class="option-header-row">
-                            <input type="radio" name="payment_method" value="UPI">
-                            <span class="option-title"><i class="fa-solid fa-mobile-screen-button"></i> Instant UPI Apps</span>
+                            <input type="radio" name="payment_method" value="ONLINE">
+                            <span class="option-title"><i class="fa-solid fa-mobile-screen-button"></i> Online (Pay with UPI)</span>
                         </div>
-                        <div class="upi-apps-grid" id="upi-apps-rail" style="display: none;">
-                            <div class="upi-provider-pill" data-provider="phonepe">
-                                <img src="https://img.icons8.com/color/1200/phone-pe.jpg"><span>PhonePe</span>
-                            </div>
-                            <div class="upi-provider-pill" data-provider="gpay">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQweNJ3RA0kUHW9BGg0dCuAAPJ0XlEtxO7WMmh9gu9PwXDrQcoocny_0pc&s=10"><span>Google Pay</span>
-                            </div>
-                            <div class="upi-provider-pill" data-provider="paytm">
-                                <img src="https://play-lh.googleusercontent.com/WDGsMRuVENnZPEpV4DEaXw12qtMY3em85xpmZqcXzeh0iT_eXFtAU9VUj-Z7xNQQd5DMqrkKSs9D0qbI1rlt"><span>Paytm</span>
-                            </div>
-                            <div class="upi-provider-pill" data-provider="navi">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3Hj8JxE25YJDMKZQMLYrKmyWsdH1tH4b2QWF_GB3QoA&s"><span>Navi UPI</span>
-                            </div>
-                        </div>
-                    </label>
-
-                    <label class="pay-option">
-                        <div class="option-header-row">
-                            <input type="radio" name="payment_method" value="RAZORPAY">
-                            <span class="option-title"><i class="fa-solid fa-credit-card"></i> Online Cards / Razorpay</span>
-                        </div>
-                    </label>
-
-                    <label class="pay-option">
-                        <div class="option-header-row">
-                            <input type="radio" name="payment_method" value="NETBANKING">
-                            <span class="option-title"><i class="fa-solid fa-building-columns"></i> All Indian Netbanking</span>
-                        </div>
-                        <div class="netbanking-drawer" id="netbanking-rail" style="display: none;">
-                            <select id="bank-selector-dropdown">
-                                <option value="" selected disabled>-- Choose Your Retail Bank --</option>
-                                <option value="sbi">State Bank of India (SBI)</option>
-                                <option value="hdfc">HDFC Bank</option>
-                                <option value="icici">ICICI Bank</option>
-                                <option value="axis">Axis Bank</option>
-                                <option value="wbaa">West Bengal Gramin Bank</option>
-                            </select>
+                        <div class="upi-pay-drawer" id="upi-pay-drawer" style="display:none;">
+                            <p style="font-size:0.75rem;color:#6c757d;margin:6px 0 10px;">Pay instantly using any UPI app (PhonePe, Google Pay, Paytm, etc.) — UPI ID: <strong>9593625498@ibl</strong></p>
+                            <button type="button" id="pay-with-upi-btn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#2ed573;color:#fff;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                <i class="fa-solid fa-mobile-screen-button"></i> Pay with UPI
+                            </button>
+                            <p id="upi-pay-status-msg" style="font-size:0.72rem;margin:8px 0 0;display:none;"></p>
                         </div>
                     </label>
 
