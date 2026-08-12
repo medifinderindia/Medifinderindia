@@ -40,6 +40,10 @@
     --shadow-sm:0 2px 8px rgba(0,0,0,0.05);
     --shadow-md:0 10px 24px rgba(0,0,0,0.08);
     --shadow-red:0 10px 24px rgba(224,32,32,0.18);
+    --teal:#0d9488;
+    --teal-dark:#0f766e;
+    --teal-light:#e6f7f2;
+    --shadow-teal:0 8px 20px rgba(13,148,136,0.20);
 }
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent;}
 html,body{max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--text-main);scroll-behavior:smooth;}
@@ -47,9 +51,23 @@ img,svg{max-width:100%;height:auto;}
 a{text-decoration:none;color:inherit;}
 button{font-family:inherit;}
 
-/* ===== TOP UTILITY STRIP ===== */
-.top-strip{background:var(--dark);color:#fff;font-size:0.72rem;font-weight:600;text-align:center;padding:6px 12px;letter-spacing:0.3px;}
+/* ===== TOP UTILITY STRIP (seamless right-to-left ticker) ===== */
+.top-strip{background:var(--dark);color:#fff;font-size:0.72rem;font-weight:600;letter-spacing:0.3px;overflow:hidden;white-space:nowrap;padding:6px 0;position:relative;}
+.top-strip-track{display:inline-flex;width:max-content;animation:mfTickerScroll 20s linear infinite;}
+.top-strip-item{display:inline-flex;align-items:center;padding:0 28px 0 12px;white-space:nowrap;}
 .top-strip i{color:var(--primary-light);margin-right:6px;}
+@keyframes mfTickerScroll{
+    0%{transform:translateX(0);}
+    100%{transform:translateX(-50%);}
+}
+@media (prefers-reduced-motion: reduce){
+    .top-strip-track{animation-play-state:paused;}
+}
+@media (max-width:520px){
+    .top-strip{padding:5px 0;}
+    .top-strip-item{font-size:0.66rem;padding:0 18px 0 10px;}
+    .top-strip-track{animation-duration:14s;}
+}
 
 /* ===== HEADER ===== */
 header.site-header{
@@ -233,6 +251,17 @@ footer.site-footer{background:#12121e;color:#c7c9d9;padding:50px 24px 0;}
 .info-modal .close-modal:hover{background:#ffe0e0;color:var(--primary);}
 .info-modal p{font-size:0.86rem;line-height:1.75;color:var(--text-muted);margin-bottom:12px;}
 .info-modal p strong{color:var(--text-main);}
+.info-modal h4{font-size:0.92rem;font-weight:800;color:var(--dark);margin:18px 0 8px;}
+.info-modal h4:first-of-type{margin-top:0;}
+.info-modal ul{margin:0 0 12px 18px;color:var(--text-muted);font-size:0.86rem;line-height:1.75;}
+.info-modal ul li{margin-bottom:4px;}
+.info-modal .modal-meta{font-size:0.72rem;color:var(--text-muted);margin:-4px 0 16px;font-weight:600;}
+.info-modal .modal-addr{font-size:0.86rem;line-height:1.75;color:var(--text-muted);margin-bottom:0;}
+.faq-cat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;position:sticky;top:-26px;background:#fff;padding:4px 0 10px;z-index:2;}
+.faq-cat-tab{padding:7px 14px;border-radius:20px;background:#f4f6f9;border:1.5px solid var(--border);font-size:0.72rem;font-weight:700;color:var(--text-muted);cursor:pointer;white-space:nowrap;transition:all .2s ease;}
+.faq-cat-tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-color:transparent;}
+.faq-cat-panel{display:none;}
+.faq-cat-panel.active{display:block;}
 .faq-item{border-bottom:1px solid var(--border);padding:12px 0;}
 .faq-item summary{font-weight:700;font-size:0.86rem;color:var(--text-main);cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;}
 .faq-item summary::-webkit-details-marker{display:none;}
@@ -286,15 +315,18 @@ body {
     position: relative;
 }
 
-/* Premium Logo Circle Layout */
+/* Premium Logo Circle Layout
+   ✅ FIX: was position:absolute; top:-55px — offset from an
+   already-padded .auth-container, which is what created the
+   large empty "drop" between the header and the logo. Now it
+   sits in normal flow right at the top of the login/signup
+   content, directly under the header, with the card following
+   right after it — no negative offset, no overlap needed. */
 .logo-wrapper {
     display: flex;
     justify-content: center;
-    position: absolute;
-    top: -55px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
+    position: relative;
+    margin-bottom: 16px;
 }
 
 .logo-circle {
@@ -317,11 +349,15 @@ body {
     border-radius: 50%;
 }
 
-/* Auth Card Box */
+/* Auth Card Box
+   ✅ FIX: padding-top was 80px, reserved to leave room under the
+   old overlapping absolute-positioned logo circle. The logo now
+   sits above the card in normal flow, so the card just needs its
+   normal padding — this is part of removing the awkward gap. */
 .auth-box {
     background: var(--card-bg);
     border-radius: 24px;
-    padding: 80px 24px 32px 24px;
+    padding: 32px 24px 32px 24px;
     box-shadow: 0 20px 40px rgba(224, 32, 32, 0.08);
     width: 100%;
 }
@@ -709,7 +745,7 @@ body {
 /* ==========================================
    PREMIUM RESPONSIVE HEADER (SPA)
    ========================================== */
-.mf-header{position:sticky;top:0;z-index:600;background:rgba(255,255,255,0.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);}
+.mf-header{position:sticky;top:0;z-index:600;background:linear-gradient(135deg,rgba(255,255,255,0.97) 0%,rgba(230,247,242,0.94) 100%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(13,148,136,0.14);box-shadow:0 2px 14px rgba(13,148,136,0.06);}
 .mf-header-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;max-width:1300px;margin:0 auto;gap:14px;}
 .mf-brand{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .mf-brand-logo{height:36px;width:36px;border-radius:9px;object-fit:cover;background:#fff;}
@@ -720,8 +756,29 @@ body {
 .mf-nav-desktop a{cursor:pointer;transition:color .2s ease;}
 .mf-nav-desktop a:hover{color:var(--primary);}
 .mf-header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.mf-login-btn{padding:9px 16px;font-size:0.8rem;white-space:nowrap;}
-.mf-menu-toggle{display:none;background:#f4f6f9;border:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:1rem;color:var(--dark);cursor:pointer;flex-shrink:0;}
+/* Login stays medical red regardless of the .btn-outline base it also carries */
+.mf-login-btn{
+    padding:9px 18px;font-size:0.8rem;white-space:nowrap;
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark))!important;
+    color:#fff!important;
+    border:none!important;
+    box-shadow:0 6px 16px rgba(224,32,32,0.22);
+    transition:all .2s ease;
+}
+.mf-login-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 22px rgba(224,32,32,0.3);
+    color:#fff!important;
+}
+/* Sign Up (desktop + mobile menu) stays a complementary eco teal */
+.mf-header .btn-primary{
+    background:linear-gradient(135deg,var(--teal),var(--teal-dark))!important;
+    box-shadow:var(--shadow-teal)!important;
+}
+.mf-header .btn-primary:hover{
+    box-shadow:0 12px 26px rgba(13,148,136,0.28)!important;
+}
+.mf-menu-toggle{display:none;background:var(--teal-light);border:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:1rem;color:var(--teal-dark);cursor:pointer;flex-shrink:0;}
 .mf-mobile-menu{display:none;flex-direction:column;gap:2px;padding:12px 20px 18px;border-top:1px solid var(--border);background:#fff;}
 .mf-mobile-menu.open{display:flex;}
 .mf-mobile-menu a{padding:10px 4px;font-weight:700;font-size:0.9rem;color:var(--text-main);cursor:pointer;}
@@ -753,25 +810,37 @@ body {
     display:none;
 }
 
+/* ✅ FIX: top padding was 56px stacked on top of the logo's old
+   -55px offset and the card's 80px top padding — three spacing
+   rules compounding into one large gap under the header. Now the
+   container just gives comfortable, normal breathing room. */
 #view-login .auth-container,
 #view-signup .auth-container{
     width:min(100% - 24px, 440px);
     max-width:440px;
     margin:0 auto;
-    padding:56px 0 40px;
+    padding:28px 0 40px;
     position:relative;
 }
 @media (max-width:600px){
     #view-login .auth-container,
     #view-signup .auth-container{
         width:min(100% - 20px, 440px);
-        padding:28px 0 30px;
+        padding:18px 0 30px;
     }
 }
 
 </style>
 </head>
 <body>
+
+<!-- ===== TOP STRIP (always first — sits above the header on every view) ===== -->
+<div class="top-strip">
+    <div class="top-strip-track">
+        <span class="top-strip-item"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
+        <span class="top-strip-item" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
+    </div>
+</div>
 
 <header class="mf-header">
     <div class="mf-header-inner">
@@ -802,7 +871,6 @@ body {
      VIEW: HOME (landing page)
      ========================================== -->
 <div id="view-home">
-<div class="top-strip"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</div>
 
 <!-- ===== HERO ===== -->
 <section class="hero">
@@ -980,7 +1048,7 @@ body {
         <div class="footer-col">
             <h5>Legal</h5>
             <ul>
-                <li><a href="usert&c.html" target="_blank">Terms &amp; Conditions</a></li>
+                <li><button onclick="openInfo('terms')">Terms &amp; Conditions</button></li>
                 <li><button onclick="openInfo('privacy')">Privacy Policy</button></li>
                 <li><button onclick="openInfo('refund')">Refund &amp; Cancellation</button></li>
             </ul>
@@ -1018,39 +1086,374 @@ function switchDemo(role){
 var infoContent = {
     about: {
         title: 'About Us',
-        html: '<p><strong>MediFinder</strong> is a medicine delivery and pharmacy platform connecting customers, licensed pharmacies, and delivery partners in one place.</p><p>Our mission is to make genuine medicines and healthcare essentials accessible within minutes, while giving local pharmacies and delivery partners a reliable way to grow and earn.</p>'
+        html: `
+            <p class="modal-meta">Established: 2026 &nbsp;|&nbsp; www.medifinderindia.com</p>
+            <p>Medi Finder India is a technology-driven healthcare and fast-delivery platform, established in 2026, with a simple mission: to make essential medicines, healthcare products and healthcare services available to people faster, safer and more conveniently.</p>
+            <p>We believe that when someone needs a medicine, a diagnostic test, a healthcare instrument, a nurse or an emergency-related service, finding the right service should not be unnecessarily difficult or time-consuming. That is why we are building Medi Finder India.</p>
+            <h4>What is Medi Finder India?</h4>
+            <p>Medi Finder India is a platform that connects customers with licensed medicine shops, pharmacies, healthcare service providers and delivery partners. We do not operate our own medicine shop or pharmacy. Instead, we bring legally licensed and verified medicine shops onto our platform so that they can reach more customers and provide faster service.</p>
+            <p>Our goal is to create a strong connection between: <strong>Licensed Pharmacy → Medi Finder India → Delivery Network → Customer</strong></p>
+            <h4>What Can You Find on Medi Finder India?</h4>
+            <ul>
+                <li>💊 Medicines — prescription, H1/prescription-controlled (subject to law), common, generic, OTC and other pharmacy products</li>
+                <li>🧪 Laboratory & diagnostic services, including sample collection</li>
+                <li>🏥 Healthcare instruments & equipment</li>
+                <li>👶 Baby & mother care products and essential healthcare items</li>
+                <li>👩‍⚕️ Nurse booking, where available in the relevant location</li>
+                <li>🚑 Ambulance booking, where available through participating providers</li>
+            </ul>
+            <h4>Our Mission</h4>
+            <p>"To make healthcare products and essential healthcare services easier to find, safer to access and faster to reach." We want to reduce the time people spend searching for medicines and healthcare services, while helping local licensed pharmacies and healthcare providers grow their businesses.</p>
+            <h4>Helping Local Pharmacies Grow</h4>
+            <p>Many medicine shops already have the medicines customers need, but customers may not know which shop has it, whether it's available, or how quickly it can reach them. Medi Finder India solves this connectivity problem — helping participating pharmacies reach more customers, increase sales opportunities and build a stronger digital presence.</p>
+            <h4>Fast Delivery, With Responsibility</h4>
+            <p>Speed is important in healthcare, but it must never come at the cost of safety or legal compliance. For prescription-controlled medicines, the relevant licensed pharmacy is responsible for verifying the prescription before dispensing. Our delivery network transports medicines and other permitted products securely and responsibly.</p>
+            <h4>We Follow the Law</h4>
+            <p>Medi Finder India does not support illegal medicine sales, fake or fraudulent prescriptions, unauthorized pharmaceutical distribution, counterfeit medicines, medicine tampering, illegal drug trafficking, or any other unlawful activity. We work only with licensed and legally authorized pharmacies and service providers.</p>
+            <h4>Our Vision</h4>
+            <p>To build a trusted healthcare-access network where people can discover Medicine + Pharmacy + Lab Test + Healthcare Instrument + Baby Care + Nurse + Ambulance + other healthcare services from one convenient digital platform, subject to availability in their location.</p>
+            <h4>Why Medi Finder India?</h4>
+            <ul>
+                <li>⚡ Fast — reducing time between finding a need and getting connected</li>
+                <li>🔐 Secure — serious about medicine handling, prescriptions and data</li>
+                <li>🏪 Local — helping licensed pharmacies reach more customers</li>
+                <li>⚖️ Responsible — no illegal medicine sales or unauthorized activity</li>
+                <li>🤝 Connected — linking customers, pharmacies, providers and delivery partners</li>
+                <li>❤️ Healthcare Focused — making essential healthcare easier to access</li>
+            </ul>
+            <p><strong>Medi Finder India — Connecting Healthcare, Delivering Faster.</strong></p>
+        `
     },
     grievance: {
         title: 'Grievance Redressal',
-        html: '<p>If you have a complaint or concern about an order, a merchant, or a delivery partner, please reach out to our Grievance Officer:</p><p><strong>Email:</strong> support@medifinderindia.com<br><strong>Response Time:</strong> Within 48 hours of receiving your complaint.</p>'
+        html: `
+            <p>Medi Finder India is committed to providing a safe, transparent and reliable platform for customers, merchant partners, delivery partners and other users.</p>
+            <p>If you have any complaint, concern or grievance relating to our Platform, services, privacy, payment, medicine delivery, merchant activity, delivery partner conduct or any other matter connected with Medi Finder India, you may contact our Grievance Redressal Officer using the details below.</p>
+            <h4>Contact Details</h4>
+            <p class="modal-addr">
+                Company Name: Medi Finder India<br>
+                Grievance Redressal Officer: <strong>Rejoyan Sarkar</strong><br>
+                Designation: Grievance Redressal Officer<br>
+                Email: grievance@medifinderindia.com<br>
+                Phone: +91 9593625498<br>
+                Website: www.medifinderindia.com
+            </p>
+            <h4>Registered/Corporate Address</h4>
+            <p class="modal-addr">Banihari, Janchi, Gangarampur,<br>Dakshin Dinajpur, West Bengal – 733140, India</p>
+            <h4>How to Submit a Grievance</h4>
+            <p>Please include the following information when submitting a complaint:</p>
+            <ul>
+                <li>Full name</li>
+                <li>Registered mobile number/email</li>
+                <li>Order or transaction ID, if applicable</li>
+                <li>Date of the incident</li>
+                <li>Description of the complaint</li>
+                <li>Relevant documents, screenshots or other supporting information, if available</li>
+            </ul>
+            <h4>Complaints We Handle</h4>
+            <ul>
+                <li>Medicine order or delivery issues</li>
+                <li>Merchant/pharmacy-related complaints</li>
+                <li>Delivery Partner-related complaints</li>
+                <li>Payment or refund issues</li>
+                <li>Account-related issues</li>
+                <li>Privacy or personal-data concerns</li>
+                <li>Fraudulent activity or unauthorized use of the Platform</li>
+                <li>Incorrect or misleading Platform information</li>
+                <li>Other complaints relating to Medi Finder India services</li>
+            </ul>
+            <h4>Complaint Handling</h4>
+            <p>Upon receiving a grievance, Medi Finder India will review the complaint and, where appropriate, coordinate with the relevant Merchant Partner, Delivery Partner, payment provider or other service provider to investigate and resolve the matter. We may request additional information where necessary, and will handle grievances in accordance with applicable laws and our internal complaint-handling procedures.</p>
+            <h4>Important Note</h4>
+            <p>Medi Finder India operates primarily as a technology platform connecting customers with licensed pharmacies, healthcare service providers and delivery partners. Certain complaints concerning medicine dispensing, product quality, prescription verification or third-party services may need to be addressed with the relevant licensed pharmacy or service provider as well. However, Medi Finder India will assist with the Platform-related portion of such complaints wherever reasonably possible.</p>
+        `
     },
     contact: {
         title: 'Contact Us',
-        html: '<p><strong>Helpline:</strong> Available on the app after sign up.<br><strong>Email:</strong> support@medifinderindia.com<br><strong>Hours:</strong> 24/7 support desk.</p>'
+        html: `
+            <p class="modal-addr">
+                <strong>Medi Finder India</strong><br>
+                Phone: +91 9593625498<br>
+                Email: medifinderindia@gmail.com<br>
+                Website: www.medifinderindia.com
+            </p>
+            <p class="modal-addr">
+                Registered/Corporate Address:<br>
+                Banihari, Janchi, Gangarampur,<br>
+                Dakshin Dinajpur, West Bengal – 733140, India
+            </p>
+        `
+    },
+    terms: {
+        title: 'Terms & Conditions',
+        html: `
+            <p class="modal-meta">Last Updated: June 27, 2026</p>
+            <h4>Introduction</h4>
+            <p>These Terms & Conditions ("Terms") constitute a legally binding agreement between you ("User", "Customer", "Merchant Partner", "Seller", "Delivery Partner" or "you") and Medi Finder India ("Medi Finder", "Company", "we", "us" or "our") regarding your use of the Medi Finder India website, mobile applications, dashboards, APIs and related services ("Platform").</p>
+            <p>By accessing, registering with, or using the Platform, you acknowledge that you have read, understood and agreed to these Terms.</p>
+            <p>The Platform operates as an online technology aggregator and intermediary connecting customers, licensed medicine shops and delivery partners. Medi Finder does not manufacture, own or physically stock medicines and does not directly employ independent delivery personnel.</p>
+            <h4>Eligibility & Account Registration</h4>
+            <p>Users must generally be 18 years of age or older and legally capable of entering into a binding agreement. Users must:</p>
+            <ul>
+                <li>Provide accurate and complete information</li>
+                <li>Maintain the confidentiality of passwords, OTPs and account credentials</li>
+                <li>Keep account information updated</li>
+                <li>Not create fraudulent or misleading accounts</li>
+                <li>Accept responsibility for activity performed through their account</li>
+            </ul>
+            <h4>Platform Role</h4>
+            <p>Medi Finder functions as a technology platform facilitating medicine availability searches, pharmacy discovery, customer–pharmacy connectivity, order-related communication, delivery coordination, and related technology services. Medi Finder is not itself a pharmacy, medicine manufacturer, doctor or medical adviser.</p>
+            <h4>Merchant / Pharmacy Obligations</h4>
+            <p>Every Merchant Partner must maintain valid and active licences and registrations required under applicable pharmaceutical laws, including (where applicable) a Drug Licence, GSTIN, pharmacist registration, and other legally required approvals. Merchant Partners must provide genuine and current documentation during onboarding and promptly report suspension, cancellation or expiry of material licences.</p>
+            <h4>Inventory Responsibility</h4>
+            <p>Merchants are responsible for the accuracy of medicine names, formulations, batch information, MRP, stock, availability and product information. Repeated inaccurate or false inventory information may result in restriction, suspension or termination.</p>
+            <h4>Medicine Quality & Dispensing</h4>
+            <p>The Merchant Partner is responsible for the quality, authenticity, packaging, shelf-life, storage and lawful dispensing of medicines supplied through its store. Medi Finder does not independently manufacture, inspect or guarantee pharmaceutical products supplied by Merchant Partners.</p>
+            <h4>Prescription Requirements</h4>
+            <p>Where applicable law requires a prescription, including applicable Schedule H, H1 and X medicines, customers must provide a valid prescription from a registered medical practitioner. Merchant Partners are responsible for verifying the prescription before dispensing. Medi Finder may cancel or restrict transactions where prescription requirements are not satisfied.</p>
+            <h4>Customer Responsibilities</h4>
+            <ul>
+                <li>Provide accurate information</li>
+                <li>Provide valid prescriptions where required</li>
+                <li>Use medicines only as directed by qualified healthcare professionals</li>
+                <li>Treat pharmacy staff and delivery personnel respectfully</li>
+                <li>Not upload fraudulent prescriptions</li>
+                <li>Not attempt to obtain medicines unlawfully</li>
+            </ul>
+            <h4>Delivery Partner Terms</h4>
+            <p>Delivery Partners operate as independent contractors/gig workers where applicable. This relationship does not automatically create an employer–employee relationship, partnership or joint venture. Delivery Partners must maintain valid driving licence, vehicle documentation, insurance, PUC and other legally required documents.</p>
+            <h4>Delivery Safety</h4>
+            <p>Delivery Partners must safely and professionally transport assigned packages. They must not open sealed medicine packages, tamper with packages, substitute medicines, independently sell medicines, divert medicines, or distribute prescription-controlled medicines outside authorized Platform processes. Serious violations may result in immediate termination and reporting to appropriate authorities where required.</p>
+            <h4>Prohibited Activities</h4>
+            <p>Users must not hack or attempt unauthorized access, reverse engineer Platform systems, use bots or unauthorized scraping tools, extract Platform databases, misrepresent affiliation, commit fraud, upload fraudulent documents, or harass other Platform participants.</p>
+            <h4>Platform Availability</h4>
+            <p>The Platform is provided on an "as available" basis. Medi Finder does not guarantee uninterrupted or completely error-free operation. Service interruptions may occur due to technical failures, network problems, maintenance, third-party services or circumstances beyond reasonable control.</p>
+            <h4>Limitation of Liability</h4>
+            <p>To the maximum extent permitted by applicable law, Medi Finder is not responsible for losses primarily arising from Merchant product quality or dispensing, incorrect inventory information, expired or counterfeit products supplied by Merchants, medical decisions, Delivery Partner misconduct, third-party payment failures, network or infrastructure failures, or user-provided incorrect information. The source User Terms contain a proposed aggregate liability cap of INR 1,000, subject to applicable law.</p>
+            <h4>Suspension & Termination</h4>
+            <p>Medi Finder may suspend, restrict or terminate an account for Terms violations, fraud, illegal pharmaceutical activity, fraudulent prescriptions, security violations, misuse of the Platform, or conduct harmful to other users or the Platform.</p>
+            <h4>Intellectual Property</h4>
+            <p>Medi Finder's software, branding, design, databases, logos, text and proprietary technology may not be copied, modified, distributed or commercially exploited without authorization.</p>
+            <h4>Force Majeure</h4>
+            <p>Medi Finder will not be responsible for delays or failures caused by events outside its reasonable control, including natural disasters, civil unrest, war, government restrictions, major infrastructure failures, cyber incidents or communication failures.</p>
+            <h4>Governing Law & Dispute Resolution</h4>
+            <p>These Terms are governed by the laws of the Republic of India. Any dispute shall be subject to the jurisdiction of the competent courts/forum having lawful jurisdiction under applicable Indian law.</p>
+            <h4>Changes to Terms</h4>
+            <p>Medi Finder may update these Terms from time to time. Continued use of the Platform after publication of updated Terms may constitute acceptance to the extent permitted by law.</p>
+            <h4>Contact</h4>
+            <p class="modal-addr">
+                Medi Finder India<br>
+                Banihari, Janchi, Gangarampur,<br>
+                Dakshin Dinajpur, West Bengal – 733140, India<br>
+                Phone: +91 9593625498<br>
+                Email: medifinderindia@gmail.com<br>
+                Website: www.medifinderindia.com
+            </p>
+        `
     },
     privacy: {
         title: 'Privacy Policy',
-        html: '<p>We collect only the information needed to process your orders, deliveries, and account — such as your name, contact details, address, and order history.</p><p>Your data is never sold to third parties. Full details are available in our Terms &amp; Conditions.</p>'
+        html: `
+            <p class="modal-meta">Last Updated: June 27, 2026</p>
+            <h4>Introduction</h4>
+            <p>Medi Finder India respects the privacy of Customers, Merchant Partners, Delivery Partners and visitors. This Privacy Policy explains how information is collected, used, stored, shared and protected when using the Platform, structured with reference to Indian privacy and data-protection requirements, including the IT Act and DPDP framework.</p>
+            <h4>Information We Collect</h4>
+            <p><strong>Customer Information:</strong> Name, phone number, email address, delivery address, location/GPS information, medicine searches, prescription uploads, communication records, device and technical information.</p>
+            <p><strong>Merchant Information:</strong> Owner/manager name, email, mobile number, store name, business address, GPS/location information, Drug Licence, GSTIN, pharmacist registration information, medicine inventory, batch and stock information, MRP and product information.</p>
+            <p><strong>Delivery Partner Information:</strong> Identity information, contact details, vehicle information, driving/document verification information, delivery information, location/GPS information.</p>
+            <h4>How We Use Information</h4>
+            <ul>
+                <li>Create and manage accounts</li>
+                <li>Connect customers with relevant pharmacies</li>
+                <li>Verify Merchant licensing</li>
+                <li>Display medicine availability</li>
+                <li>Facilitate delivery and provide order updates</li>
+                <li>Communicate through SMS, email, WhatsApp or other permitted channels</li>
+                <li>Improve Platform functionality</li>
+                <li>Prevent fraud and misuse</li>
+                <li>Meet legal and regulatory obligations</li>
+            </ul>
+            <h4>Location Data</h4>
+            <p>Location information may be used to identify nearby pharmacies, calculate distance, facilitate delivery, provide delivery tracking, and improve logistics. Where required, location functionality may depend upon device permissions.</p>
+            <h4>Prescription Information</h4>
+            <p>Prescription images or information submitted through the Platform may be processed for legitimate order and prescription-verification purposes. Access to such information may be limited to parties who require it for lawful fulfilment, verification, support or regulatory purposes.</p>
+            <h4>Information Sharing</h4>
+            <p>We may share necessary information with relevant Merchant Partners, Delivery Partners, payment providers, technology/service providers, regulatory authorities, law enforcement agencies, courts or other legally authorized bodies. For example, customer delivery information may be shared with the relevant pharmacy and delivery personnel to complete an order. We do not sell user information to third-party data brokers as a commercial data-brokerage service.</p>
+            <h4>Legal Disclosure</h4>
+            <p>Medi Finder may disclose information where required by Drug Controllers, government authorities, law enforcement, court orders, legal notices, or other applicable statutory requirements.</p>
+            <h4>Cookies & Technical Information</h4>
+            <p>The Platform may automatically collect technical information such as IP address, browser type, operating system, device information, connection information, cookies and similar technical technologies.</p>
+            <h4>Data Security</h4>
+            <p>Medi Finder uses reasonable administrative, technical and organizational safeguards to protect information, including SSL/TLS encryption and PCI-DSS compliant payment processing infrastructure. However, no internet transmission or storage system can be guaranteed to be completely secure.</p>
+            <h4>Data Retention</h4>
+            <p>Information may be retained while an account remains active or for as long as reasonably necessary for service operations, legal compliance, auditing, financial disputes, fraud prevention, or regulatory requirements. Users may request account deletion subject to applicable legal and operational retention requirements. Residual encrypted backup copies may remain for a limited period.</p>
+            <h4>User Data Rights</h4>
+            <p>Subject to applicable law, users may request correction of inaccurate information, account deletion, information regarding applicable data processing, and other rights available under applicable data-protection law.</p>
+            <h4>Policy Updates</h4>
+            <p>Medi Finder may update this Privacy Policy when required by changes in law, technology, business operations or Platform features. The latest version will be identified by its "Last Updated" date.</p>
+            <h4>Contact & Grievance</h4>
+            <p class="modal-addr">
+                Medi Finder India<br>
+                Banihari, Janchi, Gangarampur,<br>
+                Dakshin Dinajpur, West Bengal – 733140, India<br>
+                Phone: +91 9593625498<br>
+                Email: medifinderindia@gmail.com<br>
+                Website: www.medifinderindia.com
+            </p>
+        `
     },
     refund: {
-        title: 'Refund & Cancellation',
-        html: '<p>Orders can be cancelled before they are accepted by the pharmacy for a full refund. Once out for delivery, cancellations are handled case-by-case by our support team.</p><p>Refunds for eligible cancellations are processed within 5-7 business days.</p>'
+        title: 'Refund, Cancellation & Payment Policy',
+        html: `
+            <p class="modal-meta">Last Updated: June 27, 2026</p>
+            <h4>Scope</h4>
+            <p>This Policy applies to payments and transactions processed through Medi Finder India or its authorized payment partners. Because Medi Finder operates as an intermediary, the availability of a refund may depend upon whether the payment relates to a Platform service, Merchant transaction or another third-party service.</p>
+            <h4>Payment Processing</h4>
+            <p>Payments may be processed through authorized third-party payment gateways. Customers are responsible for providing accurate payment information. Payment authorization may be declined or reversed by the relevant payment provider.</p>
+            <h4>Medicine Order Cancellation</h4>
+            <p>An order may be cancelled where medicine is unavailable, the Merchant cannot fulfil the order, required prescription verification fails, the customer requests cancellation, payment fails, delivery cannot reasonably be completed, the transaction is prohibited by applicable law, or other operational/regulatory circumstances prevent fulfilment.</p>
+            <h4>Merchant Cancellation</h4>
+            <p>A Merchant may reject or cancel an order where stock is unavailable, inventory information was inaccurate, prescription requirements are not satisfied, the requested medicine cannot legally be dispensed, the pharmacist cannot lawfully fulfil the request, or other legitimate operational reasons apply.</p>
+            <h4>Delivery Cancellation</h4>
+            <p>A delivery may be cancelled due to incorrect delivery information, customer unavailability, unsafe delivery conditions, vehicle or transportation problems, weather or traffic conditions, regulatory restrictions, Merchant cancellation, or other circumstances beyond reasonable operational control.</p>
+            <h4>Refund Eligibility</h4>
+            <p>A refund may be considered where payment was successfully collected but the order could not be fulfilled, the same transaction was charged more than once, a transaction was cancelled and is eligible for refund, a payment error is verified, or another refund right exists under applicable law or the relevant transaction terms.</p>
+            <h4>Non-Refundable Situations</h4>
+            <p>A refund may not be available where the customer voluntarily cancels after fulfilment has materially commenced, the customer provides incorrect information causing failed delivery, the transaction has been successfully fulfilled, a Merchant has lawfully dispensed a medicine pursuant to a valid transaction, or the issue is caused by circumstances attributable to the customer. Any mandatory consumer rights under applicable law remain unaffected.</p>
+            <h4>Refund Request Period</h4>
+            <p>Disputes relating to digital Platform payments should be raised with support within 48 hours of the transaction. Statutory consumer rights that cannot legally be restricted remain unaffected.</p>
+            <h4>Refund Processing</h4>
+            <p>Where a refund is approved, it will generally be returned through the original payment method. Approved refunds may take approximately 7–10 working banking days, depending upon the payment provider and banking system. Actual processing time may vary.</p>
+            <h4>Duplicate Payments</h4>
+            <p>If a Customer is charged twice for the same transaction and the duplicate charge is verified, the eligible duplicate amount may be refunded through the applicable payment channel.</p>
+            <h4>Failed Transactions</h4>
+            <p>Where money is debited but the transaction is not successfully completed, the payment may be automatically reversed by the payment gateway or may require reconciliation. Customers should contact Medi Finder support if the amount is not restored within the applicable payment-provider timeframe.</p>
+            <h4>Cash on Delivery</h4>
+            <p>Where Cash on Delivery is available, the Customer may be required to pay the applicable amount directly at the time of delivery. Cash collection must correspond to the amount communicated through the Platform/order process.</p>
+            <h4>Merchant Payments</h4>
+            <p>Merchant Partners remain responsible for their applicable product pricing, taxes, invoices and legally required commercial obligations. Medi Finder may separately charge Merchant Partners applicable Platform, subscription, lead-generation or transaction fees where agreed.</p>
+            <h4>Payment Disputes</h4>
+            <p>Customers should provide the order/reference number, transaction date, payment amount, payment method, and relevant screenshots or transaction details, where available. Medi Finder may investigate the transaction with the relevant Merchant and/or payment provider.</p>
+            <h4>Chargebacks</h4>
+            <p>Where a Customer initiates a chargeback through a bank or payment provider, Medi Finder may provide relevant transaction information to the payment provider as permitted by applicable law.</p>
+            <h4>Fraudulent Transactions</h4>
+            <p>Medi Finder may suspend or terminate accounts associated with payment fraud, repeated fraudulent refund requests, unauthorized payment activity, chargeback abuse, or false transaction claims. Where legally required, suspicious transactions may be reported to relevant authorities.</p>
+            <h4>Changes to Payment Policy</h4>
+            <p>Medi Finder may modify this Policy to reflect payment-provider changes, regulatory requirements, new payment methods, changes in refund procedures, or operational changes. Updated versions will be published on the Platform.</p>
+            <h4>Contact for Refunds & Payments</h4>
+            <p class="modal-addr">
+                Medi Finder India<br>
+                Phone: +91 9593625498<br>
+                Email: medifinderindia@gmail.com<br>
+                Website: www.medifinderindia.com
+            </p>
+        `
     },
     faq: {
         title: 'Frequently Asked Questions',
-        html:
-            '<details class="faq-item" open><summary>How fast is delivery?</summary><p>Most orders near a partnered pharmacy are delivered within 20-40 minutes.</p></details>'
-          + '<details class="faq-item"><summary>Do I need a prescription?</summary><p>Prescription medicines require you to upload a valid prescription during checkout.</p></details>'
-          + '<details class="faq-item"><summary>How do I become a merchant or rider?</summary><p>Tap Sign Up, choose Merchant or Delivery as your role, and complete verification.</p></details>'
-          + '<details class="faq-item"><summary>What payment methods are supported?</summary><p>Card, UPI, and Cash on Delivery, depending on your area.</p></details>'
+        html: '__FAQ_HTML__'
     }
 };
+
+var faqData = {
+    General: [
+        ['What is Medi Finder India?', 'Medi Finder India is a technology-driven healthcare and fast-delivery platform that connects customers with licensed pharmacies, healthcare service providers and delivery partners.'],
+        ['Is Medi Finder India a pharmacy or medicine shop?', 'No. Medi Finder India does not operate its own medicine shop or pharmacy. We connect customers with licensed pharmacies and medicine sellers available on our platform.'],
+        ['When was Medi Finder India established?', 'Medi Finder India was established in 2026.'],
+        ['What is the official website of Medi Finder India?', 'Our official website is www.medifinderindia.com.'],
+        ['What services are available through Medi Finder India?', 'Depending on availability in your location, you may find prescription medicines, common/OTC medicines where legally permitted, H1 and other prescription-controlled medicines, laboratory tests, healthcare instruments, baby-care products, nurse booking, ambulance booking, and other healthcare-related products and services.'],
+        ['Does Medi Finder India manufacture medicines?', 'No. Medicines are supplied by the respective licensed pharmacies or sellers connected with the Platform.']
+    ],
+    Medicines: [
+        ['How can I find a medicine?', 'Search for the medicine on the Platform. Where available, Medi Finder may show relevant participating pharmacies based on inventory and location.'],
+        ['Are all medicines available?', "No. Availability depends on the participating pharmacy's current stock, location, applicable law and prescription requirements."],
+        ['Can I order prescription medicines?', 'Yes, where legally permitted. If a prescription is required, you must provide a valid prescription.'],
+        ['Can I order H1 medicines?', 'H1 medicines may be available where legally permitted and subject to the applicable prescription and verification requirements.'],
+        ['Do I need a prescription for every medicine?', 'No. Prescription requirements depend on the medicine and applicable law. Prescription-controlled medicines require the appropriate prescription.'],
+        ['Who verifies my prescription?', 'The relevant licensed pharmacy/authorized pharmacist is responsible for prescription verification before dispensing where required.'],
+        ['Can Medi Finder guarantee that a medicine is in stock?', 'No. Medicine inventory is supplied by participating pharmacies and may change at any time.'],
+        ['Can a pharmacy reject my medicine order?', 'Yes. A pharmacy may reject an order if the medicine is unavailable, the prescription cannot be verified, or dispensing is not legally permitted.'],
+        ['Can I get a substitute medicine?', "Medicine substitution is subject to applicable law and the relevant pharmacist/healthcare professional's requirements. Medi Finder does not independently authorize prescription substitutions."]
+    ],
+    Delivery: [
+        ['How fast will my medicine be delivered?', 'Delivery time depends on your location, pharmacy availability, traffic, weather, order verification and delivery-partner availability. We aim to provide fast delivery where the service is available.'],
+        ['Who delivers my medicine?', 'Delivery may be performed by an independent Delivery Partner associated with the Platform or by the relevant service provider, depending on the order.'],
+        ['Are medicines delivered securely?', 'We require Delivery Partners to handle medicine packages responsibly and not open or tamper with sealed packages.'],
+        ['Can I track my delivery?', 'Where tracking is available, relevant delivery status/location information may be provided through the Platform.'],
+        ['What happens if my medicine is unavailable after I place an order?', 'The order may be rejected or cancelled by the relevant pharmacy. Where an eligible payment has already been collected, the applicable refund process will apply.']
+    ],
+    'Healthcare Services': [
+        ['Can I book laboratory tests through Medi Finder India?', 'Where available in your location, you can discover or request laboratory and diagnostic services through participating providers.'],
+        ['Does Medi Finder India operate its own laboratory?', 'No. Laboratory services are provided by participating third-party healthcare/diagnostic providers.'],
+        ['Can I book sample collection?', 'Where available, sample collection may be offered by the relevant participating diagnostic provider.'],
+        ['Can I book a nurse through Medi Finder India?', 'Where nurse-booking services are available in your area, you may request or book the relevant service through the Platform.'],
+        ['Does Medi Finder employ the nurses?', 'Medi Finder primarily acts as a technology platform connecting customers with participating healthcare service providers. The specific service relationship may be with the relevant provider.'],
+        ['Can I book an ambulance through Medi Finder India?', 'Where ambulance services are available in your location, the Platform may facilitate connection with participating ambulance service providers.'],
+        ['Is Medi Finder an emergency medical service?', 'No. Medi Finder is a technology platform and should not be considered a substitute for emergency medical services.'],
+        ['How quickly will an ambulance arrive?', 'Response time depends on ambulance availability, location, traffic and the participating service provider.']
+    ],
+    'Payment & Refund': [
+        ['What payment methods are available?', 'Available payment methods may vary depending on the service and payment provider.'],
+        ['Can I cancel my order?', 'Cancellation may be possible depending on the order status, pharmacy acceptance, fulfilment stage and applicable cancellation rules.'],
+        ['When will I receive my refund?', 'Approved refunds are generally processed through the original payment method. Banking/payment-provider processing times may vary — approved digital-payment refunds currently take approximately 7–10 working banking days.'],
+        ['What should I do if I was charged but my order was not completed?', 'Contact Medi Finder support with your order/transaction details. We can investigate the transaction with the relevant payment provider or service provider.'],
+        ['What if I was charged twice?', 'Contact support with the transaction details. After verification, an eligible duplicate payment may be refunded.']
+    ],
+    'Safety & Legal': [
+        ['Why does Medi Finder need my location?', 'Location may be used to identify nearby pharmacies, healthcare providers and delivery options and to facilitate delivery.'],
+        ['Is my personal information safe?', 'Medi Finder takes reasonable technical and organizational measures to protect user information. Details are provided in the Privacy Policy.'],
+        ['Will my information be shared with pharmacies or delivery partners?', 'Necessary information may be shared with the relevant pharmacy or delivery partner when required to fulfil your request/order.'],
+        ['Can I request deletion of my account?', 'Subject to applicable legal and retention requirements, users may request deletion of their account and personal information.'],
+        ['Can my pharmacy join Medi Finder India?', 'Yes. Licensed and eligible pharmacies can apply to become Merchant Partners, subject to verification and applicable requirements.'],
+        ['What documents are required for a pharmacy?', 'Depending on the onboarding requirements, documents may include a valid Drug Licence, GSTIN, pharmacist registration and other applicable business/regulatory documents.'],
+        ['How does Medi Finder help pharmacies?', 'Medi Finder helps participating pharmacies reach more customers, receive medicine inquiries and expand their digital reach.'],
+        ["Does Medi Finder own the pharmacy's medicines?", 'No. The medicines remain with the respective Merchant Partner. Medi Finder acts as a technology intermediary.'],
+        ['Can I become a Medi Finder Delivery Partner?', 'Eligible individuals may apply subject to verification and applicable requirements.'],
+        ['What documents are required for Delivery Partners?', 'Depending on the applicable requirements, Delivery Partners may need valid driving, vehicle, insurance, PUC and identity-related documentation.'],
+        ['Can a Delivery Partner open or check a medicine package?', 'No. Sealed medicine packages must not be opened, inspected, altered or tampered with during delivery.'],
+        ['Can a Delivery Partner sell medicines independently?', 'No. Delivery Partners must not independently sell, dispense or distribute medicines outside authorized Platform processes.'],
+        ['Does Medi Finder support illegal medicine sales?', 'Absolutely not. Medi Finder India does not support illegal medicine sales, fraudulent prescriptions, unauthorized pharmaceutical distribution, counterfeit medicines or other unlawful activities.'],
+        ['Are medicines sold through Medi Finder legally sourced?', 'Participating Merchant Partners are required to maintain applicable licences and comply with applicable pharmaceutical laws. The respective Merchant Partner remains responsible for lawful sourcing and dispensing.'],
+        ['Does Medi Finder provide medical advice?', 'No. Medi Finder is not a doctor or medical practitioner. Customers should consult qualified healthcare professionals for medical advice.'],
+        ['What should I do if I receive an incorrect or suspicious product?', 'Do not use the product and contact the relevant pharmacy and Medi Finder support immediately. Where appropriate, the matter may be investigated and referred to the relevant authority.'],
+        ['How can I submit a complaint?', 'You can contact our Grievance Redressal Officer through the contact details published on our Grievance Redressal page.']
+    ]
+};
+
+function buildFaqHtml(){
+    var cats = Object.keys(faqData);
+    var tabs = '<div class="faq-cat-tabs">';
+    cats.forEach(function(cat, i){
+        tabs += '<button type="button" class="faq-cat-tab' + (i === 0 ? ' active' : '') + '" data-cat="' + cat + '" onclick="switchFaqCat(this)">' + cat + '</button>';
+    });
+    tabs += '</div>';
+
+    var panels = '';
+    cats.forEach(function(cat, i){
+        panels += '<div class="faq-cat-panel' + (i === 0 ? ' active' : '') + '" data-panel="' + cat + '">';
+        faqData[cat].forEach(function(qa, qi){
+            panels += '<details class="faq-item"' + (qi === 0 ? ' open' : '') + '><summary>' + qa[0] + '</summary><p>' + qa[1] + '</p></details>';
+        });
+        panels += '</div>';
+    });
+
+    return tabs + panels;
+}
+
+function switchFaqCat(btn){
+    var cat = btn.getAttribute('data-cat');
+    document.querySelectorAll('.faq-cat-tab').forEach(function(t){ t.classList.toggle('active', t === btn); });
+    document.querySelectorAll('.faq-cat-panel').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === cat); });
+}
 
 function openInfo(key){
     var item = infoContent[key];
     if (!item) return;
-    document.getElementById('infoModalBody').innerHTML = '<h3>' + item.title + '</h3>' + item.html;
+    var html = item.html;
+    if (key === 'faq') html = buildFaqHtml();
+    document.getElementById('infoModalBody').innerHTML = '<h3>' + item.title + '</h3>' + html;
     document.getElementById('infoModalOverlay').classList.add('open');
+    document.getElementById('infoModalBody').scrollTop = 0;
 }
 function closeInfo(){
     document.getElementById('infoModalOverlay').classList.remove('open');
