@@ -258,15 +258,26 @@ footer.site-footer{background:#12121e;color:#c7c9d9;padding:50px 24px 0;}
     font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
+/* ✅ FIX: this rule used to be the standalone Login.html/signup.html page's
+   body layout (flex, centered, padded). Now that home.html has several
+   top-level siblings (header, #view-home, #view-login, #view-signup,
+   modals), a flex body turned them all into side-by-side flex-row items —
+   that's what was squeezing/hiding the Login & Signup cards. Body is now
+   plain block layout; #view-login/#view-signup center their own
+   .auth-container instead (see rules below). */
+html,
 body {
-    background: var(--bg-gradient);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 20px;
-    padding-top: 60px;
-    overflow-y: auto;
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    display: block;
+    background: var(--bg);
+    color: var(--text-main);
 }
 
 .auth-container {
@@ -727,9 +738,36 @@ body {
 
 /* ==========================================
    SPA VIEW CONTAINERS (Home / Login / Signup)
+   Each is a normal block-level sibling of the header — never
+   flexed side-by-side. Login/Signup get their own min-height so
+   the card has room to sit below the sticky header instead of
+   collapsing to 0 height.
    ========================================== */
-#view-login, #view-signup{display:none;}
-#view-login .auth-container, #view-signup .auth-container{padding-top:40px;}
+#view-home{
+    width:100%;
+}
+#view-login,
+#view-signup{
+    width:100%;
+    min-height:calc(100vh - 65px);
+    display:none;
+}
+
+#view-login .auth-container,
+#view-signup .auth-container{
+    width:min(100% - 24px, 440px);
+    max-width:440px;
+    margin:0 auto;
+    padding:56px 0 40px;
+    position:relative;
+}
+@media (max-width:600px){
+    #view-login .auth-container,
+    #view-signup .auth-container{
+        width:min(100% - 20px, 440px);
+        padding:28px 0 30px;
+    }
+}
 
 </style>
 </head>
@@ -1297,9 +1335,13 @@ document.getElementById('ftYear').textContent = new Date().getFullYear();
 // Additive only — does not touch any Supabase/auth logic in supabase-config.js.
 // ==========================================
 function showView(view){
+    // ✅ FIX: '' (empty inline style) doesn't override the stylesheet's
+    // "#view-login, #view-signup { display:none; }" rule — it just falls
+    // back to it, so the target view stayed hidden even when "active".
+    // Setting an explicit 'block' actually overrides that rule.
     ['home','login','signup'].forEach(function(v){
         var el = document.getElementById('view-' + v);
-        if (el) el.style.display = (v === view) ? '' : 'none';
+        if (el) el.style.display = (v === view) ? 'block' : 'none';
     });
     closeMobileMenu();
     try {
