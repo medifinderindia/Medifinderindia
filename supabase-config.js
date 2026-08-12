@@ -60,8 +60,11 @@ function checkPolicyAgreement() {
 // ✅ Fixed: একটাই onAuthStateChange, async করা হয়েছে, else if সঠিক জায়গায়
 supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const path = window.location.pathname.toLowerCase();
-    const isLoginPage = path.includes("login.html");
-    const isSignupPage = path.includes("signup.html") || path.endsWith("/signup");
+    // ✅ SPA UPDATE: Login & Signup are no longer separate pages — both panels
+    // now live inside home.html. isAuthPage replaces the old isLoginPage/isSignupPage
+    // pathname checks so the redirect logic below still knows when it's safe to
+    // send a signed-in user onward, and when to leave a logged-out user alone.
+    const isAuthPage = path.includes("home.html");
 
     // Splash should play again on the next entry after a logout.
     if (event === 'SIGNED_OUT') {
@@ -93,7 +96,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 else {
                     showToast("Password updated successfully! Please log in.", "success");
                     supabaseClient.auth.signOut();
-                    window.location.href = "Login.html";
+                    window.location.href = "home.html?panel=login";
                 }
             });
         }
@@ -127,21 +130,21 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
             return;
         }
 
-        if (isLoginPage || isSignupPage) {
+        if (isAuthPage) {
             redirectUserBasedOnRole(session.user);
         }
-    } else if (!session && !isLoginPage && !isSignupPage) {
+    } else if (!session && !isAuthPage) {
         // Don't immediately redirect - check if session is still loading
         setTimeout(() => {
             const currentPath = window.location.pathname.toLowerCase();
-            const stillOnProtectedPage = !currentPath.includes("login.html") && !currentPath.includes("signup.html");
+            const stillOnProtectedPage = !currentPath.includes("home.html");
             // Only redirect if we're still on a protected page after 2 seconds
             if (stillOnProtectedPage) {
                 // Double check session before redirecting
                 supabaseClient.auth.getSession().then(({ data: { session: s } }) => {
                     if (!s) {
                         localStorage.removeItem('merchantSessionActive');
-                        window.location.href = "Login.html";
+                        window.location.href = "home.html";
                     }
                 }).catch(() => {});
             }
@@ -835,7 +838,7 @@ async function loginWithGoogle(roleValue) {
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.origin + '/Login.html'
+            redirectTo: window.location.origin + '/home.html'
         }
     });
     if (error) showToast("Google Auth Error: " + error.message, "error");
@@ -1042,7 +1045,7 @@ if (adminBtnStep3) {
 window.supabaseClient = supabaseClient;
 
 window.getRedirectPathForUser = async function (user) {
-    if (!user) return 'Login.html';
+    if (!user) return 'home.html';
 
     // Admin email always goes to the admin panel (mirrors redirectUserBasedOnRole)
     if (user.email === 'medifinderindia@gmail.com' &&

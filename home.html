@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta name="theme-color" content="#e02020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="MediFinder - Order medicines, sell on MediFinder, or deliver & earn. Medicine in 20 Minutes.">
+<title>MediFinder - Medicine in 20 Minutes</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="favicon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<style>
+
+:root{
+    --primary:#e02020;
+    --primary-light:#ff4747;
+    --primary-dark:#b71c1c;
+    --dark:#1a1a2e;
+    --bg:#f8f9fa;
+    --card:#ffffff;
+    --text-main:#1a1a2e;
+    --text-muted:#747d8c;
+    --border:#eef1f4;
+    --green:#2ed573;
+    --gold:#ffa502;
+    --purple:#7c3aed;
+    --radius:16px;
+    --shadow-sm:0 2px 8px rgba(0,0,0,0.05);
+    --shadow-md:0 10px 24px rgba(0,0,0,0.08);
+    --shadow-red:0 10px 24px rgba(224,32,32,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent;}
+html,body{max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--text-main);scroll-behavior:smooth;}
+img,svg{max-width:100%;height:auto;}
+a{text-decoration:none;color:inherit;}
+button{font-family:inherit;}
+
+/* ===== TOP UTILITY STRIP ===== */
+.top-strip{background:var(--dark);color:#fff;font-size:0.72rem;font-weight:600;text-align:center;padding:6px 12px;letter-spacing:0.3px;}
+.top-strip i{color:var(--primary-light);margin-right:6px;}
+
+/* ===== HEADER ===== */
+header.site-header{
+    position:sticky;top:0;z-index:500;
+    background:rgba(255,255,255,0.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 24px;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand img{height:38px;width:38px;border-radius:10px;object-fit:cover;background:#fff;}
+.brand-text{font-size:1.15rem;font-weight:800;letter-spacing:-0.3px;color:var(--primary);}
+.brand-text span{color:var(--dark);}
+.header-actions{display:flex;align-items:center;gap:10px;}
+.btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:10px 20px;border-radius:12px;font-weight:700;font-size:0.85rem;
+    cursor:pointer;border:none;transition:all .2s ease;white-space:nowrap;
+}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:var(--shadow-red);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(224,32,32,0.25);}
+.btn-outline{background:#fff;color:var(--text-main);border:1.5px solid var(--border);}
+.btn-outline:hover{border-color:var(--primary);color:var(--primary);}
+.btn-ghost{background:transparent;color:var(--text-main);padding:10px 14px;}
+@media (max-width:520px){ .btn-ghost{display:none;} .brand-text{font-size:1rem;} }
+
+/* ===== HERO ===== */
+.hero{
+    position:relative;overflow:hidden;
+    padding:56px 24px 40px;
+    text-align:center;
+    background:radial-gradient(circle at 50% -10%, rgba(224,32,32,0.10), transparent 60%);
+}
+.hero-badge{
+    display:inline-flex;align-items:center;gap:8px;background:#fff5f5;color:var(--primary);
+    padding:6px 16px;border-radius:20px;font-size:0.75rem;font-weight:700;border:1px solid #ffe0e0;margin-bottom:18px;
+}
+.hero-badge .dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulseGlow 1.5s infinite;}
+@keyframes pulseGlow{0%,100%{transform:scale(0.8);opacity:.5;}50%{transform:scale(1.3);opacity:1;}}
+.hero h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-1px;line-height:1.15;color:var(--dark);}
+.hero h1 span{color:var(--primary);}
+.hero p.sub{max-width:560px;margin:14px auto 28px;color:var(--text-muted);font-size:1rem;line-height:1.6;}
+.hero-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.hero-ctas .btn{padding:13px 26px;font-size:0.9rem;}
+
+.trust-row{display:flex;justify-content:center;gap:28px;flex-wrap:wrap;margin-top:40px;}
+.trust-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:90px;}
+.trust-item i{font-size:1.4rem;color:var(--primary);}
+.trust-item span{font-size:0.72rem;font-weight:700;color:var(--text-muted);text-align:center;}
+
+/* ===== DEMO / ROLE TABS SECTION ===== */
+.demo-section{padding:50px 20px 60px;max-width:1100px;margin:0 auto;}
+.demo-heading{text-align:center;margin-bottom:8px;}
+.demo-heading h2{font-size:clamp(1.4rem,3.5vw,2rem);font-weight:800;color:var(--dark);}
+.demo-heading p{color:var(--text-muted);font-size:0.9rem;margin-top:6px;}
+
+.role-tabs{display:flex;justify-content:center;gap:10px;margin:28px 0 32px;flex-wrap:wrap;}
+.role-tab{
+    display:flex;align-items:center;gap:9px;padding:12px 22px;border-radius:14px;
+    background:#fff;border:1.5px solid var(--border);cursor:pointer;font-weight:700;font-size:0.85rem;
+    color:var(--text-muted);transition:all .25s ease;box-shadow:var(--shadow-sm);
+}
+.role-tab i{font-size:1rem;}
+.role-tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-color:transparent;box-shadow:var(--shadow-red);transform:translateY(-2px);}
+.role-tab:not(.active):hover{border-color:var(--primary);color:var(--primary);}
+
+.demo-stage{display:grid;grid-template-columns:minmax(0,340px) 1fr;gap:40px;align-items:center;}
+@media (max-width:820px){ .demo-stage{grid-template-columns:1fr;justify-items:center;} }
+
+/* Phone frame */
+.phone-frame{
+    width:290px;max-width:100%;background:#111;border-radius:34px;padding:12px 10px;box-shadow:0 30px 60px rgba(0,0,0,0.25);
+    position:relative;
+}
+.phone-notch{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:80px;height:18px;background:#111;border-radius:0 0 14px 14px;z-index:5;}
+.phone-screen{background:#fff;border-radius:24px;overflow:hidden;height:560px;position:relative;display:flex;flex-direction:column;}
+.demo-panel{display:none;flex-direction:column;height:100%;animation:fadeIn .35s ease;}
+.demo-panel.active{display:flex;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* --- shared mini components --- */
+.mini-tag{font-size:0.5rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:.3px;}
+
+/* --- USER mockup --- */
+.mock-strip{background:linear-gradient(90deg,#b71c1c,#e02020,#b71c1c);color:#fff;font-size:0.5rem;font-weight:700;padding:5px 10px;white-space:nowrap;overflow:hidden;}
+.mock-user-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f1f2f6;}
+.mock-user-header .mlogo{display:flex;align-items:center;gap:6px;font-size:0.68rem;font-weight:800;color:var(--primary);}
+.mock-user-header .micons{display:flex;gap:6px;}
+.mock-user-header .micons i{font-size:0.72rem;color:var(--text-muted);}
+.mock-search{margin:8px 12px;background:#f4f6f9;border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:6px;font-size:0.62rem;color:var(--text-muted);}
+.mock-cats{display:flex;gap:8px;padding:0 12px 8px;overflow:hidden;}
+.mock-cat{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
+.mock-cat .ic{width:34px;height:34px;border-radius:10px;background:#fff5f5;color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:0.85rem;}
+.mock-cat span{font-size:0.45rem;font-weight:700;color:var(--text-muted);}
+.mock-grid{padding:0 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:hidden;}
+.mock-prod{background:#fff;border:1px solid #f1f2f6;border-radius:10px;padding:7px;box-shadow:var(--shadow-sm);}
+.mock-prod .pimg{height:46px;border-radius:8px;background:linear-gradient(135deg,#fff5f5,#ffe8e8);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:1rem;margin-bottom:5px;}
+.mock-prod .pname{font-size:0.56rem;font-weight:700;color:var(--dark);}
+.mock-prod .pmeta{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+.mock-prod .pprice{font-size:0.6rem;font-weight:800;color:var(--primary);}
+.mock-prod .padd{width:18px;height:18px;border-radius:6px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.55rem;}
+.mock-navbtm{margin-top:auto;display:flex;justify-content:space-around;padding:9px 0;border-top:1px solid #f1f2f6;}
+.mock-navbtm i{font-size:0.75rem;color:#ccc;}
+.mock-navbtm i.on{color:var(--primary);}
+
+/* --- MERCHANT mockup --- */
+.mock-m-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f1f2f6;}
+.mock-m-header .mlogo{font-size:0.68rem;font-weight:800;color:var(--primary);}
+.mock-m-filter{display:flex;gap:6px;margin:8px 12px;}
+.mock-m-search{flex:1;background:#f7fafc;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:0.55rem;color:var(--text-muted);}
+.mock-m-add{background:linear-gradient(135deg,#e53935,#b71c1c);color:#fff;border-radius:8px;padding:6px 10px;font-size:0.55rem;font-weight:700;display:flex;align-items:center;}
+.mock-m-list{padding:0 12px;display:flex;flex-direction:column;gap:7px;overflow:hidden;}
+.mock-m-card{display:flex;gap:8px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:7px;box-shadow:var(--shadow-sm);}
+.mock-m-card .mimg{width:34px;height:34px;border-radius:8px;background:#f7fafc;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.7rem;}
+.mock-m-card .minfo{flex:1;min-width:0;}
+.mock-m-card .mname{font-size:0.58rem;font-weight:700;color:var(--dark);}
+.mock-m-card .mstock{display:inline-block;margin-top:3px;font-size:0.42rem;font-weight:700;color:#00a389;background:#e6fffa;padding:1px 6px;border-radius:8px;}
+.mock-m-card .mprice{font-size:0.58rem;font-weight:800;color:var(--primary);align-self:center;}
+
+/* --- RIDER mockup --- */
+.mock-r-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:linear-gradient(120deg,#1a1a2e 0%,#23233a 45%,#e02020 100%);}
+.mock-r-header .mlogo{font-size:0.66rem;font-weight:800;color:#ff4d4d;}
+.mock-r-duty{background:linear-gradient(135deg,#2ed573,#26de81);color:#fff;font-size:0.48rem;font-weight:700;padding:3px 8px;border-radius:10px;}
+.mock-r-body{padding:10px 12px;}
+.mock-r-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.mock-r-title span{font-size:0.6rem;font-weight:800;text-transform:uppercase;color:var(--dark);}
+.mock-r-live{font-size:0.42rem;font-weight:700;color:var(--green);background:#e3faf2;padding:2px 7px;border-radius:10px;}
+.mock-r-card{background:#fff;border-radius:10px;padding:8px;box-shadow:var(--shadow-sm);border:1px solid #f1f2f6;margin-bottom:8px;}
+.mock-r-card .rtop{display:flex;justify-content:space-between;font-size:0.48rem;color:var(--text-muted);border-bottom:1px dashed #eef2f5;padding-bottom:5px;margin-bottom:5px;}
+.mock-r-flow{display:flex;align-items:center;gap:6px;font-size:0.5rem;color:var(--dark);margin-bottom:3px;}
+.mock-r-flow .dotpin{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.mock-r-flow .dotpin.p{background:var(--primary);}
+.mock-r-flow .dotpin.d{background:var(--green);}
+.mock-r-btn{margin-top:6px;background:linear-gradient(135deg,#e02020,#ff4747);color:#fff;text-align:center;font-size:0.52rem;font-weight:700;padding:6px;border-radius:8px;}
+
+/* --- side info panel --- */
+.demo-info h3{font-size:1.4rem;font-weight:800;color:var(--dark);margin-bottom:10px;}
+.demo-info h3 span{color:var(--primary);}
+.demo-info p{color:var(--text-muted);font-size:0.92rem;line-height:1.7;margin-bottom:18px;}
+.demo-feats{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+.demo-feats li{display:flex;align-items:flex-start;gap:10px;font-size:0.85rem;color:var(--text-main);font-weight:600;}
+.demo-feats li i{color:var(--green);margin-top:2px;}
+.demo-note{font-size:0.7rem;color:var(--text-muted);background:#f8f9fa;border:1px dashed var(--border);padding:8px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;}
+
+/* ===== WHY US STRIP ===== */
+.why-section{background:var(--dark);color:#fff;padding:44px 20px;}
+.why-grid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:26px;}
+.why-item{text-align:center;}
+.why-item i{font-size:1.6rem;color:var(--primary-light);margin-bottom:10px;}
+.why-item h4{font-size:0.9rem;font-weight:700;margin-bottom:5px;}
+.why-item p{font-size:0.76rem;color:#a9adc1;line-height:1.5;}
+
+/* ===== FOOTER ===== */
+footer.site-footer{background:#12121e;color:#c7c9d9;padding:50px 24px 0;}
+.footer-inner{max-width:1150px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px;padding-bottom:36px;}
+@media (max-width:820px){ .footer-inner{grid-template-columns:1fr 1fr;} }
+@media (max-width:480px){ .footer-inner{grid-template-columns:1fr;} }
+.footer-brand .brand-text{color:#ff5c5c;font-size:1.15rem;}
+.footer-brand .brand-text span{color:#fff;}
+.footer-brand p{font-size:0.8rem;color:#8a8ea3;margin-top:10px;line-height:1.6;max-width:280px;}
+.footer-col h5{font-size:0.8rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.footer-col ul li a,.footer-col ul li button{
+    background:none;border:none;padding:0;color:#8a8ea3;font-size:0.82rem;cursor:pointer;text-align:left;transition:color .2s ease;
+}
+.footer-col ul li a:hover,.footer-col ul li button:hover{color:#fff;}
+.footer-social{display:flex;gap:10px;margin-top:16px;}
+.footer-social a{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;transition:all .2s ease;}
+.footer-social a:hover{background:var(--primary);transform:translateY(-2px);}
+.footer-contact{font-size:0.82rem;color:#8a8ea3;display:flex;flex-direction:column;gap:8px;}
+.footer-contact li{display:flex;align-items:flex-start;gap:8px;}
+.footer-contact i{color:var(--primary-light);margin-top:2px;}
+.footer-bottom{border-top:1px solid rgba(255,255,255,0.08);padding:18px 0;text-align:center;font-size:0.75rem;color:#6b6f85;max-width:1150px;margin:0 auto;}
+
+/* ===== FOOTER INFO MODAL ===== */
+.info-modal-overlay{position:fixed;inset:0;background:rgba(10,10,20,0.55);backdrop-filter:blur(3px);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;}
+.info-modal-overlay.open{display:flex;}
+.info-modal{background:#fff;color:var(--text-main);width:100%;max-width:560px;max-height:80vh;overflow-y:auto;border-radius:18px;padding:26px;position:relative;box-shadow:0 30px 60px rgba(0,0,0,0.3);}
+.info-modal h3{font-size:1.15rem;font-weight:800;color:var(--dark);margin-bottom:14px;padding-right:30px;}
+.info-modal .close-modal{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;background:#f4f6f9;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;}
+.info-modal .close-modal:hover{background:#ffe0e0;color:var(--primary);}
+.info-modal p{font-size:0.86rem;line-height:1.75;color:var(--text-muted);margin-bottom:12px;}
+.info-modal p strong{color:var(--text-main);}
+.faq-item{border-bottom:1px solid var(--border);padding:12px 0;}
+.faq-item summary{font-weight:700;font-size:0.86rem;color:var(--text-main);cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item summary::after{content:'+';font-size:1.1rem;color:var(--primary);}
+.faq-item[open] summary::after{content:'−';}
+.faq-item p{margin-top:8px;margin-bottom:0;}
+
+:root {
+    --primary-color: #e02020; 
+    --primary-hover: #c41c1c;
+    --accent-glow: rgba(224, 32, 32, 0.2);
+    --bg-gradient: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+    --card-bg: #ffffff;
+    --text-main: #23313a;
+    --text-muted: #70848f;
+    --border-color: #e2eaf0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+    background: var(--bg-gradient);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    padding-top: 60px;
+    overflow-y: auto;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+}
+
+/* Premium Logo Circle Layout */
+.logo-wrapper {
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: -55px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.logo-circle {
+    width: 100px;
+    height: 100px;
+    background: #ffffff;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(224, 32, 32, 0.18);
+    padding: 6px;
+    border: 4px solid #ffffff;
+}
+
+.logo-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+/* Auth Card Box */
+.auth-box {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 80px 24px 32px 24px;
+    box-shadow: 0 20px 40px rgba(224, 32, 32, 0.08);
+    width: 100%;
+}
+
+.auth-box h2 {
+    color: var(--text-main);
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.section-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 8px;
+}
+
+/* Role Selectors */
+.role-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.role-card {
+    flex: 1;
+    cursor: pointer;
+}
+
+.role-card input[type="radio"] {
+    display: none;
+}
+
+.role-content {
+    background: #f8fafc;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px 4px 8px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+}
+
+.role-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.role-icon-circle.user-role {
+    background: #e8f5e9;
+    color: #2ed573;
+}
+.role-icon-circle.merchant-role {
+    background: #fff3e0;
+    color: #ff9800;
+}
+.role-icon-circle.delivery-role {
+    background: #e3f2fd;
+    color: #2196f3;
+}
+
+.role-content span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.role-content small {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.role-card input[type="radio"]:checked + .role-content {
+    border-color: var(--primary-color);
+    background: rgba(224, 32, 32, 0.04);
+    box-shadow: 0 0 16px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+.role-card input[type="radio"]:checked + .role-content .role-icon-circle {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(224,32,32,0.3);
+}
+
+.role-card input[type="radio"]:checked + .role-content span {
+    color: var(--primary-color);
+}
+
+/* Input Styles */
+.input-group {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--text-main);
+    background: #f8fafc;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.input-group input:focus {
+    border-color: var(--primary-color);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px var(--accent-glow);
+}
+/*veryfy bottom*/
+.referral-section {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.referral-group {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.referral-group input {
+    flex: 1;
+    padding-right: 80px; /* বাটনের জন্য জায়গা রাখা */
+}
+
+.btn-verify {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #e31e24; /* মেডিকেল রেড থিম */
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.3s ease;
+}
+
+.btn-verify:hover {
+    background: #b81418;
+}
+
+.referral-message {
+    display: block;
+    font-size: 12px;
+    margin-top: 5px;
+    margin-left: 5px;
+    font-weight: 500;
+}
+
+/* Buttons */
+.btn-premium {
+    width: 100%;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(224, 32, 32, 0.2);
+}
+
+.btn-premium:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-premium.secondary {
+    background: #eef5f7;
+    color: var(--primary-color);
+    box-shadow: none;
+    margin-bottom: 12px;
+}
+
+.btn-premium.secondary:hover {
+    background: #e2eef2;
+}
+
+/* Divider */
+.divider {
+    text-align: center;
+    margin: 16px 0;
+    position: relative;
+}
+
+.divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 1px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
+.divider span {
+    background: var(--card-bg);
+    padding: 0 15px;
+    color: var(--text-muted);
+    font-size: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Social Buttons */
+.social-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.btn-social {
+    flex: 1;
+    background: #ffffff;
+    color: var(--text-main);
+    border: 1.5px solid var(--border-color);
+    padding: 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-social:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.btn-google img {
+    width: 18px;
+}
+
+.btn-phone i {
+    color: #2ecc71;
+}
+
+/* OTP Toggle Logic Animation Styles */
+.hidden-section {
+    display: none;
+}
+
+.otp-input-group {
+    margin-top: 12px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 15px;
+}
+
+.toggle-text {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 16px;
+}
+
+.toggle-text a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+/* ========================================== */
+/* ADMIN MODAL PREMIUM STYLES                 */
+/* ========================================== */
+.admin-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(35, 49, 58, 0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.admin-modal-box {
+    background: var(--card-bg);
+    width: 90%;
+    max-width: 400px;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 25px 50px rgba(224, 32, 32, 0.25);
+    animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.admin-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.admin-modal-header h3 {
+    font-size: 18px;
+    color: #e31e24; /* মেডিকেল বা অ্যালার্ট রেড */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.step-desc {
+    font-size: 13px;
+    color: var(--text-main);
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+/* ========================================== */
+/* DYNAMIC POLICY WRAPPER STYLES              */
+/* ========================================== */
+.policy-wrapper {
+    background: #f8fafc;
+    border: 1.5px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+}
+
+.policy-wrapper:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ==========================================
+   PREMIUM RESPONSIVE HEADER (SPA)
+   ========================================== */
+.mf-header{position:sticky;top:0;z-index:600;background:rgba(255,255,255,0.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);}
+.mf-header-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;max-width:1300px;margin:0 auto;gap:14px;}
+.mf-brand{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.mf-brand-logo{height:36px;width:36px;border-radius:9px;object-fit:cover;background:#fff;}
+.mf-brand-text{font-size:1.14rem;font-weight:800;letter-spacing:-0.3px;white-space:nowrap;color:var(--primary);}
+.mf-brand-black{color:var(--dark);}
+.mf-brand-india{color:var(--primary);font-size:0.52em;font-weight:700;margin-left:4px;position:relative;top:-6px;opacity:0.85;}
+.mf-nav-desktop{display:flex;align-items:center;gap:24px;font-size:0.86rem;font-weight:700;color:var(--text-muted);}
+.mf-nav-desktop a{cursor:pointer;transition:color .2s ease;}
+.mf-nav-desktop a:hover{color:var(--primary);}
+.mf-header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.mf-login-btn{padding:9px 16px;font-size:0.8rem;white-space:nowrap;}
+.mf-menu-toggle{display:none;background:#f4f6f9;border:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:1rem;color:var(--dark);cursor:pointer;flex-shrink:0;}
+.mf-mobile-menu{display:none;flex-direction:column;gap:2px;padding:12px 20px 18px;border-top:1px solid var(--border);background:#fff;}
+.mf-mobile-menu.open{display:flex;}
+.mf-mobile-menu a{padding:10px 4px;font-weight:700;font-size:0.9rem;color:var(--text-main);cursor:pointer;}
+
+@media (max-width:860px){
+    .mf-nav-desktop{display:none;}
+    .mf-signup-btn-desktop{display:none;}
+    .mf-menu-toggle{display:flex;}
+}
+@media (prefers-reduced-motion: reduce){
+    html,body{scroll-behavior:auto;}
+    *{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;}
+}
+
+/* ==========================================
+   SPA VIEW CONTAINERS (Home / Login / Signup)
+   ========================================== */
+#view-login, #view-signup{display:none;}
+#view-login .auth-container, #view-signup .auth-container{padding-top:40px;}
+
+</style>
+</head>
+<body>
+
+<header class="mf-header">
+    <div class="mf-header-inner">
+        <a href="#" class="mf-brand" onclick="showView('home');return false;">
+            <img src="favicon.png" alt="MediFinder Logo" class="mf-brand-logo" onerror="this.style.display='none'">
+            <span class="mf-brand-text">Medi<span class="mf-brand-black">Finder</span><span class="mf-brand-india">India</span></span>
+        </a>
+        <nav class="mf-nav-desktop">
+            <a onclick="showView('home');return false;">Home</a>
+            <a onclick="goHomeThenScroll('demo');return false;">Features</a>
+            <a onclick="openInfo('about');return false;">About</a>
+        </nav>
+        <div class="mf-header-actions">
+            <button type="button" class="btn btn-outline mf-login-btn" onclick="showView('login')">Log In</button>
+            <button type="button" class="btn btn-primary mf-signup-btn-desktop" onclick="showView('signup')">Sign Up</button>
+            <button type="button" class="mf-menu-toggle" id="mfMenuToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </div>
+    <div class="mf-mobile-menu" id="mfMobileMenu">
+        <a onclick="showView('home');closeMobileMenu();return false;">Home</a>
+        <a onclick="goHomeThenScroll('demo');closeMobileMenu();return false;">Features</a>
+        <a onclick="openInfo('about');closeMobileMenu();return false;">About</a>
+        <button type="button" class="btn btn-primary" onclick="showView('signup');closeMobileMenu();" style="width:100%;margin-top:8px;">Sign Up</button>
+    </div>
+</header>
+
+<!-- ==========================================
+     VIEW: HOME (landing page)
+     ========================================== -->
+<div id="view-home">
+<div class="top-strip"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</div>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+    <span class="hero-badge"><span class="dot"></span> India's Trusted Medicine Delivery Platform</span>
+    <h1>Medicine, delivered in <span>20 minutes</span>.<br>Order, Sell, or Deliver — your choice.</h1>
+    <p class="sub">MediFinder connects you with verified pharmacies, trusted merchants, and reliable delivery partners — all on one platform. Browse the demo below, then sign up in seconds.</p>
+    <div class="hero-ctas">
+        <a href="#" onclick="showView('signup');return false;" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Get Started Free</a>
+        <a href="#demo" class="btn btn-outline"><i class="fa-solid fa-eye"></i> See How It Works</a>
+    </div>
+    <div class="trust-row">
+        <div class="trust-item"><i class="fa-solid fa-shield-halved"></i><span>Licensed Pharmacies</span></div>
+        <div class="trust-item"><i class="fa-solid fa-bolt"></i><span>20 Min Delivery</span></div>
+        <div class="trust-item"><i class="fa-solid fa-lock"></i><span>Secure Payments</span></div>
+        <div class="trust-item"><i class="fa-solid fa-headset"></i><span>24/7 Support</span></div>
+    </div>
+</section>
+
+<!-- ===== DEMO SECTION ===== -->
+<section class="demo-section" id="demo">
+    <div class="demo-heading">
+        <h2>One Platform, Three Ways to Join</h2>
+        <p>Tap a tab to preview what each experience looks like inside MediFinder.</p>
+    </div>
+
+    <div class="role-tabs">
+        <button class="role-tab active" data-role="user" onclick="switchDemo('user')"><i class="fa-solid fa-user"></i> Order Medicine</button>
+        <button class="role-tab" data-role="merchant" onclick="switchDemo('merchant')"><i class="fa-solid fa-store"></i> Sell as Merchant</button>
+        <button class="role-tab" data-role="delivery" onclick="switchDemo('delivery')"><i class="fa-solid fa-truck"></i> Deliver &amp; Earn</button>
+    </div>
+
+    <div class="demo-stage">
+        <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+
+                <!-- USER PANEL PREVIEW -->
+                <div class="demo-panel active" id="panel-user">
+                    <div class="mock-strip">⚡ DELIVERY IN 20+ MINUTES &nbsp; 🛡️ 100% GENUINE MEDICINES</div>
+                    <div class="mock-user-header">
+                        <div class="mlogo"><i class="fa-solid fa-capsules"></i> MEDIFINDER</div>
+                        <div class="micons"><i class="fa-solid fa-bell"></i><i class="fa-solid fa-cart-shopping"></i></div>
+                    </div>
+                    <div class="mock-search"><i class="fa-solid fa-magnifying-glass"></i> Search medicines, health products…</div>
+                    <div class="mock-cats">
+                        <div class="mock-cat"><div class="ic"><i class="fa-solid fa-pills"></i></div><span>Tablets</span></div>
+                        <div class="mock-cat"><div class="ic"><i class="fa-solid fa-syringe"></i></div><span>Injection</span></div>
+                        <div class="mock-cat"><div class="ic"><i class="fa-solid fa-baby"></i></div><span>Baby Care</span></div>
+                        <div class="mock-cat"><div class="ic"><i class="fa-solid fa-stethoscope"></i></div><span>Devices</span></div>
+                    </div>
+                    <div class="mock-grid">
+                        <div class="mock-prod"><div class="pimg"><i class="fa-solid fa-prescription-bottle-medical"></i></div><div class="pname">Paracetamol 500mg</div><div class="pmeta"><span class="pprice">₹28</span><span class="padd">+</span></div></div>
+                        <div class="mock-prod"><div class="pimg"><i class="fa-solid fa-prescription-bottle-medical"></i></div><div class="pname">Vitamin C Tabs</div><div class="pmeta"><span class="pprice">₹95</span><span class="padd">+</span></div></div>
+                        <div class="mock-prod"><div class="pimg"><i class="fa-solid fa-prescription-bottle-medical"></i></div><div class="pname">Cough Syrup</div><div class="pmeta"><span class="pprice">₹62</span><span class="padd">+</span></div></div>
+                        <div class="mock-prod"><div class="pimg"><i class="fa-solid fa-prescription-bottle-medical"></i></div><div class="pname">BP Monitor</div><div class="pmeta"><span class="pprice">₹899</span><span class="padd">+</span></div></div>
+                    </div>
+                    <div class="mock-navbtm">
+                        <i class="fa-solid fa-house on"></i><i class="fa-solid fa-list"></i><i class="fa-solid fa-cart-shopping"></i><i class="fa-solid fa-user"></i>
+                    </div>
+                </div>
+
+                <!-- MERCHANT PANEL PREVIEW -->
+                <div class="demo-panel" id="panel-merchant">
+                    <div class="mock-m-header">
+                        <div class="mlogo"><i class="fa-solid fa-store"></i> MEDIFINDER</div>
+                        <i class="fa-solid fa-bell" style="color:#a0aec0;font-size:0.8rem;"></i>
+                    </div>
+                    <div class="mock-m-filter">
+                        <div class="mock-m-search"><i class="fa-solid fa-magnifying-glass"></i> Search inventory…</div>
+                        <div class="mock-m-add"><i class="fa-solid fa-plus"></i></div>
+                    </div>
+                    <div class="mock-m-list">
+                        <div class="mock-m-card"><div class="mimg"><i class="fa-solid fa-pills"></i></div><div class="minfo"><div class="mname">Paracetamol 500mg</div><span class="mstock">IN STOCK</span></div><div class="mprice">₹28</div></div>
+                        <div class="mock-m-card"><div class="mimg"><i class="fa-solid fa-pills"></i></div><div class="minfo"><div class="mname">Amoxicillin 250mg</div><span class="mstock">IN STOCK</span></div><div class="mprice">₹120</div></div>
+                        <div class="mock-m-card"><div class="mimg"><i class="fa-solid fa-pills"></i></div><div class="minfo"><div class="mname">ORS Powder</div><span class="mstock">IN STOCK</span></div><div class="mprice">₹18</div></div>
+                        <div class="mock-m-card"><div class="mimg"><i class="fa-solid fa-pills"></i></div><div class="minfo"><div class="mname">Digital Thermometer</div><span class="mstock">IN STOCK</span></div><div class="mprice">₹149</div></div>
+                    </div>
+                </div>
+
+                <!-- RIDER PANEL PREVIEW -->
+                <div class="demo-panel" id="panel-delivery">
+                    <div class="mock-r-header">
+                        <div class="mlogo"><i class="fa-solid fa-truck-fast"></i> MEDIFINDER</div>
+                        <div class="mock-r-duty">● ON DUTY</div>
+                    </div>
+                    <div class="mock-r-body">
+                        <div class="mock-r-title"><span>Available Orders</span><span class="mock-r-live">● Live</span></div>
+                        <div class="mock-r-card">
+                            <div class="rtop"><span>#ORD-4821</span><span style="color:var(--green);font-weight:700;">₹45</span></div>
+                            <div class="mock-r-flow"><span class="dotpin p"></span> Apollo Pharmacy, MG Road</div>
+                            <div class="mock-r-flow"><span class="dotpin d"></span> Rahul S., Park Street</div>
+                            <div class="mock-r-btn">ACCEPT ORDER</div>
+                        </div>
+                        <div class="mock-r-card">
+                            <div class="rtop"><span>#ORD-4822</span><span style="color:var(--green);font-weight:700;">₹38</span></div>
+                            <div class="mock-r-flow"><span class="dotpin p"></span> City Medicals, Sector 5</div>
+                            <div class="mock-r-flow"><span class="dotpin d"></span> Priya M., Lake View</div>
+                            <div class="mock-r-btn">ACCEPT ORDER</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="demo-info">
+            <div id="info-user">
+                <h3>Order medicines <span>in minutes</span></h3>
+                <p>Search thousands of medicines and health essentials from verified pharmacies near you, upload your prescription, and track your order live — right to your doorstep.</p>
+                <ul class="demo-feats">
+                    <li><i class="fa-solid fa-circle-check"></i> Search & order genuine medicines instantly</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Upload prescription in one tap</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Live order tracking with real-time ETA</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Lab tests & home nurse booking</li>
+                </ul>
+            </div>
+            <div id="info-merchant" style="display:none;">
+                <h3>Grow your pharmacy <span>online</span></h3>
+                <p>List your inventory, manage stock and orders in real time, and reach customers in your area — no technical knowledge needed.</p>
+                <ul class="demo-feats">
+                    <li><i class="fa-solid fa-circle-check"></i> Add & manage your medicine catalog</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Real-time order notifications</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Sponsored listings to boost sales</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Simple payouts & sales dashboard</li>
+                </ul>
+            </div>
+            <div id="info-delivery" style="display:none;">
+                <h3>Deliver orders, <span>earn on your time</span></h3>
+                <p>Go on duty whenever you want, accept nearby orders, and get paid for every delivery — full flexibility, real earnings.</p>
+                <ul class="demo-feats">
+                    <li><i class="fa-solid fa-circle-check"></i> Flexible On Duty / Off Duty toggle</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Live map & optimized delivery route</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Transparent per-order earnings</li>
+                    <li><i class="fa-solid fa-circle-check"></i> Daily payouts to your account</li>
+                </ul>
+            </div>
+            <div class="demo-note"><i class="fa-solid fa-circle-info"></i> This is a preview — sign up to unlock the real experience.</div>
+            <br>
+            <a href="#" onclick="showView('signup');return false;" class="btn btn-primary"><i class="fa-solid fa-arrow-right"></i> Continue to Sign Up</a>
+        </div>
+    </div>
+</section>
+
+<!-- ===== WHY US ===== -->
+<section class="why-section">
+    <div class="why-grid">
+        <div class="why-item"><i class="fa-solid fa-certificate"></i><h4>Verified Pharmacies</h4><p>Every merchant on MediFinder is license-verified before going live.</p></div>
+        <div class="why-item"><i class="fa-solid fa-bolt"></i><h4>20 Minute Delivery</h4><p>Nearby orders reach your doorstep in as little as 20 minutes.</p></div>
+        <div class="why-item"><i class="fa-solid fa-lock"></i><h4>Secure Payments</h4><p>Pay safely with card, UPI, or cash on delivery.</p></div>
+        <div class="why-item"><i class="fa-solid fa-headset"></i><h4>24/7 Help Desk</h4><p>Our support team is here for you, any time of day.</p></div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="brand-text">MEDI<span>FINDER</span></span>
+            <p>India's trusted platform for medicine delivery, pharmacy partnerships, and delivery earning opportunities — all in one place.</p>
+            <div class="footer-social">
+                <a href="#" target="_blank" rel="noopener" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                <a href="#" target="_blank" rel="noopener" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" target="_blank" rel="noopener" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                <a href="#" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+            </div>
+        </div>
+        <div class="footer-col">
+            <h5>Company</h5>
+            <ul>
+                <li><button onclick="openInfo('about')">About Us</button></li>
+                <li><button onclick="openInfo('grievance')">Grievance Redressal</button></li>
+                <li><button onclick="openInfo('contact')">Contact Us</button></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h5>Legal</h5>
+            <ul>
+                <li><a href="usert&c.html" target="_blank">Terms &amp; Conditions</a></li>
+                <li><button onclick="openInfo('privacy')">Privacy Policy</button></li>
+                <li><button onclick="openInfo('refund')">Refund &amp; Cancellation</button></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h5>Support</h5>
+            <ul>
+                <li><button onclick="openInfo('faq')">FAQ</button></li>
+                <li><a href="#" onclick="showView('signup');return false;">Become a Merchant</a></li>
+                <li><a href="#" onclick="showView('signup');return false;">Become a Rider</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">&copy; <span id="ftYear"></span> MediFinder. All rights reserved.</div>
+</footer>
+
+<!-- ===== INFO MODAL ===== -->
+<div class="info-modal-overlay" id="infoModalOverlay" onclick="if(event.target===this) closeInfo()">
+    <div class="info-modal">
+        <button class="close-modal" onclick="closeInfo()"><i class="fa-solid fa-xmark"></i></button>
+        <div id="infoModalBody"></div>
+    </div>
+</div>
+
+<script>
+function switchDemo(role){
+    document.querySelectorAll('.role-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.role === role); });
+    document.querySelectorAll('.demo-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('panel-' + role).classList.add('active');
+    ['user','merchant','delivery'].forEach(function(r){
+        document.getElementById('info-' + r).style.display = (r === role) ? 'block' : 'none';
+    });
+}
+
+var infoContent = {
+    about: {
+        title: 'About Us',
+        html: '<p><strong>MediFinder</strong> is a medicine delivery and pharmacy platform connecting customers, licensed pharmacies, and delivery partners in one place.</p><p>Our mission is to make genuine medicines and healthcare essentials accessible within minutes, while giving local pharmacies and delivery partners a reliable way to grow and earn.</p>'
+    },
+    grievance: {
+        title: 'Grievance Redressal',
+        html: '<p>If you have a complaint or concern about an order, a merchant, or a delivery partner, please reach out to our Grievance Officer:</p><p><strong>Email:</strong> support@medifinderindia.com<br><strong>Response Time:</strong> Within 48 hours of receiving your complaint.</p>'
+    },
+    contact: {
+        title: 'Contact Us',
+        html: '<p><strong>Helpline:</strong> Available on the app after sign up.<br><strong>Email:</strong> support@medifinderindia.com<br><strong>Hours:</strong> 24/7 support desk.</p>'
+    },
+    privacy: {
+        title: 'Privacy Policy',
+        html: '<p>We collect only the information needed to process your orders, deliveries, and account — such as your name, contact details, address, and order history.</p><p>Your data is never sold to third parties. Full details are available in our Terms &amp; Conditions.</p>'
+    },
+    refund: {
+        title: 'Refund & Cancellation',
+        html: '<p>Orders can be cancelled before they are accepted by the pharmacy for a full refund. Once out for delivery, cancellations are handled case-by-case by our support team.</p><p>Refunds for eligible cancellations are processed within 5-7 business days.</p>'
+    },
+    faq: {
+        title: 'Frequently Asked Questions',
+        html:
+            '<details class="faq-item" open><summary>How fast is delivery?</summary><p>Most orders near a partnered pharmacy are delivered within 20-40 minutes.</p></details>'
+          + '<details class="faq-item"><summary>Do I need a prescription?</summary><p>Prescription medicines require you to upload a valid prescription during checkout.</p></details>'
+          + '<details class="faq-item"><summary>How do I become a merchant or rider?</summary><p>Tap Sign Up, choose Merchant or Delivery as your role, and complete verification.</p></details>'
+          + '<details class="faq-item"><summary>What payment methods are supported?</summary><p>Card, UPI, and Cash on Delivery, depending on your area.</p></details>'
+    }
+};
+
+function openInfo(key){
+    var item = infoContent[key];
+    if (!item) return;
+    document.getElementById('infoModalBody').innerHTML = '<h3>' + item.title + '</h3>' + item.html;
+    document.getElementById('infoModalOverlay').classList.add('open');
+}
+function closeInfo(){
+    document.getElementById('infoModalOverlay').classList.remove('open');
+}
+document.getElementById('ftYear').textContent = new Date().getFullYear();
+</script>
+
+</div>
+
+<!-- ==========================================
+     VIEW: LOGIN (from former Login.html — same IDs,
+     same events, same Supabase logic; just panel-toggled)
+     ========================================== -->
+<div id="view-login">
+    <div class="auth-container">
+        <div class="logo-wrapper">
+            <div class="logo-circle">
+                <img src="1779304435608.png" alt="Medifinder Premium Logo">
+            </div>
+        </div>
+
+        <div class="auth-box">
+            <a href="#" onclick="showView('home');return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Log in to your Medifinder profile.</p>
+
+            <form id="login-form">
+                <label class="section-label">Select Your Role</label>
+                <div class="role-container">
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="user" checked>
+                        <div class="role-content">
+                            <div class="role-icon-circle user-role"><i class="fa-solid fa-user"></i></div>
+                            <span>User</span>
+                            <small>Order Medicines</small>
+                        </div>
+                    </label>
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="merchant">
+                        <div class="role-content">
+                            <div class="role-icon-circle merchant-role"><i class="fa-solid fa-store"></i></div>
+                            <span>Merchant</span>
+                            <small>Manage Shop</small>
+                        </div>
+                    </label>
+                    <label class="role-card">
+                        <input type="radio" name="login-role" value="delivery">
+                        <div class="role-content">
+                            <div class="role-icon-circle delivery-role"><i class="fa-solid fa-truck"></i></div>
+                            <span>Delivery</span>
+                            <small>Deliver Orders</small>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="login-email" placeholder="Email Address" required>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-lock input-icon"></i>
+                    <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+                </div>
+
+                <div style="text-align: right; margin-bottom: 15px;">
+                    <a href="#" id="forgot-password-link" style="color: #ff4747; text-decoration: none; font-size: 0.85rem;">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn-premium">Log In</button>
+            </form>
+
+            <div class="divider"><span>Or Connect With</span></div>
+
+            <div class="social-group">
+                <button type="button" class="btn-social btn-google" id="google-btn">
+                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
+                </button>
+                <button type="button" class="btn-social btn-phone" id="phone-auth-toggle">
+                    <i class="fa-solid fa-phone"></i> Phone 
+                </button>
+            </div>
+
+            <div id="phone-section" class="hidden-section">
+                <div class="input-group" style="margin-top: 15px;">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="phone-number" placeholder="+919593XXXXXX">
+                </div>
+                <button type="button" class="btn-premium secondary" id="send-otp-btn">Send OTP</button>
+
+                <div class="input-group otp-input-group hidden-section" id="otp-input-wrapper" style="margin-top: 15px;">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="text" id="otp-code" placeholder="Enter 6-Digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+                    <button type="button" class="btn-premium" id="verify-otp-btn"><i class="fas fa-check-circle"></i> Verify & Login</button>
+                </div>
+                <div id="login-otp-timer" style="text-align:center; font-size:13px; color:#888; margin-top:8px; display:none;"></div>
+                <a href="#" id="login-resend-otp" style="display:none; text-align:center; font-size:13px; color:#e02020; text-decoration:underline; cursor:pointer; margin-top:4px;">Resend OTP</a>
+            </div>
+
+            <p class="toggle-text">Don't have an account? <a href="#" onclick="showView('signup');return false;">Create Account</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     VIEW: SIGNUP (from former signup.html — same IDs,
+     same events, same Supabase logic; just panel-toggled)
+     ========================================== -->
+<div id="view-signup">
+    <div class="auth-container">
+        <div class="logo-wrapper">
+            <div class="logo-circle">
+                <img src="1779304435608.png" alt="Medifinder Premium Logo">
+            </div>
+        </div>
+
+        <div class="auth-box">
+            <a href="#" onclick="showView('home');return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+            <h2>Create Account</h2>
+            <p class="subtitle">Join Medifinder to search, connect, and care.</p>
+
+            <label class="section-label">Register As</label>
+            <div class="role-container">
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="user" checked>
+                    <div class="role-content"><i class="fa-solid fa-user"></i><span>User</span></div>
+                </label>
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="merchant">
+                    <div class="role-content"><i class="fa-solid fa-store"></i><span>Merchant</span></div>
+                </label>
+                <label class="role-card">
+                    <input type="radio" name="signup-role" value="delivery">
+                    <div class="role-content"><i class="fa-solid fa-truck"></i><span>Delivery</span></div>
+                </label>
+            </div>
+
+            <!-- dynamically updated link and terms policy wrapper -->
+            <div class="policy-wrapper" style="margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; text-align: left;">
+                <input type="checkbox" id="policy-agree-checkbox" style="margin-top: 4px; transform: scale(1.2); cursor: pointer;">
+                <label for="policy-agree-checkbox" style="font-size: 13px; color: var(--text-main); cursor: pointer; line-height: 1.4;">
+                    I agree to the <a id="dynamic-policy-link" href="usert&c.html" target="_blank" style="color: var(--primary-color); font-weight: 600; text-decoration: none;">User Policy</a>, Terms & Conditions, and Privacy Policy.
+                </label>
+            </div>
+
+            <form id="signup-form">
+                <div class="input-group">
+                    <i class="fa-solid fa-user input-icon"></i>
+                    <input type="text" id="signup-name" placeholder="Full Name" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="signup-email" placeholder="Email Address" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="phone" id="signup-phone" placeholder="Phone" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                    <input type="password" id="signup-password" placeholder="Password" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                    <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                </div>
+
+                <div class="referral-section">
+                    <div class="input-group referral-group">
+                        <i class="fa-solid fa-gift input-icon"></i>
+                        <input type="text" id="referral-code" placeholder="Referral Code (Optional)">
+                        <button type="button" id="verify-referral-btn" class="btn-verify">Verify</button>
+                    </div>
+                    <span id="referral-msg" class="referral-message"></span>
+                </div>
+
+                <button type="submit" class="btn-premium">Sign Up with Email</button>
+            </form>
+
+            <div class="divider"><span>Or Register With</span></div>
+
+            <div class="social-group">
+                <button type="button" class="btn-social btn-google" id="google-signup-btn">
+                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
+                </button>
+                <button type="button" class="btn-social btn-phone" id="phone-signup-toggle">
+                    <i class="fa-solid fa-phone"></i> Phone 
+                </button>
+            </div>
+
+            <div id="phone-signup-section" class="hidden-section">
+                <p class="subtitle" style="margin-bottom: 10px; margin-top:15px;">Enter phone with country code to get OTP.</p>
+                
+                <div class="input-group">
+                    <i class="fa-solid fa-user input-icon"></i>
+                    <input type="text" id="otp-name" placeholder="Your Full Name">
+                </div>
+                
+                <div class="input-group">
+                    <i class="fa-solid fa-phone input-icon"></i>
+                    <input type="tel" id="phone-signup-number" placeholder="+9195936XXXXX">
+                </div>
+                <button type="button" class="btn-premium secondary" id="send-signup-otp-btn">Send Verification OTP</button>
+
+                <div class="input-group otp-input-group hidden-section" id="signup-otp-wrapper" style="margin-top: 15px;">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="text" id="signup-otp-code" placeholder="Enter 6-Digit OTP">
+                    
+                    <div class="otp-timer-container" style="display: flex; justify-content: space-between; font-size: 0.85rem; margin: 8px 0; padding: 0 5px; width:100%;">
+                        <span id="otp-timer-text" style="color: #666;">Resend available in: <b id="countdown-timer">60</b>s</span>
+                        <a href="#" id="resend-otp-link" style="color: #ff4747; text-decoration: none; display: none; font-weight: bold;">Resend OTP</a>
+                    </div>
+
+                    <button type="button" class="btn-premium" id="verify-signup-otp-btn">Verify & Create Account</button>
+                </div>
+            </div>
+
+            <p class="toggle-text">Already have an account? <a href="#" onclick="showView('login');return false;">Log In</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- Forgot Password modal + Admin verification modal (from former Login.html, unchanged) -->
+<div id="forgot-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
+        <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
+            <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-unlock-keyhole"></i> Reset Password</h3>
+                <button type="button" id="close-forgot-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div class="admin-step">
+                <p class="step-desc" style="font-size: 0.9rem; color: #555; margin-bottom: 15px;">Enter your registered email to receive a password reset link.</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <input type="email" id="reset-email" placeholder="Your Email Address" style="width: 100%;">
+                </div>
+                <button type="button" class="btn-premium" id="send-reset-link-btn" style="margin-top: 15px; width: 100%;">Send Reset Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
+        <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
+            <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-shield-halved"></i> Admin Verification</h3>
+                <button type="button" id="close-admin-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <div id="admin-step-1" class="admin-step">
+                <p class="step-desc">Step 1: Enter Secure Admin Password</p>
+                <form onsubmit="return false">
+                <div class="input-group">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="password" id="admin-password" placeholder="Enter Security Password" autocomplete="current-password">
+                </div>
+                </form>
+                <button type="button" class="btn-premium" id="admin-btn-step-1" style="margin-top: 10px; width: 100%;">Verify Password</button>
+            </div>
+
+            <div id="admin-step-2" class="admin-step hidden-section">
+                <p class="step-desc">Step 2: Enter OTP sent to Admin Email</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope-circle-check input-icon"></i>
+                    <input type="text" id="admin-email-otp" placeholder="Enter 6-Digit Email OTP">
+                </div>
+                <button type="button" class="btn-premium" id="admin-btn-step-2" style="margin-top: 10px; width: 100%;">Verify Email OTP</button>
+            </div>
+
+            <div id="admin-step-3" class="admin-step hidden-section">
+                <p class="step-desc">Step 3: Enter OTP sent to Admin Phone</p>
+                <div class="input-group">
+                    <i class="fa-solid fa-comment-sms input-icon"></i>
+                    <input type="text" id="admin-phone-otp" placeholder="Enter 6-Digit Phone OTP">
+                </div>
+                <button type="button" class="btn-premium" id="admin-btn-step-3" style="margin-top: 10px; width: 100%;">Finalize & Login</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ==========================================
+// SPA VIEW SWITCHER (Home / Login / Signup)
+// Additive only — does not touch any Supabase/auth logic in supabase-config.js.
+// ==========================================
+function showView(view){
+    ['home','login','signup'].forEach(function(v){
+        var el = document.getElementById('view-' + v);
+        if (el) el.style.display = (v === view) ? '' : 'none';
+    });
+    closeMobileMenu();
+    try {
+        var url = window.location.pathname + (view === 'home' ? '' : ('?panel=' + view));
+        history.replaceState(null, '', url);
+    } catch (e) {}
+    window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function goHomeThenScroll(sectionId){
+    showView('home');
+    setTimeout(function(){
+        var el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 60);
+}
+
+function closeMobileMenu(){
+    var m = document.getElementById('mfMobileMenu');
+    if (m) m.classList.remove('open');
+}
+
+var mfMenuToggle = document.getElementById('mfMenuToggle');
+if (mfMenuToggle) {
+    mfMenuToggle.addEventListener('click', function(){
+        var m = document.getElementById('mfMobileMenu');
+        if (m) m.classList.toggle('open');
+    });
+}
+
+// Initial view: honors ?panel=login|signup (used by the password-recovery
+// redirect in supabase-config.js), otherwise shows Home. This runs before
+// supabase-config.js so its own onAuthStateChange-driven redirects (for an
+// already-logged-in user landing here) still take over afterwards.
+(function(){
+    try {
+        var params = new URLSearchParams(window.location.search);
+        var panel = params.get('panel');
+        if (panel === 'login' || panel === 'signup') {
+            showView(panel);
+        } else {
+            showView('home');
+        }
+    } catch (e) {
+        showView('home');
+    }
+})();
+</script>
+
+<script src="prod-utils.js?v=14"></script>
+<script src="supabase-config.js?v=14"></script>
+</body>
+</html>

@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#e02020">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>MediFinder - Returns & Refunds</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -269,12 +270,12 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
 
   <div id="returnsTab">
     <div class="tabs" id="statusTabs" style="margin-bottom:12px">
-      <button class="tab active" onclick="filterByStatus('all')">All<span class="count" id="allCount">0</span></button>
-      <button class="tab" onclick="filterByStatus('pending')">Pending<span class="count" id="pendingCount">0</span></button>
-      <button class="tab" onclick="filterByStatus('approved')">Approved<span class="count" id="approvedCount">0</span></button>
-      <button class="tab" onclick="filterByStatus('rejected')">Rejected<span class="count" id="rejectedCount">0</span></button>
-      <button class="tab" onclick="filterByStatus('refunded')">Refunded<span class="count" id="refundedCount">0</span></button>
-      <button class="tab" onclick="filterByStatus('completed')">Completed<span class="count" id="completedCount">0</span></button>
+      <button class="tab active" onclick="filterByStatus('all',this)">All<span class="count" id="allCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('pending',this)">Pending<span class="count" id="pendingCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('approved',this)">Approved<span class="count" id="approvedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('rejected',this)">Rejected<span class="count" id="rejectedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('refunded',this)">Refunded<span class="count" id="refundedCount">0</span></button>
+      <button class="tab" onclick="filterByStatus('completed',this)">Completed<span class="count" id="completedCount">0</span></button>
     </div>
 
     <div class="search-filter">
@@ -304,7 +305,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
           <i class="fas fa-calendar"></i>Date Range
         </button>
       </div>
-      <div id="dateFilterRow" style="display:none;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <div id="dateFilterRow" style="display:none;margin-top:10px;gap:8px;flex-wrap:wrap">
         <input type="date" id="dateFrom" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;outline:none" onchange="applyFilters()">
         <span style="align-self:center;color:var(--text3);font-size:12px">to</span>
         <input type="date" id="dateTo" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;outline:none" onchange="applyFilters()">
@@ -598,29 +599,65 @@ function generateDemoReturns(){
 
 async function loadReturns(){
   showLoading();
-  if(supabase){
-    try{
-      merchantId = localStorage.getItem('merchantId') || localStorage.getItem('merchant_id') || merchantId;
-      let query = supabase.from('returns').select('*').order('date_requested',{ascending:false});
-      if(merchantId) query = query.eq('merchant_id', merchantId);
-      const{data,error}=await query;
-      if(error)throw error;
-      allReturns=data||[];
-    }catch(e){
-      allReturns=[];
-      showToast('Could not load returns. Please try again.','error');
-    }
-  }else{
-    allReturns=[];
+  if(!supabase){
+    allReturns=[]; filteredReturns=[];
     showToast('Database not connected.','error');
+  }else{
+    try{
+      merchantId=localStorage.getItem('merchantId')||localStorage.getItem('merchant_id')||merchantId;
+      const {data:{session}}=await supabase.auth.getSession();
+      const wanted=String(merchantId||session?.user?.id||'');
+
+      // First use the merchant filter. If PostgREST rejects it (HTTP 400),
+      // retry without order/filter and safely match merchant fields locally.
+      let res=await supabase.from('returns').select('*').eq('merchant_id',wanted);
+      let data=res.data||[];
+
+      if(res.error){
+        const fallback=await supabase.from('returns').select('*');
+        if(fallback.error) throw fallback.error;
+        data=(fallback.data||[]).filter(r=>{
+          const vals=[r.merchant_id,r.merchantId,r.store_id,r.storeId,r.merchant]
+            .filter(v=>v!==undefined&&v!==null).map(String);
+          return vals.includes(wanted);
+        });
+      }
+
+      data.sort((a,b)=>{
+        const da=new Date(a.date_requested||a.created_at||0).getTime();
+        const db=new Date(b.date_requested||b.created_at||0).getTime();
+        return db-da;
+      });
+
+      allReturns=data.map(normalizeReturn);
+    }catch(err){
+      console.error('Returns load error:',err);
+      allReturns=[];
+      showToast('Could not load returns: '+(err.message||'database error'),'error');
+    }
   }
+
   filteredReturns=[...allReturns];
-  updateCounts();
-  renderReturns();
-  loadAnalytics();
-  loadPolicy();
-  loadRefunds();
-  setupRealtime();
+  updateCounts(); renderReturns(); loadAnalytics(); loadPolicy(); loadRefunds(); setupRealtime();
+}
+
+function normalizeReturn(r){
+  return {
+    ...r,
+    id:r.id??r.return_id??'',
+    order_id:r.order_id??r.orderId??'',
+    customer_name:r.customer_name??r.customerName??r.user_name??'Customer',
+    product_name:r.product_name??r.productName??r.medicine_name??'Medicine',
+    product_image:r.product_image??r.productImage??r.image_url??null,
+    reason:r.reason??r.return_reason??'other',
+    reason_label:r.reason_label??r.reasonLabel??r.return_reason??'Return Request',
+    description:r.description??r.note??'',
+    amount:Number(r.amount??r.refund_amount??r.refundAmount??r.total_amount??r.total??0)||0,
+    status:String(r.status??'pending').toLowerCase(),
+    date_requested:r.date_requested??r.created_at??new Date().toISOString(),
+    photos:Array.isArray(r.photos)?r.photos:[],
+    timeline:Array.isArray(r.timeline)?r.timeline:[]
+  };
 }
 
 function showLoading(){
@@ -639,10 +676,10 @@ function updateCounts(){
   document.getElementById('refundCount').textContent=pendingRefunds;
 }
 
-function filterByStatus(status){
+function filterByStatus(status,button){
   currentFilter=status;
   document.querySelectorAll('#statusTabs .tab').forEach(t=>t.classList.remove('active'));
-  event.target.closest('.tab').classList.add('active');
+  if(button) button.classList.add('active');
   applyFilters();
 }
 
@@ -1024,11 +1061,12 @@ function savePolicy(){
 
 function switchTab(tab){
   document.querySelectorAll('#mainTabs .tab').forEach(t=>t.classList.remove('active'));
-  document.querySelector(`#mainTabs .tab[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById('returnsTab').style.display=tab==='returns'?'block':'none';
-  document.getElementById('refundsTab').style.display=tab==='refunds'?'block':'none';
-  document.getElementById('analyticsTab').style.display=tab==='analytics'?'block':'none';
-  document.getElementById('policyTab').style.display=tab==='policy'?'block':'none';
+  const btn=document.querySelector(`#mainTabs .tab[data-tab="${tab}"]`);
+  if(btn) btn.classList.add('active');
+  ['returns','refunds','analytics','policy'].forEach(name=>{
+    const el=document.getElementById(name+'Tab');
+    if(el) el.style.display=(name===tab?'block':'none');
+  });
 }
 
 function toggleSidebar(){
@@ -1056,13 +1094,12 @@ function showToast(msg,type='info'){
   setTimeout(()=>toast.classList.remove('show'),3000);
 }
 
+let returnsRealtimeChannel=null;
 function setupRealtime(){
-  if(!supabase)return;
-  try{
-    supabase.channel('returns-realtime').on('postgres_changes',{event:'*',schema:'public',table:'returns'},payload=>{
-      loadReturns();
-    }).subscribe();
-  }catch(e){/* error */}
+  if(!supabase||returnsRealtimeChannel)return;
+  returnsRealtimeChannel=supabase.channel('returns-realtime')
+    .on('postgres_changes',{event:'*',schema:'public',table:'returns'},()=>loadReturns())
+    .subscribe(status=>console.log('Returns realtime:',status));
 }
 
 function handleLogout(){

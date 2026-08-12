@@ -27,6 +27,10 @@
                     <img src="1779304435608.png" alt="Logo">
                     <h1>MEDI <span class="highlight">FINDER</span></h1>
                 </div>
+                <select id="pageLangSwitch" style="margin-left:auto;border-radius:8px;border:1px solid #e2e8f0;padding:6px 8px;font-weight:600;font-size:13px;background:#fff;color:#333;" onchange="localStorage.setItem('terminalLanguage', this.value); if (typeof applyFullWebLanguage === 'function') applyFullWebLanguage(this.value);">
+                    <option value="en">EN</option>
+                    <option value="bn">বাং</option>
+                </select>
             </header>
 
             <section class="content-body">
@@ -43,58 +47,59 @@
                         
                         <div class="step-panel active" id="step-panel-1">
                             <div class="form-group">
-                                <label class="section-label">Product Type</label>
+                                <label class="section-label" data-i18n="productType">Product Type</label>
                                 <div class="type-toggle" id="typeToggle">
                                     <label class="type-option active" id="typeOptMedicine">
                                         <input type="radio" name="productType" value="Medicine" checked onchange="setProductType('Medicine')">
                                         <img class="type-option-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqv__jPWa1t-hMeuPz_gBmV12Of-L3D7qqbpjIHT1FfA&s=10" alt="Medicine">
-                                        <span>Medicine</span>
+                                        <span data-i18n="medicine">Medicine</span>
                                     </label>
                                     <label class="type-option" id="typeOptInstrument">
                                         <input type="radio" name="productType" value="Instrument" onchange="setProductType('Instrument')">
                                         <img class="type-option-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtGsIAKigwJLLw1fFyaA6e90TbDSOBegPwLlYDg9Rq1Q&s=10" alt="Instrument">
-                                        <span>Instrument</span>
+                                        <span data-i18n="instrument">Instrument</span>
                                     </label>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label class="section-label">Product Images (Upload up to 4 Photos)</label>
+                                <label class="section-label" data-i18n="productImages">Product Images (Upload up to 4 Photos)</label>
                                 <div class="image-upload-grid">
                                     <div class="upload-box main-box" onclick="document.getElementById('fileInput1').click()">
                                         <i class="fa-solid fa-camera-retro"></i>
-                                        <p>Main Photo</p>
+                                        <p data-i18n="mainPhoto">Main Photo</p>
                                         <img id="imagePreview1" alt="Preview 1">
                                         <input type="file" id="fileInput1" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview1')">
                                     </div>
                                     <div class="upload-box" onclick="document.getElementById('fileInput2').click()">
                                         <i class="fa-solid fa-plus"></i>
-                                        <p>Side / Back</p>
+                                        <p data-i18n="sideBack">Side / Back</p>
                                         <img id="imagePreview2" alt="Preview 2">
                                         <input type="file" id="fileInput2" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview2')">
                                     </div>
                                     <div class="upload-box" onclick="document.getElementById('fileInput3').click()">
                                         <i class="fa-solid fa-plus"></i>
-                                        <p>Composition</p>
+                                        <p data-i18n="compositionPhoto">Composition</p>
                                         <img id="imagePreview3" alt="Preview 3">
                                         <input type="file" id="fileInput3" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview3')">
                                     </div>
                                     <div class="upload-box" onclick="document.getElementById('fileInput4').click()">
                                         <i class="fa-solid fa-plus"></i>
-                                        <p>Max Retail Price</p>
+                                        <p data-i18n="mrpPhoto">MRP / Price Photo</p>
                                         <img id="imagePreview4" alt="Preview 4">
                                         <input type="file" id="fileInput4" accept="image/*" style="display: none;" onchange="previewImage(this, 'imagePreview4')">
                                     </div>
                                 </div>
+                                <p class="upload-hint" data-i18n="mrpPhotoHelp" style="margin-top:6px;font-size:12px;color:#a0aec0;">Upload the package photo showing MRP</p>
                             </div>
 
                             <div class="form-group">
-                                <label>Product Name</label>
+                                <label data-i18n="productName">Product Name</label>
                                 <input type="text" id="prodName" placeholder="Enter medicine name (e.g., Napa Extend)" required>
                             </div>
 
                             <div class="form-group medicine-only" id="compositionGroup">
-                                <label>Composition / Salt Name</label>
+                                <label data-i18n="compositionSalt">Composition / Salt Name</label>
                                 <input type="text" id="composition" placeholder="e.g., Paracetamol 650mg + Caffeine 30mg">
                             </div>
                         </div>
@@ -102,66 +107,85 @@
                         <div class="step-panel" id="step-panel-2">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Category</label>
-                                    <select id="dosageForm" required></select>
+                                    <label data-i18n="category">Category</label>
+                                    <select id="dosageForm" required onchange="if (typeof updateCategoryFields === 'function') updateCategoryFields(this.value)"></select>
                                 </div>
-                                <div class="form-group medicine-only">
-                                    <label>Strength / Power</label>
+                                <div class="form-group medicine-only" id="strengthGroup">
+                                    <label id="strengthLabel" data-i18n="strengthPower">Strength / Power</label>
                                     <input type="text" id="strength" placeholder="e.g., 650mg, 100ml, 5gm">
+                                </div>
+                            </div>
+
+                            <div class="form-row medicine-only" id="strengthExtraRow" style="display:none;">
+                                <div class="form-group" id="strengthExtraGroup" style="display:none;">
+                                    <label id="strengthExtraLabel">Bottle Volume</label>
+                                    <input type="text" id="strengthExtra" placeholder="">
+                                </div>
+                                <div class="form-group" id="diaperSizeGroup" style="display:none;">
+                                    <label data-i18n="babyDiaperSize">Baby Diaper / Pampers Size</label>
+                                    <select id="diaperSize">
+                                        <option value="">--</option>
+                                        <option value="Newborn">Newborn</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                    </select>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Manufacturer Company Name</label>
+                                    <label data-i18n="manufacturer">Manufacturer Company Name</label>
                                     <input type="text" id="manufacturer" placeholder="e.g., Beximco Pharmaceuticals" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Brand Name</label>
+                                    <label data-i18n="brandName">Brand Name</label>
                                     <input type="text" id="brandName" placeholder="e.g., Napa">
                                 </div>
                             </div>
 
                             <div class="form-row medicine-only">
                                 <div class="form-group">
-                                    <label>Prescription Required?</label>
+                                    <label data-i18n="prescriptionReq">Prescription Required?</label>
                                     <select id="prescriptionReq">
                                         <option value="No">No (OTC Drug)</option>
                                         <option value="Yes">Yes (Rx Required)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Batch Number</label>
+                                    <label data-i18n="batchNumber">Batch Number</label>
                                     <input type="text" id="batchNumber" placeholder="Enter Batch No">
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label>Product Description</label>
+                                <label data-i18n="productDescription">Product Description</label>
                                 <textarea id="productDescription" rows="3" placeholder="Describe your product - uses, benefits, how to take, precautions..."></textarea>
                             </div>
 
                             <div class="form-row medicine-only">
                                 <div class="form-group">
-                                    <label>MFD (Month / Year)</label>
+                                    <label data-i18n="mfd">MFD (Month / Year)</label>
                                     <input type="month" id="mfdDate">
                                 </div>
                                 <div class="form-group">
-                                    <label>Expiry (Month / Year)</label>
+                                    <label data-i18n="expiry">Expiry (Month / Year)</label>
                                     <input type="month" id="expiryDate">
                                 </div>
                             </div>
 
                             <div class="form-row medicine-only">
                                 <div class="form-group">
-                                    <label>Lot Number <span style="color:#a0aec0;font-weight:400;">(Optional)</span></label>
+                                    <label data-i18n="lotNumber">Lot Number</label> <span style="color:#a0aec0;font-weight:400;">(Optional)</span>
                                     <input type="text" id="lotNumber" placeholder="Enter Lot No">
                                 </div>
                             </div>
 
                             <div class="form-row instrument-only">
                                 <div class="form-group">
-                                    <label>Warranty Period</label>
+                                    <label data-i18n="warrantyPeriod">Warranty Period</label>
                                     <select id="warrantyPeriod">
                                         <option value="No Warranty">No Warranty</option>
                                         <option value="3 Months">3 Months</option>
@@ -172,7 +196,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Model Number</label>
+                                    <label data-i18n="modelNumber">Model Number</label>
                                     <input type="text" id="modelNumber" placeholder="e.g., BP-A200 (Optional)">
                                 </div>
                             </div>
@@ -180,27 +204,27 @@
                             <!-- 🩺 ইনস্ট্রুমেন্ট-স্পেসিফিক ফিল্ড — কালার, টাইপ, ডিসপ্লে, ব্যাটারি, মেজারমেন্ট রেঞ্জ (শুধু Instrument সিলেক্ট করলে দেখাবে) -->
                             <div class="form-row instrument-only">
                                 <div class="form-group">
-                                    <label>Color</label>
+                                    <label data-i18n="color">Color</label>
                                     <input type="text" id="itemColor" placeholder="e.g., White, Black, Blue">
                                 </div>
                                 <div class="form-group">
-                                    <label>Type</label>
+                                    <label data-i18n="type">Type</label>
                                     <input type="text" id="deviceType" placeholder="e.g., Digital, Analog, Manual">
                                 </div>
                             </div>
                             <div class="form-row instrument-only">
                                 <div class="form-group">
-                                    <label>Display</label>
+                                    <label data-i18n="display">Display</label>
                                     <input type="text" id="displaySpec" placeholder="e.g., LCD Digital Display (Optional)">
                                 </div>
                                 <div class="form-group">
-                                    <label>Battery</label>
+                                    <label data-i18n="battery">Battery</label>
                                     <input type="text" id="batteryInfo" placeholder="e.g., 2 x AAA Battery / Rechargeable">
                                 </div>
                             </div>
                             <div class="form-row instrument-only">
                                 <div class="form-group">
-                                    <label>Measurement Range</label>
+                                    <label data-i18n="measurementRange">Measurement Range</label>
                                     <input type="text" id="measurementRange" placeholder="e.g., 0-300 mmHg (Optional)">
                                 </div>
                             </div>
@@ -209,18 +233,18 @@
                         <div class="step-panel" id="step-panel-3">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>MRP (Maximum Retail Price) INR</label>
+                                    <label data-i18n="mrp">MRP (Maximum Retail Price) INR</label>
                                     <input type="number" id="mrpPrice" step="0.01" placeholder="₹ 0.00" oninput="calcDiscount()">
                                 </div>
                                 <div class="form-group">
-                                    <label>Selling Price (INR)</label>
+                                    <label data-i18n="sellingPrice">Selling Price (INR)</label>
                                     <input type="number" id="unitPrice" step="0.01" placeholder="₹ 0.00" required oninput="calcDiscount()">
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Discount %</label>
+                                    <label data-i18n="discount">Discount %</label>
                                     <input type="number" id="discountPct" step="1" min="0" max="90" placeholder="Auto-calculated" readonly style="background:#f5f6fa;color:#e02020;font-weight:700">
                                 </div>
                                 <div class="form-group medicine-only">
@@ -234,39 +258,39 @@
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Stock Qty</label>
+                                    <label data-i18n="stockQty">Stock Qty</label>
                                     <input type="number" id="stockQty" placeholder="Total units available" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Unit Type</label>
+                                    <label data-i18n="unitType">Unit Type</label>
                                     <select id="unitType" required></select>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Rack / Shelf Location</label>
+                                    <label data-i18n="rackLocation">Rack / Shelf Location</label>
                                     <input type="text" id="rackLocation" placeholder="e.g., A-12, Shelf-3 (Optional)">
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label>Short Description & Side Effects</label>
+                                <label data-i18n="sideEffects">Short Description & Side Effects</label>
                                 <textarea id="sideEffects" rows="3" placeholder="Enter basic guidelines, dosage info or prominent side effects..."></textarea>
                             </div>
                         </div>
 
                         <div class="form-footer">
                             <button type="button" class="btn-back" id="btnBack" disabled>
-                                <i class="fa-solid fa-arrow-left"></i> Previous
+                                <i class="fa-solid fa-arrow-left"></i> <span data-i18n="previous">Previous</span>
                             </button>
                             
                             <button type="button" class="btn-draft" id="btnDraft" title="Save details for later">
-                                <i class="fa-regular fa-bookmark"></i> Save Draft
+                                <i class="fa-regular fa-bookmark"></i> <span data-i18n="saveDraft">Save Draft</span>
                             </button>
                             
                             <button type="button" class="btn-next" id="btnNext">
-                                Next <i class="fa-solid fa-arrow-right"></i>
+                                <span data-i18n="next">Next</span> <i class="fa-solid fa-arrow-right"></i>
                             </button>
                         </div>
                     </form>
@@ -276,14 +300,14 @@
     </div>
 
     <nav class="bottom-nav">
-        <a class="nav-item" href="marchenthome.html"><i class="fas fa-home"></i><span>HOME</span></a>
-        <a class="nav-item" href="marchentorders.html"><i class="fas fa-box"></i><span>ORDERS</span></a>
+        <a class="nav-item" href="marchenthome.html"><i class="fas fa-home"></i><span data-i18n="home">HOME</span></a>
+        <a class="nav-item" href="marchentorders.html"><i class="fas fa-box"></i><span data-i18n="orders">ORDERS</span></a>
         <a class="nav-add active" href="marchentadd.html">
             <div class="nav-add-btn"><i class="fas fa-plus"></i></div>
-            <span>ADD</span>
+            <span data-i18n="add">ADD</span>
         </a>
-        <a class="nav-item" href="marchentinventory.html"><i class="fas fa-capsules"></i><span>INVENTORY</span></a>
-        <a class="nav-item" href="marchentprofile.html"><i class="fas fa-user-circle"></i><span>PROFILE</span></a>
+        <a class="nav-item" href="marchentinventory.html"><i class="fas fa-capsules"></i><span data-i18n="inventory">INVENTORY</span></a>
+        <a class="nav-item" href="marchentprofile.html"><i class="fas fa-user-circle"></i><span data-i18n="profile">PROFILE</span></a>
     </nav>
 
     <script>
@@ -317,6 +341,146 @@
                 disc.value = '';
             }
         }
+
+        // 🌐 Add-page translation dictionary. Kept intentionally separate from
+        // applyFullWebLanguage()'s hardcoded profile-page strings in
+        // marchentscript.js — that function calls back into t()/I18N below
+        // (via window.MF_ADD_I18N) so both stay in sync under one language switch.
+        const I18N = {
+            en: {
+                productType:'Product Type', medicine:'Medicine', instrument:'Instrument',
+                productImages:'Product Images (Upload up to 4 Photos)', mainPhoto:'Main Photo', sideBack:'Side / Back',
+                compositionPhoto:'Composition', mrpPhoto:'MRP / Price Photo', mrpPhotoHelp:'Upload the package photo showing MRP',
+                productName:'Product Name', compositionSalt:'Composition / Salt Name', category:'Category',
+                manufacturer:'Manufacturer Company Name', brandName:'Brand Name', prescriptionReq:'Prescription Required?',
+                batchNumber:'Batch Number', productDescription:'Product Description', mfd:'MFD (Month / Year)',
+                expiry:'Expiry (Month / Year)', lotNumber:'Lot Number', warrantyPeriod:'Warranty Period', modelNumber:'Model Number',
+                color:'Color', type:'Type', display:'Display', battery:'Battery', measurementRange:'Measurement Range',
+                mrp:'MRP (Maximum Retail Price) INR', sellingPrice:'Selling Price (INR)', discount:'Discount %', stockQty:'Stock Qty',
+                unitType:'Unit Type', rackLocation:'Rack / Shelf Location', sideEffects:'Short Description & Side Effects',
+                previous:'Previous', saveDraft:'Save Draft', next:'Next', uploadProduct:'Upload Product',
+                home:'Home', orders:'Orders', add:'Add', inventory:'Inventory', profile:'Profile',
+                strengthPower:'Strength / Power', strengthConc:'Strength / Concentration', weightSize:'Weight / Size',
+                netWeightQty:'Net Weight / Quantity', volume:'Volume', specSize:'Specification / Size',
+                babyDiaperSize:'Baby Diaper / Pampers Size', weightRange:'Weight Range', bottleVolume:'Bottle Volume'
+            },
+            bn: {
+                productType:'পণ্যের ধরন', medicine:'মেডিসিন', instrument:'ইন্সট্রুমেন্ট',
+                productImages:'পণ্যের ছবি (সর্বোচ্চ ৪টি আপলোড করুন)', mainPhoto:'মূল ছবি', sideBack:'পাশ / পেছনের ছবি',
+                compositionPhoto:'কম্পোজিশন', mrpPhoto:'এমআরপি / দাম ছবি', mrpPhotoHelp:'যে ছবিতে এমআরপি দেখা যায় সেই ছবিটি আপলোড করুন',
+                productName:'পণ্যের নাম', compositionSalt:'কম্পোজিশন / সল্ট নাম', category:'ক্যাটাগরি',
+                manufacturer:'উৎপাদনকারী কোম্পানির নাম', brandName:'ব্র্যান্ড নাম', prescriptionReq:'প্রেসক্রিপশন প্রয়োজন?',
+                batchNumber:'ব্যাচ নম্বর', productDescription:'পণ্যের বিবরণ', mfd:'উৎপাদন তারিখ (মাস / বছর)',
+                expiry:'মেয়াদ শেষ (মাস / বছর)', lotNumber:'লট নম্বর', warrantyPeriod:'ওয়ারেন্টি মেয়াদ', modelNumber:'মডেল নম্বর',
+                color:'রং', type:'ধরন', display:'ডিসপ্লে', battery:'ব্যাটারি', measurementRange:'পরিমাপের সীমা',
+                mrp:'এমআরপি (সর্বোচ্চ খুচরা মূল্য) INR', sellingPrice:'বিক্রয় মূল্য (INR)', discount:'ছাড় %', stockQty:'স্টক পরিমাণ',
+                unitType:'ইউনিট টাইপ', rackLocation:'র‍্যাক / শেলফ অবস্থান', sideEffects:'সংক্ষিপ্ত বিবরণ ও পার্শ্বপ্রতিক্রিয়া',
+                previous:'পূর্ববর্তী', saveDraft:'ড্রাফট সংরক্ষণ', next:'পরবর্তী', uploadProduct:'প্রোডাক্ট আপলোড করুন',
+                home:'হোম', orders:'অর্ডার', add:'যোগ করুন', inventory:'ইনভেন্টরি', profile:'প্রোফাইল',
+                strengthPower:'স্ট্রেংথ / পাওয়ার', strengthConc:'স্ট্রেংথ / কনসেন্ট্রেশন', weightSize:'ওজন / সাইজ',
+                netWeightQty:'নেট ওজন / পরিমাণ', volume:'ভলিউম', specSize:'স্পেসিফিকেশন / সাইজ',
+                babyDiaperSize:'বেবি ডায়াপার / প্যাম্পার্স সাইজ', weightRange:'ওজনের সীমা', bottleVolume:'বোতলের ভলিউম'
+            }
+        };
+        function currentLang() { return localStorage.getItem('terminalLanguage') || 'en'; }
+        function t(key) {
+            const lang = currentLang();
+            return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+        }
+        // Exposed so marchentscript.js's applyFullWebLanguage() can translate
+        // this page's [data-i18n] elements + refresh the dynamic category field.
+        window.MF_ADD_I18N = I18N;
+
+        // 🧪 প্রতিটি Medicine sub-category-র জন্য central field configuration —
+        // label/placeholder/unit/extra field সব এখান থেকে control হয়। নতুন
+        // ডাটাবেস কলাম লাগে না: primary value যায় existing `strength` কলামে,
+        // extra (volume/diaper/weight-range) থাকলে সেটা একই স্ট্রিং-এ " | " দিয়ে
+        // জোড়া লেগে সেভ হয় (marchentscript.js#saveMedicineToSupabase দেখো)।
+        const CATEGORY_FIELD_CONFIG = {
+            Tablet:  { labelKey: 'strengthPower', placeholder: 'e.g., 500 mg, 650 mg, 10 mg', required: true,
+                       units: ['Strip', 'Box', 'Bottle', 'Pcs'] },
+            Syrup:   { labelKey: 'strengthConc', placeholder: 'e.g., 100 mg/5 ml, 250 mg/5 ml', required: true,
+                       units: ['Bottle'],
+                       extra: { labelKey: 'bottleVolume', placeholder: 'e.g., 60 ml, 100 ml, 200 ml' } },
+            Lotion:  { labelKey: 'volume', placeholder: 'e.g., 50 ml, 100 ml, 200 ml', required: true,
+                       units: ['Bottle', 'Tube', 'Pcs'] },
+            Baby:    { labelKey: 'weightSize', placeholder: 'e.g., 50 g, 100 g, 200 g, 500 g, 1 kg', required: true,
+                       units: ['Pack', 'Box', 'Pcs'],
+                       extra: { labelKey: 'weightRange', placeholder: 'e.g., 2–5 kg, 4–8 kg, 7–12 kg, 9–14 kg' },
+                       diaper: true },
+            Insulin: { labelKey: 'strengthConc', placeholder: 'e.g., 40 IU/ml, 100 IU/ml', required: true,
+                       units: ['Vial', 'Cartridge', 'Pen'],
+                       extra: { labelKey: 'volume', placeholder: 'e.g., 3 ml, 5 ml' } },
+            Food:    { labelKey: 'netWeightQty', placeholder: 'e.g., 50 g, 250 g, 500 g, 1 kg, 2 kg', required: false,
+                       units: ['Pack', 'Box', 'Bottle', 'Pcs', 'Kg', 'Gram', 'Litre', 'ml'],
+                       extra: { labelKey: 'volume', placeholder: 'e.g., 200 ml, 500 ml, 1 L (if liquid)' } },
+            Other:   { labelKey: 'specSize', placeholder: 'Merchant can specify as needed', required: false,
+                       units: ['Strip', 'Bottle', 'Tube', 'Box', 'Vial', 'Sachet', 'Pcs'] }
+        };
+        window.CATEGORY_FIELD_CONFIG = CATEGORY_FIELD_CONFIG;
+
+        // Rebuilds the Strength/Power group's label + placeholder + unit list +
+        // the optional secondary (volume / weight-range / diaper-size) fields
+        // for whichever category is currently selected. Runs on category change
+        // AND on language change, so the two never fight each other (req. #10).
+        function updateCategoryFields(category) {
+            const strengthLabel = document.getElementById('strengthLabel');
+            const strengthInput = document.getElementById('strength');
+            const extraRow = document.getElementById('strengthExtraRow');
+            const extraGroup = document.getElementById('strengthExtraGroup');
+            const extraLabel = document.getElementById('strengthExtraLabel');
+            const extraInput = document.getElementById('strengthExtra');
+            const diaperGroup = document.getElementById('diaperSizeGroup');
+            if (!strengthLabel || !strengthInput) return;
+
+            const cfg = (window.currentProductType === 'Medicine') ? (CATEGORY_FIELD_CONFIG[category] || null) : null;
+
+            if (!cfg) {
+                // Instrument, or Medicine with no category picked yet — keep the
+                // generic default label so nothing looks broken mid-selection.
+                strengthLabel.setAttribute('data-i18n', 'strengthPower');
+                strengthLabel.textContent = t('strengthPower');
+                strengthInput.placeholder = 'e.g., 650mg, 100ml, 5gm';
+                strengthInput.required = false;
+                if (extraRow) extraRow.style.display = 'none';
+                if (extraGroup) extraGroup.style.display = 'none';
+                if (diaperGroup) diaperGroup.style.display = 'none';
+                if (extraInput) extraInput.value = '';
+                const diaperSelReset = document.getElementById('diaperSize');
+                if (diaperSelReset) diaperSelReset.value = '';
+                return;
+            }
+
+            strengthLabel.setAttribute('data-i18n', cfg.labelKey);
+            strengthLabel.textContent = t(cfg.labelKey);
+            strengthInput.placeholder = cfg.placeholder;
+            strengthInput.required = !!cfg.required;
+
+            const unitSel = document.getElementById('unitType');
+            if (unitSel && cfg.units) {
+                const prevVal = unitSel.value;
+                unitSel.innerHTML = cfg.units.map(u => `<option value="${u}">${u}</option>`).join('');
+                if (cfg.units.includes(prevVal)) unitSel.value = prevVal;
+            }
+
+            const showExtra = !!cfg.extra;
+            if (extraRow) extraRow.style.display = (showExtra || cfg.diaper) ? '' : 'none';
+            if (extraGroup) {
+                extraGroup.style.display = showExtra ? '' : 'none';
+                if (showExtra) {
+                    extraLabel.setAttribute('data-i18n', cfg.extra.labelKey);
+                    extraLabel.textContent = t(cfg.extra.labelKey);
+                    extraInput.placeholder = cfg.extra.placeholder;
+                } else {
+                    extraInput.value = '';
+                }
+            }
+            if (diaperGroup) {
+                diaperGroup.style.display = cfg.diaper ? '' : 'none';
+                if (!cfg.diaper) { const d = document.getElementById('diaperSize'); if (d) d.value = ''; }
+            }
+        }
+        window.updateCategoryFields = updateCategoryFields;
 
         // 🩺 প্রোডাক্ট টাইপ টগল — Medicine vs Instrument
         const CATEGORY_OPTIONS = {
@@ -371,6 +535,9 @@
                 unitSel.innerHTML = unitOpts.map(([val, label]) => `<option value="${val}">${label}</option>`).join('');
                 if (unitOpts.some(([val]) => val === prevVal)) unitSel.value = prevVal;
             }
+
+            // Category dropdown reset হলে dynamic strength/extra fields-ও রিসেট হবে
+            if (typeof updateCategoryFields === 'function') updateCategoryFields(sel.value);
         }
 
         setProductType('Medicine'); // পেজ লোড হবার সাথে সাথে ডিফল্ট ক্যাটাগরি ও ফিল্ড ভিজিবিলিটি বসিয়ে দাও
@@ -385,6 +552,8 @@
                     this.setSelectionRange(pos, pos);
                 });
             }
+            const langSwitch = document.getElementById('pageLangSwitch');
+            if (langSwitch) langSwitch.value = currentLang();
         });
     </script>
     <script src="marchentscript.js?v=13"></script>

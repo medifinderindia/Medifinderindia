@@ -267,6 +267,12 @@ function renderLicenseCard(merchantData, kycImg) {
 
         const cancelBtn = document.getElementById('btnCancelLicense');
         if (cancelBtn) cancelBtn.style.display = status === 'verified' ? 'none' : '';
+
+        // ✅ Verified হলে Edit বাটনও hide থাকবে (শুধু Cancel না) —
+        // একবার admin verify করলে merchant নিজে থেকে আর re-edit করতে পারবে না,
+        // re-submit করতে হলে আগে Cancel করে unverified state-এ ফিরতে হবে।
+        const editBtn = document.getElementById('btnEditLicense');
+        if (editBtn) editBtn.style.display = status === 'verified' ? 'none' : '';
     } else {
         viewState.style.display = 'none';
         formState.style.display = '';
@@ -1787,9 +1793,14 @@ async function initProfilePage() {
             if (!targetMerchantId) { showToast("Error: Merchant ID missing.", "error"); return; }
 
             try {
+                // ⚠️ ফিক্স: এতদিন এখানে ভুলবশত 'merchant_name' (Owner name) কলামে
+                // Shop Name সেভ হচ্ছিল — এতে Admin Panel-এর "Owner" ফিল্ড আর merchant-এর
+                // নিজের নাম উভয়ই Shop Name দিয়ে ওভাররাইট হয়ে যাচ্ছিল, কারণ
+                // adminmarchent.js শপ-নেম আলাদা 'shop_name' কলাম থেকে দেখায়।
+                // এখন সঠিকভাবে 'shop_name' কলামে সেভ হচ্ছে, 'merchant_name' (Owner) অক্ষত থাকে।
                 const { data, error } = await dbSupabase
                     .from('merchants')
-                    .update({ merchant_name: updatedName })
+                    .update({ shop_name: updatedName })
                     .eq('id', targetMerchantId)
                     .select();
 
@@ -1804,7 +1815,10 @@ async function initProfilePage() {
                     );
                 }
 
-                if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = updatedName;
+                // 🚫 এখানে ইচ্ছাকৃতভাবে merchantNameInput (hero profile/owner name)
+                // আপডেট করা হচ্ছে না — Store Core Setup শুধু Shop Name-এর জন্য,
+                // Owner/Profile Name অপরিবর্তিত থাকা উচিত (Admin Panel-এর Owner ফিল্ডের সাথে সামঞ্জস্যপূর্ণ)।
+                if (document.getElementById('shopNameInput')) document.getElementById('shopNameInput').value = updatedName;
                 showToast("Shop identity updated successfully.", "success");
                 window.closePopup('storeCoreModal');
             } catch (err) { showToast("Save profile failed: " + err.message, "error"); }
@@ -1830,8 +1844,16 @@ function initGlobalFeatures() {
         btnApplyLanguage.onclick = (e) => {
             e.preventDefault();
             const selectedLang = langSelect.value;
-            localStorage.setItem('terminalLanguage', selectedLang);
             applyFullWebLanguage(selectedLang);
+            // Shared merchant-i18n.js system: saves to the same 'terminalLanguage'
+            // key, applies any [data-i18n] elements on this page, and broadcasts
+            // a 'terminalLanguageChanged' event so OTHER pages (e.g. Inventory)
+            // pick up the new language the next time they load or are listening.
+            if (window.MFLang) {
+                window.MFLang.setLang(selectedLang);
+            } else {
+                localStorage.setItem('terminalLanguage', selectedLang);
+            }
             showToast(selectedLang === 'bn' ? "ভাষা পরিবর্তন সফল হয়েছে!" : "Language switched successfully!", "success");
             window.closePopup('langModal');
         };
@@ -1957,9 +1979,14 @@ async function loadCurrentMerchantStatus() {
             const googleName = activeUser.user_metadata?.full_name || activeUser.user_metadata?.name || '';
             const googleAvatar = activeUser.user_metadata?.avatar_url || activeUser.user_metadata?.picture || '';
             const resolvedMerchantName = merchantData.merchant_name || googleName || '';
+            // ⚠️ ফিক্স: shop_name কলাম আলাদা — merchant_name (Owner) থেকে আর copy হবে না।
+            // legacy fallback: পুরনো merchant যাদের shop_name এখনো সেভ হয়নি, তাদের জন্য
+            // merchant_name/Google name দিয়ে fallback দেখানো হচ্ছে যাতে ফিল্ড খালি না দেখায়;
+            // পরের বার Save করলেই আসল shop_name কলামে ঠিকভাবে সেভ হয়ে যাবে।
+            const resolvedShopName = merchantData.shop_name || merchantData.merchant_name || googleName || '';
 
             if (document.getElementById('merchantNameInput')) document.getElementById('merchantNameInput').value = resolvedMerchantName;
-            if (document.getElementById('shopNameInput')) document.getElementById('shopNameInput').value = resolvedMerchantName;
+            if (document.getElementById('shopNameInput')) document.getElementById('shopNameInput').value = resolvedShopName;
             if (document.getElementById('merchantEmailInput')) document.getElementById('merchantEmailInput').value = merchantData.email || '';
             if (document.getElementById('merchantPhoneInput')) document.getElementById('merchantPhoneInput').value = merchantData.phone || '';
             if (document.getElementById('licenseIdInput')) document.getElementById('licenseIdInput').value = merchantData.license_id || '';

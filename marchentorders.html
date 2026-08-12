@@ -84,6 +84,15 @@
         .main{margin-top:60px;padding:16px}
         
         /* Stats Bar */
+        .payout-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+        .payout-box .payout-label{font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+        .payout-box .payout-amount{font-size:22px;font-weight:800;color:var(--text)}
+        .payout-box .payout-sub{font-size:12px;color:var(--text-light);margin-top:2px}
+        .payout-request-btn{padding:10px 18px;border-radius:var(--radius-sm);border:none;background:var(--success);color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+        .payout-request-btn:disabled{background:#cbd5e1;cursor:not-allowed}
+        .payout-status-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap}
+        .payout-status-pill.pending{background:#fef3c7;color:#92400e}
+        .payout-status-pill.settled{background:#d1fae5;color:#065f46}
         .stats-bar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .stats-bar::-webkit-scrollbar{display:none}
         .stat-tab{flex-shrink:0;padding:10px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;white-space:nowrap}
@@ -404,6 +413,9 @@
             </div>
         </div>
 
+        <!-- Payout Box -->
+        <div class="payout-box" id="payoutBox" style="display:none"></div>
+
         <!-- Search & Filters -->
         <div class="search-section">
             <div class="search-bar">
@@ -698,9 +710,136 @@
                 updateStats();
                 applyFilters();
                 showTableSkeleton(false);
+                loadPayoutBox();
             } catch (err) {
                 showTableSkeleton(false);
                 showToast('Failed to load orders', 'error');
+            }
+        }
+
+        // ===== PAYOUT BOX =====
+        // Accumulates the value of Delivered/Completed orders since the merchant's
+        // last payout request (settled or still pending) and lets them request a
+        // payout. No new tables/columns: reuses the existing `merchant_payouts`
+        // table that the admin panel already reads from, plus `payout_history`
+        // for the transaction id once admin settles it.
+        let latestPayoutRow = null;
+        let merchantBankInfo = null;
+
+        function getUnpaidDeliveredTotal() {
+            const cutoff = latestPayoutRow ? new Date(latestPayoutRow.created_at).getTime() : 0;
+            let total = 0;
+            allOrders.forEach(o => {
+                const s = (o.status || '').toLowerCase();
+                if (s !== 'delivered' && s !== 'completed') return;
+                const t = o.created_at ? new Date(o.created_at).getTime() : 0;
+                if (t > cutoff) total += Number(o.total_amount || 0);
+            });
+            return total;
+        }
+
+        async function loadPayoutBox() {
+            const box = document.getElementById('payoutBox');
+            if (!box || !merchantId || !supabase) return;
+            try {
+                if (!merchantBankInfo) {
+                    const { data: mData } = await supabase
+                        .from('merchants')
+                        .select('bank_no, ifsc_code, upi_id')
+                        .eq('id', merchantId)
+                        .maybeSingle();
+                    merchantBankInfo = mData || {};
+                }
+
+                const { data: payoutRows } = await supabase
+                    .from('merchant_payouts')
+                    .select('*')
+                    .eq('merchant_id', merchantId)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                latestPayoutRow = (payoutRows && payoutRows[0]) || null;
+                renderPayoutBox();
+            } catch (e) {
+                box.style.display = 'none';
+            }
+        }
+
+        async function renderPayoutBox() {
+            const box = document.getElementById('payoutBox');
+            if (!box) return;
+            box.style.display = 'flex';
+
+            const hasBank = !!((merchantBankInfo?.bank_no && merchantBankInfo?.ifsc_code) || merchantBankInfo?.upi_id);
+            const isPending = latestPayoutRow && (latestPayoutRow.status || '').toLowerCase() !== 'settled';
+
+            if (isPending) {
+                box.innerHTML = `
+                    <div>
+                        <div class="payout-label">Payout Requested</div>
+                        <div class="payout-amount">${formatCurrency(latestPayoutRow.amount || 0)}</div>
+                        <div class="payout-sub">Sent to admin for bank settlement</div>
+                    </div>
+                    <span class="payout-status-pill pending"><i class="fas fa-clock"></i> Awaiting Admin Approval</span>
+                `;
+                return;
+            }
+
+            // Settled banner (once) — show the transaction id from payout_history if available
+            if (latestPayoutRow && (latestPayoutRow.status || '').toLowerCase() === 'settled') {
+                let txn = null;
+                try {
+                    const { data: hist } = await supabase
+                        .from('payout_history')
+                        .select('transaction_id')
+                        .eq('reference', latestPayoutRow.id)
+                        .maybeSingle();
+                    txn = hist?.transaction_id || null;
+                } catch (e) { /* payout_history lookup is best-effort */ }
+
+                const currentTotal = getUnpaidDeliveredTotal();
+                box.innerHTML = `
+                    <div>
+                        <div class="payout-label">Today's Payout Box</div>
+                        <div class="payout-amount">${formatCurrency(currentTotal)}</div>
+                        <div class="payout-sub" style="color:var(--success)"><i class="fas fa-circle-check"></i> Last payout ${formatCurrency(latestPayoutRow.amount || 0)} paid${txn ? ' — TXN: ' + txn : ''}</div>
+                    </div>
+                    <button class="payout-request-btn" ${(!hasBank || currentTotal <= 0) ? 'disabled' : ''} onclick="requestPayout(${currentTotal})">
+                        <i class="fas fa-wallet"></i> Request Payout
+                    </button>
+                `;
+                return;
+            }
+
+            // No payout history yet — first ever payout box
+            const currentTotal = getUnpaidDeliveredTotal();
+            box.innerHTML = `
+                <div>
+                    <div class="payout-label">Today's Payout Box</div>
+                    <div class="payout-amount">${formatCurrency(currentTotal)}</div>
+                    <div class="payout-sub">${hasBank ? 'From delivered orders' : 'Add bank details or UPI ID in Profile to request payout'}</div>
+                </div>
+                <button class="payout-request-btn" ${(!hasBank || currentTotal <= 0) ? 'disabled' : ''} onclick="requestPayout(${currentTotal})">
+                    <i class="fas fa-wallet"></i> Request Payout
+                </button>
+            `;
+        }
+
+        async function requestPayout(amount) {
+            if (!merchantId || !supabase || !(amount > 0)) return;
+            try {
+                const paymentMode = (merchantBankInfo?.bank_no && merchantBankInfo?.ifsc_code) ? 'Bank Transfer' : (merchantBankInfo?.upi_id ? 'UPI' : 'Online Transfer');
+                const { error } = await supabase.from('merchant_payouts').insert({
+                    merchant_id: merchantId,
+                    amount: amount,
+                    payment_mode: paymentMode,
+                    status: 'Pending'
+                });
+                if (error) throw error;
+                showToast('Payout requested — sent to admin for settlement', 'success');
+                await loadPayoutBox();
+            } catch (err) {
+                showToast('Failed to request payout: ' + err.message, 'error');
             }
         }
 
@@ -871,6 +1010,7 @@
                 const date = formatDate(order.created_at);
                 const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                 const isSelected = selectedOrders.has(order.id);
+                const payDisplay = getPaymentDisplay(order);
 
                 const actionBtns = getActionButtons(order);
 
@@ -897,7 +1037,7 @@
                     <td><strong>${items}</strong> item${items !== 1 ? 's' : ''}</td>
                     <td><strong>${amount}</strong></td>
                     <td>
-                        <span class="payment-badge payment-${payment}">${paymentMethod ? paymentMethod.toUpperCase() : payment.toUpperCase()}</span>
+                        <span class="payment-badge ${payDisplay.statusClass}" title="${payDisplay.badge}">${payDisplay.label}</span>
                     </td>
                     <td><span class="status-badge status-${status}">${capitalize(status)}</span></td>
                     <td style="white-space:nowrap;font-size:12px;color:var(--text-light)">${date}</td>
@@ -944,6 +1084,7 @@
                 const date = formatDate(order.created_at);
                 const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                 const actionBtns = getActionButtons(order);
+                const payDisplay = getPaymentDisplay(order);
 
                 return `
                 <div class="order-card">
@@ -966,7 +1107,7 @@
                         <div class="order-card-items">${items} item${items !== 1 ? 's' : ''}</div>
                     </div>
                     <div class="order-card-footer">
-                        <span class="payment-badge payment-${order.payment_status || 'pending'}">${(order.payment_method || 'cod').toUpperCase()}</span>
+                        <span class="payment-badge ${payDisplay.statusClass}" title="${payDisplay.badge}">${payDisplay.label}</span>
                         <div class="order-card-actions">
                             <button class="action-btn" title="View" onclick="openOrderDetail('${order.id}')"><i class="fas fa-eye"></i></button>
                             ${actionBtns}
@@ -1246,6 +1387,7 @@
             const tax = order.tax || 0;
             const discount = order.discount || 0;
             const total = order.total_amount || (subtotal + delivery + tax - discount);
+            const payDisplay = getPaymentDisplay(order);
 
             document.getElementById('modalTitle').innerHTML = `Order #${id}`;
 
@@ -1263,7 +1405,7 @@
                         </div>
                         <div class="modal-info-item">
                             <div class="modal-info-label">Payment</div>
-                            <div class="modal-info-value">${(order.payment_method || 'COD').toUpperCase()} <span class="payment-badge payment-${order.payment_status || 'pending'}" style="margin-left:4px">${(order.payment_status || 'pending').toUpperCase()}</span></div>
+                            <div class="modal-info-value">${payDisplay.label} <span class="payment-badge ${payDisplay.statusClass}" style="margin-left:4px">${payDisplay.badge}</span></div>
                         </div>
                         <div class="modal-info-item">
                             <div class="modal-info-label">Status</div>
@@ -1461,8 +1603,7 @@
             const customerName = order.customer_name || order.profiles?.full_name || 'Customer';
             const customerPhone = order.customer_phone || order.profiles?.phone || '';
             const customerAddr = order.delivery_address || order.customer_address || order.address || '';
-            const paymentMethod = (order.payment_method || order.payment_mode || 'COD').toUpperCase();
-            const paymentStatus = (order.payment_status || 'pending').toUpperCase();
+            const payDisplay = getPaymentDisplay(order);
             const secureCode = order.delivery_secure_code || '';
 
             const win = window.open('', '_blank');
@@ -1507,7 +1648,7 @@
                         <div class="title">📋 <span>DELIVERY RECEIPT</span></div>
                         <div class="info"><span class="lbl">Order</span><span class="val">#${id}</span></div>
                         <div class="info"><span class="lbl">Date</span><span class="val">${formatDate(order.created_at)}</span></div>
-                        <div class="info"><span class="lbl">Payment</span><span class="val">${paymentMethod} [${paymentStatus}]</span></div>
+                        <div class="info"><span class="lbl">Payment</span><span class="val">${payDisplay.label} [${payDisplay.badge}]</span></div>
                         <div class="info"><span class="lbl">Status</span><span class="val">${(order.status||'Active').toUpperCase()}</span></div>
                         <div class="info"><span class="lbl">Transit</span><span class="val">${order.transit_mode || 'Bike'}</span></div>
                         <div class="section">
@@ -1578,6 +1719,56 @@
             return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
         }
 
+        // ===== PAYMENT DISPLAY (central helper — used by table view, card view,
+        // order detail modal, and the print invoice, so a fix here fixes it
+        // everywhere instead of leaving stale rendering in other spots) =====
+        const PAYMENT_METHOD_LABELS = {
+            COD: 'Cash on Delivery',
+            UPI: 'UPI / Online Paid',
+            RAZORPAY: 'Online Payment',
+            NETBANKING: 'Net Banking'
+        };
+
+        function getPaymentDisplay(order) {
+            const rawMethod = ((order.payment_method || order.payment_mode || '') + '').trim().toUpperCase();
+            const status = ((order.payment_status || '') + '').trim().toLowerCase();
+            const isPaid = status === 'paid';
+
+            let label;
+            let isOnline;
+
+            if (PAYMENT_METHOD_LABELS[rawMethod]) {
+                label = PAYMENT_METHOD_LABELS[rawMethod];
+                isOnline = rawMethod !== 'COD';
+            } else if (!rawMethod) {
+                // No payment_method recorded at all — never blindly assume COD.
+                // Infer from payment_status instead: paid with no method on file
+                // is an online payment; otherwise treat as COD (matches the
+                // pre-online-payment default flow).
+                label = isPaid ? 'Online Payment' : 'Cash on Delivery';
+                isOnline = isPaid;
+            } else if (/COD|CASH/.test(rawMethod)) {
+                label = 'Cash on Delivery';
+                isOnline = false;
+            } else {
+                // Any other online-looking value — ONLINE, ONLINE_PAYMENT,
+                // RAZORPAY_UPI, CARD, UPI_ONLINE, etc. — detected as online.
+                label = 'Online Payment';
+                isOnline = true;
+            }
+
+            let badge;
+            if (isOnline && isPaid) {
+                badge = 'PAID • ONLINE';
+            } else if (isPaid) {
+                badge = 'PAID';
+            } else {
+                badge = status ? status.toUpperCase() : 'PENDING';
+            }
+
+            return { label, badge, isOnline, isPaid, statusClass: isPaid ? 'payment-paid' : 'payment-pending' };
+        }
+
         function showTableSkeleton(show) {
             document.getElementById('tableSkeleton').style.display = show ? 'block' : 'none';
             document.getElementById('cardSkeleton').style.display = show ? 'flex' : 'none';
@@ -1605,6 +1796,13 @@
                     .channel('orders-changes')
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: filterStr }, (payload) => {
                         loadOrders();
+                    })
+                    .subscribe();
+
+                supabase
+                    .channel('merchant-payouts-changes')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_payouts', filter: filterStr }, () => {
+                        loadPayoutBox();
                     })
                     .subscribe();
             } catch (err) {

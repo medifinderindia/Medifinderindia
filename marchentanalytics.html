@@ -6,7 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta name="theme-color" content="#e02020">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="MediFinder Merchant Analytics & Reports Dashboard">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -525,6 +526,44 @@ function getMerchantId() {
   return null;
 }
 
+// Resolve the merchant from the authenticated Supabase session.
+// Some MediFinder pages store merchantId in localStorage, while others
+// use the authenticated user's UUID. We support both so analytics does
+// not silently become all-zero.
+async function resolveMerchantId(sessionUser) {
+  const stored = getMerchantId();
+  const candidates = [...new Set([
+    stored,
+    sessionUser?.id,
+    sessionUser?.email
+  ].filter(Boolean).map(String))];
+
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id,merchant_id')
+      .eq('merchant_id', candidate)
+      .limit(1);
+
+    if (!error && data && data.length) {
+      merchantId = candidate;
+      localStorage.setItem('merchantId', candidate);
+      localStorage.setItem('merchant_id', candidate);
+      return candidate;
+    }
+  }
+
+  // If there are currently no orders, still prefer the stored/session UUID
+  // so future orders will immediately appear through realtime refresh.
+  const fallback = stored || sessionUser?.id || null;
+  if (fallback) {
+    merchantId = String(fallback);
+    localStorage.setItem('merchantId', merchantId);
+    localStorage.setItem('merchant_id', merchantId);
+  }
+  return merchantId;
+}
+
 // Utils
 function formatCurrency(n) {
   if (n >= 1e7) return '₹' + (n/1e7).toFixed(2) + ' Cr';
@@ -619,22 +658,150 @@ function getPrevPeriodOrders(orders) {
 // Fetch Data
 async function fetchData() {
   try {
-    const mid = getMerchantId();
-    if (!mid) { showToast('Merchant session not found. Please log in again.', 'error'); return; }
-    const [ordersRes, itemsRes, medsRes] = await Promise.all([
-      supabase.from('orders').select('*').eq('merchant_id', mid).order('created_at', { ascending: false }),
-      supabase.from('order_items').select('*').eq('merchant_id', mid),
-      supabase.from('medicines').select('*').eq('merchant_id', mid)
+    if (!supabase) throw new Error('Supabase client is not initialized');
+
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.user) {
+      window.location.replace('index.html');
+      return;
+    }
+
+    const mid = await resolveMerchantId(session.user);
+    if (!mid) {
+      showToast('Merchant session not found. Please log in again.', 'error');
+      allOrders = [];
+      allItems = [];
+      allMedicines = [];
+      filterAndRender();
+      return;
+    }
+
+    // Do NOT query order_items with merchant_id here. If that column is not
+    // present, one failed Promise used to wipe out the whole analytics page.
+    const [ordersRes, medsRes] = await Promise.all([
+      supabase.from('orders')
+        .select('*')
+        .eq('merchant_id', mid)
+        .order('created_at', { ascending: false }),
+      supabase.from('medicines')
+        .select('*')
+        .eq('merchant_id', mid)
     ]);
+
+    if (ordersRes.error) throw ordersRes.error;
+    if (medsRes.error) throw medsRes.error;
+
     allOrders = ordersRes.data || [];
-    allItems = itemsRes.data || [];
-    allMedicines = medsRes.data || [];
+    allMedicines = (medsRes.data || []).map(m => ({
+      ...m,
+      name: m.name || m.product_name || m.medicine_name || m.title || m.id,
+      price: Number(m.price ?? m.unit_price ?? m.selling_price ?? 0),
+      stock: Number(m.stock ?? m.stock_qty ?? m.quantity ?? 0),
+      category: m.category || m.medicine_category || 'Uncategorized'
+    }));
+
+    // Fetch order items only for this merchant's orders.
+    // Supports both order_id-based order_items and merchant_id-based data.
+    allItems = [];
+    const orderIds = allOrders.map(o => o.id).filter(Boolean);
+
+    if (orderIds.length) {
+      const { data: itemRows, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .in('order_id', orderIds);
+
+      if (!itemsError) {
+        allItems = itemRows || [];
+      } else {
+        // Fallback for schemas where order_items uses merchant_id.
+        const { data: merchantItems, error: merchantItemsError } = await supabase
+          .from('order_items')
+          .select('*')
+          .eq('merchant_id', mid);
+
+        if (!merchantItemsError) allItems = merchantItems || [];
+      }
+    }
+
+    // Normalize real DB field names used by the analytics renderer.
+    allItems = allItems.map(it => ({
+      ...it,
+      order_id: it.order_id || it.orderId,
+      medicine_id: it.medicine_id || it.product_id,
+      medicine_name: it.medicine_name || it.product_name || it.name || it.title || it.medicine_id,
+      quantity: Number(it.quantity ?? it.qty ?? 1),
+      price: Number(it.price ?? it.unit_price ?? it.selling_price ?? 0),
+      category: it.category || it.medicine_category || 'Uncategorized'
+    }));
+
+    // If order_items does not store items_count on orders, calculate it.
+    const itemCountByOrder = {};
+    allItems.forEach(it => {
+      itemCountByOrder[it.order_id] = (itemCountByOrder[it.order_id] || 0) + (Number(it.quantity) || 1);
+    });
+
+    allOrders = allOrders.map(o => ({
+      ...o,
+      total: Number(o.total ?? o.total_amount ?? o.grand_total ?? o.amount ?? 0),
+      payment_method: String(o.payment_method ?? o.payment_mode ?? o.payment_status ?? 'cod').toLowerCase(),
+      items_count: Number(o.items_count ?? itemCountByOrder[o.id] ?? 0),
+      created_at: o.created_at || o.order_date || o.date
+    }));
+
     const notifBadgeEl = document.getElementById('notifBadge');
     if (notifBadgeEl) notifBadgeEl.textContent = Math.min(allOrders.length, 9);
+
+    // Show the most useful range automatically when Today has no orders.
+    // The data remains real; this only prevents a blank dashboard when
+    // there are older real orders.
+    if (allOrders.length && filterByPeriod(allOrders).length === 0 && currentPeriod === 'today') {
+      currentPeriod = 'month';
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      const monthBtn = document.querySelector('[data-period="month"]');
+      if (monthBtn) monthBtn.classList.add('active');
+    }
+
+    filterAndRender();
   } catch (e) {
-    showToast('Error loading data from database.', 'error');
+    console.error('Merchant analytics fetchData error:', e);
+    showToast('Analytics database error: ' + (e?.message || 'Unable to load data'), 'error');
+    allOrders = [];
+    allItems = [];
+    allMedicines = [];
+    filterAndRender();
   }
-  filterAndRender();
+}
+
+// Realtime: refresh analytics whenever this merchant's orders, order items,
+// or medicines change in Supabase.
+let analyticsRealtimeChannel = null;
+
+function startAnalyticsRealtime() {
+  if (!supabase || !merchantId) return;
+
+  if (analyticsRealtimeChannel) {
+    try { supabase.removeChannel(analyticsRealtimeChannel); } catch (e) {}
+  }
+
+  analyticsRealtimeChannel = supabase
+    .channel('merchant-analytics-live-' + merchantId)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'orders', filter: 'merchant_id=eq.' + merchantId },
+      () => fetchData()
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'medicines', filter: 'merchant_id=eq.' + merchantId },
+      () => fetchData()
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'order_items' },
+      () => fetchData()
+    )
+    .subscribe((status) => {
+      console.log('Merchant Analytics Realtime:', status);
+    });
 }
 
 function generateDemoData() {
@@ -844,6 +1011,7 @@ function exportTopProducts() {
 // Category Donut
 function renderCategoryChart(orders) {
   const catMap = {};
+
   orders.forEach(o => {
     allItems.filter(it => it.order_id === o.id).forEach(it => {
       const cat = it.category || 'Uncategorized';
@@ -857,28 +1025,42 @@ function renderCategoryChart(orders) {
   const totalRev = cats.reduce((s, [, v]) => s + v.revenue, 0);
   const colors = ['#e02020','#1a1a2e','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316'];
 
-  document.getElementById('donutTotal').textContent = formatCurrency(totalRev);
+  // Do not replace donutChart.innerHTML here.
+  // That would destroy #donutTotal and cause the next render to fail.
+  const donut = document.getElementById('donutChart');
+  const donutTotal = document.getElementById('donutTotal');
+  const donutLegend = document.getElementById('donutLegend');
 
-  if (cats.length === 0) {
-    document.getElementById('donutChart').innerHTML = '<div class="donut-center"><div class="donut-total">₹0</div><div class="donut-sub">No data</div></div>';
-    document.getElementById('donutLegend').innerHTML = '';
+  if (!donut || !donutLegend) return;
+
+  if (cats.length === 0 || totalRev <= 0) {
+    donut.style.background = 'var(--border)';
+    donut.innerHTML = '<div class="donut-center"><div class="donut-total">₹0</div><div class="donut-sub">No data</div></div>';
+    donutLegend.innerHTML = '';
     return;
   }
 
   let gradParts = [], cumPct = 0;
+
   cats.slice(0, 8).forEach(([name, val], i) => {
     const pct = (val.revenue / totalRev) * 100;
     gradParts.push(`${colors[i % colors.length]} ${cumPct}% ${cumPct + pct}%`);
     cumPct += pct;
   });
-  if (cumPct < 100) gradParts.push(`#e0e0e0 ${cumPct}% 100%`);
 
-  const donut = document.getElementById('donutChart');
+  if (cumPct < 100) {
+    gradParts.push(`#e0e0e0 ${cumPct}% 100%`);
+  }
+
   donut.style.background = `conic-gradient(${gradParts.join(',')})`;
-  donut.innerHTML = '<div class="donut-center"><div class="donut-total">' + formatCurrency(totalRev) + '</div><div class="donut-sub">Total</div></div>';
 
-  document.getElementById('donutLegend').innerHTML = cats.slice(0, 8).map(([name, val], i) =>
-    `<div class="donut-legend-item"><span class="dl-color" style="background:${colors[i % colors.length]}"></span>${name}<span class="dl-val">${((val.revenue/totalRev)*100).toFixed(1)}%</span></div>`
+  // Keep the existing #donutTotal element alive between renders.
+  if (donutTotal) {
+    donutTotal.textContent = formatCurrency(totalRev);
+  }
+
+  donutLegend.innerHTML = cats.slice(0, 8).map(([name, val], i) =>
+    `<div class="donut-legend-item"><span class="dl-color" style="background:${colors[i % colors.length]}"></span>${name}<span class="dl-val">${((val.revenue / totalRev) * 100).toFixed(1)}%</span></div>`
   ).join('');
 }
 
@@ -1067,6 +1249,7 @@ function exportCSV(type) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { window.location.replace('index.html'); return; }
     await fetchData();
+    startAnalyticsRealtime();
   } catch (err) {
     document.getElementById('loadingOverlay').classList.add('hidden');
     showToast('Failed to load data', 'error');

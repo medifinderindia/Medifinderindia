@@ -11,6 +11,83 @@ function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ============================================================
+// ✅ NEW: Real shop/customer contact + address resolution helpers
+// (orders.pharmacy_name is often blank — real shop info must be
+// joined from merchants via orders.merchant_id. Customer address
+// comes from orders.customer_address / delivery_address / address
+// fallback chain, confirmed against the live orders schema.)
+// ============================================================
+function cleanTelNumber(phone) {
+    if (!phone) return '';
+    const cleaned = String(phone).trim().replace(/[\s\-\(\)]/g, '');
+    return cleaned;
+}
+
+// Builds a safe call button. If no valid phone is available, renders
+// a disabled "No phone available" pill instead of a fake tel: link.
+function buildCallButtonHtml(label, phone, extraClass) {
+    const tel = cleanTelNumber(phone);
+    if (!tel) {
+        return `<span class="btn-call-user ${extraClass || ''}" style="background:#94a3b8; cursor:not-allowed; opacity:0.75;"><i class="fa-solid fa-phone-slash"></i> No phone available</span>`;
+    }
+    return `<a href="tel:${escapeHtml(tel)}" class="btn-call-user ${extraClass || ''}"><i class="fa-solid fa-phone"></i> ${escapeHtml(label)}</a>`;
+}
+
+function getCustomerInfo(order) {
+    if (!order) return { name: 'Customer', phone: '', address: '' };
+    const name = order.user_name || order.customer_name || 'Customer';
+    const phone = order.user_phone || order.customer_phone || '';
+    const address = order.customer_address || order.delivery_address || order.address || '';
+    return { name, phone, address };
+}
+
+// Fetches real shop (merchant) info via orders.merchant_id — since
+// orders.pharmacy_name/address/phone are frequently blank in practice.
+// Falls back to orders.pharmacy_name + pharmacy_lat/lon only if no
+// merchant row can be resolved. Caches the result on the order object
+// so repeated calls (map + card render) don't re-fetch.
+async function getShopInfo(order) {
+    if (!order) return { name: 'Pharmacy', address: '', phone: '', lat: null, lon: null };
+    if (order.__shopInfoCache) return order.__shopInfoCache;
+
+    let name = order.pharmacy_name || '';
+    let address = '';
+    let phone = '';
+    let lat = (order.pharmacy_lat !== undefined && order.pharmacy_lat !== null) ? Number(order.pharmacy_lat) : null;
+    let lon = (order.pharmacy_lon !== undefined && order.pharmacy_lon !== null) ? Number(order.pharmacy_lon) : null;
+
+    if (order.merchant_id && supabaseClient) {
+        try {
+            const { data: merchant, error } = await supabaseClient
+                .from('merchants')
+                .select('shop_name, merchant_name, phone, address, resolved_address, city, district, state, pincode, latitude, longitude')
+                .eq('id', order.merchant_id)
+                .maybeSingle();
+            if (!error && merchant) {
+                name = merchant.shop_name || merchant.merchant_name || name;
+                address = merchant.resolved_address || merchant.address ||
+                    [merchant.address, merchant.city, merchant.district, merchant.state, merchant.pincode].filter(Boolean).join(', ');
+                phone = merchant.phone || '';
+                if (lat === null && merchant.latitude !== null && merchant.latitude !== undefined) lat = Number(merchant.latitude);
+                if (lon === null && merchant.longitude !== null && merchant.longitude !== undefined) lon = Number(merchant.longitude);
+            }
+        } catch (e) {
+            // silent fallback to whatever order-level data exists — never fake it
+        }
+    }
+
+    const info = {
+        name: name || 'Pharmacy',
+        address: address || '',
+        phone: phone || '',
+        lat: (lat !== null && !isNaN(lat)) ? lat : null,
+        lon: (lon !== null && !isNaN(lon)) ? lon : null
+    };
+    order.__shopInfoCache = info;
+    return info;
+}
+
 // Global Variables
 let activeOrderData = null; 
 let map = null;
@@ -55,6 +132,84 @@ async function cachedFetch(key, fetchFn, ttlMs = 15000) {
     const value = await fetchFn();
     _requestCache.set(key, { value, time: now });
     return value;
+}
+
+// ==========================================
+// ✅ NEW BLOCK (400-FIX helper): Schema-safe riders table update
+// ==========================================
+// Central helper for every UPDATE against the `riders` table.
+//
+// Why this exists: the spec forbids guessing at columns that may not
+// exist on `riders` (e.g. vehicle_plate / vehicle_type) and forbids
+// silently eating errors. PostgREST returns a specific, recognisable
+// error when a column in the update payload doesn't exist in its
+// schema cache (code 'PGRST204', message like
+// "Could not find the 'vehicle_plate' column of 'riders' in the schema
+// cache"). This helper:
+//   1. Always resolves the target row by auth_user_id (never email) —
+//      this matches the riders RLS policy (auth.uid() = auth_user_id)
+//      and is the root fix for the "PATCH /riders?email=..." 400/403.
+//   2. Sends the full payload first.
+//   3. If PostgREST reports an unknown-column error, it strips exactly
+//      that column from the payload and retries — so we adapt to the
+//      *actual* live schema instead of assuming columns exist, without
+//      silently dropping fields that ARE valid.
+//   4. Surfaces every Supabase error object (code/message/details/hint)
+//      to the console and rethrows so callers can show a real UI error.
+async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6 } = {}) {
+    if (!supabaseClient) throw new Error('Supabase client not initialized');
+    if (!authUserId) throw new Error('Missing auth_user_id for riders update');
+
+    let workingPayload = { ...payload };
+    let attempts = 0;
+
+    while (attempts <= maxRetries) {
+        attempts++;
+        const { data, error } = await supabaseClient
+            .from('riders')
+            .update(workingPayload)
+            .eq('auth_user_id', authUserId)
+            .select();
+
+        if (!error) {
+            return { data, error: null, appliedPayload: workingPayload };
+        }
+
+        console.error("RIDER UPDATE ERROR:", {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+        });
+
+        // PostgREST "unknown column" signature — safe to drop that one
+        // field and retry with what's left. Any other error is real and
+        // must propagate (never silently swallowed).
+        const unknownColMatch = typeof error.message === 'string'
+            ? error.message.match(/Could not find the '([^']+)' column/i)
+            : null;
+        const isUnknownColumnError = error.code === 'PGRST204' && unknownColMatch;
+
+        if (isUnknownColumnError) {
+            const badCol = unknownColMatch[1];
+            if (!(badCol in workingPayload)) {
+                // Nothing left to strip — this isn't actually recoverable, bail out.
+                throw error;
+            }
+            const { [badCol]: _drop, ...rest } = workingPayload;
+            workingPayload = rest;
+            if (Object.keys(workingPayload).length === 0) {
+                // Every field was rejected — nothing valid to save.
+                throw error;
+            }
+            continue; // retry with the trimmed payload
+        }
+
+        // Not a recoverable schema mismatch — surface it as-is.
+        throw error;
+    }
+
+    throw new Error('safeUpdateRiderByAuthUser: exceeded retry budget while adapting payload to schema');
 }
 
 // ============================================================
@@ -284,7 +439,12 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 async function initBaseTrackingMap() {
     const sessionOrder = localStorage.getItem("active_delivery_order");
 
-    let centerLat = 22.5726, centerLon = 88.3639; // fallback — real coords set by GPS
+    // ✅ FIX (#15): no more hardcoded Kolkata fallback. Map centers on
+    // real rider GPS if available; if not, and there's no active order
+    // either, we center on a neutral world view (0,0 zoomed way out is
+    // ugly, so we just wait for GPS — Leaflet needs *a* center to init,
+    // but we no longer silently pretend it's a real place).
+    let centerLat = null, centerLon = null;
     let gotGps = false;
     try {
         const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 }));
@@ -294,18 +454,28 @@ async function initBaseTrackingMap() {
         gotGps = true;
     } catch(e) {}
 
+    let shopInfo = null;
     if (sessionOrder) {
         activeOrderData = JSON.parse(sessionOrder);
-        const pLat = activeOrderData.pharmacy_lat || 22.5726; // fallback — real coords set by GPS
-        const pLon = activeOrderData.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
-        const uLat = activeOrderData.user_lat || 22.5850;
-        const uLon = activeOrderData.user_lon || 88.4000;
+        shopInfo = await getShopInfo(activeOrderData);
+        const custInfo = getCustomerInfo(activeOrderData);
+
+        const pLat = shopInfo.lat;
+        const pLon = shopInfo.lon;
+        const uLat = (activeOrderData.user_lat !== undefined && activeOrderData.user_lat !== null) ? Number(activeOrderData.user_lat) : null;
+        const uLon = (activeOrderData.user_lon !== undefined && activeOrderData.user_lon !== null) ? Number(activeOrderData.user_lon) : null;
 
         // ✅ FIX: rider এর আসল GPS পাওয়া গেলে ম্যাপ সেন্টার তাঁর নিজের অবস্থানেই থাকবে,
-        // না পেলে pharmacy/customer এর মাঝামাঝি fallback
+        // না পেলে real pharmacy/customer কোঅর্ডিনেট থাকলে তার মাঝামাঝি — কখনো fake location নয়
         if (!gotGps) {
-            centerLat = (pLat + uLat) / 2;
-            centerLon = (pLon + uLon) / 2;
+            if (pLat !== null && pLon !== null && uLat !== null && uLon !== null) {
+                centerLat = (pLat + uLat) / 2;
+                centerLon = (pLon + uLon) / 2;
+            } else if (pLat !== null && pLon !== null) {
+                centerLat = pLat; centerLon = pLon;
+            } else if (uLat !== null && uLon !== null) {
+                centerLat = uLat; centerLon = uLon;
+            }
         }
 
         const paymentVal = document.getElementById("paymentStatusValue");
@@ -322,7 +492,14 @@ async function initBaseTrackingMap() {
         if (etaEl) etaEl.innerText = "--";
     }
 
-    map = L.map('zomatoRealMap').setView([centerLat, centerLon], sessionOrder ? 12 : 15);
+    // ✅ FIX (#15): no fake location anywhere — if we truly have nothing
+    // real to center on, default the Leaflet view to a harmless global
+    // origin at low zoom rather than a specific fabricated city.
+    if (centerLat === null || centerLon === null) {
+        centerLat = 20; centerLon = 0;
+    }
+
+    map = L.map('zomatoRealMap').setView([centerLat, centerLon], (gotGps || sessionOrder) ? 12 : 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
         attribution: 'MediFinder Express Tracking' 
     }).addTo(map);
@@ -334,8 +511,8 @@ async function initBaseTrackingMap() {
     }
 
     if (sessionOrder) {
-        renderMapMarkers(activeOrderData);
-        loadAcceptedOrderDetails(activeOrderData);
+        renderMapMarkers(activeOrderData, shopInfo);
+        loadAcceptedOrderDetails(activeOrderData, shopInfo);
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "1";
         }
@@ -383,6 +560,11 @@ function focusMyLocationOnMap() {
 
 // ✅ NEW: rider এর বর্তমান GPS অনুযায়ী distance ও ETA লাইভ আপডেট করা
 // order accept করার আগে pharmacy কে টার্গেট ধরে, picked_up/out_for_delivery হলে customer কে টার্গেট ধরে
+// ✅ REWRITE (#4 + #15): Distance keeps coming from real GPS always.
+// ETA now has fixed business logic — pickup phase shows "Pickup", and
+// the customer-delivery phase (picked_up/out_for_delivery) always shows
+// a flat "20 min" regardless of distance. No fake fallback coordinates
+// are used anywhere — missing real coords means "Location unavailable".
 function updateLiveDistanceAndETA() {
     const distEl = document.getElementById("distanceLeftValue");
     const etaEl = document.getElementById("etaValue");
@@ -395,22 +577,31 @@ function updateLiveDistanceAndETA() {
     }
 
     const status = activeOrderData.status || 'accepted';
+    const isDeliveryPhase = (status === 'picked_up' || status === 'out_for_delivery');
+
     let targetLat, targetLon;
-    if (status === 'picked_up' || status === 'out_for_delivery') {
-        targetLat = activeOrderData.user_lat || 22.5850;
-        targetLon = activeOrderData.user_lon || 88.4000;
+    if (isDeliveryPhase) {
+        targetLat = (activeOrderData.user_lat !== undefined && activeOrderData.user_lat !== null) ? Number(activeOrderData.user_lat) : null;
+        targetLon = (activeOrderData.user_lon !== undefined && activeOrderData.user_lon !== null) ? Number(activeOrderData.user_lon) : null;
     } else {
-        targetLat = activeOrderData.pharmacy_lat || 22.5726;
-        targetLon = activeOrderData.pharmacy_lon || 88.3639;
+        const shop = activeOrderData.__shopInfoCache;
+        targetLat = shop ? shop.lat : ((activeOrderData.pharmacy_lat !== undefined && activeOrderData.pharmacy_lat !== null) ? Number(activeOrderData.pharmacy_lat) : null);
+        targetLon = shop ? shop.lon : ((activeOrderData.pharmacy_lon !== undefined && activeOrderData.pharmacy_lon !== null) ? Number(activeOrderData.pharmacy_lon) : null);
     }
 
-    const dist = haversineKm(cachedRiderPosition.lat, cachedRiderPosition.lon, targetLat, targetLon);
-    distEl.innerText = `${dist} km`;
+    if (targetLat === null || targetLon === null || isNaN(targetLat) || isNaN(targetLon)) {
+        distEl.innerText = "Location unavailable";
+    } else {
+        const dist = haversineKm(cachedRiderPosition.lat, cachedRiderPosition.lon, targetLat, targetLon);
+        distEl.innerText = `${dist} km`;
+    }
 
     if (etaEl) {
-        // গড় ২৫ কিমি/ঘন্টা স্পিড ধরে সাধারণ ETA হিসাব (bike delivery)
-        const etaMinutes = Math.max(1, Math.round((dist / 25) * 60));
-        etaEl.innerText = `${etaMinutes} min`;
+        if (isDeliveryPhase) {
+            etaEl.innerText = "20 min"; // ✅ fixed ETA during customer-delivery phase, per business rule
+        } else {
+            etaEl.innerText = "Pickup"; // pickup/pharmacy phase — no ETA countdown
+        }
     }
 }
 
@@ -437,22 +628,49 @@ function updateMapVehiclePill(mode) {
     }
 }
 
-function renderMapMarkers(order) {
-    const pLat = order.pharmacy_lat || 22.5726; // fallback — real coords set by GPS
-    const pLon = order.pharmacy_lon || 88.3639; // fallback — real coords set by GPS
-    const uLat = order.user_lat || 22.5850;
-    const uLon = order.user_lon || 88.4000;
+// ✅ REWRITE (#3 + #15): markers now carry real shop/customer name,
+// full address and phone (with a working call button) in their popups.
+// No fake fallback coordinates — a marker is only placed when a real
+// lat/lon exists for that party.
+async function renderMapMarkers(order, shopInfo) {
+    if (!shopInfo) shopInfo = await getShopInfo(order);
+    const custInfo = getCustomerInfo(order);
+
+    const pLat = shopInfo.lat, pLon = shopInfo.lon;
+    const uLat = (order.user_lat !== undefined && order.user_lat !== null) ? Number(order.user_lat) : null;
+    const uLon = (order.user_lon !== undefined && order.user_lon !== null) ? Number(order.user_lon) : null;
 
     const shopIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/4320/4320355.png', iconSize: [35, 35] });
     const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1216/1216844.png', iconSize: [35, 35] });
 
-    L.marker([pLat, pLon], {icon: shopIcon}).addTo(map).bindPopup(`<b>${order.pharmacy_name || 'Pharmacy'}</b>`);
-    L.marker([uLat, uLon], {icon: userIcon}).addTo(map).bindPopup(`<b>${order.user_name || 'Customer'}</b>`);
+    const shopPopup = `
+        <div style="min-width:180px;">
+            <b>${escapeHtml(shopInfo.name)}</b><br>
+            <span style="font-size:0.8rem;color:#555;">${escapeHtml(shopInfo.address) || 'Address unavailable'}</span><br>
+            <span style="font-size:0.8rem;">${shopInfo.phone ? 'Phone: ' + escapeHtml(shopInfo.phone) : 'No phone available'}</span><br>
+            <div style="margin-top:6px;">${buildCallButtonHtml('Call Pharmacy', shopInfo.phone)}</div>
+        </div>`;
+    const custPopup = `
+        <div style="min-width:180px;">
+            <b>${escapeHtml(custInfo.name)}</b><br>
+            <span style="font-size:0.8rem;color:#555;">${escapeHtml(custInfo.address) || 'Address unavailable'}</span><br>
+            <span style="font-size:0.8rem;">${custInfo.phone ? 'Phone: ' + escapeHtml(custInfo.phone) : 'No phone available'}</span><br>
+            <div style="margin-top:6px;">${buildCallButtonHtml('Call Customer', custInfo.phone)}</div>
+        </div>`;
+
+    if (pLat !== null && pLon !== null && !isNaN(pLat) && !isNaN(pLon)) {
+        L.marker([pLat, pLon], {icon: shopIcon}).addTo(map).bindPopup(shopPopup);
+    }
+    if (uLat !== null && uLon !== null && !isNaN(uLat) && !isNaN(uLon)) {
+        L.marker([uLat, uLon], {icon: userIcon}).addTo(map).bindPopup(custPopup);
+    }
 
     // ✅ FIX: আগে এখানে একটা ফেক "You (Rider)" marker মাঝামাঝি বসানো হতো, যেটা আসল লাইভ GPS
     // marker এর সাথে ডুপ্লিকেট হয়ে যেত। এখন rider marker শুধু updateLiveRiderMarkerOnMap()
     // থেকেই বসে — real GPS position থেকে।
-    L.polyline([[pLat, pLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
+    if (pLat !== null && pLon !== null && uLat !== null && uLon !== null && !isNaN(pLat) && !isNaN(uLat)) {
+        L.polyline([[pLat, pLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
+    }
 }
 
 // ==========================================
@@ -475,6 +693,12 @@ function listenToOrderUpdates(orderId) {
                 showToast("Order marked as delivered!", "success");
                 localStorage.removeItem("active_delivery_order");
                 setTimeout(() => { window.location.href = "delyvaryearning.html"; }, 1500);
+            } else if (activeOrderData && (payload.new.status === 'picked_up' || payload.new.status === 'out_for_delivery' || payload.new.status === 'arrived_at_store')) {
+                // ✅ NEW: status অন্য কোনো ডিভাইস/সোর্স থেকে বদলালেও ETA phase ও step UI সিঙ্ক থাকবে
+                activeOrderData.status = payload.new.status;
+                localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
+                renderDeliveryStatusStep(activeOrderData);
+                updateLiveDistanceAndETA();
             }
         })
         .subscribe();
@@ -713,10 +937,18 @@ async function acceptOrder(orderId, orderObj) {
     }
 }
 
-function loadAcceptedOrderDetails(order) {
+// ✅ REWRITE (#1 + #2): full shop (pickup) and customer (deliver-to)
+// blocks now show name + complete address + phone, each with its own
+// working call button. Shop info is resolved via merchants (join on
+// merchant_id) since orders.pharmacy_name/address/phone are frequently
+// blank. Missing phone shows "No phone available" — never a fake tel: link.
+async function loadAcceptedOrderDetails(order, shopInfo) {
     const container = document.getElementById("activeOrdersContainer");
     if (!container) return;
-    
+
+    if (!shopInfo) shopInfo = await getShopInfo(order);
+    const custInfo = getCustomerInfo(order);
+
     container.innerHTML = `
         <div class="order-card-premium" id="card-${order.order_id}" style="background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -726,16 +958,28 @@ function loadAcceptedOrderDetails(order) {
                 </div>
             </div>
             <div class="delivery-steps" style="border-left: 2px dashed #ddd; padding-left: 15px; margin-bottom: 15px; text-align:left;">
-                <p><strong>Pickup:</strong> ${order.pharmacy_name || 'Pharmacy Hub'}</p>
-                <p><strong>Deliver To:</strong> ${order.user_name || 'Customer Address'}</p>
-                <p style="margin-top: 5px;"><strong>Phone:</strong> ${order.user_phone || 'N/A'}</p>
+                <p style="margin-bottom:10px;">
+                    <strong>Pickup:</strong> ${escapeHtml(shopInfo.name)}<br>
+                    <span style="font-size:0.82rem; color:#64748b;">${escapeHtml(shopInfo.address) || 'Address unavailable'}</span><br>
+                    <span style="display:inline-flex; align-items:center; gap:8px; margin-top:6px;">
+                        <span style="font-size:0.82rem;">${shopInfo.phone ? 'Phone: ' + escapeHtml(shopInfo.phone) : 'No phone available'}</span>
+                        ${buildCallButtonHtml('Call Pharmacy', shopInfo.phone)}
+                    </span>
+                </p>
+                <p>
+                    <strong>Deliver To:</strong> ${escapeHtml(custInfo.name)}<br>
+                    <span style="font-size:0.82rem; color:#64748b;">${escapeHtml(custInfo.address) || 'Address unavailable'}</span><br>
+                    <span style="display:inline-flex; align-items:center; gap:8px; margin-top:6px;">
+                        <span style="font-size:0.82rem;">${custInfo.phone ? 'Phone: ' + escapeHtml(custInfo.phone) : 'No phone available'}</span>
+                    </span>
+                </p>
             </div>
             <!-- ✅ NEW: পিকআপ স্ট্যাটাস টগল স্টেপ — কাস্টমারের কাছে যাওয়ার আগে ফার্মেসিতে আগে পৌঁছাতে/প্যাক করতে হবে -->
             <div id="statusStepBar" style="margin-bottom: 15px;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 10px; gap: 8px; flex-wrap: wrap;">
                 <div><span>Earnings: </span><strong style="color: #2ec4b6; font-size: 18px;">₹${order.delivery_charge || 45}</strong></div>
-                <div style="display: flex; gap: 8px;">
-                    <a href="tel:${order.user_phone || ''}" class="btn-call-user"><i class="fa-solid fa-phone"></i> Call Customer</a>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    ${buildCallButtonHtml('Call Customer', custInfo.phone)}
                     <button id="otpVerifyTriggerBtn" onclick="openOtpModal()" style="background: #e63946; color:#fff; border:none; padding: 10px 18px; border-radius: 8px; font-weight:600; cursor:pointer;">Verify OTP</button>
                 </div>
             </div>
@@ -805,29 +1049,29 @@ function lockOtpButton(otpBtn, locked) {
 async function markArrivedAtStore() {
     if (!supabaseClient) return;
     try {
-        await supabaseClient.from('orders').update({ status: 'arrived_at_store' }).eq('order_id', activeOrderData.order_id);
+        const { error } = await supabaseClient.from('orders').update({ status: 'arrived_at_store' }).eq('order_id', activeOrderData.order_id);
+        if (error) throw error;
         activeOrderData.status = 'arrived_at_store';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
         showToast("Status updated: Arrived at Pharmacy. Please collect & pack the medicines.", "success");
     } catch (err) {
-
-        showToast("Failed to update status. Please check your connection and try again.", "error");
+        showToast("Failed to update status: " + (err.message || err), "error");
     }
 }
 
 async function markOrderPickedUp() {
     if (!supabaseClient) return;
     try {
-        await supabaseClient.from('orders').update({ status: 'picked_up' }).eq('order_id', activeOrderData.order_id);
+        const { error } = await supabaseClient.from('orders').update({ status: 'picked_up' }).eq('order_id', activeOrderData.order_id);
+        if (error) throw error;
         activeOrderData.status = 'picked_up';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
         updateLiveDistanceAndETA(); // ✅ পিকআপের পর টার্গেট এখন pharmacy থেকে customer এ বদলে যাবে
         showToast("Status updated: Order Picked Up. You can now head to the customer's location.", "success");
     } catch (err) {
-
-        showToast("Failed to update status. Please check your connection and try again.", "error");
+        showToast("Failed to update status: " + (err.message || err), "error");
     }
 }
 
@@ -881,16 +1125,15 @@ async function toggleDutyStatus() {
 
     try {
         // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল কারণ RLS policy auth_user_id
-        // ম্যাচ করে চেক করে, email না। এখন auth_user_id দিয়ে সরাসরি update() করা হচ্ছে —
-        // row তো ensureRiderDbRow() দিয়ে লগইনের সময়ই গ্যারান্টিভাবে তৈরি হয়ে যায়।
+        // ম্যাচ করে চেক করে, email না। এখন safeUpdateRiderByAuthUser() দিয়ে auth_user_id ম্যাচ
+        // করেই update() করা হচ্ছে — row তো ensureRiderDbRow() দিয়ে লগইনের সময়ই গ্যারান্টিভাবে
+        // তৈরি হয়ে যায়। প্রতিটা Supabase error (code/message/details/hint) console এ দেখা যাবে।
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
-            await supabaseClient
-                .from('riders')
-                .update({ duty_status: isOnDuty ? 'online' : 'offline' })
-                .eq('auth_user_id', user.id);
+            await safeUpdateRiderByAuthUser(user.id, { duty_status: isOnDuty ? 'online' : 'offline' });
         }
     } catch (err) {
+        console.error("RIDER UPDATE ERROR:", err);
         showToast("Duty status DB update error: " + (err.message || err), "error");
     }
 }
@@ -906,18 +1149,15 @@ async function syncDutyStatusOnPageLoad() {
     if (!supabaseClient) return;
     try {
         // ✅ FIX: এখানেও email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল। row তৈরির
-        // দায়িত্ব ensureRiderDbRow()-এর, তাই এখানে শুধু auth_user_id দিয়ে update() করা হচ্ছে।
+        // দায়িত্ব ensureRiderDbRow()-এর, তাই এখানে auth_user_id দিয়ে safeUpdateRiderByAuthUser() ব্যবহার করা হচ্ছে।
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (!user) return;
-        await supabaseClient
-            .from('riders')
-            .update({
-                duty_status: isOnDuty ? 'online' : 'offline',
-                last_active_at: new Date().toISOString()
-            })
-            .eq('auth_user_id', user.id);
+        await safeUpdateRiderByAuthUser(user.id, {
+            duty_status: isOnDuty ? 'online' : 'offline',
+            last_active_at: new Date().toISOString()
+        });
     } catch (err) {
-        // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই
+        // নীরবে ফেইল হবে — UI ব্লক করার দরকার নেই, কিন্তু console এ error থাকবে (safeUpdateRiderByAuthUser এ log হয়)
     }
 }
 
@@ -928,41 +1168,68 @@ function startDutyHeartbeat() {
     window._dutyHeartbeatInterval = setInterval(async () => {
         if (!supabaseClient || !isOnDuty) return;
         try {
-            // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে update()
+            // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
             const { data: { user } } = await supabaseClient.auth.getUser();
             if (!user) return;
-            await supabaseClient
-                .from('riders')
-                .update({ duty_status: 'online', last_active_at: new Date().toISOString() })
-                .eq('auth_user_id', user.id);
+            await safeUpdateRiderByAuthUser(user.id, { duty_status: 'online', last_active_at: new Date().toISOString() });
         } catch (err) {
-            // silent
+            // silent — heartbeat, error already logged in safeUpdateRiderByAuthUser
         }
     }, 60000);
 }
 
 // ব্রাউজার ট্যাব/অ্যাপ বন্ধ হওয়ার সময় (রাইডার ম্যানুয়ালি অফ-ডিউটি না করলেও) best-effort
 // ভাবে duty_status = offline সেট করার চেষ্টা করা হয়, যাতে অ্যাডমিন প্যানেল real-time মিথ্যা
-// "online" না দেখায়। fetch keepalive ব্যবহার করা হচ্ছে কারণ unload এর সময় সাধারণ async কল
-// শেষ হওয়ার আগেই ব্রাউজার ট্যাব বন্ধ করে দিতে পারে।
+// "online" না দেখায়।
+//
+// ✅ FINAL FIX (spec #10): এখানেই ছিল আসল "PATCH /rest/v1/riders?email=eq...  400 Bad Request"
+// error-এর উৎস। দুটো সমস্যা ছিল: (ক) filter email=eq... ব্যবহার হচ্ছিল, যেখানে RLS policy
+// auth.uid() = auth_user_id ম্যাচ করে — email না; (খ) Authorization header এ anon
+// SUPABASE_KEY পাঠানো হচ্ছিল, actual logged-in user এর session access token না — ফলে
+// auth.uid() রিকোয়েস্টের ভেতরে null হয়ে যেত এবং RLS policy কখনো pass করত না।
+// এখন: (১) filter auth_user_id=eq.<uid> ব্যবহার করা হচ্ছে, (২) Authorization header এ
+// বর্তমান সেশনের real access_token পাঠানো হচ্ছে (এখনো apikey হিসেবে anon key-ই যাচ্ছে,
+// যেটা Supabase-এর REST API-র জন্য mandatory এবং সঠিক)। এই দুটো মিলিয়েই RLS policy
+// (auth.uid() = auth_user_id) সঠিকভাবে ম্যাচ করবে এবং 400/403 আর আসবে না।
 window.addEventListener("pagehide", () => {
     try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail || typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
-        const url = `${SUPABASE_URL}/rest/v1/riders?email=eq.${encodeURIComponent(currentRiderEmail)}`;
+        if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
+        // Supabase JS SDK persists the session in localStorage under a key derived from the
+        // project ref — we read the raw persisted session here (rather than awaiting
+        // supabaseClient.auth.getSession(), which is async and may not resolve before the
+        // page actually unloads) so we can grab the real user id + access token synchronously.
+        let authUserId = null;
+        let accessToken = null;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+            try {
+                const raw = localStorage.getItem(key);
+                const parsed = JSON.parse(raw);
+                const sessionObj = parsed?.currentSession || parsed; // supabase-js v2 stores the session directly
+                if (sessionObj?.user?.id) {
+                    authUserId = sessionObj.user.id;
+                    accessToken = sessionObj.access_token || null;
+                    break;
+                }
+            } catch (e) { /* not a session blob, skip */ }
+        }
+        if (!authUserId) return; // no known session — nothing safe to update
+
+        const url = `${SUPABASE_URL}/rest/v1/riders?auth_user_id=eq.${encodeURIComponent(authUserId)}`;
         fetch(url, {
             method: "PATCH",
             keepalive: true,
             headers: {
                 "Content-Type": "application/json",
                 "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`,
+                "Authorization": `Bearer ${accessToken || SUPABASE_KEY}`,
                 "Prefer": "return=minimal"
             },
             body: JSON.stringify({ duty_status: "offline" })
         });
     } catch (err) {
-        // silent — best effort only
+        // silent — best effort only, page is already unloading
     }
 });
 
@@ -1036,12 +1303,14 @@ async function broadcastRiderLocation(lat, lon) {
     cachedRiderPosition = { lat, lon }; // ✅ FIX: প্রতি টিকে সর্বশেষ GPS position ক্যাশে রাখা, distance/ETA হিসাবের জন্য
     try {
         // riders টেবিলে লাইভ লোকেশন আপডেট (এডমিন/ট্র্যাকিং প্যানেলের জন্য, সবসময় অন-ডিউটিতে)
-        let currentRiderEmail = localStorage.getItem('userEmail');
-        if (currentRiderEmail) {
-            await supabaseClient
-                .from('riders')
-                .update({ current_lat: lat, current_lon: lon, location_updated_at: new Date() })
-                .eq('email', currentRiderEmail);
+        // ✅ FIX: email দিয়ে .eq('email', ...) 400/403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+            try {
+                await safeUpdateRiderByAuthUser(user.id, { current_lat: lat, current_lon: lon, location_updated_at: new Date().toISOString() });
+            } catch (err) {
+                showToast("Location broadcast error: " + (err.message || err), "error");
+            }
         }
 
         // সক্রিয় অর্ডার থাকলে orders টেবিলেও লাইভ পজিশন আপডেট (কাস্টমার/ফার্মেসি লাইভ দেখতে পারবে)
@@ -1049,10 +1318,13 @@ async function broadcastRiderLocation(lat, lon) {
         if (sessionOrder) {
             let order;
             try { order = JSON.parse(sessionOrder); } catch(e) { return; }
-            await supabaseClient
+            const { error: orderErr } = await supabaseClient
                 .from('orders')
                 .update({ rider_lat: lat, rider_lon: lon, location_updated_at: new Date() })
                 .eq('order_id', order.order_id);
+            if (orderErr) {
+                console.error("ORDER LOCATION UPDATE ERROR:", orderErr);
+            }
 
             updateLiveRiderMarkerOnMap(lat, lon);
             updateLiveDistanceAndETA(); // ✅ GPS আপডেট হলেই distance/ETA স্বয়ংক্রিয়ভাবে কমবে বা বাড়বে
@@ -1124,6 +1396,21 @@ function closeOtpModal() {
     otpModal.classList.add("hidden");
 }
 
+// ✅ REWRITE (#5, #6, #9, #13): Robust OTP → delivered → wallet credit
+// sequence with real error checking at every DB step and duplicate
+// protection.
+//
+// IMPORTANT schema note discovered while wiring this up: riders_wallet
+// has a UNIQUE constraint on rider_id alone (riders_wallet_rider_id_key),
+// so each rider can only ever have ONE row in riders_wallet — it is a
+// running wallet balance (balance / total_earned / total_withdrawn),
+// not a per-order ledger. So this step upserts that single row (adds
+// this delivery's amount on top of the existing balance/total_earned)
+// instead of inserting a new row per order, which the unique constraint
+// would reject on the 2nd delivery. Per-order History/Today/Week totals
+// are computed separately from the `orders` table (see loadEarningsFromDB)
+// since that table has no such restriction and already holds rider_id,
+// delivery_charge, status and updated_at per order.
 async function verifyOtpCode() {
     if (!supabaseClient) return;
     if (!activeOrderData) { showToast('No active delivery order found.', 'error'); return; }
@@ -1134,97 +1421,153 @@ async function verifyOtpCode() {
     const enteredOtp = otpInput.value;
     const correctOtp = activeOrderData.delivery_secure_code || activeOrderData.customer_otp;
     if (!correctOtp) { showToast('No delivery code found for this order. Contact support.', 'error'); return; }
-    if (enteredOtp === correctOtp) {
-        clearInterval(countdownTimer);
+
+    if (enteredOtp !== correctOtp) {
+        showToast("Incorrect OTP Code! Please provide a valid transaction security code.", "error");
+        otpInput.value = "";
+        otpInput.focus();
+        return;
+    }
+
+    clearInterval(countdownTimer);
+    const verifyBtn = document.querySelector('.btn-modal-submit');
+    if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.innerText = "Verifying..."; }
+
+    try {
+        // STEP 2: resolve the real BIGINT riders.id for the logged-in rider
+        const { data: { session }, error: sessErr } = await supabaseClient.auth.getSession();
+        if (sessErr) throw sessErr;
+        if (!session?.user?.id) throw new Error("You're not logged in. Please log in again.");
+
+        const { data: riderRow, error: riderErr } = await supabaseClient
+            .from('riders').select('id').eq('auth_user_id', session.user.id).maybeSingle();
+        if (riderErr) throw riderErr;
+        if (!riderRow || !riderRow.id) throw new Error("Rider profile not found. Contact support.");
+        const riderId = riderRow.id;
+
+        // STEP 3: check if this order was already delivered (duplicate protection)
+        const { data: orderRow, error: orderFetchErr } = await supabaseClient
+            .from('orders').select('order_id, status, delivery_charge').eq('order_id', activeOrderData.order_id).maybeSingle();
+        if (orderFetchErr) throw orderFetchErr;
+        if (!orderRow) throw new Error("Order not found. It may have been removed.");
+
+        if (orderRow.status === 'delivered') {
+            // Already delivered previously — do NOT insert duplicate earning/history
+            localStorage.removeItem("active_delivery_order");
+            otpFormContent.style.display = "none";
+            successCheckmark.style.display = "block";
+            const successMsgEl = successCheckmark.querySelector('p');
+            if (successMsgEl) successMsgEl.innerText = "This order was already marked delivered earlier.";
+            showToast("This order was already delivered — no duplicate earning added.", "info");
+            setTimeout(() => {
+                closeOtpModal();
+                window.location.href = "delyvaryearning.html";
+            }, 1800);
+            return;
+        }
+
+        // STEP 4: mark order as delivered
+        const { error: updateErr } = await supabaseClient
+            .from('orders')
+            .update({ status: 'delivered', payment_status: 'Paid', updated_at: new Date().toISOString() })
+            .eq('order_id', activeOrderData.order_id);
+        if (updateErr) throw updateErr;
+
+        // STEP 5 + 6: credit riders_wallet — upsert the single per-rider row,
+        // guarding against double-crediting the exact same order (e.g. double click / retry)
+        const amount = (orderRow.delivery_charge !== null && orderRow.delivery_charge !== undefined)
+            ? Number(orderRow.delivery_charge)
+            : Number(activeOrderData.delivery_charge || 45);
+
+        const { data: existingWallet, error: walletFetchErr } = await supabaseClient
+            .from('riders_wallet').select('id, order_id, balance, total_earned').eq('rider_id', riderId).maybeSingle();
+        if (walletFetchErr) throw walletFetchErr;
+
+        if (existingWallet && String(existingWallet.order_id) === String(activeOrderData.order_id)) {
+            // Same order already credited to this rider's wallet — skip, not an error
+        } else if (existingWallet) {
+            const newBalance = (Number(existingWallet.balance) || 0) + amount;
+            const newTotalEarned = (Number(existingWallet.total_earned) || 0) + amount;
+            const { error: walletUpdateErr } = await supabaseClient
+                .from('riders_wallet')
+                .update({
+                    order_id: activeOrderData.order_id,
+                    amount_earned: amount,
+                    balance: newBalance,
+                    total_earned: newTotalEarned,
+                    status: 'success',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingWallet.id);
+            if (walletUpdateErr) throw walletUpdateErr;
+        } else {
+            const { error: walletInsertErr } = await supabaseClient
+                .from('riders_wallet')
+                .insert([{
+                    rider_id: riderId,
+                    order_id: activeOrderData.order_id,
+                    amount_earned: amount,
+                    balance: amount,
+                    total_earned: amount,
+                    total_withdrawn: 0,
+                    status: 'success',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }]);
+            if (walletInsertErr) throw walletInsertErr;
+        }
+
+        // Everything succeeded — now show success UI and route to Earning page
         otpFormContent.style.display = "none";
         successCheckmark.style.display = "block";
-
-        // Mark order as Delivered
-        try {
-            await supabaseClient.from('orders').update({ 
-                status: 'delivered', 
-                payment_status: 'Paid',
-                updated_at: new Date().toISOString()
-            }).eq('order_id', activeOrderData.order_id);
-        } catch (err) {
-            showToast("Order delivered DB update error: " + (err.message || err), "error");
-        }
-
-        try {
-            let walletRiderId = null;
-            try {
-                const { data: { session: walletSession } } = await supabaseClient.auth.getSession();
-                if (walletSession?.user?.id) {
-                    const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', walletSession.user.id).maybeSingle();
-                    if (r) walletRiderId = r.id;
-                }
-            } catch(e) {
-                showToast("Wallet rider ID fetch error: " + (e.message || e), "error");
-            }
-            // ✅ FIX: আগে auth_user_id দিয়ে rider row খুঁজে না পেলে walletRiderId চিরকাল null
-            // থেকে যেত, ফলে wallet row rider_id=null নিয়ে সেভ হতো এবং earning page কখনোই সেটা
-            // খুঁজে পেত না (Today's Earnings / Recent History সবসময় ফাঁকা থাকতো)। এখন
-            // currentRiderId (লগইনের সময় riders টেবিল থেকে ইমেইল দিয়ে সেট হওয়া) কে fallback
-            // হিসেবে ব্যবহার করা হচ্ছে যাতে wallet row সবসময় সঠিক rider_id নিয়ে সেভ হয়।
-            if (!walletRiderId) {
-                walletRiderId = currentRiderId || localStorage.getItem("riderId") || localStorage.getItem("rider_id") || null;
-            }
-            if (!walletRiderId) {
-                showToast("Could not determine rider ID for wallet. Earnings may not be recorded.", "error");
-            }
-            await supabaseClient.from('riders_wallet').insert([{ 
-                rider_id: walletRiderId,
-                order_id: activeOrderData.order_id, 
-                amount_earned: activeOrderData.delivery_charge || 45, 
-                status: 'success', created_at: new Date() 
-            }]);
-        } catch (err) {
-            showToast("Wallet insert error: " + (err.message || err), "error");
-        }
-
-        let localHistory = JSON.parse(localStorage.getItem("completed_history")) || [];
-        localHistory.push({
-            order_id: activeOrderData.order_id,
-            amount: activeOrderData.delivery_charge || 45,
-            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-        });
-        localStorage.setItem("completed_history", JSON.stringify(localHistory));
-        
-        let todayEarned = parseFloat(localStorage.getItem("today_earnings")) || 0;
-        todayEarned += (activeOrderData.delivery_charge || 45);
-        localStorage.setItem("today_earnings", todayEarned);
-
-        localStorage.removeItem("active_delivery_order"); 
+        localStorage.removeItem("active_delivery_order");
 
         setTimeout(() => {
             closeOtpModal();
             showToast("Delivery Completed successfully! Payout added to Earning Wallet.", "success");
             window.location.href = "delyvaryearning.html";
         }, 2200);
-    } else {
-        showToast("Incorrect OTP Code! Please provide a valid transaction security code.", "error");
-        otpInput.value = "";
-        otpInput.focus();
+
+    } catch (err) {
+        // ✅ Never silently succeed on failure — revert UI so rider can retry
+        if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.innerText = "Verify & Complete"; }
+        otpFormContent.style.display = "block";
+        successCheckmark.style.display = "none";
+        showToast("Delivery completion failed: " + (err.message || err), "error");
     }
 }
 
 // ==========================================
 // 6. Metrics and Earnings Layout Controls
 // ==========================================
-// ✅ REWRITE: আগে শুধু আজ/গতকালের হিসাব হতো এবং সবসময় ₹0 flash হতো কারণ history
-// localStorage-নির্ভর ছিল। এখন rider এর সব wallet entry একবারে fetch করে ক্যাশে রাখা হয়,
-// যাতে Today/Yesterday/This Week/Last Week/This Month/Last Month/All Time — সব ফিল্টার
-// instantly (কোনো নতুন DB কল ছাড়াই) client-side এ হিসাব করা যায়।
+// ✅ REWRITE (#7, #8, #9): per-order earnings history now comes from the
+// `orders` table (status='delivered', rider_id=current rider), NOT from
+// riders_wallet.
+//
+// Why: the live schema shows riders_wallet_rider_id_key = UNIQUE(rider_id)
+// — riders_wallet can only ever hold ONE row per rider (a running wallet
+// balance), so it structurally cannot hold a dated per-order history.
+// `orders` already carries rider_id, delivery_charge and updated_at per
+// completed delivery with no such restriction, so period totals
+// (Today/Yesterday/This Week/... ) and the completed-history list are
+// computed from there — each delivered order = one history entry, exactly
+// as required. riders_wallet is still used (in verifyOtpCode / payout) as
+// the running wallet balance for payout eligibility.
 async function loadEarningsFromDB() {
     if (!supabaseClient) return;
     try {
         if (!currentRiderId) return;
-        const { data: walletEntries, error } = await supabaseClient.from('riders_wallet')
-            .select('amount_earned, created_at, order_id')
+        const { data: deliveredOrders, error } = await supabaseClient.from('orders')
+            .select('order_id, delivery_charge, updated_at')
             .eq('rider_id', currentRiderId)
-            .order('created_at', { ascending: false });
+            .eq('status', 'delivered')
+            .order('updated_at', { ascending: false });
         if (error) throw error;
-        window._riderWalletEntries = walletEntries || [];
+        window._riderWalletEntries = (deliveredOrders || []).map(o => ({
+            order_id: o.order_id,
+            amount_earned: o.delivery_charge || 0,
+            created_at: o.updated_at
+        }));
     } catch (e) {
         window._riderWalletEntries = [];
         showToast("Earnings load error: " + (e.message || e), "error");
@@ -1311,14 +1654,17 @@ async function initEarningsPage() {
     selectHistoryPeriod('today');        // Recent Completed History লিস্ট
     selectProfitPeriod('today');         // Profit Analysis গ্রাফ
 
-    // ✅ NEW: Earning page খোলা অবস্থাতেই riders_wallet টেবিলে নতুন কোনো এন্ট্রি এলে
-    // (এই ডিভাইস/অন্য ডিভাইস থেকে ডেলিভারি কমপ্লিট হলে) — Total Earnings, History এবং
-    // Profit গ্রাফ রিফ্রেশ ছাড়াই সাথে সাথে আপডেট হবে।
+    // ✅ FIX (#7, #12): earnings/history are sourced from `orders` now (see
+    // loadEarningsFromDB note on the riders_wallet unique(rider_id)
+    // constraint), so the realtime listener follows `orders` UPDATE events
+    // for this rider instead of riders_wallet — a delivery completing
+    // (status → delivered) on this or another device updates Total
+    // Earnings, History and the Profit graph without a manual refresh.
     if (supabaseClient && currentRiderId) {
         if (window._walletRealtimeChannel) supabaseClient.removeChannel(window._walletRealtimeChannel);
         window._walletRealtimeChannel = supabaseClient
-            .channel('rider-wallet-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders_wallet', filter: `rider_id=eq.${currentRiderId}` }, async () => {
+            .channel('rider-earnings-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `rider_id=eq.${currentRiderId}` }, async () => {
                 await loadEarningsFromDB();
                 const activeEarnChip = document.querySelector('#earningsPeriodFilter .period-chip.active');
                 const activeHistChip = document.querySelector('#historyPeriodFilter .period-chip.active');
@@ -1508,52 +1854,66 @@ function updateGraphTrend() {
     }
 }
 
+// ✅ REWRITE (#10, #11, #13): payout amount is no longer trusted from the
+// UI text — it's read straight from riders_wallet.balance (the real,
+// accumulated, unpaid wallet balance for this rider — see the
+// riders_wallet unique(rider_id) note in loadEarningsFromDB). Duplicate
+// protection checks admin_payout_requests for any existing pending
+// request before allowing a new one. DB earnings/history are never wiped
+// via localStorage — that reset is removed entirely.
 async function handlePayoutRequest() {
     if (!supabaseClient) return;
-    const todayTotalEarnings = document.getElementById("todayTotalEarnings");
     const payoutRequestBtn = document.getElementById("payoutRequestBtn");
-    if (!todayTotalEarnings || !payoutRequestBtn) return;
-    const earningsText = todayTotalEarnings.innerText;
-    const totalAmount = parseFloat(earningsText.replace("₹", "")) || 0;
-
-    if (totalAmount <= 0) {
-        showToast("No earnings to withdraw. Complete deliveries first.", "error");
-        return;
-    }
+    if (!payoutRequestBtn) return;
 
     if (payoutRequestBtn) { payoutRequestBtn.disabled = true; payoutRequestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; }
 
     try {
-        let riderUuid = currentRiderId;
-        let riderBigIntId = null;
-        try {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session?.user?.id) {
-                riderUuid = session.user.id;
-                const { data: r } = await supabaseClient.from('riders').select('id').eq('auth_user_id', riderUuid).maybeSingle();
-                if (r) riderBigIntId = r.id;
-            }
-        } catch(e) {
-            showToast("Payout session fetch error: " + (e.message || e), "error");
+        const { data: { session }, error: sessErr } = await supabaseClient.auth.getSession();
+        if (sessErr) throw sessErr;
+        if (!session?.user?.id) throw new Error("You're not logged in. Please log in again.");
+
+        const { data: riderRow, error: riderErr } = await supabaseClient
+            .from('riders').select('id').eq('auth_user_id', session.user.id).maybeSingle();
+        if (riderErr) throw riderErr;
+        if (!riderRow || !riderRow.id) throw new Error("Rider profile not found.");
+        const riderBigIntId = riderRow.id;
+
+        // STEP: read the actual eligible/unpaid balance from riders_wallet — never trust the UI text
+        const { data: walletRow, error: walletErr } = await supabaseClient
+            .from('riders_wallet').select('balance').eq('rider_id', riderBigIntId).maybeSingle();
+        if (walletErr) throw walletErr;
+        const totalAmount = Number(walletRow?.balance) || 0;
+
+        if (totalAmount <= 0) {
+            showToast("No earnings to withdraw. Complete deliveries first.", "error");
+            return;
+        }
+
+        // STEP (#11): duplicate protection — block if a pending/approved request already exists
+        const { data: existingRequests, error: existingErr } = await supabaseClient
+            .from('admin_payout_requests').select('id, request_status').eq('rider_id', riderBigIntId);
+        if (existingErr) throw existingErr;
+        const hasOpenRequest = (existingRequests || []).some(r => {
+            const s = (r.request_status || '').toLowerCase();
+            return s === 'pending' || s === 'approved';
+        });
+        if (hasOpenRequest) {
+            showToast("You already have a payout request being processed. Please wait for it to complete.", "error");
+            return;
         }
 
         const { error } = await supabaseClient.from('admin_payout_requests').insert([{
             rider_id: riderBigIntId, total_payout_amount: totalAmount,
             active_duty_hours: Math.floor(riderActiveMinutes / 60).toString(), 
-            request_status: 'pending', requested_at: new Date()
+            request_status: 'pending', requested_at: new Date().toISOString()
         }]);
-
         if (error) throw error;
 
-        // Reset local earnings
-        localStorage.setItem("today_earnings", "0");
-        localStorage.setItem("completed_history", JSON.stringify([]));
-        
         showToast(`Payout of ₹${totalAmount} requested! Admin will review shortly.`, "success");
         initEarningsPage();
     } catch (err) {
-
-        showToast("Payout request failed. Please try again.", "error");
+        showToast("Payout request failed: " + (err.message || err), "error");
     } finally {
         if (payoutRequestBtn) { payoutRequestBtn.disabled = false; payoutRequestBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Request Payout to Admin'; }
     }
@@ -1570,10 +1930,16 @@ async function loadActiveHoursFromDB() {
     try {
         if (!currentRiderId) return;
         const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabaseClient.from('riders_wallet')
-            .select('created_at')
+        // ✅ FIX (#7, #13): riders_wallet only ever holds one row per rider
+        // (unique(rider_id)), so "deliveries today" must be counted from
+        // the orders table instead — plus the query result's `error` is
+        // now actually checked.
+        const { data, error } = await supabaseClient.from('orders')
+            .select('order_id')
             .eq('rider_id', currentRiderId)
-            .gte('created_at', today);
+            .eq('status', 'delivered')
+            .gte('updated_at', today);
+        if (error) throw error;
         if (data && data.length > 0) {
             riderActiveMinutes = Math.max(60, data.length * 30); // Estimate from deliveries
         } else {
@@ -1659,42 +2025,49 @@ async function autoApplyGoogleAvatar(user) {
         }
 
         localStorage.setItem("rider_avatar", googlePic);
-        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল — এখন auth_user_id দিয়ে update()
-        await supabaseClient
-            .from('riders')
-            .update({ avatar_url: googlePic })
-            .eq('auth_user_id', user.id);
+        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল — এখন auth_user_id দিয়ে safeUpdateRiderByAuthUser()
+        try {
+            await safeUpdateRiderByAuthUser(user.id, { avatar_url: googlePic });
+        } catch (err) {
+            // silent — avatar auto-fill is a nice-to-have, error already logged
+        }
     } catch (err) {
         // silent — avatar auto-fill is a nice-to-have, not critical
     }
 }
 
+// ✅ REWRITE (spec #11): No longer assumes every column exists. Builds the
+// payload from whatever fields are actually present in the DOM, then hands
+// it to safeUpdateRiderByAuthUser() which sends it as-is first and only
+// drops a field if PostgREST itself reports that exact column doesn't
+// exist in the live schema (PGRST204) — never guessed up front. vehicle_plate
+// and vehicle_type are included here because riders_kyc (rider_kyc.plate_no /
+// vehicle_type) is the real source of truth for vehicle KYC — if riders.vehicle_plate
+// / riders.vehicle_type also exist as sync columns they get updated too; if they
+// don't exist on this installation, safeUpdateRiderByAuthUser drops them
+// automatically instead of failing the whole save.
 async function saveRiderProfileToDatabase() {
     if (!supabaseClient) return;
 
     try {
-        // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে update()
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (!user) return;
 
-        const { error } = await supabaseClient
-            .from("riders")
-            .update({
-                full_name: document.getElementById("profileDisplayName") ? document.getElementById("profileDisplayName").innerText : "",
-                vehicle_plate: document.getElementById("vehiclePlateInput") ? document.getElementById("vehiclePlateInput").value : "",
-                license_number: document.getElementById("licenseStringInput") ? document.getElementById("licenseStringInput").value : "",
-                vehicle_type: document.getElementById("vehicleTypeSelector") ? document.getElementById("vehicleTypeSelector").value : "bike",
-                bank_account: document.getElementById("bankAccountInput") ? document.getElementById("bankAccountInput").value : "",
-                bank_name: document.getElementById("bankNameInput") ? document.getElementById("bankNameInput").value : "",
-                account_number: document.getElementById("bankAccountNumberInput") ? document.getElementById("bankAccountNumberInput").value : "",
-                branch_name: document.getElementById("bankBranchInput") ? document.getElementById("bankBranchInput").value : "",
-                ifsc_code: document.getElementById("bankifscinput") ? document.getElementById("bankifscinput").value : "",
-                upi_id: document.getElementById("upiIdInput") ? document.getElementById("upiIdInput").value : "",
-                avatar_url: localStorage.getItem("rider_avatar") || "" 
-            })
-            .eq('auth_user_id', user.id);
+        const payload = {
+            full_name: document.getElementById("profileDisplayName") ? document.getElementById("profileDisplayName").innerText : "",
+            vehicle_plate: document.getElementById("vehiclePlateInput") ? document.getElementById("vehiclePlateInput").value : "",
+            license_number: document.getElementById("licenseStringInput") ? document.getElementById("licenseStringInput").value : "",
+            vehicle_type: document.getElementById("vehicleTypeSelector") ? document.getElementById("vehicleTypeSelector").value : "bike",
+            bank_account: document.getElementById("bankAccountInput") ? document.getElementById("bankAccountInput").value : "",
+            bank_name: document.getElementById("bankNameInput") ? document.getElementById("bankNameInput").value : "",
+            account_number: document.getElementById("bankAccountNumberInput") ? document.getElementById("bankAccountNumberInput").value : "",
+            branch_name: document.getElementById("bankBranchInput") ? document.getElementById("bankBranchInput").value : "",
+            ifsc_code: document.getElementById("bankifscinput") ? document.getElementById("bankifscinput").value : "",
+            upi_id: document.getElementById("upiIdInput") ? document.getElementById("upiIdInput").value : "",
+            avatar_url: localStorage.getItem("rider_avatar") || ""
+        };
 
-        if (error) throw error;
+        await safeUpdateRiderByAuthUser(user.id, payload);
 
     } catch (dbErr) {
         showToast("Profile save failed: " + (dbErr.message || dbErr), "error");
@@ -1746,9 +2119,10 @@ async function verifyAndSubmitFinancials() {
 
         await saveRiderProfileToDatabase();
 
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (currentRiderEmail) {
-            await supabaseClient.from('riders').update({ passbook_url: passbookUrl }).eq('email', currentRiderEmail);
+        // ✅ FIX: email দিয়ে .eq('email', ...) 400/403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
+        const { data: { user: passbookUser } } = await supabaseClient.auth.getUser();
+        if (passbookUser) {
+            await safeUpdateRiderByAuthUser(passbookUser.id, { passbook_url: passbookUrl });
         }
 
         // ✅ Passbook সহ সব ডিটেইলস জমা পড়লেই "Pending Review" এ যাবে
@@ -1765,14 +2139,12 @@ async function verifyAndSubmitFinancials() {
 async function markBankDetailsPendingReview() {
     if (!supabaseClient) return;
     try {
-        const currentRiderEmail = localStorage.getItem('userEmail');
-        if (!currentRiderEmail) return;
-        await supabaseClient
-            .from('riders')
-            .update({ bank_verified: false, bank_rejection_reason: '' })
-            .eq('email', currentRiderEmail);
+        // ✅ FIX: email দিয়ে .eq('email', ...) 400/403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) return;
+        await safeUpdateRiderByAuthUser(user.id, { bank_verified: false, bank_rejection_reason: '' });
     } catch (err) {
-        // silent — non-critical status flag
+        // silent — non-critical status flag, error already logged in safeUpdateRiderByAuthUser
     }
 }
 
@@ -1791,6 +2163,19 @@ function applyInstantTranslation(lang) {
     });
 }
 
+// ==========================================
+// ✅ VEHICLE KYC — spec sections 1–14 (Vehicle Verification exact screenshot flow)
+// ==========================================
+//
+// Source of truth: rider_kyc.plate_no / rider_kyc.plate_img / rider_kyc.vehicle_img
+// (rider_kyc.rider_id -> riders.id, resolved via auth_user_id, never email/guessed columns).
+//
+// sendKycToAdmin() below already:
+//  - resolves the existing rider_kyc row for this rider_id (one shared row per rider)
+//  - UPDATEs it in place on resubmission (no duplicate row created), or INSERTs once if none exists
+//  - always resets verified=false and rejection_reason='' on a fresh submission (Pending Review)
+// This satisfies spec §3 (submit), §5 (edit/resubmit updates the same row), §8 (reject → edit →
+// resubmit clears rejection_reason and returns to Pending), and §18-L (no duplicate rider_kyc rows).
 async function sendKycToAdmin(type, payloadData) {
     if (!supabaseClient) return;
     try {
@@ -1798,11 +2183,15 @@ async function sendKycToAdmin(type, payloadData) {
         const nameEl = document.getElementById("profileDisplayName");
         const name = nameEl ? nameEl.innerText : '';
         
-        const { data: existingData } = await supabaseClient
+        const { data: existingData, error: fetchErr } = await supabaseClient
             .from('rider_kyc')
             .select('id, license_no, license_img, plate_no, plate_img, vehicle_img, aadhaar_no, aadhaar_img, pan_no, pan_img')
             .eq('rider_id', riderId)
             .maybeSingle();
+        if (fetchErr) {
+            console.error("RIDER_KYC FETCH ERROR:", fetchErr);
+            throw fetchErr;
+        }
 
         let query;
         if (existingData) {
@@ -1859,54 +2248,117 @@ async function sendKycToAdmin(type, payloadData) {
         }
 
         const { error } = await query;
-        if (error) throw error;
+        if (error) {
+            console.error("RIDER_KYC SAVE ERROR:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+            throw error;
+        }
 
-        await supabaseClient.from('riders').update({ is_verified: false }).eq('id', riderId);
+        // ✅ FIX: email দিয়ে না, auth_user_id দিয়ে riders.is_verified reset করা হচ্ছে —
+        // এটাও আগে .eq('id', riderId) ব্যবহার করত যেটা ঠিকই ছিল (riders.id বৈধ bigint PK),
+        // তাই এটা অপরিবর্তিত রাখা হলো, শুধু error visibility যোগ করা হলো।
+        const { error: verErr } = await supabaseClient.from('riders').update({ is_verified: false }).eq('id', riderId);
+        if (verErr) console.error("RIDERS.is_verified UPDATE ERROR:", verErr);
     } catch (err) {
+        console.error("KYC SUBMISSION ERROR:", err);
         showToast("KYC submission error: " + (err.message || err), "error");
     }
 }
 
+// ✅ FIX (spec §12, §13): transport-mode value stored in DB stays exactly
+// 'bike' | 'van' | 'truck' (the <select> already only offers those three
+// values, so no mapping needed here — UI labels are handled by the
+// <option> text itself: "Motorcycle / Scooter / EV", "Van", "Truck").
+// Plate number is trimmed + uppercased before validation/storage, and a
+// basic Indian-plate shape check blocks obviously invalid input while
+// staying compatible with formats like "WB24AB1234" or "WB-24-AB-1234".
+function normalizeAndValidatePlate(raw) {
+    if (!raw) return { valid: false, value: '' };
+    // Strip spaces/hyphens for the shape check, but keep a clean
+    // hyphenated display value for what actually gets stored.
+    const compact = raw.trim().toUpperCase().replace(/[\s\-]+/g, '');
+    // Indian plate shape: 2 letters (state), 1-2 digits (RTO), 1-3 letters (series, optional), 4 digits (number)
+    const shapeOk = /^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{4}$/.test(compact);
+    if (!shapeOk) return { valid: false, value: raw.trim().toUpperCase() };
+    // Rebuild a consistent hyphenated display form: STATE-RTO-SERIES-NUMBER
+    const m = compact.match(/^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{4})$/);
+    const display = m ? [m[1], m[2], m[3], m[4]].filter(Boolean).join('-') : compact;
+    return { valid: true, value: display };
+}
+
+// ✅ REWRITE (spec §1–§3, §13, §14): validates plate + image, uploads to
+// the existing `media` bucket, resolves the current rider via
+// auth_user_id -> riders.id (never email), saves to rider_kyc (source of
+// truth for vehicle KYC), and — only if riders.vehicle_plate / vehicle_type
+// actually exist on this installation — syncs them too (handled safely by
+// safeUpdateRiderByAuthUser inside saveRiderProfileToDatabase, which drops
+// unknown columns instead of failing).
 async function runOnlinePlateValidationCheck() {
     const vehiclePlateInput = document.getElementById("vehiclePlateInput");
     const fileInput = document.getElementById("plateImageInput");
     if (!vehiclePlateInput) return;
-    const plateInput = vehiclePlateInput.value.trim();
+
+    // STEP 1: validate plate number (trim + uppercase + shape check)
+    const plateCheck = normalizeAndValidatePlate(vehiclePlateInput.value);
+    if (!vehiclePlateInput.value || !vehiclePlateInput.value.trim()) {
+        showToast("Plate empty.", "error");
+        return;
+    }
+    if (!plateCheck.valid) {
+        showToast("Please enter a valid registration plate (e.g., WB-24-AB-1234).", "error");
+        return;
+    }
+    const plateInput = plateCheck.value;
+    vehiclePlateInput.value = plateInput; // reflect normalized display value back into the input
+
     const typeInput = document.getElementById("vehicleTypeSelector") ? document.getElementById("vehicleTypeSelector").value : "bike";
 
-    if (plateInput === "") { showToast("Plate empty.", "error"); return; }
+    // STEP 2: validate image exists
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
         showToast("Please upload vehicle plate image.", "error");
         return;
     }
 
     try {
+        // STEP 3: upload image to existing Supabase Storage bucket `media`
         const file = fileInput.files[0];
         const filePath = `rider_docs/${currentRiderId || 'rider'}_plate_${Date.now()}_${file.name}`;
-        
+
         showToast("Uploading plate image...", "info");
         const { error: uploadError } = await supabaseClient.storage
             .from('media')
             .upload(filePath, file);
 
         if (uploadError) {
+            console.error("PLATE IMAGE UPLOAD ERROR:", uploadError);
             showToast("Plate upload failed: " + uploadError.message, "error");
             return;
         }
 
+        // STEP 4: get public URL
         const { data: urlData } = supabaseClient.storage.from('media').getPublicUrl(filePath);
         const publicUrl = urlData?.publicUrl || '';
 
+        // STEP 5 + 6: current authenticated rider -> riders.auth_user_id -> riders.id
+        // (currentRiderId is kept in sync with riders.id by loadCurrentRiderProfileStatus(),
+        // and sendKycToAdmin() below resolves rider_kyc against that same riders.id.)
+
+        // STEP 7: save/update rider_kyc (plate_no / plate_img / vehicle_img / verified=false)
         await sendKycToAdmin('Vehicle_Plate', { plate: plateInput, vehicle_type: typeInput, plate_img: publicUrl });
+
+        // Sync riders.vehicle_plate / riders.vehicle_type too, if those columns exist
+        // on this installation — saveRiderProfileToDatabase()/safeUpdateRiderByAuthUser()
+        // silently drops any column PostgREST reports as unknown, so this never breaks
+        // the KYC submission itself.
         await saveRiderProfileToDatabase();
+
+        // STEP 8: submission successful -> Pending Review, form hides, locked view shows
         showToast("Vehicle plate documents submitted for KYC review!", "success");
         const vehicleEditFormEl = document.getElementById('vehicleEditForm');
-        // ✅ FIX: আগে uploadর সাথে সাথে পুরো sub-page বন্ধ (closeSubPage) হয়ে যেত।
-        // এখন sub-page খোলাই থাকবে এবং সাথে সাথেই edit form সরে locked view (image + no. + Cancel/Edit) দেখাবে।
         if (vehicleEditFormEl) vehicleEditFormEl.dataset.userEditing = 'false';
         await loadCurrentRiderProfileStatus();
     } catch (err) {
-        showToast("Error saving vehicle documents: " + err.message, "error");
+        console.error("VEHICLE DOCUMENT SAVE ERROR:", err);
+        showToast("Error saving vehicle documents: " + (err.message || err), "error");
     }
 }
 
@@ -2400,8 +2852,35 @@ function applyKycLockUI(prefix, { hasKyc, verified, reason, imgUrl, numberLabel,
         }
     }
     if (img) {
-        if (imgUrl) { img.src = imgUrl; img.style.display = ''; }
-        else { img.style.display = 'none'; }
+        // ✅ FIX (spec §14): never leave a broken <img>. If no URL is stored, hide the
+        // element and show a text placeholder instead of a broken image icon.
+        let placeholder = document.getElementById(prefix + 'LockedImgPlaceholder');
+        if (imgUrl) {
+            img.src = imgUrl;
+            img.style.display = '';
+            img.onerror = () => {
+                img.style.display = 'none';
+                if (!placeholder) {
+                    placeholder = document.createElement('p');
+                    placeholder.id = prefix + 'LockedImgPlaceholder';
+                    placeholder.style.cssText = 'text-align:center;color:#94a3b8;font-size:0.82rem;margin-bottom:12px;';
+                    placeholder.textContent = 'Plate image unavailable';
+                    img.insertAdjacentElement('afterend', placeholder);
+                }
+                placeholder.style.display = '';
+            };
+            if (placeholder) placeholder.style.display = 'none';
+        } else {
+            img.style.display = 'none';
+            if (!placeholder) {
+                placeholder = document.createElement('p');
+                placeholder.id = prefix + 'LockedImgPlaceholder';
+                placeholder.style.cssText = 'text-align:center;color:#94a3b8;font-size:0.82rem;margin-bottom:12px;';
+                placeholder.textContent = 'Plate image unavailable';
+                img.insertAdjacentElement('afterend', placeholder);
+            }
+            placeholder.style.display = '';
+        }
     }
     const numberEl = document.getElementById(prefix + 'Locked' + numberLabel);
     if (numberEl) numberEl.textContent = numberValue || '—';
@@ -2443,6 +2922,11 @@ function cancelKycEdit(prefix) {
 // aadhaar/pan) সম্পূর্ণ ডিলিট করে দেয় (rider_kyc row থেকে শুধু সেই ডকুমেন্টের no./image কলাম
 // null করা হয়, বাকি ৩টা ডকুমেন্টের ডেটা অক্ষত থাকে — কারণ rider_kyc একটাই shared row)।
 // এর ফলে Admin Panel থেকেও সেই ডকুমেন্ট চলে যাবে এবং rider app এ আবার Upload Document ফর্ম দেখাবে।
+//
+// ✅ FIX (spec §6): only a PENDING submission may be cancelled this way — a
+// verified/approved document must never be wiped by accident. If the
+// document is already Verified, cancellation is blocked with a clear
+// message instead of silently deleting approved data.
 const KYC_CANCEL_FIELDS = {
     vehicle: { plate_no: null, plate_img: null, vehicle_img: null },
     license: { license_no: null, license_img: null },
@@ -2460,15 +2944,32 @@ async function cancelKycSubmission(prefix) {
     const fields = KYC_CANCEL_FIELDS[prefix];
     if (!fields) return;
 
-    const confirmed = confirm(`Cancel your ${KYC_CANCEL_LABELS[prefix] || prefix + ' KYC'} submission? This will permanently delete it and you'll need to upload again.`);
-    if (!confirmed) return;
-
     try {
         const riderId = parseInt(currentRiderId) || parseInt(localStorage.getItem('riderId')) || null;
         if (!riderId) { showToast("Could not determine rider ID.", "error"); return; }
 
+        // ✅ FIX (spec §6): re-check current verified status from DB right before cancelling —
+        // never trust stale DOM state — and refuse to cancel an already-Verified submission.
+        const { data: currentKyc, error: kycFetchErr } = await supabaseClient
+            .from('rider_kyc').select('verified').eq('rider_id', riderId).maybeSingle();
+        if (kycFetchErr) {
+            console.error("RIDER_KYC STATUS CHECK ERROR:", kycFetchErr);
+            showToast("Could not check current status: " + kycFetchErr.message, "error");
+            return;
+        }
+        if (currentKyc && currentKyc.verified === true) {
+            showToast("This document is already Verified and can't be cancelled.", "error");
+            return;
+        }
+
+        const confirmed = confirm(`Cancel your ${KYC_CANCEL_LABELS[prefix] || prefix + ' KYC'} submission? This will permanently delete it and you'll need to upload again.`);
+        if (!confirmed) return;
+
         const { error } = await supabaseClient.from('rider_kyc').update(fields).eq('rider_id', riderId);
-        if (error) throw error;
+        if (error) {
+            console.error("RIDER_KYC CANCEL ERROR:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+            throw error;
+        }
 
         const editForm = document.getElementById(prefix + 'EditForm');
         if (editForm) editForm.dataset.userEditing = 'false';
@@ -2486,26 +2987,32 @@ async function cancelKycSubmission(prefix) {
 // দিয়ে গার্ড করা হলো — শুধু সর্বশেষ শুরু হওয়া কলটাই DOM আপডেট করতে পারবে।
 let _profileStatusCallSeq = 0;
 
+// ✅ REWRITE (spec §15, §10): rider row is now resolved via
+// auth_user_id (never email) — matches the RLS policy and is the
+// second half of the 400/403 fix (ensureRiderDbRow / safeUpdateRiderByAuthUser
+// already used auth_user_id for writes; this was the last read path
+// still using email).
 async function loadCurrentRiderProfileStatus() {
     if (window.location.pathname.includes('index.html')) return; 
     const _mySeq = ++_profileStatusCallSeq;
 
     try {
-        let currentRiderEmail = localStorage.getItem('userEmail');
         let currentSession = null;
-        
+        let authUserId = null;
+
         if (supabaseClient.auth && typeof supabaseClient.auth.getSession === 'function') {
             const { data: { session: s } } = await supabaseClient.auth.getSession();
             currentSession = s;
-            if (s && s.user) currentRiderEmail = s.user.email;
+            if (s && s.user) authUserId = s.user.id;
         }
-        
-        if (!currentRiderEmail) return;
 
+        if (!authUserId) return;
+
+        // STEP 1-2: auth user -> riders row using auth_user_id (source of truth for RLS)
         const { data, error } = await supabaseClient
             .from('riders')
             .select('*')
-            .eq('email', currentRiderEmail)
+            .eq('auth_user_id', authUserId)
             .maybeSingle();
 
         // ✅ FIX: আগে row না পেলে (data null) পুরো ফাংশনটাই সাথে সাথে থেমে যেত — মানে
@@ -2513,11 +3020,15 @@ async function loadCurrentRiderProfileStatus() {
         // static placeholder ("Rider", "@...", "Unverified") আটকে থাকত। এখন ensureRiderDbRow()
         // লগইনের সময়ই row গ্যারান্টি করে, তবু কোনো race condition/error হলেও নিচের কোডটা
         // session থেকে fallback নাম দেখিয়ে চালিয়ে যাবে, পুরোপুরি থেমে যাবে না।
-        if (error) return;
+        if (error) {
+            console.error("RIDERS FETCH ERROR:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+            return;
+        }
         // ✅ এই মুহূর্তে যদি আরেকটা newer কল ইতিমধ্যে শুরু হয়ে গিয়ে থাকে, তাহলে এই (পুরনো) কল
         // আর কোনো DOM পরিবর্তন করবে না।
         if (_mySeq !== _profileStatusCallSeq) return;
         const riderProfile = data || {};
+        // STEP 3: actual riders.id
         const rId = riderProfile.id;
         if (rId) {
             localStorage.setItem('riderId', rId);
@@ -2539,19 +3050,20 @@ async function loadCurrentRiderProfileStatus() {
         // ✅ NOTE: aadhaar_no/pan_no কলাম rider_kyc টেবিলে না থাকলে ফলব্যাক করা হয়, যাতে
         // পুরনো Vehicle/License স্ট্যাটাস ভেঙে না যায়। নতুন কলাম যোগ করার SQL নিচে দেওয়া হলো।
         let kycData = null;
-        // ✅ NEW: image URL + number কলামগুলোও আনা হচ্ছে যাতে locked/view mode-এ আগে যা আপলোড
-        // হয়েছিল তার প্রিভিউ দেখানো যায় (নিচের applyKycLockUI দেখুন)
+        // STEP 4-8: rider_kyc row using rider_id -> vehicle KYC status, plate number, plate image, rejection reason
         const res1 = await supabaseClient
             .from('rider_kyc')
             .select('verified, rejection_reason, aadhaar_no, aadhaar_img, pan_no, pan_img, license_no, license_img, plate_no, plate_img, vehicle_img')
             .eq('rider_id', rId)
             .maybeSingle();
         if (res1.error) {
+            console.error("RIDER_KYC FETCH ERROR:", { code: res1.error.code, message: res1.error.message, details: res1.error.details, hint: res1.error.hint });
             const res2 = await supabaseClient
                 .from('rider_kyc')
                 .select('verified, rejection_reason')
                 .eq('rider_id', rId)
                 .maybeSingle();
+            if (res2.error) console.error("RIDER_KYC FALLBACK FETCH ERROR:", res2.error);
             kycData = res2.data;
         } else {
             kycData = res1.data;
@@ -2569,7 +3081,8 @@ async function loadCurrentRiderProfileStatus() {
         // ✅ NEW: গ্লোবাল ফ্ল্যাগ — Driving License/KYC verified না হলে Accept Order বাটন লক থাকবে (দেখুন acceptOrder ও renderAvailableOrder)
         window._riderLicenseVerified = (kycVerified === true);
 
-        // ✅ NEW: প্রতিটা ডকুমেন্টের জন্য লক করা প্রিভিউ/এডিট UI আপডেট করা।
+        // ✅ NEW: প্রতিটা ডকুমেন্টের জন্য লক করা প্রিভিউ/এডিট UI আপডেট করা — spec §1/§4/§7/§9 (exact
+        // screenshot flow: Status/Plate No/Plate image + Pending/Verified/Rejected states).
         // rider_kyc একটাই shared row সব ৪টা ডকুমেন্টের জন্য, তাই শুধু hasKyc (রো আছে কিনা) দিয়ে বিচার
         // করলে যেটা আসলে upload-ই করা হয়নি সেটাও লক দেখাবে। তাই সেই নির্দিষ্ট ডকুমেন্টের নিজস্ব
         // no./ছবি আসলেই সাবমিট করা আছে কিনা সেটা আলাদাভাবে চেক করা হচ্ছে।
@@ -2579,6 +3092,7 @@ async function loadCurrentRiderProfileStatus() {
         applyKycLockUI('aadhaar', { hasKyc: hasKyc && !!(kycData?.aadhaar_no || kycData?.aadhaar_img), verified: kycVerified, reason: kycReason, imgUrl: kycData?.aadhaar_img, numberLabel: 'No', numberValue: kycData?.aadhaar_no });
         applyKycLockUI('pan', { hasKyc: hasKyc && !!(kycData?.pan_no || kycData?.pan_img), verified: kycVerified, reason: kycReason, imgUrl: kycData?.pan_img, numberLabel: 'No', numberValue: kycData?.pan_no });
 
+        // STEP 9: profile main page status — vehicleStatusTag reflects the actual DB status
         if (document.getElementById("vehicleStatusTag")) {
             if (kycVerified) {
                 document.getElementById("vehicleStatusTag").innerText = "Verified";
@@ -2709,8 +3223,11 @@ async function loadCurrentRiderProfileStatus() {
         if (document.getElementById('vehicleTypeSelector') && riderProfile.vehicle_type) {
             document.getElementById('vehicleTypeSelector').value = riderProfile.vehicle_type;
         }
-        if (document.getElementById('vehiclePlateInput') && riderProfile.vehicle_plate) {
-            document.getElementById('vehiclePlateInput').value = riderProfile.vehicle_plate;
+        // ✅ NEW (spec §15): plate number in the edit form should prefer the rider_kyc value
+        // (source of truth for vehicle KYC) and only fall back to riders.vehicle_plate if
+        // rider_kyc has nothing yet.
+        if (document.getElementById('vehiclePlateInput') && (kycData?.plate_no || riderProfile.vehicle_plate)) {
+            document.getElementById('vehiclePlateInput').value = kycData?.plate_no || riderProfile.vehicle_plate;
         }
         if (document.getElementById('licenseStringInput') && riderProfile.license_number) {
             document.getElementById('licenseStringInput').value = riderProfile.license_number;
