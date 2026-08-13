@@ -1747,10 +1747,20 @@ function showView(view){
         if (el) el.style.display = (v === view) ? 'block' : 'none';
     });
     closeMobileMenu();
-    try {
-        var url = window.location.pathname + (view === 'home' ? '' : ('?panel=' + view));
-        history.replaceState(null, '', url);
-    } catch (e) {}
+    // ✅ GOOGLE OAUTH FIX: while a Google OAuth callback is pending, the URL still
+    // carries the access_token/refresh_token (hash) or ?code= param that
+    // supabase-js's client needs to read to build the session. Rewriting the URL
+    // here — even just to strip ?panel= — was wiping that out before the client
+    // library (created later, in supabase-config.js) ever got a chance to read it,
+    // which is why getSession() kept coming back with no session. Skip the rewrite
+    // for this one case; the eventual window.location.replace(dashboard) in
+    // handleGoogleOAuthCallback() cleans the URL up anyway once it's done.
+    if (!window._mfGoogleOAuthPending) {
+        try {
+            var url = window.location.pathname + (view === 'home' ? '' : ('?panel=' + view));
+            history.replaceState(null, '', url);
+        } catch (e) {}
+    }
     window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
@@ -1803,6 +1813,6 @@ if (mfMenuToggle) {
 </script>
 
 <script src="prod-utils.js?v=14"></script>
-<script src="supabase-config.js?v=16"></script>
+<script src="supabase-config.js?v=17"></script>
 </body>
 </html>
