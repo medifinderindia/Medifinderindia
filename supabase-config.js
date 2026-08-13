@@ -66,6 +66,15 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     // send a signed-in user onward, and when to leave a logged-out user alone.
     const isAuthPage = path.includes("home.html");
 
+    // ✅ GOOGLE OAUTH FIX: when we've just returned from Google (?oauth=google),
+    // handleGoogleOAuthCallback() below owns role-resolution + redirect exclusively
+    // for that leg. Without this guard, this listener's own SIGNED_IN handling could
+    // fire at the same time (a real race — sometimes before, sometimes after the
+    // callback's getSession() resolves) and either double-run the role upsert or
+    // send the user to two different places. This listener still handles every other
+    // sign-in path (email, phone OTP, admin, session restore) exactly as before.
+    const isGoogleOAuthCallback = new URLSearchParams(window.location.search).get('oauth') === 'google';
+
     // Splash should play again on the next entry after a logout.
     if (event === 'SIGNED_OUT') {
         try { sessionStorage.removeItem('mf_splash_shown'); } catch (e) {}
@@ -111,6 +120,13 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const isSignInLikeEvent = event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
 
     if (session && isSignInLikeEvent) {
+        // ✅ GOOGLE OAUTH FIX: bail out here — handleGoogleOAuthCallback() (defined
+        // below, near loginWithGoogle) is already running and will call
+        // handleOAuthUserRoleUpdate() + redirect itself. See isGoogleOAuthCallback above.
+        if (isGoogleOAuthCallback) {
+            return;
+        }
+
         // নতুন sign-in হলেই শুধু role sync/OAuth upsert চালাও — একটা persisted
         // session রিস্টোর হওয়া (INITIAL_SESSION/TOKEN_REFRESHED) মানে নতুন কিছু
         // করার দরকার নেই, শুধু সঠিক পেজে পাঠিয়ে দিলেই যথেষ্ট।
@@ -834,14 +850,104 @@ if (verifyOtpBtn) {
 
 async function loginWithGoogle(roleValue) {
     localStorage.setItem('selected_role', roleValue);
-    
+
+    // ✅ GOOGLE OAUTH FIX: redirectTo now carries ?oauth=google so that, once Google
+    // sends the browser back here, handleGoogleOAuthCallback() below can reliably
+    // detect "we just came back from Google" and take over the redirect — instead of
+    // silently depending on onAuthStateChange timing, which is what left users stuck
+    // on home.html.
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.origin + '/home.html'
+            redirectTo: window.location.origin + '/home.html?oauth=google'
         }
     });
     if (error) showToast("Google Auth Error: " + error.message, "error");
+}
+
+// ==========================================
+// ✅ GOOGLE OAUTH CALLBACK — reliable fallback redirect
+// ==========================================
+// Runs only when the URL has ?oauth=google (i.e. we've just landed back on
+// home.html after Google finished authenticating). Independently calls
+// getSession() and drives the redirect itself, so the dashboard redirect no
+// longer depends on exactly when/whether onAuthStateChange's SIGNED_IN event
+// fires relative to this script running.
+async function handleGoogleOAuthCallback() {
+    console.log('[MediFinder] Google OAuth callback detected');
+
+    // getSession() can occasionally run a beat before supabase-js finishes
+    // parsing the auth params Google appended to the URL, so retry briefly
+    // instead of giving up on a single null.
+    let session = null;
+    for (let attempt = 0; attempt < 10 && !session; attempt++) {
+        const { data } = await supabaseClient.auth.getSession();
+        session = data && data.session ? data.session : null;
+        if (!session) await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    console.log('[MediFinder] Google session:', session ? '(present)' : '(none)');
+
+    if (!session || !session.user) {
+        // No session ever materialized — leave the user on home.html rather
+        // than guessing where to send them.
+        return;
+    }
+
+    const user = session.user;
+
+    // Admin email always goes straight to the admin panel, same as every
+    // other login path in this file.
+    if (user.email === "medifinderindia@gmail.com") {
+        console.log('[MediFinder] Redirecting to: adminuser.html');
+        window.location.replace("adminuser.html");
+        return;
+    }
+
+    // Same new-account provisioning / existing-role protection used by the
+    // normal onAuthStateChange flow. It's guarded by _roleUpdateInProgress,
+    // so this is safe to call here even if something else triggers it too.
+    try {
+        await handleOAuthUserRoleUpdate(user);
+    } catch (e) {
+        // Role mismatch: handleOAuthUserRoleUpdate() already signed the user
+        // out and showed the toast — just land back on a clean home.html.
+        window.location.replace("home.html");
+        return;
+    }
+
+    // Resolve role with the required priority: profiles.role (DB) →
+    // user.user_metadata.role → localStorage.selected_role → 'user'.
+    let role = null;
+    try {
+        const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+        role = profile && profile.role ? profile.role : null;
+    } catch (e) {
+        // fall through to metadata/localStorage below
+    }
+    role = role || user.user_metadata?.role || localStorage.getItem('selected_role') || 'user';
+    localStorage.setItem('selected_role', role);
+
+    console.log('[MediFinder] Resolved role:', role);
+
+    let target = 'userhome.html';
+    if (role === 'merchant') {
+        localStorage.setItem('merchantSessionActive', 'true');
+        target = 'marchenthome.html';
+    } else if (role === 'delivery') {
+        target = 'delyvaryhome.html';
+    }
+
+    console.log('[MediFinder] Redirecting to:', target);
+    window.location.replace(target);
+}
+
+if (new URLSearchParams(window.location.search).get('oauth') === 'google') {
+    handleGoogleOAuthCallback();
 }
 
 const googleBtn = document.getElementById('google-btn');
