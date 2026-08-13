@@ -73,7 +73,10 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     // callback's getSession() resolves) and either double-run the role upsert or
     // send the user to two different places. This listener still handles every other
     // sign-in path (email, phone OTP, admin, session restore) exactly as before.
-    const isGoogleOAuthCallback = new URLSearchParams(window.location.search).get('oauth') === 'google';
+    // Reads window._mfGoogleOAuthPending (set by home.html's inline script before
+    // its own showView() call strips ?oauth=google from the URL) instead of
+    // re-parsing window.location.search, which would already be too late here.
+    const isGoogleOAuthCallback = window._mfGoogleOAuthPending === true;
 
     // Splash should play again on the next entry after a logout.
     if (event === 'SIGNED_OUT') {
@@ -868,11 +871,13 @@ async function loginWithGoogle(roleValue) {
 // ==========================================
 // ✅ GOOGLE OAUTH CALLBACK — reliable fallback redirect
 // ==========================================
-// Runs only when the URL has ?oauth=google (i.e. we've just landed back on
-// home.html after Google finished authenticating). Independently calls
-// getSession() and drives the redirect itself, so the dashboard redirect no
-// longer depends on exactly when/whether onAuthStateChange's SIGNED_IN event
-// fires relative to this script running.
+// Runs only when window._mfGoogleOAuthPending is true (i.e. we've just landed
+// back on home.html after Google finished authenticating — see home.html's
+// inline script, which captures this before it rewrites the URL and erases
+// the original ?oauth=google param). Independently calls getSession() and
+// drives the redirect itself, so the dashboard redirect no longer depends on
+// exactly when/whether onAuthStateChange's SIGNED_IN event fires relative to
+// this script running.
 async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Google OAuth callback detected');
 
@@ -946,7 +951,7 @@ async function handleGoogleOAuthCallback() {
     window.location.replace(target);
 }
 
-if (new URLSearchParams(window.location.search).get('oauth') === 'google') {
+if (window._mfGoogleOAuthPending === true) {
     handleGoogleOAuthCallback();
 }
 

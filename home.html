@@ -1782,6 +1782,14 @@ if (mfMenuToggle) {
 (function(){
     try {
         var params = new URLSearchParams(window.location.search);
+
+        // ✅ GOOGLE OAUTH FIX: this IIFE's showView() call below rewrites the URL
+        // via history.replaceState BEFORE supabase-config.js (loaded further down
+        // the page) ever gets a chance to look at window.location.search — so by
+        // the time it checked for ?oauth=google, this script had already erased it.
+        // Stash it on window first so supabase-config.js can read it reliably.
+        window._mfGoogleOAuthPending = params.get('oauth') === 'google';
+
         var panel = params.get('panel');
         if (panel === 'login' || panel === 'signup') {
             showView(panel);
@@ -1795,6 +1803,6 @@ if (mfMenuToggle) {
 </script>
 
 <script src="prod-utils.js?v=14"></script>
-<script src="supabase-config.js?v=15"></script>
+<script src="supabase-config.js?v=16"></script>
 </body>
 </html>
