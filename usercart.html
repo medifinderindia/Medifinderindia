@@ -153,14 +153,53 @@
                     <label class="pay-option">
                         <div class="option-header-row">
                             <input type="radio" name="payment_method" value="ONLINE">
-                            <span class="option-title"><i class="fa-solid fa-mobile-screen-button"></i> Online (Pay with UPI)</span>
+                            <span class="option-title"><i class="fa-solid fa-mobile-screen-button"></i> Online Payment (UPI)</span>
                         </div>
-                        <div class="upi-pay-drawer" id="upi-pay-drawer" style="display:none;">
-                            <p style="font-size:0.75rem;color:#6c757d;margin:6px 0 10px;">Pay instantly using any UPI app (PhonePe, Google Pay, Paytm, etc.) — UPI ID: <strong>9593625498@ibl</strong></p>
-                            <button type="button" id="pay-with-upi-btn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#2ed573;color:#fff;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <i class="fa-solid fa-mobile-screen-button"></i> Pay with UPI
-                            </button>
-                            <p id="upi-pay-status-msg" style="font-size:0.72rem;margin:8px 0 0;display:none;"></p>
+                        <div class="upi-pay-drawer" id="upi-pay-drawer" style="display:none;padding:4px 0 6px;">
+
+                            <!-- STEP 1: choose UPI App or QR Code -->
+                            <div id="upi-method-choice">
+                                <div style="text-align:center;margin-bottom:10px;">
+                                    <p style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Amount to Pay</p>
+                                    <p id="upi-drawer-amount" style="font-size:1.4rem;font-weight:800;color:#1a1a2e;">₹0.00</p>
+                                </div>
+
+                                <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-mobile-screen-button" style="color:#2ed573;"></i> Pay via UPI App</p>
+                                    <button type="button" id="pay-with-upi-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                        <i class="fa-solid fa-bolt"></i> PAY NOW
+                                    </button>
+                                    <p id="upi-pay-status-msg" style="font-size:0.72rem;margin:8px 0 0;display:none;"></p>
+                                </div>
+
+                                <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+                                    <hr style="flex:1;border:none;border-top:1px solid #eef2f5;">
+                                    <span style="font-size:0.72rem;color:#94a3b8;font-weight:700;">OR</span>
+                                    <hr style="flex:1;border:none;border-top:1px solid #eef2f5;">
+                                </div>
+
+                                <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-qrcode" style="color:#e02020;"></i> Pay via QR Code</p>
+                                    <img src="medifinderqr.jpeg" alt="MediFinder UPI QR Code" style="width:100%;max-width:220px;height:auto;border-radius:10px;border:1px solid #eef2f5;margin:0 auto;display:block;">
+                                    <p style="font-size:0.72rem;color:#6c757d;margin:10px 0 0;">UPI ID</p>
+                                    <p style="font-size:0.85rem;font-weight:700;color:#1a1a2e;margin:2px 0 8px;">9593625498@ibl</p>
+                                    <p style="font-size:0.72rem;color:#6c757d;margin-bottom:12px;">Scan this QR code using any UPI app</p>
+                                    <button type="button" id="paid-via-qr-btn" style="width:100%;padding:11px;border-radius:10px;border:1px solid #e02020;background:#fff8f8;color:#e02020;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                        <i class="fa-solid fa-check"></i> I've Completed the Payment
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- STEP 2: "have you completed the payment?" confirmation -->
+                            <div id="upi-payment-confirm" style="display:none;border:1px solid #eef2f5;border-radius:12px;padding:16px;background:#fafbfc;text-align:center;">
+                                <p style="font-size:0.9rem;font-weight:700;color:#1a1a2e;margin-bottom:12px;">Have you completed the payment?</p>
+                                <button type="button" id="upi-payment-completed-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;margin-bottom:8px;">
+                                    <i class="fa-solid fa-check"></i> Payment Completed
+                                </button>
+                                <button type="button" id="upi-payment-goback-btn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #dcdde1;background:#fff;color:#475569;font-weight:600;font-size:0.8rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrow-left"></i> Go Back
+                                </button>
+                            </div>
                         </div>
                     </label>
 
@@ -249,6 +288,41 @@
         </div>
     </div>
 
+    <div id="payment-pending-modal" class="modal-overlay-view" style="display:none;">
+        <div class="flipkart-success-container">
+            <div class="flipkart-success-card">
+                <div style="width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:#fff7e6;display:flex;align-items:center;justify-content:center;">
+                    <img src="medifinderqr.jpeg" alt="MediFinder" style="width:46px;height:46px;object-fit:contain;border-radius:8px;">
+                </div>
+                <h2 class="flipkart-success-title">Payment Submitted</h2>
+                <p class="flipkart-success-subtitle">MediFinder India Team is verifying your payment.<br>Your order will be confirmed after verification.</p>
+                <div class="flipkart-order-info-card">
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Order ID</span>
+                        <span class="flipkart-order-value" id="payment-pending-order-id">ORD-XXXX</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Amount</span>
+                        <span class="flipkart-order-value" id="payment-pending-amount">₹0.00</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Payment Method</span>
+                        <span class="flipkart-order-value" id="payment-pending-method">UPI</span>
+                    </div>
+                </div>
+                <div class="flipkart-delivery-code-box" id="payment-pending-status-box">
+                    <p class="flipkart-otp-label">Order Status</p>
+                    <p style="font-size:0.95rem;font-weight:700;color:#f59f00;margin:2px 0 0;">Payment Verification Pending</p>
+                </div>
+                <button class="flipkart-track-btn" id="go-to-orders-after-payment-pending">
+                    <i class="fas fa-route"></i> View My Order
+                </button>
+                <button class="flipkart-home-btn" onclick="window.location.href='userhome.html'">
+                    <i class="fas fa-home"></i> Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
     <nav class="bottom-nav" id="bottom-nav">
         <div class="nav-item" onclick="window.location.href='userhome.html'">
             <i class="fas fa-home"></i>

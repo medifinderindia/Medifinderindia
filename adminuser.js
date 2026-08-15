@@ -32,6 +32,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadRxOrders();
     initRealtimeRxOrders();
     loadAllOrders();
+    loadUpiPayments();
+    initRealtimeUpiPayments();
     loadAllUsers();
     handleHashChange();
 });
@@ -690,6 +692,125 @@ async function updateOrderStatus(orderId, newStatus) {
         } catch (e) {
 
             showToast('Failed to update order.', "error");
+        }
+    });
+}
+
+// ============================================
+// FEATURE 6.1: ONLINE UPI PAYMENTS (direct UPI/QR, no gateway)
+// ============================================
+let upiPaymentsData = [];
+
+async function loadUpiPayments() {
+    if (!supabaseClient) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('*')
+            .in('payment_mode', ['UPI', 'UPI_QR'])
+            .order('created_at', { ascending: false })
+            .limit(150);
+        if (error) throw error;
+        upiPaymentsData = data || [];
+        filterUpiPayments();
+    } catch (e) {
+        showToast("UPI payments load error: " + (e.message || e), "error");
+        upiPaymentsData = [];
+        renderUpiPayments([]);
+    }
+}
+
+function initRealtimeUpiPayments() {
+    if (!supabaseClient) return;
+    supabaseClient
+        .channel('realtime-upi-payments')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+            const row = payload.new || payload.old;
+            if (!row || !['UPI', 'UPI_QR'].includes((row.payment_mode || '').toUpperCase())) return;
+            loadUpiPayments();
+            // Keep the All Orders tab's amounts/status in sync too, since the
+            // same row shows up there.
+            loadAllOrders();
+        })
+        .subscribe();
+}
+
+function upiVerificationBadge(order) {
+    const v = order.payment_verification_status || 'pending';
+    if (v === 'verified') return '<span class="badge badge-success">Verified</span>';
+    if (v === 'rejected') return '<span class="badge badge-danger">Rejected</span>';
+    return '<span class="badge badge-warning">Verification Pending</span>';
+}
+
+function renderUpiPayments(orders) {
+    const tbody = document.getElementById('upi-payments-table');
+    if (!tbody) return;
+    if (!orders.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">No UPI/QR payments found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = orders.map(o => {
+        const v = o.payment_verification_status || 'pending';
+        let actions = '';
+        if (v === 'pending') {
+            actions = `
+                <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;margin-right:6px;" onclick="verifyUpiPayment('${o.id}', true)"><i class="fa-solid fa-check"></i> Verify</button>
+                <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="verifyUpiPayment('${o.id}', false)"><i class="fa-solid fa-xmark"></i> Reject</button>
+            `;
+        } else if (v === 'verified') {
+            actions = `<span style="color:#16a34a;font-size:12px;font-weight:600;"><i class="fa-solid fa-circle-check"></i> Merchant Accept unlocked</span>`;
+        } else {
+            actions = `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="verifyUpiPayment('${o.id}', true)"><i class="fa-solid fa-rotate-left"></i> Re-verify</button>`;
+        }
+        return `
+        <tr>
+            <td><strong>${esc(o.order_id || (o.id || '').toString().slice(0,8))}</strong></td>
+            <td>${esc(o.customer_name || o.user_email || 'Guest')}</td>
+            <td>₹${Number(o.total_amount || 0).toFixed(2)}</td>
+            <td>${esc((o.payment_mode || '') === 'UPI_QR' ? 'UPI (QR Code)' : 'UPI App')}</td>
+            <td>${upiVerificationBadge(o)}</td>
+            <td>${o.created_at ? new Date(o.created_at).toLocaleString('en-IN') : 'N/A'}</td>
+            <td>${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+function filterUpiPayments() {
+    const statusFilterEl = document.getElementById('upi-payment-filter');
+    const searchEl = document.getElementById('upi-payment-search');
+    const statusFilter = statusFilterEl ? statusFilterEl.value : 'pending';
+    const search = (searchEl ? searchEl.value : '').toLowerCase();
+    let filtered = upiPaymentsData;
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(o => (o.payment_verification_status || 'pending') === statusFilter);
+    }
+    if (search) {
+        filtered = filtered.filter(o =>
+            (o.order_id || '').toLowerCase().includes(search) ||
+            (o.customer_name || '').toLowerCase().includes(search) ||
+            (o.user_email || '').toLowerCase().includes(search)
+        );
+    }
+    renderUpiPayments(filtered);
+}
+
+// Verification itself is NOT a plain client-side .update() — it goes through
+// the admin_verify_upi_payment() SECURITY DEFINER RPC (see the SQL migration)
+// so a merchant can't fake payment_verification_status = 'verified' from
+// their own browser console. This client only ever calls the RPC.
+async function verifyUpiPayment(orderId, verified) {
+    if (!supabaseClient) return;
+    const order = upiPaymentsData.find(o => o.id === orderId);
+    const label = verified ? 'Verify' : 'Reject';
+    showConfirmationModal(`${label} this UPI payment${order ? ' for order ' + esc(order.order_id || orderId) : ''}?`, async () => {
+        try {
+            const { error } = await supabaseClient.rpc('admin_verify_upi_payment', { p_order_id: orderId, p_verified: verified });
+            if (error) throw error;
+            showToast(verified ? 'Payment verified — merchant Accept is now unlocked.' : 'Payment rejected.', 'success');
+            loadUpiPayments();
+            loadAllOrders();
+        } catch (e) {
+            showToast('Action failed: ' + (e.message || e), 'error');
         }
     });
 }

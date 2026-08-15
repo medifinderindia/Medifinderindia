@@ -273,6 +273,9 @@
             <button class="nav-item" onclick="switchUserTab(event, 'all-orders')">
                 <i class="fa-solid fa-list"></i> All Orders
             </button>
+            <button class="nav-item" onclick="switchUserTab(event, 'upi-payments')">
+                <i class="fa-solid fa-qrcode"></i> Online UPI Payments
+            </button>
             <button class="nav-item" onclick="switchUserTab(event, 'orders')">
                 <i class="fa-solid fa-cart-shopping"></i> Order & Refunds
             </button>
@@ -476,6 +479,43 @@
                     </thead>
                     <tbody id="all-orders-table">
                         <tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Loading orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ৫.১ ONLINE UPI PAYMENTS (NEW) -->
+        <section id="upi-payments-section" class="dashboard-section tab-content-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-qrcode"></i> Online UPI Payments</h2>
+                <p>Direct UPI/QR orders (no payment gateway) — manually verify each payment before the merchant can accept it.</p>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                <select id="upi-payment-filter" onchange="filterUpiPayments()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px;">
+                    <option value="pending">Verification Pending</option>
+                    <option value="verified">Verified</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="all">All</option>
+                </select>
+                <input type="text" id="upi-payment-search" placeholder="Search by Order ID, Customer..." oninput="filterUpiPayments()" style="padding:10px 16px; border:1px solid #dcdde1; border-radius:8px; font-size:14px; flex:1; min-width:200px;">
+            </div>
+
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="upi-payments-table">
+                        <tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:20px;">Loading UPI payments...</td></tr>
                     </tbody>
                 </table>
             </div>

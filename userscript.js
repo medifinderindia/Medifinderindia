@@ -14,6 +14,14 @@ let adminOffers = [];
 let currentUserEmail = '';
 let currentAuthUserId = '';   // Supabase auth UUID, set once session resolves — used by the notification system
 let selectedPaymentMethod = "COD";
+// Reserved once the shopper opens the Online Payment screen — reused as the
+// real order_id (both in the UPI intent's tn= note AND the order row itself)
+// so the note the customer's UPI app shows always matches the order that
+// actually gets created after "Payment Completed".
+let pendingOnlineOrderId = null;
+// 'UPI' (paid via the UPI app deep link) or 'UPI_QR' (paid by scanning the
+// static QR) — set the moment the shopper picks one, saved as payment_mode.
+let selectedOnlinePaymentMethod = null;
 let isPincodeVerified = false;
 let verifiedAddress = localStorage.getItem('medi_verified_address') || "";
 let discountAmount = 0;
@@ -1922,6 +1930,26 @@ function setupCartPageModules() {
     const payWithUpiBtn = document.getElementById('pay-with-upi-btn');
     if (payWithUpiBtn) payWithUpiBtn.addEventListener('click', handlePayWithUpiClick);
 
+    // "I've Completed the Payment" under the QR card — same confirmation step
+    // as the UPI-app path, just without an app-open attempt first.
+    const paidViaQrBtn = document.getElementById('paid-via-qr-btn');
+    if (paidViaQrBtn) paidViaQrBtn.addEventListener('click', () => {
+        const amountRupees = getCartGrandTotalRupees();
+        if (amountRupees <= 0) { showToast('Your cart total is ₹0.00 — add items before paying.', 'error'); return; }
+        if (!pendingOnlineOrderId) pendingOnlineOrderId = generateOrderId();
+        selectedOnlinePaymentMethod = 'UPI_QR';
+        showUpiPaymentConfirmStep();
+    });
+
+    const upiGoBackBtn = document.getElementById('upi-payment-goback-btn');
+    if (upiGoBackBtn) upiGoBackBtn.addEventListener('click', hideUpiPaymentConfirmStep);
+
+    const upiPaymentCompletedBtn = document.getElementById('upi-payment-completed-btn');
+    if (upiPaymentCompletedBtn) upiPaymentCompletedBtn.addEventListener('click', () => {
+        if (!selectedOnlinePaymentMethod) selectedOnlinePaymentMethod = 'UPI';
+        processFinalOrderPayload();
+    });
+
     const methodRadios = document.querySelectorAll('input[name="payment_method"]');
     methodRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -1934,15 +1962,33 @@ function setupCartPageModules() {
             if (upiDrawer) upiDrawer.style.display = (e.target.value === 'ONLINE') ? 'block' : 'none';
             if (codRow) codRow.style.display = (e.target.value === 'COD') ? 'flex' : 'none';
 
+            if (e.target.value !== 'ONLINE') {
+                // Leaving Online Payment drops any reserved order id/method so a
+                // later switch back to ONLINE starts clean.
+                pendingOnlineOrderId = null;
+                selectedOnlinePaymentMethod = null;
+            } else {
+                // Fresh entry into Online Payment always starts at the method-
+                // choice step, never mid-confirmation from a previous attempt.
+                hideUpiPaymentConfirmStep();
+            }
+
             recalculateBill();
+
+            if (e.target.value === 'ONLINE') {
+                // Read the amount AFTER recalculateBill() so it reflects the
+                // total with the COD handling fee removed.
+                const amtEl = document.getElementById('upi-drawer-amount');
+                if (amtEl) amtEl.textContent = document.getElementById('bill-grand-total')?.innerText || '₹0.00';
+            }
         });
     });
 
     const placeOrderBtn = document.getElementById('place-order-final-btn');
-    if (placeOrderBtn) placeOrderBtn.addEventListener('click', processFinalOrderPayload);
+    if (placeOrderBtn) placeOrderBtn.addEventListener('click', handlePlaceOrderClick);
 
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
-    if (stickyPlaceBtn) stickyPlaceBtn.addEventListener('click', processFinalOrderPayload);
+    if (stickyPlaceBtn) stickyPlaceBtn.addEventListener('click', handlePlaceOrderClick);
 
     // Delegated backup handlers for qty +/- and remove — the container's
     // innerHTML gets fully replaced every time the cart changes, and relying
@@ -1978,6 +2024,16 @@ function setupCartPageModules() {
 
     const goOrdersBtn = document.getElementById('go-to-orders-after-success');
     if (goOrdersBtn) goOrdersBtn.onclick = () => window.location.href = 'userorder.html';
+
+    const goOrdersAfterPendingBtn = document.getElementById('go-to-orders-after-payment-pending');
+    if (goOrdersAfterPendingBtn) goOrdersAfterPendingBtn.onclick = () => window.location.href = 'userorder.html';
+
+    const paymentPendingModal = document.getElementById('payment-pending-modal');
+    if (paymentPendingModal) {
+        paymentPendingModal.addEventListener('click', (e) => {
+            if (e.target === paymentPendingModal) paymentPendingModal.style.display = 'none';
+        });
+    }
 
     const successModal = document.getElementById('success-animation-modal');
     if (successModal) {
@@ -2498,37 +2554,67 @@ function generateSecureSixDigitOTP() {
 }
 
 // ============================================================
-// UPI INTENT / DEEP-LINK PAYMENT
-// Merchant VPA: 9593625498@ibl  |  Payee name: MediFinder India
+// UPI INTENT / DEEP-LINK PAYMENT — direct merchant VPA, no gateway
+// Merchant VPA: 9593625498@ibl  |  Payee name: MediFinder
 //
 // This ONLY builds and launches a upi://pay deep link so the customer's own
 // UPI app (PhonePe/GPay/Paytm/etc.) opens with the amount pre-filled. No
 // PIN, card, or secret key is ever collected on this site — the PIN is
-// entered inside the customer's own UPI app. Because a plain deep link gives
-// no callback, this code NEVER marks an order "Paid" just because the link
-// was opened or the button was tapped — real confirmation needs a server-side
-// payment-gateway/webhook verification step, which isn't wired up yet, so
-// every UPI order is saved with payment_status "Payment verification
-// pending" (see processFinalOrderPayload below). Swap in real verification
-// there later without touching this function.
+// entered inside the customer's own UPI app. A plain deep link gives no
+// callback, so this code NEVER marks an order "Paid" just because the link
+// was opened — the shopper has to explicitly confirm with "Payment
+// Completed" (see the #upi-payment-confirm step below), and even then the
+// order is only saved as payment_verification_status "pending" until
+// MediFinder's team verifies it from the admin panel.
 const UPI_PAYEE_VPA = "9593625498@ibl";
-const UPI_PAYEE_NAME = "MediFinder India";
+const UPI_PAYEE_NAME = "MediFinder";
 
 function isMobileDeviceForUpi() {
     return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
 }
 
-// Builds upi://pay?pa=...&pn=...&am=...&cu=INR with correct URL-encoding
-// (encodeURIComponent turns "@" into "%40" and spaces into "%20").
-function buildUpiDeepLink(amountRupees) {
-    const amt = (Math.round((parseFloat(amountRupees) || 0) * 100) / 100).toFixed(2);
-    return `upi://pay?pa=${encodeURIComponent(UPI_PAYEE_VPA)}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${amt}&cu=INR`;
+// Same "ORD-..." shape used everywhere else in this file — factored out so
+// the id shown in the UPI app's note (tn=) is the exact same id the order
+// row is saved under once "Payment Completed" is tapped.
+function generateOrderId() {
+    return "ORD-" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
-// "Pay with UPI" button handler. Mobile-only intent launch; desktop just
-// shows a message. Uses the standard visibility/blur heuristic to guess
-// whether a UPI app actually intercepted the link, purely for the status
-// message shown to the customer — this is NOT payment confirmation.
+function getCartGrandTotalRupees() {
+    const amountText = document.getElementById('bill-grand-total')?.innerText || document.getElementById('sticky-total-price')?.innerText || '₹0.00';
+    return parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
+}
+
+function showUpiPaymentConfirmStep() {
+    const choice = document.getElementById('upi-method-choice');
+    const confirmStep = document.getElementById('upi-payment-confirm');
+    if (choice) choice.style.display = 'none';
+    if (confirmStep) confirmStep.style.display = 'block';
+}
+
+function hideUpiPaymentConfirmStep() {
+    const choice = document.getElementById('upi-method-choice');
+    const confirmStep = document.getElementById('upi-payment-confirm');
+    if (choice) choice.style.display = 'block';
+    if (confirmStep) confirmStep.style.display = 'none';
+}
+
+// Builds upi://pay?pa=...&pn=...&am=...&cu=INR&tn=... with correct
+// URL-encoding (encodeURIComponent turns "@" into "%40" and spaces into
+// "%20"). orderIdForNote is the reserved order id so the note the customer
+// sees inside their UPI app already names the real MediFinder order.
+function buildUpiDeepLink(amountRupees, orderIdForNote) {
+    const amt = (Math.round((parseFloat(amountRupees) || 0) * 100) / 100).toFixed(2);
+    let link = `upi://pay?pa=${encodeURIComponent(UPI_PAYEE_VPA)}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${amt}&cu=INR`;
+    if (orderIdForNote) link += `&tn=${encodeURIComponent('MediFinder Order ' + orderIdForNote)}`;
+    return link;
+}
+
+// "PAY NOW" (UPI App card) handler. Mobile-only intent launch; desktop just
+// shows a message pointing at the QR option. Uses the standard
+// visibility/blur heuristic to guess whether a UPI app actually intercepted
+// the link, purely to decide whether to reveal the "Have you completed the
+// payment?" confirmation step — this is NOT payment confirmation itself.
 function handlePayWithUpiClick() {
     const statusMsg = document.getElementById('upi-pay-status-msg');
     const showStatus = (text, color) => {
@@ -2538,17 +2624,18 @@ function handlePayWithUpiClick() {
         statusMsg.innerText = text;
     };
 
-    const amountText = document.getElementById('bill-grand-total')?.innerText || document.getElementById('sticky-total-price')?.innerText || '₹0.00';
-    const amountRupees = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
+    const amountRupees = getCartGrandTotalRupees();
     if (amountRupees <= 0) { showToast('Your cart total is ₹0.00 — add items before paying.', 'error'); return; }
 
+    if (!pendingOnlineOrderId) pendingOnlineOrderId = generateOrderId();
+
     if (!isMobileDeviceForUpi()) {
-        showStatus('UPI payment is available on mobile devices.', '#ff9f43');
+        showStatus('UPI app payment is available on mobile devices. Please use the QR Code option below.', '#ff9f43');
         return;
     }
 
-    const upiLink = buildUpiDeepLink(amountRupees);
-    localStorage.setItem('medi_last_upi_attempt', JSON.stringify({ amount: amountRupees.toFixed(2), time: Date.now() }));
+    const upiLink = buildUpiDeepLink(amountRupees, pendingOnlineOrderId);
+    localStorage.setItem('medi_last_upi_attempt', JSON.stringify({ amount: amountRupees.toFixed(2), orderId: pendingOnlineOrderId, time: Date.now() }));
 
     let appOpened = false;
     const markOpened = () => { appOpened = true; };
@@ -2561,11 +2648,28 @@ function handlePayWithUpiClick() {
         document.removeEventListener('visibilitychange', markOpened);
         window.removeEventListener('blur', markOpened);
         if (!appOpened) {
-            showStatus('No compatible UPI app found. Please use another payment method.', '#ff4d4d');
+            showStatus('Unable to open UPI app? Please use the QR Code option below.', '#ff4d4d');
         } else {
-            showStatus('Payment verification pending — finish the payment in your UPI app, then tap Place Order.', '#ff9f43');
+            selectedOnlinePaymentMethod = 'UPI';
+            showUpiPaymentConfirmStep();
         }
     }, 2000);
+}
+
+// Entry point for the main/sticky "Place Order" buttons. For COD it goes
+// straight to processFinalOrderPayload() as before. For ONLINE it never
+// places an order directly — the shopper must go through the UPI-app or
+// QR card above and tap "Payment Completed" there (that button calls
+// processFinalOrderPayload() itself); this just guides them to it so a
+// stray tap on the main button can't silently create an unpaid order.
+function handlePlaceOrderClick() {
+    if (selectedPaymentMethod === 'ONLINE') {
+        const upiDrawer = document.getElementById('upi-pay-drawer');
+        if (upiDrawer) upiDrawer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showToast('Please complete your UPI payment above, then tap "Payment Completed".', 'info');
+        return;
+    }
+    processFinalOrderPayload();
 }
 
 async function processFinalOrderPayload() {
@@ -2624,17 +2728,20 @@ async function processFinalOrderPayload() {
 
     const placeOrderBtn = document.getElementById('place-order-final-btn');
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
+    const paymentCompletedBtn = document.getElementById('upi-payment-completed-btn');
     const origPlaceBtnHTML = placeOrderBtn ? placeOrderBtn.innerHTML : '';
     const origStickyBtnHTML = stickyPlaceBtn ? stickyPlaceBtn.innerHTML : '';
+    const origPaymentCompletedBtnHTML = paymentCompletedBtn ? paymentCompletedBtn.innerHTML : '';
     if (placeOrderBtn) { placeOrderBtn.disabled = true; placeOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
     if (stickyPlaceBtn) { stickyPlaceBtn.disabled = true; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
+    if (paymentCompletedBtn) { paymentCompletedBtn.disabled = true; paymentCompletedBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; }
 
-    // NOTE: there is no payment gateway/webhook wired up to confirm a UPI
-    // payment back to this page (see buildUpiDeepLink/handlePayWithUpiClick
-    // above), so placing an order under "ONLINE" never blocks on — or
-    // fabricates — a "Paid" confirmation here. It's saved with
-    // payment_status "Payment verification pending" below. Slot real
-    // server-side verification in right here once it exists.
+    // Direct UPI/QR payment, no gateway: this only reaches here after the
+    // shopper explicitly tapped "Payment Completed" on the confirmation step
+    // (see showUpiPaymentConfirmStep/handlePlaceOrderClick above) — there is
+    // still no automatic way to confirm the money actually arrived, so the
+    // order is saved as payment_verification_status "pending" below and only
+    // flips to "verified" once MediFinder's admin team checks it manually.
 
     try {
     const primaryMerchantId = currentCart.find(item => item.merchantId)?.merchantId || null;
@@ -2645,7 +2752,7 @@ async function processFinalOrderPayload() {
     const itemsDescription = currentCart.map(i => `${i.name} × ${i.qty}`).join(', ');
     const firstProductImg = currentCart[0]?.img || "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400";
     const fullAddress = `${addr.house}, ${addr.area}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}`;
-    const orderId = "ORD-" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderId = (selectedPaymentMethod === 'ONLINE' && pendingOnlineOrderId) ? pendingOnlineOrderId : generateOrderId();
 
     const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     const grandTotal = document.getElementById('bill-grand-total')?.innerText || "₹0.00";
@@ -2674,6 +2781,12 @@ async function processFinalOrderPayload() {
     const orderPrescriptionRequired = rxCartItems.length > 0;
     const orderPrescriptionUrl = rxCartItems.length > 0 ? rxCartItems[0].prescriptionUrl : null;
 
+    // For COD, payment_mode stays exactly "COD" as before. For online orders
+    // it's saved as the specific method used ("UPI" or "UPI_QR") — matching
+    // the value marchentorders.html's getPaymentDisplay() already recognizes
+    // — instead of the generic "ONLINE" the radio button's value carries.
+    const paymentModeToSave = selectedPaymentMethod === "COD" ? "COD" : (selectedOnlinePaymentMethod || "UPI");
+
     const orderPayload = {
         order_id: orderId,
         user_id: currentUserId || null,
@@ -2685,18 +2798,22 @@ async function processFinalOrderPayload() {
         items_img: firstProductImg,
         address: fullAddress,
         delivery_address: fullAddress,
-        payment_mode: selectedPaymentMethod,
+        payment_mode: paymentModeToSave,
         total_bill: grandTotal,
         total_amount: parseFloat(grandTotal.replace('₹', '')) || subtotal,
         total: subtotal,
         payment_status: selectedPaymentMethod === "COD" ? "Pending" : "Payment verification pending",
+        // Real merchant-Accept lock and admin verification key off this field
+        // (see marchentorders.html/marchenthome.html getActionButtons() and
+        // adminuser.js verifyUpiPayment()) — COD orders never carry it.
+        payment_verification_status: selectedPaymentMethod === "COD" ? null : "pending",
         status: "pending",
         transit_mode: calculatedTransitMode,
         eta_minutes: calculatedETA,
         shop_lat: shopCoordinates.lat,
         shop_lng: shopCoordinates.lng,
         delivery_secure_code: secureDeliveryOTP,
-        razorpay_payment_id: null, // kept for schema compatibility; slot a real gateway/UPI verification id in here once server-side verification exists
+        razorpay_payment_id: null, // kept for schema compatibility; not used by the direct-UPI flow
         date_string: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
         merchant_id: primaryMerchantId,
         prescription_required: orderPrescriptionRequired,
@@ -2810,21 +2927,46 @@ async function processFinalOrderPayload() {
         }
     }
 
-    const successModal = document.getElementById('success-animation-modal');
-    if (successModal) {
-        const el1 = document.getElementById('success-order-id');
-        const el2 = document.getElementById('success-payment');
-        const el3 = document.getElementById('success-eta');
-        const el4 = document.getElementById('success-otp-code');
-        if (el1) el1.textContent = orderId;
-        if (el2) el2.textContent = selectedPaymentMethod === 'COD' ? 'Cash on Delivery' : 'UPI — Verification Pending';
-        if (el3) el3.textContent = calculatedETA + ' mins';
-        if (el4) el4.textContent = secureDeliveryOTP;
-        successModal.style.display = 'flex';
-        setTimeout(function(){ successModal.classList.add('modal-revealed'); }, 50);
-        createConfetti();
+    if (selectedPaymentMethod === 'COD') {
+        const successModal = document.getElementById('success-animation-modal');
+        if (successModal) {
+            const el1 = document.getElementById('success-order-id');
+            const el2 = document.getElementById('success-payment');
+            const el3 = document.getElementById('success-eta');
+            const el4 = document.getElementById('success-otp-code');
+            if (el1) el1.textContent = orderId;
+            if (el2) el2.textContent = 'Cash on Delivery';
+            if (el3) el3.textContent = calculatedETA + ' mins';
+            if (el4) el4.textContent = secureDeliveryOTP;
+            successModal.style.display = 'flex';
+            setTimeout(function(){ successModal.classList.add('modal-revealed'); }, 50);
+            createConfetti();
+        } else {
+            showToast(`Order placed! Delivery Code: ${secureDeliveryOTP}`, "success");
+        }
     } else {
-        showToast(`Order placed! Delivery Code: ${secureDeliveryOTP}`, "success");
+        // Online (UPI/QR) orders never get the "Order Placed!" celebration —
+        // nothing is actually confirmed yet. They get the distinct "Payment
+        // Submitted / verification pending" screen instead.
+        const pendingModal = document.getElementById('payment-pending-modal');
+        if (pendingModal) {
+            const el1 = document.getElementById('payment-pending-order-id');
+            const el2 = document.getElementById('payment-pending-amount');
+            const el3 = document.getElementById('payment-pending-method');
+            if (el1) el1.textContent = orderId;
+            if (el2) el2.textContent = grandTotal;
+            if (el3) el3.textContent = paymentModeToSave === 'UPI_QR' ? 'UPI (QR Code)' : 'UPI';
+            pendingModal.style.display = 'flex';
+        } else {
+            showToast(`Order submitted! Payment verification pending. Order ID: ${orderId}`, "info");
+        }
+        // Reset the reserved online-order state so a fresh cart/checkout
+        // later starts clean instead of reusing this order id.
+        pendingOnlineOrderId = null;
+        selectedOnlinePaymentMethod = null;
+        const upiStatusMsg = document.getElementById('upi-pay-status-msg');
+        if (upiStatusMsg) upiStatusMsg.style.display = 'none';
+        hideUpiPaymentConfirmStep();
     }
 
     // Cart is intentionally left as-is here. The order is already saved to the
@@ -2834,6 +2976,7 @@ async function processFinalOrderPayload() {
     } finally {
         if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = ''; }
         if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-bag-shopping"></i> Place Order'; }
+        if (paymentCompletedBtn) { paymentCompletedBtn.disabled = false; paymentCompletedBtn.innerHTML = origPaymentCompletedBtnHTML || '<i class="fa-solid fa-check"></i> Payment Completed'; }
     }
 }
 
@@ -3055,6 +3198,14 @@ function renderOrdersUI(filterMode) {
                 else if (s === "picked_up" || s === "shipped" || s === "broadcasted") statusLabel = "Out for Delivery";
                 else if (s === "delivered") statusLabel = "Delivered";
                 else if (s === "cancelled") statusLabel = "Cancelled";
+                // UPI/QR order still awaiting MediFinder's manual payment
+                // verification — surfaces ahead of the normal "Order Placed"
+                // label so the shopper knows why the merchant hasn't
+                // accepted yet (see marchentorders.html's Accept lock).
+                const paymentMode = ((order.payment_mode || '') + '').toUpperCase();
+                const isOnlinePaymentOrder = paymentMode === 'UPI' || paymentMode === 'UPI_QR';
+                const isPaymentUnverified = isOnlinePaymentOrder && (order.payment_verification_status || 'pending') !== 'verified';
+                if (!isRx && s === 'pending' && isPaymentUnverified) statusLabel = 'Payment Verification Pending';
             const actionButtons = isRx
                 ? `<button style="background:#1c82aa;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openRxOrderTrackingModal('${order.rx_id}','${order.status}')">Track</button>
                    <button style="background:#2ed573;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;" onclick="openDeliveryBoyVerificationModal('${order.order_id}', true)">View OTP</button>
@@ -3077,7 +3228,7 @@ function renderOrdersUI(filterMode) {
                         </div>
                     </div>
                     <div class="order-action-area" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;margin-left:8px;">
-                        <span style="font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:20px;background:#fff9db;color:#f59f00;">${statusLabel}</span>
+                        <span style="font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:20px;${statusLabel === 'Payment Verification Pending' ? 'background:#ede9fe;color:#7c3aed;' : 'background:#fff9db;color:#f59f00;'}">${statusLabel}</span>
                         <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
                             ${actionButtons}
                         </div>

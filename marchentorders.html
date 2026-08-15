@@ -331,6 +331,13 @@
         .loading-text{font-size:14px;font-weight:600;color:var(--text-light)}
     </style>
     <link rel="stylesheet" href="merchant-shared.css?v=14">
+    <style id="mobile-header-gap-fix">
+        /* Mobile: keep order content close to the fixed header.
+           The header is 56px tall, so only a small 6px breathing space is needed. */
+        @media (max-width: 767px){
+            .main{margin-top:56px !important;padding:6px 12px 16px !important;}
+        }
+    </style>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -1106,6 +1113,10 @@
                         <div class="order-card-amount">${amount}</div>
                         <div class="order-card-items">${items} item${items !== 1 ? 's' : ''}</div>
                     </div>
+                    ${status === 'pending' && isPaymentVerificationLocked(order) ? `
+                    <div style="background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.4;margin:0 0 10px;">
+                        <strong>🔒 Accept Locked</strong><br>MediFinder India Team is verifying the payment. You can accept this order after payment verification.
+                    </div>` : ''}
                     <div class="order-card-footer">
                         <span class="payment-badge ${payDisplay.statusClass}" title="${payDisplay.badge}">${payDisplay.label}</span>
                         <div class="order-card-actions">
@@ -1129,7 +1140,11 @@
                 }
             }
             if (status === 'pending') {
-                btns += `<button class="action-btn accept" title="Accept" onclick="acceptOrder('${order.id}')"><i class="fas fa-check"></i></button>`;
+                if (isPaymentVerificationLocked(order)) {
+                    btns += `<button class="action-btn" title="🔒 Accept Locked — MediFinder India Team is verifying the payment. You can accept this order after payment verification." disabled style="opacity:.5;cursor:not-allowed;color:#7c3aed;"><i class="fas fa-lock"></i></button>`;
+                } else {
+                    btns += `<button class="action-btn accept" title="Accept" onclick="acceptOrder('${order.id}')"><i class="fas fa-check"></i></button>`;
+                }
                 btns += `<button class="action-btn reject" title="Reject" onclick="openRejectModal('${order.id}')"><i class="fas fa-times"></i></button>`;
             } else if (status === 'accepted' || status === 'arrived_at_store' || status === 'picked_up') {
                 btns += `<button class="action-btn ship" title="Ship" onclick="updateStatus('${order.id}','shipped')"><i class="fas fa-truck"></i></button>`;
@@ -1174,12 +1189,30 @@
         // ===== BULK ACTIONS =====
         async function bulkAction(status) {
             if (selectedOrders.size === 0) return;
-            showConfirmationModal(`Are you sure you want to ${status === 'cancelled' ? 'reject' : status} ${selectedOrders.size} order(s)?`, async () => {
+            // Bulk Accept must respect the same UPI/QR payment-verification lock
+            // as the single Accept button — silently skip locked orders instead
+            // of accepting an unpaid-and-unverified order in bulk.
+            let targetIds = Array.from(selectedOrders);
+            if (status === 'accepted') {
+                const lockedCount = targetIds.filter(id => {
+                    const o = allOrders.find(ord => ord.id === id);
+                    return o && isPaymentVerificationLocked(o);
+                }).length;
+                targetIds = targetIds.filter(id => {
+                    const o = allOrders.find(ord => ord.id === id);
+                    return !o || !isPaymentVerificationLocked(o);
+                });
+                if (lockedCount > 0) {
+                    showToast(`${lockedCount} order(s) skipped — 🔒 payment verification pending.`, 'info');
+                }
+                if (targetIds.length === 0) return;
+            }
+            showConfirmationModal(`Are you sure you want to ${status === 'cancelled' ? 'reject' : status} ${targetIds.length} order(s)?`, async () => {
                 try {
                     const { error } = await supabase
                         .from('orders')
                         .update({ status, updated_at: new Date().toISOString() })
-                        .in('id', Array.from(selectedOrders));
+                        .in('id', targetIds);
 
                     if (error) throw error;
 
@@ -1187,14 +1220,14 @@
                         await supabase.from('merchant_notifications').insert([{
                             merchant_id: merchantId,
                             title: `Bulk ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-                            message: `${selectedOrders.size} order(s) marked as ${status}.`,
+                            message: `${targetIds.length} order(s) marked as ${status}.`,
                             type: status === 'cancelled' ? 'warning' : 'info',
                             category: 'order',
                             is_read: false
                         }]);
                     } catch(e) { /* error */ }
 
-                    showToast(`${selectedOrders.size} order(s) updated to ${status}`, 'success');
+                    showToast(`${targetIds.length} order(s) updated to ${status}`, 'success');
                     selectedOrders.clear();
                     updateSelectedCount();
                     await loadOrders();
@@ -1209,6 +1242,14 @@
             try {
                 const order = allOrders.find(o => o.id === orderId);
                 if (!order) return;
+
+                // Defense in depth — the Accept button is already hidden/disabled
+                // in the UI while payment verification is pending, but re-check
+                // here too in case of a stale render.
+                if (isPaymentVerificationLocked(order)) {
+                    showToast('🔒 Accept Locked — MediFinder India Team is verifying the payment.', 'error');
+                    return;
+                }
 
                 const { error } = await supabase
                     .from('orders')
@@ -1501,7 +1542,14 @@
             let btns = '';
 
             if (status === 'pending') {
-                btns += `<button class="modal-btn modal-btn-success" onclick="closeModal();acceptOrder('${order.id}')"><i class="fas fa-check"></i> Accept</button>`;
+                if (isPaymentVerificationLocked(order)) {
+                    btns += `<div style="width:100%;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:4px;"><strong>🔒 Accept Locked</strong><br>MediFinder India Team is verifying the payment.<br>You can accept this order after payment verification.</div>`;
+                } else {
+                    if (getPaymentDisplay(order).isOnline) {
+                        btns += `<div style="width:100%;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:700;margin-bottom:4px;">✓ Payment Verified</div>`;
+                    }
+                    btns += `<button class="modal-btn modal-btn-success" onclick="closeModal();acceptOrder('${order.id}')"><i class="fas fa-check"></i> Accept Order</button>`;
+                }
                 btns += `<button class="modal-btn modal-btn-danger" onclick="closeModal();openRejectModal('${order.id}')"><i class="fas fa-times"></i> Reject</button>`;
             } else if (status === 'accepted' || status === 'arrived_at_store' || status === 'picked_up') {
                 btns += `<button class="modal-btn modal-btn-primary" onclick="closeModal();updateStatus('${order.id}','shipped')"><i class="fas fa-truck"></i> Ship Order</button>`;
@@ -1725,6 +1773,7 @@
         const PAYMENT_METHOD_LABELS = {
             COD: 'Cash on Delivery',
             UPI: 'UPI / Online Paid',
+            UPI_QR: 'UPI (QR Code)',
             RAZORPAY: 'Online Payment',
             NETBANKING: 'Net Banking'
         };
@@ -1767,6 +1816,16 @@
             }
 
             return { label, badge, isOnline, isPaid, statusClass: isPaid ? 'payment-paid' : 'payment-pending' };
+        }
+
+        // Direct-UPI/QR orders (payment_mode UPI or UPI_QR) can't be Accepted
+        // by the merchant until MediFinder's admin team has manually verified
+        // the payment (payment_verification_status = 'verified') — see
+        // adminuser.js verifyUpiPayment(). COD orders are never affected.
+        function isPaymentVerificationLocked(order) {
+            const payDisplay = getPaymentDisplay(order);
+            if (!payDisplay.isOnline) return false;
+            return (order.payment_verification_status || 'pending') !== 'verified';
         }
 
         function showTableSkeleton(show) {

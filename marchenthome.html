@@ -1131,7 +1131,7 @@
             if (!currentMerchantId) return;
             try {
                 const { data, error } = await db.from('orders')
-                    .select('id, items_text, items_img, address, total_bill, total_amount, status, payment_mode, payment_status, customer_name, user_email, customer_phone, rx_prescription_url, created_at')
+                    .select('id, items_text, items_img, address, total_bill, total_amount, status, payment_mode, payment_status, payment_verification_status, customer_name, user_email, customer_phone, rx_prescription_url, created_at')
                     .eq('merchant_id', currentMerchantId)
                     .order('created_at', { ascending: false })
                     .limit(100);
@@ -1182,10 +1182,17 @@
                 let actions = '';
                 const s = (o.status || '').toLowerCase();
                 if (s === 'pending') {
-                    actions = `
-                        <button class="order-action-btn btn-accept" onclick="window._acceptOrder('${o.id}')" title="Accept"><i class="fa-solid fa-check"></i></button>
-                        <button class="order-action-btn btn-reject" onclick="window._rejectOrder('${o.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
-                    `;
+                    if (isOnlinePaymentLocked(o)) {
+                        actions = `
+                            <button class="order-action-btn" title="🔒 Accept Locked — MediFinder India Team is verifying the payment" disabled style="opacity:.5;cursor:not-allowed;color:#7c3aed;background:#f5f3ff;"><i class="fa-solid fa-lock"></i></button>
+                            <button class="order-action-btn btn-reject" onclick="window._rejectOrder('${o.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                        `;
+                    } else {
+                        actions = `
+                            <button class="order-action-btn btn-accept" onclick="window._acceptOrder('${o.id}')" title="Accept"><i class="fa-solid fa-check"></i></button>
+                            <button class="order-action-btn btn-reject" onclick="window._rejectOrder('${o.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                        `;
+                    }
                 } else if (s === 'accepted' || s === 'arrived_at_store' || s === 'picked_up') {
                     actions = `<button class="order-action-btn btn-ship" onclick="window._shipOrder('${o.id}')" title="Ship Order"><i class="fa-solid fa-truck"></i></button>`;
                 } else if (s === 'shipped') {
@@ -1225,9 +1232,23 @@
             return 'status-active';
         }
 
+        // Direct-UPI/QR orders (payment_mode UPI or UPI_QR) can't be Accepted
+        // here until MediFinder's admin team has manually verified the
+        // payment. COD orders are never affected. Mirrors the same check in
+        // marchentorders.html so both merchant order views agree.
+        function isOnlinePaymentLocked(order) {
+            const mode = ((order.payment_mode || '') + '').trim().toUpperCase();
+            if (!mode || mode === 'COD' || /COD|CASH/.test(mode)) return false;
+            return (order.payment_verification_status || 'pending') !== 'verified';
+        }
+
         window._acceptOrder = async function(orderId) {
             try {
                 const order = allOrders.find(o => o.id === orderId);
+                if (order && isOnlinePaymentLocked(order)) {
+                    showToast('🔒 Accept Locked — MediFinder India Team is verifying the payment.', 'error');
+                    return;
+                }
                 const { error } = await db.from('orders').update({ status: 'accepted' }).eq('id', orderId);
                 if (error) throw error;
                 if (order && order.items_text) {

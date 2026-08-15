@@ -193,6 +193,30 @@
                     </div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group full">
+                        <label>Sponsored Banner Image</label>
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
+                            <label class="toggle">
+                                <input type="checkbox" id="spUseCustomImage" onchange="onCustomImageToggle()">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="customImageToggleLabel" style="font-size:12px;font-weight:600;color:var(--text-muted);">Using linked product image</span>
+                        </div>
+                        <div id="customImageUploadWrap" style="display:none;margin-top:10px;">
+                            <input type="file" id="spCustomImageFile" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none;" onchange="handleCustomImageSelect(this.files[0])">
+                            <input type="hidden" id="spCustomImageUrl" value="">
+                            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                <div id="customImagePreviewWrap" style="display:none;">
+                                    <img id="customImagePreview" src="" alt="Banner preview" style="width:160px;height:67px;object-fit:cover;border-radius:8px;border:1px solid var(--border);background:var(--bg);">
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" id="customImageUploadBtn" onclick="document.getElementById('spCustomImageFile').click()"><i class="fas fa-upload"></i> <span id="customImageUploadBtnText">Upload Image</span></button>
+                                <button type="button" class="btn btn-danger btn-sm" id="customImageRemoveBtn" style="display:none;" onclick="removeCustomImage()"><i class="fas fa-trash"></i> Remove Image</button>
+                            </div>
+                            <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5;">Recommended: 1200 × 500 px<br>JPG, PNG or WEBP • Max 5 MB</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label>Sort Order</label>
                         <input type="number" id="spSort" value="0">
@@ -298,6 +322,101 @@
             }
         }
 
+        // ============================================================
+        // SPONSORED BANNER IMAGE — custom uploaded banner, independent
+        // of the linked product's image. See fallback priority at
+        // render time in userscript.js loadSponsoredProducts():
+        //   1) custom_image_url (if use_custom_image is ON and valid)
+        //   2) linked product image
+        //   3) gradient/icon
+        // ============================================================
+        function onCustomImageToggle() {
+            const on = document.getElementById('spUseCustomImage').checked;
+            document.getElementById('customImageUploadWrap').style.display = on ? 'block' : 'none';
+            document.getElementById('customImageToggleLabel').textContent = on ? 'Custom uploaded image' : 'Using linked product image';
+        }
+
+        // Resizes + re-encodes the picked image to an optimized WebP in the
+        // browser before upload (keeps storage small, normalizes format).
+        function compressImageToWebp(file, maxWidth = 1600, quality = 0.85) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('Could not read file'));
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('Could not read image'));
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxWidth) { height = Math.round(height * (maxWidth / width)); width = maxWidth; }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width; canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/webp', quality);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleCustomImageSelect(file) {
+            if (!file) return;
+            const fileInput = document.getElementById('spCustomImageFile');
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Please upload JPG, PNG or WEBP image.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Image must be smaller than 5 MB.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            if (!db) { showToast('Not connected to database', 'error'); return; }
+
+            // Instant local preview while the real upload happens.
+            const previewImg = document.getElementById('customImagePreview');
+            previewImg.src = URL.createObjectURL(file);
+            document.getElementById('customImagePreviewWrap').style.display = 'block';
+
+            const uploadBtn = document.getElementById('customImageUploadBtn');
+            const uploadBtnText = document.getElementById('customImageUploadBtnText');
+            uploadBtn.disabled = true;
+            uploadBtnText.textContent = 'Uploading...';
+
+            try {
+                const webpBlob = await compressImageToWebp(file);
+                const sponsorId = document.getElementById('editId').value || (window.crypto && crypto.randomUUID ? crypto.randomUUID() : ('temp' + Date.now()));
+                const storagePath = `sponsored/${sponsorId}/${Date.now()}.webp`;
+                const { error } = await db.storage.from('media').upload(storagePath, webpBlob, { contentType: 'image/webp' });
+                if (error) {
+                    showToast('Image upload failed. Please try again.', 'error');
+                    return;
+                }
+                const { data: urlData } = db.storage.from('media').getPublicUrl(storagePath);
+                document.getElementById('spCustomImageUrl').value = urlData.publicUrl;
+                previewImg.src = urlData.publicUrl;
+                document.getElementById('customImageRemoveBtn').style.display = 'inline-flex';
+                showToast('Banner image uploaded', 'success');
+            } catch (e) {
+                showToast('Image upload failed. Please try again.', 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtnText.textContent = document.getElementById('spCustomImageUrl').value ? 'Replace Image' : 'Upload Image';
+                fileInput.value = '';
+            }
+        }
+
+        function removeCustomImage() {
+            document.getElementById('spCustomImageUrl').value = '';
+            document.getElementById('customImagePreview').src = '';
+            document.getElementById('customImagePreviewWrap').style.display = 'none';
+            document.getElementById('customImageRemoveBtn').style.display = 'none';
+            document.getElementById('customImageUploadBtnText').textContent = 'Upload Image';
+            document.getElementById('spCustomImageFile').value = '';
+        }
+
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -356,9 +475,9 @@
                     const discountBadge = p.first_order_discount_percent ? `<span style="font-size:11px;font-weight:700;color:var(--primary);">${p.first_order_discount_percent}% OFF</span>` : '';
                     return `
                 <div class="list-item">
-                    <div class="gradient-preview" style="background:${p.gradient}">
-                        <i class="${p.icon_class}"></i>
-                    </div>
+                    ${p.use_custom_image && p.custom_image_url
+                        ? `<img src="${escapeHtml(p.custom_image_url)}" alt="" class="gradient-preview" style="object-fit:cover;background:var(--bg);">`
+                        : `<div class="gradient-preview" style="background:${p.gradient}"><i class="${p.icon_class}"></i></div>`}
                     <div class="list-info">
                         <h4>${escapeHtml(p.tag)} — ${escapeHtml(p.title)}</h4>
                         <p>${escapeHtml(p.subtitle || '')} | Sort: ${p.sort_order} | ${p.is_active ? '<span style="color:var(--success)">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'} ${discountBadge ? ' | ' + discountBadge : ''} ${expiryBadge ? ' | ' + expiryBadge : ''}</p>
@@ -399,6 +518,8 @@
                 sort_order: parseInt(document.getElementById('spSort').value) || 0,
                 first_order_discount_percent: parseInt(document.getElementById('spFirstOrderDiscount').value) || null,
                 valid_until: document.getElementById('spValidUntil').value || null,
+                use_custom_image: document.getElementById('spUseCustomImage').checked,
+                custom_image_url: document.getElementById('spCustomImageUrl').value || null,
                 is_active: true
             };
             try {
@@ -430,6 +551,20 @@
             document.getElementById('spValidUntil').value = p.valid_until || '';
             document.getElementById('spGradient').value = p.gradient;
             document.getElementById('spIcon').value = p.icon_class;
+            document.getElementById('spUseCustomImage').checked = !!p.use_custom_image;
+            document.getElementById('spCustomImageUrl').value = p.custom_image_url || '';
+            if (p.custom_image_url) {
+                document.getElementById('customImagePreview').src = p.custom_image_url;
+                document.getElementById('customImagePreviewWrap').style.display = 'block';
+                document.getElementById('customImageRemoveBtn').style.display = 'inline-flex';
+                document.getElementById('customImageUploadBtnText').textContent = 'Replace Image';
+            } else {
+                document.getElementById('customImagePreview').src = '';
+                document.getElementById('customImagePreviewWrap').style.display = 'none';
+                document.getElementById('customImageRemoveBtn').style.display = 'none';
+                document.getElementById('customImageUploadBtnText').textContent = 'Upload Image';
+            }
+            onCustomImageToggle();
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Sponsored Product';
             window.scrollTo({ top: 0, behavior: 'smooth' });
             if (extractProductId(p.btn_action || '')) fetchLinkedProduct();
@@ -442,6 +577,9 @@
             document.getElementById('spSort').value = '0';
             document.getElementById('spValidUntil').value = '';
             document.getElementById('linkedProductPreview').style.display = 'none';
+            removeCustomImage();
+            document.getElementById('spUseCustomImage').checked = false;
+            onCustomImageToggle();
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add Sponsored Product';
         }
 
