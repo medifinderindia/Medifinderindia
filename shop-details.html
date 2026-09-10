@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="theme-color" content="#e02020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="MediFinder - Shop details.">
+<title>MediFinder - Shop Details</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js?v=13"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#e02020;--primary-dark:#c41818;--dark:#1a1a2e;--green:#28a745;--blue:#1976d2;--gold:#ffc107;--bg:#f1f3f6;--card:#fff;--text:#212121;--text2:#666;--text3:#878787;--border:#e0e0e0;--shadow:0 1px 6px rgba(0,0,0,.1);--radius:8px}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit}
+
+/* header */
+.header{position:sticky;top:0;z-index:100;background:var(--primary);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 4px rgba(0,0,0,.15)}
+.back-btn{color:#fff;font-size:18px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
+.header-title{flex:1;color:#fff;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cart-btn{position:relative;color:#fff;font-size:20px;background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0}
+.cart-badge{position:absolute;top:-4px;right:-6px;background:var(--dark);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+
+/* skeleton */
+.skeleton{animation:pulse 1.5s ease-in-out infinite;background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;border-radius:var(--radius)}
+@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* banner / hero */
+.banner-wrap{position:relative;width:100%;height:230px;overflow:hidden;background:#222 linear-gradient(135deg,#333,#111)}
+.banner-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.banner-fade{position:absolute;left:0;right:0;bottom:0;height:60%;background:linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,0))}
+.hero-info{background:var(--card);padding:16px;position:relative;margin-top:-1px}
+.shop-name{font-size:21px;font-weight:800;color:var(--text);line-height:1.25}
+.shop-owner{font-size:13px;color:var(--text3);margin-top:2px}
+
+/* stats row */
+.stats-row{display:flex;gap:10px;margin-top:14px}
+.stat-box{flex:1;background:var(--bg);border-radius:var(--radius);padding:10px 12px;text-align:right}
+.stat-box .stat-num{font-size:16px;font-weight:800;color:var(--text)}
+.stat-box .stat-label{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* address + badges */
+.addr-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.addr-row i{color:var(--primary);font-size:15px;margin-top:1px}
+.addr-text{flex:1;font-size:13px;color:var(--text);text-align:left}
+.addr-left{display:flex;gap:8px;flex:1;min-width:0}
+.badge-col{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.trust-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap}
+.trust-badge.verified{background:#e8f5e9;color:var(--green)}
+.trust-badge.rx{background:#e3f2fd;color:var(--blue)}
+.trust-badge.pending{background:#fff3e0;color:#e65100}
+
+/* prescription CTA */
+.rx-cta{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1976d2,#1560ac);color:#fff;margin:8px 0 0;padding:14px 16px;cursor:pointer}
+.rx-cta i{font-size:26px;flex-shrink:0}
+.rx-cta .rx-cta-title{font-size:14px;font-weight:700}
+.rx-cta .rx-cta-sub{font-size:12px;opacity:.9;margin-top:2px}
+.rx-cta .rx-cta-arrow{margin-left:auto;font-size:14px;opacity:.85}
+
+/* products */
+.products-section{padding:16px 12px 8px}
+.products-heading{font-size:17px;font-weight:800;color:var(--text);margin:6px 4px 12px}
+.products-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.product-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);position:relative;cursor:pointer;display:flex;flex-direction:column}
+.pc-img-wrap{position:relative;width:100%;aspect-ratio:1/1;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pc-img-wrap img{width:100%;height:100%;object-fit:contain}
+.pc-badge{position:absolute;top:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;color:#fff}
+.pc-badge.stock{left:6px;background:var(--primary)}
+.pc-badge.off{right:6px;background:var(--green)}
+.pc-info{padding:8px 10px 10px}
+.pc-name{font-size:13px;font-weight:600;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:34px}
+.pc-price-row{display:flex;align-items:baseline;gap:6px;margin-top:6px}
+.pc-price{font-size:15px;font-weight:800;color:var(--text)}
+.pc-mrp{font-size:11px;color:var(--text3);text-decoration:line-through}
+.pc-add-btn{position:absolute;bottom:10px;right:10px;width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.empty-products{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:30px 10px}
+
+.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+@media(min-width:1024px){body{max-width:900px;margin:0 auto}}
+</style>
+</head>
+<body>
+<header class="header">
+  <button class="back-btn" onclick="history.back()" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+  <div class="header-title" id="headerTitle">Shop</div>
+  <button class="cart-btn" onclick="window.location.href='usercart.html'" aria-label="Cart">
+    <i class="fas fa-shopping-cart"></i>
+    <span class="cart-badge" id="cartBadge">0</span>
+  </button>
+</header>
+
+<div id="skeleton">
+  <div class="skeleton" style="width:100%;height:230px;border-radius:0"></div>
+  <div style="background:#fff;padding:16px">
+    <div class="skeleton" style="width:60%;height:22px"></div>
+    <div class="skeleton" style="width:35%;height:14px;margin-top:8px"></div>
+    <div class="skeleton" style="width:100%;height:60px;margin-top:14px"></div>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none">
+  <div class="banner-wrap">
+    <img id="bannerImg" src="" alt="Shop banner">
+    <div class="banner-fade"></div>
+  </div>
+
+  <div class="hero-info fade-in">
+    <div class="shop-name" id="shopName">&nbsp;</div>
+    <div class="shop-owner" id="shopOwner"></div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="statOrders">—</div>
+        <div class="stat-label">Total Orders</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statYears">—</div>
+        <div class="stat-label">With MediFinder</div>
+      </div>
+    </div>
+
+    <div class="addr-row">
+      <div class="addr-left">
+        <i class="fas fa-map-marker-alt"></i>
+        <div class="addr-text" id="shopAddress">Address not available</div>
+      </div>
+      <div class="badge-col" id="badgeCol">
+        <!-- badges injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="rx-cta fade-in" id="rxCta" onclick="orderWithPrescription()">
+    <i class="fas fa-file-medical"></i>
+    <div>
+      <div class="rx-cta-title">Order medicine using uploaded prescription</div>
+      <div class="rx-cta-sub">on this shop</div>
+    </div>
+    <i class="fas fa-chevron-right rx-cta-arrow"></i>
+  </div>
+
+  <div class="products-section fade-in">
+    <div class="products-heading">Our Products</div>
+    <div class="products-grid" id="productsGrid">
+      <div class="empty-products">Loading products…</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let merchantId = null;
+let merchant = null;
+let supabase = null;
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+function updateCartBadge(){
+  try{
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const count = cart.reduce(function(sum, item){ return sum + (item.qty || 1); }, 0);
+    document.getElementById('cartBadge').textContent = count;
+  }catch(e){ /* ignore */ }
+}
+
+function parseParams(){
+  const params = new URLSearchParams(window.location.search);
+  merchantId = params.get('merchant') || params.get('merchantId') || params.get('id');
+}
+
+function initSupabase(){
+  try{
+    if (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_ANON_KEY !== 'undefined' && window.supabase && window.supabase.createClient){
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  }catch(e){ console.error('Supabase init failed', e); }
+}
+
+function fallbackImage(){
+  return 'https://placehold.co/700x400/1a1a2e/ffffff?text=Shop';
+}
+
+// Merchant table column names are assumed from the fields already used on
+// product-detail.html (shop_name, merchant_name, license_status, phone,
+// rating, latitude, longitude, district). Columns that page never touched
+// — a shop banner image and a full address — aren't confirmed yet, so this
+// tries several common names and falls back gracefully if none exist.
+function pick(obj, keys, fallback){
+  for (const k of keys){
+    if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+  }
+  return fallback;
+}
+
+async function loadMerchant(){
+  if (!merchantId){
+    document.getElementById('shopName').textContent = 'Shop not found';
+    document.getElementById('bannerImg').src = fallbackImage();
+    return;
+  }
+  if (!supabase || !supabase.from){
+    document.getElementById('shopName').textContent = 'Could not connect';
+    return;
+  }
+  const { data, error } = await supabase.from('merchants').select('*').eq('id', merchantId).maybeSingle();
+  if (error || !data){
+    document.getElementById('shopName').textContent = 'Shop not found';
+    document.getElementById('bannerImg').src = fallbackImage();
+    return;
+  }
+  merchant = data;
+  renderMerchant();
+}
+
+function renderMerchant(){
+  const shopName = pick(merchant, ['shop_name', 'merchant_name'], 'Shop');
+  const ownerName = pick(merchant, ['owner_name', 'merchant_name', 'contact_name'], null);
+  const banner = pick(merchant, ['banner_url', 'shop_banner', 'cover_image', 'shop_image', 'logo_url', 'image_url'], null);
+
+  document.getElementById('headerTitle').textContent = shopName;
+  document.getElementById('shopName').textContent = shopName;
+  document.getElementById('shopOwner').textContent = ownerName ? ('by ' + ownerName) : '';
+  document.getElementById('shopOwner').style.display = ownerName ? 'block' : 'none';
+  document.getElementById('bannerImg').src = banner || fallbackImage();
+  document.getElementById('bannerImg').onerror = function(){ this.onerror = null; this.src = fallbackImage(); };
+
+  // Address — tries a few likely column names; shows a generic fallback
+  // built from district if nothing more specific exists yet.
+  const fullAddress = pick(merchant, ['address', 'shop_address', 'full_address'], null);
+  const district = pick(merchant, ['district'], null);
+  const addrEl = document.getElementById('shopAddress');
+  if (fullAddress){
+    addrEl.textContent = fullAddress;
+  } else if (district){
+    addrEl.textContent = district;
+  } else {
+    addrEl.textContent = 'Address not available';
+  }
+
+  // Trust badges
+  const badgeCol = document.getElementById('badgeCol');
+  badgeCol.innerHTML = '';
+  const isVerified = merchant.license_status === 'Verified';
+  const licenseBadge = document.createElement('span');
+  licenseBadge.className = 'trust-badge ' + (isVerified ? 'verified' : 'pending');
+  licenseBadge.innerHTML = '<i class="fas ' + (isVerified ? 'fa-check-circle' : 'fa-clock') + '"></i> ' + (isVerified ? 'Licence Verified' : 'Verification Pending');
+  badgeCol.appendChild(licenseBadge);
+
+  // "Prescription allow" — whether this shop accepts Rx orders. Uses a
+  // merchant-level flag if one exists (accepts_prescription /
+  // prescription_allowed); otherwise defaults to showing it, since
+  // MediFinder accepts prescription orders platform-wide.
+  const rxAllowedRaw = pick(merchant, ['accepts_prescription', 'prescription_allowed'], true);
+  const rxAllowed = rxAllowedRaw === false ? false : true;
+  if (rxAllowed){
+    const rxBadge = document.createElement('span');
+    rxBadge.className = 'trust-badge rx';
+    rxBadge.innerHTML = '<i class="fas fa-prescription-bottle-alt"></i> Prescription Allow';
+    badgeCol.appendChild(rxBadge);
+  } else {
+    document.getElementById('rxCta').style.display = 'none';
+  }
+
+  // Years with MediFinder
+  const createdAt = pick(merchant, ['created_at'], null);
+  const yearsEl = document.getElementById('statYears');
+  if (createdAt){
+    const joined = new Date(createdAt);
+    const now = new Date();
+    let months = (now.getFullYear() - joined.getFullYear()) * 12 + (now.getMonth() - joined.getMonth());
+    if (months < 1){
+      yearsEl.textContent = 'New';
+    } else if (months < 12){
+      yearsEl.textContent = months + (months === 1 ? ' month' : ' months');
+    } else {
+      const years = Math.floor(months / 12);
+      yearsEl.textContent = years + (years === 1 ? ' year' : ' years');
+    }
+  } else {
+    yearsEl.textContent = 'New';
+  }
+
+  loadOrderCount();
+}
+
+// Total orders for this shop. Assumes an 'orders' table with a
+// merchant_id column (consistent with how orders are referenced
+// elsewhere in the app). If that query fails, the stat is hidden
+// rather than shown as a wrong number.
+async function loadOrderCount(){
+  const statEl = document.getElementById('statOrders');
+  if (!supabase || !supabase.from || !merchantId){ statEl.textContent = '—'; return; }
+  try{
+    const { count, error } = await supabase.from('orders').select('id', { count: 'exact', head: true }).eq('merchant_id', merchantId);
+    if (error || count === null){ statEl.textContent = '0+'; return; }
+    statEl.textContent = count + (count === 1 ? ' order' : ' orders');
+  }catch(e){
+    statEl.textContent = '0+';
+  }
+}
+
+function orderWithPrescription(){
+  if (!merchantId){ showToast('Shop info unavailable'); return; }
+  window.location.href = 'userhome.html?merchant=' + encodeURIComponent(merchantId) + '&uploadRx=1';
+}
+
+function openProduct(id){
+  if (!id) return;
+  window.location.href = 'product-detail.html?id=' + encodeURIComponent(id);
+}
+
+async function loadProducts(){
+  const grid = document.getElementById('productsGrid');
+  if (!supabase || !supabase.from || !merchantId){
+    grid.innerHTML = '<div class="empty-products">Could not load products.</div>';
+    return;
+  }
+  try{
+    const { data, error } = await supabase.from('medicines').select('*').eq('merchant_id', merchantId).eq('status', 'Approved');
+    if (error || !data || !data.length){
+      grid.innerHTML = '<div class="empty-products">This shop has no products listed yet.</div>';
+      return;
+    }
+    grid.innerHTML = data.map(renderProductCard).join('');
+  }catch(e){
+    grid.innerHTML = '<div class="empty-products">Could not load products.</div>';
+  }
+}
+
+function renderProductCard(p){
+  const name = pick(p, ['name', 'product_name'], 'Product');
+  const price = pick(p, ['selling_price', 'unit_price', 'price'], null);
+  const mrp = pick(p, ['mrp'], null);
+  const img = pick(p, ['image_url', 'image_url_1'], fallbackImage());
+  const stock = pick(p, ['stock', 'quantity', 'stock_qty'], null);
+
+  let offBadge = '';
+  if (price && mrp && parseFloat(mrp) > parseFloat(price)){
+    const off = Math.round((1 - (parseFloat(price) / parseFloat(mrp))) * 100);
+    if (off > 0) offBadge = '<span class="pc-badge off">' + off + '% off</span>';
+  }
+  let stockBadge = '';
+  if (stock !== null && !isNaN(stock) && Number(stock) > 0 && Number(stock) <= 10){
+    stockBadge = '<span class="pc-badge stock">Only ' + stock + ' left</span>';
+  }
+
+  const priceHtml = price ? '\u20B9' + parseFloat(price).toFixed(0) : '';
+  const mrpHtml = (mrp && price && parseFloat(mrp) > parseFloat(price)) ? '<span class="pc-mrp">\u20B9' + parseFloat(mrp).toFixed(0) + '</span>' : '';
+
+  return '' +
+  '<div class="product-card" onclick="openProduct(\'' + String(p.id) + '\')">' +
+    '<div class="pc-img-wrap">' +
+      stockBadge + offBadge +
+      '<img src="' + img + '" alt="" onerror="this.onerror=null;this.src=\'' + fallbackImage() + '\'">' +
+    '</div>' +
+    '<div class="pc-info">' +
+      '<div class="pc-name">' + name + '</div>' +
+      '<div class="pc-price-row"><span class="pc-price">' + priceHtml + '</span>' + mrpHtml + '</div>' +
+    '</div>' +
+    '<button class="pc-add-btn" onclick="event.stopPropagation();openProduct(\'' + String(p.id) + '\')" aria-label="Add"><i class="fas fa-plus"></i></button>' +
+  '</div>';
+}
+
+document.addEventListener('DOMContentLoaded', async function(){
+  parseParams();
+  updateCartBadge();
+  initSupabase();
+  document.getElementById('skeleton').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  await loadMerchant();
+  await loadProducts();
+});
+</script>
+</body>
+</html>

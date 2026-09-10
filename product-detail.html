@@ -1218,7 +1218,7 @@ async function loadSellerInfo(){
 
 function viewSellerProducts(){
   if (!product.merchantId) { showToast('Seller info unavailable'); return; }
-  window.location.href = 'userhome.html?merchant=' + encodeURIComponent(product.merchantId);
+  window.location.href = 'shop-details.html?merchant=' + encodeURIComponent(product.merchantId);
 }
 
 async function renderFBT(){
