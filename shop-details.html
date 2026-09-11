@@ -41,6 +41,8 @@ button{font-family:inherit}
 .banner-wrap img{width:100%;height:100%;object-fit:cover;display:block}
 .banner-fade{position:absolute;left:0;right:0;bottom:0;height:60%;background:linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,0))}
 .hero-info{background:var(--card);padding:16px;position:relative;margin-top:-1px}
+.shop-title-row{display:flex;align-items:center;gap:10px}
+.shop-logo{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--card);box-shadow:0 0 0 1px var(--border)}
 .shop-name{font-size:21px;font-weight:800;color:var(--text);line-height:1.25}
 .shop-owner{font-size:13px;color:var(--text3);margin-top:2px}
 
@@ -92,6 +94,26 @@ button{font-family:inherit}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 
+.rx-cta i:first-child{transition:transform .2s ease}
+.rx-cta.open i:first-child{transform:rotate(0)}
+.rx-cta.open .rx-cta-arrow{transform:rotate(90deg)}
+
+/* prescription upload panel (direct-to-shop, no broadcast) */
+.rx-panel{background:#fff;padding:16px;border-top:1px solid var(--border)}
+.rx-panel-hint{font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5}
+#rxPhoneInput{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;margin-bottom:10px;font-family:inherit}
+.rx-upload-btn-row{display:flex;gap:10px}
+.rx-upload-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1.5px dashed #1976d2;border-radius:var(--radius);background:#f2f8fd;color:#1976d2;font-weight:700;font-size:13px;cursor:pointer}
+.rx-upload-btn:active{transform:scale(.97)}
+.rx-upload-btn.uploading{opacity:.6;pointer-events:none}
+.rx-panel-msg{font-size:12px;margin-top:10px;text-align:center;min-height:16px}
+.rx-panel-msg.error{color:#d32f2f}
+.rx-panel-msg.info{color:#1976d2}
+#rxPanelSuccess{text-align:center;padding:6px 4px}
+.rx-success-title{font-size:15px;font-weight:800;margin:10px 0 4px}
+.rx-success-sub{font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+.rx-view-status-btn{width:100%;padding:12px;border:none;border-radius:var(--radius);background:var(--primary);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer}
+
 @media(min-width:1024px){body{max-width:900px;margin:0 auto}}
 </style>
 </head>
@@ -121,13 +143,22 @@ button{font-family:inherit}
   </div>
 
   <div class="hero-info fade-in">
-    <div class="shop-name" id="shopName">&nbsp;</div>
-    <div class="shop-owner" id="shopOwner"></div>
+    <div class="shop-title-row">
+      <img id="shopLogo" class="shop-logo" src="" alt="" style="display:none">
+      <div>
+        <div class="shop-name" id="shopName">&nbsp;</div>
+        <div class="shop-owner" id="shopOwner"></div>
+      </div>
+    </div>
 
     <div class="stats-row">
       <div class="stat-box">
         <div class="stat-num" id="statOrders">—</div>
         <div class="stat-label">Total Orders</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statProducts">—</div>
+        <div class="stat-label">Products</div>
       </div>
       <div class="stat-box">
         <div class="stat-num" id="statYears">—</div>
@@ -146,13 +177,33 @@ button{font-family:inherit}
     </div>
   </div>
 
-  <div class="rx-cta fade-in" id="rxCta" onclick="orderWithPrescription()">
+  <div class="rx-cta fade-in" id="rxCta" onclick="toggleRxPanel()">
     <i class="fas fa-file-medical"></i>
     <div>
       <div class="rx-cta-title">Order medicine using uploaded prescription</div>
       <div class="rx-cta-sub">on this shop</div>
     </div>
-    <i class="fas fa-chevron-right rx-cta-arrow"></i>
+    <i class="fas fa-chevron-right rx-cta-arrow" id="rxCtaArrow"></i>
+  </div>
+
+  <div class="rx-panel" id="rxPanel" style="display:none;">
+    <div id="rxPanelStep1">
+      <p class="rx-panel-hint">Upload a clear photo of your prescription — it goes straight to <strong id="rxPanelShopName">this shop</strong>, no other pharmacy will see it.</p>
+      <input type="tel" id="rxPhoneInput" placeholder="Your phone number (so the shop can reach you)" maxlength="10" inputmode="numeric">
+      <div class="rx-upload-btn-row">
+        <button type="button" class="rx-upload-btn" id="rxCameraBtn"><i class="fas fa-camera"></i> Camera</button>
+        <button type="button" class="rx-upload-btn" id="rxGalleryBtn"><i class="fas fa-image"></i> Gallery</button>
+      </div>
+      <input type="file" id="rxCameraInput" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="rxGalleryInput" accept="image/*,application/pdf" style="display:none;">
+      <p id="rxPanelMsg" class="rx-panel-msg"></p>
+    </div>
+    <div id="rxPanelSuccess" style="display:none;">
+      <i class="fas fa-circle-check" style="font-size:34px;color:var(--green);"></i>
+      <p class="rx-success-title">Sent to <span id="rxSuccessShop"></span>!</p>
+      <p class="rx-success-sub">Order ID: <strong id="rxSuccessId"></strong> — you'll get a notification the moment they accept.</p>
+      <button type="button" class="rx-view-status-btn" onclick="window.location.href='userhome.html#order'">View Order Status</button>
+    </div>
   </div>
 
   <div class="products-section fade-in">
@@ -202,11 +253,12 @@ function fallbackImage(){
   return 'https://placehold.co/700x400/1a1a2e/ffffff?text=Shop';
 }
 
-// Merchant table column names are assumed from the fields already used on
-// product-detail.html (shop_name, merchant_name, license_status, phone,
-// rating, latitude, longitude, district). Columns that page never touched
-// — a shop banner image and a full address — aren't confirmed yet, so this
-// tries several common names and falls back gracefully if none exist.
+// Merchant table columns confirmed directly against the schema (see
+// information_schema.columns query run during setup): id, merchant_name,
+// shop_name, owner_name, phone, merchant_avatar, avatar_url, license_status,
+// pincode, city, district, state, address, resolved_address, latitude,
+// longitude, created_at. There is no dedicated shop-banner or
+// accepts_prescription column.
 function pick(obj, keys, fallback){
   for (const k of keys){
     if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
@@ -224,31 +276,63 @@ async function loadMerchant(){
     document.getElementById('shopName').textContent = 'Could not connect';
     return;
   }
-  const { data, error } = await supabase.from('merchants').select('*').eq('id', merchantId).maybeSingle();
-  if (error || !data){
+  // ✅ FIX: this call had no try/catch. If it ever threw (network blip, a
+  // malformed merchantId, etc.) the rejection was unhandled — and since
+  // DOMContentLoaded does `await loadMerchant(); await loadProducts();`,
+  // an uncaught throw here silently killed the whole init function, so
+  // loadProducts() never even ran. That's why the page could look totally
+  // empty (shop info AND the product grid never loading) with nothing in
+  // the console the user would notice. Now a merchant-load failure can
+  // never prevent the products grid from loading.
+  try {
+    const { data, error } = await supabase.from('merchants').select('*').eq('id', merchantId).maybeSingle();
+    if (error || !data){
+      console.error('loadMerchant: query returned no data', error);
+      document.getElementById('shopName').textContent = 'Shop not found';
+      document.getElementById('bannerImg').src = fallbackImage();
+      return;
+    }
+    merchant = data;
+    renderMerchant();
+  } catch(e) {
+    console.error('loadMerchant failed', e);
     document.getElementById('shopName').textContent = 'Shop not found';
     document.getElementById('bannerImg').src = fallbackImage();
-    return;
   }
-  merchant = data;
-  renderMerchant();
 }
 
 function renderMerchant(){
   const shopName = pick(merchant, ['shop_name', 'merchant_name'], 'Shop');
   const ownerName = pick(merchant, ['owner_name', 'merchant_name', 'contact_name'], null);
-  const banner = pick(merchant, ['banner_url', 'shop_banner', 'cover_image', 'shop_image', 'logo_url', 'image_url'], null);
+  // Confirmed against the merchants table schema: merchant_avatar / avatar_url
+  // are the only image columns that actually exist, and both are the
+  // merchant's own logo — there's no separate shop-banner/cover-photo column.
+  // Logo uses those. shop_banner_url is a NEW column (doesn't exist yet —
+  // add it in Supabase) reserved for a distinct top banner photo; falls back
+  // to the logo, then to the placeholder, if it's not set.
+  const logo = pick(merchant, ['merchant_avatar', 'avatar_url'], null);
+  const banner = pick(merchant, ['shop_banner_url'], null) || logo;
 
   document.getElementById('headerTitle').textContent = shopName;
   document.getElementById('shopName').textContent = shopName;
+  document.getElementById('rxPanelShopName').textContent = shopName;
   document.getElementById('shopOwner').textContent = ownerName ? ('by ' + ownerName) : '';
   document.getElementById('shopOwner').style.display = ownerName ? 'block' : 'none';
   document.getElementById('bannerImg').src = banner || fallbackImage();
   document.getElementById('bannerImg').onerror = function(){ this.onerror = null; this.src = fallbackImage(); };
+  const logoEl = document.getElementById('shopLogo');
+  if (logo){
+    logoEl.src = logo;
+    logoEl.style.display = 'block';
+    logoEl.onerror = function(){ this.style.display = 'none'; };
+  } else {
+    logoEl.style.display = 'none';
+  }
 
-  // Address — tries a few likely column names; shows a generic fallback
-  // built from district if nothing more specific exists yet.
-  const fullAddress = pick(merchant, ['address', 'shop_address', 'full_address'], null);
+  // Address — resolved_address is the GPS/dropped-pin address saved at
+  // signup; prefer it over the plain typed address, then fall back to
+  // district if neither exists.
+  const fullAddress = pick(merchant, ['resolved_address', 'address'], null);
   const district = pick(merchant, ['district'], null);
   const addrEl = document.getElementById('shopAddress');
   if (fullAddress){
@@ -268,12 +352,11 @@ function renderMerchant(){
   licenseBadge.innerHTML = '<i class="fas ' + (isVerified ? 'fa-check-circle' : 'fa-clock') + '"></i> ' + (isVerified ? 'Licence Verified' : 'Verification Pending');
   badgeCol.appendChild(licenseBadge);
 
-  // "Prescription allow" — whether this shop accepts Rx orders. Uses a
-  // merchant-level flag if one exists (accepts_prescription /
-  // prescription_allowed); otherwise defaults to showing it, since
-  // MediFinder accepts prescription orders platform-wide.
-  const rxAllowedRaw = pick(merchant, ['accepts_prescription', 'prescription_allowed'], true);
-  const rxAllowed = rxAllowedRaw === false ? false : true;
+  // "Prescription allow" — confirmed the merchants table has no
+  // accepts_prescription/prescription_allowed column, so this always shows
+  // as allowed (MediFinder accepts prescription orders platform-wide). Add
+  // such a column later if per-shop opt-out is ever needed.
+  const rxAllowed = true;
   if (rxAllowed){
     const rxBadge = document.createElement('span');
     rxBadge.className = 'trust-badge rx';
@@ -303,6 +386,19 @@ function renderMerchant(){
   }
 
   loadOrderCount();
+  loadProductCount();
+}
+
+// Total approved products for this shop (verified query pattern against the
+// medicines table: status='Approved', grouped by merchant_id).
+async function loadProductCount(){
+  const statEl = document.getElementById('statProducts');
+  if (!supabase || !supabase.from || !merchantId){ statEl.textContent = '—'; return; }
+  try{
+    const { count, error } = await supabase.from('medicines').select('id', { count: 'exact', head: true }).eq('merchant_id', merchantId).eq('status', 'Approved');
+    if (error || count === null){ statEl.textContent = '—'; return; }
+    statEl.textContent = String(count);
+  }catch(e){ statEl.textContent = '—'; }
 }
 
 // Total orders for this shop. Assumes an 'orders' table with a
@@ -321,9 +417,130 @@ async function loadOrderCount(){
   }
 }
 
-function orderWithPrescription(){
-  if (!merchantId){ showToast('Shop info unavailable'); return; }
-  window.location.href = 'userhome.html?merchant=' + encodeURIComponent(merchantId) + '&uploadRx=1';
+function toggleRxPanel(){
+  const panel = document.getElementById('rxPanel');
+  const cta = document.getElementById('rxCta');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  cta.classList.toggle('open', !isOpen);
+  if (!isOpen && !document.getElementById('rxPhoneInput').value) {
+    prefillRxPhone();
+  }
+}
+
+async function prefillRxPhone(){
+  try{
+    if (!supabase) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData?.session?.user?.id;
+    if (!uid) return;
+    const { data } = await supabase.from('user_addresses').select('phone').eq('user_id', uid).order('is_default', { ascending: false }).limit(1);
+    if (data && data[0] && data[0].phone) document.getElementById('rxPhoneInput').value = data[0].phone;
+  }catch(e){}
+}
+
+function setRxPanelMsg(text, kind){
+  const el = document.getElementById('rxPanelMsg');
+  el.textContent = text || '';
+  el.className = 'rx-panel-msg' + (kind ? (' ' + kind) : '');
+}
+
+function generateRxOtp(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function handleRxFileChosen(file, btnEl){
+  if (!file) return;
+  if (!merchantId){ setRxPanelMsg('Shop info unavailable — please reload.', 'error'); return; }
+  const phone = document.getElementById('rxPhoneInput').value.trim();
+  if (!phone || phone.length < 10){ setRxPanelMsg('Please enter a valid 10-digit phone number first.', 'error'); return; }
+  if (!supabase || !supabase.storage){ setRxPanelMsg("Can't upload right now — please check your internet.", 'error'); return; }
+
+  if (btnEl) btnEl.classList.add('uploading');
+  setRxPanelMsg('Uploading prescription…', 'info');
+  try{
+    const fileExt = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
+    const storagePath = 'live_slips/shop_' + merchantId + '_' + Date.now() + '.' + fileExt;
+    const { error: upErr } = await supabase.storage.from('media').upload(storagePath, file, { contentType: file.type || 'image/jpeg' });
+    if (upErr){ setRxPanelMsg('Upload failed: ' + (upErr.message || 'please try again.'), 'error'); if (btnEl) btnEl.classList.remove('uploading'); return; }
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+    await submitDirectPrescriptionOrder(urlData.publicUrl, phone);
+  }catch(e){
+    setRxPanelMsg('Upload failed: ' + (e.message || 'please try again.'), 'error');
+  }
+  if (btnEl) btnEl.classList.remove('uploading');
+}
+
+// Creates the SAME kind of prescription_orders row the rest of the app uses
+// (so it shows up in My Orders / order-status tracking exactly like any
+// other prescription order) but — unlike the home page's "send to every
+// nearby pharmacy" flow — notifies ONLY this one shop, since the person
+// opened this page specifically to order from it.
+async function submitDirectPrescriptionOrder(prescriptionUrl, phone){
+  setRxPanelMsg('Placing your order…', 'info');
+  let userId = null, userName = 'Customer', userEmail = '', userAddress = '';
+  try{
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user;
+    if (user){
+      userId = user.id;
+      userEmail = user.email || '';
+      userName = user.user_metadata?.full_name || userName;
+    }
+    if (userId){
+      const { data: addrRows } = await supabase.from('user_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }).limit(1);
+      const a = addrRows && addrRows[0];
+      if (a){
+        if (a.name) userName = a.name;
+        userAddress = (a.address1 || '') + (a.address2 ? ', ' + a.address2 : '') + ', ' + (a.city || '') + ' - ' + (a.pincode || '');
+      }
+    }
+  }catch(e){}
+
+  try{
+    const { data: rxOrder, error: rxErr } = await supabase.from('prescription_orders').insert([{
+      user_id: userId,
+      user_name: userName,
+      user_phone: phone,
+      user_email: userEmail,
+      user_address: userAddress,
+      prescription_url: prescriptionUrl,
+      medicines: [],
+      status: 'pending',
+      delivery_otp: generateRxOtp()
+    }]).select().single();
+
+    if (rxErr || !rxOrder){ setRxPanelMsg('Could not place the order — please try again.', 'error'); return; }
+
+    // Targets ONLY this shop — no broadcast to other pharmacies.
+    await supabase.from('merchant_notifications').insert([{
+      merchant_id: merchantId,
+      title: '🩺 New Prescription Order',
+      message: 'A customer uploaded a prescription for direct order. Tap to view & accept.',
+      type: 'order',
+      related_prescription_id: rxOrder.id
+    }]);
+
+    // Confirms to the customer too, in the same notifications feed the bell
+    // icon already reads from.
+    if (userId){
+      await supabase.from('notifications').insert([{
+        user_id: userId,
+        type: 'order',
+        title: 'Prescription sent',
+        message: 'Your prescription was sent to ' + (merchant ? (merchant.shop_name || merchant.merchant_name || 'the shop') : 'the shop') + '. We\'ll notify you when they accept.',
+        order_id: rxOrder.id
+      }]);
+    }
+
+    document.getElementById('rxPanelStep1').style.display = 'none';
+    document.getElementById('rxPanelSuccess').style.display = 'block';
+    document.getElementById('rxSuccessShop').textContent = merchant ? (merchant.shop_name || merchant.merchant_name || 'the shop') : 'the shop';
+    document.getElementById('rxSuccessId').textContent = String(rxOrder.id).slice(0, 8).toUpperCase();
+    showToast('Prescription order placed!');
+  }catch(e){
+    setRxPanelMsg('Could not place the order — please try again.', 'error');
+  }
 }
 
 function openProduct(id){
@@ -340,11 +557,13 @@ async function loadProducts(){
   try{
     const { data, error } = await supabase.from('medicines').select('*').eq('merchant_id', merchantId).eq('status', 'Approved');
     if (error || !data || !data.length){
+      if (error) console.error('loadProducts: query error', error);
       grid.innerHTML = '<div class="empty-products">This shop has no products listed yet.</div>';
       return;
     }
     grid.innerHTML = data.map(renderProductCard).join('');
   }catch(e){
+    console.error('loadProducts failed', e);
     grid.innerHTML = '<div class="empty-products">Could not load products.</div>';
   }
 }
@@ -391,6 +610,15 @@ document.addEventListener('DOMContentLoaded', async function(){
   document.getElementById('mainContent').style.display = 'block';
   await loadMerchant();
   await loadProducts();
+
+  const cameraInput = document.getElementById('rxCameraInput');
+  const galleryInput = document.getElementById('rxGalleryInput');
+  document.getElementById('rxCameraBtn').addEventListener('click', (e) => { e.stopPropagation(); cameraInput.click(); });
+  document.getElementById('rxGalleryBtn').addEventListener('click', (e) => { e.stopPropagation(); galleryInput.click(); });
+  cameraInput.addEventListener('change', (e) => { if (e.target.files[0]) handleRxFileChosen(e.target.files[0], document.getElementById('rxCameraBtn')); e.target.value = ''; });
+  galleryInput.addEventListener('change', (e) => { if (e.target.files[0]) handleRxFileChosen(e.target.files[0], document.getElementById('rxGalleryBtn')); e.target.value = ''; });
+  document.getElementById('rxPanel').addEventListener('click', (e) => e.stopPropagation());
+  document.getElementById('rxPhoneInput').addEventListener('click', (e) => e.stopPropagation());
 });
 </script>
 </body>
