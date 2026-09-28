@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="theme-color" content="#e02020">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>MediFinder - Rider App</title>
+    <link rel="stylesheet" href="rider.css?v=2">
+    <style id="riderLogoutFix">
+        /* Guarantees the Logout button is always visible & tappable above the fixed bottom nav */
+        #tab-profile #mainContentSection { padding-bottom: 130px !important; }
+        #tab-profile #logoutBtn {
+            display: flex !important; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; margin: 18px 0 24px; padding: 14px; border: 0; border-radius: 14px;
+            background: #e02020; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
+            position: relative; z-index: 2; visibility: visible !important; opacity: 1 !important;
+        }
+    </style>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- ============================================================ -->
+        <!-- TAB: HOME (was delyvaryhome.html)                             -->
+        <!-- ============================================================ -->
+        <section id="tab-home" class="rider-tab">
+        <!-- Top Navbar: left = On Duty, middle = empty, right = Notification only -->
+        <header class="navbar">
+            <div class="header-left">
+                <!-- On Duty / Off Duty switch button (toggles new-order visibility) -->
+                <button id="dutyToggleBtn" style="background: linear-gradient(135deg, #2ed573, #26de81); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:700; font-size:0.78rem; cursor:pointer; box-shadow: 0 3px 10px rgba(46,213,115,0.3);">
+                    <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#2ed573;display:inline-block"></span> On Duty</span>
+                </button>
+            </div>
+            <div class="header-right" style="display:flex; align-items:center; gap:10px;">
+                <button class="notification-btn" onclick="toggleNotifications()">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="noti-badge" id="noti-badge" style="display:none;">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Notification Dropdown -->
+        <div id="notiDropdown" class="notification-dropdown hidden">
+            <div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>
+            <div id="noti-dropdown-body">
+                <p class="noti-item" style="text-align:center;color:#999;padding:20px;">Loading notifications...</p>
+            </div>
+        </div>
+
+        <!-- ✅ NEW: KYC not approved yet -> red bar prompting document upload -->
+        <div id="homeKycBanner" class="kyc-home-banner hidden" onclick="goToKycFromHome()">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span class="kyc-home-banner-text">Please upload your documents and earn money</span>
+            <i class="fa-solid fa-chevron-right"></i>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="content-header">
+                <h2 class="section-title">Available Orders</h2>
+                <span class="live-pulse-tag"><span class="pulse-dot"></span> Live Updates</span>
+            </div>
+
+            <!-- ডাইনামিক বা স্ট্যাটিক অর্ডারের কন্টেইনার -->
+            <div class="orders-list" id="ordersContainer">
+            </div>
+        </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- TAB: DELIVERY (was delyvaryorder.html)                        -->
+        <!-- ============================================================ -->
+        <section id="tab-delivery" class="rider-tab hidden">
+        <div class="dashboard-grid">
+            
+            <section class="section-card">
+                <div class="card-header-premium">
+                    <div class="title-block">
+                        <div class="icon-wrap red-bg">
+                            <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
+                        </div>
+                        <div>
+                            <h3>Live Route Tracking</h3>
+                            <p>Realtime delivery navigation</p>
+                        </div>
+                    </div>
+                    <div id="vehiclePillBox" class="vehicle-pill bike-mode">
+                        <i id="vehiclePillIcon" class="fa-solid fa-motorcycle"></i> 
+                        <span id="vehiclePillText" style="text-transform: uppercase;">Bike</span>
+                    </div>
+                </div>
+
+                <div class="live-map-wrapper" style="position:relative;">
+                    <div id="zomatoRealMap"></div>
+                    <!-- ✅ NEW: My Location floating button — ক্লিক করলে GPS permission নিয়ে নিজের অবস্থানে zoom করবে -->
+                    <button id="myLocationBtn" class="my-location-btn" onclick="focusMyLocationOnMap()" title="My Location">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </button>
+                </div>
+                
+                <div class="map-bottom-bar" style="margin: 0 16px 16px 16px;">
+                    <div class="info-meta">
+                        <span class="label">Distance Left</span>
+                        <span class="value" id="distanceLeftValue">0 km</span>
+                    </div>
+                    <div class="info-meta">
+                        <span class="label">ETA</span>
+                        <span class="value emphasis" id="etaValue">--</span>
+                    </div>
+                    <div class="info-meta">
+                        <span class="label">Payment Status</span>
+                        <span class="value emphasis" id="paymentStatusValue">Loading...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="right-queue-area">
+                <div class="queue-header">
+                    <h2><i class="fa-solid fa-box"></i> Active Parcel <span class="counter-q" id="orderCount">0</span></h2>
+                    <p class="queue-hint">Tap on the card or timer to open OTP Verification</p>
+                </div>
+
+                <div id="activeOrdersContainer" class="orders-scroll-area">
+                    </div>
+            </section>
+
+        </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- TAB: EARNING (was delyvaryearning.html)                       -->
+        <!-- ============================================================ -->
+        <section id="tab-earning" class="rider-tab hidden">
+        <div class="main-content main-content-noheader">
+
+            <!-- ✅ NEW: header সরিয়ে দেওয়ার পর, একদম উপরের কোণায় Payout status history খোলার বাটন -->
+            <div class="earning-top-bar">
+                <button class="check-payout-btn" onclick="openPayoutHistory()">
+                    <i class="fa-solid fa-receipt"></i> Check Your Payment
+                </button>
+            </div>
+
+            <div class="dashboard-metric-strip">
+                
+                <div class="earnings-summary-card">
+                    <div class="card-top-info">
+                        <p class="label-heading" id="earningsPeriodLabel">Total Earnings — Today</p>
+                        <div class="icon-circle-bg"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <!-- আজকের মোট ইনকাম ডিসপ্লে -->
+                    <h1 id="todayTotalEarnings">₹0</h1>
+                    <div class="summary-footer">
+                        <span class="payout-status-dot"></span>
+                        <!-- লাইভ একটিভ আওয়ার দেখানোর জন্য টেক্সট পরিবর্তন -->
+                        <small id="activeHoursTracker">Active Duty: 0h Today</small>
+                    </div>
+                    
+                    <!-- ১০ ঘণ্টা লিমিটের অ্যাডমিন পে-আউট রিকোয়েস্ট বাটন -->
+                    <!-- ✅ NEW: Total Earnings card এর period filter chips -->
+                    <div class="period-filter-row" id="earningsPeriodFilter">
+                        <button class="period-chip active" data-period="today" onclick="selectEarningsPeriod('today')">Today</button>
+                        <button class="period-chip" data-period="yesterday" onclick="selectEarningsPeriod('yesterday')">Yesterday</button>
+                        <button class="period-chip" data-period="thisWeek" onclick="selectEarningsPeriod('thisWeek')">This Week</button>
+                        <button class="period-chip" data-period="lastWeek" onclick="selectEarningsPeriod('lastWeek')">Last Week</button>
+                        <button class="period-chip" data-period="thisMonth" onclick="selectEarningsPeriod('thisMonth')">This Month</button>
+                        <button class="period-chip" data-period="lastMonth" onclick="selectEarningsPeriod('lastMonth')">Last Month</button>
+                        <button class="period-chip" data-period="allTime" onclick="selectEarningsPeriod('allTime')">All Time</button>
+                    </div>
+                    <button id="payoutRequestBtn" class="action-btn-accent-premium" onclick="handlePayoutRequest()" style="width: 100%; margin-top: 15px; background: #e63946; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s ease;">
+                        <i class="fa-solid fa-paper-plane"></i> Request Today's Payout
+                    </button>
+                    <small style="display:block; margin-top:8px; text-align:center; color:var(--text-muted); font-size:0.72rem;">Only today's earning can be requested for payout.</small>
+                </div>
+
+                <div class="graph-box trend-up" id="trendGraphContainer">
+                    <div class="graph-header">
+                        <span class="trend-title">Profit Analysis</span>
+                        <div class="trend-alert-status">
+                            <i class="fa-solid fa-arrow-trend-up"></i> Loading trend...
+                        </div>
+                    </div>
+                    
+                    <!-- ✅ NEW: Profit Analysis গ্রাফের period filter chips -->
+                    <div class="period-filter-row" id="profitPeriodFilter">
+                        <button class="period-chip active" data-period="today" onclick="selectProfitPeriod('today')">Today</button>
+                        <button class="period-chip" data-period="yesterday" onclick="selectProfitPeriod('yesterday')">Yesterday</button>
+                        <button class="period-chip" data-period="lastWeek" onclick="selectProfitPeriod('lastWeek')">Last Week</button>
+                        <button class="period-chip" data-period="lastMonth" onclick="selectProfitPeriod('lastMonth')">Last Month</button>
+                        <button class="period-chip" data-period="allTime" onclick="selectProfitPeriod('allTime')">All Time</button>
+                    </div>
+                    <div class="sparkline-canvas">
+                        <svg viewBox="0 0 100 30" class="chart-svg" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+                                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,30 L0,22 Q15,8 35,18 T75,5 T100,2 L100,30 Z" fill="url(#graphGradient)"/>
+                            <path d="M0,22 Q15,8 35,18 T75,5 T100,2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- রিকোয়েস্ট অনুযায়ী লিডারবোর্ড সেকশনটি (leaderboard-section) এখান থেকে সম্পূর্ণ ডিলিট বা রিমুভ করা হয়েছে -->
+
+            <section class="history-section">
+                <div class="history-header">
+                    <h3 class="section-subtitle">Recent Run Completed History</h3>
+                    <span class="history-count">0 Orders</span>
+                </div>
+                <!-- ✅ NEW: History সেকশনের period filter chips -->
+                <div class="period-filter-row" id="historyPeriodFilter" style="margin-bottom:14px;">
+                    <button class="period-chip active" data-period="today" onclick="selectHistoryPeriod('today')">Today</button>
+                    <button class="period-chip" data-period="yesterday" onclick="selectHistoryPeriod('yesterday')">Yesterday</button>
+                    <button class="period-chip" data-period="lastWeek" onclick="selectHistoryPeriod('lastWeek')">Last Week</button>
+                    <button class="period-chip" data-period="lastMonth" onclick="selectHistoryPeriod('lastMonth')">Last Month</button>
+                </div>
+                
+                <div class="history-list">
+                    <div id="earning-history-list">
+                        <p style="text-align:center;color:#999;padding:20px;">Loading earnings...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- TAB: PROFILE (was delyvaryprofile.html)                       -->
+        <!-- ============================================================ -->
+        <section id="tab-profile" class="rider-tab hidden">
+        <div class="main-content main-content-noheader" id="mainContentSection">
+            <div id="profileViewSegment">
+                <section class="profile-card-header">
+                    <div class="avatar-wrapper" id="avatarWrapper">
+                        <img id="avatarDisplayImage" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar Graphic">
+                        <img id="vehicleBadgeImg" class="vehicle-badge-img hidden" alt="Vehicle">
+                        <label for="avatarFileUpload" class="camera-btn-trigger">
+                            <i class="fa-solid fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatarFileUpload" accept="image/*" onchange="processAvatarUpdate(event)" style="display:none;">
+                    </div>
+
+                    <div class="identity-group">
+                        <h2 id="profileDisplayName" class="tr-text" data-en="Rider" data-bn="রাইডার" data-hi="राइडर">Rider</h2>
+                        <p id="profileDisplayUsername">@...</p>
+                        <button class="edit-basics-btn" onclick="triggerProfileNameEdit()">
+                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
+                        </button>
+                    </div>
+
+                    <!-- ✅ NEW: Total Lifetime Income — profile header এর ডান পাশে, completed delivery অনুযায়ী calculate হয় -->
+                    <div class="income-block">
+                        <span class="income-label tr-text" data-en="Total Lifetime Income" data-bn="মোট আজীবন আয়" data-hi="कुल आजीवन आय">Total Lifetime Income</span>
+                        <span class="income-value" id="totalLifetimeIncome">₹0</span>
+                    </div>
+                </section>
+
+                <div class="menu-list-section">
+
+                    <!-- ✅ NEW: unified KYC verify banner — shown while not_submitted / pending / rejected -->
+                    <div id="kycVerifyBanner" class="kyc-verify-banner hidden" onclick="handleKycBannerTap()">
+                        <img id="kycBannerAvatar" class="kyc-banner-avatar" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile">
+                        <div class="kyc-banner-text">
+                            <h4 id="kycBannerTitle" class="tr-text" data-en="Verify your account to earn money" data-bn="আয় শুরু করতে অ্যাকাউন্ট ভেরিফাই করুন" data-hi="कमाई शुरू करने के लिए खाता सत्यापित करें">Verify your account to earn money</h4>
+                            <p id="kycBannerSubtext">Complete your KYC to start accepting orders</p>
+                        </div>
+                        <div class="kyc-ring" id="kycRingWrap">
+                            <svg viewBox="0 0 60 60" class="kyc-ring-svg">
+                                <circle cx="30" cy="30" r="26" class="kyc-ring-track"></circle>
+                                <circle cx="30" cy="30" r="26" class="kyc-ring-fill" id="kycRingFill"></circle>
+                            </svg>
+                            <span class="kyc-ring-label" id="kycRingLabel">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- ✅ NEW: Account Details & Legal — only populated/shown once KYC is approved -->
+                    <div id="kycApprovedSection" class="hidden">
+                        <h3 class="menu-group-title tr-text" data-en="Account Details &amp; Legal" data-bn="অ্যাকাউন্ট বিবরণ ও আইনি নথি" data-hi="खाता विवरण और कानूनी">Account Details &amp; Legal</h3>
+
+                        <div class="menu-item-button" onclick="openKycReadonly('rider')">
+                            <div class="menu-item-left">
+                                <div class="icon-box" style="background:#e0f2fe; color:#0284c7;"><i class="fa-solid fa-id-badge"></i></div>
+                                <span class="tr-text" data-en="Rider Details" data-bn="রাইডার তথ্য" data-hi="राइडर विवरण">Rider Details</span>
+                            </div>
+                            <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
+                        </div>
+
+                        <div class="menu-item-button" onclick="openKycReadonly('vehicle')">
+                            <div class="menu-item-left">
+                                <div class="icon-box vehicle-icon"><i class="fa-solid fa-truck"></i></div>
+                                <span class="tr-text" data-en="Vehicle Details" data-bn="যানবাহন তথ্য" data-hi="वाहन विवरण">Vehicle Details</span>
+                            </div>
+                            <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
+                        </div>
+
+                        <div class="menu-item-button" onclick="openKycReadonly('license')">
+                            <div class="menu-item-left">
+                                <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-id-card"></i></div>
+                                <span class="tr-text" data-en="License &amp; Insurance" data-bn="লাইসেন্স ও বীমা" data-hi="लाइसेंस और बीमा">License &amp; Insurance</span>
+                            </div>
+                            <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
+                        </div>
+
+                        <div class="menu-item-button" onclick="openKycReadonly('identity')">
+                            <div class="menu-item-left">
+                                <div class="icon-box" style="background:#f3e8ff; color:#9333ea;"><i class="fa-solid fa-address-card"></i></div>
+                                <span class="tr-text" data-en="Identity" data-bn="পরিচয়পত্র" data-hi="पहचान">Identity</span>
+                            </div>
+                            <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
+                        </div>
+
+                        <div class="menu-item-button" onclick="openKycReadonly('banking')">
+                            <div class="menu-item-left">
+                                <div class="icon-box bank-icon"><i class="fa-solid fa-bank"></i></div>
+                                <span class="tr-text" data-en="Bank &amp; Payment" data-bn="ব্যাংক ও পেমেন্ট" data-hi="बैंक और भुगतान">Bank &amp; Payment</span>
+                            </div>
+                            <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
+                        </div>
+                    </div>
+
+                    <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
+
+                    <!-- ✅ App Language সরানো হলো এখানে — আগে "Financial & Activity" গ্রুপে ছিল, স্পেক অনুযায়ী সেই গ্রুপ থেকে সরিয়ে Bank & Payment কে জায়গা দেওয়া হয়েছে -->
+                    <div class="menu-item-button" onclick="openSubPage('languagePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box language-icon"><i class="fa-solid fa-language"></i></div>
+                            <span class="tr-text" data-en="App Language" data-bn="অ্যাপের ভাষা পরিবর্তন" data-hi="ऐप की भाषा">App Language</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="openSubPage('supportPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box support-icon"><i class="fa-solid fa-headset"></i></div>
+                            <span class="tr-text" data-en="Support Desk / Customer Care" data-bn="সাপোর্ট ডেস্ক / কাস্টমার কেয়ার" data-hi="सहायता डेस्क / ग्राहक सेवा">Support Desk / Customer Care</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <!-- ✅ NEW: Complaint -->
+                    <div class="menu-item-button" onclick="openSubPage('complaintPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box" style="background:#fff7ed; color:#c2410c;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <span class="tr-text" data-en="Complaint" data-bn="অভিযোগ" data-hi="शिकायत">Complaint</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                        <div class="menu-item-left">
+                            <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
+                            <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                        <div class="menu-item-left">
+                            <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
+                            <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <!-- ✅ NEW: Delete Account -->
+                    <div class="menu-item-button" onclick="openSubPage('deleteAccountPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-user-xmark"></i></div>
+                            <span class="tr-text" data-en="Delete Account" data-bn="অ্যাকাউন্ট মুছে ফেলুন" data-hi="खाता हटाएं">Delete Account</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                    </div>
+
+                    <button id="logoutBtn" class="logout-action-btn-premium" onclick="processGlobalLogout()">
+                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </section>
+
+        <!-- Single shared bottom navigation (SPA tab switch, no page reloads) -->
+        <nav class="bottom-nav">
+            <button type="button" class="nav-item" data-tab="home" onclick="switchRiderTab('home')"><i class="fa-solid fa-house"></i><span>HOME</span></button>
+            <button type="button" class="nav-item" data-tab="delivery" onclick="switchRiderTab('delivery')"><i class="fa-solid fa-route"></i><span>DELIVERY</span></button>
+            <button type="button" class="nav-item" data-tab="earning" onclick="switchRiderTab('earning')"><i class="fa-solid fa-wallet"></i><span>EARNING</span></button>
+            <button type="button" class="nav-item" data-tab="profile" onclick="switchRiderTab('profile')"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></button>
+        </nav>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SHARED OVERLAYS (rendered above every tab, regardless of which
+         tab is currently active) -->
+    <!-- ============================================================ -->
+
+    <!-- OTP verification modal (was inside delyvaryorder.html) -->
+        <div class="otp-modal-overlay hidden" id="otpModal">
+            <div class="otp-modal-card">
+                <div id="otpFormContent">
+                    <div class="otp-header">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <h3>Parcel Verification</h3>
+                        <p>Enter the 6-digit delivery code from customer</p>
+                    </div>
+                    <input type="text" id="otpInput" class="otp-input-field" placeholder="000000" maxlength="6" autocomplete="off">
+                    <div class="otp-actions">
+                        <button class="btn-modal-close" onclick="closeOtpModal()">Cancel</button>
+                        <button class="btn-modal-submit" onclick="verifyOtpCode()">Verify & Complete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ✅ NEW: full-screen green delivery-completed success UI. Separate top-level
+             overlay (not nested inside .otp-modal-card) so it can cover the entire
+             viewport — only ever shown by showOtpSuccessScreen() after OTP + order
+             update + wallet credit have ALL succeeded. -->
+        <div id="otpSuccessScreen" class="otp-success-fullscreen hidden">
+            <div class="otp-success-checkmark-circle"><i class="fa-solid fa-check"></i></div>
+            <div class="otp-success-title">DELIVERY COMPLETED</div>
+            <div class="otp-success-subtitle">Verification Successful</div>
+            <div class="otp-success-note">Payment added to your earning wallet</div>
+            <div class="otp-success-amount" id="otpSuccessAmount">+₹0.00</div>
+        </div>
+
+    <!-- "Check Your Payment" payout status history (was inside delyvaryearning.html) -->
+    <div id="payoutHistoryPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('payoutHistoryPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Payment Status</h3>
+            </div>
+            <div class="sub-page-body" id="payoutHistoryBody">
+                <p style="text-align:center;color:#999;padding:20px;">Loading payout requests...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- KYC wizard / read-only views / complaint / delete account / language / support
+         (all were inside delyvaryprofile.html) -->
+    <!-- ✅ NEW: Unified KYC Onboarding Wizard (replaces old per-document Vehicle/License/Aadhaar/PAN/Bank pages) -->
+        <div id="kycWizardPage" class="kyc-fullscreen hidden">
+        <div class="kyc-fs-shell">
+            <div class="kyc-fs-header">
+                <button class="kyc-fs-back" onclick="kycWizardBack()"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3 id="kycWizardStepTitle">Rider Details</h3>
+                <span class="kyc-fs-step-count" id="kycStepCount">1/6</span>
+            </div>
+
+            <div class="kyc-fs-progress" id="kycStepDots">
+                <span class="kyc-dot active" data-step="1"></span>
+                <span class="kyc-dot" data-step="2"></span>
+                <span class="kyc-dot" data-step="3"></span>
+                <span class="kyc-dot" data-step="4"></span>
+                <span class="kyc-dot" data-step="5"></span>
+                <span class="kyc-dot" data-step="6"></span>
+            </div>
+
+            <div class="kyc-fs-body">
+                <!-- STEP 1: Rider details -->
+                <div class="kyc-step" data-step="1">
+                    <h4 class="kyc-step-heading">Tell us about yourself</h4>
+                    <p class="kyc-step-subtext">This information appears on your rider profile and delivery receipts.</p>
+                    <div class="input-element-row-premium">
+                        <label>First Name</label>
+                        <input type="text" id="kycFirstName" placeholder="Full name as per ID">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Age</label>
+                        <input type="text" id="kycAge" inputmode="numeric" placeholder="e.g., 24">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Contact No.</label>
+                        <input type="text" id="kycContactNo" inputmode="numeric" placeholder="10-digit mobile number">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>WhatsApp No. <span class="kyc-optional-tag">(optional)</span></label>
+                        <input type="text" id="kycWhatsappNo" inputmode="numeric" placeholder="10-digit WhatsApp number">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Email <span class="kyc-optional-tag">(optional)</span></label>
+                        <input type="text" id="kycEmail" placeholder="you@example.com">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Address</label>
+                        <input type="text" id="kycAddress" placeholder="Full residential address">
+                    </div>
+                </div>
+
+                <!-- STEP 2: Vehicle details -->
+                <div class="kyc-step hidden" data-step="2">
+                    <h4 class="kyc-step-heading">What do you ride?</h4>
+                    <p class="kyc-step-subtext">Vehicle number isn't required for Bicycle or EV.</p>
+                    <div class="input-element-row-premium">
+                        <label>Select Vehicle</label>
+                        <div class="kyc-vehicle-grid" id="kycVehicleGrid">
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="bicycle" onclick="selectKycVehicle('bicycle')"><i class="fa-solid fa-bicycle"></i><span>Bicycle</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="ev" onclick="selectKycVehicle('ev')"><i class="fa-solid fa-charging-station"></i><span>EV</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="scooty" onclick="selectKycVehicle('scooty')"><i class="fa-solid fa-motorcycle"></i><span>Scooty</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="bike" onclick="selectKycVehicle('bike')"><i class="fa-solid fa-motorcycle"></i><span>Bike</span></button>
+                        </div>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Vehicle Image</label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycVehicleImg" accept="image/*">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span class="kyc-upload-label">Upload Vehicle Photo</span>
+                                <span class="kyc-upload-hint">JPG or PNG</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="Vehicle preview">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-element-row-premium" id="kycVehicleNoRow">
+                        <label>Vehicle No. <span class="kyc-optional-tag">e.g., WB-62-C-XXXX</span></label>
+                        <input type="text" id="kycVehicleNo" placeholder="WB-62-C-XXXX" style="text-transform:uppercase;">
+                        <small id="kycVehicleNoHint" class="hidden kyc-input-hint">Not required for Bicycle / EV.</small>
+                    </div>
+                </div>
+
+                <!-- STEP 3: License -->
+                <div class="kyc-step hidden" data-step="3">
+                    <h4 class="kyc-step-heading">License &amp; Insurance</h4>
+                    <p class="kyc-step-subtext">Required for Scooty and Bike riders.</p>
+                    <div id="kycLicenseFields">
+                        <div class="input-element-row-premium">
+                            <label>Driving License Image</label>
+                            <div class="kyc-upload-card">
+                                <input type="file" id="kycLicenseImg" accept="image/*">
+                                <div class="kyc-upload-placeholder">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span class="kyc-upload-label">Upload License Photo</span>
+                                    <span class="kyc-upload-hint">JPG or PNG</span>
+                                </div>
+                                <div class="kyc-upload-result hidden">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span class="kyc-upload-filename"></span>
+                                    <img class="kyc-upload-preview hidden" alt="License preview">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-element-row-premium">
+                            <label>Driving License No.</label>
+                            <input type="text" id="kycLicenseNo" placeholder="e.g., WB0120230012345">
+                        </div>
+                    </div>
+                    <p id="kycLicenseSkipNote" class="hidden kyc-note">Driving license isn't required for Bicycle / EV.</p>
+                    <div class="input-element-row-premium">
+                        <label>Insurance Image <span class="kyc-optional-tag">(optional)</span></label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycInsuranceImg" accept="image/*">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span class="kyc-upload-label">Upload Insurance Photo</span>
+                                <span class="kyc-upload-hint">JPG, PNG or PDF</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="Insurance preview">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Identity -->
+                <div class="kyc-step hidden" data-step="4">
+                    <h4 class="kyc-step-heading">Identity Verification</h4>
+                    <p class="kyc-step-subtext">A clear selfie and one government ID.</p>
+                    <div class="input-element-row-premium">
+                        <label>Selfie <span class="kyc-required-tag">*Required</span></label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycSelfieImg" accept="image/*" capture="user">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-camera"></i>
+                                <span class="kyc-upload-label">Take / Upload Selfie</span>
+                                <span class="kyc-upload-hint">Face clearly visible</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="Selfie preview">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Select ID Type</label>
+                        <select id="kycIdType" onchange="onKycIdTypeChange()">
+                            <option value="">Choose one</option>
+                            <option value="aadhaar">Aadhaar Card</option>
+                            <option value="pan">PAN Card</option>
+                            <option value="voter">Voter Card</option>
+                        </select>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>ID Image</label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycIdImg" accept="image/*">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span class="kyc-upload-label">Upload ID Photo</span>
+                                <span class="kyc-upload-hint">JPG or PNG</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="ID preview">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>ID Number</label>
+                        <input type="text" id="kycIdNo" placeholder="Select an ID type first" style="text-transform:uppercase;">
+                        <small id="kycIdNoHint" class="kyc-input-hint"></small>
+                    </div>
+                </div>
+
+                <!-- STEP 5: Banking -->
+                <div class="kyc-step hidden" data-step="5">
+                    <h4 class="kyc-step-heading">Bank &amp; Payment</h4>
+                    <p class="kyc-step-subtext">Where your delivery earnings get paid out.</p>
+                    <div class="input-element-row-premium">
+                        <label>Passbook / Account Photo</label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycBankDocImg" accept="image/*">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span class="kyc-upload-label">Upload Passbook / Cheque Photo</span>
+                                <span class="kyc-upload-hint">JPG or PNG</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="Bank document preview">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Account No.</label>
+                        <input type="text" id="kycAccountNo" inputmode="numeric" placeholder="Bank account number">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>IFSC Code</label>
+                        <input type="text" id="kycIfscCode" placeholder="SBIN000XXXX" style="text-transform:uppercase;">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>Branch</label>
+                        <input type="text" id="kycBranch" placeholder="Branch name / location">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>UPI ID <span class="kyc-optional-tag">(optional)</span></label>
+                        <input type="text" id="kycUpiId" placeholder="username@upi">
+                    </div>
+                    <div class="input-element-row-premium">
+                        <label>UPI QR Code <span class="kyc-optional-tag">(optional)</span></label>
+                        <div class="kyc-upload-card">
+                            <input type="file" id="kycQrImg" accept="image/*">
+                            <div class="kyc-upload-placeholder">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span class="kyc-upload-label">Upload UPI QR Code</span>
+                                <span class="kyc-upload-hint">JPG or PNG</span>
+                            </div>
+                            <div class="kyc-upload-result hidden">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span class="kyc-upload-filename"></span>
+                                <img class="kyc-upload-preview hidden" alt="QR preview">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 6: Preview -->
+                <div class="kyc-step hidden" data-step="6">
+                    <h4 class="kyc-step-heading">Review &amp; Submit</h4>
+                    <p class="kyc-step-subtext">Check everything before sending it for approval.</p>
+                    <div id="kycPreviewBody" class="kyc-preview-body"></div>
+                </div>
+            </div>
+
+            <div class="kyc-fs-footer">
+                <button type="button" class="kyc-fs-back-btn" onclick="kycWizardBack()">Back</button>
+                <button type="button" class="kyc-fs-continue-btn" id="kycFsContinueBtn" onclick="kycFsContinue()">Continue →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Read-only KYC section viewer — used both after approval (locked) and for
+         reviewing a rejected application before resubmitting -->
+    <div id="kycReadonlyPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('kycReadonlyPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3 id="kycReadonlyTitle">Details</h3>
+            </div>
+            <div class="sub-page-body" id="kycReadonlyBody"></div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Complaint -->
+    <div id="complaintPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('complaintPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Complaint</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium">
+                    <label>Reason</label>
+                    <select id="complaintReasonInput">
+                        <option value="">Select a reason</option>
+                        <option value="Payment issue">Payment issue</option>
+                        <option value="Order issue">Order issue</option>
+                        <option value="App bug">App bug</option>
+                        <option value="Behaviour of merchant/customer">Behaviour of merchant/customer</option>
+                        <option value="KYC / Verification issue">KYC / Verification issue</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Subject</label>
+                    <input type="text" id="complaintSubjectInput" placeholder="Short subject line">
+                </div>
+                <div class="input-element-row-premium">
+                    <label>Message</label>
+                    <input type="text" id="complaintMessageInput" placeholder="Describe your complaint in detail">
+                </div>
+                <button class="action-btn-accent-premium" onclick="submitRiderComplaint()">Submit Complaint</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Delete Account -->
+    <div id="deleteAccountPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('deleteAccountPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Delete Account</h3>
+            </div>
+            <div class="sub-page-body">
+                <div id="deleteAccountStep1">
+                    <p class="kyc-note" style="margin-bottom:14px;">Deleting your account is permanent — your profile, KYC documents and order history access will be removed. Please tell us why you're leaving.</p>
+                    <div class="input-element-row-premium">
+                        <label>Reason</label>
+                        <select id="deleteReasonInput">
+                            <option value="">Select a reason</option>
+                            <option value="Not getting enough orders">Not getting enough orders</option>
+                            <option value="Payout issues">Payout issues</option>
+                            <option value="Switching to another platform">Switching to another platform</option>
+                            <option value="App issues">App issues</option>
+                            <option value="No longer riding">No longer riding</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <button class="action-btn-accent-premium" style="background:#fee2e2; color:#dc2626; box-shadow:none;" onclick="goToDeleteAccountConfirm()">Continue</button>
+                </div>
+                <div id="deleteAccountStep2" class="hidden">
+                    <p class="kyc-note" style="margin-bottom:14px; color:#dc2626; font-weight:600;">Are you absolutely sure? This action cannot be undone.</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="action-btn-accent-premium" style="background:#f1f5f9; color:#475569; box-shadow:none;" onclick="closeSubPage('deleteAccountPage')">Cancel</button>
+                        <button class="action-btn-accent-premium" style="background:#dc2626; box-shadow:none;" onclick="confirmDeleteAccount()">Confirm Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ✅ NEW: App Language (আগে এই div-ই ছিল না, তাই বাটনে ক্লিক করলে কিছুই হতো না) -->
+    <div id="languagePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>App Language</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="input-element-row-premium" style="display:flex; flex-direction:column; gap:10px;">
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('en')">🇬🇧 <span>English</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('bn')">🅱️ <span>বাংলা (Bengali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('hi')">🕉️ <span>हिंदी (Hindi)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ne')">🏔️ <span>नेपाली (Nepali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('sat')">🌾 <span>ᱥᱟᱱᱛᱟᱲᱤ (Santali)</span></button>
+                    <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ur')">🕌 <span>اردو (Urdu)</span></button>
+                </div>
+                <p class="tr-text" style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;"
+                    data-en="English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update."
+                    data-bn="English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে, কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ পরের আপডেটে যোগ হবে।"
+                    data-hi="अंग्रेज़ी, बंगाली और हिंदी पूरी तरह अनुवादित हैं। नेपाली/संताली/उर्दू अभी चुनी और सेव की जा सकती हैं, पर पूरे ऐप में अनुवाद अगले अपडेट में जोड़ा जाएगा।">
+                    English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NEW: Support Desk (আগে এই div-ও ছিল না) -->
+    <div id="supportPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h3>Support Desk</h3>
+            </div>
+            <div class="sub-page-body" style="display:flex; flex-direction:column; gap:12px;">
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block;" href="tel:+919593625498">
+                    <i class="fa-solid fa-phone"></i> Call Support 
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#25D366;" href="https://wa.me/919382262825" target="_blank">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Chat 
+                </a>
+                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#0284c7;" href="mailto:support@medifinderindia.com">
+                    <i class="fa-solid fa-envelope"></i> Email Support (support@medifinderindia.com)
+                </a>
+                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
+                    We're here to help! If you have any questions or need assistance, feel free to reach out to us.
+                </p>
+
+                <!-- ✅ NEW: FAQ — কীভাবে অর্ডার accept করবেন, payout, ডকুমেন্ট আপলোড ইত্যাদি -->
+                <div style="margin-top:10px;">
+                    <h4 class="tr-text" data-en="Frequently Asked Questions" data-bn="সচরাচর জিজ্ঞাসিত প্রশ্ন" data-hi="अक्सर पूछे जाने वाले प्रश्न"
+                        style="font-size:0.95rem; font-weight:700; color:var(--dark); margin-bottom:10px;">Frequently Asked Questions</h4>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I accept a delivery order?"
+                            data-bn="কীভাবে ডেলিভারি অর্ডার Accept করব?"
+                            data-hi="डिलीवरी ऑर्डर कैसे स्वीकार करें?">How do I accept a delivery order?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Turn on 'On Duty' from the Home page. New orders will appear automatically — tap 'Accept Request' on any order card to accept it. Your Driving License must be verified first, otherwise the Accept button stays locked."
+                            data-bn="হোম পেজ থেকে 'On Duty' চালু রাখুন। নতুন অর্ডার আসলে সেটা নিজে থেকেই স্ক্রিনে দেখাবে — অর্ডার কার্ডের 'Accept Request' বাটনে চাপলেই অর্ডারটি Accept হয়ে যাবে। এর আগে আপনার Driving License ভেরিফাই করা থাকতে হবে, নাহলে Accept বাটন লক থাকবে।"
+                            data-hi="होम पेज से 'On Duty' चालू रखें। नया ऑर्डर आने पर वह अपने आप स्क्रीन पर आएगा — ऑर्डर कार्ड के 'Accept Request' बटन पर टैप करके उसे स्वीकार करें। इसके लिए पहले आपका Driving License वेरिफाई होना ज़रूरी है।">Turn on 'On Duty' from the Home page. New orders will appear automatically — tap 'Accept Request' on any order card to accept it. Your Driving License must be verified first, otherwise the Accept button stays locked.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I complete a delivery?"
+                            data-bn="কীভাবে ডেলিভারি সম্পন্ন করব?"
+                            data-hi="डिलीवरी कैसे पूरी करें?">How do I complete a delivery?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Go to the Delivery tab, follow the live map to the customer, then tap the timer/OTP card and enter the 6-digit code given by the customer to mark it delivered."
+                            data-bn="Delivery ট্যাবে গিয়ে লাইভ ম্যাপ অনুসরণ করে কাস্টমারের কাছে পৌঁছান, তারপর টাইমার/OTP কার্ডে ট্যাপ করে কাস্টমারের দেওয়া ৬-সংখ্যার কোডটি দিন — এতে ডেলিভারি সম্পন্ন হিসেবে গণ্য হবে।"
+                            data-hi="Delivery टैब में जाकर लाइव मैप फॉलो करें और ग्राहक तक पहुँचें, फिर टाइमर/OTP कार्ड पर टैप करके ग्राहक द्वारा दिया गया 6-अंकों का कोड डालें।">Go to the Delivery tab, follow the live map to the customer, then tap the timer/OTP card and enter the 6-digit code given by the customer to mark it delivered.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I request a payout?"
+                            data-bn="কীভাবে Payout রিকোয়েস্ট করব?"
+                            data-hi="Payout का अनुरोध कैसे करें?">How do I request a payout?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Open the Earning tab and tap 'Request Payout to Admin' on the Total Earnings card. Make sure your Bank & Payment details are verified in Profile first, or the payout may be delayed."
+                            data-bn="Earning ট্যাবে গিয়ে Total Earnings কার্ডে 'Request Payout to Admin' বাটনে চাপুন। Payout পাওয়ার আগে Profile-এ আপনার Bank & Payment ডিটেইলস ভেরিফাই থাকা জরুরি, নাহলে Payout দেরি হতে পারে।"
+                            data-hi="Earning टैब खोलें और Total Earnings कार्ड में 'Request Payout to Admin' बटन दबाएँ। पहले Profile में अपनी Bank & Payment जानकारी वेरिफाई करा लें, वरना Payout में देरी हो सकती है।">Open the Earning tab and tap 'Request Payout to Admin' on the Total Earnings card. Make sure your Bank & Payment details are verified in Profile first, or the payout may be delayed.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="How do I complete my KYC (Vehicle, License, Identity, Bank)?"
+                            data-bn="কীভাবে আমার KYC (Vehicle, License, Identity, Bank) সম্পন্ন করব?"
+                            data-hi="मैं अपना KYC (Vehicle, License, Identity, Bank) कैसे पूरा करूं?">How do I complete my KYC (Vehicle, License, Identity, Bank)?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Go to Profile and tap 'Verify your account to earn money'. Fill in the 5 steps (Rider Details, Vehicle, License &amp; Insurance, Identity, Bank) and submit. Status will show Pending Review (yellow) until admin checks it, then Verified (green) or Rejected (red) with a reason and a chance to fix and resubmit."
+                            data-bn="Profile পেজে গিয়ে 'Verify your account to earn money' এ ট্যাপ করুন। পাঁচটা ধাপ (Rider Details, Vehicle, License & Insurance, Identity, Bank) পূরণ করে Submit করুন। অ্যাডমিন চেক না করা পর্যন্ত স্ট্যাটাস হলুদ রঙে 'Pending Review' দেখাবে, তারপর সবুজ 'Verified' বা কারণসহ লাল 'Rejected' দেখাবে, পুনরায় ঠিক করে দেওয়ার সুযোগও পাবেন।"
+                            data-hi="Profile पेज में जाकर 'Verify your account to earn money' पर टैप करें। 5 चरणों (Rider Details, Vehicle, License & Insurance, Identity, Bank) पूरे करके Submit करें। एडमिन के जांचने तक स्टेटस पीले रंग में 'Pending Review' दिखेगा, फिर हरा 'Verified' या कारण सहित लाल 'Rejected'।">Go to Profile and tap 'Verify your account to earn money'. Fill in the 5 steps (Rider Details, Vehicle, License &amp; Insurance, Identity, Bank) and submit. Status will show Pending Review (yellow) until admin checks it, then Verified (green) or Rejected (red) with a reason and a chance to fix and resubmit.</div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-q tr-text" data-en="A notification won't go away — how do I remove it?"
+                            data-bn="একটা Notification যাচ্ছে না — কীভাবে সরাব?"
+                            data-hi="एक सूचना नहीं हट रही — कैसे हटाएं?">A notification won't go away — how do I remove it?</div>
+                        <div class="faq-a tr-text"
+                            data-en="Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order."
+                            data-bn="হোম পেজের বেল আইকনে ট্যাপ করুন, তারপর যেকোনো Notification-এর পাশের ✕ চিহ্নে চাপলে সেটা চিরতরে সরে যাবে। এছাড়া ১০ দিন পর পুরনো Notification নিজে থেকেই মুছে যায়, আর কোনো অর্ডার অন্য রাইডার Accept করে ফেললে সেই অর্ডারের Notification নিজে থেকেই সরে যায়।"
+                            data-hi="होम पेज पर बेल आइकन खोलें, फिर किसी भी सूचना के ✕ पर टैप करके उसे हमेशा के लिए हटाएं। 10 दिन बाद पुरानी सूचनाएं अपने आप हट जाती हैं, और कोई ऑर्डर दूसरे राइडर द्वारा स्वीकार होते ही उसकी सूचना अपने आप हट जाती है।">Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="prod-utils.js?v=1"></script>
+    <script src="rider.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,2341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light only">
+    <meta name="theme-color" content="#e02020">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediFinder - Medicine Delivery</title>
+    <meta name="description" content="Order medicines, healthcare products & essentials with fast delivery from trusted pharmacies.">
+    <meta property="og:title" content="MediFinder - Medicine Delivery">
+    <meta property="og:description" content="Order medicines & healthcare essentials with fast delivery">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="user.css?v=5">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+    <!-- ✅ Needed for the merged-in Ambulance page's payment flow (ride fare
+         + driver commission-due payments via Razorpay). -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <!-- Full-page boot loader — shown until window 'load' fires (see
+         mfHideBootLoader() in user.js). Was already wired up in JS but the
+         markup itself was missing, so it never actually appeared. -->
+    <div id="mf-boot-loader">
+        <div class="mf-boot-loader-ring-wrap">
+            <div class="mf-boot-loader-ring"></div>
+            <img src="favicon.png" alt="MediFinder" class="mf-boot-loader-logo">
+        </div>
+    </div>
+
+    <!-- ============ HOME ============ -->
+    <div id="page-home" class="app-page active" data-page="home">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <main class="main-content-scrollable" id="main-scroll">
+    <div class="top-bar" id="top-delivery-bar">
+        <div class="top-bar-scroll">
+            <span><i class="fa-solid fa-bolt animate-flash"></i> DELIVERY ON DOORSTEP IN 20+ MINUTES</span>
+            <span><i class="fa-solid fa-shield-halved animate-flash"></i> 100% GENUINE MEDICINES GUARANTEED</span>
+            <span><i class="fa-solid fa-truck-fast animate-flash"></i> FREE DELIVERY ON ORDERS ABOVE ₹499</span>
+            <span><i class="fa-solid fa-certificate animate-flash"></i> LICENCED PHARMACY VERIFIED</span>
+        </div>
+    </div>
+
+    <div id="user-app-banner" style="display: none; background: #ff4d4d; color: #fff; text-align: center; padding: 10px; font-weight: bold; font-size: 0.9rem;"></div>
+
+    <header id="home-only-header" class="home-only-header">
+        <div class="home-greeting-wrap">
+            <div class="home-greeting-name" id="home-greeting-name">Hi, there</div>
+            <div class="home-greeting-time" id="home-greeting-time">Good morning</div>
+        </div>
+        <div class="header-actions">
+            <div class="notification-container" style="position:relative;">
+                <button class="action-btn pulse-btn" id="notiBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge" id="noti-badge" style="display:none;">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+
+        <section class="truemeds-search-section">
+            <div class="truemeds-search-bar">
+                <div class="truemeds-avatar-wrapper">
+                    <div class="truemeds-avatar">
+                        <img src="favicon.png" alt="MediFinder">
+                    </div>
+                    <span class="truemads-verified-badge"><i class="fa-solid fa-check"></i></span>
+                </div>
+                <div class="truemeds-search-input-area">
+                    <input type="text" id="home-medicine-search" placeholder="Search medicines, health products..." autocomplete="off">
+                    <button id="clear-search-btn" class="truemads-clear-btn" style="display: none;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="truemads-mic-btn" id="voice-search-btn">
+                    <i class="fa-solid fa-microphone"></i>
+                </div>
+                <button type="button" class="truemads-mic-btn truemads-search-icon-btn" id="header-search-btn" style="display:none;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+        </section>
+
+        <section class="quick-services-menu">
+            <div class="services-scroll" id="services-scroll">
+                <div class="service-item" data-service="lab">
+                    <div class="service-icon-wrapper lab"><i class="fa-solid fa-flask-vial"></i></div>
+                    <span>Lab Test</span>
+                </div>
+                <div class="service-item" data-service="instrument">
+                    <div class="service-icon-wrapper instrument"><i class="fa-solid fa-stethoscope"></i></div>
+                    <span>Medical Instrument</span>
+                </div>
+                <div class="service-item" data-service="nurse">
+                    <div class="service-icon-wrapper nurse"><i class="fa-solid fa-user-nurse"></i></div>
+                    <span>Nurse Booking</span>
+                </div>
+                <div class="service-item" data-service="doctor">
+                    <div class="service-icon-wrapper doctor"><i class="fa-solid fa-user-doctor"></i></div>
+                    <span>Doctor Consult</span>
+                </div>
+                <div class="service-item" data-service="checkup">
+                    <div class="service-icon-wrapper checkup"><i class="fa-solid fa-heart-pulse"></i></div>
+                    <span>Body Checkup</span>
+                </div>
+                <div class="service-item" data-service="ambulance">
+                    <div class="service-icon-wrapper ambulance"><i class="fa-solid fa-truck-medical"></i></div>
+                    <span>Call Ambulance</span>
+                </div>
+                <div class="service-item" data-service="coins">
+                    <div class="service-icon-wrapper coins"><i class="fa-solid fa-coins"></i></div>
+                    <span>Get Tablet Coin</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="auto-slider-section">
+            <div class="slider-container" id="home-slider">
+                <div class="slide active-slide" style="background: linear-gradient(135deg, #e02020, #ff6b6b);">
+                    <div class="slide-content">
+                        <span class="slide-tag">NEW LAUNCH</span>
+                        <h3>Vitamin D3 Booster 60K IU</h3>
+                        <p>50% OFF — Limited Time</p>
+                        <button class="slide-btn">Shop Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=300&fit=crop&auto=format" alt="Vitamin D3">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+                    <div class="slide-content">
+                        <span class="slide-tag">BESTSELLER</span>
+                        <h3>Baby Care Complete Kit</h3>
+                        <p>Flat 30% OFF + Free Delivery</p>
+                        <button class="slide-btn">Grab Deal <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop&auto=format" alt="Baby Care">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #00b894, #55efc4);">
+                    <div class="slide-content">
+                        <span class="slide-tag">TRENDING</span>
+                        <h3>Diabetes Care Glucometer</h3>
+                        <p>Starting from ₹299 only</p>
+                        <button class="slide-btn">Order Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=300&h=300&fit=crop&auto=format" alt="Glucometer">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #e17055, #fab1a0);">
+                    <div class="slide-content">
+                        <span class="slide-tag">HOT DEAL</span>
+                        <h3>Protein Powder 1kg</h3>
+                        <p>Buy 1 Get 1 Free</p>
+                        <button class="slide-btn">Grab Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1593095948071-474c5cc2ee7c?w=300&h=300&fit=crop&auto=format" alt="Protein">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #0984e3, #74b9ff);">
+                    <div class="slide-content">
+                        <span class="slide-tag">NEW LAUNCH</span>
+                        <h3>Immunity Booster Pack</h3>
+                        <p>₹199 Only — 30 Capsules</p>
+                        <button class="slide-btn">Try Free <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300&h=300&fit=crop&auto=format" alt="Immunity">
+                    </div>
+                </div>
+                <div class="slide" style="background: linear-gradient(135deg, #d63031, #ff7675);">
+                    <div class="slide-content">
+                        <span class="slide-tag">EXCLUSIVE</span>
+                        <h3>Blood Pressure Monitor</h3>
+                        <p>₹899 — Free Home Delivery</p>
+                        <button class="slide-btn">Buy Now <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <div class="slide-icon">
+                        <img src="https://images.unsplash.com/photo-1559757175-5700dde675bc?w=300&h=300&fit=crop&auto=format" alt="BP Monitor">
+                    </div>
+                </div>
+            </div>
+            <div class="slider-dots" id="slider-dots"></div>
+        </section>
+
+        <section class="prescription-upload-section" id="prescription-upload-section">
+            <div class="presc-card" id="presc-default-state">
+                <div class="presc-icon-pulse">
+                    <i class="fa-solid fa-file-medical"></i>
+                </div>
+                <div class="presc-info">
+                    <h3>Order via Prescription</h3>
+                    <p>Upload doctor's slip, AI reads it & shows matching medicines instantly.</p>
+                </div>
+                <div class="presc-action-row">
+                    <label for="presc-camera-input" class="upload-presc-btn presc-btn-camera">
+                        <i class="fa-solid fa-camera"></i> Camera
+                    </label>
+                    <label for="presc-file-input" class="upload-presc-btn presc-btn-gallery">
+                        <i class="fa-solid fa-image"></i> Gallery / PDF
+                    </label>
+                </div>
+                <input type="file" id="presc-camera-input" accept="image/*" capture="environment" style="display:none;">
+                <input type="file" id="presc-file-input" accept="image/*,application/pdf" style="display:none;">
+            </div>
+
+            <div class="presc-card presc-progress-card" id="presc-progress-state" style="display:none;">
+                <div class="presc-progress-wrap">
+                    <div class="presc-progress-label"><i class="fa-solid fa-cloud-arrow-up"></i> <span id="presc-progress-text">Uploading prescription...</span></div>
+                    <div class="presc-progress-track"><div class="presc-progress-bar" id="presc-progress-bar"></div></div>
+                </div>
+            </div>
+
+            <div class="presc-card presc-uploaded-card" id="presc-uploaded-state" style="display:none;">
+                <div class="presc-file-thumb"><i class="fa-solid fa-file-circle-check"></i></div>
+                <div class="presc-info">
+                    <h3><i class="fa-solid fa-circle-check"></i> Prescription Uploaded</h3>
+                    <p id="presc-uploaded-filename">prescription.jpg</p>
+                </div>
+                <div class="presc-action-row presc-uploaded-actions">
+                    <button type="button" class="presc-icon-action-btn" id="presc-view-btn" title="View"><i class="fa-solid fa-eye"></i></button>
+                    <label for="presc-file-input" class="presc-icon-action-btn" title="Replace"><i class="fa-solid fa-rotate"></i></label>
+                    <button type="button" class="presc-icon-action-btn presc-delete-action" id="presc-delete-btn" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <p id="presc-waiting-status" style="display:none;margin:8px 0 0;font-size:0.78rem;font-weight:600;color:#ff9f43;background:#fff8ef;border:1px solid #ffe0b3;border-radius:8px;padding:6px 10px;"></p>
+            </div>
+        </section>
+
+
+        <section class="categories-section">
+            <h3 class="section-title"><i class="fa-solid fa-grid-2" style="color:var(--primary-color);"></i> Shop by Category</h3>
+            <div class="categories-grid-scroll">
+                <div class="category-item active" data-category="all">
+                    <div class="cat-icon-wrapper cat-all"><i class="fa-solid fa-border-all"></i></div>
+                    <span>All Items</span>
+                </div>
+                <div class="category-item" data-category="tablet">
+                    <div class="cat-icon-wrapper cat-tablet"><i class="fa-solid fa-tablets"></i></div>
+                    <span>Tablet</span>
+                </div>
+                <div class="category-item" data-category="capsule">
+                    <div class="cat-icon-wrapper cat-capsule"><i class="fa-solid fa-capsules"></i></div>
+                    <span>Capsule</span>
+                </div>
+                <div class="category-item" data-category="syrup">
+                    <div class="cat-icon-wrapper cat-syrup"><i class="fa-solid fa-prescription-bottle"></i></div>
+                    <span>Syrup</span>
+                </div>
+                <div class="category-item" data-category="insulin">
+                    <div class="cat-icon-wrapper cat-insulin"><i class="fa-solid fa-syringe"></i></div>
+                    <span>Insulin</span>
+                </div>
+                <div class="category-item" data-category="baby">
+                    <div class="cat-icon-wrapper cat-baby"><i class="fa-solid fa-baby"></i></div>
+                    <span>Baby</span>
+                </div>
+                <div class="category-item" data-category="food">
+                    <div class="cat-icon-wrapper cat-food"><i class="fa-solid fa-apple-whole"></i></div>
+                    <span>Food</span>
+                </div>
+                <div class="category-item" data-category="others">
+                    <div class="cat-icon-wrapper cat-others"><i class="fa-solid fa-ellipsis"></i></div>
+                    <span>Others</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="products-showcase-section">
+            <div class="section-header-row">
+                <h3 class="section-title" id="products-section-heading">Available Medicine</h3>
+                <span class="product-count-badge" id="product-count-badge" style="display:none;">0 items</span>
+            </div>
+            
+            <div id="no-products-msg" style="display: none; text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem;">
+                <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #ccc; margin-bottom: 8px; display: block;"></i>
+                No matching medicines found.
+            </div>
+
+            <div class="products-grid" id="main-products-grid">
+                <div class="product-card" data-id="p1" data-category="tablet" data-name="Dolo 650mg Tablet" data-price="30" data-img="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400" data-expiry="12/2027" data-rating="4.7" data-manufacturer="Micro Labs" data-desc="Paracetamol 650mg for fever and body pain relief. Trusted by millions." data-is-rx="false" data-merchant-id="">
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400" alt="Dolo 650">
+                    </div>
+                    <div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;">
+                        <div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Tablet</span>
+                        <h4>Dolo 650mg Tablet</h4>
+                        <p class="price">₹30.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p2" data-category="syrup" data-name="Becosules Syrup" data-price="95" data-img="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400" data-expiry="06/2027" data-rating="4.5" data-manufacturer="Pfizer" data-desc="Vitamin B complex syrup for energy, immunity and daily nutrition support." data-is-rx="false" data-merchant-id="">
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400" alt="Becosules">
+                    </div>
+                    <div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;">
+                        <div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Syrup</span>
+                        <h4>Becosules Syrup</h4>
+                        <p class="price">₹95.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p3" data-category="lotion" data-name="Moisturizing Body Lotion" data-price="210" data-img="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400" data-expiry="09/2028" data-rating="4.6" data-manufacturer="Himalaya" data-desc="Daily moisturizing lotion for soft and smooth skin. Dermatologically tested." data-is-rx="false" data-merchant-id="">
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400" alt="Body Lotion">
+                    </div>
+                    <div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;">
+                        <div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Lotion</span>
+                        <h4>Moisturizing Body Lotion</h4>
+                        <p class="price">₹210.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-card" data-id="p4" data-category="baby" data-name="Baby Diaper Rash Cream" data-price="175" data-img="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400" data-expiry="03/2028" data-rating="4.8" data-manufacturer="Johnson's" data-desc="Gentle diaper rash cream for babies. Zinc oxide formula protects sensitive skin." data-is-rx="false" data-merchant-id="">
+                    <div class="img-container">
+                        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400" alt="Baby Cream">
+                    </div>
+                    <div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;">
+                        <div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>
+                    </div>
+                    <div class="prod-info">
+                        <span class="prod-cat-label">Baby Care</span>
+                        <h4>Baby Diaper Rash Cream</h4>
+                        <p class="price">₹175.00</p>
+                        <div class="btn-group">
+                            <button class="order-btn immediate-order" onclick="handleQuickBuyNow(this)">BUY NOW</button>
+                            <button class="add-to-cart-btn" onclick="handleQuickAddToCart(this)"><i class="fas fa-shopping-cart"></i> CART</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="scroll-top-btn" id="scroll-top-btn">
+            <i class="fa-solid fa-arrow-up"></i>
+        </div>
+    </main>
+
+    <div id="product-detail-modal" class="modal">
+        <div class="modal-content product-view-sheet">
+            <div class="modal-top-header">
+                <span class="sheet-title"><i class="fa-solid fa-capsules" style="color:var(--primary-color);"></i> Product Details</span>
+                <button class="close-modal-btn" id="close-prod-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="modal-scroll-body">
+                <div class="product-images-slider">
+                    <img id="modal-main-img" src="" alt="Main Medicine Image">
+                </div>
+
+                <div class="product-main-details">
+                    <div class="title-row">
+                        <h2 id="modal-prod-name">Medicine Name</h2>
+                        <span class="express-delivery-badge" title="Express 20 Minute Delivery Verified">
+                            <i class="fa-solid fa-bolt"></i> 20+ Mins
+                        </span>
+                    </div>
+                    
+                    <p class="pharmacy-source"><i class="fa-solid fa-industry"></i> Manufacturer: <span id="modal-mfg-name">Loading...</span></p>
+                    
+                    <div class="rating-expiry-row">
+                        <span class="rating-tag"><i class="fa-solid fa-star"></i> <span id="modal-rating">0.0</span></span>
+                        <span class="expiry-tag"><i class="fa-solid fa-calendar-xmark"></i> Expiry: <span id="modal-expiry">00/0000</span></span>
+                    </div>
+
+                    <div class="modal-rating-input" id="modal-rating-section">
+                        <h4><i class="fa-solid fa-star" style="color:var(--gold-premium);"></i> Rate this product</h4>
+                        <div class="rating-stars-interactive" id="interactive-rating-stars">
+                            <i class="fa-regular fa-star" data-star="1"></i>
+                            <i class="fa-regular fa-star" data-star="2"></i>
+                            <i class="fa-regular fa-star" data-star="3"></i>
+                            <i class="fa-regular fa-star" data-star="4"></i>
+                            <i class="fa-regular fa-star" data-star="5"></i>
+                        </div>
+                        <p id="user-rating-text" style="font-size:0.75rem;color:var(--text-muted);margin:4px 0 0 0;">Tap to rate this medicine</p>
+                    </div>
+
+                    <div class="flipkart-delivery-status-box">
+                        <div class="delivery-row-line"><i class="fa-solid fa-location-dot"></i> <span id="modal-delivery-location">Calculating distance matrix...</span></div>
+                        <div class="delivery-row-line"><i class="fa-solid fa-truck-fast"></i> <span id="modal-delivery-eta">Estimating dynamic shipping window...</span></div>
+                    </div>
+
+                    <h3 class="modal-price" id="modal-price">₹0.00</h3>
+                    
+                    <div class="description-block">
+                        <h4><i class="fa-solid fa-circle-info" style="color:var(--primary-color);"></i> Product Overview</h4>
+                        <p id="modal-description">Medicine description data placeholder...</p>
+                    </div>
+
+                    <div class="medicine-details-block">
+                        <h4><i class="fa-solid fa-notes-medical" style="color:var(--primary-color);"></i> Medicine Information</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item"><span class="detail-label">Composition</span><span class="detail-value" id="modal-composition">Active Pharma Ingredient</span></div>
+                            <div class="detail-item"><span class="detail-label">Storage</span><span class="detail-value">Store below 30°C</span></div>
+                            <div class="detail-item"><span class="detail-label">Side Effects</span><span class="detail-value">Nausea, Dizziness (rare)</span></div>
+                            <div class="detail-item"><span class="detail-label">Pack Size</span><span class="detail-value">1 Strip (10 tablets)</span></div>
+                        </div>
+                    </div>
+
+                    <div class="reviews-block">
+                        <h4><i class="fa-solid fa-comments" style="color:var(--primary-color);"></i> Verified Customer Reviews</h4>
+                        <div class="review-item">
+                            <div class="review-meta">
+                                <span class="reviewer-name">Rahul S.</span>
+                                <span class="review-stars"><i class="fa-solid fa-star"></i> 5/5</span>
+                            </div>
+                            <p class="review-text">Very good medicine, got authentic strip with safe 20-min express handling delivery.</p>
+                        </div>
+                        <div class="review-item">
+                            <div class="review-meta">
+                                <span class="reviewer-name">Priyanka D.</span>
+                                <span class="review-stars"><i class="fa-solid fa-star"></i> 4.5/5</span>
+                            </div>
+                            <p class="review-text">Long expiry date provided, fully satisfied with Tata 1mg grade service experience!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-sticky-actions">
+                <button class="add-to-cart-big-btn" id="modal-add-to-cart-action">
+                    <i class="fa-solid fa-shopping-cart"></i> ADD TO SHOPPING CART
+                </button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- ============ PRODUCT DETAIL (in-app page, replaces old product-detail.html navigation) ============ -->
+    <div id="page-product-detail" class="app-page" data-page="product-detail">
+        <header class="pd-page-header">
+            <button class="pd-back-btn" id="pd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <span class="pd-page-title">Product Details</span>
+            <button class="pd-share-btn" id="pd-share-btn" aria-label="Share"><i class="fa-solid fa-share-nodes"></i></button>
+        </header>
+
+        <main class="main-content-scrollable pd-scroll-body">
+
+            <div class="pd-breadcrumb" id="pd-breadcrumb">
+                <span class="pd-crumb-link" id="pd-crumb-home">Home</span>
+                <i class="fa-solid fa-angle-right"></i>
+                <span class="pd-crumb-link" id="pd-crumb-cat">Category</span>
+                <i class="fa-solid fa-angle-right"></i>
+                <span class="pd-crumb-current" id="pd-crumb-name">Product</span>
+            </div>
+
+            <div id="pd-skeleton" class="sd-skeleton">
+                <div class="sd-skel-banner" style="height:280px;"></div>
+                <div class="sd-skel-line" style="width:70%;height:20px;"></div>
+                <div class="sd-skel-line" style="width:40%;"></div>
+                <div class="sd-skel-line" style="width:85%;"></div>
+            </div>
+
+            <div id="pd-content" style="display:none;">
+                <div class="product-images-slider" id="pd-gallery">
+                    <div class="pd-gallery-track" id="pd-gallery-track">
+                        <img id="pd-main-img" class="pd-gallery-img" src="" alt="Product image">
+                    </div>
+                    <span class="pd-rx-badge" id="pd-rx-badge" style="display:none;"><i class="fa-solid fa-file-prescription"></i> Rx Required</span>
+                    <span class="pd-img-counter" id="pd-img-counter" style="display:none;">1 / 1</span>
+                    <button type="button" class="pd-wishlist-heart" id="pd-wishlist-heart" aria-label="Add to wishlist"><i class="fa-regular fa-heart"></i></button>
+                </div>
+                <div class="pd-gallery-thumbs" id="pd-gallery-thumbs" style="display:none;"></div>
+
+                <div class="product-main-details">
+                    <div class="title-row">
+                        <h2 id="pd-name">Product name</h2>
+                    </div>
+
+                    <p class="pharmacy-source"><i class="fa-solid fa-industry"></i> Manufacturer: <span id="pd-manufacturer">—</span></p>
+
+                    <div class="rating-expiry-row">
+                        <span class="rating-tag" id="pd-rating-tag"><i class="fa-solid fa-star"></i> <span id="pd-rating">0.0</span></span>
+                        <span class="pd-review-count-tag" id="pd-review-count-tag" style="display:none;"></span>
+                        <span class="expiry-tag" id="pd-stock-tag"><i class="fa-solid fa-box"></i> <span id="pd-stock-text">In Stock</span></span>
+                    </div>
+
+                    <div class="pd-rating-breakdown" id="pd-rating-breakdown" style="display:none;">
+                        <div class="pd-rb-avg">
+                            <span class="pd-rb-avg-num" id="pd-rb-avg-num">0.0</span>
+                            <i class="fa-solid fa-star"></i>
+                            <span class="pd-rb-count" id="pd-rb-count">0 Ratings</span>
+                        </div>
+                        <div class="pd-rb-bars" id="pd-rb-bars"></div>
+                    </div>
+
+                    <div class="pd-sold-by-block" id="pd-sold-by-block" style="display:none;">
+                        <div class="pd-sold-by-info">
+                            <i class="fa-solid fa-shop"></i>
+                            <span>Sold by <strong id="pd-shop-name">—</strong></span>
+                            <span class="pd-seller-verified-badge" id="pd-seller-verified-badge" style="display:none;"><i class="fa-solid fa-circle-check"></i> Verified</span>
+                        </div>
+                        <button type="button" class="pd-visit-shop-btn" id="pd-visit-shop-btn">View Products <i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+
+                    <div class="pd-price-row">
+                        <h3 class="modal-price" id="pd-price">₹0.00</h3>
+                        <span class="pd-mrp" id="pd-mrp" style="display:none;"></span>
+                        <span class="pd-discount" id="pd-discount" style="display:none;"></span>
+                    </div>
+                    <div class="pd-savings-line" id="pd-savings-line" style="display:none;"></div>
+
+                    <div class="pd-flash-sale-banner" id="pd-flash-sale-banner" style="display:none;">
+                        <i class="fa-solid fa-bolt"></i> <span id="pd-flash-sale-text">Flash Sale</span>
+                    </div>
+
+                    <div class="pd-offers-block" id="pd-offers-block" style="display:none;">
+                        <h4><i class="fa-solid fa-gift" style="color:var(--primary-color);"></i> Available Offers</h4>
+                        <div class="pd-offers-list" id="pd-offers-list"></div>
+                    </div>
+
+                    <div class="pd-delivery-box" id="pd-delivery-box">
+                        <div class="pd-delivery-row pd-loc-row"><i class="fa-solid fa-location-dot"></i> <span id="pd-delivery-location">Checking delivery availability…</span>
+                            <span class="pd-loc-actions">
+                                <button type="button" class="pd-loc-btn" id="pd-loc-change-btn">Change</button>
+                                <button type="button" class="pd-loc-btn pd-loc-gps" id="pd-loc-gps-btn"><i class="fa-solid fa-location-crosshairs"></i> GPS</button>
+                            </span></div>
+                        <div class="pd-delivery-row"><i class="fa-solid fa-truck-fast"></i> <span id="pd-delivery-eta">—</span></div>
+                    </div>
+
+                    <div class="pd-rx-warning" id="pd-rx-warning" style="display:none;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div><strong>Prescription Required</strong><p>Upload a valid doctor's prescription before placing this order.</p></div>
+                    </div>
+
+                    <div class="pd-qty-row">
+                        <span class="detail-label">Quantity</span>
+                        <div class="pd-qty-stepper">
+                            <button type="button" id="pd-qty-minus" aria-label="Decrease quantity">−</button>
+                            <span id="pd-qty">1</span>
+                            <button type="button" id="pd-qty-plus" aria-label="Increase quantity">+</button>
+                        </div>
+                    </div>
+
+                    <div class="pd-variants-block" id="pd-variants-block" style="display:none;">
+                        <span class="detail-label">Other Options</span>
+                        <div class="pd-variants-row" id="pd-variants-row"></div>
+                    </div>
+
+                    <div class="pd-accordion" id="pd-accordion">
+                        <div class="pd-accordion-item open">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-circle-info" style="color:var(--primary-color);"></i> Product Overview</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body"><p id="pd-description">—</p></div>
+                        </div>
+
+                        <div class="pd-accordion-item open" id="pd-medicine-info-item">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-notes-medical" style="color:var(--primary-color);"></i> Medicine Information</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body">
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="detail-label">Composition</span><span class="detail-value" id="pd-composition">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Dosage Form</span><span class="detail-value" id="pd-dosage-form">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Strength</span><span class="detail-value" id="pd-strength">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Category</span><span class="detail-value" id="pd-category">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Pack Size</span><span class="detail-value" id="pd-pack-size">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Storage</span><span class="detail-value" id="pd-storage">—</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pd-accordion-item" id="pd-instrument-info-item" style="display:none;">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-stethoscope" style="color:var(--primary-color);"></i> Device Information</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body">
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="detail-label">Brand</span><span class="detail-value" id="pd-inst-brand">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Device Type</span><span class="detail-value" id="pd-inst-type">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Color</span><span class="detail-value" id="pd-inst-color">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Display</span><span class="detail-value" id="pd-inst-display">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Battery</span><span class="detail-value" id="pd-inst-battery">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Measurement Range</span><span class="detail-value" id="pd-inst-range">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Model Number</span><span class="detail-value" id="pd-inst-model">—</span></div>
+                                    <div class="detail-item"><span class="detail-label">Warranty</span><span class="detail-value" id="pd-inst-warranty">—</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pd-accordion-item" id="pd-safety-item">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-shield-heart" style="color:var(--primary-color);"></i> Safety Information</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body">
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="detail-label">Side Effects</span><span class="detail-value" id="pd-side-effects">Not specified</span></div>
+                                    <div class="detail-item"><span class="detail-label">Warnings</span><span class="detail-value" id="pd-warnings">Not specified</span></div>
+                                </div>
+                                <p class="pd-safety-note"><i class="fa-solid fa-circle-exclamation"></i> Use only as directed by your doctor or pharmacist.</p>
+                            </div>
+                        </div>
+
+                        <div class="pd-accordion-item">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-truck" style="color:var(--primary-color);"></i> Delivery &amp; Returns</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body"><p class="pd-return-policy" id="pd-return-policy">—</p></div>
+                        </div>
+                    </div>
+
+                    <p class="pd-disclaimer"><i class="fa-solid fa-circle-exclamation"></i> Responsible Use Notice: Medi Finder delivers medicines and healthcare products responsibly and does not condone their misuse in any form, including deliberate self-harm, or misuse targeting the elderly or vulnerable individuals. Medicines requiring a valid prescription (Rx) are dispensed strictly against a genuine prescription. If any medicine ordered through this platform is misused after delivery, the responsibility lies solely with the buyer — neither the pharmacy/seller nor Medi Finder (medifinderindia.com) shall be held liable for any resulting harm. Please consult a registered medical practitioner before use.<br><br>দায়বদ্ধতার বার্তা: মেডি ফাইন্ডার দায়িত্বের সাথে ওষুধ ও স্বাস্থ্যপণ্য ডেলিভারি করে এবং এর অপব্যবহার — নিজেকে ক্ষতি করার উদ্দেশ্যে হোক বা বয়স্ক/দুর্বল মানুষের ক্ষতি করার উদ্দেশ্যে হোক — কোনোভাবেই সমর্থন করে না। যেসব ওষুধের জন্য প্রেসক্রিপশন (Rx) প্রয়োজন, তা শুধুমাত্র বৈধ প্রেসক্রিপশন থাকলেই সরবরাহ করা হয়। ডেলিভারির পর কোনো ওষুধ অপব্যবহার হলে তার সম্পূর্ণ দায় ক্রেতার — মেডিসিন শপ বা মেডি ফাইন্ডার (medifinderindia.com) এর জন্য দায়ী থাকবে না। ব্যবহারের আগে একজন নিবন্ধিত চিকিৎসকের পরামর্শ নিন।</p>
+
+                    <p class="pd-visit-again-note"><strong>VISIT AGAIN, STAY WELL STAY HEALTHY</strong></p>
+
+                    <div class="pd-fbt-block" id="pd-fbt-block" style="display:none;">
+                        <h4><i class="fa-solid fa-cart-plus" style="color:var(--primary-color);"></i> Frequently Bought Together</h4>
+                        <div class="pd-fbt-list" id="pd-fbt-list"></div>
+                        <div class="pd-fbt-footer">
+                            <span>Total: <strong id="pd-fbt-total">₹0</strong></span>
+                            <button type="button" class="pd-fbt-add-btn" id="pd-fbt-add-btn">Add Selected to Cart</button>
+                        </div>
+                    </div>
+
+                    <div class="pd-reviews-block" id="pd-reviews-block">
+                        <div class="pd-reviews-head">
+                            <h4><i class="fa-solid fa-comments" style="color:var(--primary-color);"></i> Customer Reviews</h4>
+                            <button type="button" class="pd-write-review-btn" id="pd-write-review-btn">Write a Review</button>
+                        </div>
+                        <div id="pd-reviews-list" class="pd-reviews-list"><p class="pd-no-reviews">Loading reviews…</p></div>
+                        <button type="button" class="pd-see-all-reviews-btn" id="pd-see-all-reviews-btn" style="display:none;">See All Reviews</button>
+
+                        <div class="pd-write-review-form" id="pd-write-review-form" style="display:none;">
+                            <div class="pd-wr-stars" id="pd-wr-stars">
+                                <i class="fa-regular fa-star" data-star="1"></i>
+                                <i class="fa-regular fa-star" data-star="2"></i>
+                                <i class="fa-regular fa-star" data-star="3"></i>
+                                <i class="fa-regular fa-star" data-star="4"></i>
+                                <i class="fa-regular fa-star" data-star="5"></i>
+                            </div>
+                            <textarea id="pd-wr-text" placeholder="Write your review..." rows="3"></textarea>
+                            <label class="pd-wr-upload-label">
+                                <i class="fa-solid fa-camera"></i> Upload Your Experience
+                                <input type="file" id="pd-wr-photo" accept="image/*" style="display:none;">
+                            </label>
+                            <span class="pd-wr-photo-name" id="pd-wr-photo-name"></span>
+                            <button type="button" class="pd-wr-submit-btn" id="pd-wr-submit-btn">Submit Feedback</button>
+                        </div>
+                    </div>
+
+                    <div class="pd-similar-block" id="pd-similar-block" style="display:none;">
+                        <h4><i class="fa-solid fa-layer-group" style="color:var(--primary-color);"></i> Similar Products</h4>
+                        <div class="pd-similar-scroll" id="pd-similar-list"></div>
+                    </div>
+
+                    <div class="pd-more-seller-block" id="pd-more-seller-block" style="display:none;">
+                        <div class="pd-more-seller-head">
+                            <h4 id="pd-more-seller-title"><i class="fa-solid fa-shop" style="color:var(--primary-color);"></i> More from this Seller</h4>
+                        </div>
+                        <div class="pd-similar-scroll" id="pd-more-seller-list"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="pd-error-state" class="sd-error-state" style="display:none;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>Couldn't load this product. Please check your connection and try again.</p>
+                <button type="button" id="pd-retry-btn" class="sd-retry-btn">Retry</button>
+            </div>
+        </main>
+
+        <div class="pd-sticky-actions">
+            <button class="pd-add-to-cart-btn" id="pd-add-to-cart-btn"><i class="fa-solid fa-cart-plus"></i> ADD TO CART</button>
+            <button class="pd-buy-now-btn" id="pd-buy-now-btn">BUY NOW</button>
+        </div>
+    </div>
+
+    <!-- ============ SHOP DETAIL (in-app page — replaces the old, separate
+         shop-details.html file, which never actually opened from any real
+         deployment path. Tapping "VIEW" on a shop, selecting a shop from
+         search suggestions, or "Visit Shop" on a product's detail page now
+         all route here via navigateToShopDetail(), the same in-app SPA
+         pattern already used for Product Detail. ============ -->
+    <div id="page-shop-detail" class="app-page" data-page="shop-detail">
+        <header class="pd-page-header sd-page-header">
+            <button class="pd-back-btn" id="sd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <span class="pd-page-title" id="sd-page-title">Shop</span>
+            <button type="button" class="sd-cart-btn" id="sd-cart-btn" aria-label="Cart">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span class="nav-badge sd-cart-badge" id="sd-cart-badge" style="display:none;">0</span>
+            </button>
+        </header>
+
+        <main class="main-content-scrollable sd-scroll-body" id="sd-scroll-body">
+
+            <div id="sd-skeleton" class="sd-skeleton">
+                <div class="sd-skel-banner"></div>
+                <div class="sd-skel-line" style="width:60%;height:20px;"></div>
+                <div class="sd-skel-line" style="width:40%;"></div>
+                <div class="sd-skel-line" style="width:80%;"></div>
+            </div>
+
+            <div id="sd-error-state" class="sd-error-state" style="display:none;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>Couldn't load this shop. Please check your connection and try again.</p>
+                <button type="button" id="sd-retry-btn" class="sd-retry-btn">Retry</button>
+            </div>
+
+            <div id="sd-content" style="display:none;">
+                <div class="sd-banner-wrap">
+                    <img id="sd-banner-img" src="" alt="Shop banner">
+                    <div class="sd-logo-wrap"><img id="sd-logo-img" src="" alt="Shop logo"></div>
+                </div>
+
+                <div class="sd-header-block">
+                    <div class="sd-name-row">
+                        <h2 id="sd-shop-name-h">Shop name</h2>
+                        <span class="sd-status-badge" id="sd-status-badge">—</span>
+                    </div>
+                    <p class="sd-owner-line">by <span id="sd-owner-name">—</span></p>
+                    <div class="sd-rating-row">
+                        <span class="sd-rating-tag" id="sd-rating-tag"><i class="fa-solid fa-star"></i> <span id="sd-rating">New</span></span>
+                        <span class="sd-review-count" id="sd-review-count"></span>
+                    </div>
+                    <p class="sd-hours-line"><i class="fa-solid fa-clock"></i> <span id="sd-hours">Timing not available</span></p>
+
+                    <div class="sd-badges-row" id="sd-badges-row"></div>
+
+                    <div class="sd-contact-row">
+                        <a href="#" id="sd-call-btn" class="sd-contact-btn"><i class="fa-solid fa-phone"></i> Call</a>
+                        <a href="#" id="sd-whatsapp-btn" class="sd-contact-btn sd-whatsapp" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+                        <a href="#" id="sd-direction-btn" class="sd-contact-btn" target="_blank" rel="noopener"><i class="fa-solid fa-diamond-turn-right"></i> Directions</a>
+                    </div>
+
+                    <p class="sd-address-line"><i class="fa-solid fa-location-dot"></i> <span id="sd-address">Address not available</span></p>
+                    <div class="sd-dist-eta-row">
+                        <span id="sd-distance"><i class="fa-solid fa-route"></i> —</span>
+                        <span id="sd-eta"><i class="fa-solid fa-truck-fast"></i> —</span>
+                    </div>
+                    <p class="sd-delivery-line"><i class="fa-solid fa-truck"></i> <span id="sd-delivery-info">Free delivery on orders above ₹499</span></p>
+
+                    <div class="sd-stats-row">
+                        <div class="sd-stat"><span id="sd-stat-orders">0</span><small>Total Orders</small></div>
+                        <div class="sd-stat"><span id="sd-stat-products">0</span><small>Products</small></div>
+                        <div class="sd-stat"><span id="sd-stat-joined">—</span><small>With MediFinder</small></div>
+                    </div>
+                </div>
+
+                <div class="sd-offers-section" id="sd-offers-section" style="display:none;">
+                    <h3><i class="fa-solid fa-gift"></i> Shop Offers &amp; Coupons</h3>
+                    <div class="sd-offers-scroll" id="sd-offers-list"></div>
+                </div>
+
+                <div class="sd-rx-cta-wrap">
+                    <button type="button" id="sd-rx-cta-btn" class="sd-rx-cta-btn"><i class="fa-solid fa-file-medical"></i> Order using uploaded prescription from this shop</button>
+                </div>
+
+                <div class="sd-search-section">
+                    <div class="sd-search-bar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="sd-search-input" placeholder="Search medicine in this shop...">
+                    </div>
+                    <select id="sd-sort-select" class="sd-sort-select" aria-label="Sort products">
+                        <option value="popular">Popular</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="discount">Discount</option>
+                    </select>
+                </div>
+
+                <div class="sd-categories-scroll" id="sd-categories-scroll">
+                    <button type="button" class="sd-cat-chip active" data-cat="all">All</button>
+                    <button type="button" class="sd-cat-chip" data-cat="tablet">Tablet</button>
+                    <button type="button" class="sd-cat-chip" data-cat="capsule">Capsule</button>
+                    <button type="button" class="sd-cat-chip" data-cat="syrup">Syrup</button>
+                    <button type="button" class="sd-cat-chip" data-cat="injection">Injection</button>
+                    <button type="button" class="sd-cat-chip" data-cat="cream">Cream</button>
+                    <button type="button" class="sd-cat-chip" data-cat="drops">Drops</button>
+                    <button type="button" class="sd-cat-chip" data-cat="others">Other</button>
+                </div>
+
+                <h3 class="sd-products-heading"><i class="fa-solid fa-capsules"></i> Products <span id="sd-products-count"></span></h3>
+                <div class="products-grid sd-products-grid" id="sd-products-grid"></div>
+                <p id="sd-no-products-msg" class="sd-no-products-msg" style="display:none;">No products match your search in this shop.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- ============ SHOPS / MAP ============ -->
+    <!-- ============ NOTIFICATION (full page) ============ -->
+    <div id="page-notification" class="app-page" data-page="notification">
+        <header class="notification-page-header">
+            <h2><i class="fa-solid fa-bell"></i> Notifications</h2>
+            <button class="notification-close-btn" id="noti-close-btn"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="notification-page-body" id="notiDropdown">
+            <div class="dropdown-body" id="noti-dropdown-body">
+                <div class="noti-empty"><i class="fa-solid fa-bell-slash"></i><p>No Notifications Yet</p></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-shops" class="app-page" data-page="shops">
+
+    <main class="map-container-section">
+
+        <div class="map-topbar-premium">
+            <div class="search-bar-container">
+                <div class="search-bar" style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="medicine-search" placeholder="Search medicine, shop name...">
+                    <button id="map-search-btn"><i class="fa-solid fa-arrow-right"></i></button>
+                    <!-- Search suggestions box auto-injected by userscript.js will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="map-wrapper-premium">
+            <div id="map"></div>
+            <div class="map-topbar-location">
+                <i class="fa-solid fa-location-dot"></i> <span id="current-city">Detecting...</span>
+            </div>
+            <button class="locate-btn" id="live-location-btn">
+                <i class="fa-solid fa-crosshairs"></i> Live Location
+            </button>
+        </div>
+
+        <div class="results-container">
+            <div class="results-header">
+                <h3><i class="fa-solid fa-store"></i> Nearby Registered Pharmacies</h3>
+                <span class="count-badge" id="pharmacy-count">0 Found</span>
+            </div>
+            
+            <div id="search-results" class="pharmacy-grid-layout">
+                <div style="text-align:center;padding:20px;color:#747d8c;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;color:#e02020;margin-bottom:8px;display:block;"></i><p style="font-size:0.82rem;">Loading nearby pharmacies...</p></div>
+            </div>
+        </div>
+    </main>
+
+    </div>
+
+    <!-- ============ ORDERS ============ -->
+    <div id="page-order" class="app-page" data-page="order">
+        <div class="order-screen premium-orders-screen">
+            <div class="orders-title-row">
+                <div>
+                    <span class="orders-kicker">YOUR SHOPPING JOURNEY</span>
+                    <h2 class="orders-main-title">My Orders</h2>
+                </div>
+                <button type="button" class="orders-help-btn" id="orders-help-btn" aria-label="Help">
+                    <i class="fa-solid fa-headset"></i>
+                </button>
+            </div>
+            <div id="order-list" class="dynamic-order-list"></div>
+        </div>
+
+        <div id="tracking-modal" class="modal">
+            <div class="modal-content tracking-premium-modal">
+                <div class="modal-handle"></div>
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-map-location-dot"></i> Live Tracking</h3>
+                    <span class="close-btn" id="close-tracking-modal">&times;</span>
+                </div>
+                <p id="modal-order-id" class="order-id-tag"></p>
+                <div class="map-container"></div>
+                <div class="timeline">
+                    <div class="timeline-step" id="step-placed"><div class="circle"><i class="fa-solid fa-check"></i></div><div class="text">Ordered</div></div>
+                    <div class="timeline-step" id="step-shipping"><div class="circle"><i class="fa-solid fa-box-open"></i></div><div class="text">Shipped</div></div>
+                    <div class="timeline-step" id="step-delivery"><div class="circle"><i class="fa-solid fa-house-medical"></i></div><div class="text">Delivered</div></div>
+                </div>
+                <div id="tracking-billing-container" class="tracking-billing-container"></div>
+            </div>
+        </div>
+
+        <div id="order-detail-modal" class="modal" style="display:none;">
+            <div class="modal-content order-detail-modal-content">
+                <div class="modal-handle"></div>
+                <div id="order-detail-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ CART ============ -->
+    <div id="page-cart" class="app-page" data-page="cart">
+
+    <main class="cart-screen">
+        <div class="cart-page-heading">
+                <div>
+                    <span class="cart-kicker">SHOPPING CART</span>
+                    <h2 class="section-title"><i class="fa-solid fa-bag-shopping"></i> Your Cart</h2>
+                </div>
+            </div>
+        
+        <div class="cart-header-bar" id="cart-header-bar" style="display:none;">
+            <span class="cart-item-count" id="cart-item-count"><strong>0</strong> items</span>
+            <button class="cart-clear-btn" onclick="clearAllCart()"><i class="fa-solid fa-trash-can"></i> Clear All</button>
+        </div>
+
+        <div id="free-delivery-progress" class="free-delivery-wrap" style="display:none;">
+            <div class="free-delivery-msg" id="free-delivery-msg"><i class="fa-solid fa-truck-fast"></i> <span id="free-delivery-text">Add items for free delivery</span></div>
+            <div class="free-delivery-bar"><div class="free-delivery-bar-fill" id="free-delivery-fill" style="width:0%"></div></div>
+        </div>
+
+        <input type="file" id="cart-rx-camera-input" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="cart-rx-file-input" accept="image/*,application/pdf" style="display:none;">
+
+        <div id="cart-items-container">
+            <div class="cart-empty-state">
+                <div class="cart-empty-icon"><i class="fa-solid fa-basket-shopping"></i></div>
+                <h3>Your cart is empty</h3>
+                <p>Browse medicines and add them to your cart</p>
+                <button class="cart-empty-btn" onclick="navigateTo('home')"><i class="fa-solid fa-house"></i> Browse Medicines</button>
+            </div>
+        </div>
+
+        <div class="checkout-card">
+
+            <div class="verification-box" id="cart-patient-box">
+                <div class="checkout-section-heading">
+                    <div>
+                        <span class="checkout-kicker">ORDERING FOR</span>
+                        <h3><i class="fa-solid fa-user"></i> <span id="cart-active-patient-name">Self</span></h3>
+                    </div>
+                </div>
+                <div id="cart-patient-chip-row" class="cart-patient-chip-row"></div>
+            </div>
+
+            <div class="verification-box">
+                <div class="checkout-section-heading">
+                        <div>
+                            <span class="checkout-kicker">DELIVER TO</span>
+                            <h3><i class="fa-solid fa-location-dot"></i> Delivery Address</h3>
+                        </div>
+                        <span class="address-auto-badge"><i class="fa-solid fa-bolt"></i> Default auto-selected</span>
+                    </div>
+
+                <div id="cart-address-list" class="cart-address-list"></div>
+
+                <button type="button" id="cart-use-gps-btn" class="cart-gps-order-btn"><i class="fa-solid fa-location-crosshairs"></i> Use GPS to order here</button>
+                <button type="button" id="cart-write-address-btn" class="cart-write-address-link"><i class="fa-solid fa-pen"></i> Write address manually</button>
+
+                <div class="address-form" id="address-form" style="display:none;">
+                    <input type="hidden" id="cart-editing-address-id" value="">
+                    <div class="address-row">
+                        <input type="text" id="addr-house" placeholder="House/Flat/Building No. (Address 1)" autocomplete="address-line1">
+                        <input type="text" id="addr-name" placeholder="Full Name" autocomplete="name">
+                    </div>
+                    <div class="address-row">
+                        <input type="text" id="addr-area" placeholder="Area/Street/Locality (Address 2)" autocomplete="address-line2">
+                    </div>
+                    <div class="address-row">
+                        <input type="text" id="addr-city" placeholder="City" autocomplete="address-level2">
+                        <input type="number" id="addr-pincode" placeholder="Pincode" maxlength="6" autocomplete="postal-code">
+                    </div>
+                    <div class="address-row">
+                        <input type="tel" id="addr-phone" placeholder="Phone Number" autocomplete="tel">
+                    </div>
+                    <div class="address-row">
+                        <textarea id="addr-landmark" placeholder="Landmark (Optional)" rows="1"></textarea>
+                    </div>
+                    <button class="save-address-btn" id="save-address-btn"><i class="fa-solid fa-bookmark"></i> Save Address</button>
+                    <p id="addr-status-msg"></p>
+                </div>
+                <!-- ✅ Item 3: removed the second/duplicate address display
+                     (the old single "saved-address-box" card) that used to
+                     render here alongside cart-address-list above — showing
+                     the same saved address twice in two different card
+                     styles. cart-address-list is now the one and only
+                     address system on this page; "Write address manually"
+                     below still opens the form to add or edit an address. -->
+                <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #e02020;background:#fff8f8;color:#e02020;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
+            </div>
+
+            <div class="verification-box" id="delivery-speed-box">
+                <div class="checkout-section-heading">
+                    <div>
+                        <span class="checkout-kicker">DELIVERY SPEED</span>
+                        <h3><i class="fa-solid fa-truck-fast"></i> Choose Delivery Speed</h3>
+                    </div>
+                </div>
+                <div class="delivery-speed-options" id="delivery-speed-options">
+                    <div class="speed-option-card" data-speed="express" data-fee="20">
+                        <div class="speed-option-icon"><i class="fa-solid fa-bolt"></i></div>
+                        <strong>30 Minutes</strong>
+                        <span>Extra ₹20</span>
+                        <i class="fa-solid fa-circle-check speed-check"></i>
+                    </div>
+                    <div class="speed-option-card" data-speed="sameday" data-fee="10">
+                        <div class="speed-option-icon"><i class="fa-solid fa-calendar-day"></i></div>
+                        <strong>Same Day</strong>
+                        <span>Extra ₹10</span>
+                        <i class="fa-solid fa-circle-check speed-check"></i>
+                    </div>
+                    <div class="speed-option-card active" data-speed="manual" data-fee="0">
+                        <div class="speed-option-icon"><i class="fa-solid fa-box"></i></div>
+                        <strong>Standard</strong>
+                        <span>5-7 Days · Free</span>
+                        <i class="fa-solid fa-circle-check speed-check"></i>
+                    </div>
+                </div>
+                <p id="delivery-speed-hint" class="delivery-speed-hint"></p>
+            </div>
+
+            <div class="coupon-box">
+                <h3><i class="fa-solid fa-ticket"></i> Apply Promo Code</h3>
+                <div class="coupon-row">
+                    <input type="text" id="coupon-input" placeholder="e.g., MEDI20">
+                    <button id="apply-coupon-btn">Apply</button>
+                </div>
+                <p id="coupon-status-msg"></p>
+            </div>
+
+            <div class="payment-box">
+                <h3><i class="fa-solid fa-shield-inverse"></i> Select Payment Method</h3>
+                <div class="payment-options">
+
+                    <label class="pay-option active-option">
+                        <div class="option-header-row">
+                            <input type="radio" name="payment_method" value="COD" checked>
+                            <span class="option-title"><i class="fa-solid fa-wallet"></i><span><strong>Cash on Delivery</strong><small>Pay when your order arrives</small></span></span>
+                        </div>
+                    </label>
+
+                    <label class="pay-option">
+                        <div class="option-header-row">
+                            <input type="radio" name="payment_method" value="ONLINE">
+                            <span class="option-title"><i class="fa-solid fa-qrcode"></i><span><strong>UPI / QR Payment</strong><small>Pay securely using any UPI app</small></span></span>
+                        </div>
+                        <div class="upi-pay-drawer" id="upi-pay-drawer" style="display:none;padding:4px 0 6px;">
+
+                            <!-- STEP 1: choose UPI App or QR Code -->
+                            <div id="upi-method-choice">
+                                <div style="text-align:center;margin-bottom:10px;">
+                                    <p style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Amount to Pay</p>
+                                    <p id="upi-drawer-amount" style="font-size:1.4rem;font-weight:800;color:#1a1a2e;">₹0.00</p>
+                                </div>
+
+                                <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-mobile-screen-button" style="color:#2ed573;"></i> Pay via UPI App</p>
+                                    <button type="button" id="pay-with-upi-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                        <i class="fa-solid fa-bolt"></i> PAY NOW
+                                    </button>
+                                    <p id="upi-pay-status-msg" style="font-size:0.72rem;margin:8px 0 0;display:none;"></p>
+                                </div>
+
+                                <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+                                    <hr style="flex:1;border:none;border-top:1px solid #eef2f5;">
+                                    <span style="font-size:0.72rem;color:#94a3b8;font-weight:700;">OR</span>
+                                    <hr style="flex:1;border:none;border-top:1px solid #eef2f5;">
+                                </div>
+
+                                <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-qrcode" style="color:#e02020;"></i> Pay via QR Code</p>
+                                    <img src="medifinderqr.jpeg" alt="MediFinder UPI QR Code" style="width:100%;max-width:220px;height:auto;border-radius:10px;border:1px solid #eef2f5;margin:0 auto;display:block;">
+                                    <p style="font-size:0.72rem;color:#6c757d;margin:10px 0 0;">UPI ID</p>
+                                    <p style="font-size:0.85rem;font-weight:700;color:#1a1a2e;margin:2px 0 8px;">9593625498@ibl</p>
+                                    <p style="font-size:0.72rem;color:#6c757d;margin-bottom:12px;">Scan this QR code using any UPI app</p>
+                                    <button type="button" id="paid-via-qr-btn" style="width:100%;padding:11px;border-radius:10px;border:1px solid #e02020;background:#fff8f8;color:#e02020;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                        <i class="fa-solid fa-check"></i> I've Completed the Payment
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- STEP 2: "have you completed the payment?" confirmation -->
+                            <div id="upi-payment-confirm" style="display:none;border:1px solid #eef2f5;border-radius:12px;padding:16px;background:#fafbfc;text-align:center;">
+                                <p style="font-size:0.9rem;font-weight:700;color:#1a1a2e;margin-bottom:12px;">Have you completed the payment?</p>
+                                <button type="button" id="upi-payment-completed-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;margin-bottom:8px;">
+                                    <i class="fa-solid fa-check"></i> Payment Completed
+                                </button>
+                                <button type="button" id="upi-payment-goback-btn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #dcdde1;background:#fff;color:#475569;font-weight:600;font-size:0.8rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrow-left"></i> Go Back
+                                </button>
+                            </div>
+                        </div>
+                    </label>
+
+                </div>
+            </div>
+
+            <div class="price-breakdown">
+                <h3>Bill Summary <span id="free-delivery-tag" style="display:none;background:#e8f5e9;color:#28a745;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:8px;">FREE DELIVERY</span></h3>
+                <div class="price-row"><span>Medicine Subtotal:</span><span id="bill-subtotal">₹0.00</span></div>
+                <div class="price-row text-green"><span>Coupon Discount:</span><span id="bill-discount">-₹0.00</span></div>
+                <div class="price-row"><span>Shipping Charges:</span><span id="bill-shipping">₹20.00</span></div>
+                <div class="price-row"><span>Delivery Fees<span id="bill-delivery-distance" style="color:var(--text-muted);font-weight:500;"></span>:</span><span id="bill-delivery">₹15.00</span></div>
+                <div class="price-row"><span>Secure Platform Fee:</span><span id="bill-platform">₹5.00</span></div>
+                <div class="price-row"><span>Order Processing Charge:</span><span id="bill-order-charge">₹10.00</span></div>
+                <div class="price-row" id="cod-fee-row"><span>Cash On Delivery Handling Fee:</span><span id="bill-cod">₹10.00</span></div>
+                <div class="price-row" id="bill-speed-fee-row" style="display:none;"><span>Fast Delivery Fee:</span><span id="bill-speed-fee">₹0.00</span></div>
+                <hr class="summary-divider">
+                <div class="price-row total-row"><span>Grand Estimated Total:</span><span id="bill-grand-total">₹0.00</span></div>
+            </div>
+
+            <button id="place-order-final-btn" class="main-order-btn" style="display:none;"></button>
+        </div>
+    </main>
+
+    <div class="sticky-checkout-bar" id="sticky-checkout-bar" style="display:none;">
+        <div class="sticky-total-info">
+            <span class="sticky-total-label">Total</span>
+            <span class="sticky-total-price" id="sticky-total-price">₹0.00</span>
+        </div>
+        <button class="sticky-checkout-btn" id="place-order-sticky-btn"><i class="fa-solid fa-bag-shopping"></i> Place Order</button>
+    </div>
+
+    <div id="success-animation-modal" class="modal-overlay-view" style="display:none;">
+        <div class="flipkart-success-container">
+            <div class="flipkart-confetti" id="confettiCanvas"></div>
+            <div class="flipkart-success-card">
+                <div class="truck-delivery-anim">
+                    <div class="truck-road"></div>
+                    <div class="truck-parcel-box"><i class="fa-solid fa-box"></i></div>
+                    <div class="truck-wrap">
+                        <svg class="truck-svg" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" width="120" height="60">
+                            <rect x="4" y="18" width="60" height="28" rx="3" fill="#e02020"/>
+                            <rect x="64" y="26" width="30" height="20" rx="2" fill="#c4c4c4"/>
+                            <rect x="70" y="30" width="16" height="10" fill="#aee1f9"/>
+                            <circle cx="24" cy="48" r="7" fill="#222"/>
+                            <circle cx="80" cy="48" r="7" fill="#222"/>
+                            <circle cx="24" cy="48" r="3" fill="#666"/>
+                            <circle cx="80" cy="48" r="3" fill="#666"/>
+                            <rect class="truck-door" x="4" y="18" width="10" height="28" fill="#a80000"/>
+                        </svg>
+                    </div>
+                    <div class="flipkart-checkmark-circle post-truck-checkmark">
+                        <svg class="flipkart-checkmark-svg" viewBox="0 0 52 52">
+                            <circle class="flipkart-checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="flipkart-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
+                </div>
+                <h2 class="flipkart-success-title">Order Placed!</h2>
+                <p class="flipkart-success-subtitle">Your medicines are being prepared</p>
+                <div class="flipkart-order-info-card">
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Order ID</span>
+                        <span class="flipkart-order-value" id="success-order-id">ORD-XXXX</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Payment</span>
+                        <span class="flipkart-order-value" id="success-payment">COD</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Estimated Delivery</span>
+                        <span class="flipkart-order-value flipkart-eta" id="success-eta">25-30 mins</span>
+                    </div>
+                </div>
+                <div class="flipkart-delivery-code-box" id="success-otp-box">
+                    <p class="flipkart-otp-label">Your Delivery OTP</p>
+                    <p class="flipkart-otp-code" id="success-otp-code">123456</p>
+                    <p class="flipkart-otp-hint">Share this code with delivery partner</p>
+                </div>
+                <button class="flipkart-track-btn" id="go-to-orders-after-success">
+                    <i class="fas fa-route"></i> Track Order
+                </button>
+                <button class="flipkart-home-btn" onclick="navigateTo('home')">
+                    <i class="fas fa-home"></i> Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="payment-pending-modal" class="modal-overlay-view" style="display:none;">
+        <div class="flipkart-success-container">
+            <div class="flipkart-success-card">
+                <div style="width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:#fff7e6;display:flex;align-items:center;justify-content:center;">
+                    <img src="medifinderqr.jpeg" alt="MediFinder" style="width:46px;height:46px;object-fit:contain;border-radius:8px;">
+                </div>
+                <h2 class="flipkart-success-title">Payment Submitted</h2>
+                <p class="flipkart-success-subtitle">MediFinder India Team is verifying your payment.<br>Your order will be confirmed after verification.</p>
+                <div class="flipkart-order-info-card">
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Order ID</span>
+                        <span class="flipkart-order-value" id="payment-pending-order-id">ORD-XXXX</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Amount</span>
+                        <span class="flipkart-order-value" id="payment-pending-amount">₹0.00</span>
+                    </div>
+                    <div class="flipkart-order-row">
+                        <span class="flipkart-order-label">Payment Method</span>
+                        <span class="flipkart-order-value" id="payment-pending-method">UPI</span>
+                    </div>
+                </div>
+                <div class="flipkart-delivery-code-box" id="payment-pending-status-box">
+                    <p class="flipkart-otp-label">Order Status</p>
+                    <p style="font-size:0.95rem;font-weight:700;color:#f59f00;margin:2px 0 0;">Payment Verification Pending</p>
+                </div>
+                <button class="flipkart-track-btn" id="go-to-orders-after-payment-pending">
+                    <i class="fas fa-route"></i> View My Order
+                </button>
+                <button class="flipkart-home-btn" onclick="navigateTo('home')">
+                    <i class="fas fa-home"></i> Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- ============ PROFILE ============ -->
+    <div id="page-profile" class="app-page" data-page="profile">
+
+    <main class="profile-screen">
+        <div class="profile-header-card">
+            <div class="image-container">
+                <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile Picture" id="profile-pic">
+                <label for="upload-photo" class="add-photo-btn">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+                <input type="file" id="upload-photo" accept="image/*" style="display: none;">
+            </div>
+            
+            <div class="user-info">
+                <h2 id="user-name">Guest User</h2>
+                <p id="user-username">@medi_user</p>
+                <!-- User ID from signup shown here -->
+                <p id="user-uid-display" style="font-size:0.72rem; color:#1c82aa; font-weight:700; margin:2px 0; background:#e8f4fd; padding:3px 10px; border-radius:20px; display:inline-block;">User ID: Loading...</p>
+                <button class="edit-btn" id="edit-profile-btn">
+                    <i class="fa-solid fa-pen-to-square"></i> <span id="lang-edit-name-btn">Edit Name</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="profile-menu-list">
+
+            <!-- MY BOX - Prescription History -->
+            <div class="menu-card-item" id="my-box-btn" style="background: linear-gradient(135deg, #fff5f5, #ffe8e8); border: 1px solid #ffcdd2;">
+                <div class="menu-icon" style="background: #ff4d4d; color: #fff;"><i class="fa-solid fa-box-archive"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-my-box">My Prescription Box</h3>
+                    <p>View & download all your uploaded prescriptions</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ff4d4d;"></i>
+            </div>
+
+            <!-- MY ORDERS (merged in from the old hamburger menu, which is
+                 no longer reachable since the app switched to the 5-icon
+                 bottom nav) -->
+            <div class="menu-card-item" id="my-orders-trigger">
+                <div class="menu-icon" style="background:#e8f4fd;color:#1c82aa;"><i class="fa-solid fa-box"></i></div>
+                <div class="menu-text">
+                    <h3>My Orders</h3>
+                    <p>Track live orders and view your order history</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <!-- WISHLIST -->
+            <div class="menu-card-item" id="wishlist-trigger">
+                <div class="menu-icon" style="background:#ffe3ec;color:#e0206b;"><i class="fa-solid fa-heart"></i></div>
+                <div class="menu-text">
+                    <h3>Wishlist</h3>
+                    <p>Products you've saved for later</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <div class="menu-card-item" id="manage-address-trigger">
+                <div class="menu-icon" style="background:#e7f3ff;color:#0d6efd;"><i class="fa-solid fa-location-dot"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-addr-title">Manage Delivery Addresses</h3>
+                    <p id="current-address">No primary address saved. Tap edit to update.</p>
+                </div>
+                <button class="action-circle-btn" id="add-address-btn"><i class="fa-solid fa-pencil"></i></button>
+            </div>
+
+            <div class="menu-card-item">
+                <div class="menu-icon" style="background:#f3ebff;color:#7c3aed;"><i class="fa-solid fa-language"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-select-title">App Display Language</h3>
+                    <select id="language-select">
+                        <option value="en" selected>English</option>
+                        <option value="bn">বাংলা (Bengali)</option>
+                        <option value="hi">हिन्दी (Hindi)</option>
+                        <option value="rjb">রাজবংশী (Rajbangsi)</option>
+                        <option value="sat">संताली (Santali)</option>
+                        <option value="or">ଓଡ଼ିଆ (Odia)</option>
+                        <option value="te">తెలుగు (Telugu)</option>
+                        <option value="mr">मराठी (Marathi)</option>
+                        <option value="ta">தமிழ் (Tamil)</option>
+                        <option value="gu">ગુજરાતી (Gujarati)</option>
+                        <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                        <option value="ml">മലയാളം (Malayalam)</option>
+                        <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                        <option value="ur">اردو (Urdu)</option>
+                    </select>
+                </div>
+            </div> 
+
+            <div class="menu-card-item" id="manage-patients-trigger">
+                <div class="menu-icon" style="background:#e6fbf8;color:#0ea5a5;"><i class="fa-solid fa-users-gear"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-patient-title">Manage Patients</h3>
+                    <p id="lang-patient-desc">Add or select profiles for regular medical orders</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="pill-reminders-trigger">
+                <div class="menu-icon" style="background:#fff0e0;color:#e8590c;"><i class="fa-solid fa-bell"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-pill-title">Pill Reminders</h3>
+                    <p id="lang-pill-desc">Set active scheduling alerts to take daily doses</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="refer-earn-btn">
+                <div class="menu-icon" style="background:#ffeaf6;color:#d6249f;"><i class="fa-solid fa-gift"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-refer-title">Refer & Earn</h3>
+                    <p id="lang-refer-desc">Invite friends to unlock unique ₹100 shopping coupons</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="offers-coupons-btn">
+                <div class="menu-icon" style="background:#fff4e0;color:#f59f00;"><i class="fa-solid fa-tags"></i></div>
+                <div class="menu-text">
+                    <h3>Offers &amp; Coupons</h3>
+                    <p>See every active offer and coupon code</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <div class="menu-card-item" id="terms-trigger">
+                <div class="menu-icon" style="background:#e7edff;color:#3355d8;"><i class="fa-solid fa-file-shield"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-terms-title">Terms & Conditions</h3>
+                    <p id="lang-terms-desc">Review licensing and operational usage guidelines</p>
+                </div>
+            </div>
+
+            <!-- Added so Privacy Policy / Cancellation & Refund actually have
+                 somewhere to link from — user.js already had onclick logic
+                 for these two ids ready and waiting, it just had no matching
+                 HTML element to attach to, so the links never rendered. -->
+            <div class="menu-card-item" id="privacy-trigger">
+                <div class="menu-icon" style="background:#e6f7ff;color:#0b7fab;"><i class="fa-solid fa-user-shield"></i></div>
+                <div class="menu-text">
+                    <h3>Privacy Policy</h3>
+                    <p>How your data is collected, used and protected</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="cancellation-trigger">
+                <div class="menu-icon" style="background:#fff1e6;color:#d9622b;"><i class="fa-solid fa-rotate-left"></i></div>
+                <div class="menu-text">
+                    <h3>Cancellation & Refund</h3>
+                    <p>Order cancellation and refund policy</p>
+                </div>
+            </div>
+
+            <div class="menu-card-item" id="open-complaint-btn">
+                <div class="menu-icon" style="background:#fff4e0;color:#f59f00;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="menu-text">
+                    <h3>Complaints</h3>
+                    <p>Raise or track a complaint about your order</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <!-- TRACK FAVOURITE SHOP (merged in from the old hamburger menu) -->
+            <div class="menu-card-item" id="track-fav-shop-trigger">
+                <div class="menu-icon" style="background:#eafaf1;color:#198754;"><i class="fa-solid fa-shop"></i></div>
+                <div class="menu-text">
+                    <h3>Track Your Favourite Shop</h3>
+                    <p>See nearby shops and favourites on the map</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <div class="menu-card-item" id="faq-trigger">
+                <div class="menu-icon" style="background:#eef2ff;color:#4b5fd1;"><i class="fa-solid fa-circle-question"></i></div>
+                <div class="menu-text">
+                    <h3>FAQ</h3>
+                    <p>Answers to common questions about orders, prescriptions & more</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <!-- ✅ Item 5: "Help Desk" menu item removed per request (FAQ +
+                 Customer Care Desk below already cover diagnostics/support). -->
+
+            <div class="menu-card-item contact-hub-item">
+                <div class="menu-icon" style="background:#e7f5ff;color:#1c7ed6;"><i class="fa-solid fa-headset"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-care-title">Customer Care Desk</h3>
+                    <div class="contact-actions-grid">
+                        <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                        <a href="mailto:medifinderindia@gmail.com?subject=MediFinder%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
+                        <a href="mailto:support@medifinderindia.com?subject=MediFinder%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> support@medifinderindia.com</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-card-item premium-menu-item" id="open-delete-account-btn">
+                <div class="menu-icon" style="background:#fff0f0;color:#e02020;"><i class="fa-solid fa-user-slash"></i></div>
+                <div class="menu-text">
+                    <h3>Delete Account <span class="premium-tag"><i class="fa-solid fa-crown"></i> PREMIUM</span></h3>
+                    <p>Permanently delete your account and data</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
+            </div>
+
+            <div class="menu-card-item logout-item premium-menu-item" id="logout-btn">
+                <div class="menu-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+                <div class="menu-text">
+                    <h3 id="lang-logout-title">Logout Account <span class="premium-tag premium-tag-dark"><i class="fa-solid fa-crown"></i> PREMIUM</span></h3>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Wishlist Modal -->
+    <div class="modal" id="wishlist-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3><i class="fa-solid fa-heart" style="color:#e0206b;"></i> My Wishlist</h3>
+                <span class="modal-close-cross" data-close-modal="wishlist-modal">&times;</span>
+            </div>
+            <div id="wishlist-modal-body" style="padding:16px;max-height:70vh;overflow-y:auto;">
+                <div style="text-align:center;padding:30px;color:#ccc;"><i class="fa-solid fa-heart-crack" style="font-size:2.2rem;"></i><p style="font-size:0.85rem;margin-top:8px;">Loading your wishlist...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Name Modal -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-sheet-header">
+                <h3>Edit Profile Name</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div style="padding: 16px;">
+                <input type="text" id="new-name-input" placeholder="Enter your full name" style="width:100%;padding:12px;border-radius:8px;border:1px solid #ced4da;font-size:0.95rem;box-sizing:border-box;margin-bottom:14px;">
+                <div style="display:flex;gap:10px;">
+                    <button id="cancel-name" style="flex:1;padding:11px;border-radius:8px;border:1px solid #ccc;background:#f8f9fa;cursor:pointer;font-weight:600;">Cancel</button>
+                    <button id="save-name" style="flex:1;padding:11px;border-radius:8px;border:none;background:#ff4d4d;color:#fff;cursor:pointer;font-weight:600;">Save Name</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Address Modal - Flipkart-style multi-address book -->
+    <div class="modal" id="address-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Manage Delivery Address</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner" style="padding:16px;">
+                <div id="saved-address-list" class="dynamic-records-grid"></div>
+
+                <div class="add-new-subform-box">
+                    <h4 id="address-form-heading">Add New Address</h4>
+                    <input type="hidden" id="editing-address-id" value="">
+                    <input type="text" id="prof-addr-name" placeholder="Full Name">
+                    <input type="text" id="prof-addr-phone" placeholder="Phone Number" maxlength="10">
+                    <input type="text" id="prof-addr-house" placeholder="Address Line 1 (House / Flat / Building)">
+                    <input type="text" id="addr-line2" placeholder="Address Line 2 (Area / Street / Colony)">
+                    <input type="text" id="prof-addr-landmark" placeholder="Landmark (optional)">
+                    <div class="input-split-row">
+                        <input type="text" id="prof-addr-city" placeholder="City">
+                        <input type="text" id="addr-state" placeholder="State">
+                    </div>
+                    <input type="number" id="prof-addr-pincode" placeholder="6-digit PIN Code">
+
+                    <div class="tag-selection-block">
+                        <div class="block-label">Save Address As</div>
+                        <div class="tag-pills-row">
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Home" checked><span><i class="fa-solid fa-house"></i> Home</span></label>
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Office"><span><i class="fa-solid fa-briefcase"></i> Office</span></label>
+                            <label class="tag-pill"><input type="radio" name="addr_tag" value="Other"><span><i class="fa-solid fa-location-dot"></i> Other</span></label>
+                        </div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#555;margin:-4px 0 14px 0;">
+                        <input type="checkbox" id="addr-set-default" style="width:auto;margin:0;"> Set as default address
+                    </label>
+                    <p id="prof-addr-status-msg" style="font-size:0.78rem;font-weight:600;min-height:16px;margin-bottom:8px;"></p>
+                    <button id="prof-save-address-btn" class="full-width-btn btn-pri">Save Address</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Modal -->
+    <div class="modal" id="patient-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Manage Patient Profiles</h3>
+                <span class="modal-close-cross">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner">
+                <div id="patients-record-list" class="dynamic-records-grid"></div>
+                <div class="add-new-subform-box">
+                    <h4><i class="fa-solid fa-user-plus"></i> Register New Patient</h4>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <input type="text" id="pat-first-name" placeholder="First Name" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;">
+                        <input type="text" id="pat-last-name" placeholder="Last Name" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;">
+                    </div>
+                    <input type="number" id="pat-age" placeholder="Age in years" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                    <div class="gender-row">
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Male" checked><span>Male</span></label>
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Female"><span>Female</span></label>
+                        <label class="tag-pill"><input type="radio" name="pat_gender" value="Other"><span>Other</span></label>
+                    </div>
+                    <button id="action-add-patient-btn" class="btn-pri full-width-btn" style="margin-top:10px;">Save Patient Record</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pill Reminder Modal -->
+    <div class="modal" id="reminder-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3>Medication Pill Reminders</h3>
+                <span class="modal-close-cross" id="close-reminder-modal">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner">
+                <div id="active-alarms-list" class="dynamic-records-grid"></div>
+                <div class="add-new-subform-box">
+                    <h4><i class="fa-solid fa-clock"></i> Schedule Intake Alarm</h4>
+                    <input type="text" id="alarm-med-name" placeholder="Medicine name (e.g., Tab. Paracetamol)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e4e7eb;font-size:0.85rem;box-sizing:border-box;margin-bottom:8px;">
+                    <div class="block-label" style="font-size:0.75rem;font-weight:700;color:#57606f;margin-bottom:6px;">Dates &amp; times to remind you</div>
+                    <div id="alarm-date-rows"></div>
+                    <button type="button" id="alarm-add-date-row-btn" style="width:100%;padding:9px;margin:2px 0 10px;border-radius:8px;border:1px dashed #1c82aa;background:#eef7fb;color:#1c82aa;font-weight:600;font-size:0.8rem;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add another date</button>
+                    <button id="action-save-alarm-btn" class="btn-pri full-width-btn" style="margin-top:10px;">Save Active Reminder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referral Modal -->
+    <div class="modal" id="referral-modal">
+        <div class="modal-content">
+            <div class="modal-sheet-header">
+                <h3>Refer friends, Earn ₹100!</h3>
+                <span class="modal-close-cross" id="close-referral-modal">&times;</span>
+            </div>
+            <div class="referral-dashboard-body">
+                <i class="fa-solid fa-gift mega-modal-icon"></i>
+                <p class="referral-description">Your permanent unique tracking validation sequence code is active below. Share it with a friend to unlock unique ₹100 shopping coupons.</p>
+                <div class="generated-token-row">
+                    <span id="referral-code-display">LOADING CODE...</span>
+                    <button id="copy-referral-btn" style="background:#1c82aa;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;"><i class="fa-solid fa-copy"></i> Copy</button>
+                </div>
+                <p id="referral-status-notice"></p>
+                <div class="my-coupons-offers-section" style="margin-top:18px;text-align:left;">
+                    <h4 style="font-size:0.85rem;margin-bottom:8px;color:var(--text-dark,#333);">Your Coupons</h4>
+                    <div id="my-coupons-list"></div>
+                    <h4 style="font-size:0.85rem;margin:16px 0 8px;color:var(--text-dark,#333);">New Offers</h4>
+                    <div id="new-offers-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal" id="help-modal">
+        <div class="modal-content-large">
+            <div class="modal-sheet-header">
+                <h3><i class="fa-solid fa-circle-question"></i> FAQ &amp; Support</h3>
+                <span class="modal-close-cross" id="close-help-modal">&times;</span>
+            </div>
+            <div class="modal-scrollable-inner" style="padding:16px;">
+                <div class="contact-actions-grid" style="margin-bottom:16px;">
+                    <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                    <a href="mailto:medifinderindia@gmail.com" class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
+                    <a href="mailto:support@medifinderindia.com" class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> support@medifinderindia.com</a>
+                </div>
+                <div class="faq-accordion">
+                    <details class="faq-item" open>
+                        <summary>How to order medicine</summary>
+                        <p>Search or browse a category on the home page, add items to your cart, confirm your delivery address, and place the order. You'll get a live order status in My Orders.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to upload a prescription</summary>
+                        <p>On the home page, tap Camera to click a photo of your prescription or Gallery / PDF to upload an existing file. It's verified automatically and linked to your Rx orders.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to track my order</summary>
+                        <p>Go to My Orders and tap Track on any active order to see live delivery status and location on the map.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How to cancel an order</summary>
+                        <p>Open My Orders, select the order, and tap Cancel. Orders already out for delivery may not be cancellable.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Refund policy</summary>
+                        <p>Refunds for cancelled or returned orders are processed back to your original payment method, typically within 5-7 business days.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Delivery charge</summary>
+                        <p>Delivery charges depend on your distance from the pharmacy and order value; the exact charge is shown on the checkout page before you pay.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Return policy</summary>
+                        <p>Damaged, expired, or incorrect items can be returned within 24 hours of delivery. Medicines cannot be returned once the seal is opened, except in case of a genuine error.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Payment failed but amount deducted</summary>
+                        <p>If a payment fails after the amount was deducted, it is automatically reversed to your account within 24-48 hours. Contact support if it isn't reversed after that window.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Contact Support</summary>
+                        <p>Call us at 9593625498 (Mon-Sat, 9AM-9PM) or email medifinderindia@gmail.com / support@medifinderindia.com — we typically respond within a few hours.</p>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    </div> 
+
+
+    <!-- ============ Merged from manubar.html: Lab Test / Nurse Booking / Ambulance / Tablet Coin ============ -->
+<div id="page-lab-test" class="app-page pg-lab">
+<main class="main-content-scrollable">
+
+
+<div class="ribbon">
+  <div class="ribbon-track"><span class="ribbon-scroll">100% GENUINE TESTS GUARANTEED &nbsp;·&nbsp; FREE HOME SAMPLE COLLECTION &nbsp;·&nbsp;  FAST REPORTS ON WHATSAPP OR HOME DELIVERY </span></div>
+  <span class="sub"> Power By MediFinder India </span>
+</div>
+
+<header>
+<div class="content-wrap">
+<div class="header-top-row">
+  <div class="brand">
+      <h1 class="page-title">Lab Test</h1>
+  </div>
+  <a href="#" class="back-home-btn" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
+</div>
+<div class="search-bar">
+    <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+    <input type="text" id="lb_searchInput" placeholder="Search lab tests...">
+    <button class="mic-btn" id="lb_micBtn" type="button" title="Search by voice"><i class="fa-solid fa-microphone"></i></button>
+</div>
+<div class="cat-strip" id="lb_catStrip">
+  <a href="#" class="cat-item active" data-cat="lab-test">
+    <div class="cat-icon" style="background:#6c5ce7"><i class="fa-solid fa-flask"></i></div>
+    <span>Lab Test</span>
+  </a>
+  <a href="doctor-consult.html" class="cat-item" data-cat="doctor-consult">
+    <div class="cat-icon" style="background:#12b886"><i class="fa-solid fa-user-doctor"></i></div>
+    <span>Doctor Consult</span>
+  </a>
+  <a href="nurse-booking.html" class="cat-item" data-cat="nurse-booking">
+    <div class="cat-icon" style="background:#e8917a"><i class="fa-solid fa-user-nurse"></i></div>
+    <span>Nurse Booking</span>
+  </a>
+  <a href="body-checkup.html" class="cat-item" data-cat="body-checkup">
+    <div class="cat-icon" style="background:#f0616e"><i class="fa-solid fa-heart-pulse"></i></div>
+    <span>Body Checkup</span>
+  </a>
+  <a href="ambulance-booking.html" class="cat-item" data-cat="ambulance">
+    <div class="cat-icon" style="background:#e5383b"><i class="fa-solid fa-truck-medical"></i></div>
+    <span>Ambulance</span>
+  </a>
+  <a href="tablet-coin.html" class="cat-item" data-cat="tablet-coin">
+    <div class="cat-icon" style="background:#ffa502"><i class="fa-solid fa-coins"></i></div>
+    <span>Tablet Coin</span>
+  </a>
+</div>
+</div>
+</header>
+
+<div class="content-wrap">
+
+<div class="pincode-bar">
+  <i class="fa-solid fa-location-dot"></i>
+  <input type="text" id="lb_gatePincode" placeholder="Enter your pincode to see tests available near you" inputmode="numeric" maxlength="6">
+  <button id="lb_gateCheckBtn">Check</button>
+  <span class="pincode-note" id="lb_gateNote">Showing tests available everywhere. Enter your pincode for tests specific to your area.</span>
+</div>
+
+<div class="section-title">
+  <div>
+    <h2>Lab Test Packages & Services</h2>
+    <p>Book a test — a certified phlebotomist collects your sample at home</p>
+  </div>
+  <button class="my-bookings-btn" id="lb_myBookingsBtn"><i class="fa-solid fa-calendar-check"></i> My Bookings</button>
+</div>
+
+<div class="grid" id="lb_testGrid"></div>
+
+</div>
+
+<footer>© MediFinder · Home Sample Collection Network</footer>
+
+</main>
+<!-- Booking Sheet -->
+<div class="overlay" id="lb_overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Confirm Booking</h3>
+      <button class="close-x" id="lb_closeX">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p class="test-label" id="lb_sheetTestName">Test: —</p>
+
+      <div class="field-group-title">Patient Details</div>
+      <div class="field"><label>Full Name</label><input type="text" id="lb_patientName" placeholder="e.g. Ramesh Das"></div>
+      <div class="field"><label>Phone Number</label><input type="tel" id="lb_patientPhone" placeholder="e.g. 98XXXXXXXX"></div>
+
+      <div class="field-group-title">Delivery Address</div>
+      <div class="field"><label>House No. / Flat / Building</label><input type="text" id="lb_addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments"></div>
+      <div class="field"><label>Street / Area / Locality</label><input type="text" id="lb_addrStreet" placeholder="e.g. Netaji Subhas Road"></div>
+      <div class="field"><label>Landmark (optional)</label><input type="text" id="lb_addrLandmark" placeholder="e.g. Near Kali Mandir"></div>
+      <div class="row2">
+        <div class="field"><label>City / Town</label><input type="text" id="lb_addrCity" placeholder="e.g. Howrah"></div>
+        <div class="field"><label>Pincode</label><input type="text" id="lb_addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6"></div>
+      </div>
+      <div class="field">
+        <label>State</label>
+        <select id="lb_addrState"><option value="West Bengal" selected>West Bengal</option><option value="Other">Other</option></select>
+      </div>
+
+      <div class="field-group-title">Prescription (optional)</div>
+      <div class="rx-upload" id="lb_rxUploadBox">
+        <i class="fa-solid fa-file-arrow-up"></i> Tap to upload prescription image
+      </div>
+      <input type="file" id="lb_rxFileInput" accept="image/*,.pdf" style="display:none;">
+
+      <div class="field-group-title">Schedule</div>
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="lb_bookDate"></div>
+        <div class="field"><label>Time</label><input type="time" id="lb_bookTime"></div>
+      </div>
+
+      <div class="field-group-title">Payment Method</div>
+      <div class="pay-options">
+        <div class="pay-option selected" id="lb_payUPI" data-method="upi"><i class="fa-solid fa-mobile-screen-button"></i><br>Online Payment (UPI)</div>
+        <div class="pay-option" id="lb_payCOD" data-method="cod"><i class="fa-solid fa-money-bill-wave"></i><br>Cash on Delivery</div>
+      </div>
+
+      <div class="upi-pay-box" id="lb_upiPayBox">
+        <div id="lb_upiStepAmount">
+          <div class="upi-amount-label">Amount to Pay</div>
+          <div class="upi-amount-value" id="lb_upiAmountValue">₹0.00</div>
+
+          <div class="upi-app-box">
+            <div class="upi-app-label"><i class="fa-solid fa-mobile-screen"></i> Pay via UPI App</div>
+            <a class="upi-pay-now-btn" id="lb_upiPayNowBtn" href="#"><i class="fa-solid fa-bolt"></i> PAY NOW</a>
+          </div>
+
+          <div class="upi-divider"><span>OR</span></div>
+
+          <div class="upi-qr-box">
+            <div class="upi-qr-label"><i class="fa-solid fa-qrcode"></i> Pay via QR Code</div>
+            <div class="upi-qr-card">
+              <div class="upi-qr-merchant">MediFinder India</div>
+              <img src="medifinderqr.jpeg" alt="MediFinder UPI QR" class="upi-qr-img">
+              <div class="upi-qr-id">9593625498@ibl</div>
+            </div>
+            <div class="upi-qr-hint">Scan this QR code using any UPI app</div>
+          </div>
+
+          <button class="upi-done-btn" id="lb_upiDoneBtn" type="button"><i class="fa-solid fa-check"></i> I've Completed the Payment</button>
+        </div>
+
+        <div id="lb_upiStepConfirm" style="display:none;">
+          <p class="upi-confirm-q">Have you completed the payment?</p>
+          <button class="upi-confirm-yes" id="lb_upiConfirmYes" type="button"><i class="fa-solid fa-check"></i> Payment Completed</button>
+          <button class="upi-confirm-back" id="lb_upiConfirmBack" type="button"><i class="fa-solid fa-arrow-left"></i> Go Back</button>
+        </div>
+      </div>
+
+      <div class="gps-status" id="lb_gpsStatus">📍 Getting your live location...</div>
+
+      <button class="confirm-btn" id="lb_confirmBtn" disabled>Submit Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- My Bookings Sheet -->
+<div class="overlay" id="lb_bookingsOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>My Bookings</h3>
+      <button class="close-x" id="lb_closeBookingsX">✕</button>
+    </div>
+    <div class="sheet-body" id="lb_myBookingsList" style="padding-bottom:20px;">
+      <p style="font-size:13px;color:#7a5f52;">Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Test Details Sheet -->
+<div class="overlay" id="lb_detailsOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3 id="lb_detailTitle">Test Details</h3>
+      <button class="close-x" id="lb_closeDetailsX">✕</button>
+    </div>
+    <div class="sheet-body" id="lb_detailsBody" style="padding-bottom:20px;"></div>
+  </div>
+</div>
+
+<!-- Rating / Feedback Sheet -->
+<div class="overlay" id="lb_rateOverlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Rate Your Test</h3>
+      <button class="close-x" id="lb_closeRateX">✕</button>
+    </div>
+    <div class="sheet-body" style="padding-bottom:20px;">
+      <p class="test-label" id="lb_rateTestLabel">Test: —</p>
+      <div class="star-picker" id="lb_starPicker">
+        <i class="fa-solid fa-star" data-val="1"></i>
+        <i class="fa-solid fa-star" data-val="2"></i>
+        <i class="fa-solid fa-star" data-val="3"></i>
+        <i class="fa-solid fa-star" data-val="4"></i>
+        <i class="fa-solid fa-star" data-val="5"></i>
+      </div>
+      <div class="field"><label>Your Feedback (optional)</label><textarea id="lb_rateFeedback" rows="3" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;background:var(--cream);font-family:inherit;resize:vertical;" placeholder="How was your experience?"></textarea></div>
+      <button class="confirm-btn" id="lb_submitRateBtn">Submit Feedback</button>
+    </div>
+  </div>
+</div>
+
+
+
+</div>
+
+<div id="page-nurse-booking" class="app-page pg-nurse">
+<main class="main-content-scrollable">
+
+
+<div class="ribbon"><div class="ribbon-track"><span class="ribbon-scroll">CERTIFIED HOME NURSES &nbsp;·&nbsp; VERIFIED & BACKGROUND CHECKED</span></div></div>
+
+<header>
+  <div class="header-top-row">
+    <div class="brand">
+      <h1 class="page-title">Nurse Booking</h1>
+    </div>
+    <a href="#" class="back-link" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
+  </div>
+  <div class="cat-strip" id="nb_catStrip">
+    <a href="lab-booking.html" class="cat-item" data-cat="lab-test">
+      <div class="cat-icon" style="background:#6c5ce7"><i class="fa-solid fa-flask"></i></div>
+      <span>Lab Test</span>
+    </a>
+    <a href="doctor-consult.html" class="cat-item" data-cat="doctor-consult">
+      <div class="cat-icon" style="background:#12b886"><i class="fa-solid fa-user-doctor"></i></div>
+      <span>Doctor Consult</span>
+    </a>
+    <a href="#" class="cat-item active" data-cat="nurse-booking">
+      <div class="cat-icon" style="background:#e8917a"><i class="fa-solid fa-user-nurse"></i></div>
+      <span>Nurse Booking</span>
+    </a>
+    <a href="body-checkup.html" class="cat-item" data-cat="body-checkup">
+      <div class="cat-icon" style="background:#f0616e"><i class="fa-solid fa-heart-pulse"></i></div>
+      <span>Body Checkup</span>
+    </a>
+    <a href="ambulance-booking.html" class="cat-item" data-cat="ambulance">
+      <div class="cat-icon" style="background:#e5383b"><i class="fa-solid fa-truck-medical"></i></div>
+      <span>Ambulance</span>
+    </a>
+    <a href="tablet-coin.html" class="cat-item" data-cat="tablet-coin">
+      <div class="cat-icon" style="background:#ffa502"><i class="fa-solid fa-coins"></i></div>
+      <span>Tablet Coin</span>
+    </a>
+  </div>
+</header>
+
+<div class="promo">
+  <span class="badge">HOME NURSE CARE</span>
+  <h2>Book a Verified Nurse at Home</h2>
+  <p>Trained nurses for injections, dressing, post-op care & more — right at your doorstep</p>
+  <button class="book-cta" id="nb_openBookBtn">📋 Book Nurse Now</button>
+</div>
+
+<div class="section-title">
+  <h2>Your Nurse Bookings</h2>
+  <p>Track your request status below — Pending, then Approved with nurse details</p>
+</div>
+
+<div class="bookings" id="nb_bookingsWrap"><div class="empty-state">Loading...</div></div>
+
+<footer>© MediFinder · Home Nurse Booking Network</footer>
+
+</main>
+<!-- Booking Form Sheet -->
+<div class="overlay" id="nb_overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Book a Nurse</h3>
+      <button class="close-x" id="nb_closeX">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="field-group-title">Patient Details</div>
+      <div class="field"><label>Full Name *</label><input type="text" id="nb_patientName" placeholder="e.g. Ramesh Das"></div>
+      <div class="row2">
+        <div class="field"><label>Age *</label><input type="number" id="nb_patientAge" placeholder="e.g. 62" min="0" max="120"></div>
+        <div class="field"><label>Religion (optional)</label><input type="text" id="nb_patientReligion" placeholder="e.g. Hindu / Muslim / Christian"></div>
+      </div>
+      <div class="field">
+        <label>Gender *</label>
+        <div class="gender-row">
+          <div class="gender-opt" data-val="Male">Male</div>
+          <div class="gender-opt" data-val="Female">Female</div>
+        </div>
+      </div>
+
+      <div class="field-group-title">Service Needed *</div>
+      <div class="svc-list" id="nb_svcList"></div>
+
+      <div class="row2" style="margin-top:12px;">
+        <div class="field" id="nb_durationField">
+          <label id="nb_durationLabel">Number of Days *</label>
+          <input type="number" id="nb_duration" min="1" value="1">
+        </div>
+      </div>
+      <div class="bill-box" id="nb_billBox" style="display:none;">
+        <div class="row-line"><span>Rate</span><b id="nb_billRate">—</b></div>
+        <div class="row-line"><span>Subtotal</span><b id="nb_billSubtotal">—</b></div>
+        <div class="row-line"><span>Service Charge (10%)</span><b id="nb_billCharge">—</b></div>
+        <div class="total-line"><span>Total Bill</span><span id="nb_billTotal">₹0</span></div>
+      </div>
+
+      <div class="field-group-title">Medical Details</div>
+      <div class="field"><label>Doctor You Are Consulting</label><input type="text" id="nb_doctorName" placeholder="e.g. Dr. S. Bhattacharya"></div>
+      <div class="field">
+        <label>Prescription Image</label>
+        <div class="file-drop" id="nb_fileDrop">📎 Tap to upload prescription photo</div>
+        <input type="file" id="nb_rxFile" accept="image/*" style="display:none;">
+        <img class="rx-preview" id="nb_rxPreview">
+      </div>
+
+      <div class="field-group-title">Schedule</div>
+      <div class="row2">
+        <div class="field"><label>Start Date *</label><input type="date" id="nb_bookDate"></div>
+        <div class="field"><label>Time *</label><input type="time" id="nb_bookTime"></div>
+      </div>
+
+      <div class="field-group-title">Address</div>
+      <div class="field"><label>House No. / Flat / Building *</label><input type="text" id="nb_addrHouse" placeholder="e.g. Flat 3B, Ganguly Apartments"></div>
+      <div class="field"><label>Street / Area / Locality *</label><input type="text" id="nb_addrStreet" placeholder="e.g. Netaji Subhas Road"></div>
+      <div class="field"><label>Landmark (optional)</label><input type="text" id="nb_addrLandmark" placeholder="e.g. Near Kali Mandir"></div>
+      <div class="row2">
+        <div class="field"><label>City / Town *</label><input type="text" id="nb_addrCity" placeholder="e.g. Howrah"></div>
+        <div class="field"><label>Pincode *</label><input type="text" id="nb_addrPincode" placeholder="e.g. 711101" inputmode="numeric" maxlength="6"></div>
+      </div>
+      <div class="pin-note" id="nb_pinNote">Enter your pincode to check nurse availability in your area.</div>
+      <div class="field">
+        <label>State</label>
+        <select id="nb_addrState"><option value="West Bengal" selected>West Bengal</option><option value="Other">Other</option></select>
+      </div>
+
+      <div class="field-group-title">Contact</div>
+      <div class="row2">
+        <div class="field"><label>Contact No. *</label><input type="tel" id="nb_contactNo" placeholder="e.g. 98XXXXXXXX"></div>
+        <div class="field"><label>WhatsApp No. *</label><input type="tel" id="nb_whatsappNo" placeholder="e.g. 98XXXXXXXX"></div>
+      </div>
+
+      <div class="field-group-title">Payment Method</div>
+      <div class="upi-pay-box" id="nb_upiPayBox">
+        <div id="nb_upiStepAmount">
+          <div class="upi-amount-label">Amount to Pay</div>
+          <div class="upi-amount-value" id="nb_upiAmountValue">₹0.00</div>
+
+          <div class="upi-app-box">
+            <div class="upi-app-label"><i class="fa-solid fa-mobile-screen"></i> Pay via UPI App</div>
+            <a class="upi-pay-now-btn" id="nb_upiPayNowBtn" href="#"><i class="fa-solid fa-bolt"></i> PAY NOW</a>
+          </div>
+
+          <div class="upi-divider"><span>OR</span></div>
+
+          <div class="upi-qr-box">
+            <div class="upi-qr-label"><i class="fa-solid fa-qrcode"></i> Pay via QR Code</div>
+            <div class="upi-qr-card">
+              <div class="upi-qr-merchant">MediFinder India</div>
+              <img src="medifinderqr.jpeg" alt="MediFinder UPI QR" class="upi-qr-img">
+              <div class="upi-qr-id">9593625498@ibl</div>
+            </div>
+            <div class="upi-qr-hint">Scan this QR code using any UPI app</div>
+          </div>
+
+          <div class="err-msg" id="nb_errMsg">Please fill all required (*) fields.</div>
+          <button class="upi-done-btn" id="nb_upiDoneBtn" type="button"><i class="fa-solid fa-check"></i> I've Completed the Payment</button>
+        </div>
+
+        <div id="nb_upiStepConfirm" style="display:none;">
+          <p class="upi-confirm-q">Have you completed the payment?</p>
+          <button class="upi-confirm-yes" id="nb_upiConfirmYes" type="button"><i class="fa-solid fa-check"></i> Payment Completed</button>
+          <button class="upi-confirm-back" id="nb_upiConfirmBack" type="button"><i class="fa-solid fa-arrow-left"></i> Go Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="nb_toast"></div>
+
+
+
+</div>
+
+<div id="page-ambulance" class="app-page pg-amb">
+<main class="main-content-scrollable">
+
+
+<!-- ================= TOP STRIP (auto-slide) ================= -->
+<div class="top-strip">
+  <div class="top-strip-track" id="ab_topStripTrack">
+    <span class="active">100% Verified Drivers &amp; Vehicles — GPS Tracked</span>
+    <span>24/7 Emergency Ambulance Service Across Your City</span>
+    <span>AC, Non-AC &amp; ICU Ambulances Available Instantly</span>
+  </div>
+</div>
+
+<!-- ================= HEADER (title + Back to Home, locked) ================= -->
+<header class="site-header">
+  <h1 class="page-title">Ambulance Booking</h1>
+  <a href="#" class="back-home-btn" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
+</header>
+
+<!-- ================= HEADER ACTIONS (sits below the locked header) ================= -->
+<div class="header-actions-row">
+  <div class="header-actions">
+    <a href="tel:9593625498" class="emergency-call-btn"><i class="fa-solid fa-phone"></i> Call to Book: 9593625498</a>
+    <button id="ab_historyFab" class="history-fab" title="My Bookings"><i class="fa-solid fa-calendar-check"></i><span class="dot"></span></button>
+  </div>
+  <div class="cat-strip" id="ab_catStrip">
+    <a href="lab-booking.html" class="cat-item" data-cat="lab-test">
+      <div class="cat-icon" style="background:#6c5ce7"><i class="fa-solid fa-flask"></i></div>
+      <span>Lab Test</span>
+    </a>
+    <a href="doctor-consult.html" class="cat-item" data-cat="doctor-consult">
+      <div class="cat-icon" style="background:#12b886"><i class="fa-solid fa-user-doctor"></i></div>
+      <span>Doctor Consult</span>
+    </a>
+    <a href="nurse-booking.html" class="cat-item" data-cat="nurse-booking">
+      <div class="cat-icon" style="background:#e8917a"><i class="fa-solid fa-user-nurse"></i></div>
+      <span>Nurse Booking</span>
+    </a>
+    <a href="body-checkup.html" class="cat-item" data-cat="body-checkup">
+      <div class="cat-icon" style="background:#f0616e"><i class="fa-solid fa-heart-pulse"></i></div>
+      <span>Body Checkup</span>
+    </a>
+    <a href="#" class="cat-item active" data-cat="ambulance">
+      <div class="cat-icon" style="background:#e5383b"><i class="fa-solid fa-truck-medical"></i></div>
+      <span>Ambulance</span>
+    </a>
+    <a href="tablet-coin.html" class="cat-item" data-cat="tablet-coin">
+      <div class="cat-icon" style="background:#ffa502"><i class="fa-solid fa-coins"></i></div>
+      <span>Tablet Coin</span>
+    </a>
+  </div>
+</div>
+
+<!-- ================= SEARCH PANEL (Uber style) ================= -->
+<section class="search-panel-wrap">
+  <div class="search-panel">
+    <div class="search-row">
+      <span class="search-dot pickup"></span>
+      <input id="ab_pickupInput" type="text" placeholder="Pickup location">
+      <button id="ab_gpsBtn" class="gps-btn" title="Use current location">GPS</button>
+    </div>
+    <div class="search-row">
+      <span class="search-dot drop"></span>
+      <input id="ab_destinationInput" type="text" placeholder="Drop location / hospital">
+    </div>
+  </div>
+  <div class="search-cta-wrap">
+    <button id="ab_searchBtn" class="search-cta">Find Ambulance</button>
+    <p class="search-hint">Nearby verified ambulances will appear below with live auto-calculated fare</p>
+  </div>
+</section>
+
+<!-- ================= TYPE FILTER ================= -->
+<div class="type-filter">
+  <div class="type-chip active" data-type="all"><i class="fa-solid fa-layer-group"></i>All</div>
+  <div class="type-chip" data-type="non_ac"><i class="fa-solid fa-truck-medical"></i>Non-AC</div>
+  <div class="type-chip" data-type="ac"><i class="fa-solid fa-snowflake"></i>AC / Oxygen</div>
+  <div class="type-chip" data-type="icu"><i class="fa-solid fa-kit-medical"></i>ICU</div>
+</div>
+
+<!-- ================= RESULTS ================= -->
+<section class="results-section">
+  <div class="results-head">
+    <h2 style="font-size:16px;">Available Ambulances</h2>
+    <span id="ab_resultsCount" class="results-count">0 found</span>
+  </div>
+  <div id="ab_ambulanceList" class="ambulance-list"></div>
+  <div id="ab_emptyState" class="empty-state">
+    <div class="empty-icon">🚑</div>
+    <h3>No ambulances nearby right now</h3>
+    <p>Try again in a moment, or call <b>9593625498</b> directly for an emergency booking.</p>
+  </div>
+</section>
+
+<!-- ================= BOOKING MODAL ================= -->
+</main>
+<div id="ab_bookingModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="bookingModal">✕</button>
+    <h2>Confirm Booking</h2>
+    <div id="ab_bookingAmbInfo" class="modal-sub"></div>
+
+    <div class="form-field">
+      <label>Patient Name</label>
+      <input id="ab_bkPatientName" type="text" placeholder="Patient's name">
+    </div>
+    <div class="form-field">
+      <label>Contact Number *</label>
+      <input id="ab_bkPhone" type="tel" maxlength="10" inputmode="numeric" placeholder="10-digit mobile number" required>
+    </div>
+    <div class="form-field">
+      <label>Drop Location</label>
+      <input id="ab_bkDestination" type="text" placeholder="Hospital / address">
+    </div>
+
+    <div class="fare-box"><span>Estimated Fare</span><b id="ab_fareDisplay">₹0</b></div>
+    <button id="ab_confirmBookBtn" class="primary-btn">Confirm &amp; Request Ambulance</button>
+    <p id="ab_bookingMsg" class="field-error"></p>
+  </div>
+</div>
+
+<!-- ================= LIVE TRACKING MODAL ================= -->
+<div id="ab_trackModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="trackModal">✕</button>
+    <h2>Your Ambulance</h2>
+    <span id="ab_trackStatusPill" class="track-status-pill searching">Searching for driver…</span>
+
+    <div id="ab_otpBlock" class="otp-display hidden">
+      <div class="code" id="ab_otpCode">------</div>
+      <p>Share this OTP with the driver at pickup to start the ride</p>
+    </div>
+
+    <div id="ab_trackMap"></div>
+
+    <div id="ab_driverContactBlock" class="driver-contact-row hidden">
+      <div>
+        <div class="name" id="ab_trackDriverName">—</div>
+        <div class="plate" id="ab_trackDriverPlate">—</div>
+      </div>
+      <button id="ab_callDriverBtn" class="call-driver-btn"><i class="fa-solid fa-phone"></i></button>
+    </div>
+
+    <button id="ab_cancelRideBtn" class="cancel-ride-btn">Cancel Ride</button>
+  </div>
+</div>
+
+<!-- ================= HISTORY DRAWER ================= -->
+<div id="ab_drawerOverlay" class="drawer-overlay"></div>
+<aside id="ab_historyDrawer" class="history-drawer">
+  <h3>My Bookings</h3>
+  <div id="ab_historyList"></div>
+</aside>
+
+<div id="ab_toast" class="toast hidden"></div>
+
+
+
+
+</div>
+
+<div id="page-tablet-coin" class="app-page pg-coin">
+<main class="main-content-scrollable">
+
+
+<div class="ribbon"><span>EARN TABLET COIN · WATCH & GET REWARDED · USE ON YOUR NEXT ORDER</span></div>
+
+<header>
+  <div class="header-top-row">
+    <div class="brand">
+      <h1 class="page-title">Tablet Coin</h1>
+    </div>
+    <a href="#" class="back-link" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
+  </div>
+  <div class="cat-strip" id="tc_catStrip">
+    <a href="lab-booking.html" class="cat-item" data-cat="lab-test">
+      <div class="cat-icon" style="background:#6c5ce7"><i class="fa-solid fa-flask"></i></div>
+      <span>Lab Test</span>
+    </a>
+    <a href="doctor-consult.html" class="cat-item" data-cat="doctor-consult">
+      <div class="cat-icon" style="background:#12b886"><i class="fa-solid fa-user-doctor"></i></div>
+      <span>Doctor Consult</span>
+    </a>
+    <a href="nurse-booking.html" class="cat-item" data-cat="nurse-booking">
+      <div class="cat-icon" style="background:#e8917a"><i class="fa-solid fa-user-nurse"></i></div>
+      <span>Nurse Booking</span>
+    </a>
+    <a href="body-checkup.html" class="cat-item" data-cat="body-checkup">
+      <div class="cat-icon" style="background:#f0616e"><i class="fa-solid fa-heart-pulse"></i></div>
+      <span>Body Checkup</span>
+    </a>
+    <a href="ambulances-booking.html" class="cat-item" data-cat="ambulance">
+      <div class="cat-icon" style="background:#e5383b"><i class="fa-solid fa-truck-medical"></i></div>
+      <span>Ambulance</span>
+    </a>
+    <a href="#" class="cat-item active" data-cat="tablet-coin">
+      <div class="cat-icon" style="background:#ffa502"><i class="fa-solid fa-coins"></i></div>
+      <span>Tablet Coin</span>
+    </a>
+  </div>
+</header>
+
+<div class="coin-banner">
+  <div class="label">Your Tablet Coin Balance</div>
+  <div class="amount"><span class="coin-ic">🪙</span><span id="tc_balanceText">0</span></div>
+  <div class="sub">1 Tablet Coin = ₹1 discount on your next medicine order</div>
+  <div class="coin-actions">
+    <button class="btn-redeem" id="tc_openRedeem">Redeem Coins</button>
+    <button class="btn-history" id="tc_openHistory">View History</button>
+  </div>
+</div>
+
+<div class="section-title">
+  <h2>Earn Tablet Coin</h2>
+  <p>Watch a short ad, get instantly rewarded — just like Flipkart SuperCoin</p>
+</div>
+
+<div class="grid" id="tc_earnGrid"></div>
+
+<div class="section-title">
+  <h2>Redeem Your Coins</h2>
+  <p>Convert Tablet Coin into real discounts on MediFinder</p>
+</div>
+
+<div class="redeem-grid" id="tc_redeemGrid"></div>
+
+<footer>
+  © MediFinder · Tablet Coin Rewards Program
+</footer>
+
+</main>
+<!-- Ad watch modal -->
+<div class="overlay" id="tc_adOverlay">
+  <div class="ad-sheet-wrap">
+    <div class="ad-sheet">
+      <button class="close-x" id="tc_adCloseX">✕</button>
+      <div class="ad-screen" id="tc_adScreen">
+        <span class="ad-tag">AD</span>
+        <div class="ring-wrap">
+          <svg width="70" height="70">
+            <circle class="ring-bg" cx="35" cy="35" r="30"></circle>
+            <circle class="ring-fg" id="tc_ringFg" cx="35" cy="35" r="30" stroke-dasharray="188.4" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="ring-num" id="tc_ringNum">15</div>
+        </div>
+        <div id="tc_adScreenText">Your ad is playing...</div>
+      </div>
+      <h3 id="tc_adTitle">Watching Ad</h3>
+      <p id="tc_adDesc">Please wait, don't close this window.</p>
+      <button class="claim-btn" id="tc_claimBtn" disabled>Claim Reward</button>
+    </div>
+  </div>
+</div>
+
+<!-- History sheet -->
+<div class="hist-overlay" id="tc_histOverlay">
+  <div class="hist-sheet">
+    <div class="hist-header">
+      <h3>Coin History</h3>
+      <button class="close-x" id="tc_histCloseX">✕</button>
+    </div>
+    <div class="hist-body" id="tc_histBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="tc_toast"></div>
+
+
+
+</div>
+
+    <!-- ============ SHARED: premium bottom navigation ============ -->
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Primary navigation">
+        <button type="button" class="nav-item active" data-page="home" onclick="navigateTo('home')">
+            <span class="nav-icon"><i class="fas fa-home"></i></span>
+            <span id="lang-nav-home">HOME</span>
+        </button>
+        <button type="button" class="nav-item" data-page="shops" onclick="navigateTo('shops')">
+            <span class="nav-icon"><i class="fas fa-shop"></i></span>
+            <span id="lang-nav-map">SHOPS</span>
+        </button>
+        <button type="button" class="nav-item cart-nav-item" data-page="cart" onclick="navigateTo('cart')">
+            <span class="nav-icon"><i class="fas fa-shopping-bag"></i><span class="nav-badge" id="bottom-cart-badge" style="display:none;">0</span></span>
+            <span id="lang-nav-cart">CART</span>
+        </button>
+        <button type="button" class="nav-item" data-page="order" onclick="navigateTo('order')">
+            <span class="nav-icon"><i class="fa-solid fa-box"></i></span>
+            <span id="lang-nav-order">ORDERS</span>
+        </button>
+        <button type="button" class="nav-item" data-page="profile" onclick="navigateTo('profile')">
+            <span class="nav-icon"><i class="fas fa-user"></i></span>
+            <span id="lang-nav-profile">PROFILE</span>
+        </button>
+        <!-- ✅ Hamburger menu removed per explicit request — every item it
+             held (My Profile, My Orders, Track Shop, Pill Reminder, My
+             Prescriptions, Offers & Coupons, Customer Support, Logout) is
+             already reachable from the Profile tab in the bottom nav, so
+             nothing is lost by dropping this second, redundant menu. The
+             #hamburger-btn / #hamburger-overlay markup and its close button
+             are gone entirely — not just hidden with CSS — so there's no
+             leftover invisible button sitting in the layout. -->
+    </nav>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="prod-utils.js?v=13"></script>
+    <script src="user.js?v=6"></script>
+</body>
+</html>
