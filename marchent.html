@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediFinder India — Merchant</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="marchent.css">
+</head>
+<body>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app">
+
+  <!-- ============ DESKTOP SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img class="brand-logo" src="favicon.png" alt="MediFinder">
+      <span class="brand-name">MediFinder</span>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+      <!-- filled by JS -->
+    </nav>
+
+    <button class="sidebar-merchant" id="sidebarMerchant" data-route="profile">
+      <img id="sidebarShopPhoto" class="sidebar-merchant-photo" alt="">
+      <div class="sidebar-merchant-info">
+        <span class="sidebar-merchant-name" id="sidebarShopName">—</span>
+        <span class="sidebar-merchant-status" id="sidebarKycBadge">—</span>
+      </div>
+    </button>
+  </aside>
+
+  <!-- ============ MAIN COLUMN ============ -->
+  <div class="main-col">
+
+    <!-- ============ HEADER ============ -->
+    <header class="topbar">
+      <div class="topbar-brand only-mobile">
+        <img class="brand-logo small" src="favicon.png" alt="MediFinder">
+        <span class="topbar-shop-name" id="topbarShopName">MediFinder</span>
+      </div>
+
+      <div class="topbar-title only-desktop" id="topbarTitle">Dashboard</div>
+
+      <div class="topbar-actions">
+        <button class="rx-shortcut" data-route="prescription" title="Prescription requests">
+          <svg viewBox="0 0 24 24"><path d="M9 2h6v4H9zM7 6h10v16H7z"/><path d="M9 11h6M9 15h4"/></svg>
+          <span class="only-desktop">RX</span>
+          <span class="badge-dot" id="rxBadge" hidden></span>
+        </button>
+        <button class="icon-btn" data-route="notifications" title="Notifications">
+          <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="badge-count" id="notifBadge" hidden>0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ============ PAGE OUTLET ============ -->
+    <main class="page-outlet" id="pageOutlet">
+      <!-- pages rendered by JS -->
+    </main>
+
+    <!-- ============ MOBILE BOTTOM NAV ============ -->
+    <nav class="bottom-nav only-mobile" id="bottomNav">
+      <!-- filled by JS -->
+    </nav>
+  </div>
+
+  <!-- ============ MOBILE SIDEBAR DRAWER (More menu) ============ -->
+  <div class="drawer-scrim" id="drawerScrim"></div>
+  <aside class="drawer" id="moreDrawer">
+    <div class="drawer-head">
+      <span>More</span>
+      <button class="icon-btn" id="drawerClose" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="drawer-nav" id="drawerNav"></nav>
+  </aside>
+
+  <!-- ============ TOAST ============ -->
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- ============ CONFIRM DIALOG ============ -->
+  <div class="modal-scrim" id="confirmScrim" hidden>
+    <div class="modal confirm-modal" role="alertdialog" aria-modal="true">
+      <h3 id="confirmTitle">Are you sure?</h3>
+      <p id="confirmBody"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-constants.js"></script>
+<script src="marchent.js"></script>
+</body>
+</html>

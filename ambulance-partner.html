@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MediFinder India — Ambulance Partner Portal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--p:#087f5b;--dark:#073b2b;--bg:#f5f8f7;--text:#17211d;--muted:#718078;--line:#e4ece8;--red:#d94841;--orange:#a86100;--blue:#1864ab;--purple:#6741d9}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
+.sidebar{width:255px;background:var(--dark);color:#fff;position:fixed;inset:0 auto 0 0;padding:20px 14px;z-index:20;display:flex;flex-direction:column;overflow:hidden}
+.brand{display:flex;gap:10px;align-items:center;padding:7px 10px 22px;border-bottom:1px solid rgba(255,255,255,.1)}
+.logo{width:40px;height:40px;border-radius:12px;background:#fff;color:var(--p);display:grid;place-items:center;font-weight:900;font-size:19px}.brand b{font-size:16px}.brand small{display:block;color:#a9c9bd;font-size:11px;margin-top:2px}
+.sideClose{display:none;margin-left:auto;border:0;background:rgba(255,255,255,.08);color:#fff;width:30px;height:30px;border-radius:8px;font-size:15px;flex:0 0 auto}
+.nav{margin-top:18px;flex:1 1 auto;overflow-y:auto;padding-bottom:10px}.nav button{width:100%;border:0;background:transparent;color:#c9ddd5;padding:11px 12px;border-radius:10px;text-align:left;margin-bottom:4px}.nav button:hover,.nav button.active{background:#0b6248;color:#fff}.nav i{font-style:normal;width:26px;display:inline-block}
+.nav-label{font-size:10px;text-transform:uppercase;color:#7fa696;letter-spacing:.6px;font-weight:750;margin:16px 10px 6px}.nav-label:first-child{margin-top:0}
+.driver-mini{flex:0 0 auto;background:#0b6248;border-radius:12px;padding:12px;font-size:12px;margin-top:10px}.driver-mini b{display:block;font-size:13px;margin-bottom:3px}.verified{color:#8ce1be}
+.main{margin-left:255px;width:calc(100% - 255px)}.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;padding:0 28px;position:sticky;top:0;z-index:10}
+.mobile{display:none;border:0;background:none;font-size:24px}.title{font-size:18px;font-weight:750}.actions{display:flex;align-items:center;gap:12px}.icon{width:40px;height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;position:relative}.dot{position:absolute;right:8px;top:7px;width:7px;height:7px;background:#fa5252;border-radius:50%}.avatar{width:40px;height:40px;border-radius:50%;background:#d8f5e9;color:var(--p);display:grid;place-items:center;font-weight:800}
+.content{padding:28px}.welcome{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}.welcome h1{font-size:25px}.welcome p{font-size:14px;color:var(--muted);margin-top:5px}.available{background:#e8f7f1;color:var(--p);padding:10px 13px;border-radius:10px;font-size:12px;font-weight:750}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:0 8px 28px rgba(22,50,40,.06)}.stat-top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px}.ico{width:38px;height:38px;border-radius:10px;background:#e8f7f1;display:grid;place-items:center;font-size:18px}.stat h2{font-size:27px;margin:11px 0 4px}.green{font-size:12px;color:var(--p)}
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px}.card{background:#fff;border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:0 8px 28px rgba(22,50,40,.06)}.head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.head h3{font-size:16px}.link{border:0;background:none;color:var(--p);font-size:13px}
+.trips{width:100%;border-collapse:collapse}.trips th,.trips td{padding:14px 15px;text-align:left;border-bottom:1px solid #eef2f0;font-size:12px}.trips th{background:#fbfcfc;color:var(--muted);font-weight:600}.trips tr:last-child td{border-bottom:0}.patient{font-weight:750}.sub{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.status{display:inline-block;padding:5px 9px;border-radius:20px;font-size:10px;font-weight:750}.new{background:#ffe8e6;color:#b52b26}.accepted{background:#e8f7f1;color:var(--p)}.way{background:#e8f1ff;color:var(--blue)}.complete{background:#eeeaff;color:var(--purple)}
+.action{border:1px solid #dce7e2;background:#fff;color:var(--p);padding:7px 9px;border-radius:8px;font-size:10px}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px}.quick button{border:1px solid var(--line);background:#fbfdfc;border-radius:11px;padding:14px;text-align:left}.quick b{font-size:13px}.quick span{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.alert{margin:18px 20px 5px;padding:13px;border-radius:11px;background:#fff0ef;border:1px solid #ffd5d2}.alert b{font-size:12px;color:#b52b26}.alert p{font-size:11px;color:#7a5b58;margin-top:3px}
+.activity{padding:7px 20px 14px}.item{display:flex;gap:11px;padding:13px 0;border-bottom:1px solid #eef2f0}.item:last-child{border:0}.circle{width:33px;height:33px;border-radius:50%;background:#e8f7f1;display:grid;place-items:center;flex:0 0 auto}.item b{font-size:12px}.item p{font-size:11px;color:var(--muted);margin-top:3px}.item time{display:block;font-size:10px;color:#9aa59f;margin-top:3px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30}.modal{width:min(640px,calc(100% - 28px));background:#fff;border-radius:16px;margin:7vh auto;padding:22px}.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.close{border:0;background:#f1f4f2;width:34px;height:34px;border-radius:9px}.details{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{background:#f7faf8;border-radius:10px;padding:12px}.field small{display:block;color:var(--muted);margin-bottom:4px}.field strong{font-size:13px}.emergency{margin-top:13px;background:#fff0ef;color:#9e302b;border-radius:10px;padding:12px;font-size:11px}.note{margin-top:10px;background:#e8f7f1;color:#24614f;border-radius:10px;padding:12px;font-size:11px;line-height:1.5}.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.btn{border:0;border-radius:9px;padding:10px 14px}.light{background:#edf3f0;color:#355047}.primary{background:var(--p);color:#fff}.danger{background:#d94841;color:#fff}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+.sideBackdrop{display:none}
+@media(max-width:760px){.sidebar{transform:translateX(-100%);transition:.25s}.sidebar.open{transform:translateX(0)}.sideClose{display:block}.main{margin-left:0;width:100%}.mobile{display:block}.topbar{padding:0 15px}.content{padding:18px 14px}.stats{gap:10px}.stat{padding:14px}.stat h2{font-size:23px}.grid{gap:14px}.card{overflow:auto}.trips{min-width:750px}.available{display:none}.sideBackdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:19}}
+@media(max-width:430px){.stats{grid-template-columns:1fr 1fr}.title{font-size:15px}.avatar,.icon{width:36px;height:36px}}
+.req-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px;margin-bottom:14px;box-shadow:0 8px 28px rgba(22,50,40,.06)}
+.req-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.req-badge{font-size:10px;font-weight:800;padding:5px 10px;border-radius:20px;letter-spacing:.3px}
+.req-badge.emergency{background:#ffe8e6;color:#b52b26}.req-badge.normal{background:#e8f1ff;color:var(--blue)}
+.req-timer{font-size:11px;font-weight:750;color:var(--red);background:#fff0ef;padding:5px 9px;border-radius:20px}
+.req-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.req-field small{display:block;color:var(--muted);font-size:10px;margin-bottom:2px}.req-field strong{font-size:13px}
+.req-actions{display:flex;gap:10px;margin-top:4px}
+.req-actions .btn{flex:1;padding:11px;font-weight:750;font-size:13px;text-align:center}
+.req-map{font-size:12px;color:var(--p);text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-top:2px}
+.req-empty{background:#fff;border:1px dashed var(--line);border-radius:15px;padding:40px 20px;text-align:center;color:var(--muted)}
+.live-map{width:100%;height:240px;border:0;border-radius:15px;margin-bottom:14px;display:block}
+.live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.live-stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.live-stat small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}.live-stat strong{font-size:15px}
+.gps-row{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12px;gap:10px}
+.gps-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.gps-dot.on{background:#2f9e44}.gps-dot.off{background:#adb5bd}
+.live-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.live-actions .btn{flex:1;min-width:140px;padding:12px;font-weight:750;font-size:13px;text-align:center}
+@media(max-width:430px){.live-stats{grid-template-columns:1fr 1fr 1fr;gap:6px}.live-stat{padding:8px}.live-stat strong{font-size:13px}}
+.setup-note{background:#fff8e6;border:1px solid #ffe08a;border-radius:12px;padding:14px;margin-bottom:16px;font-size:12px;color:#7a5c00}
+.setup-note pre{background:#2b2410;color:#f4e6b8;padding:10px;border-radius:8px;font-size:10.5px;overflow-x:auto;margin-top:8px;white-space:pre-wrap}
+.setup-note code{background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px}
+.vf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.vf-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.vf-field select,.vf-field input[type=text]{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;font-family:inherit;background:#fff}
+.vf-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.vf-check{display:flex;align-items:center;gap:8px;font-size:12px;background:#f7faf8;border-radius:9px;padding:9px 11px}
+.doc-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:13px 0;border-bottom:1px solid #eef2f0}.doc-row:last-child{border:0}
+.doc-status{display:inline-block;font-size:10px;font-weight:750;padding:4px 9px;border-radius:20px}
+.doc-status.not_uploaded{background:#f1f4f2;color:var(--muted)}
+.doc-status.pending{background:#fff4e0;color:var(--orange)}
+.doc-status.verified{background:#e8f7f1;color:var(--p)}
+.doc-status.rejected{background:#ffe8e6;color:var(--red)}
+.doc-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+@media(max-width:430px){.vf-grid,.vf-checks{grid-template-columns:1fr}}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filter-row input[type=text],.filter-row select,.filter-row input[type=date]{padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-family:inherit;background:#fff}
+.filter-row input[type=text]{flex:1;min-width:160px}
+.filter-row label.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.trip-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px;margin-bottom:12px;box-shadow:0 6px 20px rgba(22,50,40,.05)}
+.trip-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+.trip-card-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.tl{display:flex;margin-top:14px}
+.tl-step{flex:1;text-align:center;position:relative;font-size:10px;color:var(--muted)}
+.tl-step .dot{width:11px;height:11px;border-radius:50%;background:#e4ece8;margin:0 auto 5px;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.tl-step.done .dot{background:var(--p);box-shadow:0 0 0 1px var(--p)}
+.tl-step:not(:last-child):after{content:'';position:absolute;top:5px;left:56%;width:88%;height:2px;background:#e4ece8}
+.tl-step.done:not(:last-child):after{background:var(--p)}
+.tl-step b{display:block;font-size:10.5px;color:var(--text);margin-top:2px}
+.pf-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.pf-stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+.pf-stat small{display:block;color:var(--muted);font-size:10px;margin-bottom:5px}.pf-stat strong{font-size:18px}
+.trend-chart{display:flex;align-items:flex-end;gap:8px;height:100px;margin:10px 0 6px}
+.trend-bar{flex:1;background:var(--p);border-radius:5px 5px 0 0;min-height:3px;position:relative}
+.trend-labels{display:flex;gap:8px}.trend-labels span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+.rating-big{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.rating-big .num{font-size:38px;font-weight:800;color:var(--p)}
+.rbar-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-bottom:5px}
+.rbar-track{flex:1;height:6px;background:#eef2f0;border-radius:6px;overflow:hidden}
+.rbar-fill{height:100%;background:#ffb300}
+.review-item{padding:12px 0;border-bottom:1px solid #eef2f0}.review-item:last-child{border:0}
+.review-item textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;font-family:inherit;margin-top:6px;resize:vertical;min-height:50px}
+@media(max-width:430px){.pf-stats{grid-template-columns:1fr 1fr}}
+.notif-item{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid #eef2f0}.notif-item:last-child{border:0}
+.notif-item.unread{background:#f4faf7;margin:0 -8px;padding:13px 8px;border-radius:10px}
+.notif-ico{width:36px;height:36px;border-radius:10px;background:#eaf5f0;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+.notif-item small{color:var(--muted);font-size:10.5px}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eef2f0}.toggle-row:last-child{border:0}
+.switch{position:relative;width:42px;height:24px;flex:0 0 auto}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#dfe6e2;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--p)}
+.switch input:checked + .slider:before{transform:translateX(18px)}
+.profile-photo-row{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.profile-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#eaf5f0;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--p);font-weight:800}
+.sos-btn{width:100%;background:linear-gradient(135deg,#e53e3e,#c53030);color:#fff;border:0;border-radius:16px;padding:22px;text-align:center;font-weight:800;font-size:15px;box-shadow:0 10px 26px rgba(197,48,48,.3);margin-bottom:16px}
+.sos-btn small{display:block;font-weight:500;font-size:11.5px;margin-top:4px;opacity:.9}
+.support-links{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.support-links a{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;font-size:12px;font-weight:700;color:var(--text);text-decoration:none}
+.faq-item summary{padding:12px 0;font-size:13px;font-weight:700;cursor:pointer;border-bottom:1px solid #eef2f0}
+.faq-item p{font-size:12px;color:var(--muted);padding:8px 0 14px}
+.ticket-item{padding:12px 0;border-bottom:1px solid #eef2f0;font-size:12px}.ticket-item:last-child{border:0}
+.progress-track{height:10px;background:#eef2f0;border-radius:10px;overflow:hidden;margin:10px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--p),#0b6248)}
+.reward-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sideBackdrop" id="sideBackdrop" onclick="toggleSide()"></div>
+<aside class="sidebar" id="sidebar">
+<div class="brand"><div class="logo">M</div><div><b>MediFinder India</b><small>Ambulance Partner Portal</small></div><button class="sideClose" onclick="toggleSide()">✕</button></div>
+<nav class="nav">
+<div class="nav-label">Main</div>
+<button class="active" onclick="navClick(this,'Dashboard')">🏠 <i></i>Dashboard</button>
+<button onclick="navClick(this,'New Ambulance Requests')">🚨 <i></i>New Requests</button>
+<button onclick="navClick(this,'My Trips')">📋 <i></i>My Trips</button>
+<button onclick="navClick(this,'Today\'s Trips')">📍 <i></i>Today's Trips</button>
+<div class="nav-label">Active Trip</div>
+<button onclick="navClick(this,'Live Location & Navigation')">🗺️ <i></i>Live Location & Navigation</button>
+<button onclick="navClick(this,'Patient Details')">👤 <i></i>Patient Details</button>
+<button onclick="navClick(this,'Hospital / Drop Location')">🏥 <i></i>Hospital / Drop Location</button>
+<div class="nav-label">Vehicle</div>
+<button onclick="navClick(this,'Ambulance & Vehicle')">🚑 <i></i>Ambulance & Vehicle</button>
+<button onclick="navClick(this,'Driver KYC')">📄 <i></i>Driver KYC</button>
+<button onclick="navClick(this,'Vehicle Documents')">🚑 <i></i>Vehicle Documents</button>
+<div class="nav-label">Money</div>
+<button onclick="navClick(this,'Earnings & Settlement')">💰 <i></i>Earnings & Settlement</button>
+<button onclick="navClick(this,'Bank Account')">🏦 <i></i>Bank Account</button>
+<div class="nav-label">Performance</div>
+<button onclick="navClick(this,'Ratings & Reviews')">⭐ <i></i>Ratings & Reviews</button>
+<button onclick="navClick(this,'Performance')">📊 <i></i>Performance</button>
+<button onclick="navClick(this,'Rewards & Incentives')">🏆 <i></i>Rewards & Incentives</button>
+<div class="nav-label">Account</div>
+<button onclick="navClick(this,'Notifications')">🔔 <i></i>Notifications</button>
+<button onclick="navClick(this,'Profile & Settings')">⚙️ <i></i>Profile & Settings</button>
+<button onclick="navClick(this,'Emergency / Support')">🆘 <i></i>Emergency / Support</button>
+<button onclick="doLogout()">🚪 <i></i>Logout</button>
+</nav>
+<div class="driver-mini"><b id="driverNameMini">Loading…</b><span class="verified" id="driverStatusMini">● Loading…</span></div>
+</aside>
+
+<main class="main">
+<header class="topbar">
+<div style="display:flex;align-items:center;gap:12px"><button class="mobile" onclick="toggleSide()">☰</button><div class="title" id="pageTitle">Ambulance Dashboard</div></div>
+<div class="actions"><button class="icon" onclick="goToNotifications()">🔔<span class="dot"></span></button><div class="avatar" id="avatarInitials">--</div></div>
+</header>
+
+<section class="content">
+<div id="dashboardView">
+<div class="welcome"><div><h1 id="welcomeHeading">Loading…</h1><p>Manage ambulance requests, trips and patient pickups from one place.</p></div><div class="available" id="availabilityBadge" onclick="toggleAvailability()" style="cursor:pointer">● Loading…</div></div>
+
+<div class="stats">
+<div class="stat" style="cursor:pointer" onclick="goToRequests()"><div class="stat-top"><span>New Requests</span><div class="ico">🚨</div></div><h2 id="statNewRequests">–</h2><span class="green" id="statNewRequestsSub"></span></div>
+<div class="stat"><div class="stat-top"><span>Today's Trips</span><div class="ico">🚑</div></div><h2 id="statTodayTrips">–</h2><span class="green" id="statTodayTripsSub"></span></div>
+<div class="stat"><div class="stat-top"><span>Active Trip</span><div class="ico">📍</div></div><h2 id="statActiveTrip">–</h2><span class="green" id="statActiveTripSub"></span></div>
+<div class="stat"><div class="stat-top"><span>Today's Earnings</span><div class="ico">₹</div></div><h2 id="statEarnings">–</h2><span class="green" id="statEarningsSub"></span></div>
+</div>
+
+<div class="grid">
+<div class="card">
+<div class="head"><h3>Today's Ambulance Trips</h3><button class="link" onclick="goToMyTrips('All Trips')">View All →</button></div>
+<div class="alert" id="emergencyAlert" style="display:none"><b>🚨 Emergency Request Nearby</b><p id="emergencyAlertText"></p></div>
+<table class="trips">
+<thead><tr><th>Time</th><th>Patient</th><th>Pickup</th><th>Drop</th><th>Status</th><th></th></tr></thead>
+<tbody id="tripsTableBody">
+<tr><td colspan="6" style="text-align:center;color:#718078;padding:24px">Loading trips…</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<div class="head"><h3>Quick Actions</h3></div>
+<div class="quick">
+<button onclick="goToRequests()">🚨 <b>Emergency Requests</b><span>View urgent nearby bookings</span></button>
+<button onclick="goToLiveLocation()">🗺️ <b>Start Navigation</b><span>Open current trip route</span></button>
+<button onclick="goToVehicleKyc('Ambulance & Vehicle')">🚑 <b>Vehicle Details</b><span>Ambulance status & documents</span></button>
+<button onclick="goToEarnings('Earnings & Settlement')">💰 <b>My Earnings</b><span>Trips and settlements</span></button>
+</div>
+<div class="head"><h3>Live Trip Activity</h3></div>
+<div class="activity" id="activityList">
+<div class="item"><div class="circle">⏳</div><div><b>Loading activity…</b></div></div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="requestsView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">New Ambulance Requests</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Nearby patients waiting for a driver. Accept quickly to respond.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="requestsList"></div>
+</div>
+
+<div id="liveView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Live Location & Navigation</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Track and navigate your current active trip.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="liveContent"></div>
+</div>
+
+<div id="vehicleKycView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Ambulance & Vehicle / KYC</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Vehicle specs, equipment and your verification documents.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="vehicleKycContent"></div>
+</div>
+
+<div id="myTripsView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">My Trips</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">All your ambulance trips — search, filter and review any trip.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div class="filter-row">
+<input type="text" id="tripSearch" placeholder="Search patient or trip ID…" oninput="renderMyTripsView()">
+<select id="tripStatusFilter" onchange="renderMyTripsView()">
+<option value="all">All Trips</option>
+<option value="upcoming">Upcoming</option>
+<option value="active">Active</option>
+<option value="completed">Completed</option>
+<option value="cancelled">Cancelled</option>
+</select>
+<label class="chk"><input type="checkbox" id="tripTodayOnly" onchange="renderMyTripsView()"> Today only</label>
+</div>
+<div id="myTripsList"></div>
+</div>
+
+<div id="earningsView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Earnings & Bank</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Your trip earnings, settlement status and payout account.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="earningsContent"></div>
+</div>
+
+<div id="ratingsView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Ratings & Performance</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">How patients rate you, and how you're performing.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="ratingsContent"></div>
+</div>
+
+<div id="notifView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Notifications</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Bookings, KYC, documents and settlement updates.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="notifContent"></div>
+</div>
+
+<div id="profileView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Profile & Settings</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Your details, notification and location preferences.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="profileContent"></div>
+</div>
+
+<div id="supportView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Emergency / Support</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Get urgent help, raise a ticket, or browse FAQs.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="supportContent"></div>
+</div>
+
+<div id="rewardsView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0">
+<div><h1 style="font-size:22px">Rewards & Incentives</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Your milestones this month.</p></div>
+<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+</div>
+<div id="rewardsContent"></div>
+</div>
+</section>
+</main>
+</div>
+
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+<div class="modal">
+<div class="modal-head"><h3 id="mt">Trip Details</h3><button class="close" onclick="closeModal()">✕</button></div>
+<div id="mb"></div>
+<div class="foot"><button class="btn light" onclick="closeModal()">Close</button><button class="btn primary" id="ma">Accept Trip</button></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-constants.js"></script>
+<script src="prod-utils.js"></script>
+<script>
+// ==========================================
+// AMBULANCE PARTNER PORTAL — Live Supabase wiring
+// ==========================================
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+
+let currentUser = null;
+let driverRow = null;
+let myBookings = [];
+let openBookings = [];
+let bookingsById = {};
+let realtimeChannel = null;
+let rejectedIds = new Set();
+let knownRequestIds = new Set();
+let requestsTimerInterval = null;
+let geoWatchId = null;
+let locationSharing = false;
+let currentPos = null;
+let liveTarget = null;
+
+function toggleSide(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('open')}
+function closeModal(){document.getElementById('overlay').style.display='none'}
+
+function navClick(btn,title){
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sideBackdrop').classList.remove('open');
+  if(title==='Dashboard'){ goToDashboard(); return; }
+  if(title==='New Ambulance Requests'){ goToRequests(); return; }
+  if(title==='Live Location & Navigation'){ goToLiveLocation(); return; }
+  if(title==='Ambulance & Vehicle' || title==='Driver KYC' || title==='Vehicle Documents'){ goToVehicleKyc(title); return; }
+  if(title==='My Trips' || title==="Today's Trips"){ goToMyTrips(title); return; }
+  if(title==='Earnings & Settlement' || title==='Bank Account'){ goToEarnings(title); return; }
+  if(title==='Ratings & Reviews' || title==='Performance'){ goToRatings(title); return; }
+  if(title==='Notifications'){ goToNotifications(); return; }
+  if(title==='Profile & Settings'){ goToProfile(); return; }
+  if(title==='Emergency / Support'){ goToSupport(); return; }
+  if(title==='Rewards & Incentives'){ goToRewards(); return; }
+  show(title);
+}
+
+function showView(viewId, navLabel, title){
+  ['dashboardView','requestsView','liveView','vehicleKycView','myTripsView','earningsView','ratingsView','notifView','profileView','supportView','rewardsView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === viewId ? '' : 'none');
+  });
+  document.getElementById('pageTitle').textContent = title;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.nav button')].find(b => b.textContent.includes(navLabel));
+  if (btn) btn.classList.add('active');
+}
+
+function goToDashboard(){
+  showView('dashboardView', 'Dashboard', 'Ambulance Dashboard');
+}
+
+function goToRequests(){
+  showView('requestsView', 'New Requests', 'New Ambulance Requests');
+  renderRequestsView();
+}
+
+function goToLiveLocation(){
+  showView('liveView', 'Live Location', 'Live Location & Navigation');
+  renderLiveView();
+}
+
+function goToVehicleKyc(fromTitle){
+  const navLabel = fromTitle === 'Driver KYC' ? 'Driver KYC' : fromTitle === 'Vehicle Documents' ? 'Vehicle Documents' : 'Ambulance & Vehicle';
+  showView('vehicleKycView', navLabel, 'Ambulance & Vehicle / KYC');
+  renderVehicleKycView();
+  setTimeout(() => {
+    const anchorId = fromTitle === 'Driver KYC' ? 'kycDocsSection' : fromTitle === 'Vehicle Documents' ? 'vehicleDocsSection' : 'vehicleProfileSection';
+    const el = document.getElementById(anchorId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function goToMyTrips(fromTitle){
+  showView('myTripsView', fromTitle, 'My Trips');
+  if (fromTitle === "Today's Trips") document.getElementById('tripTodayOnly').checked = true;
+  renderMyTripsView();
+}
+
+function goToEarnings(fromTitle){
+  const navLabel = fromTitle === 'Bank Account' ? 'Bank Account' : 'Earnings & Settlement';
+  showView('earningsView', navLabel, 'Earnings & Bank');
+  loadEarningsData();
+  setTimeout(() => {
+    const el = document.getElementById(fromTitle === 'Bank Account' ? 'bankSection' : 'earningsStatsSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function goToRatings(fromTitle){
+  const navLabel = fromTitle === 'Performance' ? 'Performance' : 'Ratings & Reviews';
+  showView('ratingsView', navLabel, 'Ratings & Performance');
+  renderRatingsView();
+  setTimeout(() => {
+    const el = document.getElementById(fromTitle === 'Performance' ? 'performanceSection' : 'ratingsSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function goToNotifications(){
+  showView('notifView', 'Notifications', 'Notifications');
+  loadNotifications();
+}
+
+function goToProfile(){
+  showView('profileView', 'Profile & Settings', 'Profile & Settings');
+  renderProfileView();
+}
+
+function goToSupport(){
+  showView('supportView', 'Emergency', 'Emergency / Support');
+  renderSupportView();
+  loadTickets();
+}
+
+function goToRewards(){
+  showView('rewardsView', 'Rewards & Incentives', 'Rewards & Incentives');
+  renderRewardsView();
+}
+
+async function doLogout(){
+  try {
+    stopLocationWatch();
+    if (realtimeChannel) { supabaseClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+    await supabaseClient.auth.signOut();
+  } catch (e) {
+    console.error('Logout error:', e);
+  } finally {
+    window.location.href = 'home.html?panel=login';
+  }
+}
+
+function show(title){
+  document.getElementById('mt').textContent=title;
+  document.getElementById('mb').innerHTML='<div style="padding:22px 5px;color:#718078">This section is coming soon.</div>';
+  document.getElementById('ma').textContent='Close';document.getElementById('ma').onclick=closeModal;
+  document.getElementById('overlay').style.display='block';
+}
+
+// ---------- BOOT ----------
+document.addEventListener('DOMContentLoaded', init);
+
+async function init(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) { window.location.href = 'home.html?panel=login'; return; }
+  currentUser = session.user;
+
+  // Verify this account is actually registered as an ambulance_driver
+  try {
+    const { data: profile } = await supabaseClient.from('profiles').select('role, service_type, full_name, phone').eq('id', currentUser.id).maybeSingle();
+    if (profile && profile.role === 'service' && profile.service_type && profile.service_type !== 'ambulance_driver') {
+      MedUtils.toast('This account is registered as ' + profile.service_type + ', not an ambulance driver.', 'error');
+      await supabaseClient.auth.signOut();
+      setTimeout(() => window.location.href = 'home.html?panel=login', 1500);
+      return;
+    }
+    await loadOrCreateDriver(profile);
+  } catch (e) {
+    MedUtils.handleError(e, 'Profile load');
+  }
+
+  await refreshBookings();
+  subscribeRealtime();
+
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session) window.location.href = 'home.html?panel=login';
+  });
+}
+
+// ---------- DRIVER RECORD ----------
+async function loadOrCreateDriver(profile){
+  const { data: existing } = await supabaseClient.from('ambulance_drivers').select('*').eq('auth_user_id', currentUser.id).maybeSingle();
+  if (existing) {
+    driverRow = existing;
+  } else {
+    // First time this driver reaches the portal — create their operational record
+    const { data: created, error } = await supabaseClient.from('ambulance_drivers').insert([{
+      auth_user_id: currentUser.id,
+      driver_name: profile?.full_name || currentUser.user_metadata?.full_name || 'New Driver',
+      phone: profile?.phone || currentUser.user_metadata?.phone_number || currentUser.phone || '',
+      vehicle_type: 'non_ac',
+      plate_number: 'PENDING' // required column — driver fills real plate later from Vehicle Documents
+    }]).select().maybeSingle();
+    if (error) { MedUtils.handleError(error, 'Driver setup'); return; }
+    driverRow = created;
+  }
+  renderDriverHeader();
+}
+
+function renderDriverHeader(){
+  const name = driverRow.driver_name || 'Driver';
+  const firstName = name.split(' ')[0];
+  const initials = name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('') || 'DR';
+  document.getElementById('driverNameMini').textContent = `${name} • Driver`;
+  document.getElementById('avatarInitials').textContent = initials;
+  document.getElementById('welcomeHeading').textContent = `Good day, ${firstName} 🚑`;
+  document.getElementById('driverStatusMini').innerHTML = driverRow.is_verified
+    ? '<span class="verified">● KYC Verified • ' + (driverRow.is_online ? 'Ambulance Active' : 'Offline') + '</span>'
+    : '● KYC Pending Verification';
+  const badge = document.getElementById('availabilityBadge');
+  if (driverRow.is_online) {
+    badge.textContent = '● Available for Emergency Calls';
+    badge.style.background = '#e8f7f1'; badge.style.color = '#087f5b';
+  } else {
+    badge.textContent = '● Offline — Tap to go online';
+    badge.style.background = '#f1f2f6'; badge.style.color = '#718078';
+  }
+}
+
+async function toggleAvailability(){
+  if (!driverRow) return;
+  const newVal = !driverRow.is_online;
+  const { error } = await supabaseClient.from('ambulance_drivers').update({ is_online: newVal, updated_at: new Date().toISOString() }).eq('id', driverRow.id);
+  if (error) { MedUtils.handleError(error, 'Availability update'); return; }
+  driverRow.is_online = newVal;
+  renderDriverHeader();
+  MedUtils.toast(newVal ? 'You are now Online' : 'You are now Offline', 'success');
+}
+
+// ---------- BOOKINGS ----------
+async function refreshBookings(){
+  if (!driverRow) return;
+  const [{ data: mine, error: e1 }, { data: open, error: e2 }] = await Promise.all([
+    supabaseClient.from('ambulance_bookings').select('*').eq('driver_id', driverRow.id).order('created_at', { ascending: false }).limit(30),
+    supabaseClient.from('ambulance_bookings').select('*').is('driver_id', null).eq('status', 'searching').order('created_at', { ascending: false }).limit(10)
+  ]);
+  if (e1) MedUtils.handleError(e1, 'My trips');
+  if (e2) MedUtils.handleError(e2, 'New requests');
+  myBookings = mine || [];
+  openBookings = open || [];
+  notifyIfNewRequests(openBookings);
+  bookingsById = {};
+  [...myBookings, ...openBookings].forEach(b => bookingsById[b.id] = b);
+  renderStats();
+  renderTripsTable();
+  renderActivity();
+  renderEmergencyAlert();
+  renderRequestsView();
+  renderLiveView();
+  renderMyTripsView();
+  renderRatingsView();
+}
+
+function subscribeRealtime(){
+  if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+  realtimeChannel = supabaseClient
+    .channel('ambulance-bookings-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ambulance_bookings' }, () => refreshBookings())
+    .subscribe();
+}
+
+function isToday(dateStr){
+  if (!dateStr) return false;
+  return new Date(dateStr).toDateString() === new Date().toDateString();
+}
+
+function renderStats(){
+  const todayMine = myBookings.filter(b => isToday(b.created_at));
+  const active = myBookings.filter(b => ['accepted','arriving','picked_up'].includes(b.status));
+  const completedToday = myBookings.filter(b => b.status === 'completed' && isToday(b.completed_at || b.created_at));
+  const earnings = completedToday.reduce((sum,b) => sum + parseFloat(b.fare_final || b.fare_estimate || 0), 0);
+
+  document.getElementById('statNewRequests').textContent = String(openBookings.length).padStart(2,'0');
+  document.getElementById('statNewRequestsSub').textContent = openBookings.length ? `${openBookings.length} awaiting a driver` : 'No pending requests';
+  document.getElementById('statTodayTrips').textContent = String(todayMine.length).padStart(2,'0');
+  document.getElementById('statTodayTripsSub').textContent = `${todayMine.filter(b=>b.status==='completed').length} completed`;
+  document.getElementById('statActiveTrip').textContent = String(active.length).padStart(2,'0');
+  document.getElementById('statActiveTripSub').textContent = active.length ? 'Trip in progress' : 'No active trip';
+  document.getElementById('statEarnings').textContent = MedUtils.formatCurrency(earnings);
+  document.getElementById('statEarningsSub').textContent = 'From today\'s completed trips';
+}
+
+function statusMeta(status){
+  const map = {
+    searching: { cls: 'new', label: 'New Request' },
+    accepted:  { cls: 'accepted', label: 'Accepted' },
+    arriving:  { cls: 'way', label: 'Arriving' },
+    picked_up: { cls: 'way', label: 'On The Way' },
+    completed: { cls: 'complete', label: 'Completed' },
+    cancelled: { cls: 'new', label: 'Cancelled' }
+  };
+  return map[status] || { cls: 'new', label: status };
+}
+
+function renderTripsTable(){
+  const rows = [...openBookings, ...myBookings];
+  const tbody = document.getElementById('tripsTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718078;padding:24px">No trips yet today.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(b => {
+    const meta = statusMeta(b.status);
+    const time = b.created_at ? new Date(b.created_at).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}) : '—';
+    const shortId = '#AB-' + String(b.id).slice(0,5).toUpperCase();
+    return `<tr>
+      <td><b>${MedUtils.escapeAttr(time)}</b></td>
+      <td><span class="patient">${MedUtils.escapeAttr(b.patient_name || 'Unknown')}</span><span class="sub">${shortId}</span></td>
+      <td>${MedUtils.escapeAttr(b.pickup_address || '—')}</td>
+      <td>${MedUtils.escapeAttr(b.drop_address || '—')}</td>
+      <td><span class="status ${meta.cls}">${meta.label}</span></td>
+      <td><button class="action" onclick="openTrip('${b.id}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderActivity(){
+  const recent = [...myBookings].filter(b => b.status !== 'searching').slice(0,5);
+  const list = document.getElementById('activityList');
+  if (!recent.length) {
+    list.innerHTML = '<div class="item"><div class="circle">ℹ️</div><div><b>No recent activity yet</b></div></div>';
+    return;
+  }
+  list.innerHTML = recent.map(b => {
+    const meta = statusMeta(b.status);
+    const when = b.completed_at || b.accepted_at || b.created_at;
+    const icon = b.status === 'completed' ? '✓' : b.status === 'cancelled' ? '✕' : '📍';
+    const text = b.status === 'completed'
+      ? `Trip for ${b.patient_name || 'patient'} completed`
+      : `Trip for ${b.patient_name || 'patient'} is ${meta.label.toLowerCase()}`;
+    return `<div class="item"><div class="circle">${icon}</div><div><b>${MedUtils.escapeAttr(text)}</b><p>Pickup: ${MedUtils.escapeAttr(b.pickup_address||'—')} → ${MedUtils.escapeAttr(b.drop_address||'—')}</p><time>${MedUtils.timeAgo(when)}</time></div></div>`;
+  }).join('');
+}
+
+function renderEmergencyAlert(){
+  const alertBox = document.getElementById('emergencyAlert');
+  if (openBookings.length) {
+    alertBox.style.display = 'block';
+    document.getElementById('emergencyAlertText').textContent = `${openBookings.length} patient pickup request${openBookings.length>1?'s':''} waiting for a driver • Accept quickly to respond.`;
+  } else {
+    alertBox.style.display = 'none';
+  }
+}
+
+// ---------- NEW REQUESTS VIEW ----------
+function notifyIfNewRequests(newList){
+  const newOnes = newList.filter(b => !knownRequestIds.has(b.id));
+  if (knownRequestIds.size && newOnes.length) {
+    const prefs = getNotifPrefs();
+    if (prefs.sound !== false) playAlertSound();
+    if (prefs.vibrate !== false && navigator.vibrate) navigator.vibrate([200,100,200]);
+  }
+  knownRequestIds = new Set(newList.map(b => b.id));
+}
+
+function playAlertSound(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.start(); o.stop(ctx.currentTime + 0.42);
+  } catch(e) {}
+}
+
+function renderRequestsView(){
+  const list = document.getElementById('requestsList');
+  if (!list) return;
+  const visible = openBookings.filter(b => !rejectedIds.has(b.id));
+  if (!visible.length) {
+    list.innerHTML = '<div class="req-empty">🚨<br><br>No new requests right now.<br>You\'ll be notified the moment a nearby patient needs an ambulance.</div>';
+    return;
+  }
+  list.innerHTML = visible.map(b => {
+    const isEmergency = b.emergency_type ? String(b.emergency_type).toLowerCase() === 'emergency' : !!b.is_emergency;
+    const fare = MedUtils.formatCurrency(b.fare_estimate || 0);
+    const distance = b.distance_km ? `${b.distance_km} km away` : '';
+    const eta = b.eta_minutes ? `${b.eta_minutes} min ETA` : '';
+    const sub = [distance, eta].filter(Boolean).join(' • ') || 'Distance & ETA not available';
+    const mapsUrl = (b.pickup_lat && b.pickup_lng)
+      ? `https://www.google.com/maps/search/?api=1&query=${b.pickup_lat},${b.pickup_lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.pickup_address || '')}`;
+    return `<div class="req-card" data-id="${b.id}">
+      <div class="req-top">
+        <span class="req-badge ${isEmergency ? 'emergency' : 'normal'}">${isEmergency ? '🚨 EMERGENCY' : 'NORMAL'}</span>
+        <span class="req-timer"${b.expires_at ? ` data-expires="${b.expires_at}"` : ''}>${b.expires_at ? '' : 'Awaiting driver'}</span>
+      </div>
+      <div class="req-grid">
+        <div class="req-field"><small>Patient</small><strong>${MedUtils.escapeAttr(b.patient_name || 'Unknown')}</strong></div>
+        <div class="req-field"><small>Ambulance Type</small><strong>${MedUtils.escapeAttr(b.vehicle_type || 'Non-AC')}</strong></div>
+        <div class="req-field"><small>Pickup</small><strong>${MedUtils.escapeAttr(b.pickup_address || '—')}</strong><br><span style="font-size:11px;color:var(--muted)">${sub}</span></div>
+        <div class="req-field"><small>Hospital / Drop</small><strong>${MedUtils.escapeAttr(b.drop_address || '—')}</strong></div>
+        <div class="req-field"><small>Estimated Fare</small><strong>${fare}</strong></div>
+        <div class="req-field"><small>Patient / Attendant</small><strong>${b.contact_phone ? `<a href="tel:${MedUtils.escapeAttr(b.contact_phone)}" style="color:var(--p);text-decoration:none">${MedUtils.escapeAttr(b.contact_phone)}</a>` : '—'}</strong></div>
+      </div>
+      <a class="req-map" href="${mapsUrl}" target="_blank" rel="noopener">🗺️ Preview pickup on map</a>
+      <div class="req-actions">
+        <button class="btn light" onclick="rejectBooking('${b.id}')">Reject</button>
+        <button class="btn primary" onclick="acceptBooking('${b.id}')">Accept Trip</button>
+      </div>
+    </div>`;
+  }).join('');
+  tickRequestTimers();
+}
+
+function tickRequestTimers(){
+  if (requestsTimerInterval) clearInterval(requestsTimerInterval);
+  requestsTimerInterval = setInterval(() => {
+    document.querySelectorAll('.req-timer[data-expires]').forEach(el => {
+      const diff = Math.max(0, Math.floor((new Date(el.dataset.expires) - new Date()) / 1000));
+      if (diff <= 0) { el.textContent = 'Expiring…'; return; }
+      const m = Math.floor(diff / 60), s = diff % 60;
+      el.textContent = `⏱ ${m}:${String(s).padStart(2, '0')}`;
+    });
+  }, 1000);
+}
+
+function rejectBooking(id){
+  const reason = prompt('Reason for rejecting this request (optional):', '');
+  if (reason === null) return;
+  rejectedIds.add(id);
+  MedUtils.toast('Request skipped', 'success');
+  renderRequestsView();
+}
+
+// ---------- LIVE LOCATION & NAVIGATION ----------
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function renderLiveView(){
+  const content = document.getElementById('liveContent');
+  if (!content) return;
+  const active = myBookings.find(b => ['accepted','arriving','picked_up'].includes(b.status));
+  if (!active) {
+    liveTarget = null;
+    content.innerHTML = '<div class="req-empty">📍<br><br>No active trip right now.<br>Accept a request to start live navigation.</div>';
+    return;
+  }
+  const toHospital = active.status === 'picked_up';
+  const targetAddress = toHospital ? (active.drop_address || '') : (active.pickup_address || '');
+  const targetLat = toHospital ? active.drop_lat : active.pickup_lat;
+  const targetLng = toHospital ? active.drop_lng : active.pickup_lng;
+  liveTarget = (targetLat && targetLng) ? { lat: parseFloat(targetLat), lng: parseFloat(targetLng) } : null;
+
+  const mapQuery = liveTarget ? `${liveTarget.lat},${liveTarget.lng}` : targetAddress;
+  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`;
+  const navUrl = liveTarget
+    ? `https://www.google.com/maps/dir/?api=1&destination=${liveTarget.lat},${liveTarget.lng}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(targetAddress)}`;
+
+  let distanceText = '—', etaText = '—';
+  if (currentPos && liveTarget) {
+    const km = haversineKm(currentPos.lat, currentPos.lng, liveTarget.lat, liveTarget.lng);
+    distanceText = `${km.toFixed(1)} km`;
+    etaText = `${Math.max(1, Math.round(km / 30 * 60))} min`;
+  } else if (active.distance_km) {
+    distanceText = `${active.distance_km} km`;
+    if (active.eta_minutes) etaText = `${active.eta_minutes} min`;
+  }
+
+  const meta = statusMeta(active.status);
+  let stageBtn = '';
+  if (active.status === 'accepted') stageBtn = `<button class="btn primary" onclick="updateBookingStatus('${active.id}','arriving')">Mark Arriving</button>`;
+  else if (active.status === 'arriving') stageBtn = `<button class="btn primary" onclick="updateBookingStatus('${active.id}','picked_up')">Patient Picked Up</button>`;
+  else if (active.status === 'picked_up') stageBtn = `<button class="btn primary" onclick="updateBookingStatus('${active.id}','completed')">Mark Trip Completed</button>`;
+
+  content.innerHTML = `
+    <iframe class="live-map" src="${mapSrc}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="live-stats">
+      <div class="live-stat"><small>Status</small><strong>${meta.label}</strong></div>
+      <div class="live-stat"><small>Distance Remaining</small><strong id="liveDistance">${distanceText}</strong></div>
+      <div class="live-stat"><small>Live ETA</small><strong id="liveEta">${etaText}</strong></div>
+    </div>
+    <div class="gps-row">
+      <span id="gpsStatusText"><span class="gps-dot ${locationSharing?'on':'off'}"></span>Location sharing: ${locationSharing?'ON':'OFF'}${currentPos&&currentPos.accuracy?` • ±${Math.round(currentPos.accuracy)}m accuracy`:''}</span>
+      <button class="link" onclick="toggleLocationSharing()">${locationSharing?'Turn off':'Turn on'}</button>
+    </div>
+    <div class="req-card">
+      <div class="req-grid">
+        <div class="req-field"><small>📍 Pickup</small><strong>${MedUtils.escapeAttr(active.pickup_address||'—')}</strong></div>
+        <div class="req-field"><small>🏥 Hospital / Drop</small><strong>${MedUtils.escapeAttr(active.drop_address||'—')}</strong></div>
+      </div>
+      <div class="live-actions">
+        <a class="btn light" href="${navUrl}" target="_blank" rel="noopener">🗺️ Start Navigation</a>
+        <a class="btn light" href="${navUrl}" target="_blank" rel="noopener">🔄 Re-route</a>
+        ${stageBtn}
+      </div>
+    </div>`;
+}
+
+function updateLiveStats(){
+  const distEl = document.getElementById('liveDistance');
+  const etaEl = document.getElementById('liveEta');
+  const gpsEl = document.getElementById('gpsStatusText');
+  if (!distEl || !currentPos || !liveTarget) { if (gpsEl) refreshGpsRow(); return; }
+  const km = haversineKm(currentPos.lat, currentPos.lng, liveTarget.lat, liveTarget.lng);
+  distEl.textContent = `${km.toFixed(1)} km`;
+  etaEl.textContent = `${Math.max(1, Math.round(km / 30 * 60))} min`;
+  refreshGpsRow();
+}
+
+function refreshGpsRow(){
+  const gpsEl = document.getElementById('gpsStatusText');
+  if (!gpsEl) return;
+  gpsEl.innerHTML = `<span class="gps-dot ${locationSharing?'on':'off'}"></span>Location sharing: ${locationSharing?'ON':'OFF'}${currentPos&&currentPos.accuracy?` • ±${Math.round(currentPos.accuracy)}m accuracy`:''}`;
+}
+
+function toggleLocationSharing(){
+  locationSharing = !locationSharing;
+  if (locationSharing) startLocationWatch(); else stopLocationWatch();
+  renderLiveView();
+}
+
+function startLocationWatch(){
+  if (!navigator.geolocation) { MedUtils.toast('Location not supported on this device', 'warning'); locationSharing = false; return; }
+  if (geoWatchId) return;
+  geoWatchId = navigator.geolocation.watchPosition(pos => {
+    currentPos = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+    if (driverRow) {
+      supabaseClient.from('ambulance_drivers')
+        .update({ current_lat: currentPos.lat, current_lon: currentPos.lng, location_updated_at: new Date().toISOString() })
+        .eq('id', driverRow.id).then(() => {}).catch(() => {});
+    }
+    updateLiveStats();
+  }, () => { MedUtils.toast('Could not get your location', 'warning'); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+}
+
+function stopLocationWatch(){
+  if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+}
+
+// ---------- AMBULANCE & VEHICLE / KYC ----------
+const KYC_DOCS = [
+  { key: 'aadhaar', label: 'Aadhaar Card' },
+  { key: 'pan', label: 'PAN Card' },
+  { key: 'license', label: 'Driving Licence' },
+  { key: 'photo', label: 'Driver Photo' },
+  { key: 'address_proof', label: 'Address Proof' }
+];
+const VEHICLE_DOCS = [
+  { key: 'rc', label: 'RC (Registration Certificate)' },
+  { key: 'insurance', label: 'Insurance' },
+  { key: 'fitness', label: 'Fitness Certificate' },
+  { key: 'pollution', label: 'Pollution Certificate' },
+  { key: 'permit', label: 'Permit' }
+];
+const SETUP_SQL = `ALTER TABLE ambulance_drivers
+  ADD COLUMN IF NOT EXISTS category text,
+  ADD COLUMN IF NOT EXISTS oxygen_available boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS ventilator_available boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS stretcher_available boolean DEFAULT true,
+  ADD COLUMN IF NOT EXISTS wheelchair_available boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS first_aid_available boolean DEFAULT true,
+  ADD COLUMN IF NOT EXISTS kyc_documents jsonb DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS vehicle_documents jsonb DEFAULT '{}'::jsonb;`;
+
+function docRowHtml(category, doc){
+  const store = (category === 'kyc' ? driverRow.kyc_documents : driverRow.vehicle_documents) || {};
+  const entry = store[doc.key];
+  const status = entry?.status || 'not_uploaded';
+  const statusLabel = { not_uploaded: 'Not Uploaded', pending: 'Pending Verification', verified: 'Verified', rejected: 'Rejected' }[status] || status;
+  const inputId = `file_${category}_${doc.key}`;
+  let expiryHtml = '';
+  if (category === 'vehicle') {
+    const expiry = entry?.expiry_date;
+    const daysLeft = expiry ? Math.ceil((new Date(expiry) - new Date()) / 86400000) : null;
+    const warn = daysLeft !== null && daysLeft <= 30;
+    expiryHtml = `<div style="margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;color:${warn ? 'var(--red)' : 'var(--muted)'}">
+      ${expiry ? `Expires ${new Date(expiry).toLocaleDateString('en-IN')}${daysLeft < 0 ? ' • EXPIRED' : (warn ? ` • ${daysLeft}d left` : '')}` : 'No expiry date set'}
+      <input type="date" style="border:1px solid var(--line);border-radius:6px;font-size:11px;padding:2px 4px" value="${expiry || ''}" onchange="setDocExpiry('${category}','${doc.key}',this.value)">
+    </div>`;
+  }
+  return `<div class="doc-row">
+    <div>
+      <b style="font-size:13px">${doc.label}</b>
+      <div style="margin-top:4px"><span class="doc-status ${status}">${statusLabel}</span>${entry?.rejection_reason ? ` <span style="font-size:11px;color:var(--red)">• ${MedUtils.escapeAttr(entry.rejection_reason)}</span>` : ''}</div>
+      ${expiryHtml}
+    </div>
+    <div class="doc-actions">
+      ${entry?.url ? `<a class="action" href="${entry.url}" target="_blank" rel="noopener">View</a>` : ''}
+      <label class="action" style="cursor:pointer">${entry?.url ? 'Re-upload' : 'Upload'}<input type="file" id="${inputId}" accept="image/*,.pdf" style="display:none" onchange="uploadDoc('${category}','${doc.key}',this)"></label>
+    </div>
+  </div>`;
+}
+
+function expiringVehicleDocs(){
+  const store = driverRow.vehicle_documents || {};
+  return VEHICLE_DOCS
+    .map(d => ({ ...d, entry: store[d.key] }))
+    .filter(d => d.entry?.expiry_date)
+    .map(d => ({ ...d, days: Math.ceil((new Date(d.entry.expiry_date) - new Date()) / 86400000) }))
+    .filter(d => d.days <= 30);
+}
+
+function renderVehicleKycView(){
+  const content = document.getElementById('vehicleKycContent');
+  if (!content || !driverRow) return;
+  const expiring = expiringVehicleDocs();
+  const expiringHtml = expiring.length ? `<div class="emergency">🚨 ${expiring.map(d => `${d.label} ${d.days < 0 ? 'has EXPIRED' : `expires in ${d.days} day${d.days === 1 ? '' : 's'}`}`).join(' • ')}</div>` : '';
+
+  content.innerHTML = `
+    <details class="setup-note">
+      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup (tap to expand)</summary>
+      <p style="margin-top:8px">Run this once in the Supabase SQL editor, and create a public Storage bucket named <code>ambulance-kyc</code>, so vehicle specs, equipment and document uploads can be saved here:</p>
+      <pre>${SETUP_SQL}</pre>
+    </details>
+    ${expiringHtml}
+    <div class="req-card" id="vehicleProfileSection">
+      <div class="head" style="padding:0 0 14px;border:0"><h3>🚑 Ambulance & Vehicle</h3><span class="status ${driverRow.is_online ? 'accepted' : 'new'}">${driverRow.is_online ? 'Available' : 'Offline'}</span></div>
+      <div class="vf-grid">
+        <div class="vf-field"><label>Ambulance / Plate Number</label><input type="text" id="vfPlate" value="${MedUtils.escapeAttr(driverRow.plate_number === 'PENDING' ? '' : (driverRow.plate_number || ''))}" placeholder="e.g. WB-06-AB-1234"></div>
+        <div class="vf-field"><label>Vehicle Type</label><select id="vfType">
+          <option value="non_ac" ${driverRow.vehicle_type === 'non_ac' ? 'selected' : ''}>Non-AC</option>
+          <option value="ac" ${driverRow.vehicle_type === 'ac' ? 'selected' : ''}>AC</option>
+        </select></div>
+        <div class="vf-field"><label>Category</label><select id="vfCategory">
+          <option value="basic" ${driverRow.category === 'basic' ? 'selected' : ''}>Basic</option>
+          <option value="advanced" ${driverRow.category === 'advanced' ? 'selected' : ''}>Advanced</option>
+          <option value="icu" ${driverRow.category === 'icu' ? 'selected' : ''}>ICU</option>
+        </select></div>
+      </div>
+      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Equipment Available</label>
+      <div class="vf-checks">
+        <label class="vf-check"><input type="checkbox" id="vfOxygen" ${driverRow.oxygen_available ? 'checked' : ''}> Oxygen</label>
+        <label class="vf-check"><input type="checkbox" id="vfVentilator" ${driverRow.ventilator_available ? 'checked' : ''}> Ventilator</label>
+        <label class="vf-check"><input type="checkbox" id="vfStretcher" ${driverRow.stretcher_available !== false ? 'checked' : ''}> Stretcher</label>
+        <label class="vf-check"><input type="checkbox" id="vfWheelchair" ${driverRow.wheelchair_available ? 'checked' : ''}> Wheelchair</label>
+        <label class="vf-check"><input type="checkbox" id="vfFirstAid" ${driverRow.first_aid_available !== false ? 'checked' : ''}> First-aid Kit</label>
+      </div>
+      <button class="btn primary" onclick="saveVehicleProfile()">Save Vehicle Details</button>
+    </div>
+    <div class="req-card" id="kycDocsSection">
+      <div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver KYC</h3></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Upload these to get verified and start receiving requests.</p>
+      ${KYC_DOCS.map(d => docRowHtml('kyc', d)).join('')}
+    </div>
+    <div class="req-card" id="vehicleDocsSection">
+      <div class="head" style="padding:0 0 6px;border:0"><h3>🚑 Vehicle Documents</h3></div>
+      ${VEHICLE_DOCS.map(d => docRowHtml('vehicle', d)).join('')}
+    </div>`;
+}
+
+async function saveVehicleProfile(){
+  const fields = {
+    plate_number: (document.getElementById('vfPlate').value || '').trim() || 'PENDING',
+    vehicle_type: document.getElementById('vfType').value,
+    category: document.getElementById('vfCategory').value,
+    oxygen_available: document.getElementById('vfOxygen').checked,
+    ventilator_available: document.getElementById('vfVentilator').checked,
+    stretcher_available: document.getElementById('vfStretcher').checked,
+    wheelchair_available: document.getElementById('vfWheelchair').checked,
+    first_aid_available: document.getElementById('vfFirstAid').checked
+  };
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not save — run the one-time setup SQL above first', 'warning'); return; }
+  driverRow = data;
+  MedUtils.toast('Vehicle details saved', 'success');
+  renderDriverHeader();
+  renderVehicleKycView();
+}
+
+async function uploadDoc(category, key, inputEl){
+  const file = inputEl.files[0];
+  if (!file) return;
+  const columnName = category === 'kyc' ? 'kyc_documents' : 'vehicle_documents';
+  const ext = file.name.split('.').pop();
+  const path = `${driverRow.id}/${category}-${key}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabaseClient.storage.from('ambulance-kyc').upload(path, file, { upsert: true });
+  if (upErr) { MedUtils.toast('Upload failed — create a storage bucket named "ambulance-kyc" first (see setup note above)', 'warning'); return; }
+  const { data: urlData } = supabaseClient.storage.from('ambulance-kyc').getPublicUrl(path);
+  const current = { ...(driverRow[columnName] || {}) };
+  current[key] = { ...(current[key] || {}), url: urlData.publicUrl, status: 'pending', uploaded_at: new Date().toISOString(), rejection_reason: null };
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ [columnName]: current }).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Uploaded, but could not save — run the one-time setup SQL above', 'warning'); return; }
+  driverRow = data;
+  MedUtils.toast('Document uploaded — pending verification', 'success');
+  renderVehicleKycView();
+}
+
+async function setDocExpiry(category, key, value){
+  const columnName = category === 'kyc' ? 'kyc_documents' : 'vehicle_documents';
+  const current = { ...(driverRow[columnName] || {}) };
+  current[key] = { ...(current[key] || {}), expiry_date: value };
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ [columnName]: current }).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not save — run the one-time setup SQL above first', 'warning'); return; }
+  driverRow = data;
+  renderVehicleKycView();
+}
+
+// ---------- TRIP MODAL ----------
+function tripTimelineHtml(b){
+  const steps = [
+    { key: 'created_at', label: 'Requested' },
+    { key: 'accepted_at', label: 'Accepted' },
+    { key: 'picked_up_at', label: 'Picked Up' },
+    { key: 'completed_at', label: 'Completed' }
+  ];
+  if (b.status === 'cancelled') return '';
+  return `<div class="tl">${steps.map(s => {
+    const done = !!b[s.key];
+    const time = b[s.key] ? new Date(b[s.key]).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}) : '';
+    return `<div class="tl-step ${done?'done':''}"><div class="dot"></div>${s.label}${time?`<b>${time}</b>`:''}</div>`;
+  }).join('')}</div>`;
+}
+
+function openTrip(id){
+  const b = bookingsById[id];
+  if (!b) return;
+  const meta = statusMeta(b.status);
+  const time = b.created_at ? new Date(b.created_at).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}) : '—';
+  const fare = MedUtils.formatCurrency(b.fare_final || b.fare_estimate || 0);
+  const navUrl = (b.drop_lat && b.drop_lng) || b.drop_address
+    ? `https://www.google.com/maps/dir/?api=1&destination=${(b.drop_lat && b.drop_lng) ? `${b.drop_lat},${b.drop_lng}` : encodeURIComponent(b.drop_address)}`
+    : '';
+  document.getElementById('mt').textContent = 'Ambulance Trip Details';
+  document.getElementById('mb').innerHTML = `<div class="details">
+    <div class="field"><small>Patient</small><strong>${MedUtils.escapeAttr(b.patient_name||'Unknown')}</strong></div>
+    <div class="field"><small>Trip Time</small><strong>${MedUtils.escapeAttr(time)}</strong></div>
+    <div class="field"><small>Ambulance Type</small><strong>${MedUtils.escapeAttr(b.vehicle_type||'non_ac')}</strong></div>
+    <div class="field"><small>Status</small><strong>${meta.label}</strong></div>
+    <div class="field"><small>Pickup</small><strong>${MedUtils.escapeAttr(b.pickup_address||'—')}</strong></div>
+    <div class="field"><small>Drop / Hospital</small><strong>${MedUtils.escapeAttr(b.drop_address||'—')}</strong></div>
+    <div class="field"><small>Estimated Fare</small><strong>${fare}</strong></div>
+    <div class="field"><small>Payment</small><strong>${b.payment_status==='paid'?'Paid':'Cash / Pending'}</strong></div>
+  </div>
+  ${tripTimelineHtml(b)}
+  <div style="display:flex;gap:14px;margin-top:14px;flex-wrap:wrap">
+  ${b.contact_phone ? `<a href="tel:${MedUtils.escapeAttr(b.contact_phone)}" style="font-size:12px;color:var(--p);text-decoration:none">📞 Call ${MedUtils.escapeAttr(b.contact_phone)}</a>` : ''}
+  ${navUrl ? `<a href="${navUrl}" target="_blank" rel="noopener" style="font-size:12px;color:var(--p);text-decoration:none">🗺️ Navigate</a>` : ''}
+  </div>
+  ${b.otp ? `<div class="note">Pickup OTP: <b>${MedUtils.escapeAttr(b.otp)}</b> — ask the patient/attendant to confirm this on pickup.</div>` : ''}`;
+
+  const btn = document.getElementById('ma');
+  if (b.status === 'searching') {
+    btn.textContent = 'Accept Trip';
+    btn.onclick = () => acceptBooking(b.id);
+  } else if (b.status === 'accepted') {
+    btn.textContent = 'Mark Arriving';
+    btn.onclick = () => updateBookingStatus(b.id, 'arriving');
+  } else if (b.status === 'arriving') {
+    btn.textContent = 'Mark Picked Up';
+    btn.onclick = () => updateBookingStatus(b.id, 'picked_up');
+  } else if (b.status === 'picked_up') {
+    btn.textContent = 'Mark Completed';
+    btn.onclick = () => updateBookingStatus(b.id, 'completed');
+  } else {
+    btn.textContent = 'Close';
+    btn.onclick = closeModal;
+  }
+  document.getElementById('overlay').style.display = 'block';
+}
+
+async function acceptBooking(id){
+  const { data, error } = await supabaseClient.from('ambulance_bookings')
+    .update({ driver_id: driverRow.id, status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', id).eq('status', 'searching').select();
+  if (error) { MedUtils.handleError(error, 'Accept trip'); return; }
+  if (!data || !data.length) { MedUtils.toast('Another driver already accepted this request', 'warning'); }
+  else { MedUtils.toast('Trip accepted!', 'success'); }
+  closeModal();
+  refreshBookings();
+}
+
+async function updateBookingStatus(id, status){
+  const fields = { status, updated_at: new Date().toISOString() };
+  if (status === 'picked_up') fields.picked_up_at = new Date().toISOString();
+  if (status === 'completed') fields.completed_at = new Date().toISOString();
+  const { error } = await supabaseClient.from('ambulance_bookings').update(fields).eq('id', id).eq('driver_id', driverRow.id);
+  if (error) { MedUtils.handleError(error, 'Update trip'); return; }
+  MedUtils.toast('Trip updated', 'success');
+  closeModal();
+  refreshBookings();
+}
+
+// ---------- MY TRIPS ----------
+function tripGroup(status){
+  if (status === 'accepted') return 'upcoming';
+  if (status === 'arriving' || status === 'picked_up') return 'active';
+  if (status === 'completed') return 'completed';
+  if (status === 'cancelled') return 'cancelled';
+  return 'other';
+}
+
+function renderMyTripsView(){
+  const list = document.getElementById('myTripsList');
+  if (!list) return;
+  const search = (document.getElementById('tripSearch')?.value || '').trim().toLowerCase();
+  const statusFilter = document.getElementById('tripStatusFilter')?.value || 'all';
+  const todayOnly = document.getElementById('tripTodayOnly')?.checked || false;
+
+  let rows = [...myBookings];
+  if (statusFilter !== 'all') rows = rows.filter(b => tripGroup(b.status) === statusFilter);
+  if (todayOnly) rows = rows.filter(b => isToday(b.created_at));
+  if (search) {
+    rows = rows.filter(b => {
+      const shortId = ('#AB-' + String(b.id).slice(0,5).toUpperCase()).toLowerCase();
+      return (b.patient_name || '').toLowerCase().includes(search) || shortId.includes(search);
+    });
+  }
+
+  if (!rows.length) {
+    list.innerHTML = '<div class="req-empty">📋<br><br>No trips match this filter.</div>';
+    return;
+  }
+
+  list.innerHTML = rows.map(b => {
+    const meta = statusMeta(b.status);
+    const time = b.created_at ? new Date(b.created_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}) : '—';
+    const shortId = '#AB-' + String(b.id).slice(0,5).toUpperCase();
+    const fare = MedUtils.formatCurrency(b.fare_final || b.fare_estimate || 0);
+    const navUrl = (b.drop_lat && b.drop_lng) || b.drop_address
+      ? `https://www.google.com/maps/dir/?api=1&destination=${(b.drop_lat && b.drop_lng) ? `${b.drop_lat},${b.drop_lng}` : encodeURIComponent(b.drop_address)}`
+      : '';
+    return `<div class="trip-card">
+      <div class="trip-card-top">
+        <div><b style="font-size:13px">${MedUtils.escapeAttr(b.patient_name||'Unknown')}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${shortId} • ${MedUtils.escapeAttr(time)}</div></div>
+        <span class="status ${meta.cls}">${meta.label}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text);margin-bottom:4px">📍 ${MedUtils.escapeAttr(b.pickup_address||'—')} → 🏥 ${MedUtils.escapeAttr(b.drop_address||'—')}</div>
+      <div style="font-size:12px;color:var(--muted)">Fare: <b style="color:var(--text)">${fare}</b> • Payment: ${b.payment_status==='paid'?'Paid':'Cash / Pending'}</div>
+      <div class="trip-card-actions">
+        <button class="action" onclick="openTrip('${b.id}')">View Details</button>
+        ${b.contact_phone ? `<a class="action" style="text-decoration:none" href="tel:${MedUtils.escapeAttr(b.contact_phone)}">📞 Call</a>` : ''}
+        ${navUrl ? `<a class="action" style="text-decoration:none" href="${navUrl}" target="_blank" rel="noopener">🗺️ Navigate</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- EARNINGS & BANK ----------
+let earningsBookings = [];
+
+async function loadEarningsData(){
+  if (!driverRow) return;
+  const { data, error } = await supabaseClient.from('ambulance_bookings')
+    .select('*').eq('driver_id', driverRow.id).eq('status', 'completed')
+    .order('completed_at', { ascending: false }).limit(200);
+  if (error) { MedUtils.handleError(error, 'Earnings'); return; }
+  earningsBookings = data || [];
+  renderEarningsView();
+}
+
+function driverShare(b){
+  const fare = parseFloat(b.fare_final || b.fare_estimate || 0);
+  if (b.driver_earning != null) return parseFloat(b.driver_earning);
+  if (b.commission_amount != null) return fare - parseFloat(b.commission_amount);
+  return fare;
+}
+
+function computeEarningsStats(){
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const dateOf = b => new Date(b.completed_at || b.created_at);
+  const todayList = earningsBookings.filter(b => isToday(b.completed_at || b.created_at));
+  const weekList = earningsBookings.filter(b => dateOf(b) >= weekStart);
+  const monthList = earningsBookings.filter(b => dateOf(b) >= monthStart);
+  const sum = list => list.reduce((s,b) => s + driverShare(b), 0);
+  return { today: sum(todayList), week: sum(weekList), month: sum(monthList), total: sum(earningsBookings) };
+}
+
+const BANK_SETUP_SQL = `ALTER TABLE ambulance_drivers
+  ADD COLUMN IF NOT EXISTS bank_account_holder text,
+  ADD COLUMN IF NOT EXISTS bank_name text,
+  ADD COLUMN IF NOT EXISTS bank_account_number text,
+  ADD COLUMN IF NOT EXISTS bank_ifsc text,
+  ADD COLUMN IF NOT EXISTS upi_id text,
+  ADD COLUMN IF NOT EXISTS settlement_preference text DEFAULT 'bank',
+  ADD COLUMN IF NOT EXISTS bank_verified boolean DEFAULT false;
+
+-- Optional, only if you also want per-trip commission split and settlement status tracked:
+ALTER TABLE ambulance_bookings
+  ADD COLUMN IF NOT EXISTS commission_amount numeric,
+  ADD COLUMN IF NOT EXISTS driver_earning numeric,
+  ADD COLUMN IF NOT EXISTS settlement_status text DEFAULT 'pending';`;
+
+function renderEarningsView(){
+  const content = document.getElementById('earningsContent');
+  if (!content || !driverRow) return;
+  const stats = computeEarningsStats();
+  const rowsHtml = earningsBookings.length ? earningsBookings.map(b => {
+    const shortId = '#AB-' + String(b.id).slice(0,5).toUpperCase();
+    const when = b.completed_at ? new Date(b.completed_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—';
+    const settle = b.settlement_status || 'pending';
+    return `<tr>
+      <td>${MedUtils.escapeAttr(when)}</td>
+      <td>${shortId}</td>
+      <td>${MedUtils.escapeAttr(b.patient_name||'—')}</td>
+      <td>${MedUtils.formatCurrency(driverShare(b))}</td>
+      <td><span class="status ${b.payment_status==='paid'?'accepted':'new'}">${b.payment_status==='paid'?'Paid':'Pending'}</span></td>
+      <td><span class="status ${settle==='paid'?'accepted':'new'}">${settle==='paid'?'Settled':'Pending'}</span></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:#718078;padding:22px">No completed trips yet.</td></tr>`;
+
+  content.innerHTML = `
+    <div class="stats" id="earningsStatsSection" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="stat-top"><span>Today</span><div class="ico">💰</div></div><h2>${MedUtils.formatCurrency(stats.today)}</h2></div>
+      <div class="stat"><div class="stat-top"><span>Last 7 Days</span><div class="ico">📅</div></div><h2>${MedUtils.formatCurrency(stats.week)}</h2></div>
+      <div class="stat"><div class="stat-top"><span>This Month</span><div class="ico">🗓️</div></div><h2>${MedUtils.formatCurrency(stats.month)}</h2></div>
+      <div class="stat"><div class="stat-top"><span>Total</span><div class="ico">🏆</div></div><h2>${MedUtils.formatCurrency(stats.total)}</h2></div>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 12px;border:0"><h3>Settlement History</h3><button class="link" onclick="downloadStatement()">⬇ Download Statement</button></div>
+      <div style="overflow-x:auto"><table class="trips"><thead><tr><th>Date</th><th>Trip ID</th><th>Patient</th><th>Your Share</th><th>Payment</th><th>Settlement</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px">Your share is shown as the full trip fare until commission split is configured (see setup note below). Settlement status is 'Pending' until your <code>settlement_status</code> field is set to 'paid'.</p>
+    </div>
+    <details class="setup-note">
+      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for Bank & commission fields (tap to expand)</summary>
+      <p style="margin-top:8px">Run this once in the Supabase SQL editor so the bank account form and commission/settlement tracking below can save:</p>
+      <pre>${BANK_SETUP_SQL}</pre>
+    </details>
+    <div class="req-card" id="bankSection">
+      <div class="head" style="padding:0 0 14px;border:0"><h3>🏦 Bank Account</h3><span class="status ${driverRow.bank_verified?'accepted':'new'}">${driverRow.bank_verified?'Verified':'Pending Verification'}</span></div>
+      <div class="vf-grid">
+        <div class="vf-field"><label>Account Holder Name</label><input type="text" id="bfHolder" value="${MedUtils.escapeAttr(driverRow.bank_account_holder||'')}" placeholder="As per bank passbook"></div>
+        <div class="vf-field"><label>Bank Name</label><input type="text" id="bfBank" value="${MedUtils.escapeAttr(driverRow.bank_name||'')}" placeholder="e.g. SBI, HDFC"></div>
+        <div class="vf-field"><label>Account Number</label><input type="text" id="bfAccount" value="${MedUtils.escapeAttr(driverRow.bank_account_number||'')}"></div>
+        <div class="vf-field"><label>IFSC Code</label><input type="text" id="bfIfsc" value="${MedUtils.escapeAttr(driverRow.bank_ifsc||'')}"></div>
+        <div class="vf-field"><label>UPI ID</label><input type="text" id="bfUpi" value="${MedUtils.escapeAttr(driverRow.upi_id||'')}" placeholder="name@bank"></div>
+        <div class="vf-field"><label>Settlement Preference</label><select id="bfPref">
+          <option value="bank" ${driverRow.settlement_preference!=='upi'?'selected':''}>Bank Transfer</option>
+          <option value="upi" ${driverRow.settlement_preference==='upi'?'selected':''}>UPI</option>
+        </select></div>
+      </div>
+      <button class="btn primary" onclick="saveBankAccount()">Save Bank Details</button>
+      <div style="margin-top:16px">${docRowHtml('kyc', { key:'bank_proof', label:'Bank Proof (Cancelled Cheque / Passbook)' })}</div>
+    </div>`;
+}
+
+async function saveBankAccount(){
+  const fields = {
+    bank_account_holder: document.getElementById('bfHolder').value.trim(),
+    bank_name: document.getElementById('bfBank').value.trim(),
+    bank_account_number: document.getElementById('bfAccount').value.trim(),
+    bank_ifsc: document.getElementById('bfIfsc').value.trim(),
+    upi_id: document.getElementById('bfUpi').value.trim(),
+    settlement_preference: document.getElementById('bfPref').value
+  };
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not save — run the one-time Bank setup SQL above first', 'warning'); return; }
+  driverRow = data;
+  MedUtils.toast('Bank details saved', 'success');
+  renderEarningsView();
+}
+
+function downloadStatement(){
+  const rows = [['Date','Trip ID','Patient','Fare','Your Share','Payment Status','Settlement Status']];
+  earningsBookings.forEach(b => {
+    rows.push([
+      new Date(b.completed_at || b.created_at).toLocaleString('en-IN'),
+      '#AB-' + String(b.id).slice(0,5).toUpperCase(),
+      b.patient_name || '—',
+      parseFloat(b.fare_final || b.fare_estimate || 0).toFixed(2),
+      driverShare(b).toFixed(2),
+      b.payment_status || 'pending',
+      b.settlement_status || 'pending'
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `earnings-statement-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- RATINGS & PERFORMANCE ----------
+function ratingStats(){
+  const rated = myBookings.filter(b => b.rating != null);
+  const avg = rated.length ? (rated.reduce((s,b) => s + Number(b.rating), 0) / rated.length) : null;
+  const breakdown = [5,4,3,2,1].map(n => ({ n, count: rated.filter(b => Number(b.rating) === n).length }));
+  return { avg, count: rated.length, breakdown };
+}
+
+function performanceStats(){
+  const completed = myBookings.filter(b => b.status === 'completed');
+  const cancelled = myBookings.filter(b => b.status === 'cancelled');
+  const totalHandled = completed.length + cancelled.length;
+  const completionRate = totalHandled ? Math.round(completed.length / totalHandled * 100) : null;
+  const cancellationRate = totalHandled ? Math.round(cancelled.length / totalHandled * 100) : null;
+  const responseTimes = completed.filter(b => b.accepted_at && b.created_at).map(b => (new Date(b.accepted_at) - new Date(b.created_at)) / 60000);
+  const avgResponse = responseTimes.length ? (responseTimes.reduce((a,b) => a+b, 0) / responseTimes.length) : null;
+  const pickupTimes = completed.filter(b => b.picked_up_at && b.accepted_at).map(b => (new Date(b.picked_up_at) - new Date(b.accepted_at)) / 60000);
+  const avgPickup = pickupTimes.length ? (pickupTimes.reduce((a,b) => a+b, 0) / pickupTimes.length) : null;
+  return { completedCount: completed.length, completionRate, cancellationRate, avgResponse, avgPickup };
+}
+
+function last7DaysTrend(){
+  const days = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d); }
+  return days.map(d => ({
+    label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+    count: myBookings.filter(b => b.status === 'completed' && b.completed_at && new Date(b.completed_at).toDateString() === d.toDateString()).length
+  }));
+}
+
+function renderRatingsView(){
+  const content = document.getElementById('ratingsContent');
+  if (!content || !driverRow) return;
+  const rs = ratingStats();
+  const ps = performanceStats();
+  const trend = last7DaysTrend();
+  const maxTrend = Math.max(1, ...trend.map(t => t.count));
+
+  const reviews = myBookings.filter(b => b.status === 'completed' && (b.rating != null || b.review_text)).slice(0, 10);
+  const reviewsHtml = reviews.length ? reviews.map(b => `
+    <div class="review-item">
+      <div style="display:flex;justify-content:space-between"><b style="font-size:12.5px">${MedUtils.escapeAttr(b.patient_name||'Patient')}</b><span style="color:#ffb300;font-size:12px">${'★'.repeat(Math.round(b.rating||0))}${'☆'.repeat(5-Math.round(b.rating||0))}</span></div>
+      ${b.review_text ? `<p style="font-size:12px;color:var(--text);margin-top:4px">${MedUtils.escapeAttr(b.review_text)}</p>` : ''}
+      <textarea id="reply_${b.id}" placeholder="Write a reply…">${MedUtils.escapeAttr(b.driver_response||'')}</textarea>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="action" onclick="saveReply('${b.id}')">Save Reply</button>
+        <button class="action" onclick="disputeRating('${b.id}')">Dispute this rating</button>
+      </div>
+    </div>`).join('') : '<p style="font-size:12px;color:var(--muted);padding:10px 0">No reviews yet.</p>';
+
+  content.innerHTML = `
+    <div class="req-card" id="ratingsSection">
+      <div class="head" style="padding:0 0 14px;border:0"><h3>⭐ Ratings & Reviews</h3></div>
+      <div class="rating-big">
+        <div class="num">${rs.avg != null ? rs.avg.toFixed(1) : '—'}</div>
+        <div>
+          <div style="color:#ffb300;font-size:16px">${rs.avg != null ? '★'.repeat(Math.round(rs.avg)) + '☆'.repeat(5-Math.round(rs.avg)) : '—'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">${rs.count} rated trip${rs.count===1?'':'s'}</div>
+        </div>
+      </div>
+      ${rs.breakdown.map(r => `<div class="rbar-row"><span>${r.n}★</span><div class="rbar-track"><div class="rbar-fill" style="width:${rs.count?Math.round(r.count/rs.count*100):0}%"></div></div><span>${r.count}</span></div>`).join('')}
+      <div class="head" style="padding:16px 0 6px;border:0"><h3 style="font-size:14px">Recent Reviews</h3></div>
+      ${reviewsHtml}
+    </div>
+    <div class="req-card" id="performanceSection">
+      <div class="head" style="padding:0 0 14px;border:0"><h3>📊 Performance</h3></div>
+      <div class="pf-stats">
+        <div class="pf-stat"><small>Completed Trips</small><strong>${ps.completedCount}</strong></div>
+        <div class="pf-stat"><small>Completion Rate</small><strong>${ps.completionRate!=null?ps.completionRate+'%':'—'}</strong></div>
+        <div class="pf-stat"><small>Cancellation Rate</small><strong>${ps.cancellationRate!=null?ps.cancellationRate+'%':'—'}</strong></div>
+        <div class="pf-stat"><small>Avg. Response Time</small><strong>${ps.avgResponse!=null?Math.round(ps.avgResponse)+' min':'—'}</strong></div>
+        <div class="pf-stat"><small>Avg. Pickup Time</small><strong>${ps.avgPickup!=null?Math.round(ps.avgPickup)+' min':'—'}</strong></div>
+        <div class="pf-stat"><small>Rating</small><strong>${rs.avg!=null?rs.avg.toFixed(1)+' ★':'—'}</strong></div>
+      </div>
+      <div class="head" style="padding:6px 0;border:0"><h3 style="font-size:13px">Completed Trips — Last 7 Days</h3></div>
+      <div class="trend-chart">${trend.map(t => `<div class="trend-bar" style="height:${Math.max(6, t.count/maxTrend*100)}%" title="${t.count}"></div>`).join('')}</div>
+      <div class="trend-labels">${trend.map(t => `<span>${t.label}</span>`).join('')}</div>
+      <p style="font-size:11px;color:var(--muted);margin-top:14px">Online hours, distance travelled and earnings/hour aren't shown yet — they need session/GPS-log tracking that isn't set up in the database. Ask if you'd like that added.</p>
+    </div>`;
+}
+
+async function saveReply(id){
+  const text = document.getElementById(`reply_${id}`).value.trim();
+  const { data, error } = await supabaseClient.from('ambulance_bookings').update({ driver_response: text }).eq('id', id).eq('driver_id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not save reply — needs a driver_response column on ambulance_bookings', 'warning'); return; }
+  bookingsById[id] = data;
+  MedUtils.toast('Reply saved', 'success');
+}
+
+function disputeRating(id){
+  const reason = prompt('Briefly describe why you\'re disputing this rating:', '');
+  if (!reason) return;
+  MedUtils.toast('Your dispute has been noted — support will review it', 'success');
+}
+
+// ---------- NOTIFICATIONS ----------
+let storedNotifications = [];
+let notifTableExists = null;
+
+function getNotifPrefs(){
+  try { return JSON.parse(localStorage.getItem('ambulancePartnerNotifPrefs') || '{}'); } catch(e) { return {}; }
+}
+function setNotifPrefs(p){
+  try { localStorage.setItem('ambulancePartnerNotifPrefs', JSON.stringify(p)); } catch(e) {}
+}
+
+function derivedNotifications(){
+  const items = [];
+  if (openBookings.length) items.push({ icon: '🚨', title: `${openBookings.length} new request${openBookings.length>1?'s':''} waiting` });
+  const active = myBookings.find(b => ['accepted','arriving','picked_up'].includes(b.status));
+  if (active) items.push({ icon: '📍', title: `Active trip with ${active.patient_name||'a patient'} — ${statusMeta(active.status).label}` });
+  if (driverRow && !driverRow.is_verified) items.push({ icon: '📄', title: 'Your KYC is pending verification' });
+  expiringVehicleDocs().forEach(d => items.push({ icon: '🚑', title: `${d.label} ${d.days<0?'has expired':`expires in ${d.days} day${d.days===1?'':'s'}`}` }));
+  return items;
+}
+
+async function loadNotifications(){
+  const { data, error } = await supabaseClient.from('ambulance_notifications')
+    .select('*').eq('driver_id', driverRow.id).order('created_at', { ascending: false }).limit(50);
+  notifTableExists = !error;
+  storedNotifications = error ? [] : (data || []);
+  renderNotifications();
+}
+
+async function markNotifRead(id){
+  if (!notifTableExists) return;
+  await supabaseClient.from('ambulance_notifications').update({ is_read: true }).eq('id', id);
+  const n = storedNotifications.find(x => x.id === id);
+  if (n) n.is_read = true;
+  renderNotifications();
+}
+
+function renderNotifications(){
+  const content = document.getElementById('notifContent');
+  if (!content || !driverRow) return;
+  const prefs = getNotifPrefs();
+  const derived = derivedNotifications();
+  const derivedHtml = derived.length ? derived.map(n => `
+    <div class="notif-item unread"><div class="notif-ico">${n.icon}</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title)}</b><br><small>Live</small></div></div>
+  `).join('') : '<p style="font-size:12px;color:var(--muted);padding:8px 0">Nothing needs your attention right now.</p>';
+  const storedHtml = storedNotifications.length ? storedNotifications.map(n => `
+    <div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')" style="cursor:pointer">
+      <div class="notif-ico">🔔</div>
+      <div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title||n.type||'Update')}</b>${n.message?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(n.message)}</div>`:''}<small>${n.created_at ? new Date(n.created_at).toLocaleString('en-IN') : ''}</small></div>
+    </div>`).join('') : '';
+
+  content.innerHTML = `
+    <div class="req-card">
+      <div class="head" style="padding:0 0 8px;border:0"><h3>Needs Your Attention</h3></div>
+      ${derivedHtml}
+    </div>
+    ${notifTableExists ? `<div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>All Notifications</h3></div>${storedHtml || '<p style="font-size:12px;color:var(--muted);padding:8px 0">No notifications yet.</p>'}</div>` : `
+    <details class="setup-note">
+      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for a full notification history (tap to expand)</summary>
+      <p style="margin-top:8px">The "Needs Your Attention" items above are computed live from your data, no setup needed. To also keep a history of past notifications (new booking, accepted, settlement credited, announcements etc.), create this table:</p>
+      <pre>CREATE TABLE IF NOT EXISTS ambulance_notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  driver_id uuid REFERENCES ambulance_drivers(id),
+  type text,
+  title text,
+  message text,
+  is_read boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);</pre>
+    </details>`}
+    <div class="req-card">
+      <div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>
+      <div class="toggle-row"><span>Sound on new request</span><label class="switch"><input type="checkbox" id="prefSound" ${prefs.sound!==false?'checked':''} onchange="saveNotifPrefs()"><span class="slider"></span></label></div>
+      <div class="toggle-row"><span>Vibration on new request</span><label class="switch"><input type="checkbox" id="prefVibrate" ${prefs.vibrate!==false?'checked':''} onchange="saveNotifPrefs()"><span class="slider"></span></label></div>
+    </div>`;
+}
+
+function saveNotifPrefs(soundId, vibrateId){
+  soundId = soundId || 'prefSound'; vibrateId = vibrateId || 'prefVibrate';
+  setNotifPrefs({ sound: document.getElementById(soundId).checked, vibrate: document.getElementById(vibrateId).checked });
+  MedUtils.toast('Preferences saved', 'success');
+}
+
+// ---------- PROFILE & SETTINGS ----------
+const PROFILE_SETUP_SQL = `ALTER TABLE ambulance_drivers
+  ADD COLUMN IF NOT EXISTS address text,
+  ADD COLUMN IF NOT EXISTS language text DEFAULT 'bn',
+  ADD COLUMN IF NOT EXISTS emergency_contact_name text,
+  ADD COLUMN IF NOT EXISTS emergency_contact_phone text,
+  ADD COLUMN IF NOT EXISTS photo_url text;`;
+
+function renderProfileView(){
+  const content = document.getElementById('profileContent');
+  if (!content || !driverRow) return;
+  const prefs = getNotifPrefs();
+  const initials = (driverRow.driver_name || 'D').trim().charAt(0).toUpperCase();
+  content.innerHTML = `
+    <div class="req-card">
+      <div class="profile-photo-row">
+        ${driverRow.photo_url ? `<img class="profile-photo" src="${driverRow.photo_url}">` : `<div class="profile-photo">${initials}</div>`}
+        <label class="action" style="cursor:pointer">Change Photo<input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)"></label>
+      </div>
+      <div class="vf-grid">
+        <div class="vf-field"><label>Full Name</label><input type="text" id="pfName" value="${MedUtils.escapeAttr(driverRow.driver_name||'')}"></div>
+        <div class="vf-field"><label>Phone</label><input type="text" id="pfPhone" value="${MedUtils.escapeAttr(driverRow.phone||'')}"></div>
+        <div class="vf-field"><label>Email</label><input type="text" value="${MedUtils.escapeAttr(currentUser?.email||'')}" disabled style="background:#f4f6f5;color:var(--muted)"></div>
+        <div class="vf-field"><label>Language</label><select id="pfLang">
+          <option value="bn" ${driverRow.language!=='en'?'selected':''}>বাংলা</option>
+          <option value="en" ${driverRow.language==='en'?'selected':''}>English</option>
+        </select></div>
+        <div class="vf-field" style="grid-column:1/-1"><label>Address</label><input type="text" id="pfAddress" value="${MedUtils.escapeAttr(driverRow.address||'')}"></div>
+        <div class="vf-field"><label>Emergency Contact Name</label><input type="text" id="pfEcName" value="${MedUtils.escapeAttr(driverRow.emergency_contact_name||'')}"></div>
+        <div class="vf-field"><label>Emergency Contact Phone</label><input type="text" id="pfEcPhone" value="${MedUtils.escapeAttr(driverRow.emergency_contact_phone||'')}"></div>
+      </div>
+      <button class="btn primary" onclick="saveProfile()">Save Profile</button>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 4px;border:0"><h3>Availability</h3></div>
+      <div class="toggle-row"><span>Available for new trips</span><label class="switch"><input type="checkbox" ${driverRow.is_online?'checked':''} onchange="toggleAvailability()"><span class="slider"></span></label></div>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>
+      <div class="toggle-row"><span>Sound on new request</span><label class="switch"><input type="checkbox" id="pfPrefSound" ${prefs.sound!==false?'checked':''} onchange="saveNotifPrefs('pfPrefSound','pfPrefVibrate')"><span class="slider"></span></label></div>
+      <div class="toggle-row"><span>Vibration on new request</span><label class="switch"><input type="checkbox" id="pfPrefVibrate" ${prefs.vibrate!==false?'checked':''} onchange="saveNotifPrefs('pfPrefSound','pfPrefVibrate')"><span class="slider"></span></label></div>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 4px;border:0"><h3>Location Permission</h3></div>
+      <p id="pfLocStatus" style="font-size:12px;color:var(--muted)">Checking…</p>
+      <button class="action" onclick="checkLocationPermission()">Refresh Status</button>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 4px;border:0"><h3>Account</h3></div>
+      <div class="vf-grid">
+        <div class="vf-field"><label>New Password</label><input type="password" id="pfNewPass" placeholder="min 6 characters"></div>
+      </div>
+      <button class="btn light" onclick="changePassword()">Change Password</button>
+      <button class="btn light" style="margin-top:10px;color:var(--red)" onclick="doLogout()">🚪 Logout</button>
+    </div>
+    <details class="setup-note">
+      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for extended profile fields (tap to expand)</summary>
+      <p style="margin-top:8px">Address, language, emergency contact and photo need these columns:</p>
+      <pre>${PROFILE_SETUP_SQL}</pre>
+    </details>`;
+  checkLocationPermission();
+}
+
+async function uploadProfilePhoto(inputEl){
+  const file = inputEl.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop();
+  const path = `${driverRow.id}/photo-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabaseClient.storage.from('ambulance-kyc').upload(path, file, { upsert: true });
+  if (upErr) { MedUtils.toast('Upload failed — create the "ambulance-kyc" storage bucket first', 'warning'); return; }
+  const { data: urlData } = supabaseClient.storage.from('ambulance-kyc').getPublicUrl(path);
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ photo_url: urlData.publicUrl }).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Uploaded, but could not save — run the Profile setup SQL below', 'warning'); return; }
+  driverRow = data;
+  MedUtils.toast('Photo updated', 'success');
+  renderProfileView();
+  renderDriverHeader();
+}
+
+async function saveProfile(){
+  const fields = {
+    driver_name: document.getElementById('pfName').value.trim(),
+    phone: document.getElementById('pfPhone').value.trim(),
+    language: document.getElementById('pfLang').value,
+    address: document.getElementById('pfAddress').value.trim(),
+    emergency_contact_name: document.getElementById('pfEcName').value.trim(),
+    emergency_contact_phone: document.getElementById('pfEcPhone').value.trim()
+  };
+  const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not save — run the Profile setup SQL below first', 'warning'); return; }
+  driverRow = data;
+  MedUtils.toast('Profile saved', 'success');
+  renderDriverHeader();
+}
+
+async function checkLocationPermission(){
+  const el = document.getElementById('pfLocStatus');
+  if (!el) return;
+  if (!navigator.permissions || !navigator.permissions.query) { el.textContent = 'Permission status not supported on this browser.'; return; }
+  try {
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    const labelMap = { granted: '✅ Allowed', denied: '❌ Blocked — enable it in your browser/app settings', prompt: "⚠️ Not asked yet — you'll be prompted when you turn on Location Sharing" };
+    el.textContent = labelMap[status.state] || status.state;
+  } catch(e) { el.textContent = 'Could not check permission status.'; }
+}
+
+async function changePassword(){
+  const pass = document.getElementById('pfNewPass').value;
+  if (!pass || pass.length < 6) { MedUtils.toast('Password must be at least 6 characters', 'warning'); return; }
+  const { error } = await supabaseClient.auth.updateUser({ password: pass });
+  if (error) { MedUtils.handleError(error, 'Change password'); return; }
+  document.getElementById('pfNewPass').value = '';
+  MedUtils.toast('Password updated', 'success');
+}
+
+// ---------- EMERGENCY / SUPPORT ----------
+const SUPPORT_PHONE = '+919593625498';
+let supportTickets = [];
+let ticketsTableExists = null;
+const FAQS = [
+  { q: 'How do I accept a new ambulance request?', a: 'Go to "New Requests" from the sidebar, review the patient details, and tap "Accept Trip" before the request expires.' },
+  { q: 'How do I get verified?', a: 'Upload your Aadhaar, PAN, Driving Licence, Photo and Address Proof from "Driver KYC" — verification is completed by the MediFinder team.' },
+  { q: 'When do I get paid?', a: 'Check "Earnings & Bank" for your settlement status per trip and set up your bank/UPI details there.' },
+  { q: 'What if a patient is not at the pickup location?', a: 'Call the patient/attendant using the number on the trip, and raise a Patient Issue ticket below if it stays unresolved.' }
+];
+
+function renderSupportView(){
+  const content = document.getElementById('supportContent');
+  if (!content) return;
+  content.innerHTML = `
+    <button class="sos-btn" onclick="triggerSOS()">🆘 EMERGENCY SOS<small>Tap to call MediFinder support immediately</small></button>
+    <div class="support-links">
+      <a href="tel:${SUPPORT_PHONE}">📞 Call Support</a>
+      <a href="mailto:support@medifinder.in">✉️ Email Support</a>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 10px;border:0"><h3>Raise a Ticket</h3></div>
+      <div class="vf-grid">
+        <div class="vf-field" style="grid-column:1/-1"><label>Category</label><select id="tkCategory">
+          <option value="trip">Trip-related Complaint</option>
+          <option value="payment">Payment Issue</option>
+          <option value="patient">Patient Issue</option>
+          <option value="vehicle">Vehicle Issue</option>
+          <option value="account">Account / KYC Issue</option>
+          <option value="other">Other</option>
+        </select></div>
+      </div>
+      <textarea id="tkDescription" placeholder="Describe the issue…" style="width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;min-height:80px;margin-bottom:12px"></textarea>
+      <button class="btn primary" onclick="submitTicket()">Submit Ticket</button>
+      <div id="ticketsList" style="margin-top:16px"></div>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 6px;border:0"><h3>FAQ</h3></div>
+      ${FAQS.map(f => `<details class="faq-item"><summary>${MedUtils.escapeAttr(f.q)}</summary><p>${MedUtils.escapeAttr(f.a)}</p></details>`).join('')}
+    </div>`;
+}
+
+function triggerSOS(){
+  if (navigator.vibrate) navigator.vibrate([300,100,300,100,300]);
+  window.location.href = `tel:${SUPPORT_PHONE}`;
+}
+
+async function loadTickets(){
+  const { data, error } = await supabaseClient.from('ambulance_support_tickets')
+    .select('*').eq('driver_id', driverRow.id).order('created_at', { ascending: false }).limit(30);
+  ticketsTableExists = !error;
+  supportTickets = error ? [] : (data || []);
+  renderTicketsList();
+}
+
+function renderTicketsList(){
+  const el = document.getElementById('ticketsList');
+  if (!el) return;
+  if (!ticketsTableExists) {
+    el.innerHTML = `<details class="setup-note">
+      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for support tickets (tap to expand)</summary>
+      <p style="margin-top:8px">To track ticket numbers and status, create this table. Until then, "Submit Ticket" opens your email app instead.</p>
+      <pre>CREATE TABLE IF NOT EXISTS ambulance_support_tickets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  driver_id uuid REFERENCES ambulance_drivers(id),
+  category text,
+  description text,
+  status text DEFAULT 'open',
+  created_at timestamptz DEFAULT now()
+);</pre>
+    </details>`;
+    return;
+  }
+  el.innerHTML = supportTickets.length ? `<div class="head" style="padding:0 0 8px;border:0"><h3 style="font-size:13px">Your Tickets</h3></div>` + supportTickets.map(t => `
+    <div class="ticket-item"><b>#${String(t.id).slice(0,6).toUpperCase()}</b> — ${MedUtils.escapeAttr(t.category)} <span class="status ${t.status==='resolved'?'accepted':'new'}" style="margin-left:6px">${MedUtils.escapeAttr(t.status||'open')}</span><div style="color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(t.description||'')}</div></div>
+  `).join('') : '';
+}
+
+async function submitTicket(){
+  const category = document.getElementById('tkCategory').value;
+  const description = document.getElementById('tkDescription').value.trim();
+  if (!description) { MedUtils.toast('Please describe the issue', 'warning'); return; }
+  if (!ticketsTableExists) {
+    window.location.href = `mailto:support@medifinder.in?subject=${encodeURIComponent('Driver Support: ' + category)}&body=${encodeURIComponent(description)}`;
+    return;
+  }
+  const { data, error } = await supabaseClient.from('ambulance_support_tickets')
+    .insert([{ driver_id: driverRow.id, category, description, status: 'open' }]).select().maybeSingle();
+  if (error) { MedUtils.toast('Could not submit — try again', 'warning'); return; }
+  supportTickets.unshift(data);
+  document.getElementById('tkDescription').value = '';
+  MedUtils.toast(`Ticket #${String(data.id).slice(0,6).toUpperCase()} submitted`, 'success');
+  renderTicketsList();
+}
+
+// ---------- REWARDS & INCENTIVES ----------
+const MONTHLY_TARGET = 50; // example milestone — adjust to your real program
+
+function renderRewardsView(){
+  const content = document.getElementById('rewardsContent');
+  if (!content) return;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const completedThisMonth = myBookings.filter(b => b.status === 'completed' && b.completed_at && new Date(b.completed_at) >= monthStart).length;
+  const pct = Math.min(100, Math.round(completedThisMonth / MONTHLY_TARGET * 100));
+  content.innerHTML = `
+    <div class="reward-card">
+      <div class="head" style="padding:0 0 8px;border:0"><h3>🏆 Monthly Trip Milestone</h3></div>
+      <p style="font-size:12px;color:var(--muted)">${completedThisMonth} of ${MONTHLY_TARGET} trips completed this month</p>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <p style="font-size:11px;color:var(--muted)">${pct}% towards this month's milestone</p>
+    </div>
+    <div class="req-card">
+      <div class="head" style="padding:0 0 8px;border:0"><h3>Reward Programs</h3></div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7">Bonuses, peak-hour incentives, emergency-response bonuses and referral rewards aren't configured yet — they need a rewards/business-rules table on the backend so real payout amounts can be shown here instead of placeholders. Tell us the actual reward structure (e.g. ₹ per milestone, peak-hour multiplier) and we'll wire it up.</p>
+    </div>`;
+}
+</script>
+</body>
+</html>

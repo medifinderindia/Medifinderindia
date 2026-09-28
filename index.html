@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MediFinder India">
+    <meta name="description" content="MediFinder India - Medicine in 20 Minutes">
+    <title>MediFinder India</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ✅ FIX: এই দুইটা লাইন আগে মিসিং ছিল, যার কারণে supabase-config.js এর
+         supabase.createClient(...) কল ReferenceError দিয়ে ক্র্যাশ করত এবং
+         window.supabaseClient কখনো সেট হতো না। ফলে splash screen সবসময়
+         session না পেয়ে Login.html এ পাঠিয়ে দিত, যদিও ইউজার আগে থেকেই লগইন ছিল। -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+
+    <!-- Prevent any white/blank flash before CSS paints -->
+    <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
+
+    <!-- ==========================================
+         Splash "once per session" gate
+         Runs synchronously before anything paints. If this tab has
+         already shown the splash (and not logged out since), we hide
+         the splash instantly — no flash — and the main script below
+         will do a silent redirect instead of the full animation.
+         Mobile browsers that reload index.html on app-resume will hit
+         this path instead of re-playing the splash every time.
+         ========================================== -->
+    <script>
+        (function () {
+            try {
+                if (sessionStorage.getItem('mf_splash_shown')) {
+                    document.documentElement.classList.add('mf-fast');
+                }
+            } catch (e) {
+                // sessionStorage unavailable — full splash will just play normally.
+            }
+        })();
+    </script>
+    <style>/* ==========================================
+   MediFinder Splash Screen
+   Premium animated loading experience
+   ========================================== */
+
+:root {
+    --mf-red: #e02020;
+    --mf-red-dark: #b81717;
+    --mf-red-soft: rgba(224, 32, 32, 0.10);
+    --mf-text: #2f3542;
+    --mf-muted: #8a8f98;
+    --mf-gold: #c9a24b;
+    --mf-gold-soft: rgba(201, 162, 75, 0.14);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    background: #ffffff;
+}
+
+body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow: hidden;
+}
+
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+/* Fast path: this tab already showed the splash this session — hide it instantly, no flash */
+html.mf-fast .splash-screen {
+    display: none !important;
+}
+
+/* Soft ambient glow behind the logo — a single premium bloom on entrance,
+   then it settles and holds steady (no endless pulsing). */
+.splash-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(520px, 140vw);
+    height: min(520px, 140vw);
+    transform: translate(-50%, -50%) scale(0.85);
+    background: radial-gradient(circle, var(--mf-red-soft) 0%, rgba(224, 32, 32, 0) 70%);
+    opacity: 0;
+    animation: glowBloom 1.6s ease-out 0.1s both;
+    pointer-events: none;
+}
+
+@keyframes glowBloom {
+    0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.85); }
+    55%  { opacity: 0.85; transform: translate(-50%, -50%) scale(1.02); }
+    100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Extremely subtle ambient plus-symbols — decorative only, contained inside
+   the splash screen so they vanish automatically with the exit fade. */
+.splash-particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.mf-particle {
+    position: absolute;
+    color: var(--mf-red);
+    font-weight: 700;
+    opacity: 0.07;
+    font-size: 1.1rem;
+    line-height: 1;
+    animation: particleFloat 13s ease-in-out infinite;
+}
+
+.mf-particle:nth-child(1) { top: 12%; left: 14%; font-size: 0.9rem;  animation-duration: 13s;   animation-delay: 0s; }
+.mf-particle:nth-child(2) { top: 22%; left: 82%; font-size: 1.3rem;  animation-duration: 15s;   animation-delay: 1.2s; }
+.mf-particle:nth-child(3) { top: 68%; left: 8%;  font-size: 1rem;    animation-duration: 11s;   animation-delay: 2.4s; }
+.mf-particle:nth-child(4) { top: 78%; left: 88%; font-size: 0.85rem; animation-duration: 14s;   animation-delay: 0.6s; }
+.mf-particle:nth-child(5) { top: 40%; left: 4%;  font-size: 1.1rem;  animation-duration: 16s;   animation-delay: 3s; }
+.mf-particle:nth-child(6) { top: 85%; left: 45%; font-size: 0.95rem; animation-duration: 12.5s; animation-delay: 1.8s; }
+
+@keyframes particleFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-16px) rotate(8deg); }
+}
+
+.splash-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 360px;
+    z-index: 1;
+}
+
+/* Logo */
+.logo-ring {
+    width: clamp(92px, 26vw, 128px);
+    height: clamp(92px, 26vw, 128px);
+    border-radius: 50%;
+    padding: 6px;
+    background: linear-gradient(145deg, var(--mf-red) 0%, var(--mf-red-dark) 55%, var(--mf-gold) 100%);
+    box-shadow: 0 10px 30px rgba(224, 32, 32, 0.16), 0 2px 8px rgba(201, 162, 75, 0.20);
+    animation: fadeZoomIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    margin-bottom: 22px;
+    position: relative;
+    z-index: 1;
+}
+
+.logo-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(224, 32, 32, 0.18);
+}
+
+.splash-logo {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    opacity: 0;
+    animation: logoReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+@keyframes fadeZoomIn {
+    from { opacity: 0; transform: scale(0.55); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* Logo starts soft and slightly small, then smoothly sharpens into place */
+@keyframes logoReveal {
+    0%   { opacity: 0; transform: scale(0.8); filter: blur(6px); }
+    60%  { opacity: 1; filter: blur(0px); }
+    100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+}
+
+/* Title */
+.splash-title {
+    margin: 0;
+    font-size: clamp(1.4rem, 5vw, 1.8rem);
+    font-weight: 800;
+    color: var(--mf-text);
+    letter-spacing: -0.02em;
+    animation: fadeUp 0.6s ease-out 0.5s both;
+}
+
+.splash-title span {
+    color: var(--mf-red);
+}
+
+.splash-title .mf-india {
+    color: var(--mf-gold);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.splash-accent-bar {
+    width: 46px;
+    height: 3px;
+    margin: 10px auto 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ff9933 0%, #ffffff 50%, #138808 100%);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
+    animation: fadeUp 0.6s ease-out 0.62s both;
+}
+
+.splash-tagline {
+    margin: 10px 0 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mf-muted);
+    animation: fadeUp 0.6s ease-out 0.72s both;
+}
+
+.splash-welcome {
+    margin: 0 0 24px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--mf-text);
+    opacity: 0.82;
+    animation: fadeUp 0.6s ease-out 0.82s both;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Icon stage */
+.icon-stage {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.splash-icon {
+    font-size: 1.9rem;
+    line-height: 1;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-block;
+}
+
+.splash-icon.icon-hide {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+}
+
+/* Loading bar */
+.loading-bar-track {
+    width: min(220px, 60vw);
+    height: 7px;
+    background: #f1f1f4;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+
+.loading-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--mf-red-dark), var(--mf-red) 60%, var(--mf-gold));
+    transition: width 2.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.loading-bar-fill.fill-active {
+    width: 100%;
+}
+
+.loading-text {
+    margin: 14px 0 0;
+    font-size: 0.78rem;
+    color: var(--mf-muted);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.splash-footer {
+    position: absolute;
+    bottom: 28px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    font-size: 0.72rem;
+    color: #c7cad0;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    animation: fadeUp 0.6s ease-out 0.9s both;
+}
+
+/* Exit transition: fades the whole splash out and gently settles the
+   content with a slight scale-down before navigation. */
+.splash-screen.splash-exit {
+    animation: splashFadeOut 0.32s ease forwards;
+}
+
+.splash-screen.splash-exit .splash-content {
+    animation: contentSettle 0.32s ease forwards;
+}
+
+@keyframes splashFadeOut {
+    to { opacity: 0; }
+}
+
+@keyframes contentSettle {
+    to { opacity: 0; transform: scale(0.97); }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .logo-ring,
+    .splash-glow,
+    .splash-logo,
+    .splash-icon,
+    .mf-particle,
+    .splash-content {
+        animation: none !important;
+    }
+    .splash-glow { opacity: 0.5; }
+    .splash-logo { opacity: 1; filter: none; transform: none; }
+    .loading-bar-fill {
+        transition: width 2.9s linear;
+        animation: none !important;
+        background: var(--mf-red);
+    }
+}
+
+@media (max-width: 360px) {
+    .splash-title { font-size: 1.25rem; }
+    .splash-tagline { font-size: 0.78rem; }
+}</style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="supabase-constants.js"></script>
+</head>
+<body>
+
+    <div class="splash-screen" id="splash-screen">
+        <div class="splash-glow"></div>
+        <div class="splash-particles" aria-hidden="true">
+            <span class="mf-particle">+</span>
+            <span class="mf-particle">+</span>
+            <span class="mf-particle">+</span>
+            <span class="mf-particle">+</span>
+            <span class="mf-particle">+</span>
+            <span class="mf-particle">+</span>
+        </div>
+
+        <div class="splash-content">
+            <div class="logo-ring">
+                <div class="logo-circle">
+                    <img src="favicon.png" alt="MediFinder India" class="splash-logo" id="splash-logo">
+                </div>
+            </div>
+
+            <h1 class="splash-title">Medi<span>Finder</span> <span class="mf-india">India</span></h1>
+            <div class="splash-accent-bar"></div>
+            <p class="splash-tagline">Medicine in 20 Minutes</p>
+            <p class="splash-welcome" id="splash-welcome">Your medicines, just a few taps away.</p>
+
+            <div class="icon-stage" aria-hidden="true">
+                <span class="splash-icon" id="splash-icon">💊</span>
+            </div>
+
+            <div class="loading-bar-track">
+                <div class="loading-bar-fill" id="loading-bar-fill"></div>
+            </div>
+
+            <p class="loading-text" id="loading-text">Checking your session…</p>
+        </div>
+
+        <p class="splash-footer">Healthcare, delivered with care.</p>
+    </div>
+<script>// ==========================================
+// MediFinder Splash Screen Logic
+// - Cycles medical icons
+// - Plays the loading bar animation
+// - Checks Supabase session and redirects to the
+//   correct destination WITHOUT ever flashing the login page
+// ==========================================
+(function () {
+    "use strict";
+
+    // Splash is allowed to show for at most this long, no matter what.
+    var MAX_DISPLAY_MS = 4200;
+    // Splash won't disappear before this — matches the loading bar's fill
+    // duration (see splash.css) so it always finishes visually before redirect.
+    var MIN_DISPLAY_MS = 3000;
+
+    var startedAt = Date.now();
+    var redirected = false;
+
+    // A slow, meaningful journey instead of a fast random icon shuffle:
+    // Medicine -> Location -> Pharmacy -> Delivery -> Customer.
+    var journey = ["💊", "📍", "🏪", "🚴", "🏠"];
+    var journeyIndex = 0;
+    var journeyTimer = null;
+
+    function startIconCycle() {
+        var iconEl = document.getElementById("splash-icon");
+        if (!iconEl) return;
+        journeyTimer = setInterval(function () {
+            iconEl.classList.add("icon-hide");
+            setTimeout(function () {
+                journeyIndex = (journeyIndex + 1) % journey.length;
+                iconEl.textContent = journey[journeyIndex];
+                iconEl.classList.remove("icon-hide");
+            }, 250);
+        }, 850);
+    }
+
+    function stopIconCycle() {
+        if (journeyTimer) {
+            clearInterval(journeyTimer);
+            journeyTimer = null;
+        }
+    }
+
+    // Cosmetic status line — purely visual reassurance while the real
+    // session check (below) runs; never claims a step that didn't happen.
+    var statusMessages = [
+        "Checking your session…",
+        "Finding nearby pharmacies…",
+        "Preparing your medicines…",
+        "Securing your experience…",
+        "Almost ready…"
+    ];
+    var statusIndex = 0;
+    var statusTimer = null;
+
+    function startStatusCycle() {
+        statusTimer = setInterval(function () {
+            statusIndex = (statusIndex + 1) % statusMessages.length;
+            setLoadingText(statusMessages[statusIndex]);
+        }, 900);
+    }
+
+    function stopStatusCycle() {
+        if (statusTimer) {
+            clearInterval(statusTimer);
+            statusTimer = null;
+        }
+    }
+
+    // Sets the welcome line using the session data already fetched by
+    // determineDestination() below — no extra Supabase query, no delay.
+    function updateWelcomeMessage(user) {
+        var el = document.getElementById("splash-welcome");
+        if (!el) return;
+        if (user) {
+            var meta = user.user_metadata || {};
+            var name = meta.full_name || meta.name || meta.first_name || null;
+            el.textContent = name ? ("Welcome back, " + name) : "Welcome back";
+        } else {
+            el.textContent = "Your medicines, just a few taps away.";
+        }
+    }
+
+    function startLoadingBar() {
+        var fill = document.getElementById("loading-bar-fill");
+        if (!fill) return;
+        // Small delay so the CSS width transition reliably triggers
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                fill.classList.add("fill-active");
+            });
+        });
+    }
+
+    function setLoadingText(text) {
+        var el = document.getElementById("loading-text");
+        if (el) el.textContent = text;
+    }
+
+    function waitFor(conditionFn, timeoutMs, intervalMs) {
+        return new Promise(function (resolve) {
+            var waited = 0;
+            (function poll() {
+                if (conditionFn() || waited >= timeoutMs) {
+                    resolve();
+                    return;
+                }
+                waited += intervalMs;
+                setTimeout(poll, intervalMs);
+            })();
+        });
+    }
+
+    // Figures out where the user should land: home.html (not logged in),
+    // or the correct role home page (logged in). Reuses the exact client
+    // and role logic already shipped in supabase-config.js when available,
+    // so there is a single source of truth for role → destination mapping.
+    async function determineDestination() {
+        try {
+            await waitFor(function () { return !!window.supabaseClient; }, 1200, 50);
+
+            var client = window.supabaseClient;
+            if (!client || !client.auth) {
+                updateWelcomeMessage(null);
+                return "home.html";
+            }
+
+            var sessionResult = await client.auth.getSession();
+            var session = sessionResult && sessionResult.data ? sessionResult.data.session : null;
+
+            if (!session || !session.user) {
+                updateWelcomeMessage(null);
+                return "home.html";
+            }
+
+            updateWelcomeMessage(session.user);
+
+            if (typeof window.getRedirectPathForUser === "function") {
+                return await window.getRedirectPathForUser(session.user);
+            }
+
+            // Fallback mapping if supabase-config.js hasn't exposed the helper
+            var user = session.user;
+            if (user.email === "medifinderindia@gmail.com") {
+                return "adminuser.html";
+            }
+            var role = (user.user_metadata && user.user_metadata.role) ||
+                localStorage.getItem("selected_role") || "user";
+            if (role === "merchant") return "marchent.html";
+            if (role === "delivery") return "rider.html";
+            return "user.html";
+        } catch (err) {
+            console.error("Splash session check failed:", err);
+            updateWelcomeMessage(null);
+            return "home.html";
+        }
+    }
+
+    // Safety valve: no matter what triggers repeated loads of this page
+    // (stale cached copy, an old service worker, a PWA shell re-launching
+    // at its start_url, etc.), this makes sure we NEVER auto-redirect more
+    // than a few times in a short window. If that happens, we stop and show
+    // a manual "Continue" link instead of silently bouncing forever.
+    function tooManyRecentRedirects() {
+        try {
+            var raw = sessionStorage.getItem("mf_redirect_log");
+            var log = raw ? JSON.parse(raw) : [];
+            var now = Date.now();
+            log = log.filter(function (t) { return now - t < 10000; }); // last 10s
+            log.push(now);
+            sessionStorage.setItem("mf_redirect_log", JSON.stringify(log));
+            return log.length > 3;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function showManualContinue(path) {
+        console.warn("MediFinder splash: too many redirects in a short window — stopping auto-redirect. If you keep seeing this, clear your browser cache / uninstall+reinstall the PWA, or check for a stale service worker.");
+        stopIconCycle();
+        stopStatusCycle();
+        document.documentElement.classList.remove("mf-fast");
+        var splash = document.getElementById("splash-screen");
+        if (splash) splash.classList.remove("splash-exit");
+        setLoadingText("Taking longer than usual…");
+        var track = document.querySelector(".loading-bar-track");
+        if (track) {
+            var link = document.createElement("a");
+            link.href = path;
+            link.textContent = "Tap to continue";
+            link.style.cssText = "display:inline-block;margin-top:16px;color:#e02020;font-weight:700;font-size:0.85rem;text-decoration:underline;";
+            track.parentNode.insertBefore(link, track.nextSibling);
+        }
+    }
+
+    function safeRedirect(path) {
+        if (tooManyRecentRedirects()) {
+            showManualContinue(path);
+            return;
+        }
+        window.location.replace(path);
+    }
+
+    function goTo(path) {
+        if (redirected) return;
+        redirected = true;
+        stopIconCycle();
+        stopStatusCycle();
+
+        var splash = document.getElementById("splash-screen");
+        if (splash) splash.classList.add("splash-exit");
+
+        setTimeout(function () {
+            safeRedirect(path);
+        }, 320);
+    }
+
+    async function init() {
+        // Fast path: this tab already played the splash this session (and hasn't
+        // logged out since — see the SIGNED_OUT handler in supabase-config.js,
+        // which clears this flag). Skip the animation entirely and just redirect
+        // silently. The .mf-fast class (set synchronously in <head>) already
+        // hid the splash markup, so there's no visual flash either.
+        var alreadyShown = false;
+        try {
+            alreadyShown = !!sessionStorage.getItem("mf_splash_shown");
+        } catch (e) {
+            alreadyShown = false;
+        }
+
+        if (alreadyShown) {
+            var quickDestination = await determineDestination();
+            safeRedirect(quickDestination);
+            return;
+        }
+
+        try {
+            sessionStorage.setItem("mf_splash_shown", "1");
+        } catch (e) {
+            // sessionStorage unavailable — splash will just play every time, harmless.
+        }
+
+        startIconCycle();
+        startStatusCycle();
+        startLoadingBar();
+
+        // Hard cap: never let the splash (or the redirect decision) exceed MAX_DISPLAY_MS
+        var hardCap = new Promise(function (resolve) {
+            setTimeout(function () { resolve("home.html"); }, MAX_DISPLAY_MS - 200);
+        });
+
+        var destination = await Promise.race([determineDestination(), hardCap]);
+
+        stopStatusCycle();
+        setLoadingText("Almost ready…");
+
+        var elapsed = Date.now() - startedAt;
+        var remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+
+        setTimeout(function () {
+            goTo(destination);
+        }, remaining);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();</script>
+    <!-- Existing production auth logic (session client, role redirect helpers). Not modified in behavior. -->
+    <script src="supabase-config.js?v=13"></script>
+</body>
+</html>
