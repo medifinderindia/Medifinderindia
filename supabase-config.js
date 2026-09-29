@@ -157,7 +157,16 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         // নতুন sign-in হলেই শুধু role sync/OAuth upsert চালাও — একটা persisted
         // session রিস্টোর হওয়া (INITIAL_SESSION/TOKEN_REFRESHED) মানে নতুন কিছু
         // করার দরকার নেই, শুধু সঠিক পেজে পাঠিয়ে দিলেই যথেষ্ট।
-        if (event === 'SIGNED_IN') {
+        // ✅ ADMIN LOGIN FIX: admin flow-er setSession() ei callback cholar somoy auth lock
+        // dhore rakhe. Ekhane await kore onno supabase call (profiles query) korle DEADLOCK hoy —
+        // setSession() kokhono resolve hoy na, tai admin.html-e jawa hoy na. Ar role mismatch hole
+        // admin session signOut-o hoye jayte pare. Tai admin hole ekhane kono DB call korbo na.
+        if (localStorage.getItem('admin_auth_in_progress') === 'true') {
+            return;
+        }
+        const _isAdminSession = session.user.email === "medifinderindia@gmail.com";
+
+        if (event === 'SIGNED_IN' && !_isAdminSession) {
             try {
                 await handleOAuthUserRoleUpdate(session.user);
             } catch (e) {
@@ -1369,20 +1378,31 @@ if (adminBtnStep1) {
 
 // Session pawar por: client-e set kore admin.html-e pathai
 async function finishAdminLogin(session) {
-    const { error: sessionError } = await supabaseClient.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token
-    });
-    if (sessionError) {
-        showToast("Session setup failed: " + sessionError.message, "error");
+    // ✅ ADMIN LOGIN FIX: flag age set, ar 20s fallback redirect setSession-er AGEI arm kora hocche —
+    // agey fallback setSession-er pore chilo, tai setSession hang korle fallback kokhono arm-i hoto na.
+    localStorage.setItem('admin_auth_in_progress', 'true'); // admin.js load hole clear kore dey
+    const fallbackRedirect = setTimeout(() => window.location.replace("admin.html"), ADMIN_REDIRECT_MAX_MS);
+
+    // setSession session-ta localStorage-e age save kore, tarpor listener-der khabor dey.
+    // Tai jodi 6s-er moddhe return na kore, tobuo session save hoye gechhe — redirect kora safe.
+    const result = await Promise.race([
+        supabaseClient.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token
+        }),
+        new Promise((resolve) => setTimeout(() => resolve({ error: null, timedOut: true }), 6000))
+    ]);
+
+    if (result && result.error) {
+        clearTimeout(fallbackRedirect);
+        localStorage.removeItem('admin_auth_in_progress');
+        showToast("Session setup failed: " + result.error.message, "error");
         return;
     }
+
     adminPhoneTicket = null;
     showToast("Verification Complete! Welcome Admin.", "success");
-    localStorage.setItem('admin_auth_in_progress', 'true'); // admin.js load hole clear kore dey
     if (adminModal) adminModal.style.display = 'none';
-    // Immediately admin.html-e jao; kono karone atke gele 20 sec-er moddhe force redirect
-    setTimeout(() => window.location.replace("admin.html"), ADMIN_REDIRECT_MAX_MS);
     window.location.href = "admin.html";
 }
 

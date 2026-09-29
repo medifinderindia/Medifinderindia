@@ -19,6 +19,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // Admin.html-e ar nijer login form nei. Session/admin na thakle home.html-er
 // 3-step admin verification-e pathiye dey.
 function showAdminLoginGate(message){
+  try{ localStorage.removeItem('admin_auth_in_progress'); }catch(e){}
   window.location.replace("home.html");
 }
 
@@ -197,6 +198,7 @@ async function loadProductsFromDB(){
 
 async function loadMerchantsFromDB(){
   if(!supabase) return;
+  const { data, error } = await supabase.from('merchants').select('*').order('created_at', { ascending:false });
   if(error){ toast("Could not load merchants: "+error.message, "danger"); return; }
   const stats = {};
   DATA.orders.forEach(o=>{
