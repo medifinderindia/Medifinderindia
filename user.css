@@ -5889,3 +5889,256 @@ header {
 }
 /* Shop by Category scrolls with the page (no lock) */
 .categories-section { position: static !important; top: auto !important; }
+
+
+/* ==========================================================================
+   FIXES (Oct 2026)
+   1) Lab Test / Nurse / Ambulance / Tablet Coin headers: the global
+      `header { height:60px }` was still applied, so the title row, search,
+      pincode box and the service menu all overflowed a 60px box and drew on
+      top of the page content. Header now grows with its content.
+   ========================================================================== */
+.pg-lab header, .pg-nurse header, .pg-coin header, .pg-amb header {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    justify-content: flex-start !important;
+    flex-shrink: 0;
+}
+/* Detail / booking sheets must sit ABOVE the bottom nav so the Book / Submit buttons are never hidden behind it */
+.pg-lab .overlay, .pg-nurse .overlay, .pg-coin .overlay, .pg-amb .overlay { z-index: 100000 !important; }
+.pg-lab .sheet, .pg-nurse .sheet, .pg-amb .sheet { padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+
+/* 2) Sponsored banner: whole image visible (never cropped) and the slide is still fully filled */
+.slide.sp-fit { overflow: hidden; }
+.slide.sp-fit::before {
+    content: ''; position: absolute; inset: -24px; z-index: 0;
+    background: var(--sp-img) center / cover no-repeat;
+    filter: blur(22px) saturate(1.1); transform: scale(1.06);
+}
+.slide.sp-fit::after {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: var(--sp-img) center / contain no-repeat;
+}
+.slide.sp-fit .slide-content { position: relative; z-index: 2; text-shadow: 0 1px 6px rgba(0,0,0,.55); }
+.slide.sp-fit .slide-icon { display: none; }
+.slide.media-slide { overflow: hidden; }
+.slide.media-slide::before {
+    content: ''; position: absolute; inset: -24px; z-index: 0;
+    background: var(--sp-img) center / cover no-repeat;
+    filter: blur(22px); transform: scale(1.06);
+}
+.slide.media-slide img.sponsored-media { object-fit: contain !important; background: transparent !important; z-index: 1; }
+.slide.media-slide video.sponsored-media { object-fit: cover; }
+
+/* 3) FAQ & Support — premium */
+#help-modal .contact-actions-grid { display: block; }
+#help-modal .faq-call-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-sizing: border-box;
+    padding: 14px 18px; border-radius: 16px; border: 0; text-decoration: none; font-weight: 800; font-size: .95rem; color: #fff;
+    background: linear-gradient(135deg, #e02020, #ff5a5a); box-shadow: 0 10px 22px rgba(224,32,32,.28);
+}
+#help-modal .faq-call-btn span { font-weight: 600; font-size: .8rem; opacity: .92; background: rgba(255,255,255,.2); padding: 3px 10px; border-radius: 20px; }
+#help-modal .faq-accordion { display: flex; flex-direction: column; gap: 10px; }
+#help-modal .faq-item {
+    background: #fff; border: 1px solid #f0e3e3; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 4px 14px rgba(31,41,55,.06); transition: box-shadow .2s, border-color .2s;
+}
+#help-modal .faq-item[open] { border-color: #f5b8b8; box-shadow: 0 10px 24px rgba(224,32,32,.12); }
+#help-modal .faq-item summary {
+    list-style: none; cursor: pointer; position: relative; padding: 15px 46px 15px 18px;
+    font-weight: 700; font-size: .9rem; color: #2f3542; -webkit-tap-highlight-color: transparent;
+}
+#help-modal .faq-item summary::-webkit-details-marker { display: none; }
+#help-modal .faq-item summary::before {
+    content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: #e02020; opacity: 0; transition: opacity .2s;
+}
+#help-modal .faq-item[open] summary::before { opacity: 1; }
+#help-modal .faq-item summary::after {
+    content: '+'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: #fff1f1; color: #e02020; font-size: 1.1rem; font-weight: 800; transition: transform .2s, background .2s, color .2s;
+}
+#help-modal .faq-item[open] summary::after { content: '\2212'; background: #e02020; color: #fff; }
+#help-modal .faq-item[open] summary { color: #b91c1c; }
+#help-modal .faq-item p {
+    margin: 0; padding: 0 18px 16px; font-size: .82rem; line-height: 1.6; color: #57606f;
+    animation: faqIn .25s ease;
+}
+@keyframes faqIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* 4) Pill reminder popup */
+.pill-alarm-popup { position: fixed; inset: 0; z-index: 200000; background: rgba(15,23,42,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pill-alarm-card { background: #fff; border-radius: 22px; width: 100%; max-width: 320px; padding: 26px 22px 22px; text-align: center; box-shadow: 0 24px 50px rgba(0,0,0,.3); animation: pillPop .35s cubic-bezier(.2,1.4,.4,1); }
+.pill-alarm-icon { font-size: 2.6rem; animation: pillRing 1s ease-in-out infinite; }
+.pill-alarm-card h3 { margin: 8px 0 4px; color: #e02020; font-size: 1.1rem; }
+.pill-alarm-card p { margin: 0; color: #2f3542; font-size: .95rem; }
+.pill-alarm-time { display: inline-block; margin: 8px 0 16px; font-size: .8rem; font-weight: 700; color: #747d8c; background: #f1f2f6; padding: 3px 12px; border-radius: 20px; }
+.pill-alarm-card button { width: 100%; padding: 12px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #e02020, #ff5a5a); color: #fff; font-weight: 800; font-size: .95rem; cursor: pointer; }
+@keyframes pillPop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes pillRing { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+
+/* 5) Courier (Standard delivery) tracking timeline */
+.courier-track-card { background: #fff; border: 1px solid #eef0f3; border-radius: 16px; padding: 16px; box-shadow: 0 4px 16px rgba(31,41,55,.06); }
+.courier-track-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.courier-track-head > i { width: 42px; height: 42px; border-radius: 12px; background: #fff1f1; color: #e02020; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.courier-track-head h4 { margin: 0; font-size: .98rem; color: #2f3542; }
+.courier-track-head p { margin: 2px 0 0; font-size: .75rem; color: #747d8c; word-break: break-all; }
+.courier-track-meta { display: flex; gap: 8px; margin-bottom: 14px; }
+.courier-track-meta span { flex: 1; background: #f8f9fb; border-radius: 10px; padding: 8px 10px; font-size: .78rem; color: #2f3542; font-weight: 600; word-break: break-all; }
+.courier-track-meta b { display: block; font-size: .64rem; text-transform: uppercase; letter-spacing: .5px; color: #a4b0be; margin-bottom: 2px; }
+.courier-track-list { position: relative; padding-left: 4px; }
+.courier-step { position: relative; display: flex; gap: 12px; padding-bottom: 16px; }
+.courier-step::before { content: ''; position: absolute; left: 6px; top: 16px; bottom: 0; width: 2px; background: #e5e7eb; }
+.courier-step:last-child::before { display: none; }
+.courier-dot { width: 14px; height: 14px; border-radius: 50%; background: #cbd5e1; border: 3px solid #fff; box-shadow: 0 0 0 1px #cbd5e1; flex-shrink: 0; margin-top: 2px; position: relative; z-index: 1; }
+.courier-step.latest .courier-dot { background: #16a34a; box-shadow: 0 0 0 1px #16a34a, 0 0 0 6px rgba(22,163,74,.18); }
+.courier-step-body b { display: block; font-size: .85rem; color: #2f3542; }
+.courier-step.latest .courier-step-body b { color: #16a34a; }
+.courier-step-body span { display: block; font-size: .78rem; color: #57606f; margin-top: 1px; }
+.courier-step-body small { display: block; font-size: .72rem; color: #a4b0be; margin-top: 2px; }
+.courier-track-empty { text-align: center; color: #a4b0be; font-size: .82rem; padding: 14px 6px; }
+.courier-track-empty i { font-size: 1.4rem; display: block; margin-bottom: 6px; }
+.courier-track-empty p { margin: 0; }
+
+
+/* ============================================================
+   PUBLIC STOREFRONT — PARTNER / ABOUT / FAQ / FOOTER
+   ============================================================ */
+.mf-public-partner-section{padding:46px 16px 34px;background:linear-gradient(180deg,#fff,#f8fbff);border-top:1px solid #eef1f5;}
+.mf-public-section-head{max-width:980px;margin:0 auto 24px;text-align:center;}
+.mf-public-section-head.compact{margin-bottom:18px;}
+.mf-public-kicker{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;background:#fff1f1;color:#e02020;border:1px solid #ffd7d7;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.45px;}
+.mf-public-section-head h2{margin:12px 0 7px;font-size:clamp(22px,4vw,31px);line-height:1.15;color:#18202d;font-weight:800;}
+.mf-public-section-head p{max-width:680px;margin:0 auto;color:#697386;font-size:13px;line-height:1.65;}
+.mf-partner-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;}
+.mf-partner-card{appearance:none;border:1px solid #e6eaf0;background:#fff;border-radius:18px;padding:18px 15px;text-align:left;cursor:pointer;box-shadow:0 8px 24px rgba(22,32,52,.055);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;min-height:210px;color:inherit;}
+.mf-partner-card:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(22,32,52,.10);border-color:#ffd0d0;}
+.mf-partner-icon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;margin-bottom:13px;}
+.mf-partner-icon.merchant{background:linear-gradient(135deg,#e02020,#ff6b6b)}
+.mf-partner-icon.rider{background:linear-gradient(135deg,#2563eb,#60a5fa)}
+.mf-partner-icon.nurse{background:linear-gradient(135deg,#0891b2,#22c55e)}
+.mf-partner-icon.blood{background:linear-gradient(135deg,#7c3aed,#a855f7)}
+.mf-partner-icon.ambulance{background:linear-gradient(135deg,#dc2626,#f97316)}
+.mf-partner-title{display:block;font-size:14px;font-weight:800;color:#1d2635;margin-bottom:6px;line-height:1.25;}
+.mf-partner-text{display:block;color:#778195;font-size:11px;line-height:1.55;min-height:51px;}
+.mf-partner-cta{display:inline-flex;align-items:center;gap:6px;margin-top:12px;color:#e02020;font-size:11px;font-weight:800;}
+.mf-partner-cta i{font-size:9px;}
+.mf-public-info-section{padding:22px 16px 34px;background:#f8fbff;}
+.mf-public-info-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.mf-info-card{background:#fff;border:1px solid #e7ebf1;border-radius:18px;padding:20px;box-shadow:0 8px 24px rgba(22,32,52,.045);}
+.mf-info-icon{width:38px;height:38px;border-radius:12px;background:#fff1f1;color:#e02020;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.mf-info-card h3{font-size:17px;margin:0 0 8px;color:#202938;}
+.mf-info-card p{font-size:12px;line-height:1.7;color:#687386;margin:0;}
+.mf-how-list{padding:0;margin:0;list-style:none;display:grid;gap:9px;}
+.mf-how-list li{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#566174;line-height:1.5;}
+.mf-how-list li span{flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:#e02020;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;}
+.mf-public-faq-section{padding:38px 16px 46px;background:#fff;}
+.mf-faq-list{max-width:900px;margin:0 auto;display:grid;gap:9px;}
+.mf-faq-list details{border:1px solid #e6eaf0;border-radius:14px;background:#fff;padding:0 15px;box-shadow:0 5px 18px rgba(22,32,52,.035);}
+.mf-faq-list summary{cursor:pointer;list-style:none;padding:15px 3px;font-size:13px;font-weight:800;color:#202938;}
+.mf-faq-list summary::-webkit-details-marker{display:none;}
+.mf-faq-list summary:after{content:'+';float:right;color:#e02020;font-size:18px;line-height:1;}
+.mf-faq-list details[open] summary:after{content:'−';}
+.mf-faq-list details p{margin:0 3px 15px;color:#6b7587;font-size:12px;line-height:1.65;}
+.mf-public-footer{background:#121722;color:#c7cfdd;padding:34px 16px 0;}
+.mf-footer-main{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.45fr .9fr 1.05fr 1.25fr;gap:26px;padding-bottom:26px;}
+.mf-footer-logo{display:flex;align-items:center;gap:9px;color:#fff;font-weight:800;font-size:17px;}
+.mf-footer-logo img{width:34px;height:34px;border-radius:10px;object-fit:cover;}
+.mf-footer-logo b{color:#ff6b6b;}
+.mf-footer-brand p{font-size:11px;color:#8d98aa;line-height:1.65;max-width:310px;margin:10px 0 13px;}
+.mf-footer-social{display:flex;gap:8px;}
+.mf-footer-social a{width:31px;height:31px;border-radius:50%;background:#202938;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;}
+.mf-footer-col{display:flex;flex-direction:column;align-items:flex-start;gap:8px;}
+.mf-footer-col h4{color:#fff;font-size:12px;margin:0 0 3px;text-transform:uppercase;letter-spacing:.4px;}
+.mf-footer-col button,.mf-footer-col a{appearance:none;border:0;background:none;color:#8f9aab;text-decoration:none;padding:0;font-size:11px;cursor:pointer;text-align:left;line-height:1.45;}
+.mf-footer-col button:hover,.mf-footer-col a:hover{color:#fff;}
+.mf-footer-col a i{width:17px;color:#ff6b6b;}
+.mf-footer-note{font-size:10px;color:#697587;line-height:1.5;margin-top:3px;}
+.mf-footer-legal{max-width:1080px;margin:0 auto;border-top:1px solid rgba(255,255,255,.08);padding:14px 0 17px;display:flex;justify-content:space-between;gap:15px;font-size:10px;color:#697587;}
+@media (max-width:980px){.mf-partner-grid{grid-template-columns:repeat(3,minmax(0,1fr));}.mf-footer-main{grid-template-columns:1.3fr 1fr 1fr;}.mf-footer-brand{grid-column:1/-1;}}
+@media (max-width:680px){.mf-public-partner-section{padding:35px 12px 25px}.mf-partner-grid{grid-template-columns:1fr 1fr;gap:9px}.mf-partner-card{min-height:190px;padding:15px 13px;border-radius:15px}.mf-partner-icon{width:42px;height:42px;font-size:17px;margin-bottom:10px}.mf-partner-title{font-size:12.5px}.mf-partner-text{font-size:10.5px;min-height:58px}.mf-partner-cta{font-size:10px}.mf-public-info-grid{grid-template-columns:1fr}.mf-footer-main{grid-template-columns:1fr 1fr;gap:22px}.mf-footer-brand{grid-column:1/-1}.mf-footer-legal{flex-direction:column;gap:5px}}
+@media (max-width:390px){.mf-partner-grid{grid-template-columns:1fr}.mf-partner-card{min-height:auto}.mf-partner-text{min-height:auto}.mf-footer-main{grid-template-columns:1fr}.mf-footer-brand{grid-column:auto}}
+
+
+/* =========================================================
+   MediFinder PUBLIC HOME / LOCALHOST SCROLL FIX
+   ========================================================= */
+html, body {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden !important;
+}
+body {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+.app-page.active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+#page-home #main-scroll {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-y !important;
+    padding-bottom: 140px !important;
+    position: relative !important;
+}
+#page-home .products-grid {
+    min-height: 120px;
+}
+#page-home .product-card img {
+    display: block;
+    width: 100%;
+    min-height: 120px;
+    object-fit: contain;
+    background: #f7f8fa;
+}
+@media (max-width:700px) {
+    #page-home #main-scroll { padding-bottom:110px !important; }
+}
+
+
+/* =========================================================
+   SCROLL SAFETY NET (keep at the very END of file)
+   Every non-home page used to be "overflow:hidden !important" and
+   relied on an inner container to scroll. If a page's content grew
+   taller than the screen (long cart, profile, lab/nurse forms, ...)
+   it simply got cut off. Now these pages scroll themselves when
+   needed. Pages that already scroll internally are unaffected
+   (their content fits, so the outer scroll never appears).
+   ========================================================= */
+.app-page.active:not(#page-home) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+}
+
+
+/* ---- Shop page: exact shop location map ---- */
+.sd-location-card{margin:14px 0;padding:12px;background:#fff;border:1px solid #eceff4;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
+.sd-loc-head{font-size:.9rem;font-weight:700;color:#2f3542;display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.sd-loc-head i{color:#e02020;}
+.sd-map{height:220px;border-radius:12px;overflow:hidden;background:#eef1f5;position:relative;z-index:0;}
+.sd-loc-addr{font-size:.8rem;color:#57606f;margin:10px 0;line-height:1.4;}
+.sd-loc-addr i{color:#e02020;margin-right:4px;}
+.sd-loc-actions{display:flex;gap:8px;}
+.sd-loc-actions .sd-contact-btn{flex:1;justify-content:center;display:flex;}

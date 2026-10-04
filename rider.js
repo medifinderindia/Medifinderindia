@@ -134,6 +134,78 @@ async function cachedFetch(key, fetchFn, ttlMs = 15000) {
     return value;
 }
 
+// ============================================================
+// ✅ NEW: একই error toast বারবার দেখানো বন্ধ — প্রতিটা key-র জন্য cooldown থাকে
+// ============================================================
+const _toastOnceAt = {};
+function toastOnce(key, msg, type = 'error', cooldownMs = 60000) {
+    const now = Date.now();
+    if (_toastOnceAt[key] && (now - _toastOnceAt[key]) < cooldownMs) return;
+    _toastOnceAt[key] = now;
+    showToast(msg, type);
+}
+
+// ============================================================
+// ✅ NEW: Delivery charge নিয়ম — pharmacy থেকে customer পর্যন্ত দূরত্ব
+//   ≤ 10 km  → ₹25
+//   > 10 km  → ₹35  (20 km বা তার বেশিও ₹35)
+// ============================================================
+const DELIVERY_NEAR_KM = 10;
+const DELIVERY_NEAR_CHARGE = 25;
+const DELIVERY_FAR_CHARGE = 35;
+
+function distanceKmExact(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function computeDeliveryCharge(order) {
+    if (!order) return DELIVERY_NEAR_CHARGE;
+    const num = v => (v === undefined || v === null || v === '') ? null : Number(v);
+    const shop = order.__shopInfoCache || {};
+    const pLat = num(order.pharmacy_lat) !== null ? num(order.pharmacy_lat) : num(shop.lat);
+    const pLon = num(order.pharmacy_lon) !== null ? num(order.pharmacy_lon) : num(shop.lon);
+    const uLat = num(order.user_lat);
+    const uLon = num(order.user_lon);
+    if ([pLat, pLon, uLat, uLon].every(v => v !== null && !isNaN(v))) {
+        const km = distanceKmExact(pLat, pLon, uLat, uLon);
+        return km <= DELIVERY_NEAR_KM ? DELIVERY_NEAR_CHARGE : DELIVERY_FAR_CHARGE;
+    }
+    // coordinates নেই — আগে থেকে সঠিক slab সেভ থাকলে সেটাই, না থাকলে base charge
+    const stored = Number(order.delivery_charge);
+    if (stored === DELIVERY_NEAR_CHARGE || stored === DELIVERY_FAR_CHARGE) return stored;
+    return DELIVERY_NEAR_CHARGE;
+}
+
+// ============================================================
+// ✅ NEW: auth user id / riders.id একবার বের করে ক্যাশ করা (প্রতি GPS tick এ network call নয়)
+// ============================================================
+let _riderAuthUserId = null;
+async function getRiderAuthId() {
+    if (_riderAuthUserId) return _riderAuthUserId;
+    if (!supabaseClient) return null;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    _riderAuthUserId = (session && session.user && session.user.id) || null;
+    return _riderAuthUserId;
+}
+
+async function ensureRiderBigIntId() {
+    const cached = parseInt(currentRiderId) || parseInt(localStorage.getItem('riderId'));
+    if (cached) { currentRiderId = cached; return cached; }
+    if (!supabaseClient) return null;
+    const authId = await getRiderAuthId();
+    if (!authId) return null;
+    const { data, error } = await supabaseClient.from('riders').select('id').eq('auth_user_id', authId).maybeSingle();
+    if (error || !data || !data.id) return null;
+    currentRiderId = data.id;
+    localStorage.setItem('riderId', data.id);
+    return data.id;
+}
+
 // ==========================================
 // ✅ NEW BLOCK (400-FIX helper): Schema-safe riders table update
 // ==========================================
@@ -156,7 +228,7 @@ async function cachedFetch(key, fetchFn, ttlMs = 15000) {
 //      silently dropping fields that ARE valid.
 //   4. Surfaces every Supabase error object (code/message/details/hint)
 //      to the console and rethrows so callers can show a real UI error.
-async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6 } = {}) {
+async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6, returning = true } = {}) {
     if (!supabaseClient) throw new Error('Supabase client not initialized');
     if (!authUserId) throw new Error('Missing auth_user_id for riders update');
 
@@ -165,11 +237,12 @@ async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6 }
 
     while (attempts <= maxRetries) {
         attempts++;
-        const { data, error } = await supabaseClient
+        let q = supabaseClient
             .from('riders')
             .update(workingPayload)
-            .eq('auth_user_id', authUserId)
-            .select();
+            .eq('auth_user_id', authUserId);
+        if (returning) q = q.select(); // GPS tick এ পুরো row ফেরত আনার দরকার নেই
+        const { data, error } = await q;
 
         if (!error) {
             return { data, error: null, appliedPayload: workingPayload };
@@ -327,6 +400,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('open') === 'kyc') {
             initialTab = 'profile';
+        } else if (localStorage.getItem('rider_kyc_wizard_open') === '1') {
+            // ✅ KYC ফর্ম খোলা অবস্থায় পেজ রিলোড/ট্যাব কিল হয়েছিল (যেমন ক্যামেরা খোলার পর low memory) —
+            // হোমে না গিয়ে সরাসরি KYC তে ফিরে যাবে, draft সহ
+            initialTab = 'profile';
+            window._resumeKycWizard = true;
         } else {
             const savedTab = sessionStorage.getItem('rider_active_tab');
             if (savedTab) initialTab = savedTab;
@@ -337,14 +415,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (initialTab === 'profile') {
         try {
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('open') === 'kyc' && typeof openKycWizard === 'function') {
-                setTimeout(() => openKycWizard(), 300);
+            const wantsKyc = urlParams.get('open') === 'kyc' || window._resumeKycWizard === true;
+            if (wantsKyc && typeof openKycWizard === 'function') {
+                const kycStatus = window._kycApplicationCache ? window._kycApplicationCache.status : 'not_submitted';
+                if (kycStatus === 'approved' || kycStatus === 'pending') {
+                    // আর খোলার দরকার নেই — resume flag/draft মুছে ফেলা
+                    window._resumeKycWizard = false;
+                    onKycWizardClosed();
+                    if (kycStatus === 'approved') clearKycDraft();
+                } else {
+                    setTimeout(() => openKycWizard(), 300);
+                }
             }
         } catch (e) {}
     }
 
     // ✅ NEW: ব্রাউজার ব্যাকগ্রাউন্ডে থাকলেও নতুন অর্ডার নোটিফিকেশনের জন্য পারমিশন রিকোয়েস্ট
-    requestBrowserNotificationPermission();
+    // Notification permission is asked only when the rider taps ON DUTY (see toggleDutyStatus)
 
     // ✅ NEW: রাইডার অন-ডিউটি থাকলে প্রতি ৫ সেকেন্ডে লাইভ লোকেশন ব্রডকাস্ট শুরু
     startLiveLocationTracking();
@@ -460,13 +547,20 @@ async function initBaseTrackingMap() {
     // but we no longer silently pretend it's a real place).
     let centerLat = null, centerLon = null;
     let gotGps = false;
-    try {
-        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 }));
-        centerLat = pos.coords.latitude;
-        centerLon = pos.coords.longitude;
-        cachedRiderPosition = { lat: centerLat, lon: centerLon };
+    if (cachedRiderPosition) {
+        centerLat = cachedRiderPosition.lat;
+        centerLon = cachedRiderPosition.lon;
         gotGps = true;
-    } catch(e) {}
+    } else {
+        // ✅ smooth: ক্যাশ করা লোকেশন নিয়ে দ্রুত (২.৫ সেকেন্ডের বেশি অপেক্ষা নয়), high-accuracy ছাড়া
+        try {
+            const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, maximumAge: 300000, timeout: 2500 }));
+            centerLat = pos.coords.latitude;
+            centerLon = pos.coords.longitude;
+            cachedRiderPosition = { lat: centerLat, lon: centerLon };
+            gotGps = true;
+        } catch(e) {}
+    }
 
     let shopInfo = null;
     if (sessionOrder) {
@@ -515,7 +609,9 @@ async function initBaseTrackingMap() {
 
     map = L.map('zomatoRealMap').setView([centerLat, centerLon], (gotGps || sessionOrder) ? 12 : 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        attribution: 'MediFinder Express Tracking' 
+        attribution: 'MediFinder India Express Tracking',
+        updateWhenIdle: true,
+        keepBuffer: 2
     }).addTo(map);
 
     // ✅ FIX: rider marker এখন থেকে সবসময় আসল GPS position এ বসবে (আগে ফেক midpoint এ বসতো,
@@ -555,6 +651,11 @@ async function initBaseTrackingMap() {
 function focusMyLocationOnMap() {
     if (!map || !navigator.geolocation) return;
     const btn = document.getElementById("myLocationBtn");
+    // ক্যাশ করা লোকেশন থাকলে সাথে সাথে zoom — অপেক্ষা নেই
+    if (cachedRiderPosition) {
+        map.setView([cachedRiderPosition.lat, cachedRiderPosition.lon], 16, { animate: true });
+        updateLiveRiderMarkerOnMap(cachedRiderPosition.lat, cachedRiderPosition.lon);
+    }
     if (btn) btn.classList.add("locating");
     navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -565,10 +666,13 @@ function focusMyLocationOnMap() {
             if (btn) btn.classList.remove("locating");
         },
         (err) => {
-            showToast("Could not get your location: " + (err.message || err), "error");
             if (btn) btn.classList.remove("locating");
+            if (cachedRiderPosition) return; // পুরনো লোকেশন দেখানো হয়ে গেছে, error দেখানোর দরকার নেই
+            toastOnce('gps-focus',
+                (err && err.code === 1) ? 'Location permission is off. Please allow location access.' : 'Could not find your location yet. Please try again in an open area.',
+                'error', 15000);
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
     );
 }
 
@@ -791,11 +895,16 @@ function listenToAvailableOrders() {
                 }
             } else if (!isBroadcastLike) {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
-                if (card) card.remove();
-                checkIfOrdersEmpty();
+                if (card) { card.remove(); checkIfOrdersEmpty(); }
                 // ✅ NEW: অন্য রাইডার এই অর্ডার accept করলে (বা অর্ডারটা আর available না থাকলে),
                 // এই অর্ডারের নোটিফিকেশনও নিজে থেকে সরিয়ে দেওয়া হয় — ম্যানুয়ালি ✕ করা লাগবে না
-                removeOrderNotificationByOrderId(payload.new.order_id);
+                // ✅ smooth: লাইভ লোকেশন আপডেটে প্রতি ৫ সেকেন্ডে এই event আসে, তাই প্রতি order এর জন্য মাত্র একবারই purge
+                window._purgedNotiOrders = window._purgedNotiOrders || new Set();
+                const purgeKey = String(payload.new.order_id);
+                if (!window._purgedNotiOrders.has(purgeKey)) {
+                    window._purgedNotiOrders.add(purgeKey);
+                    removeOrderNotificationByOrderId(payload.new.order_id);
+                }
             }
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, (payload) => {
@@ -810,7 +919,7 @@ function listenToAvailableOrders() {
     // অনির্দিষ্টকাল খালি না থেকে যায়। এটা মূল সমস্যার (RLS/replication) বিকল্প না, শুধু fallback।
     if (window._ordersPollInterval) clearInterval(window._ordersPollInterval);
     window._ordersPollInterval = setInterval(() => {
-        if (isOnDuty) fetchPendingOrdersSnapshot();
+        if (isOnDuty && !document.hidden) fetchPendingOrdersSnapshot();
     }, 20000);
 }
 
@@ -849,7 +958,7 @@ function renderAvailableOrder(order) {
             <div class="card-header">
                 <span class="vehicle-tag bike"><i class="fa-solid fa-motorcycle"></i> ${order.vehicle_type ? order.vehicle_type.toUpperCase() : 'DELIVERY'}</span>
                 <span class="parcel-number">Parcel ID: #${order.order_id}</span>
-                <span class="earnings-amount">₹${order.delivery_charge || 45}</span>
+                <span class="earnings-amount">₹${computeDeliveryCharge(order)}</span>
             </div>
             <div class="delivery-flow">
                 <div class="flow-step">
@@ -945,7 +1054,9 @@ async function acceptOrder(orderId, orderObj) {
         // ছোঁয়া ছাড়াই। `pickup_deadline_at` একটা ফিক্সড টাইমস্ট্যাম্প — পেজ রিফ্রেশ করলেও
         // টাইমার আবার 25:00 থেকে শুরু না হয়ে ঠিক জায়গা থেকে কাউন্ট করবে।
         const pickupDeadline = new Date(Date.now() + 25 * 60 * 1000).toISOString();
-        const updatePayload = { status: 'picked_up', rider_pickup_stage: 'assigned', pickup_deadline_at: pickupDeadline };
+        // ✅ Delivery charge নিয়ম: ≤10 km → ₹25, তার বেশি → ₹35 (pharmacy → customer দূরত্ব)
+        const deliveryCharge = computeDeliveryCharge(orderObj);
+        const updatePayload = { status: 'picked_up', rider_pickup_stage: 'assigned', pickup_deadline_at: pickupDeadline, delivery_charge: deliveryCharge };
         if (riderBigIntId) updatePayload.rider_id = riderBigIntId;
 
         const { error } = await supabaseClient
@@ -958,6 +1069,7 @@ async function acceptOrder(orderId, orderObj) {
         orderObj.status = 'picked_up';
         orderObj.rider_pickup_stage = 'assigned';
         orderObj.pickup_deadline_at = pickupDeadline;
+        orderObj.delivery_charge = deliveryCharge;
         orderObj.rider_id = riderBigIntId || riderUuid;
         localStorage.setItem("active_delivery_order", JSON.stringify(orderObj));
         showToast("Order Accepted Successfully!", "success");
@@ -1008,7 +1120,7 @@ async function loadAcceptedOrderDetails(order, shopInfo) {
             <!-- ✅ NEW: পিকআপ স্ট্যাটাস টগল স্টেপ — কাস্টমারের কাছে যাওয়ার আগে ফার্মেসিতে আগে পৌঁছাতে/প্যাক করতে হবে -->
             <div id="statusStepBar" style="margin-bottom: 15px;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 10px; gap: 8px; flex-wrap: wrap;">
-                <div><span>Earnings: </span><strong style="color: #2ec4b6; font-size: 18px;">₹${order.delivery_charge || 45}</strong></div>
+                <div><span>Earnings: </span><strong style="color: #2ec4b6; font-size: 18px;">₹${computeDeliveryCharge(order)}</strong></div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items:center;">
                     <span id="phaseCallBtnSlot"></span>
                     <button id="otpVerifyTriggerBtn" onclick="openOtpModal()" style="background: #e63946; color:#fff; border:none; padding: 10px 18px; border-radius: 8px; font-weight:600; cursor:pointer;">Verify OTP</button>
@@ -1200,9 +1312,10 @@ async function toggleDutyStatus() {
     renderDutyToggleUI();
 
     if (isOnDuty) {
+        requestBrowserNotificationPermission(); // asked once, from the rider's own tap
         showToast("You are now ON DUTY. New delivery requests will be visible again.", "info");
         fetchPendingOrdersSnapshot();
-        startLiveLocationTracking();
+        startLiveLocationTracking(true);
     } else {
         showToast("You are now OFF DUTY. New requests are paused to save battery & data.", "info");
         checkIfOrdersEmpty();
@@ -1279,6 +1392,8 @@ function startDutyHeartbeat() {
 // (auth.uid() = auth_user_id) সঠিকভাবে ম্যাচ করবে এবং 400/403 আর আসবে না।
 window.addEventListener("pagehide", () => {
     try {
+        // KYC চলাকালীন ক্যামেরা খুললে পেজ hide হয় — তখন রাইডারকে offline দেখানো ঠিক না
+        if (localStorage.getItem('rider_kyc_wizard_open') === '1') return;
         if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
         // Supabase JS SDK persists the session in localStorage under a key derived from the
         // project ref — we read the raw persisted session here (rather than awaiting
@@ -1359,66 +1474,135 @@ async function fetchPendingOrdersSnapshot() {
 // ==========================================
 // 5D. NEW: লাইভ জিপিএস লোকেশন ব্রডকাস্টিং (প্রতি ৫ সেকেন্ডে)
 // ==========================================
-function startLiveLocationTracking() {
-    if (!navigator.geolocation) {
+let liveWatchId = null;
+let _gpsErrorCount = 0;
+let _gpsHighAccuracy = true;
+let _gpsDenied = false;
+let _lastBroadcast = { t: 0, lat: null, lon: null };
+let _broadcastBusy = false;
+const GPS_BROADCAST_MS = 5000;        // সর্বনিম্ন ৫ সেকেন্ড পর পর server এ পাঠানো
+const GPS_FORCE_BROADCAST_MS = 15000; // না নড়লেও ১৫ সেকেন্ডে একবার
+const GPS_MIN_MOVE_M = 15;            // ১৫ মিটারের বেশি নড়লে সাথে সাথে পাঠানো
 
+// ✅ REWRITE: আগে প্রতি ৩ সেকেন্ডে নতুন getCurrentPosition (high accuracy, maximumAge 0) চালু হতো —
+// আগেরটা শেষ হওয়ার আগেই নতুনটা শুরু, ফলে বারবার "Timeout expired" আসত আর প্রতিবার error toast
+// দেখাত। এখন একটাই watchPosition চলে, error হলে চুপচাপ low-accuracy এ নেমে যায়, আর একই
+// error toast কয়েক মিনিটে একবারের বেশি দেখায় না।
+function startLiveLocationTracking(force) {
+    if (!navigator.geolocation) return;
+    if (force) _gpsDenied = false;
+    if (_gpsDenied) return;
+    if (!isOnDuty) return; // Off-Duty রাইডারের লোকেশন পাঠানো হবে না
+    if (liveWatchId !== null) return; // ইতিমধ্যে চলছে
+    // ক্যাশে থাকা লোকেশন দিয়ে দ্রুত প্রথম fix (error হলে চুপচাপ)
+    navigator.geolocation.getCurrentPosition(onGpsFix, () => {}, { enableHighAccuracy: false, maximumAge: 120000, timeout: 5000 });
+    beginGpsWatch(true);
+}
+
+function beginGpsWatch(highAccuracy) {
+    if (liveWatchId !== null) { try { navigator.geolocation.clearWatch(liveWatchId); } catch (e) {} liveWatchId = null; }
+    _gpsHighAccuracy = highAccuracy;
+    _gpsErrorCount = 0;
+    liveWatchId = navigator.geolocation.watchPosition(onGpsFix, onGpsError, {
+        enableHighAccuracy: highAccuracy,
+        maximumAge: 10000,
+        timeout: highAccuracy ? 25000 : 40000
+    });
+}
+
+function onGpsFix(position) {
+    _gpsErrorCount = 0;
+    const lat = position.coords.latitude, lon = position.coords.longitude;
+    cachedRiderPosition = { lat, lon };
+    // লোকাল UI আপডেট — network লাগে না, তাই প্রতি fix এই
+    if (map) updateLiveRiderMarkerOnMap(lat, lon);
+    if (activeOrderData) updateLiveDistanceAndETA();
+
+    // server এ পাঠানো throttled
+    const now = Date.now();
+    const elapsed = now - _lastBroadcast.t;
+    if (elapsed < GPS_BROADCAST_MS) return;
+    const movedM = _lastBroadcast.lat === null ? Infinity : distanceKmExact(_lastBroadcast.lat, _lastBroadcast.lon, lat, lon) * 1000;
+    if (movedM < GPS_MIN_MOVE_M && elapsed < GPS_FORCE_BROADCAST_MS) return;
+    broadcastRiderLocation(lat, lon);
+}
+
+function onGpsError(err) {
+    console.warn('GPS:', err && err.code, err && err.message);
+    if (err && err.code === 1) { // permission denied
+        _gpsDenied = true;
+        stopLiveLocationTracking();
+        toastOnce('gps-denied', 'Location permission is off. Please allow location access in your browser settings to receive orders.', 'error', 120000);
         return;
     }
-    if (!isOnDuty) return; // Off-Duty রাইডারের লোকেশন পাঠানো হবে না
-    if (liveLocationInterval) return; // ইতিমধ্যে চলছে
-
-    liveLocationInterval = setInterval(() => {
-        if (!isOnDuty) return;
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                broadcastRiderLocation(position.coords.latitude, position.coords.longitude);
-            },
-            (err) => { showToast("GPS error: " + (err.message || err), "error"); },
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-    }, 3000); // ✅ FIX: আগে ছিল 5000ms (৫ সেকেন্ড), স্পেক অনুযায়ী এখন প্রতি ৩ সেকেন্ডে GPS আপডেট হবে
+    _gpsErrorCount++;
+    // high accuracy বারবার timeout করলে চুপচাপ network/low-accuracy লোকেশনে নেমে যাওয়া
+    if (_gpsHighAccuracy && _gpsErrorCount >= 2) { beginGpsWatch(false); return; }
+    if (_gpsErrorCount >= 5) {
+        toastOnce('gps-weak', 'GPS signal is weak — using your last known location. Move to an open area.', 'info', 180000);
+    }
 }
 
 function stopLiveLocationTracking() {
+    if (liveWatchId !== null) {
+        try { navigator.geolocation.clearWatch(liveWatchId); } catch (e) {}
+        liveWatchId = null;
+    }
     if (liveLocationInterval) {
         clearInterval(liveLocationInterval);
         liveLocationInterval = null;
     }
 }
 
+// অ্যাপে ফিরে এলে tracking থেমে থাকলে আবার চালু
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && isOnDuty && liveWatchId === null && !_gpsDenied) {
+        const kycOpen = localStorage.getItem('rider_kyc_wizard_open') === '1';
+        if (!kycOpen) startLiveLocationTracking();
+    }
+});
+
 async function broadcastRiderLocation(lat, lon) {
-    if (!supabaseClient) return;
-    cachedRiderPosition = { lat, lon }; // ✅ FIX: প্রতি টিকে সর্বশেষ GPS position ক্যাশে রাখা, distance/ETA হিসাবের জন্য
+    if (!supabaseClient || _broadcastBusy) return;
+    _broadcastBusy = true;
+    _lastBroadcast = { t: Date.now(), lat, lon };
+    cachedRiderPosition = { lat, lon };
     try {
-        // riders টেবিলে লাইভ লোকেশন আপডেট (এডমিন/ট্র্যাকিং প্যানেলের জন্য, সবসময় অন-ডিউটিতে)
-        // ✅ FIX: email দিয়ে .eq('email', ...) 400/403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (user) {
-            try {
-                await safeUpdateRiderByAuthUser(user.id, { current_lat: lat, current_lon: lon, location_updated_at: new Date().toISOString() });
-            } catch (err) {
-                showToast("Location broadcast error: " + (err.message || err), "error");
-            }
+        const nowIso = new Date().toISOString();
+        const jobs = [];
+
+        // riders টেবিলে লাইভ লোকেশন (অ্যাডমিন/ট্র্যাকিং প্যানেলের জন্য)
+        const authId = await getRiderAuthId();
+        if (authId) {
+            jobs.push(
+                safeUpdateRiderByAuthUser(authId, { current_lat: lat, current_lon: lon, location_updated_at: nowIso }, { returning: false })
+                    .catch(err => {
+                        console.error('RIDER LOCATION UPDATE ERROR:', err);
+                        toastOnce('bcast-rider', 'Location sync problem — will keep retrying.', 'error', 90000);
+                    })
+            );
         }
 
-        // সক্রিয় অর্ডার থাকলে orders টেবিলেও লাইভ পজিশন আপডেট (কাস্টমার/ফার্মেসি লাইভ দেখতে পারবে)
+        // সক্রিয় অর্ডার থাকলে orders টেবিলেও (কাস্টমার/ফার্মেসি লাইভ দেখতে পারবে)
         const sessionOrder = localStorage.getItem("active_delivery_order");
         if (sessionOrder) {
-            let order;
-            try { order = JSON.parse(sessionOrder); } catch(e) { return; }
-            const { error: orderErr } = await supabaseClient
-                .from('orders')
-                .update({ rider_lat: lat, rider_lon: lon, location_updated_at: new Date() })
-                .eq('order_id', order.order_id);
-            if (orderErr) {
-                console.error("ORDER LOCATION UPDATE ERROR:", orderErr);
+            let order = null;
+            try { order = JSON.parse(sessionOrder); } catch (e) {}
+            if (order && order.order_id) {
+                jobs.push(
+                    supabaseClient.from('orders')
+                        .update({ rider_lat: lat, rider_lon: lon, location_updated_at: nowIso })
+                        .eq('order_id', order.order_id)
+                        .then(({ error }) => { if (error) console.error("ORDER LOCATION UPDATE ERROR:", error); })
+                );
             }
-
-            updateLiveRiderMarkerOnMap(lat, lon);
-            updateLiveDistanceAndETA(); // ✅ GPS আপডেট হলেই distance/ETA স্বয়ংক্রিয়ভাবে কমবে বা বাড়বে
         }
+        await Promise.all(jobs);
     } catch (err) {
-        showToast("Location broadcast error: " + (err.message || err), "error");
+        console.error('Location broadcast error:', err);
+        toastOnce('bcast', 'Location broadcast problem — will keep retrying.', 'error', 90000);
+    } finally {
+        _broadcastBusy = false;
     }
 }
 
@@ -1454,7 +1638,7 @@ function fireNewOrderNotification(order) {
 
     try {
         const noti = new Notification("🚴 New Delivery Request!", {
-            body: `Parcel #${order.order_id} • ₹${order.delivery_charge || 45} • Tap to view`,
+            body: `Parcel #${order.order_id} • ₹${computeDeliveryCharge(order)} • Tap to view`,
             icon: "1779304435608.png",
             tag: `order-${order.order_id}`
         });
@@ -1593,18 +1777,19 @@ async function verifyOtpCode() {
             return;
         }
 
-        // STEP 4: mark order as delivered
+        // STEP 4: earning এখন দূরত্ব-নিয়ম (≤10 km ₹25, তার বেশি ₹35) থেকে বের হয় —
+        // একই amount order এ লেখা হয় (history/total এর সোর্স) এবং wallet এ যোগ হয়
+        const amount = computeDeliveryCharge({ ...activeOrderData, ...orderRow, delivery_charge: activeOrderData.delivery_charge });
+
+        // STEP 4b: mark order as delivered
         const { error: updateErr } = await supabaseClient
             .from('orders')
-            .update({ status: 'delivered', payment_status: 'Paid', updated_at: new Date().toISOString() })
+            .update({ status: 'delivered', payment_status: 'Paid', delivery_charge: amount, updated_at: new Date().toISOString() })
             .eq('order_id', activeOrderData.order_id);
         if (updateErr) throw updateErr;
 
         // STEP 5 + 6: credit riders_wallet — upsert the single per-rider row,
         // guarding against double-crediting the exact same order (e.g. double click / retry)
-        const amount = (orderRow.delivery_charge !== null && orderRow.delivery_charge !== undefined)
-            ? Number(orderRow.delivery_charge)
-            : Number(activeOrderData.delivery_charge || 45);
 
         const { data: existingWallet, error: walletFetchErr } = await supabaseClient
             .from('riders_wallet').select('id, order_id, balance, total_earned').eq('rider_id', riderId).maybeSingle();
@@ -1677,18 +1862,24 @@ async function verifyOtpCode() {
 async function loadEarningsFromDB() {
     if (!supabaseClient) return;
     try {
-        if (!currentRiderId) return;
+        const riderId = await ensureRiderBigIntId();
+        if (!riderId) { window._riderWalletEntries = []; return; }
         const { data: deliveredOrders, error } = await supabaseClient.from('orders')
-            .select('order_id, delivery_charge, updated_at')
-            .eq('rider_id', currentRiderId)
+            .select('order_id, delivery_charge, updated_at, pharmacy_lat, pharmacy_lon, user_lat, user_lon')
+            .eq('rider_id', riderId)
             .eq('status', 'delivered')
             .order('updated_at', { ascending: false });
         if (error) throw error;
-        window._riderWalletEntries = (deliveredOrders || []).map(o => ({
-            order_id: o.order_id,
-            amount_earned: o.delivery_charge || 0,
-            created_at: o.updated_at
-        }));
+        window._riderWalletEntries = (deliveredOrders || []).map(o => {
+            // delivery_charge ফাঁকা/০ থাকলে দূরত্ব-নিয়ম থেকে হিসাব — যাতে কোনো delivery ₹0 গণনা না হয়
+            const stored = Number(o.delivery_charge);
+            return {
+                order_id: o.order_id,
+                amount_earned: (stored > 0) ? stored : computeDeliveryCharge(o),
+                created_at: o.updated_at
+            };
+        });
+        window._earnSeenOrders = new Set(window._riderWalletEntries.map(e => String(e.order_id)));
     } catch (e) {
         window._riderWalletEntries = [];
         showToast("Earnings load error: " + (e.message || e), "error");
@@ -1774,6 +1965,7 @@ async function initEarningsPage() {
     selectEarningsPeriod('today');       // মূল headline card — ডিফল্ট "Today"
     selectHistoryPeriod('today');        // Recent Completed History লিস্ট
     selectProfitPeriod('today');         // Profit Analysis গ্রাফ
+    refreshPayoutButton();               // আজকের payout যোগ্য amount বাটনে দেখানো
 
     // ✅ FIX (#7, #12): earnings/history are sourced from `orders` now (see
     // loadEarningsFromDB note on the riders_wallet unique(rider_id)
@@ -1781,11 +1973,19 @@ async function initEarningsPage() {
     // for this rider instead of riders_wallet — a delivery completing
     // (status → delivered) on this or another device updates Total
     // Earnings, History and the Profit graph without a manual refresh.
-    if (supabaseClient && currentRiderId) {
+    const _earnRiderId = await ensureRiderBigIntId();
+    if (supabaseClient && _earnRiderId) {
         if (window._walletRealtimeChannel) supabaseClient.removeChannel(window._walletRealtimeChannel);
         window._walletRealtimeChannel = supabaseClient
             .channel('rider-earnings-realtime')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `rider_id=eq.${currentRiderId}` }, async () => {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `rider_id=eq.${_earnRiderId}` }, async (payload) => {
+                // ✅ FIX: লাইভ GPS প্রতি ৫ সেকেন্ডে এই order row আপডেট করে — আগে প্রতিবার earnings
+                // রিফ্রেশ + "Earnings updated" toast আসত। এখন শুধু নতুন delivered order এ একবার।
+                if (!payload.new || payload.new.status !== 'delivered') return;
+                const seen = window._earnSeenOrders || (window._earnSeenOrders = new Set());
+                const oid = String(payload.new.order_id);
+                if (seen.has(oid)) return;
+                seen.add(oid);
                 await loadEarningsFromDB();
                 const activeEarnChip = document.querySelector('#earningsPeriodFilter .period-chip.active');
                 const activeHistChip = document.querySelector('#historyPeriodFilter .period-chip.active');
@@ -1793,6 +1993,7 @@ async function initEarningsPage() {
                 selectEarningsPeriod(activeEarnChip ? activeEarnChip.dataset.period : 'today');
                 selectHistoryPeriod(activeHistChip ? activeHistChip.dataset.period : 'today');
                 selectProfitPeriod(activeProfitChip ? activeProfitChip.dataset.period : 'today');
+                refreshPayoutButton();
                 showToast("💰 Earnings updated!", "success");
             })
             .subscribe();
@@ -1981,59 +2182,101 @@ function renderProfitGraph(period) {
 // protection checks admin_payout_requests for any existing pending
 // request before allowing a new one. DB earnings/history are never wiped
 // via localStorage — that reset is removed entirely.
+const PAYOUT_REJECTED = ['rejected', 'declined', 'failed', 'cancelled', 'canceled'];
+const PAYOUT_OPEN = ['pending', 'approved', 'in_progress', 'processing', 'accepted'];
+
+// আজকের earning থেকে কতটা এখনও payout request করা যায় — আজ যত টাকা request হয়ে গেছে
+// (rejected ছাড়া) সেটা বাদ দিয়ে। এতে একই earning দুইবার request করা যায় না।
+async function getTodayPayoutState(riderBigIntId) {
+    const { data: reqs, error } = await supabaseClient
+        .from('admin_payout_requests')
+        .select('id, total_payout_amount, request_status, requested_at')
+        .eq('rider_id', riderBigIntId);
+    if (error) throw error;
+    const startToday = getPeriodRange('today')[0];
+    let alreadyRequestedToday = 0;
+    let hasOpen = false;
+    (reqs || []).forEach(r => {
+        const st = (r.request_status || '').toLowerCase();
+        if (!PAYOUT_REJECTED.includes(st) && r.requested_at && new Date(r.requested_at) >= startToday) {
+            alreadyRequestedToday += Number(r.total_payout_amount) || 0;
+        }
+        if (PAYOUT_OPEN.includes(st)) hasOpen = true;
+    });
+    const earnedToday = sumEarningsForPeriod('today');
+    const available = Math.max(0, Math.round((earnedToday - alreadyRequestedToday) * 100) / 100);
+    return { earnedToday, alreadyRequestedToday, available, hasOpen };
+}
+
+async function refreshPayoutButton() {
+    const btn = document.getElementById("payoutRequestBtn");
+    if (!btn || !supabaseClient) return;
+    try {
+        const riderId = await ensureRiderBigIntId();
+        if (!riderId) return;
+        const st = await getTodayPayoutState(riderId);
+        window._payoutState = st;
+        const amt = st.available.toLocaleString('en-IN');
+        if (st.available <= 0) {
+            btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> No payout available today';
+            btn.disabled = true;
+        } else if (st.hasOpen) {
+            btn.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Payout in progress (₹${amt} more available)`;
+            btn.disabled = true;
+        } else {
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Request ₹${amt} Payout`;
+            btn.disabled = false;
+        }
+        btn.style.opacity = btn.disabled ? '0.6' : '1';
+    } catch (e) {
+        console.error('PAYOUT STATE ERROR:', e);
+    }
+}
+
+// ✅ REWRITE: payout amount এখন DB থেকে ঠিকঠাক হিসাব হয় — আজকের delivered order এর earning থেকে
+// আজ আগে request হয়ে যাওয়া amount বাদ দিয়ে। Duplicate/double payout আটকানো আছে, আর
+// request এর আগে earnings fresh করে নেওয়া হয় যাতে সদ্য delivery হওয়া order বাদ না পড়ে।
 async function handlePayoutRequest() {
     if (!supabaseClient) return;
     const payoutRequestBtn = document.getElementById("payoutRequestBtn");
-    if (!payoutRequestBtn) return;
+    if (!payoutRequestBtn || payoutRequestBtn.disabled) return;
 
-    if (payoutRequestBtn) { payoutRequestBtn.disabled = true; payoutRequestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; }
+    payoutRequestBtn.disabled = true;
+    payoutRequestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
     try {
-        const { data: { session }, error: sessErr } = await supabaseClient.auth.getSession();
-        if (sessErr) throw sessErr;
-        if (!session?.user?.id) throw new Error("You're not logged in. Please log in again.");
+        const riderBigIntId = await ensureRiderBigIntId();
+        if (!riderBigIntId) throw new Error("Rider profile not found. Please log in again.");
 
-        const { data: riderRow, error: riderErr } = await supabaseClient
-            .from('riders').select('id').eq('auth_user_id', session.user.id).maybeSingle();
-        if (riderErr) throw riderErr;
-        if (!riderRow || !riderRow.id) throw new Error("Rider profile not found.");
-        const riderBigIntId = riderRow.id;
+        await loadEarningsFromDB();
+        const st = await getTodayPayoutState(riderBigIntId);
 
-        // ✅ FIX: payout request এখন riders_wallet এর সম্পূর্ণ lifetime balance নয় — শুধু
-        // আজকের (Today) earning-ই request করা যাবে, DB entries থেকে সরাসরি sum করে
-        const totalAmount = sumEarningsForPeriod('today');
-
-        if (totalAmount <= 0) {
+        if (st.earnedToday <= 0) {
             showToast("No earnings today to withdraw. Complete a delivery first.", "error");
             return;
         }
-
-        // STEP (#11): duplicate protection — block if a pending/approved request already exists
-        const { data: existingRequests, error: existingErr } = await supabaseClient
-            .from('admin_payout_requests').select('id, request_status').eq('rider_id', riderBigIntId);
-        if (existingErr) throw existingErr;
-        const hasOpenRequest = (existingRequests || []).some(r => {
-            const s = (r.request_status || '').toLowerCase();
-            return s === 'pending' || s === 'approved' || s === 'in_progress' || s === 'processing';
-        });
-        if (hasOpenRequest) {
+        if (st.hasOpen) {
             showToast("You already have a payout request being processed. Please wait for it to complete.", "error");
+            return;
+        }
+        if (st.available <= 0) {
+            showToast("Today's earnings have already been requested for payout.", "info");
             return;
         }
 
         const { error } = await supabaseClient.from('admin_payout_requests').insert([{
-            rider_id: riderBigIntId, total_payout_amount: totalAmount,
-            active_duty_hours: Math.floor(riderActiveMinutes / 60).toString(), 
-            request_status: 'pending', requested_at: new Date().toISOString()
+            rider_id: riderBigIntId, total_payout_amount: st.available, amount: st.available,
+            active_duty_hours: Math.floor(riderActiveMinutes / 60),
+            request_status: 'pending', status: 'pending', requested_at: new Date().toISOString()
         }]);
         if (error) throw error;
 
-        showToast(`Payout of ₹${totalAmount} requested! Admin will review shortly.`, "success");
-        initEarningsPage();
+        showToast(`Payout of ₹${st.available} requested! Admin will review shortly.`, "success");
+        await initEarningsPage();
     } catch (err) {
         showToast("Payout request failed: " + (err.message || err), "error");
     } finally {
-        if (payoutRequestBtn) { payoutRequestBtn.disabled = false; payoutRequestBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Request Today\'s Payout'; }
+        await refreshPayoutButton();
     }
 }
 
@@ -2267,7 +2510,7 @@ function closeSubPage(pageId) {
     if (pageElement) {
         pageElement.classList.add('hidden');
         if (document.body) {
-            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflowY = '';
         }
         // ✅ NEW (KYC full-screen redesign): the wizard hides the normal bottom nav
         // while open and pushes one history entry for the Android hardware-back
@@ -2277,6 +2520,7 @@ function closeSubPage(pageId) {
         if (pageId === 'kycWizardPage') {
             showRiderBottomNav();
             if (_kycHistoryPushed) { _kycHistoryPushed = false; history.back(); }
+            onKycWizardClosed();
         }
     } else {
 
@@ -2545,7 +2789,7 @@ function timeAgo(dateStr) {
     if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
     return Math.floor(diff / 86400) + ' days ago';
 }
-function openSubPage(pageId) { const el = document.getElementById(pageId); if (!el) return; el.classList.remove('hidden'); if(document.body) document.body.style.overflow = 'hidden'; }
+function openSubPage(pageId) { const el = document.getElementById(pageId); if (!el) return; el.classList.remove('hidden'); document.documentElement.style.overflowY = 'hidden'; }
 
 async function triggerProfileNameEdit() {
     const newName = await new Promise(resolve => {
@@ -2646,8 +2890,8 @@ function switchRiderTab(tab) {
     // পেজ রিফ্রেশ করলে যেন সবশেষ যে ট্যাবে ছিল সেখানেই ফিরে আসে (ঠিক যেমন আলাদা পেজ হলে হতো)
     try { sessionStorage.setItem('rider_active_tab', tab); } catch (e) {}
 
-    const titles = { home: 'MediFinder - Rider Home', delivery: 'Order Tracking | MediFinder', earning: 'MediFinder - Driver Metrics', profile: 'MediFinder - Rider Profile Configuration' };
-    document.title = titles[tab] || 'MediFinder - Rider App';
+    const titles = { home: 'MediFinder India - Rider Home', delivery: 'Order Tracking | MediFinder India', earning: 'MediFinder India - Driver Metrics', profile: 'MediFinder India - Rider Profile Configuration' };
+    document.title = titles[tab] || 'MediFinder India - Rider App';
 }
 
 // Bottom nav active state — now driven by the in-app active tab instead of
@@ -2897,6 +3141,7 @@ function showKycStep(n) {
     if (continueBtn) continueBtn.innerText = (n === 6) ? 'Submit Application' : 'Continue →';
     const bodyEl = document.querySelector('#kycWizardPage .kyc-fs-body');
     if (bodyEl) bodyEl.scrollTop = 0;
+    saveKycDraft(); // ধাপ বদলালেই progress লোকাল স্টোরেজে সেভ
 }
 
 // ✅ NEW: the full-screen wizard has ONE shared bottom "Continue →" button
@@ -2926,6 +3171,7 @@ function selectKycVehicle(type) {
     const licenseSkipNote = document.getElementById('kycLicenseSkipNote');
     if (licenseFields) licenseFields.classList.toggle('hidden', skipDoc);
     if (licenseSkipNote) licenseSkipNote.classList.toggle('hidden', !skipDoc);
+    saveKycDraft();
 }
 
 function onKycIdTypeChange() {
@@ -2951,8 +3197,8 @@ function hasExistingImg(field) {
     return !!(window._kycDraft.existing && window._kycDraft.existing[field]);
 }
 function hasChosenFile(inputId) {
-    const el = document.getElementById(inputId);
-    return !!(el && el.files && el.files.length > 0);
+    // ✅ ছবি এখন compress করে memory/IndexedDB তে রাখা হয় (input.files এ নয়)
+    return !!(window._kycFiles && window._kycFiles[inputId]);
 }
 
 function validateAndCollectStep(step) {
@@ -3031,6 +3277,7 @@ function validateAndCollectStep(step) {
 function kycWizardNext(step) {
     const err = validateAndCollectStep(step);
     if (err) { showToast(err, "error"); return; }
+    saveKycDraft(); // Continue চাপলেই সেভ — সম্পূর্ণ submit না হওয়া পর্যন্ত লোকাল স্টোরেজে থাকবে
     if (step < 5) { showKycStep(step + 1); }
     else { renderKycPreview(); showKycStep(6); }
 }
@@ -3093,41 +3340,242 @@ function showRiderBottomNav() {
 // on top) for every file input inside the wizard. One delegated 'change' listener,
 // wired once — keeps the existing input IDs the rest of the KYC JS depends on untouched.
 let _kycUploadCardsWired = false;
+
+// ============================================================
+// ✅ NEW: KYC draft persistence + হালকা ছবি হ্যান্ডলিং
+//
+// সমস্যা: ক্যামেরা খোলার পর ফোনের memory কম পড়লে ব্রাউজার ট্যাব কিল করে দেয়, ফলে ছবি তোলার
+// পর পেজ রিলোড হয়ে হোমে চলে যেত এবং সব লেখা/ছবি হারিয়ে যেত। আগে পুরো ফটো FileReader দিয়ে
+// base64 (DataURL) বানানো হতো — সেটাই বড় memory spike ছিল।
+//
+// এখন: (১) ছবি সাথে সাথে ছোট (max 1280px, JPEG) করা হয় এবং preview দেখানো হয় objectURL দিয়ে,
+// (২) ছবি IndexedDB তে আর লেখাগুলো localStorage এ সেভ হয় — প্রতিটা Continue, প্রতিটা টাইপ, আর
+// অ্যাপ ব্যাকগ্রাউন্ডে যাওয়ার মুহূর্তে, (৩) রিলোড হলে রাইডার সরাসরি একই ধাপে, আগের সব তথ্য ও
+// ছবিসহ ফিরে আসে। Submit সফল হলেই draft মুছে যায়।
+// ============================================================
+const KYC_DRAFT_KEY = 'rider_kyc_draft_v1';
+const KYC_WIZARD_OPEN_KEY = 'rider_kyc_wizard_open';
+const KYC_TEXT_FIELD_IDS = ['kycFirstName','kycAge','kycContactNo','kycWhatsappNo','kycEmail','kycAddress','kycVehicleNo','kycLicenseNo','kycIdType','kycIdNo','kycAccountNo','kycIfscCode','kycBranch','kycUpiId'];
+const KYC_FILE_FOLDERS = { kycVehicleImg: 'vehicle', kycLicenseImg: 'license', kycInsuranceImg: 'insurance', kycSelfieImg: 'selfie', kycIdImg: 'id', kycBankDocImg: 'bankdoc', kycQrImg: 'qr' };
+window._kycFiles = window._kycFiles || {};
+window._kycPreviewUrls = window._kycPreviewUrls || {};
+window._kycRestoring = false;
+
+function kycIdb() {
+    if (window._kycIdbPromise) return window._kycIdbPromise;
+    window._kycIdbPromise = new Promise((resolve) => {
+        try {
+            const req = indexedDB.open('rider_kyc_draft', 1);
+            req.onupgradeneeded = () => { req.result.createObjectStore('files'); };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+            req.onblocked = () => resolve(null);
+        } catch (e) { resolve(null); }
+    });
+    return window._kycIdbPromise;
+}
+async function kycIdbOp(mode, fn) {
+    const db = await kycIdb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction('files', mode);
+            const req = fn(tx.objectStore('files'));
+            tx.oncomplete = () => resolve(req && ('result' in req) ? req.result : true);
+            tx.onerror = () => resolve(null);
+            tx.onabort = () => resolve(null);
+        } catch (e) { resolve(null); }
+    });
+}
+const kycIdbPut = (k, blob) => kycIdbOp('readwrite', st => st.put(blob, k));
+const kycIdbDelete = (k) => kycIdbOp('readwrite', st => st.delete(k));
+const kycIdbClear = () => kycIdbOp('readwrite', st => st.clear());
+const kycIdbGet = (k) => kycIdbOp('readonly', st => st.get(k));
+
+// বড় ক্যামেরা ফটো → max 1280px JPEG (সাধারণত ২০০–400 KB)। fail করলে আসল ফাইলই ফেরত।
+async function compressKycImage(file, maxDim = 1280, quality = 0.72) {
+    if (!file || !file.type || !file.type.startsWith('image/')) return file;
+    let bitmap = null, url = null;
+    try {
+        let source, w, h;
+        if (window.createImageBitmap) {
+            try { bitmap = await createImageBitmap(file); } catch (e) { bitmap = null; }
+        }
+        if (bitmap) {
+            source = bitmap; w = bitmap.width; h = bitmap.height;
+        } else {
+            url = URL.createObjectURL(file);
+            // ১০ সেকেন্ডে লোড না হলে আটকে না থেকে আসল ফাইলই ব্যবহার হবে
+            const img = await new Promise((res, rej) => {
+                const i = new Image();
+                const timer = setTimeout(() => rej(new Error('image decode timeout')), 10000);
+                i.onload = () => { clearTimeout(timer); res(i); };
+                i.onerror = (err) => { clearTimeout(timer); rej(err); };
+                i.src = url;
+            });
+            source = img; w = img.naturalWidth; h = img.naturalHeight;
+        }
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        const cw = Math.max(1, Math.round(w * scale));
+        const ch = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(source, 0, 0, cw, ch);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+        canvas.width = 0; canvas.height = 0; // canvas memory সাথে সাথে ছেড়ে দেওয়া
+        if (!blob) return file;
+        return (scale < 1 || blob.size < file.size) ? blob : file;
+    } catch (e) {
+        return file;
+    } finally {
+        if (bitmap && bitmap.close) bitmap.close();
+        if (url) URL.revokeObjectURL(url);
+    }
+}
+
+function setKycCardState(inputId, blob, label) {
+    const input = document.getElementById(inputId);
+    const card = input ? input.closest('.kyc-upload-card') : null;
+    if (!card) return;
+    const placeholder = card.querySelector('.kyc-upload-placeholder');
+    const result = card.querySelector('.kyc-upload-result');
+    const filenameEl = card.querySelector('.kyc-upload-filename');
+    const previewImg = card.querySelector('.kyc-upload-preview');
+    if (window._kycPreviewUrls[inputId]) {
+        URL.revokeObjectURL(window._kycPreviewUrls[inputId]);
+        delete window._kycPreviewUrls[inputId];
+    }
+    if (blob) {
+        const url = URL.createObjectURL(blob);
+        window._kycPreviewUrls[inputId] = url;
+        card.classList.add('has-file');
+        if (placeholder) placeholder.classList.add('hidden');
+        if (result) result.classList.remove('hidden');
+        if (filenameEl) filenameEl.textContent = label || 'Photo ready';
+        if (previewImg) { previewImg.src = url; previewImg.classList.remove('hidden'); }
+    } else {
+        card.classList.remove('has-file');
+        if (placeholder) placeholder.classList.remove('hidden');
+        if (result) result.classList.add('hidden');
+        if (previewImg) { previewImg.removeAttribute('src'); previewImg.classList.add('hidden'); }
+    }
+}
+
+function kycPhotoLabel(blob) {
+    return 'Photo ready · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB';
+}
+
+function saveKycDraft() {
+    if (window._kycRestoring) return;
+    try {
+        const wizard = document.getElementById('kycWizardPage');
+        if (!wizard || wizard.classList.contains('hidden')) return;
+        const fields = {};
+        KYC_TEXT_FIELD_IDS.forEach(id => { const el = document.getElementById(id); if (el) fields[id] = el.value; });
+        localStorage.setItem(KYC_DRAFT_KEY, JSON.stringify({
+            step: kycCurrentStep,
+            vehicle: (window._kycDraft && window._kycDraft.fields && window._kycDraft.fields.vehicle_type) || null,
+            fields,
+            savedAt: Date.now()
+        }));
+    } catch (e) { /* storage full / private mode — draft is best-effort */ }
+}
+const saveKycDraftDebounced = debounce(saveKycDraft, 350);
+
+async function clearKycDraft() {
+    try { localStorage.removeItem(KYC_DRAFT_KEY); } catch (e) {}
+    Object.keys(window._kycPreviewUrls).forEach(id => { try { URL.revokeObjectURL(window._kycPreviewUrls[id]); } catch (e) {} });
+    window._kycPreviewUrls = {};
+    window._kycFiles = {};
+    await kycIdbClear();
+}
+
+// ওয়াইজার্ড বন্ধ হলে (Back/Submit) — resume flag মুছে দেওয়া, GPS আবার চালু করা
+function onKycWizardClosed() {
+    try { localStorage.removeItem(KYC_WIZARD_OPEN_KEY); } catch (e) {}
+    if (isOnDuty) startLiveLocationTracking();
+}
+
+async function restoreKycDraft(opts) {
+    window._kycRestoring = true;
+    try {
+        // ১) ছবি ফেরত আনা (memory তে থাকলে সেটা, না হলে IndexedDB থেকে)
+        for (const id of Object.keys(KYC_FILE_FOLDERS)) {
+            let blob = window._kycFiles[id] || null;
+            if (!blob) {
+                blob = await kycIdbGet(id);
+                if (blob) window._kycFiles[id] = blob;
+            }
+            if (blob) setKycCardState(id, blob, kycPhotoLabel(blob));
+        }
+
+        // ২) লেখা ফেরত আনা
+        let raw = null;
+        try { raw = localStorage.getItem(KYC_DRAFT_KEY); } catch (e) {}
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        const fields = draft.fields || {};
+        KYC_TEXT_FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && fields[id] !== undefined && fields[id] !== '') el.value = fields[id];
+        });
+        if (draft.vehicle) selectKycVehicle(draft.vehicle);
+        if (fields.kycIdType) onKycIdTypeChange();
+
+        // ৩) আগের ধাপে ফিরে যাওয়া — আগের ধাপগুলো valid থাকলে ঠিক সেই ধাপে, নাহলে প্রথম অসম্পূর্ণ ধাপে
+        let target = Math.min(6, Math.max(1, Number(draft.step) || 1));
+        for (let st = 1; st < target && st <= 5; st++) {
+            const err = validateAndCollectStep(st);
+            if (err) { target = st; showToast(err, 'info'); break; }
+        }
+        if (target === 6) renderKycPreview();
+        showKycStep(target);
+        if (opts && opts.resumed) showToast('Welcome back — your KYC progress has been restored.', 'info');
+    } catch (e) {
+        console.error('KYC DRAFT RESTORE ERROR:', e);
+    } finally {
+        window._kycRestoring = false;
+        saveKycDraft();
+    }
+}
+
 function initKycUploadCards() {
     if (_kycUploadCardsWired) return;
     _kycUploadCardsWired = true;
     const wizard = document.getElementById('kycWizardPage');
     if (!wizard) return;
-    wizard.addEventListener('change', function (e) {
+
+    wizard.addEventListener('change', async function (e) {
         const input = e.target;
-        if (!input.matches('input[type="file"]')) return;
-        const card = input.closest('.kyc-upload-card');
-        if (!card) return;
+        if (!input || !input.matches) return;
+        if (!input.matches('input[type="file"]')) { saveKycDraftDebounced(); return; } // select/text change
+        const inputId = input.id;
         const file = input.files && input.files[0];
-        const placeholder = card.querySelector('.kyc-upload-placeholder');
-        const result = card.querySelector('.kyc-upload-result');
-        const filenameEl = card.querySelector('.kyc-upload-filename');
-        const previewImg = card.querySelector('.kyc-upload-preview');
-        if (file) {
-            card.classList.add('has-file');
-            if (placeholder) placeholder.classList.add('hidden');
-            if (result) result.classList.remove('hidden');
-            if (filenameEl) filenameEl.textContent = file.name;
-            if (previewImg) {
-                if (file.type && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = ev => { previewImg.src = ev.target.result; previewImg.classList.remove('hidden'); };
-                    reader.readAsDataURL(file);
-                } else {
-                    previewImg.classList.add('hidden');
-                }
-            }
-        } else {
-            card.classList.remove('has-file');
-            if (placeholder) placeholder.classList.remove('hidden');
-            if (result) result.classList.add('hidden');
+        if (!file || !KYC_FILE_FOLDERS[inputId]) return;
+        const card = input.closest('.kyc-upload-card');
+        if (card) card.classList.add('processing');
+        try {
+            const blob = await compressKycImage(file);
+            window._kycFiles[inputId] = blob;
+            setKycCardState(inputId, blob, kycPhotoLabel(blob));
+            await kycIdbPut(inputId, blob);
+            saveKycDraft();
+        } catch (err) {
+            console.error('KYC IMAGE ERROR:', err);
+            showToast('Could not process that photo. Please try again.', 'error');
+        } finally {
+            input.value = ''; // আসল (বড়) ফাইলের reference ছেড়ে দেওয়া — একই ছবি আবার বাছলেও change আসবে
+            if (card) card.classList.remove('processing');
         }
     });
+    wizard.addEventListener('input', saveKycDraftDebounced);
+
+    // অ্যাপ ব্যাকগ্রাউন্ডে গেলে (ক্যামেরা খোলার ঠিক আগের মুহূর্ত) সাথে সাথে সেভ
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveKycDraft(); });
+    window.addEventListener('pagehide', saveKycDraft);
 }
 
 // ✅ NEW: on open (fresh, or reopening a rejected/in-progress application), show
@@ -3180,8 +3628,9 @@ window.addEventListener('popstate', function () {
 function closeKycWizardUIOnly() {
     const wizard = document.getElementById('kycWizardPage');
     if (wizard) wizard.classList.add('hidden');
-    if (document.body) document.body.style.overflow = 'auto';
+    if (document.body) document.documentElement.style.overflowY = '';
     showRiderBottomNav();
+    onKycWizardClosed();
 }
 
 function openKycWizard() {
@@ -3214,6 +3663,7 @@ function openKycWizard() {
         const licenseFields = document.getElementById('kycLicenseFields'); if (licenseFields) licenseFields.classList.remove('hidden');
         const licenseSkipNote = document.getElementById('kycLicenseSkipNote'); if (licenseSkipNote) licenseSkipNote.classList.add('hidden');
     }
+    window._kycRestoring = true; // restore শেষ না হওয়া পর্যন্ত খালি ফর্ম দিয়ে draft ওভাররাইট হবে না
     markKycUploadCardsFromExisting(existing);
     initKycUploadCards();
     showKycStep(1);
@@ -3223,6 +3673,11 @@ function openKycWizard() {
         history.pushState({ kycModal: true }, '');
         _kycHistoryPushed = true;
     }
+    // ক্যামেরা/ফাইল পিকারের সময় memory বাঁচাতে লাইভ GPS সাময়িক বন্ধ (KYC approve না হওয়া পর্যন্ত অর্ডারও নেই)
+    try { localStorage.setItem(KYC_WIZARD_OPEN_KEY, '1'); } catch (e) {}
+    stopLiveLocationTracking();
+    restoreKycDraft({ resumed: !!window._resumeKycWizard });
+    window._resumeKycWizard = false;
 }
 
 function handleKycBannerTap() {
@@ -3250,12 +3705,13 @@ function goToKycFromHome() {
 }
 
 async function uploadKycFile(inputId, folder) {
-    const el = document.getElementById(inputId);
-    if (!el || !el.files || el.files.length === 0) return null;
-    const file = el.files[0];
+    const blob = window._kycFiles && window._kycFiles[inputId];
+    if (!blob) return null;
     const riderId = currentRiderId || 'rider';
-    const filePath = `rider_docs/${riderId}/kyc/${folder}_${Date.now()}_${file.name}`;
-    const { error } = await supabaseClient.storage.from('media').upload(filePath, file);
+    const extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
+    const ext = extMap[blob.type] || 'jpg';
+    const filePath = `rider_docs/${riderId}/kyc/${folder}_${Date.now()}.${ext}`;
+    const { error } = await supabaseClient.storage.from('media').upload(filePath, blob, { contentType: blob.type || 'image/jpeg' });
     if (error) throw error;
     const { data } = supabaseClient.storage.from('media').getPublicUrl(filePath);
     return data?.publicUrl || null;
@@ -3272,16 +3728,21 @@ async function submitKycApplication() {
         const existing = window._kycDraft.existing || {};
         const d = window._kycDraft.fields;
 
+        // ✅ Submit এর আগে সব ধাপ আবার যাচাই — required লেখা ও required ছবি (vehicle, license*, selfie, ID, bank doc)
+        // একটাও বাদ থাকলে সেই ধাপে ফিরিয়ে নিয়ে যাবে। (*bicycle/EV ছাড়া)
+        for (let st = 1; st <= 5; st++) {
+            const vErr = validateAndCollectStep(st);
+            if (vErr) { showKycStep(st); showToast(vErr, 'error'); return; }
+        }
+
         showToast('Uploading documents...', 'info');
-        const [vehicleImgUrl, licenseImgUrl, insuranceImgUrl, selfieImgUrl, idImgUrl, bankDocImgUrl, qrImgUrl] = await Promise.all([
-            uploadKycFile('kycVehicleImg', 'vehicle'),
-            uploadKycFile('kycLicenseImg', 'license'),
-            uploadKycFile('kycInsuranceImg', 'insurance'),
-            uploadKycFile('kycSelfieImg', 'selfie'),
-            uploadKycFile('kycIdImg', 'id'),
-            uploadKycFile('kycBankDocImg', 'bankdoc'),
-            uploadKycFile('kycQrImg', 'qr')
-        ]);
+        // একটা একটা করে আপলোড — ফোনে memory/network চাপ কম
+        const up = {};
+        for (const [inputId, folder] of Object.entries(KYC_FILE_FOLDERS)) {
+            up[inputId] = await uploadKycFile(inputId, folder);
+        }
+        const vehicleImgUrl = up.kycVehicleImg, licenseImgUrl = up.kycLicenseImg, insuranceImgUrl = up.kycInsuranceImg,
+              selfieImgUrl = up.kycSelfieImg, idImgUrl = up.kycIdImg, bankDocImgUrl = up.kycBankDocImg, qrImgUrl = up.kycQrImg;
 
         const payload = {
             rider_id: riderId,
@@ -3321,6 +3782,7 @@ async function submitKycApplication() {
         }
 
         showToast('✅ KYC application submitted! We will review it shortly.', 'success');
+        await clearKycDraft(); // সফল submit — এখন draft মুছে ফেলা
         closeSubPage('kycWizardPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {

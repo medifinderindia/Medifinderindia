@@ -2,15 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Delivery Partner App | MediFinder India</title>
+    <meta name="description" content="MediFinder India delivery partner app.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://medifinderindia.com/rider.html">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MediFinder India">
+    <meta property="og:locale" content="en_IN">
+    <meta property="og:url" content="https://medifinderindia.com/rider.html">
+    <meta property="og:title" content="Delivery Partner App | MediFinder India">
+    <meta property="og:description" content="MediFinder India delivery partner app.">
+    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Delivery Partner App | MediFinder India">
+    <meta name="twitter:description" content="MediFinder India delivery partner app.">
+    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta name="theme-color" content="#e02020">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>MediFinder - Rider App</title>
-    <link rel="stylesheet" href="rider.css?v=2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <link rel="stylesheet" href="rider.css?v=3">
     <style id="riderLogoutFix">
         /* Guarantees the Logout button is always visible & tappable above the fixed bottom nav */
         #tab-profile #mainContentSection { padding-bottom: 130px !important; }
@@ -21,13 +43,11 @@
             position: relative; z-index: 2; visibility: visible !important; opacity: 1 !important;
         }
     </style>
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <!-- Supabase CDN -->
+    <script src="permission-every.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
 </head>
@@ -185,7 +205,7 @@
                     <button id="payoutRequestBtn" class="action-btn-accent-premium" onclick="handlePayoutRequest()" style="width: 100%; margin-top: 15px; background: #e63946; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s ease;">
                         <i class="fa-solid fa-paper-plane"></i> Request Today's Payout
                     </button>
-                    <small style="display:block; margin-top:8px; text-align:center; color:var(--text-muted); font-size:0.72rem;">Only today's earning can be requested for payout.</small>
+                    <small style="display:block; margin-top:8px; text-align:center; color:var(--text-muted); font-size:0.72rem;">Only today's earning (not already requested) can be requested for payout.</small>
                 </div>
 
                 <div class="graph-box trend-up" id="trendGraphContainer">
@@ -365,7 +385,7 @@
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
-                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                    <div class="menu-item-button" onclick="navigateWithFade('info.html#terms')">
                         <div class="menu-item-left">
                             <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
                             <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
@@ -373,7 +393,7 @@
                         <i class="fa-solid fa-chevron-right arrow-icon"></i>
                     </div>
 
-                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html')">
+                    <div class="menu-item-button" onclick="navigateWithFade('info.html#terms')">
                         <div class="menu-item-left">
                             <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
                             <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
@@ -481,15 +501,15 @@
                     <h4 class="kyc-step-heading">Tell us about yourself</h4>
                     <p class="kyc-step-subtext">This information appears on your rider profile and delivery receipts.</p>
                     <div class="input-element-row-premium">
-                        <label>First Name</label>
+                        <label>First Name <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycFirstName" placeholder="Full name as per ID">
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Age</label>
+                        <label>Age <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycAge" inputmode="numeric" placeholder="e.g., 24">
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Contact No.</label>
+                        <label>Contact No. <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycContactNo" inputmode="numeric" placeholder="10-digit mobile number">
                     </div>
                     <div class="input-element-row-premium">
@@ -501,7 +521,7 @@
                         <input type="text" id="kycEmail" placeholder="you@example.com">
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Address</label>
+                        <label>Address <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycAddress" placeholder="Full residential address">
                     </div>
                 </div>
@@ -511,7 +531,7 @@
                     <h4 class="kyc-step-heading">What do you ride?</h4>
                     <p class="kyc-step-subtext">Vehicle number isn't required for Bicycle or EV.</p>
                     <div class="input-element-row-premium">
-                        <label>Select Vehicle</label>
+                        <label>Select Vehicle <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-vehicle-grid" id="kycVehicleGrid">
                             <button type="button" class="kyc-vehicle-option" data-vehicle="bicycle" onclick="selectKycVehicle('bicycle')"><i class="fa-solid fa-bicycle"></i><span>Bicycle</span></button>
                             <button type="button" class="kyc-vehicle-option" data-vehicle="ev" onclick="selectKycVehicle('ev')"><i class="fa-solid fa-charging-station"></i><span>EV</span></button>
@@ -520,7 +540,7 @@
                         </div>
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Vehicle Image</label>
+                        <label>Vehicle Image <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-upload-card">
                             <input type="file" id="kycVehicleImg" accept="image/*">
                             <div class="kyc-upload-placeholder">
@@ -536,7 +556,7 @@
                         </div>
                     </div>
                     <div class="input-element-row-premium" id="kycVehicleNoRow">
-                        <label>Vehicle No. <span class="kyc-optional-tag">e.g., WB-62-C-XXXX</span></label>
+                        <label>Vehicle No. <span class="kyc-required-tag">*Required</span> <span class="kyc-optional-tag">e.g., WB-62-C-XXXX</span></label>
                         <input type="text" id="kycVehicleNo" placeholder="WB-62-C-XXXX" style="text-transform:uppercase;">
                         <small id="kycVehicleNoHint" class="hidden kyc-input-hint">Not required for Bicycle / EV.</small>
                     </div>
@@ -548,7 +568,7 @@
                     <p class="kyc-step-subtext">Required for Scooty and Bike riders.</p>
                     <div id="kycLicenseFields">
                         <div class="input-element-row-premium">
-                            <label>Driving License Image</label>
+                            <label>Driving License Image <span class="kyc-required-tag">*Required</span></label>
                             <div class="kyc-upload-card">
                                 <input type="file" id="kycLicenseImg" accept="image/*">
                                 <div class="kyc-upload-placeholder">
@@ -564,7 +584,7 @@
                             </div>
                         </div>
                         <div class="input-element-row-premium">
-                            <label>Driving License No.</label>
+                            <label>Driving License No. <span class="kyc-required-tag">*Required</span></label>
                             <input type="text" id="kycLicenseNo" placeholder="e.g., WB0120230012345">
                         </div>
                     </div>
@@ -576,7 +596,7 @@
                             <div class="kyc-upload-placeholder">
                                 <i class="fa-solid fa-cloud-arrow-up"></i>
                                 <span class="kyc-upload-label">Upload Insurance Photo</span>
-                                <span class="kyc-upload-hint">JPG, PNG or PDF</span>
+                                <span class="kyc-upload-hint">JPG or PNG</span>
                             </div>
                             <div class="kyc-upload-result hidden">
                                 <i class="fa-solid fa-circle-check"></i>
@@ -594,11 +614,11 @@
                     <div class="input-element-row-premium">
                         <label>Selfie <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-upload-card">
-                            <input type="file" id="kycSelfieImg" accept="image/*" capture="user">
+                            <input type="file" id="kycSelfieImg" accept="image/*">
                             <div class="kyc-upload-placeholder">
                                 <i class="fa-solid fa-camera"></i>
                                 <span class="kyc-upload-label">Take / Upload Selfie</span>
-                                <span class="kyc-upload-hint">Face clearly visible</span>
+                                <span class="kyc-upload-hint">Take with camera or choose from gallery · face clearly visible</span>
                             </div>
                             <div class="kyc-upload-result hidden">
                                 <i class="fa-solid fa-circle-check"></i>
@@ -608,7 +628,7 @@
                         </div>
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Select ID Type</label>
+                        <label>Select ID Type <span class="kyc-required-tag">*Required</span></label>
                         <select id="kycIdType" onchange="onKycIdTypeChange()">
                             <option value="">Choose one</option>
                             <option value="aadhaar">Aadhaar Card</option>
@@ -617,7 +637,7 @@
                         </select>
                     </div>
                     <div class="input-element-row-premium">
-                        <label>ID Image</label>
+                        <label>ID Image <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-upload-card">
                             <input type="file" id="kycIdImg" accept="image/*">
                             <div class="kyc-upload-placeholder">
@@ -633,7 +653,7 @@
                         </div>
                     </div>
                     <div class="input-element-row-premium">
-                        <label>ID Number</label>
+                        <label>ID Number <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycIdNo" placeholder="Select an ID type first" style="text-transform:uppercase;">
                         <small id="kycIdNoHint" class="kyc-input-hint"></small>
                     </div>
@@ -644,7 +664,7 @@
                     <h4 class="kyc-step-heading">Bank &amp; Payment</h4>
                     <p class="kyc-step-subtext">Where your delivery earnings get paid out.</p>
                     <div class="input-element-row-premium">
-                        <label>Passbook / Account Photo</label>
+                        <label>Passbook / Account Photo <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-upload-card">
                             <input type="file" id="kycBankDocImg" accept="image/*">
                             <div class="kyc-upload-placeholder">
@@ -660,15 +680,15 @@
                         </div>
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Account No.</label>
+                        <label>Account No. <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycAccountNo" inputmode="numeric" placeholder="Bank account number">
                     </div>
                     <div class="input-element-row-premium">
-                        <label>IFSC Code</label>
+                        <label>IFSC Code <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycIfscCode" placeholder="SBIN000XXXX" style="text-transform:uppercase;">
                     </div>
                     <div class="input-element-row-premium">
-                        <label>Branch</label>
+                        <label>Branch <span class="kyc-required-tag">*Required</span></label>
                         <input type="text" id="kycBranch" placeholder="Branch name / location">
                     </div>
                     <div class="input-element-row-premium">
@@ -898,6 +918,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="prod-utils.js?v=1"></script>
-    <script src="rider.js?v=1"></script>
+    <script src="rider.js?v=2"></script>
+<script src="push-notifications.js?v=4" defer></script>
 </body>
 </html>

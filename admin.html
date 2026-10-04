@@ -2,8 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <title>Admin | MediFinder India</title>
+    <meta name="description" content="MediFinder India admin panel.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://medifinderindia.com/admin.html">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MediFinder India">
+    <meta property="og:locale" content="en_IN">
+    <meta property="og:url" content="https://medifinderindia.com/admin.html">
+    <meta property="og:title" content="Admin | MediFinder India">
+    <meta property="og:description" content="MediFinder India admin panel.">
+    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Admin | MediFinder India">
+    <meta name="twitter:description" content="MediFinder India admin panel.">
+    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MediFinder Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -17,7 +39,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
       <div class="brand-mark">M</div>
-      <div class="brand-text"><strong>MediFinder</strong><span>Admin Console</span></div>
+      <div class="brand-text"><strong>MediFinder India</strong><span>Admin Console</span></div>
       <button class="sidebar-collapse-btn" id="collapseBtn" title="Collapse sidebar">«</button>
     </div>
     <nav class="sidebar-scroll" id="sidebarScroll"></nav>
@@ -56,9 +78,11 @@
 <div id="modalRoot"></div>
 <div class="toast-stack" id="toastStack"></div>
 
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="permission-every.js?v=4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script defer src="supabase-constants.js"></script>
 <script defer src="admin.js"></script>
+<script defer src="push-notifications.js?v=4"></script>
 </body>
 </html>

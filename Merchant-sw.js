@@ -14,7 +14,7 @@ self.addEventListener('activate', (event) => {
 
 // Generic listener in case a push payload is ever sent from a backend later.
 self.addEventListener('push', (event) => {
-    let payload = { title: '🛒 MediFinder Merchant Alert', body: 'You have a new update.' };
+    let payload = { title: '🛒 MediFinder India Merchant Alert', body: 'You have a new update.' };
     try {
         if (event.data) payload = event.data.json();
     } catch (e) {
@@ -22,7 +22,7 @@ self.addEventListener('push', (event) => {
     }
 
     event.waitUntil(
-        self.registration.showNotification(payload.title || '🛒 MediFinder Merchant Alert', {
+        self.registration.showNotification(payload.title || '🛒 MediFinder India Merchant Alert', {
             body: payload.body || 'You have a new update.',
             icon: '1779304435608.png',
             badge: '1779304435608.png',

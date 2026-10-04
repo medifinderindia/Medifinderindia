@@ -2,8 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <title>Ambulance Partner Portal | MediFinder India</title>
+    <meta name="description" content="MediFinder India ambulance partner portal.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://medifinderindia.com/ambulance-partner.html">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MediFinder India">
+    <meta property="og:locale" content="en_IN">
+    <meta property="og:url" content="https://medifinderindia.com/ambulance-partner.html">
+    <meta property="og:title" content="Ambulance Partner Portal | MediFinder India">
+    <meta property="og:description" content="MediFinder India ambulance partner portal.">
+    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Ambulance Partner Portal | MediFinder India">
+    <meta name="twitter:description" content="MediFinder India ambulance partner portal.">
+    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MediFinder India — Ambulance Partner Portal</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--p:#087f5b;--dark:#073b2b;--bg:#f5f8f7;--text:#17211d;--muted:#718078;--line:#e4ece8;--red:#d94841;--orange:#a86100;--blue:#1864ab;--purple:#6741d9}
@@ -120,6 +142,11 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 .progress-track{height:10px;background:#eef2f0;border-radius:10px;overflow:hidden;margin:10px 0}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--p),#0b6248)}
 .reward-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.doc-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+.stepper{display:flex;gap:6px;margin-bottom:14px}.stp{flex:1;text-align:center;font-size:11px;color:var(--muted);font-weight:700}.stp span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#e4ece8;margin:0 auto 4px}.stp.on{color:var(--p)}.stp.on span,.stp.done span{background:var(--p);color:#fff}
+.kyc-ban{margin:0 0 14px;font-size:12px}.kyc-ban.new{background:#ffe8e6;color:#9e302b}.kyc-ban.way{background:#e8f1ff;color:var(--blue)}
+.kyc-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 15px;border-radius:12px;margin-bottom:18px;font-size:13px;font-weight:650;background:#fff8e6;border:1px solid #ffe08a;color:#7a5c00}.kyc-top.rejected{background:#ffe8e6;border-color:#ffd5d2;color:#9e302b}.kyc-top.pending{background:#e8f1ff;border-color:#c5dcff;color:var(--blue)}
+.kyc-nav{display:flex;gap:10px;margin-top:6px}.kyc-nav .btn{flex:1;padding:12px;font-weight:750}
 </style>
 </head>
 <body>
@@ -160,11 +187,12 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 <main class="main">
 <header class="topbar">
 <div style="display:flex;align-items:center;gap:12px"><button class="mobile" onclick="toggleSide()">☰</button><div class="title" id="pageTitle">Ambulance Dashboard</div></div>
-<div class="actions"><button class="icon" onclick="goToNotifications()">🔔<span class="dot"></span></button><div class="avatar" id="avatarInitials">--</div></div>
+<div class="actions"><button class="icon" onclick="goToNotifications()">🔔<span class="dot" id="bellDot" style="display:none"></span></button><div class="avatar" id="avatarInitials">--</div></div>
 </header>
 
 <section class="content">
 <div id="dashboardView">
+<div id="kycBanner"></div>
 <div class="welcome"><div><h1 id="welcomeHeading">Loading…</h1><p>Manage ambulance requests, trips and patient pickups from one place.</p></div><div class="available" id="availabilityBadge" onclick="toggleAvailability()" style="cursor:pointer">● Loading…</div></div>
 
 <div class="stats">
@@ -304,7 +332,8 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="permission-every.js?v=4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-constants.js"></script>
 <script src="prod-utils.js"></script>
 <script>
@@ -475,6 +504,8 @@ async function init(){
 
   await refreshBookings();
   subscribeRealtime();
+  subscribeDriverRealtime();
+  loadNotifications();
 
   supabaseClient.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) window.location.href = 'home.html?panel=login';
@@ -510,7 +541,7 @@ function renderDriverHeader(){
   document.getElementById('welcomeHeading').textContent = `Good day, ${firstName} 🚑`;
   document.getElementById('driverStatusMini').innerHTML = driverRow.is_verified
     ? '<span class="verified">● KYC Verified • ' + (driverRow.is_online ? 'Ambulance Active' : 'Offline') + '</span>'
-    : '● KYC Pending Verification';
+    : (driverRow.kyc_status==='pending' ? '● KYC Under Review' : '● KYC Not Verified');
   const badge = document.getElementById('availabilityBadge');
   if (driverRow.is_online) {
     badge.textContent = '● Available for Emergency Calls';
@@ -519,10 +550,12 @@ function renderDriverHeader(){
     badge.textContent = '● Offline — Tap to go online';
     badge.style.background = '#f1f2f6'; badge.style.color = '#718078';
   }
+  renderKycBanner(); updateBell();
 }
 
 async function toggleAvailability(){
   if (!driverRow) return;
+  if (!driverRow.is_online && !requireKyc()) { renderProfileView(); return; }
   const newVal = !driverRow.is_online;
   const { error } = await supabaseClient.from('ambulance_drivers').update({ is_online: newVal, updated_at: new Date().toISOString() }).eq('id', driverRow.id);
   if (error) { MedUtils.handleError(error, 'Availability update'); return; }
@@ -541,7 +574,7 @@ async function refreshBookings(){
   if (e1) MedUtils.handleError(e1, 'My trips');
   if (e2) MedUtils.handleError(e2, 'New requests');
   myBookings = mine || [];
-  openBookings = open || [];
+  openBookings = isVerified() ? (open || []) : [];
   notifyIfNewRequests(openBookings);
   bookingsById = {};
   [...myBookings, ...openBookings].forEach(b => bookingsById[b.id] = b);
@@ -650,9 +683,7 @@ function renderEmergencyAlert(){
 function notifyIfNewRequests(newList){
   const newOnes = newList.filter(b => !knownRequestIds.has(b.id));
   if (knownRequestIds.size && newOnes.length) {
-    const prefs = getNotifPrefs();
-    if (prefs.sound !== false) playAlertSound();
-    if (prefs.vibrate !== false && navigator.vibrate) navigator.vibrate([200,100,200]);
+    popup('🚨 New ambulance request', `${newOnes.length} patient${newOnes.length>1?'s need':' needs'} an ambulance`, goToRequests);
   }
   knownRequestIds = new Set(newList.map(b => b.id));
 }
@@ -673,6 +704,7 @@ function playAlertSound(){
 function renderRequestsView(){
   const list = document.getElementById('requestsList');
   if (!list) return;
+  if (!isVerified()) { list.innerHTML = '<div class="req-empty">📄<br><br>Complete and get your KYC verified to see and accept ambulance requests.<br><br><button class="btn primary" onclick="goToVehicleKyc(\'Driver KYC\')">Go to KYC</button></div>'; return; }
   const visible = openBookings.filter(b => !rejectedIds.has(b.id));
   if (!visible.length) {
     list.innerHTML = '<div class="req-empty">🚨<br><br>No new requests right now.<br>You\'ll be notified the moment a nearby patient needs an ambulance.</div>';
@@ -839,162 +871,149 @@ function stopLocationWatch(){
   if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
 }
 
-// ---------- AMBULANCE & VEHICLE / KYC ----------
-const KYC_DOCS = [
-  { key: 'aadhaar', label: 'Aadhaar Card' },
-  { key: 'pan', label: 'PAN Card' },
-  { key: 'license', label: 'Driving Licence' },
-  { key: 'photo', label: 'Driver Photo' },
-  { key: 'address_proof', label: 'Address Proof' }
-];
-const VEHICLE_DOCS = [
-  { key: 'rc', label: 'RC (Registration Certificate)' },
-  { key: 'insurance', label: 'Insurance' },
-  { key: 'fitness', label: 'Fitness Certificate' },
-  { key: 'pollution', label: 'Pollution Certificate' },
-  { key: 'permit', label: 'Permit' }
-];
-const SETUP_SQL = `ALTER TABLE ambulance_drivers
-  ADD COLUMN IF NOT EXISTS category text,
-  ADD COLUMN IF NOT EXISTS oxygen_available boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS ventilator_available boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS stretcher_available boolean DEFAULT true,
-  ADD COLUMN IF NOT EXISTS wheelchair_available boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS first_aid_available boolean DEFAULT true,
-  ADD COLUMN IF NOT EXISTS kyc_documents jsonb DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS vehicle_documents jsonb DEFAULT '{}'::jsonb;`;
+// ---------- AMBULANCE & VEHICLE / KYC (step-by-step, locked after submit) ----------
+const KYC_DOCS=[{key:'aadhaar',label:'Aadhaar Card'},{key:'pan',label:'PAN Card'},{key:'license',label:'Driving Licence'},{key:'photo',label:'Driver Photo (clear face)',img:1},{key:'address_proof',label:'Address Proof'}];
+const VEHICLE_DOCS=[{key:'vehicle_photo',label:'Ambulance Photo',img:1},{key:'plate_photo',label:'Number Plate Photo',img:1},{key:'rc',label:'RC (Registration Certificate)'},{key:'insurance',label:'Insurance',exp:1},{key:'fitness',label:'Fitness Certificate',exp:1},{key:'pollution',label:'Pollution Certificate',exp:1},{key:'permit',label:'Permit',exp:1}];
+const BANK_PROOF={key:'bank_proof',label:'Bank Proof (Cancelled Cheque / Passbook photo)',img:1};
+let kycStep=0;
+const docs=c=>(c==='vehicle'?driverRow.vehicle_documents:driverRow.kyc_documents)||{};
+const isVerified=()=>!!driverRow&&(driverRow.is_verified===true||driverRow.kyc_status==='verified');
+const kycStatus=()=>isVerified()?'verified':(driverRow.kyc_status||'not_submitted');
+const kycLocked=()=>['pending','verified'].includes(kycStatus());
+const bankLocked=()=>!!driverRow.bank_submitted_at;
+const plateOk=p=>/^[A-Z]{2}[- ]?\d{1,2}[- ]?[A-Z]{1,3}[- ]?\d{4}$/.test(p);
+const step1Missing=()=>{const d=docs('vehicle');return VEHICLE_DOCS.filter(x=>!d[x.key]?.url).map(x=>x.label)};
+const step2Missing=()=>{const d=docs('kyc');return KYC_DOCS.filter(x=>!d[x.key]?.url).map(x=>x.label)};
+const plateSet=()=>driverRow.plate_number&&driverRow.plate_number!=='PENDING';
+const val=id=>document.getElementById(id).value, chk=id=>document.getElementById(id).checked;
 
-function docRowHtml(category, doc){
-  const store = (category === 'kyc' ? driverRow.kyc_documents : driverRow.vehicle_documents) || {};
-  const entry = store[doc.key];
-  const status = entry?.status || 'not_uploaded';
-  const statusLabel = { not_uploaded: 'Not Uploaded', pending: 'Pending Verification', verified: 'Verified', rejected: 'Rejected' }[status] || status;
-  const inputId = `file_${category}_${doc.key}`;
-  let expiryHtml = '';
-  if (category === 'vehicle') {
-    const expiry = entry?.expiry_date;
-    const daysLeft = expiry ? Math.ceil((new Date(expiry) - new Date()) / 86400000) : null;
-    const warn = daysLeft !== null && daysLeft <= 30;
-    expiryHtml = `<div style="margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;color:${warn ? 'var(--red)' : 'var(--muted)'}">
-      ${expiry ? `Expires ${new Date(expiry).toLocaleDateString('en-IN')}${daysLeft < 0 ? ' • EXPIRED' : (warn ? ` • ${daysLeft}d left` : '')}` : 'No expiry date set'}
-      <input type="date" style="border:1px solid var(--line);border-radius:6px;font-size:11px;padding:2px 4px" value="${expiry || ''}" onchange="setDocExpiry('${category}','${doc.key}',this.value)">
-    </div>`;
-  }
-  return `<div class="doc-row">
-    <div>
-      <b style="font-size:13px">${doc.label}</b>
-      <div style="margin-top:4px"><span class="doc-status ${status}">${statusLabel}</span>${entry?.rejection_reason ? ` <span style="font-size:11px;color:var(--red)">• ${MedUtils.escapeAttr(entry.rejection_reason)}</span>` : ''}</div>
-      ${expiryHtml}
-    </div>
-    <div class="doc-actions">
-      ${entry?.url ? `<a class="action" href="${entry.url}" target="_blank" rel="noopener">View</a>` : ''}
-      <label class="action" style="cursor:pointer">${entry?.url ? 'Re-upload' : 'Upload'}<input type="file" id="${inputId}" accept="image/*,.pdf" style="display:none" onchange="uploadDoc('${category}','${doc.key}',this)"></label>
-    </div>
-  </div>`;
+function requireKyc(){
+  if(isVerified())return true;
+  MedUtils.toast(kycStatus()==='pending'?'KYC is under review — you can accept requests once admin verifies it':'Complete your KYC first to accept requests','warning');
+  if(kycStatus()!=='pending')goToVehicleKyc('Driver KYC');
+  return false;
 }
-
+async function saveDriver(f){
+  const{data,error}=await supabaseClient.from('ambulance_drivers').update(f).eq('id',driverRow.id).select().maybeSingle();
+  if(error){MedUtils.toast(error.message||'Could not save','error');return false}
+  driverRow=data;return true;
+}
+function keepInputs(fn){
+  const s={};document.querySelectorAll('#vehicleKycContent [id],#earningsContent [id]').forEach(e=>{if(/^(INPUT|SELECT)$/.test(e.tagName)&&e.type!=='file')s[e.id]=e.type==='checkbox'?e.checked:e.value});
+  fn();for(const id in s){const e=document.getElementById(id);if(e)e.type==='checkbox'?e.checked=s[id]:e.value=s[id]}
+}
+function renderAllKyc(){keepInputs(()=>{renderVehicleKycView();if(earningsLoaded)renderEarningsView()});renderKycBanner()}
+async function compress(file){
+  if(!file.type.startsWith('image/'))return file;
+  try{const b=await createImageBitmap(file),s=Math.min(1,1600/Math.max(b.width,b.height)),c=document.createElement('canvas');
+    c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(x=>r(x||file),'image/jpeg',.82));}catch(e){return file}
+}
+function docRowHtml(cat,doc,locked){
+  const e=docs(cat)[doc.key],st=e?.status||'not_uploaded';
+  const L={not_uploaded:'Required',uploaded:'Uploaded',pending:'Pending Verification',verified:'Verified',rejected:'Rejected'}[st]||st;
+  const exp=doc.exp?(locked?`<div class="sub">${e?.expiry_date?'Expires '+new Date(e.expiry_date).toLocaleDateString('en-IN'):'No expiry set'}</div>`:`<div class="sub">Expiry <input type="date" value="${e?.expiry_date||''}" onchange="setDocExpiry('${cat}','${doc.key}',this.value)" style="border:1px solid var(--line);border-radius:6px;font-size:11px;padding:2px 4px"></div>`):'';
+  return `<div class="doc-row"><div style="display:flex;gap:10px;align-items:center">${e?.mime?.startsWith('image/')?`<img class="doc-thumb" src="${e.url}" alt="">`:''}<div><b style="font-size:13px">${doc.label}</b><div style="margin-top:4px"><span class="doc-status ${st==='uploaded'?'pending':st}">${L}</span>${e?.rejection_reason?` <span style="font-size:11px;color:var(--red)">• ${MedUtils.escapeAttr(e.rejection_reason)}</span>`:''}</div>${exp}</div></div><div class="doc-actions">${e?.url?`<a class="action" href="${e.url}" target="_blank" rel="noopener">View</a>`:''}${locked?'':`<label class="action" style="cursor:pointer">${e?.url?'Replace':'Upload'}<input type="file" accept="${doc.img?'image/*':'image/*,.pdf'}" style="display:none" onchange="uploadDoc('${cat}','${doc.key}',this)"></label>`}</div></div>`;
+}
 function expiringVehicleDocs(){
-  const store = driverRow.vehicle_documents || {};
-  return VEHICLE_DOCS
-    .map(d => ({ ...d, entry: store[d.key] }))
-    .filter(d => d.entry?.expiry_date)
-    .map(d => ({ ...d, days: Math.ceil((new Date(d.entry.expiry_date) - new Date()) / 86400000) }))
-    .filter(d => d.days <= 30);
+  const s=docs('vehicle');
+  return VEHICLE_DOCS.filter(d=>s[d.key]?.expiry_date).map(d=>({...d,days:Math.ceil((new Date(s[d.key].expiry_date)-new Date())/864e5)})).filter(d=>d.days<=30);
 }
-
+async function uploadDoc(cat,key,el){
+  const d=(cat==='bank'?[BANK_PROOF]:cat==='kyc'?KYC_DOCS:VEHICLE_DOCS).find(x=>x.key===key);
+  if(cat==='bank'?bankLocked():kycLocked())return MedUtils.toast('Locked after submission','warning');
+  let f=el.files[0];if(!f)return;
+  if(!/^image\/|^application\/pdf$/.test(f.type))return MedUtils.toast('Only images or PDF allowed','warning');
+  if(d.img&&!f.type.startsWith('image/'))return MedUtils.toast('Please upload a photo (image) for this','warning');
+  MedUtils.toast('Uploading…','info');
+  f=await compress(f);
+  if(f.size>5242880)return MedUtils.toast('File too large (max 5 MB)','warning');
+  const path=`${driverRow.id}/${key}-${Date.now()}.${f.type==='application/pdf'?'pdf':'jpg'}`;
+  const{error:ue}=await supabaseClient.storage.from('ambulance-kyc').upload(path,f,{contentType:f.type});
+  if(ue)return MedUtils.toast('Upload failed: '+ue.message,'error');
+  const url=supabaseClient.storage.from('ambulance-kyc').getPublicUrl(path).data.publicUrl;
+  const col=cat==='vehicle'?'vehicle_documents':'kyc_documents',cur={...docs(cat)};
+  cur[key]={...(cur[key]||{}),url,path,mime:f.type,status:'uploaded',uploaded_at:new Date().toISOString(),rejection_reason:null};
+  if(await saveDriver({[col]:cur})){MedUtils.toast('Uploaded','success');renderAllKyc()}
+}
+async function setDocExpiry(cat,key,value){
+  if(kycLocked())return;
+  const col=cat==='vehicle'?'vehicle_documents':'kyc_documents',cur={...docs(cat)};
+  cur[key]={...(cur[key]||{}),expiry_date:value};
+  if(await saveDriver({[col]:cur}))renderAllKyc();
+}
+function vehicleFormHtml(){
+  const d=driverRow,o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`,ck=(id,l,on)=>`<label class="vf-check"><input type="checkbox" id="${id}" ${on?'checked':''}> ${l}</label>`;
+  return `<div class="req-card"><div class="head" style="padding:0 0 14px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="vf-grid"><div class="vf-field"><label>Ambulance / Plate Number</label><input type="text" id="vfPlate" value="${MedUtils.escapeAttr(plateSet()?d.plate_number:'')}" placeholder="e.g. WB-06-AB-1234" style="text-transform:uppercase"></div><div class="vf-field"><label>Vehicle Type</label><select id="vfType">${o('non_ac','Non-AC',d.vehicle_type)}${o('ac','AC',d.vehicle_type)}</select></div><div class="vf-field"><label>Category</label><select id="vfCategory">${o('basic','Basic',d.category)}${o('advanced','Advanced',d.category)}${o('icu','ICU',d.category)}</select></div></div><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Equipment Available</label><div class="vf-checks">${ck('vfOxygen','Oxygen',d.oxygen_available)}${ck('vfVentilator','Ventilator',d.ventilator_available)}${ck('vfStretcher','Stretcher',d.stretcher_available!==false)}${ck('vfWheelchair','Wheelchair',d.wheelchair_available)}${ck('vfFirstAid','First-aid Kit',d.first_aid_available!==false)}</div></div>
+  <div class="req-card"><div class="head" style="padding:0 0 6px;border:0"><h3>Vehicle Photos & Documents</h3></div><p style="font-size:12px;color:var(--muted)">All items are required.</p>${VEHICLE_DOCS.map(x=>docRowHtml('vehicle',x,false)).join('')}</div>`;
+}
+function kycSummaryHtml(){
+  const d=driverRow,eq=[['oxygen_available','Oxygen'],['ventilator_available','Ventilator'],['stretcher_available','Stretcher'],['wheelchair_available','Wheelchair'],['first_aid_available','First-aid']].filter(x=>d[x[0]]).map(x=>x[1]).join(', ')||'—';
+  const f=(k,v)=>`<div class="field"><small>${k}</small><strong>${MedUtils.escapeAttr(v)}</strong></div>`;
+  return `<div class="req-card" id="vehicleProfileSection"><div class="head" style="padding:0 0 12px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="details">${f('Plate Number',d.plate_number||'—')}${f('Type',d.vehicle_type==='ac'?'AC':'Non-AC')}${f('Category',(d.category||'—').toUpperCase())}${f('Equipment',eq)}</div></div>
+  <div class="req-card" id="vehicleDocsSection"><div class="head" style="padding:0 0 6px;border:0"><h3>🚑 Vehicle Documents</h3></div>${VEHICLE_DOCS.map(x=>docRowHtml('vehicle',x,true)).join('')}</div>
+  <div class="req-card" id="kycDocsSection"><div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver KYC</h3></div>${KYC_DOCS.map(x=>docRowHtml('kyc',x,true)).join('')}</div>${bankFormHtml('ks')}`;
+}
 function renderVehicleKycView(){
-  const content = document.getElementById('vehicleKycContent');
-  if (!content || !driverRow) return;
-  const expiring = expiringVehicleDocs();
-  const expiringHtml = expiring.length ? `<div class="emergency">🚨 ${expiring.map(d => `${d.label} ${d.days < 0 ? 'has EXPIRED' : `expires in ${d.days} day${d.days === 1 ? '' : 's'}`}`).join(' • ')}</div>` : '';
-
-  content.innerHTML = `
-    <details class="setup-note">
-      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup (tap to expand)</summary>
-      <p style="margin-top:8px">Run this once in the Supabase SQL editor, and create a public Storage bucket named <code>ambulance-kyc</code>, so vehicle specs, equipment and document uploads can be saved here:</p>
-      <pre>${SETUP_SQL}</pre>
-    </details>
-    ${expiringHtml}
-    <div class="req-card" id="vehicleProfileSection">
-      <div class="head" style="padding:0 0 14px;border:0"><h3>🚑 Ambulance & Vehicle</h3><span class="status ${driverRow.is_online ? 'accepted' : 'new'}">${driverRow.is_online ? 'Available' : 'Offline'}</span></div>
-      <div class="vf-grid">
-        <div class="vf-field"><label>Ambulance / Plate Number</label><input type="text" id="vfPlate" value="${MedUtils.escapeAttr(driverRow.plate_number === 'PENDING' ? '' : (driverRow.plate_number || ''))}" placeholder="e.g. WB-06-AB-1234"></div>
-        <div class="vf-field"><label>Vehicle Type</label><select id="vfType">
-          <option value="non_ac" ${driverRow.vehicle_type === 'non_ac' ? 'selected' : ''}>Non-AC</option>
-          <option value="ac" ${driverRow.vehicle_type === 'ac' ? 'selected' : ''}>AC</option>
-        </select></div>
-        <div class="vf-field"><label>Category</label><select id="vfCategory">
-          <option value="basic" ${driverRow.category === 'basic' ? 'selected' : ''}>Basic</option>
-          <option value="advanced" ${driverRow.category === 'advanced' ? 'selected' : ''}>Advanced</option>
-          <option value="icu" ${driverRow.category === 'icu' ? 'selected' : ''}>ICU</option>
-        </select></div>
-      </div>
-      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Equipment Available</label>
-      <div class="vf-checks">
-        <label class="vf-check"><input type="checkbox" id="vfOxygen" ${driverRow.oxygen_available ? 'checked' : ''}> Oxygen</label>
-        <label class="vf-check"><input type="checkbox" id="vfVentilator" ${driverRow.ventilator_available ? 'checked' : ''}> Ventilator</label>
-        <label class="vf-check"><input type="checkbox" id="vfStretcher" ${driverRow.stretcher_available !== false ? 'checked' : ''}> Stretcher</label>
-        <label class="vf-check"><input type="checkbox" id="vfWheelchair" ${driverRow.wheelchair_available ? 'checked' : ''}> Wheelchair</label>
-        <label class="vf-check"><input type="checkbox" id="vfFirstAid" ${driverRow.first_aid_available !== false ? 'checked' : ''}> First-aid Kit</label>
-      </div>
-      <button class="btn primary" onclick="saveVehicleProfile()">Save Vehicle Details</button>
-    </div>
-    <div class="req-card" id="kycDocsSection">
-      <div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver KYC</h3></div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Upload these to get verified and start receiving requests.</p>
-      ${KYC_DOCS.map(d => docRowHtml('kyc', d)).join('')}
-    </div>
-    <div class="req-card" id="vehicleDocsSection">
-      <div class="head" style="padding:0 0 6px;border:0"><h3>🚑 Vehicle Documents</h3></div>
-      ${VEHICLE_DOCS.map(d => docRowHtml('vehicle', d)).join('')}
-    </div>`;
+  const c=document.getElementById('vehicleKycContent');if(!c||!driverRow)return;
+  const st=kycStatus(),ex=expiringVehicleDocs();
+  const bn={pending:['way','⏳ KYC submitted — waiting for admin verification. You will be notified here.'],verified:['note','✅ KYC verified. You can go online and accept requests.'],rejected:['new','❌ KYC rejected'+(driverRow.kyc_rejection_reason?': '+driverRow.kyc_rejection_reason:'')+'. Fix the documents and submit again.']}[st];
+  const ban=(bn?`<div class="note kyc-ban ${bn[0]}">${MedUtils.escapeAttr(bn[1])}</div>`:'')+(ex.length?`<div class="emergency" style="margin-bottom:14px">🚨 ${ex.map(d=>`${d.label} ${d.days<0?'has EXPIRED':`expires in ${d.days} day${d.days===1?'':'s'}`}`).join(' • ')}</div>`:'');
+  if(kycLocked()){c.innerHTML=ban+kycSummaryHtml();return}
+  if(!kycStep)kycStep=(step1Missing().length||!plateSet())?1:step2Missing().length?2:!bankLocked()?3:4;
+  const names=['Vehicle','Driver ID','Bank','Review'];
+  const stp=`<div class="stepper">${names.map((n,i)=>`<div class="stp ${kycStep===i+1?'on':kycStep>i+1?'done':''}"><span>${kycStep>i+1?'✓':i+1}</span>${n}</div>`).join('')}</div>`;
+  const body=kycStep===1?vehicleFormHtml():kycStep===2?`<div class="req-card"><div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver Identity</h3></div><p style="font-size:12px;color:var(--muted)">Upload all documents to continue.</p>${KYC_DOCS.map(x=>docRowHtml('kyc',x,false)).join('')}</div>`:kycStep===3?bankFormHtml('kb'):kycSummaryHtml()+`<label class="vf-check" style="margin-bottom:14px"><input type="checkbox" id="kycConfirm"> I confirm all details are correct. I understand I cannot edit anything after submitting.</label>`;
+  const nav=`<div class="kyc-nav">${kycStep>1?'<button class="btn light" onclick="kycBack()">← Back</button>':''}${kycStep<4?'<button class="btn primary" onclick="kycNext()">Continue →</button>':'<button class="btn primary" onclick="submitKyc()">Submit to Admin</button>'}</div>`;
+  c.innerHTML=ban+stp+body+nav;
 }
-
-async function saveVehicleProfile(){
-  const fields = {
-    plate_number: (document.getElementById('vfPlate').value || '').trim() || 'PENDING',
-    vehicle_type: document.getElementById('vfType').value,
-    category: document.getElementById('vfCategory').value,
-    oxygen_available: document.getElementById('vfOxygen').checked,
-    ventilator_available: document.getElementById('vfVentilator').checked,
-    stretcher_available: document.getElementById('vfStretcher').checked,
-    wheelchair_available: document.getElementById('vfWheelchair').checked,
-    first_aid_available: document.getElementById('vfFirstAid').checked
-  };
-  const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Could not save — run the one-time setup SQL above first', 'warning'); return; }
-  driverRow = data;
-  MedUtils.toast('Vehicle details saved', 'success');
-  renderDriverHeader();
-  renderVehicleKycView();
+function kycBack(){kycStep=Math.max(1,kycStep-1);renderAllKyc();window.scrollTo(0,0)}
+async function kycNext(){
+  const w=m=>MedUtils.toast(m,'warning');
+  if(kycStep===1){
+    const p=val('vfPlate').trim().toUpperCase();
+    if(!plateOk(p))return w('Enter a valid plate number e.g. WB-06-AB-1234');
+    const m=step1Missing();if(m.length)return w('Upload: '+m.join(', '));
+    if(!await saveDriver({plate_number:p,vehicle_type:val('vfType'),category:val('vfCategory'),oxygen_available:chk('vfOxygen'),ventilator_available:chk('vfVentilator'),stretcher_available:chk('vfStretcher'),wheelchair_available:chk('vfWheelchair'),first_aid_available:chk('vfFirstAid')}))return;
+  }
+  if(kycStep===2){const m=step2Missing();if(m.length)return w('Upload: '+m.join(', '))}
+  if(kycStep===3&&!bankLocked())return w('Submit your bank details first');
+  kycStep++;renderAllKyc();window.scrollTo(0,0);
 }
-
-async function uploadDoc(category, key, inputEl){
-  const file = inputEl.files[0];
-  if (!file) return;
-  const columnName = category === 'kyc' ? 'kyc_documents' : 'vehicle_documents';
-  const ext = file.name.split('.').pop();
-  const path = `${driverRow.id}/${category}-${key}-${Date.now()}.${ext}`;
-  const { error: upErr } = await supabaseClient.storage.from('ambulance-kyc').upload(path, file, { upsert: true });
-  if (upErr) { MedUtils.toast('Upload failed — create a storage bucket named "ambulance-kyc" first (see setup note above)', 'warning'); return; }
-  const { data: urlData } = supabaseClient.storage.from('ambulance-kyc').getPublicUrl(path);
-  const current = { ...(driverRow[columnName] || {}) };
-  current[key] = { ...(current[key] || {}), url: urlData.publicUrl, status: 'pending', uploaded_at: new Date().toISOString(), rejection_reason: null };
-  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ [columnName]: current }).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Uploaded, but could not save — run the one-time setup SQL above', 'warning'); return; }
-  driverRow = data;
-  MedUtils.toast('Document uploaded — pending verification', 'success');
-  renderVehicleKycView();
+async function submitKyc(){
+  const w=m=>MedUtils.toast(m,'warning');
+  if(step1Missing().length||step2Missing().length||!bankLocked()||!plateSet())return w('Complete all steps first');
+  if(!document.getElementById('kycConfirm')?.checked)return w('Please tick the confirmation');
+  if(!confirm('Submit KYC to admin? You cannot edit anything after submitting.'))return;
+  const fin=o=>Object.fromEntries(Object.entries(o||{}).map(([k,v])=>[k,{...v,status:'pending',rejection_reason:null}]));
+  const f={kyc_documents:fin(driverRow.kyc_documents),vehicle_documents:fin(driverRow.vehicle_documents),kyc_status:'pending',kyc_submitted_at:new Date().toISOString(),kyc_rejection_reason:null};
+  if(!driverRow.photo_url)f.photo_url=driverRow.kyc_documents.photo.url;
+  if(await saveDriver(f)){kycStep=0;addNotif('kyc','KYC submitted','Your documents were sent to admin for verification.');MedUtils.toast('KYC submitted — pending admin verification','success');renderAllKyc();renderDriverHeader()}
 }
-
-async function setDocExpiry(category, key, value){
-  const columnName = category === 'kyc' ? 'kyc_documents' : 'vehicle_documents';
-  const current = { ...(driverRow[columnName] || {}) };
-  current[key] = { ...(current[key] || {}), expiry_date: value };
-  const { data, error } = await supabaseClient.from('ambulance_drivers').update({ [columnName]: current }).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Could not save — run the one-time setup SQL above first', 'warning'); return; }
-  driverRow = data;
-  renderVehicleKycView();
+function renderKycBanner(){
+  const el=document.getElementById('kycBanner');if(!el||!driverRow)return;
+  const st=kycStatus();if(st==='verified'){el.innerHTML='';return}
+  const tot=VEHICLE_DOCS.length+KYC_DOCS.length+1,done=VEHICLE_DOCS.filter(d=>docs('vehicle')[d.key]?.url).length+KYC_DOCS.filter(d=>docs('kyc')[d.key]?.url).length+(docs('kyc').bank_proof?.url?1:0);
+  const t={pending:['⏳ Your KYC is under review. You can accept requests once admin verifies it.','View Status'],rejected:['❌ KYC rejected'+(driverRow.kyc_rejection_reason?': '+driverRow.kyc_rejection_reason:'')+'. Please fix and resubmit.','Fix & Resubmit']}[st]||[`📄 Complete your KYC to start accepting ambulance requests (${done}/${tot} documents uploaded)`,'Complete KYC'];
+  el.innerHTML=`<div class="kyc-top ${st}"><span>${MedUtils.escapeAttr(t[0])}</span><button class="btn primary" onclick="goToVehicleKyc('Driver KYC')">${t[1]}</button></div>`;
+}
+// ---------- BANK (submit once, then locked) ----------
+const maskAcc=a=>a?'•'.repeat(Math.max(0,a.length-4))+a.slice(-4):'—';
+function bankFormHtml(p){
+  const L=bankLocked(),d=driverRow,st=d.bank_verified?['accepted','Verified']:L?['way','Under Review']:['new','Required'];
+  const head=`<div class="req-card" ${p==='eb'?'id="bankSection"':''}><div class="head" style="padding:0 0 14px;border:0"><h3>🏦 Bank Account</h3><span class="status ${st[0]}">${st[1]}</span></div>`;
+  if(L)return head+`<div class="details">${[['Account Holder',d.bank_account_holder],['Bank',d.bank_name],['Account Number',maskAcc(d.bank_account_number)],['IFSC',d.bank_ifsc_code],['UPI ID',d.bank_upi_id],['Settlement',d.settlement_preference==='upi'?'UPI':'Bank Transfer']].map(([k,v])=>`<div class="field"><small>${k}</small><strong>${MedUtils.escapeAttr(v||'—')}</strong></div>`).join('')}</div><p style="font-size:11px;color:var(--muted);margin:10px 0">🔒 Submitted — bank details cannot be changed. Contact support if something is wrong.</p>${docRowHtml('bank',BANK_PROOF,true)}</div>`;
+  const i=(k,l,v,x='')=>`<div class="vf-field"><label>${l}</label><input type="text" id="${p}${k}" value="${MedUtils.escapeAttr(v||'')}" ${x}></div>`;
+  return head+`<div class="vf-grid">${i('Holder','Account Holder Name',d.bank_account_holder,'placeholder="As per bank passbook"')}${i('Bank','Bank Name',d.bank_name,'placeholder="e.g. SBI, HDFC"')}${i('Acc','Account Number',d.bank_account_number,'inputmode="numeric"')}${i('Acc2','Confirm Account Number','','inputmode="numeric"')}${i('Ifsc','IFSC Code',d.bank_ifsc_code,'style="text-transform:uppercase"')}${i('Upi','UPI ID (optional)',d.bank_upi_id,'placeholder="name@bank"')}<div class="vf-field"><label>Settlement Preference</label><select id="${p}Pref"><option value="bank" ${d.settlement_preference!=='upi'?'selected':''}>Bank Transfer</option><option value="upi" ${d.settlement_preference==='upi'?'selected':''}>UPI</option></select></div></div>${docRowHtml('bank',BANK_PROOF,false)}<button class="btn primary" style="margin-top:14px" onclick="submitBank('${p}')">Submit Bank Details</button><p style="font-size:11px;color:var(--muted);margin-top:8px">⚠️ You can submit only once. Double-check everything.</p></div>`;
+}
+async function submitBank(p){
+  const g=k=>document.getElementById(p+k).value.trim();
+  const f={bank_account_holder:g('Holder'),bank_name:g('Bank'),bank_account_number:g('Acc'),bank_ifsc_code:g('Ifsc').toUpperCase(),bank_upi_id:g('Upi')||null,settlement_preference:g('Pref')};
+  const m=f.bank_account_holder.length<3?'Enter account holder name':!f.bank_name?'Enter bank name':!/^\d{9,18}$/.test(f.bank_account_number)?'Account number must be 9–18 digits':g('Acc2')!==f.bank_account_number?'Account numbers do not match':!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(f.bank_ifsc_code)?'Invalid IFSC code':(f.settlement_preference==='upi'&&!/^[\w.\-]{2,}@\w{2,}$/.test(f.bank_upi_id||''))?'Enter a valid UPI ID':!docs('bank').bank_proof?.url?'Upload the bank proof photo first':null;
+  if(m)return MedUtils.toast(m,'warning');
+  if(!confirm('Submit bank details? You will NOT be able to change them afterwards.'))return;
+  f.bank_submitted_at=new Date().toISOString();
+  if(await saveDriver(f)){MedUtils.toast('Bank details submitted','success');addNotif('bank','Bank details submitted','Sent for verification.');renderAllKyc()}
 }
 
 // ---------- TRIP MODAL ----------
@@ -1061,6 +1080,7 @@ function openTrip(id){
 }
 
 async function acceptBooking(id){
+  if (!requireKyc()) { closeModal(); return; }
   const { data, error } = await supabaseClient.from('ambulance_bookings')
     .update({ driver_id: driverRow.id, status: 'accepted', accepted_at: new Date().toISOString() })
     .eq('id', id).eq('status', 'searching').select();
@@ -1139,6 +1159,7 @@ function renderMyTripsView(){
 
 // ---------- EARNINGS & BANK ----------
 let earningsBookings = [];
+let earningsLoaded = false;
 
 async function loadEarningsData(){
   if (!driverRow) return;
@@ -1147,6 +1168,7 @@ async function loadEarningsData(){
     .order('completed_at', { ascending: false }).limit(200);
   if (error) { MedUtils.handleError(error, 'Earnings'); return; }
   earningsBookings = data || [];
+  earningsLoaded = true;
   renderEarningsView();
 }
 
@@ -1168,21 +1190,6 @@ function computeEarningsStats(){
   const sum = list => list.reduce((s,b) => s + driverShare(b), 0);
   return { today: sum(todayList), week: sum(weekList), month: sum(monthList), total: sum(earningsBookings) };
 }
-
-const BANK_SETUP_SQL = `ALTER TABLE ambulance_drivers
-  ADD COLUMN IF NOT EXISTS bank_account_holder text,
-  ADD COLUMN IF NOT EXISTS bank_name text,
-  ADD COLUMN IF NOT EXISTS bank_account_number text,
-  ADD COLUMN IF NOT EXISTS bank_ifsc text,
-  ADD COLUMN IF NOT EXISTS upi_id text,
-  ADD COLUMN IF NOT EXISTS settlement_preference text DEFAULT 'bank',
-  ADD COLUMN IF NOT EXISTS bank_verified boolean DEFAULT false;
-
--- Optional, only if you also want per-trip commission split and settlement status tracked:
-ALTER TABLE ambulance_bookings
-  ADD COLUMN IF NOT EXISTS commission_amount numeric,
-  ADD COLUMN IF NOT EXISTS driver_earning numeric,
-  ADD COLUMN IF NOT EXISTS settlement_status text DEFAULT 'pending';`;
 
 function renderEarningsView(){
   const content = document.getElementById('earningsContent');
@@ -1212,45 +1219,9 @@ function renderEarningsView(){
     <div class="req-card">
       <div class="head" style="padding:0 0 12px;border:0"><h3>Settlement History</h3><button class="link" onclick="downloadStatement()">⬇ Download Statement</button></div>
       <div style="overflow-x:auto"><table class="trips"><thead><tr><th>Date</th><th>Trip ID</th><th>Patient</th><th>Your Share</th><th>Payment</th><th>Settlement</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-      <p style="font-size:11px;color:var(--muted);margin-top:10px">Your share is shown as the full trip fare until commission split is configured (see setup note below). Settlement status is 'Pending' until your <code>settlement_status</code> field is set to 'paid'.</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px">Your share is after MediFinder India's commission. Settlement shows 'Settled' once the payout is sent to your account.</p>
     </div>
-    <details class="setup-note">
-      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for Bank & commission fields (tap to expand)</summary>
-      <p style="margin-top:8px">Run this once in the Supabase SQL editor so the bank account form and commission/settlement tracking below can save:</p>
-      <pre>${BANK_SETUP_SQL}</pre>
-    </details>
-    <div class="req-card" id="bankSection">
-      <div class="head" style="padding:0 0 14px;border:0"><h3>🏦 Bank Account</h3><span class="status ${driverRow.bank_verified?'accepted':'new'}">${driverRow.bank_verified?'Verified':'Pending Verification'}</span></div>
-      <div class="vf-grid">
-        <div class="vf-field"><label>Account Holder Name</label><input type="text" id="bfHolder" value="${MedUtils.escapeAttr(driverRow.bank_account_holder||'')}" placeholder="As per bank passbook"></div>
-        <div class="vf-field"><label>Bank Name</label><input type="text" id="bfBank" value="${MedUtils.escapeAttr(driverRow.bank_name||'')}" placeholder="e.g. SBI, HDFC"></div>
-        <div class="vf-field"><label>Account Number</label><input type="text" id="bfAccount" value="${MedUtils.escapeAttr(driverRow.bank_account_number||'')}"></div>
-        <div class="vf-field"><label>IFSC Code</label><input type="text" id="bfIfsc" value="${MedUtils.escapeAttr(driverRow.bank_ifsc||'')}"></div>
-        <div class="vf-field"><label>UPI ID</label><input type="text" id="bfUpi" value="${MedUtils.escapeAttr(driverRow.upi_id||'')}" placeholder="name@bank"></div>
-        <div class="vf-field"><label>Settlement Preference</label><select id="bfPref">
-          <option value="bank" ${driverRow.settlement_preference!=='upi'?'selected':''}>Bank Transfer</option>
-          <option value="upi" ${driverRow.settlement_preference==='upi'?'selected':''}>UPI</option>
-        </select></div>
-      </div>
-      <button class="btn primary" onclick="saveBankAccount()">Save Bank Details</button>
-      <div style="margin-top:16px">${docRowHtml('kyc', { key:'bank_proof', label:'Bank Proof (Cancelled Cheque / Passbook)' })}</div>
-    </div>`;
-}
-
-async function saveBankAccount(){
-  const fields = {
-    bank_account_holder: document.getElementById('bfHolder').value.trim(),
-    bank_name: document.getElementById('bfBank').value.trim(),
-    bank_account_number: document.getElementById('bfAccount').value.trim(),
-    bank_ifsc: document.getElementById('bfIfsc').value.trim(),
-    upi_id: document.getElementById('bfUpi').value.trim(),
-    settlement_preference: document.getElementById('bfPref').value
-  };
-  const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Could not save — run the one-time Bank setup SQL above first', 'warning'); return; }
-  driverRow = data;
-  MedUtils.toast('Bank details saved', 'success');
-  renderEarningsView();
+    ${bankFormHtml('eb')}`;
 }
 
 function downloadStatement(){
@@ -1371,9 +1342,6 @@ function disputeRating(id){
 }
 
 // ---------- NOTIFICATIONS ----------
-let storedNotifications = [];
-let notifTableExists = null;
-
 function getNotifPrefs(){
   try { return JSON.parse(localStorage.getItem('ambulancePartnerNotifPrefs') || '{}'); } catch(e) { return {}; }
 }
@@ -1386,90 +1354,80 @@ function derivedNotifications(){
   if (openBookings.length) items.push({ icon: '🚨', title: `${openBookings.length} new request${openBookings.length>1?'s':''} waiting` });
   const active = myBookings.find(b => ['accepted','arriving','picked_up'].includes(b.status));
   if (active) items.push({ icon: '📍', title: `Active trip with ${active.patient_name||'a patient'} — ${statusMeta(active.status).label}` });
-  if (driverRow && !driverRow.is_verified) items.push({ icon: '📄', title: 'Your KYC is pending verification' });
+  if (driverRow && !isVerified()) items.push({ icon: '📄', title: driverRow.kyc_status==='pending' ? 'Your KYC is under review' : 'Complete your KYC to start accepting requests' });
   expiringVehicleDocs().forEach(d => items.push({ icon: '🚑', title: `${d.label} ${d.days<0?'has expired':`expires in ${d.days} day${d.days===1?'':'s'}`}` }));
   return items;
 }
 
+let storedNotifications=[],driverChannel=null;
+const unreadCount=()=>storedNotifications.filter(n=>!n.is_read).length;
+function updateBell(){const d=document.getElementById('bellDot');if(d)d.style.display=unreadCount()?'block':'none'}
+async function addNotif(type,title,message){await supabaseClient.from('ambulance_notifications').insert([{driver_id:driverRow.id,type,title,message,is_read:true}])}
+function popup(title,msg,go){
+  const p=getNotifPrefs();MedUtils.toast(msg?`${title} — ${msg}`:title,'success');
+  if(p.sound!==false)playAlertSound();if(p.vibrate!==false&&navigator.vibrate)navigator.vibrate([200,100,200]);
+  if(p.popup!==false&&'Notification' in window&&Notification.permission==='granted'&&document.hidden){try{const n=new Notification(title,{body:msg||''});n.onclick=()=>{window.focus();go&&go();n.close()}}catch(e){}}
+}
+function subscribeDriverRealtime(){
+  if(!driverRow)return;if(driverChannel)supabaseClient.removeChannel(driverChannel);
+  driverChannel=supabaseClient.channel('driver-'+driverRow.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'ambulance_notifications',filter:'driver_id=eq.'+driverRow.id},({new:n})=>{storedNotifications.unshift(n);updateBell();renderNotifications();if(!n.is_read)popup(n.title||'Update',n.message,goToNotifications)})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ambulance_drivers',filter:'id=eq.'+driverRow.id},({new:r})=>{const was=isVerified();driverRow={...driverRow,...r};renderDriverHeader();renderAllKyc();if(isVerified()&&!was)refreshBookings()})
+    .subscribe();
+}
 async function loadNotifications(){
-  const { data, error } = await supabaseClient.from('ambulance_notifications')
-    .select('*').eq('driver_id', driverRow.id).order('created_at', { ascending: false }).limit(50);
-  notifTableExists = !error;
-  storedNotifications = error ? [] : (data || []);
-  renderNotifications();
+  const{data}=await supabaseClient.from('ambulance_notifications').select('*').eq('driver_id',driverRow.id).order('created_at',{ascending:false}).limit(50);
+  storedNotifications=data||[];updateBell();renderNotifications();
 }
-
 async function markNotifRead(id){
-  if (!notifTableExists) return;
-  await supabaseClient.from('ambulance_notifications').update({ is_read: true }).eq('id', id);
-  const n = storedNotifications.find(x => x.id === id);
-  if (n) n.is_read = true;
-  renderNotifications();
+  await supabaseClient.from('ambulance_notifications').update({is_read:true}).eq('id',id);
+  const n=storedNotifications.find(x=>x.id===id);if(n)n.is_read=true;updateBell();renderNotifications();
 }
-
+async function markAllRead(){
+  await supabaseClient.from('ambulance_notifications').update({is_read:true}).eq('driver_id',driverRow.id).eq('is_read',false);
+  storedNotifications.forEach(n=>n.is_read=true);updateBell();renderNotifications();
+}
+function notifSettingsHtml(p){
+  const pr=getNotifPrefs(),row=(k,l)=>`<div class="toggle-row"><span>${l}</span><label class="switch"><input type="checkbox" id="${p}${k}" ${pr[k.toLowerCase()]!==false?'checked':''} onchange="saveNotifPrefs('${p}')"><span class="slider"></span></label></div>`;
+  return `<div class="req-card"><div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>${row('Sound','Sound on new request')}${row('Vibrate','Vibration on new request')}${row('Popup','Pop-up alerts when app is in background')}</div>`;
+}
+function saveNotifPrefs(p){
+  const g=k=>document.getElementById(p+k).checked;
+  setNotifPrefs({sound:g('Sound'),vibrate:g('Vibrate'),popup:g('Popup')});
+  if(g('Popup')&&'Notification' in window&&Notification.permission==='default')Notification.requestPermission();
+  MedUtils.toast('Preferences saved','success');
+}
 function renderNotifications(){
-  const content = document.getElementById('notifContent');
-  if (!content || !driverRow) return;
-  const prefs = getNotifPrefs();
-  const derived = derivedNotifications();
-  const derivedHtml = derived.length ? derived.map(n => `
-    <div class="notif-item unread"><div class="notif-ico">${n.icon}</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title)}</b><br><small>Live</small></div></div>
-  `).join('') : '<p style="font-size:12px;color:var(--muted);padding:8px 0">Nothing needs your attention right now.</p>';
-  const storedHtml = storedNotifications.length ? storedNotifications.map(n => `
-    <div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')" style="cursor:pointer">
-      <div class="notif-ico">🔔</div>
-      <div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title||n.type||'Update')}</b>${n.message?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(n.message)}</div>`:''}<small>${n.created_at ? new Date(n.created_at).toLocaleString('en-IN') : ''}</small></div>
-    </div>`).join('') : '';
-
-  content.innerHTML = `
-    <div class="req-card">
-      <div class="head" style="padding:0 0 8px;border:0"><h3>Needs Your Attention</h3></div>
-      ${derivedHtml}
-    </div>
-    ${notifTableExists ? `<div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>All Notifications</h3></div>${storedHtml || '<p style="font-size:12px;color:var(--muted);padding:8px 0">No notifications yet.</p>'}</div>` : `
-    <details class="setup-note">
-      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for a full notification history (tap to expand)</summary>
-      <p style="margin-top:8px">The "Needs Your Attention" items above are computed live from your data, no setup needed. To also keep a history of past notifications (new booking, accepted, settlement credited, announcements etc.), create this table:</p>
-      <pre>CREATE TABLE IF NOT EXISTS ambulance_notifications (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  driver_id uuid REFERENCES ambulance_drivers(id),
-  type text,
-  title text,
-  message text,
-  is_read boolean DEFAULT false,
-  created_at timestamptz DEFAULT now()
-);</pre>
-    </details>`}
-    <div class="req-card">
-      <div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>
-      <div class="toggle-row"><span>Sound on new request</span><label class="switch"><input type="checkbox" id="prefSound" ${prefs.sound!==false?'checked':''} onchange="saveNotifPrefs()"><span class="slider"></span></label></div>
-      <div class="toggle-row"><span>Vibration on new request</span><label class="switch"><input type="checkbox" id="prefVibrate" ${prefs.vibrate!==false?'checked':''} onchange="saveNotifPrefs()"><span class="slider"></span></label></div>
-    </div>`;
+  const c=document.getElementById('notifContent');if(!c||!driverRow)return;
+  const der=derivedNotifications();
+  const dh=der.length?der.map(n=>`<div class="notif-item unread"><div class="notif-ico">${n.icon}</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title)}</b><br><small>Live</small></div></div>`).join(''):'<p style="font-size:12px;color:var(--muted);padding:8px 0">Nothing needs your attention right now.</p>';
+  const sh=storedNotifications.length?storedNotifications.map(n=>`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')" style="cursor:pointer"><div class="notif-ico">🔔</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title||n.type||'Update')}</b>${n.message?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(n.message)}</div>`:''}<small>${n.created_at?new Date(n.created_at).toLocaleString('en-IN'):''}</small></div></div>`).join(''):'<p style="font-size:12px;color:var(--muted);padding:8px 0">No notifications yet.</p>';
+  c.innerHTML=`<div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>Needs Your Attention</h3></div>${dh}</div><div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>All Notifications</h3>${unreadCount()?'<button class="link" onclick="markAllRead()">Mark all read</button>':''}</div>${sh}</div>${notifSettingsHtml('nf')}`;
 }
-
-function saveNotifPrefs(soundId, vibrateId){
-  soundId = soundId || 'prefSound'; vibrateId = vibrateId || 'prefVibrate';
-  setNotifPrefs({ sound: document.getElementById(soundId).checked, vibrate: document.getElementById(vibrateId).checked });
-  MedUtils.toast('Preferences saved', 'success');
+async function deleteAccount(){
+  if(myBookings.some(b=>['accepted','arriving','picked_up'].includes(b.status)))return MedUtils.toast('Finish your active trip before deleting your account','warning');
+  if(!confirm('⚠️ Delete account permanently?\n\n• Your profile, KYC documents and bank details will be removed\n• You will lose access and any unsettled earnings\n• This cannot be undone'))return;
+  if((prompt('Type DELETE to confirm')||'').trim()!=='DELETE')return MedUtils.toast('Deletion cancelled','info');
+  try{
+    stopLocationWatch();
+    const paths=[...Object.values(driverRow.kyc_documents||{}),...Object.values(driverRow.vehicle_documents||{})].map(d=>d.path).filter(Boolean);
+    if(paths.length)await supabaseClient.storage.from('ambulance-kyc').remove(paths);
+    const{error}=await supabaseClient.rpc('delete_my_ambulance_account');if(error)throw error;
+    await supabaseClient.auth.signOut();window.location.href='home.html?panel=login';
+  }catch(e){MedUtils.toast('Could not delete account: '+(e.message||e),'error')}
 }
 
 // ---------- PROFILE & SETTINGS ----------
-const PROFILE_SETUP_SQL = `ALTER TABLE ambulance_drivers
-  ADD COLUMN IF NOT EXISTS address text,
-  ADD COLUMN IF NOT EXISTS language text DEFAULT 'bn',
-  ADD COLUMN IF NOT EXISTS emergency_contact_name text,
-  ADD COLUMN IF NOT EXISTS emergency_contact_phone text,
-  ADD COLUMN IF NOT EXISTS photo_url text;`;
+const photoSrc = () => driverRow.photo_url || (driverRow.kyc_documents && driverRow.kyc_documents.photo && driverRow.kyc_documents.photo.url) || '';
 
 function renderProfileView(){
   const content = document.getElementById('profileContent');
   if (!content || !driverRow) return;
-  const prefs = getNotifPrefs();
   const initials = (driverRow.driver_name || 'D').trim().charAt(0).toUpperCase();
   content.innerHTML = `
     <div class="req-card">
       <div class="profile-photo-row">
-        ${driverRow.photo_url ? `<img class="profile-photo" src="${driverRow.photo_url}">` : `<div class="profile-photo">${initials}</div>`}
+        ${photoSrc() ? `<img class="profile-photo" src="${photoSrc()}">` : `<div class="profile-photo">${initials}</div>`}
         <label class="action" style="cursor:pointer">Change Photo<input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)"></label>
       </div>
       <div class="vf-grid">
@@ -1490,11 +1448,7 @@ function renderProfileView(){
       <div class="head" style="padding:0 0 4px;border:0"><h3>Availability</h3></div>
       <div class="toggle-row"><span>Available for new trips</span><label class="switch"><input type="checkbox" ${driverRow.is_online?'checked':''} onchange="toggleAvailability()"><span class="slider"></span></label></div>
     </div>
-    <div class="req-card">
-      <div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>
-      <div class="toggle-row"><span>Sound on new request</span><label class="switch"><input type="checkbox" id="pfPrefSound" ${prefs.sound!==false?'checked':''} onchange="saveNotifPrefs('pfPrefSound','pfPrefVibrate')"><span class="slider"></span></label></div>
-      <div class="toggle-row"><span>Vibration on new request</span><label class="switch"><input type="checkbox" id="pfPrefVibrate" ${prefs.vibrate!==false?'checked':''} onchange="saveNotifPrefs('pfPrefSound','pfPrefVibrate')"><span class="slider"></span></label></div>
-    </div>
+    ${notifSettingsHtml('pf')}
     <div class="req-card">
       <div class="head" style="padding:0 0 4px;border:0"><h3>Location Permission</h3></div>
       <p id="pfLocStatus" style="font-size:12px;color:var(--muted)">Checking…</p>
@@ -1508,11 +1462,11 @@ function renderProfileView(){
       <button class="btn light" onclick="changePassword()">Change Password</button>
       <button class="btn light" style="margin-top:10px;color:var(--red)" onclick="doLogout()">🚪 Logout</button>
     </div>
-    <details class="setup-note">
-      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for extended profile fields (tap to expand)</summary>
-      <p style="margin-top:8px">Address, language, emergency contact and photo need these columns:</p>
-      <pre>${PROFILE_SETUP_SQL}</pre>
-    </details>`;
+    <div class="req-card" style="border-color:#ffd5d2">
+      <div class="head" style="padding:0 0 4px;border:0"><h3 style="color:var(--red)">Delete Account</h3></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Permanently removes your account, KYC documents and bank details. Unsettled earnings are lost and this cannot be undone.</p>
+      <button class="btn danger" onclick="deleteAccount()">Delete My Account</button>
+    </div>`;
   checkLocationPermission();
 }
 
@@ -1522,10 +1476,10 @@ async function uploadProfilePhoto(inputEl){
   const ext = file.name.split('.').pop();
   const path = `${driverRow.id}/photo-${Date.now()}.${ext}`;
   const { error: upErr } = await supabaseClient.storage.from('ambulance-kyc').upload(path, file, { upsert: true });
-  if (upErr) { MedUtils.toast('Upload failed — create the "ambulance-kyc" storage bucket first', 'warning'); return; }
+  if (upErr) { MedUtils.toast('Upload failed: ' + upErr.message, 'error'); return; }
   const { data: urlData } = supabaseClient.storage.from('ambulance-kyc').getPublicUrl(path);
   const { data, error } = await supabaseClient.from('ambulance_drivers').update({ photo_url: urlData.publicUrl }).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Uploaded, but could not save — run the Profile setup SQL below', 'warning'); return; }
+  if (error) { MedUtils.toast('Uploaded, but could not save: ' + error.message, 'error'); return; }
   driverRow = data;
   MedUtils.toast('Photo updated', 'success');
   renderProfileView();
@@ -1542,7 +1496,7 @@ async function saveProfile(){
     emergency_contact_phone: document.getElementById('pfEcPhone').value.trim()
   };
   const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
-  if (error) { MedUtils.toast('Could not save — run the Profile setup SQL below first', 'warning'); return; }
+  if (error) { MedUtils.toast('Could not save: ' + error.message, 'error'); return; }
   driverRow = data;
   MedUtils.toast('Profile saved', 'success');
   renderDriverHeader();
@@ -1574,7 +1528,7 @@ let supportTickets = [];
 let ticketsTableExists = null;
 const FAQS = [
   { q: 'How do I accept a new ambulance request?', a: 'Go to "New Requests" from the sidebar, review the patient details, and tap "Accept Trip" before the request expires.' },
-  { q: 'How do I get verified?', a: 'Upload your Aadhaar, PAN, Driving Licence, Photo and Address Proof from "Driver KYC" — verification is completed by the MediFinder team.' },
+  { q: 'How do I get verified?', a: 'Upload your Aadhaar, PAN, Driving Licence, Photo and Address Proof from "Driver KYC" — verification is completed by the MediFinder India team.' },
   { q: 'When do I get paid?', a: 'Check "Earnings & Bank" for your settlement status per trip and set up your bank/UPI details there.' },
   { q: 'What if a patient is not at the pickup location?', a: 'Call the patient/attendant using the number on the trip, and raise a Patient Issue ticket below if it stays unresolved.' }
 ];
@@ -1583,7 +1537,7 @@ function renderSupportView(){
   const content = document.getElementById('supportContent');
   if (!content) return;
   content.innerHTML = `
-    <button class="sos-btn" onclick="triggerSOS()">🆘 EMERGENCY SOS<small>Tap to call MediFinder support immediately</small></button>
+    <button class="sos-btn" onclick="triggerSOS()">🆘 EMERGENCY SOS<small>Tap to call MediFinder India support immediately</small></button>
     <div class="support-links">
       <a href="tel:${SUPPORT_PHONE}">📞 Call Support</a>
       <a href="mailto:support@medifinder.in">✉️ Email Support</a>
@@ -1616,51 +1570,20 @@ function triggerSOS(){
 }
 
 async function loadTickets(){
-  const { data, error } = await supabaseClient.from('ambulance_support_tickets')
-    .select('*').eq('driver_id', driverRow.id).order('created_at', { ascending: false }).limit(30);
-  ticketsTableExists = !error;
-  supportTickets = error ? [] : (data || []);
-  renderTicketsList();
+  const{data}=await supabaseClient.from('ambulance_support_tickets').select('*').eq('driver_id',driverRow.id).order('created_at',{ascending:false}).limit(30);
+  supportTickets=data||[];renderTicketsList();
 }
-
 function renderTicketsList(){
-  const el = document.getElementById('ticketsList');
-  if (!el) return;
-  if (!ticketsTableExists) {
-    el.innerHTML = `<details class="setup-note">
-      <summary style="cursor:pointer;font-weight:750">⚙️ One-time Supabase setup for support tickets (tap to expand)</summary>
-      <p style="margin-top:8px">To track ticket numbers and status, create this table. Until then, "Submit Ticket" opens your email app instead.</p>
-      <pre>CREATE TABLE IF NOT EXISTS ambulance_support_tickets (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  driver_id uuid REFERENCES ambulance_drivers(id),
-  category text,
-  description text,
-  status text DEFAULT 'open',
-  created_at timestamptz DEFAULT now()
-);</pre>
-    </details>`;
-    return;
-  }
-  el.innerHTML = supportTickets.length ? `<div class="head" style="padding:0 0 8px;border:0"><h3 style="font-size:13px">Your Tickets</h3></div>` + supportTickets.map(t => `
-    <div class="ticket-item"><b>#${String(t.id).slice(0,6).toUpperCase()}</b> — ${MedUtils.escapeAttr(t.category)} <span class="status ${t.status==='resolved'?'accepted':'new'}" style="margin-left:6px">${MedUtils.escapeAttr(t.status||'open')}</span><div style="color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(t.description||'')}</div></div>
-  `).join('') : '';
+  const el=document.getElementById('ticketsList');if(!el)return;
+  el.innerHTML=supportTickets.length?`<div class="head" style="padding:0 0 8px;border:0"><h3 style="font-size:13px">Your Tickets</h3></div>`+supportTickets.map(t=>`<div class="ticket-item"><b>#${String(t.id).slice(0,6).toUpperCase()}</b> — ${MedUtils.escapeAttr(t.category)} <span class="status ${t.status==='resolved'?'accepted':'new'}" style="margin-left:6px">${MedUtils.escapeAttr(t.status||'open')}</span><div style="color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(t.description||'')}</div></div>`).join(''):'';
 }
-
 async function submitTicket(){
-  const category = document.getElementById('tkCategory').value;
-  const description = document.getElementById('tkDescription').value.trim();
-  if (!description) { MedUtils.toast('Please describe the issue', 'warning'); return; }
-  if (!ticketsTableExists) {
-    window.location.href = `mailto:support@medifinder.in?subject=${encodeURIComponent('Driver Support: ' + category)}&body=${encodeURIComponent(description)}`;
-    return;
-  }
-  const { data, error } = await supabaseClient.from('ambulance_support_tickets')
-    .insert([{ driver_id: driverRow.id, category, description, status: 'open' }]).select().maybeSingle();
-  if (error) { MedUtils.toast('Could not submit — try again', 'warning'); return; }
-  supportTickets.unshift(data);
-  document.getElementById('tkDescription').value = '';
-  MedUtils.toast(`Ticket #${String(data.id).slice(0,6).toUpperCase()} submitted`, 'success');
-  renderTicketsList();
+  const category=document.getElementById('tkCategory').value,description=document.getElementById('tkDescription').value.trim();
+  if(!description){MedUtils.toast('Please describe the issue','warning');return}
+  const{data,error}=await supabaseClient.from('ambulance_support_tickets').insert([{driver_id:driverRow.id,category,description,status:'open'}]).select().maybeSingle();
+  if(error){MedUtils.toast('Could not submit: '+error.message,'error');return}
+  supportTickets.unshift(data);document.getElementById('tkDescription').value='';
+  MedUtils.toast(`Ticket #${String(data.id).slice(0,6).toUpperCase()} submitted`,'success');renderTicketsList();
 }
 
 // ---------- REWARDS & INCENTIVES ----------
@@ -1685,5 +1608,6 @@ function renderRewardsView(){
     </div>`;
 }
 </script>
+<script src="push-notifications.js?v=4" defer></script>
 </body>
 </html>

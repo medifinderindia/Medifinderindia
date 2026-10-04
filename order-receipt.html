@@ -2,13 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Order Receipt | MediFinder India</title>
+    <meta name="description" content="Your MediFinder India order receipt.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="canonical" href="https://medifinderindia.com/order-receipt.html">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MediFinder India">
+    <meta property="og:locale" content="en_IN">
+    <meta property="og:url" content="https://medifinderindia.com/order-receipt.html">
+    <meta property="og:title" content="Order Receipt | MediFinder India">
+    <meta property="og:description" content="Your MediFinder India order receipt.">
+    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Order Receipt | MediFinder India">
+    <meta name="twitter:description" content="Your MediFinder India order receipt.">
+    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Receipt - MediFinder</title>
-    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="theme-color" content="#e02020">
-    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
@@ -265,7 +285,7 @@
             const statusClass = (order.status || 'active').toLowerCase();
             const paymentStatus = (order.payment_status || 'pending').toLowerCase();
 
-            const shopName = merchant?.shop_name || merchant?.merchant_name || 'MediFinder Partner Store';
+            const shopName = merchant?.shop_name || merchant?.merchant_name || 'MediFinder India Partner Store';
             const shopPhone = merchant?.phone || '';
             const shopAddress = merchant?.resolved_address || merchant?.address || '';
             const shopCity = merchant?.city || '';
@@ -332,7 +352,7 @@
                             <div>Invoice No.</div>
                             <div class="inv-num">${invoiceNo}</div>
                         </div>
-                        <div class="shop-logo"><img src="favicon.png" alt="MediFinder"></div>
+                        <div class="shop-logo"><img src="favicon.png" alt="MediFinder India"></div>
                         <div class="shop-name">MediFinder India</div>
                         <div class="shop-info">${shopFullAddr ? shopFullAddr + '<br>' : ''}${shopPhone ? '📞 ' + shopPhone : ''}</div>
                         <div class="receipt-badge"><i class="fa-regular fa-clock"></i> ${dateStr} ${timeStr}</div>
@@ -431,9 +451,9 @@
                     </div>
 
                     <div class="receipt-footer">
-                        <div class="footer-brand">MEDI FINDER</div>
-                        <p>Thank you for your order!<br>Track your delivery status on MediFinder app.<br><span style="color:#e02020">💊 Your Health, Our Priority</span></p>
-                        <div class="merchant-extra">${shopName ? 'Powered by ' + shopName : 'MediFinder Delivery Service'}</div>
+                        <div class="footer-brand">MEDIFINDER INDIA</div>
+                        <p>Thank you for your order!<br>Track your delivery status on MediFinder India app.<br><span style="color:#e02020">💊 Your Health, Our Priority</span></p>
+                        <div class="merchant-extra">${shopName ? 'Powered by ' + shopName : 'MediFinder India Delivery Service'}</div>
                     </div>
                 </div>
 

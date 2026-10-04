@@ -67,7 +67,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 /* ==========================================================================
    APP SHELL
    ========================================================================== */
-#app{display:flex;min-height:100vh;}
+#app{display:flex;min-height:100vh;min-height:100dvh;}
 .main-col{flex:1;display:flex;flex-direction:column;min-width:0;}
 
 /* ---------- Desktop sidebar ---------- */
@@ -581,7 +581,8 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 /* Small phones */
 @media (max-width:420px){
   .stat-grid{grid-template-columns:1fr 1fr;}
-  .page-outlet{padding:14px 12px 22px;}
+  /* keep the bottom padding so the last card/button is never hidden behind the fixed bottom nav */
+  .page-outlet{padding:14px 12px calc(24px + var(--bottomnav-h) + 24px + env(safe-area-inset-bottom,0));}
 }
 
 /* ==========================================================================
@@ -885,3 +886,34 @@ a.rx-viewer{text-decoration:none;}
 .profile-row{text-align:left;}
 .support-page{max-width:640px;}
 @media (max-width:560px){.seg{max-width:100%;flex-wrap:wrap;width:auto;}.seg span{padding:10px 14px;}}
+
+
+/* ==========================================================================
+   MOBILE LAYOUT FIXES (nav bar never jumps; Add-product footer never covers fields)
+   ========================================================================== */
+@media (max-width:899px){
+  /* bottom nav is pinned to the real bottom of the screen instead of floating with the layout viewport */
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;}
+  /* Add product: no bottom nav at all — just the Back / Continue bar, pinned to the bottom, with room under the form */
+  body.wizard-mode .bottom-nav{display:none !important;}
+  body.wizard-mode .pw-actions{bottom:0 !important;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));}
+  body.wizard-mode .page-outlet{padding-bottom:calc(110px + env(safe-area-inset-bottom,0));}
+  .pw-card input,.pw-card select,.pw-card textarea{scroll-margin-bottom:110px;}
+}
+
+
+/* ---- Shop location pin (KYC address step + verified address view) ---- */
+.shop-pin-box{margin-top:14px;border:1px solid var(--ink-200);border-radius:14px;padding:12px;background:var(--white);}
+.shop-pin-box h4{font-size:14px;margin:0 0 2px;}
+.shop-pin-box .pin-help{font-size:12px;color:var(--ink-500);margin:0 0 10px;line-height:1.45;}
+.shop-pin-map{height:280px;border-radius:12px;overflow:hidden;margin:10px 0;position:relative;z-index:0;background:#eef1f5;}
+.shop-pin-box .pin-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.shop-pin-box .pin-actions .btn{flex:1;min-width:130px;}
+.shop-pin-box .pin-coord{font-size:12.5px;font-weight:700;margin-top:8px;font-family:var(--font-mono);word-break:break-all;}
+
+
+/* ---- Push notifications on/off (Notifications page) ---- */
+.push-card{margin-bottom:14px;}
+.push-card .settings-row{border-bottom:none;}
+.switch:disabled{opacity:.45;cursor:not-allowed;}
+.switch.busy{opacity:.6;pointer-events:none;}

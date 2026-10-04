@@ -231,7 +231,7 @@
      ============================================================ */
 
   /* ---------- small shared helpers ---------- */
-  const TERMS_URL = 'marchentt%26c.html';          // merchant Terms & Conditions page (file name: marchentt&c.html)
+  const TERMS_URL = 'info.html#terms';              // Terms & Policies (info.html)
   const RATE_PER_DAY = 10;                          // ₹ per product per day — Featured / Promote
   const PROMO_FAR_END = '2099-12-31T23:59:59.000Z';   // "no end date"
   const SETTINGS_KEY = 'mf_merchant_settings';
@@ -337,6 +337,19 @@
       return m ? { name: m[1].trim(), qty: Number(m[2]), price: 0 } : { name: part.trim(), qty: 1, price: 0 };
     }).filter(i => i.name);
   }
+  // Online = paid through the app/gateway; COD = cash on delivery. Everything is labelled with exactly one of the two.
+  function isOnlinePay(r) {
+    const m = String(r.payment_mode || r.payment_method || '').toLowerCase();
+    if (/cod|cash/.test(m)) return false;
+    return /online|upi|razorpay|card|net|wallet|prepaid/.test(m) || !!r.razorpay_payment_id;
+  }
+  function payStateOf(r, online) {
+    const st = String(r.payment_status || '').toLowerCase();
+    const delivered = ['delivered', 'completed'].includes(String(r.status || '').toLowerCase());
+    if (!online) return delivered ? 'Cash collected' : 'Pay on delivery';
+    return /paid|success|captured|verified|complete/.test(st) ? 'Paid' : 'Payment pending';
+  }
+  const payText = (o) => `${o.paymentMode} · ${o.paymentState}`;
   const ORDER_STATUS_ALIAS = { completed: 'delivered', broadcasted: 'shipped', rejected: 'cancelled', canceled: 'cancelled' };
   function rowToOrder(r, itemRows, rider) {
     let items = [];
@@ -351,7 +364,7 @@
       customer: r.customer_name || r.user_name || 'Customer', phone: r.customer_phone || r.user_phone || '',
       address: r.customer_address || r.delivery_address || r.address || '',
       items, total: num(r.total_amount) || num(r.total), discount: num(r.discount), platformFee: num(r.platform_fee),
-      paymentMode: r.payment_mode || r.payment_method || 'COD', paymentState: r.payment_status || 'Pending',
+      paymentMode: isOnlinePay(r) ? 'Online' : 'COD', paymentState: payStateOf(r, isOnlinePay(r)),
       status, rawStatus: r.status,
       rider: rider ? (rider.full_name || rider.name || 'Rider') : null, riderPhone: rider ? rider.phone : '', riderVehicle: rider ? [rider.vehicle_type, rider.vehicle_number].filter(Boolean).join(' · ') : '',
       riderLat: r.rider_lat, riderLon: r.rider_lon, riderSeenAt: r.location_updated_at, etaMinutes: r.eta_minutes,
@@ -836,7 +849,7 @@
     activateFeatured: async (id, paymentId) => {
       const mid = await requireMerchantId();
       const { data: cur } = await sb.from('promotions').select('description').eq('id', id).maybeSingle();
-      const desc = ((cur && cur.description) || '') + (paymentId ? ` | Paid via Razorpay: ${paymentId}` : '');
+      const desc = ((cur && cur.description) || '') + (paymentId ? ` | Paid via ${paymentId} (merchant confirmed)` : '');
       const { error } = await sb.from('promotions').update({ status: 'active', is_active: true, description: desc }).eq('id', id).eq('merchant_id', mid);
       if (error) throw error;
     },
@@ -934,6 +947,14 @@
     },
 
     /* ---- customers ---- */
+    // likes = how many customers wishlisted each of this merchant's products (RPC is scoped to the signed-in merchant)
+    getLikeCounts: async () => {
+      const { data, error } = await sb.rpc('merchant_like_counts');
+      if (error) { console.warn('like counts failed', error); return { byId: {}, total: 0 }; }
+      const byId = {}; let total = 0;
+      (data || []).forEach(r => { byId[r.medicine_id] = Number(r.likes) || 0; total += Number(r.likes) || 0; });
+      return { byId, total };
+    },
     getCustomers: async () => buildCustomers(await DB.getOrders()),
     sendBulkMessage: async (customers, subject, message) => {
       const mid = await requireMerchantId();
@@ -1006,23 +1027,26 @@
       if (pErr) throw pErr;
       const delivered = orders.filter(o => o.status === 'delivered');
       const isPaid = (s) => /paid|settled|complete/i.test(String(s || ''));
-      const txns = delivered.map(o => ({ id: 'TXN-' + shortId(o.id), orderId: o.code, date: o.deliveredAt || o.createdAt, amount: o.total, type: 'Order payment', status: o.paymentState }))
+      const onlinePayouts = (payouts || []).filter(p => !/cod|cash/i.test(String(p.payment_mode || '')));   // COD cash never goes through admin
+      const payoutByOrder = {}; onlinePayouts.forEach(p => { payoutByOrder[String(p.order_id)] = p; });
+      const txns = delivered.map(o => ({ id: 'TXN-' + shortId(o.id), orderId: o.code, date: o.deliveredAt || o.createdAt, amount: o.total, type: o.paymentMode === 'Online' ? 'Online order' : 'COD order',
+          status: o.paymentMode !== 'Online' ? 'COD · cash collected' : (payoutByOrder[String(o.id)] && isPaid(payoutByOrder[String(o.id)].status) ? 'Online · Paid by admin' : 'Online · Pending with admin') }))
         .concat(returns.filter(r => r.status === 'refunded' || r.status === 'completed').map(r => ({ id: 'RFD-' + shortId(r.id), orderId: r.orderCode, date: r.refundedAt || r.updatedAt, amount: -r.amount, type: 'Refund', status: 'Processed' })))
         .sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 40);
       return {
         totalSales: delivered.reduce((s, o) => s + o.total, 0),
         completedOrders: delivered.length,
-        pendingAmount: (payouts || []).filter(p => !isPaid(p.status)).reduce((s, p) => s + num(p.amount), 0),
-        paidAmount: (payouts || []).filter(p => isPaid(p.status)).reduce((s, p) => s + num(p.amount), 0),
+        pendingAmount: onlinePayouts.filter(p => !isPaid(p.status)).reduce((s, p) => s + num(p.amount), 0),
+        paidAmount: onlinePayouts.filter(p => isPaid(p.status)).reduce((s, p) => s + num(p.amount), 0),
         platformFees: delivered.reduce((s, o) => s + o.platformFee, 0),
-        payoutHistory: (payouts || []).map(p => ({ id: 'PO-' + shortId(p.id), date: p.paid_at || p.settled_at || p.created_at, amount: num(p.amount), status: isPaid(p.status) ? 'Paid' : (p.status || 'Pending'), paid: isPaid(p.status) })),
+        payoutHistory: onlinePayouts.map(p => ({ id: 'PO-' + shortId(p.id), date: p.paid_at || p.settled_at || p.created_at, amount: num(p.amount), status: isPaid(p.status) ? 'Paid' : (p.status || 'Pending'), paid: isPaid(p.status) })),
         transactions: txns
       };
     },
     getPendingPayout: async () => {
       const mid = await requireMerchantId();
-      const { data } = await sb.from('merchant_payouts').select('amount,status').eq('shop_id', String(mid));
-      return (data || []).filter(p => !/paid|settled|complete/i.test(String(p.status || ''))).reduce((s, p) => s + num(p.amount), 0);
+      const { data } = await sb.from('merchant_payouts').select('amount,status,payment_mode').eq('shop_id', String(mid));
+      return (data || []).filter(p => !/cod|cash/i.test(String(p.payment_mode || '')) && !/paid|settled|complete/i.test(String(p.status || ''))).reduce((s, p) => s + num(p.amount), 0);
     },
     getAnalytics: async () => {
       const mid = await requireMerchantId();
@@ -1099,9 +1123,9 @@
 
   /* KYC field requirements — used for the completion percentage (20% per section) */
   const KYC_REQUIRED = {
-    store: ['shopName', 'ownerName', 'category'],
-    address: ['fullAddress', 'city', 'district', 'state', 'pincode'],
-    license: ['number', 'doc'],
+    store: ['shopName', 'ownerName', 'category', 'about'],
+    address: ['fullAddress', 'city', 'district', 'state', 'pincode', 'gps'],
+    license: ['number', 'expiry', 'doc'],
     identity: ['idType', 'idNumber', 'doc'],
     bank: ['accountNumber', 'ifsc', 'doc']
   };
@@ -1202,14 +1226,14 @@
       el.classList.toggle('active', el.dataset.route === navRoute);
     });
     document.getElementById('topbarTitle').textContent = route === 'add-product' ? (param ? 'Edit product' : 'Add product') : (ROUTE_TITLE[route] || 'Dashboard');
-    document.getElementById('topbarShopName').textContent = state.merchant && state.merchant.shopName ? state.merchant.shopName : 'MediFinder';
+    document.getElementById('topbarShopName').textContent = state.merchant && state.merchant.shopName ? state.merchant.shopName : 'MediFinder India';
   }
 
   function refreshMerchantChrome() {
     if (!state.merchant) return;
     const m = state.merchant;
     document.getElementById('sidebarShopName').textContent = m.shopName || 'My pharmacy';
-    document.getElementById('topbarShopName').textContent = m.shopName || 'MediFinder';
+    document.getElementById('topbarShopName').textContent = m.shopName || 'MediFinder India';
     const photoEl = document.getElementById('sidebarShopPhoto');
     photoEl.src = m.photo || 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36"><rect width="36" height="36" fill="#dde1e6"/></svg>`);
     const badge = document.getElementById('sidebarKycBadge');
@@ -1325,6 +1349,7 @@
     const [route, param] = parseHash();
     const seq = ++renderSeq;
     setActiveNav(route, param);
+    document.body.classList.toggle('wizard-mode', route === 'add-product');
     const outlet = document.getElementById('pageOutlet');
     if (!silent) outlet.innerHTML = LOADING_HTML;
     const scrollY = window.scrollY;
@@ -1341,7 +1366,7 @@
     } catch (err) {
       if (seq !== renderSeq) return;
       console.error(err);
-      if (err && err.code === 'AUTH_REQUIRED') { outlet.innerHTML = loginHtml(); wireLogin(); }
+      if (err && err.code === 'AUTH_REQUIRED') { goHome(); return; }
       else if (err && err.code === 'NO_MERCHANT') outlet.innerHTML = `<div class="state-block error"><div class="state-icon">${icon('lock')}</div><h4>No merchant account</h4><p>${esc(err.message)}</p><button class="btn btn-outline btn-sm" id="signOutBtn">Sign out</button></div>`;
       else outlet.innerHTML = errorBlock(route);
       document.getElementById('signOutBtn')?.addEventListener('click', doSignOut);
@@ -1379,13 +1404,14 @@
       render();
     });
   }
+  // Signed out (or never signed in): there is no merchant sign-in card any more — always go to the main login/home page.
+  function goHome() { location.replace('home.html'); }
   async function doSignOut() {
     stopRealtime();
-    if (sb) await sb.auth.signOut();
+    try { if (sb) await sb.auth.signOut(); } catch (e) { console.warn('signOut failed', e); }
     merchantIdCache = null; merchantRowCache = null; productsCache = null; invalidateOrders();
     state.merchant = null; state.badges = { rx: 0, notif: 0, returns: 0, orders: 0 };
-    location.hash = '#/dashboard';
-    render();
+    goHome();
   }
 
   const PAGES = {};
@@ -1530,7 +1556,7 @@
         <td>${esc(o.customer)}${o.rxRequired ? ' <span class="pill pill-teal" style="margin-left:6px">RX</span>' : ''}</td>
         <td>${o.items.length} item${o.items.length === 1 ? '' : 's'}</td>
         <td class="cell-mono">${money(o.total)}</td>
-        <td class="cell-muted">${esc(o.paymentMode)} · ${esc(o.paymentState)}</td>
+        <td><span class="pill ${o.paymentMode === 'Online' ? 'pill-teal' : 'pill-gray'}">${esc(o.paymentMode)}</span> <span class="cell-muted" style="font-size:12px">${esc(o.paymentState)}</span></td>
         <td>${statusPill(o.status)}</td>
         <td class="cell-muted">${timeAgo(o.createdAt)}</td>
       </tr>`).join('');
@@ -1538,7 +1564,7 @@
       <div class="item-card" data-route="orders" data-param="${o.id}" style="cursor:pointer">
         <div class="item-card-body">
           <div class="item-card-title">${esc(o.code)} · ${esc(o.customer)}</div>
-          <div class="item-card-sub">${o.items.length} item${o.items.length === 1 ? '' : 's'} · ${money(o.total)} · ${esc(o.paymentMode)}</div>
+          <div class="item-card-sub">${o.items.length} item${o.items.length === 1 ? '' : 's'} · ${money(o.total)} · ${esc(payText(o))}</div>
           <div class="item-card-meta">${statusPill(o.status)}${o.rxRequired ? '<span class="pill pill-teal">RX</span>' : ''}<span class="cell-muted" style="font-size:12px">${timeAgo(o.createdAt)}</span></div>
         </div>
       </div>`).join('');
@@ -1598,7 +1624,7 @@
           ${order.items.length ? order.items.map(it => `<div class="review-row"><span>${esc(it.name)} × ${it.qty}</span><span>${it.price ? money(it.price * it.qty) : ''}</span></div>`).join('') : '<p class="cell-muted">No item details.</p>'}
           ${order.discount ? `<div class="review-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}</span><span>-${money(order.discount)}</span></div>` : ''}
           <div class="review-row" style="border-top:1px solid var(--ink-100);margin-top:6px;padding-top:10px"><span>Total</span><span>${money(order.total)}</span></div>
-          <div class="review-row"><span>Payment</span><span>${esc(order.paymentMode)} · ${esc(order.paymentState)}</span></div>
+          <div class="review-row"><span>Payment</span><span><span class="pill ${order.paymentMode === 'Online' ? 'pill-teal' : 'pill-gray'}">${esc(order.paymentMode)}</span> ${esc(order.paymentState)}</span></div>
           ${order.prescriptionUrl ? `<div class="review-row"><span>Prescription</span><span><a class="link-a" href="${esc(order.prescriptionUrl)}" target="_blank" rel="noopener">View prescription</a></span></div>` : ''}
         </div>
 
@@ -1656,7 +1682,7 @@
           if (partner === 'courier' && name === 'Other') name = form.courierOther.value.trim();
           if (partner === 'courier' && !name) { showToast('Enter the courier company name', 'error'); return; }
           const btn = form.querySelector('#dispatchGo'); btn.disabled = true;
-          try { await DB.dispatchOrder(order, partner, name, form.tracking.value.trim()); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder riders'); onDone(); }
+          try { await DB.dispatchOrder(order, partner, name, form.tracking.value.trim()); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder India riders'); onDone(); }
           catch (err) { console.error(err); btn.disabled = false; showToast('Could not dispatch this order', 'error'); }
         });
       }
@@ -1714,7 +1740,7 @@
           if (order.deliverySpeed && order.deliverySpeed !== 'manual') {
             b.disabled = true;
             const r = await DB.autoDispatch(order);
-            if (r.ok) { showToast('Sent to MediFinder riders'); done(); }
+            if (r.ok) { showToast('Sent to MediFinder India riders'); done(); }
             else { b.disabled = false; showToast('Could not dispatch this order', 'error'); }
           } else {
             b.disabled = true;
@@ -1918,8 +1944,11 @@
   /* ============================================================
      INVENTORY  +  ADD/EDIT PRODUCT MODAL
      ============================================================ */
+  let likeInfo = { byId: {}, total: 0 };
+  const likesOf = (p) => likeInfo.byId[p.id] || 0;
   PAGES.inventory = async () => {
-    const [products, categories] = await Promise.all([DB.getProducts(), DB.getCategories()]);
+    const [products, categories, likes] = await Promise.all([DB.getProducts(), DB.getCategories(), DB.getLikeCounts()]);
+    likeInfo = likes;
     return renderInventoryList(products, categories);
   };
 
@@ -1939,6 +1968,7 @@
       <tr>
         <td class="cell-strong"><div class="prod-cell">${productThumb(p, 'prod-thumb')}<div>${esc(p.name)}<div class="cell-muted" style="font-size:12px">${esc(p.generic || p.brand || '')}</div></div></div></td>
         <td class="cell-muted">${esc(p.category)}</td>
+        <td class="cell-mono">♥ ${likesOf(p)}</td>
         <td class="cell-mono">${money(p.price)}${p.discount ? ` <span class="cell-muted">(-${p.discount}%)</span>` : ''}</td>
         <td>${stockPill(p)}</td>
         <td>${p.rxRequired ? '<span class="pill pill-teal">RX</span>' : '<span class="cell-muted">—</span>'}</td>
@@ -1950,7 +1980,7 @@
         ${productThumb(p, 'item-card-thumb')}
         <div class="item-card-body">
           <div class="item-card-title">${esc(p.name)}</div>
-          <div class="item-card-sub">${esc(p.category)} · ${money(p.price)}</div>
+          <div class="item-card-sub">${esc(p.category)} · ${money(p.price)} · ♥ ${likesOf(p)}</div>
           <div class="item-card-meta">${stockPill(p)}${productStatusPill(p)}</div>
         </div>
         <div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit-product="${p.id}">${icon('edit')}</button></div>
@@ -1968,7 +1998,7 @@
       ${[['all', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['active', 'Active'], ['inactive', 'Inactive'], ['pending', 'Drafts & pending']].map(([k, l]) => `<button class="filter-chip${f.status === k ? ' active' : ''}" data-inv-filter="${k}">${l}</button>`).join('')}
     </div>
     <div class="card">
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>RX</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Product</th><th>Category</th><th>Likes</th><th>Price</th><th>Stock</th><th>RX</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="item-cards" style="padding:10px">${cards}</div>
       ${list.length ? '' : emptyBlock('inventory', 'No products found', 'Try a different search or filter, or add a new product.')}
     </div>`;
@@ -2804,16 +2834,35 @@
     });
   }
   let featuredCache = [];
-  async function payForFeatured(promo) {
-    try {
-      const pid = await payWithRazorpay(promo.budget, `Featured products (${promo.products.length} × ${Math.round((new Date(promo.end) - new Date(promo.start)) / 86400000)} days)`);
-      await DB.activateFeatured(promo.id, pid);
-      showToast('Payment successful — your products are featured'); reloadPromo();
-    } catch (err) {
-      if (err.code === 'DISMISSED') showToast('Payment cancelled — you can pay later from the list', 'error');
-      else { console.error(err); showToast(err.message || 'Payment failed', 'error'); }
-      reloadPromo();
-    }
+  // No payment gateway: pay straight from any UPI app on the phone, or scan the MediFinder QR (medifinder.png), then confirm.
+  // Set window.MF_UPI_ID (e.g. in supabase-constants.js) to MediFinder's receiving UPI ID to enable the "Pay with UPI app" button.
+  const PLATFORM_UPI_ID = () => window.MF_UPI_ID || globalPick(['MF_UPI_ID', 'PLATFORM_UPI_ID', 'UPI_ID']) || '';
+  const QR_IMAGE = 'medifinder.png';
+  function payForFeatured(promo) {
+    if (!promo) return;
+    const days = Math.max(1, Math.round((new Date(promo.end) - new Date(promo.start)) / 86400000));
+    const upi = PLATFORM_UPI_ID();
+    const upiLink = upi ? `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent('MediFinder India')}&am=${Number(promo.budget).toFixed(2)}&cu=INR&tn=${encodeURIComponent('Featured ' + promo.products.length + ' products x ' + days + ' days')}` : '';
+    openSheet('Pay for promotion', `
+      <div class="calc-box" style="margin-bottom:12px"><span>${promo.products.length} product${promo.products.length === 1 ? '' : 's'} × ${days} day${days === 1 ? '' : 's'}</span><span>Total: <b>${money(promo.budget)}</b></span></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${upiLink ? `<a class="btn btn-primary" id="payUpiBtn" href="${esc(upiLink)}" style="width:100%">Pay with UPI app</a>` : ''}
+        <button type="button" class="btn btn-outline" id="payQrBtn" style="width:100%">Pay by QR code</button>
+      </div>
+      <div id="payQrBox" hidden style="text-align:center;margin-top:14px"><img src="${QR_IMAGE}" alt="MediFinder India payment QR" style="max-width:260px;width:100%;margin:0 auto;border:1px solid var(--ink-100);border-radius:12px"><p class="cell-muted" style="font-size:12.5px;margin-top:8px">Scan with any UPI app and pay ${money(promo.budget)}.</p></div>
+      <p class="cell-muted" style="font-size:12.5px;margin-top:14px">After you have paid, tap <b>Yes, continue</b>.</p>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button type="button" class="btn btn-primary" id="payDoneBtn" disabled>Yes, continue</button></div>`, {
+      onOpen: (sh) => {
+        const done = sh.el.querySelector('#payDoneBtn'), arm = () => { done.disabled = false; };
+        sh.el.querySelector('#payUpiBtn')?.addEventListener('click', () => setTimeout(arm, 600));
+        sh.el.querySelector('#payQrBtn').addEventListener('click', () => { sh.el.querySelector('#payQrBox').hidden = false; arm(); });
+        done.addEventListener('click', async () => {
+          done.disabled = true;
+          try { await DB.activateFeatured(promo.id, 'UPI'); sh.close(); showToast('Payment confirmed — your products are featured'); reloadPromo(); }
+          catch (err) { console.error(err); done.disabled = false; showToast(err.message || 'Could not confirm payment', 'error'); }
+        });
+      }
+    });
   }
   PROMO_TAB.featured = {
     render: async () => {
@@ -2854,7 +2903,7 @@
           try {
             const start = new Date(), end = new Date(Date.now() + days * 86400000);
             const promo = await DB.savePromotion({ type: 'featured', title: `Featured · ${ids.length} product${ids.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}`, discountType: 'percentage', value: 0, products: ids, start: start.toISOString(), end: end.toISOString(), budget: total, status: 'pending_payment' }, null);
-            await payForFeatured(promo);
+            btn.disabled = false; payForFeatured(promo); reloadPromo();
           } catch (err) { console.error(err); btn.disabled = false; showToast('Could not start the payment', 'error'); }
         });
       }
@@ -3238,6 +3287,46 @@
      ============================================================ */
   const NOTIF_ICON = { order: 'orders', rx: 'rx', prescription: 'rx', stock: 'inventory', rider: 'truck', payout: 'wallet', return: 'undo', admin: 'bell', system: 'bell' };
   const notifIcon = (t) => NOTIF_ICON[String(t || '').toLowerCase()] || 'bell';
+  /* ---------- Push notifications on/off ---------- */
+  const PUSH_KEY = 'mf_push_enabled';
+  function pushState() {
+    const supported = 'Notification' in window;
+    const perm = supported ? Notification.permission : 'unsupported';
+    let pref = null; try { pref = localStorage.getItem(PUSH_KEY); } catch (e) { /* storage blocked */ }
+    return { supported, perm, on: supported && perm === 'granted' && pref !== 'off' };
+  }
+  async function setPush(on) {
+    if (on) {
+      const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (perm !== 'granted') return { ok: false, perm };
+    }
+    try { localStorage.setItem(PUSH_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
+    /* push-notifications.js can listen to this to subscribe / unsubscribe */
+    window.dispatchEvent(new CustomEvent('mf:push-toggle', { detail: { enabled: on } }));
+    return { ok: true, perm: 'granted' };
+  }
+  function pushCardHtml() {
+    const st = pushState();
+    let sub = 'Get alerts for new orders and prescriptions even when the app is closed.';
+    if (!st.supported) sub = 'Push notifications are not supported on this browser.';
+    else if (st.perm === 'denied') sub = 'Blocked in your browser settings. Allow notifications for this site to turn them on.';
+    return `<div class="card push-card"><div class="settings-row"><div><div class="settings-row-label">Push notifications</div><div class="settings-row-sub" id="pushSub">${sub}</div></div><button class="switch${st.on ? ' on' : ''}" id="pushToggle" role="switch" aria-checked="${st.on}" aria-label="Push notifications"${st.supported ? '' : ' disabled'}></button></div></div>`;
+  }
+  function wirePush(root) {
+    const btn = root.querySelector('#pushToggle');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const next = !btn.classList.contains('on');
+      btn.classList.add('busy');
+      try {
+        const r = await setPush(next);
+        if (!r.ok) { showToast('Notifications are blocked — allow them in browser settings', 'error'); return; }
+        btn.classList.toggle('on', next); btn.setAttribute('aria-checked', String(next));
+        showToast(next ? 'Push notifications on' : 'Push notifications off');
+      } catch (err) { console.error(err); showToast('Could not change push setting', 'error'); }
+      finally { btn.classList.remove('busy'); }
+    });
+  }
   function notifListHtml(list) {
     return list.map(n => `
       <div class="notif-item${n.read ? '' : ' unread'}" data-notif-read="${n.id}">
@@ -3250,17 +3339,19 @@
       </div>`).join('');
   }
   function wireNotifs(root, after) {
+    wirePush(root);
     root.querySelectorAll('[data-notif-read]').forEach(el => el.addEventListener('click', async () => { await DB.markNotifRead(el.dataset.notifRead); el.classList.remove('unread'); refreshBadges(); }));
     root.querySelector('#markAllReadBtn')?.addEventListener('click', async () => { await DB.markAllNotifRead(); refreshBadges(); after(); });
   }
   PAGES.notifications = async () => {
     const list = await DB.getNotifications();
-    if (!list.length) return `<div class="page-head"><h1>Notifications</h1></div><div class="card">${emptyBlock('bell', 'You’re all caught up', 'New orders, prescriptions and alerts will show up here.')}</div>`;
+    if (!list.length) return `<div class="page-head"><h1>Notifications</h1></div>${pushCardHtml()}<div class="card">${emptyBlock('bell', 'You’re all caught up', 'New orders, prescriptions and alerts will show up here.')}</div>`;
     return `
     <div class="page-head">
       <div><h1>Notifications</h1><p class="page-sub">${list.filter(n => !n.read).length} unread</p></div>
       <div class="page-head-actions"><button class="btn btn-outline btn-sm" id="markAllReadBtn">Mark all as read</button></div>
     </div>
+    ${pushCardHtml()}
     <div class="card">${notifListHtml(list)}</div>`;
   };
   AFTER.notifications = () => wireNotifs(document.getElementById('pageOutlet'), () => render());
@@ -3271,7 +3362,7 @@
   PAGES.payments = async () => {
     const p = await DB.getPayments();
     const payoutRows = p.payoutHistory.map(x => `<tr><td class="cell-mono">${x.id}</td><td class="cell-muted">${fmtDate(x.date)}</td><td class="cell-mono">${money(x.amount)}</td><td><span class="pill ${x.paid ? 'pill-green' : 'pill-amber'}">${esc(x.status)}</span></td></tr>`).join('');
-    const txnRows = p.transactions.map(x => `<tr><td class="cell-mono">${x.id}</td><td class="cell-mono cell-muted">${esc(x.orderId)}</td><td class="cell-muted">${fmtDate(x.date)}</td><td>${esc(x.type)}</td><td class="cell-mono" style="color:${x.amount < 0 ? 'var(--red-600)' : 'inherit'}">${x.amount < 0 ? '-' : ''}${money(Math.abs(x.amount))}</td><td><span class="pill pill-gray">${esc(x.status)}</span></td></tr>`).join('');
+    const txnRows = p.transactions.map(x => `<tr><td class="cell-mono">${x.id}</td><td class="cell-mono cell-muted">${esc(x.orderId)}</td><td class="cell-muted">${fmtDate(x.date)}</td><td>${esc(x.type)}</td><td class="cell-mono" style="color:${x.amount < 0 ? 'var(--red-600)' : 'inherit'}">${x.amount < 0 ? '-' : ''}${money(Math.abs(x.amount))}</td><td><span class="pill ${/Paid by admin/.test(x.status) ? 'pill-green' : /Pending/.test(x.status) ? 'pill-amber' : 'pill-gray'}">${esc(x.status)}</span></td></tr>`).join('');
     return `
     <div class="page-head"><div><h1>Payments</h1><p class="page-sub">Earnings and payout history</p></div></div>
     <div class="stat-grid">
@@ -3288,7 +3379,7 @@
     <div class="card panel">
       <div class="panel-head"><h3>Transactions</h3></div>
       ${p.transactions.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Txn ID</th><th>Order</th><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>${txnRows}</tbody></table></div>
-      <div class="item-cards">${p.transactions.map(x => `<div class="item-card"><div class="item-card-body"><div class="item-card-title">${esc(x.type)}</div><div class="item-card-sub">${esc(x.orderId)} · ${fmtDate(x.date)}</div></div><span class="cell-mono">${x.amount < 0 ? '-' : ''}${money(Math.abs(x.amount))}</span></div>`).join('')}</div>` : emptyBlock('wallet', 'No transactions yet', 'Delivered orders and refunds are listed here.')}
+      <div class="item-cards">${p.transactions.map(x => `<div class="item-card"><div class="item-card-body"><div class="item-card-title">${esc(x.type)}</div><div class="item-card-sub">${esc(x.orderId)} · ${fmtDate(x.date)}</div><div class="item-card-sub">${esc(x.status)}</div></div><span class="cell-mono">${x.amount < 0 ? '-' : ''}${money(Math.abs(x.amount))}</span></div>`).join('')}</div>` : emptyBlock('wallet', 'No transactions yet', 'Delivered orders and refunds are listed here.')}
     </div>`;
   };
 
@@ -3362,7 +3453,7 @@
   async function openNotificationsSheet() {
     const list = await DB.getNotifications().catch(() => []);
     const draw = async () => { const l = await DB.getNotifications().catch(() => []); sh.setHtml(inner(l)); wireNotifs(sh.el, draw); };
-    const inner = (l) => l.length ? `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-outline btn-sm" id="markAllReadBtn">Mark all as read</button></div><div class="notif-sheet">${notifListHtml(l)}</div>` : emptyBlock('bell', 'You’re all caught up', 'New orders, prescriptions and alerts will show up here.');
+    const inner = (l) => pushCardHtml() + (l.length ? `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-outline btn-sm" id="markAllReadBtn">Mark all as read</button></div><div class="notif-sheet">${notifListHtml(l)}</div>` : emptyBlock('bell', 'You’re all caught up', 'New orders, prescriptions and alerts will show up here.'));
     const sh = openSheet('Notifications', inner(list), { onOpen: (s) => wireNotifs(s.el, draw) });
   }
 
@@ -3444,6 +3535,7 @@
   PAGES.profile = async () => {
     const m = await DB.getMerchant();
     state.merchant = m; refreshMerchantChrome();
+    likeInfo = await DB.getLikeCounts();
     const pct = kycPercent(m);
     const meta = KYC_STATUS_META[m.kyc.status] || KYC_STATUS_META.not_started;
     const locked = m.kyc.status !== 'verified';
@@ -3467,7 +3559,7 @@
       kycCard = `<div class="card kyc-card">
         <div class="kyc-progress-head"><h3>KYC Verification</h3><span class="kyc-progress-pct">${pct}%</span></div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <p style="font-size:12.5px;color:var(--ink-500);margin-top:8px">${pct === 0 ? 'Complete your profile to start selling on MediFinder.' : 'Continue where you left off.'}</p>
+        <p style="font-size:12.5px;color:var(--ink-500);margin-top:8px">${pct === 0 ? 'Complete your profile to start selling on MediFinder India.' : 'Continue where you left off.'}</p>
         <button class="btn btn-primary" data-route="kyc-wizard">${pct === 0 ? 'Complete KYC' : 'Continue KYC'}</button>
       </div>`;
     }
@@ -3489,6 +3581,7 @@
       <div class="profile-hero-info">
         <h2>${esc(m.shopName || 'Your pharmacy')}</h2>
         <div class="mid">Merchant ID: #${esc(m.id)}</div>
+        <div class="mid" style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--red-600)">♥ ${likeInfo.total} total like${likeInfo.total === 1 ? '' : 's'} on your products</div>
         <span class="pill ${m.kyc.status === 'verified' ? 'pill-green' : m.kyc.status === 'rejected' ? 'pill-red' : 'pill-amber'}">${meta.dot} ${meta.label}</span>
       </div>
     </div>
@@ -3577,6 +3670,7 @@
       <div class="detail-status"><span class="pill pill-green">${icon('check')} Verified</span></div>
       <h2 style="font-size:17px;margin-bottom:14px">${KYC_SECTION_LABEL[section]}</h2>
       ${fields.map(([label, value, isDoc]) => isDoc ? `<div class="detail-field"><div class="detail-field-label">${label}</div>${docView(value)}</div>` : `<div class="detail-field"><div class="detail-field-label">${label}</div><div class="detail-field-value">${esc(value)}</div></div>`).join('')}
+      ${section === 'address' ? pinMapBlock(m) : ''}
       <div class="detail-field"><div class="detail-field-label">Submitted on</div><div class="detail-field-value">${fmtDate(m.kyc.submittedOn)}</div></div>
       <div class="detail-field"><div class="detail-field-label">Verified on</div><div class="detail-field-value">${fmtDate(m.kyc.verifiedOn)}</div></div>
     </div>`;
@@ -3659,7 +3753,7 @@
       <label class="field"><span>Business category*</span>
         <select name="category" required><option value="">Select…</option>${['Retail Pharmacy', 'Medical Store', 'Wholesale Pharmacy', 'Health & Wellness'].map(c => `<option${d.category === c ? ' selected' : ''}>${c}</option>`).join('')}</select>
       </label>
-      <label class="field"><span>About shop</span><textarea name="about" rows="2">${esc(d.about)}</textarea></label>`;
+      <label class="field"><span>About shop*</span><textarea name="about" rows="2" required minlength="10">${esc(d.about)}</textarea></label>`;
     else if (s.key === 'address') inner = `
       <label class="field"><span>Full address*</span><input type="text" name="fullAddress" value="${esc(d.address.fullAddress)}" required></label>
       <div class="form-row two">
@@ -3670,17 +3764,27 @@
         <label class="field"><span>State*</span><input type="text" name="state" value="${esc(d.address.state)}" required></label>
         <label class="field"><span>Pincode*</span><input type="text" name="pincode" value="${esc(d.address.pincode)}" required pattern="[0-9]{6}" inputmode="numeric" maxlength="6"></label>
       </div>
-      <label class="field"><span>GPS location <span class="field-hint">(optional)</span></span><div style="display:flex;gap:8px"><input type="text" name="gps" value="${esc(d.address.gps || '')}" placeholder="lat, lng" style="flex:1;min-width:0"><button type="button" class="btn btn-outline" id="detectGps">Detect</button></div></label>`;
+      <label class="field"><span>GPS location*</span><div style="display:flex;gap:8px"><input type="text" name="gps" value="${esc(d.address.gps || '')}" placeholder="lat, lng" required pattern="\\s*-?[0-9]{1,3}(\\.[0-9]+)?\\s*,\\s*-?[0-9]{1,3}(\\.[0-9]+)?\\s*" title="Tap Detect, or enter: latitude, longitude" style="flex:1;min-width:0"><button type="button" class="btn btn-outline" id="detectGps">Use my GPS</button></div></label>
+      <div class="shop-pin-box">
+        <h4>📍 Pin your shop's exact location</h4>
+        <p class="pin-help">Best way: stand inside your shop, tap <b>Use my GPS</b>, then drag the pin onto your shop door. Customers and riders will see this exact spot.</p>
+        <div class="pin-actions">
+          <button type="button" class="btn btn-outline" id="pinFindAddr">Find my typed address</button>
+        </div>
+        <div id="shopPinMap" class="shop-pin-map"></div>
+        <div class="pin-coord" id="pinCoordText">Tap on the map or use GPS to drop the pin</div>
+        <a class="link-a" id="pinOpenGmaps" href="#" target="_blank" rel="noopener" style="display:none;font-size:13px">Open this pin in Google Maps</a>
+      </div>`;
     else if (s.key === 'license') inner = `
       <label class="field"><span>Drug license number*</span><input type="text" name="number" value="${esc(d.license.number)}" required></label>
-      <label class="field"><span>License expiry date</span><input type="date" name="expiry" value="${d.license.expiry ? String(d.license.expiry).slice(0, 10) : ''}"></label>
-      <label class="field"><span>Drug license document*</span><input type="file" name="doc" accept="image/*,.pdf">${fileHint(d.license.doc, 'license')}</label>`;
+      <label class="field"><span>License expiry date*</span><input type="date" name="expiry" required value="${d.license.expiry ? String(d.license.expiry).slice(0, 10) : ''}"></label>
+      <label class="field"><span>Drug license document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.license.doc || state.wizard.files.license ? '' : ' required'}>${fileHint(d.license.doc, 'license')}</label>`;
     else if (s.key === 'identity') inner = `
       <label class="field"><span>ID type*</span>
         <select name="idType" required>${['Aadhaar', 'PAN', 'Voter ID', 'Passport'].map(t => `<option${d.identity.idType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>
       </label>
       <label class="field"><span>ID number*</span><input type="text" name="idNumber" value="${esc(d.identity.idNumber)}" required></label>
-      <label class="field"><span>ID document*</span><input type="file" name="doc" accept="image/*,.pdf">${fileHint(d.identity.doc, 'identity')}</label>`;
+      <label class="field"><span>ID document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.identity.doc || state.wizard.files.identity ? '' : ' required'}>${fileHint(d.identity.doc, 'identity')}</label>`;
     else if (s.key === 'bank') inner = `
       <p class="cell-muted" style="font-size:12.5px;margin-bottom:12px">Account holder: <b>${esc(d.ownerName || 'owner name')}</b> — must match your bank passbook.</p>
       <div class="form-row two">
@@ -3688,7 +3792,7 @@
         <label class="field"><span>IFSC*</span><input type="text" name="ifsc" value="${esc(d.bank.ifsc)}" required pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" title="e.g. SBIN0004521" style="text-transform:uppercase"></label>
       </div>
       <label class="field"><span>UPI ID <span class="field-hint">(optional)</span></span><input type="text" name="upi" value="${esc(d.bank.upi || '')}"></label>
-      <label class="field"><span>Bank document*</span><input type="file" name="doc" accept="image/*,.pdf">${fileHint(d.bank.doc, 'bank')}</label>`;
+      <label class="field"><span>Bank document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.bank.doc || state.wizard.files.bank ? '' : ' required'}>${fileHint(d.bank.doc, 'bank')}</label>`;
     else if (s.key === 'review') inner = renderWizardReview(d);
 
     const isLast = step === WIZARD_STEPS.length - 1;
@@ -3725,6 +3829,11 @@
       <p style="font-size:12.5px;color:var(--ink-500)">By submitting, your business details are locked until our team completes verification.</p>`;
   }
 
+  function validateIdNumber(type, num) {
+    const n = String(num || '').replace(/\s+/g, '').toUpperCase();
+    const rules = { Aadhaar: [/^[2-9][0-9]{11}$/, 'Aadhaar must be 12 digits'], PAN: [/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'PAN must look like ABCDE1234F'], 'Voter ID': [/^[A-Z]{3}[0-9]{7}$/, 'Voter ID must look like ABC1234567'], Passport: [/^[A-Z][0-9]{7}$/, 'Passport must look like A1234567'] };
+    const r = rules[type]; return r && !r[0].test(n) ? r[1] : '';
+  }
   function saveStepIntoDraft(step, d) {
     const form = document.getElementById('wizardForm');
     if (!form) return true;
@@ -3740,6 +3849,8 @@
       if (!state.wizard.files.license && !d.license.doc) { showToast('Upload your drug license document', 'error'); return false; }
     } else if (s === 'identity') {
       d.identity = { ...d.identity, idType: fd.get('idType'), idNumber: fd.get('idNumber').trim() };
+      const idErr = validateIdNumber(d.identity.idType, d.identity.idNumber);
+      if (idErr) { showToast(idErr, 'error'); return false; }
       if (file) { state.wizard.files.identity = file; d.identity.doc = d.identity.doc || 'pending-upload'; }
       if (!state.wizard.files.identity && !d.identity.doc) { showToast('Upload your ID document', 'error'); return false; }
     } else if (s === 'bank') {
@@ -3749,6 +3860,57 @@
     }
     return true;
   }
+
+  /* ---------- shop location pin map ---------- */
+  let __pinMap = null, __pinMarker = null;
+  function parseGpsInput(v) {
+    const p = String(v || '').split(',').map(x => parseFloat(x));
+    return (p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180) ? p : null;
+  }
+  function initShopPinMap() {
+    if (__pinMap) { try { __pinMap.remove(); } catch (e) {} __pinMap = null; __pinMarker = null; }
+    window.__setShopPin = null;
+    const el = document.getElementById('shopPinMap');
+    if (!el) return;
+    if (typeof L === 'undefined') { el.innerHTML = '<p class="field-hint" style="padding:16px">Map could not load. Type the GPS as: latitude, longitude</p>'; return; }
+    const input = document.querySelector('#wizardForm [name=gps]');
+    const txt = document.getElementById('pinCoordText');
+    const link = document.getElementById('pinOpenGmaps');
+    const start = parseGpsInput(input && input.value);
+    __pinMap = L.map(el).setView(start || [22.9734, 78.6569], start ? 17 : 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(__pinMap);
+    const setPin = (lat, lng, zoom) => {
+      lat = +Number(lat).toFixed(6); lng = +Number(lng).toFixed(6);
+      if (!__pinMarker) {
+        __pinMarker = L.marker([lat, lng], { draggable: true }).addTo(__pinMap);
+        __pinMarker.on('dragend', () => { const p = __pinMarker.getLatLng(); setPin(p.lat, p.lng); });
+      } else __pinMarker.setLatLng([lat, lng]);
+      if (zoom) __pinMap.setView([lat, lng], zoom);
+      if (input) input.value = `${lat}, ${lng}`;
+      if (txt) txt.textContent = `📍 Pinned: ${lat}, ${lng}`;
+      if (link) { link.href = `https://www.google.com/maps?q=${lat},${lng}`; link.style.display = ''; }
+    };
+    window.__setShopPin = setPin;
+    if (start) setPin(start[0], start[1]);
+    __pinMap.on('click', (e) => setPin(e.latlng.lat, e.latlng.lng));
+    if (input) input.addEventListener('change', () => { const p = parseGpsInput(input.value); if (p) setPin(p[0], p[1], 17); });
+    setTimeout(() => { if (__pinMap) __pinMap.invalidateSize(); }, 250);
+  }
+  function pinMapBlock(m) {
+    const lat = parseFloat(m.address.lat), lng = parseFloat(m.address.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+    return `<div class="shop-pin-box"><h4>📍 Shop location pin</h4><div id="kycAddrMap" class="shop-pin-map" data-lat="${lat}" data-lng="${lng}"></div><a class="link-a" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" style="font-size:13px">Open exact pin in Google Maps</a></div>`;
+  }
+  function initReadonlyPin() {
+    const el = document.getElementById('kycAddrMap');
+    if (!el || typeof L === 'undefined') return;
+    const lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng);
+    const mp = L.map(el).setView([lat, lng], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mp);
+    L.marker([lat, lng]).addTo(mp);
+    setTimeout(() => mp.invalidateSize(), 250);
+  }
+  AFTER['kyc-detail'] = (sec) => { if (sec === 'address') initReadonlyPin(); };
 
   AFTER['kyc-wizard'] = () => wireWizardButtons();
   function wireWizardButtons() {
@@ -3762,10 +3924,25 @@
       if (!saveStepIntoDraft(state.wizard.step, state.wizard.draft)) return;
       state.wizard.step += 1; redraw();
     });
+    initShopPinMap();
     document.getElementById('detectGps')?.addEventListener('click', () => {
       if (!navigator.geolocation) return showToast('Location is not available on this device', 'error');
-      navigator.geolocation.getCurrentPosition((p) => { document.querySelector('#wizardForm [name=gps]').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; },
-        () => showToast('Could not get your location', 'error'), { enableHighAccuracy: true, timeout: 10000 });
+      navigator.geolocation.getCurrentPosition((p) => {
+        if (window.__setShopPin) window.__setShopPin(p.coords.latitude, p.coords.longitude, 18);
+        else document.querySelector('#wizardForm [name=gps]').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+        if (p.coords.accuracy && p.coords.accuracy > 100) showToast(`GPS accuracy is only ±${Math.round(p.coords.accuracy)} m — drag the pin to your shop door`, 'error');
+      }, () => showToast('Could not get your location', 'error'), { enableHighAccuracy: true, timeout: 10000 });
+    });
+    document.getElementById('pinFindAddr')?.addEventListener('click', async () => {
+      const f = document.getElementById('wizardForm'); if (!f) return;
+      const g = (n) => ((f.querySelector(`[name=${n}]`) || {}).value || '').trim();
+      const q = [g('fullAddress'), g('city'), g('district'), g('state'), g('pincode'), 'India'].filter(Boolean).join(', ');
+      try {
+        const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=' + encodeURIComponent(q));
+        const j = await r.json();
+        if (j && j[0] && window.__setShopPin) window.__setShopPin(parseFloat(j[0].lat), parseFloat(j[0].lon), 17);
+        else showToast('Address not found on the map — use GPS or tap the map', 'error');
+      } catch (e) { showToast('Could not search the address right now', 'error'); }
     });
     document.getElementById('wizardSubmit')?.addEventListener('click', async (e) => {
       const d = state.wizard.draft, btn = e.currentTarget;
@@ -3823,6 +4000,14 @@
     apply();
   }
 
+
+  // Add-product: when a field gets focus (or the keyboard opens) make sure it is never hidden behind the Back/Continue bar
+  document.addEventListener('focusin', (e) => {
+    if (!document.body.classList.contains('wizard-mode')) return;
+    const t = e.target;
+    if (t && t.matches && t.matches('input,select,textarea')) setTimeout(() => { try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) { /* ignore */ } }, 280);
+  });
+
   function bindGlobalUI() {
     document.addEventListener('click', (e) => {
       const moreBtn = e.target.closest('#moreBtn');
@@ -3852,7 +4037,7 @@
     initKeyboardAwareFooter();
     window.addEventListener('hashchange', () => { closeSheet(); render(); });   // SPA navigation: re-render on every route change
     if (sb) sb.auth.onAuthStateChange((evt) => {
-      if (evt === 'SIGNED_OUT') { stopRealtime(); state.merchant = null; }
+      if (evt === 'SIGNED_OUT') { stopRealtime(); state.merchant = null; goHome(); }
     });
     try { await bootSession(); } catch (e) { console.warn('Not signed in yet or merchant not found', e && e.message); }
     if (!location.hash) location.hash = '#/dashboard';

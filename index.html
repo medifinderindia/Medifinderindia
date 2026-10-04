@@ -2,6 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>MediFinder India - Online Medicine Delivery in 20 Minutes</title>
+    <meta name="description" content="Order medicines online, book lab tests, home nurse and ambulance from verified pharmacies near you. Fast delivery across West Bengal with MediFinder India.">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://medifinderindia.com/">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MediFinder India">
+    <meta property="og:locale" content="en_IN">
+    <meta property="og:url" content="https://medifinderindia.com/">
+    <meta property="og:title" content="MediFinder India - Online Medicine Delivery in 20 Minutes">
+    <meta property="og:description" content="Order medicines online, book lab tests, home nurse and ambulance from verified pharmacies near you. Fast delivery across West Bengal with MediFinder India.">
+    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MediFinder India - Online Medicine Delivery in 20 Minutes">
+    <meta name="twitter:description" content="Order medicines online, book lab tests, home nurse and ambulance from verified pharmacies near you. Fast delivery across West Bengal with MediFinder India.">
+    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://medifinderindia.com/#org","name":"MediFinder India","alternateName":"MediFinder","url":"https://medifinderindia.com/","logo":"https://medifinderindia.com/favicon.png","email":"support@medifinderindia.com","telephone":"+919593625498"},{"@type":"WebSite","@id":"https://medifinderindia.com/#website","url":"https://medifinderindia.com/","name":"MediFinder India","alternateName":"MediFinder","publisher":{"@id":"https://medifinderindia.com/#org"}}]}
+    </script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -10,12 +36,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MediFinder India">
-    <meta name="description" content="MediFinder India - Medicine in 20 Minutes">
-    <title>MediFinder India</title>
 
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="favicon.png">
-    <link rel="icon" type="image/png" href="favicon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,7 +74,7 @@
         })();
     </script>
     <style>/* ==========================================
-   MediFinder Splash Screen
+   MediFinder India Splash Screen
    Premium animated loading experience
    ========================================== */
 
@@ -564,13 +585,13 @@ html.mf-fast .splash-screen {
             // Fallback mapping if supabase-config.js hasn't exposed the helper
             var user = session.user;
             if (user.email === "medifinderindia@gmail.com") {
-                return "adminuser.html";
+                return "admin.html";
             }
             var role = (user.user_metadata && user.user_metadata.role) ||
                 localStorage.getItem("selected_role") || "user";
             if (role === "merchant") return "marchent.html";
             if (role === "delivery") return "rider.html";
-            return "user.html";
+            return "home.html";
         } catch (err) {
             console.error("Splash session check failed:", err);
             updateWelcomeMessage(null);
@@ -691,6 +712,6 @@ html.mf-fast .splash-screen {
     }
 })();</script>
     <!-- Existing production auth logic (session client, role redirect helpers). Not modified in behavior. -->
-    <script src="supabase-config.js?v=13"></script>
+    <script src="supabase-config.js?v=21"></script>
 </body>
 </html>

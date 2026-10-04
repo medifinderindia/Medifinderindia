@@ -1,3 +1,9 @@
+// ---- XSS guard: escape any DB/user-supplied text before it goes into innerHTML ----
+function mfEsc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
 /* ==========================================================================
    1. GLOBAL SYSTEM CONFIGURATIONS & SUPABASE INIT
    URL & key loaded from supabase-constants.js
@@ -26,6 +32,20 @@ let cartActivePatientId = localStorage.getItem('medi_cart_patient_id') || 'self'
 // so the note the customer's UPI app shows always matches the order that
 // actually gets created after "Payment Completed".
 let pendingOnlineOrderId = null;
+
+// Customer-entered UPI reference (UTR). The database rejects online payments without a
+// valid 12-digit UTR, and the admin panel uses it to verify the money actually arrived.
+function mfReadUtr(inputId){
+  const el = document.getElementById(inputId);
+  const v = (el && el.value || '').replace(/\s+/g,'');
+  if (!/^[0-9]{12}$/.test(v)) {
+    if (el) { el.focus(); el.style.borderColor = '#ff4d4d'; }
+    return null;
+  }
+  if (el) el.style.borderColor = '#dcdde1';
+  return v;
+}
+
 // 'UPI' (paid via the UPI app deep link) or 'UPI_QR' (paid by scanning the
 // static QR) — set the moment the shopper picks one, saved as payment_mode.
 let selectedOnlinePaymentMethod = null;
@@ -330,12 +350,15 @@ function safeWatchPosition(onSuccess, options) {
     }
     return navigator.geolocation.watchPosition(onSuccess, handleGeolocationError, options || GEO_OPTIONS_WATCH);
 }
-function safeGetCurrentPosition(onSuccess, options) {
+function safeGetCurrentPosition(onSuccess, options, silent) {
     if (!navigator.geolocation) {
-        handleGeolocationError({ code: 0 });
+        if (!silent) handleGeolocationError({ code: 0 });
         return;
     }
-    navigator.geolocation.getCurrentPosition(onSuccess, handleGeolocationError, options || GEO_OPTIONS_ONE_SHOT);
+    // silent=true -> automatic background fix (page load): never show an error
+    // toast, because the visitor did not ask for location. Only taps on a
+    // GPS / "use my location" button (silent omitted) show a message.
+    navigator.geolocation.getCurrentPosition(onSuccess, silent ? function () {} : handleGeolocationError, options || GEO_OPTIONS_ONE_SHOT);
 }
 
 // ============================================================
@@ -343,7 +366,7 @@ function safeGetCurrentPosition(onSuccess, options) {
 // ============================================================
 const languageMatrix = {
     en: {
-        title: "MEDI FINDER", editBtn: "Edit Name", addrTitle: "Manage Delivery Addresses",
+        title: "MEDIFINDER INDIA", editBtn: "Edit Name", addrTitle: "Manage Delivery Addresses",
         selectTitle: "App Display Language", patientTitle: "Manage Patients", patientDesc: "Add or select profiles for regular medical orders",
         pillTitle: "Pill Reminders", pillDesc: "Set active scheduling alerts to take daily doses",
         referTitle: "Refer & Earn", referDesc: "Invite friends to unlock unique ₹100 shopping coupons",
@@ -374,7 +397,7 @@ const languageMatrix = {
     },
     // Santali (West Bengal tribal language)
     sat: {
-        title: "MEDI FINDER", editBtn: "नाम बदलें", addrTitle: "डेलिभारी ठिकाना",
+        title: "MEDIFINDER INDIA", editBtn: "नाम बदलें", addrTitle: "डेलिभारी ठिकाना",
         selectTitle: "भाषा चुनुं", patientTitle: "मरीज मैनेज", patientDesc: "नियमित ऑर्डर के लिए प्रोफाइल जोड़ें",
         pillTitle: "दवाई याद दिलाना", pillDesc: "हर दिन दवाई लेने के लिए अलार्म लगाएं",
         referTitle: "Refer & Earn", referDesc: "दोस्तों को बुलाएं, ₹100 कूपन पाएं",
@@ -758,9 +781,9 @@ function setupServiceWorkerNotifications() {
         // 'default' means the user hasn't been asked yet; once they grant or
         // deny it, Notification.permission stops being 'default' and this
         // skips the prompt on every subsequent page load.
-        if (Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        // Notification permission is NOT requested here any more (it used to pop
+        // up on every page load). push-notifications.js asks once, from a tap on
+        // the home-page prompt, and the Notifications page has an on/off switch.
 
         // Register service worker for background notifications
         if ('serviceWorker' in navigator) {
@@ -839,7 +862,7 @@ function detectLiveUserGPSCoordinates() {
         if (document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
             refreshExpressDeliveryBadges();
         }
-    }, GEO_OPTIONS_ONE_SHOT);
+    }, GEO_OPTIONS_ONE_SHOT, true); // true = silent: no "location denied" toast on page load
 }
 
 // Keeps every "who's logged in" display (profile fields) in sync with the
@@ -1006,7 +1029,13 @@ async function autoFillSavedUserDataOnAuth() {
 
                 const { data: dbAlarms } = await supabase.from('reminders').select('*').eq('user_email', userEmail);
                 if (dbAlarms && dbAlarms.length > 0) {
-                    alarmsData = dbAlarms;
+                    alarmsData = dbAlarms.map(r => ({
+                        id: r.id,
+                        medicine: r.medicine || r.medicine_name || '',
+                        date: r.date || '',
+                        time: String(r.time || '').substring(0, 5),
+                        active: r.active !== false && r.is_active !== false
+                    }));
                     localStorage.setItem('medi_alarms', JSON.stringify(alarmsData));
                     if (document.getElementById('active-alarms-list')) renderAlarmsListUI();
                 }
@@ -1062,7 +1091,7 @@ async function pushUserNotification(userId, type, title, message, orderId) {
         await supabase.from('notifications').insert([{
             user_id: userId || null,
             type: type || 'general',
-            title: title || 'MediFinder',
+            title: title || 'MediFinder India',
             message: message || '',
             order_id: orderId || null
         }]);
@@ -1101,7 +1130,7 @@ function renderNotificationDropdown(notiDropdown) {
         <div class="noti-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}" onclick="markNotificationRead('${n.id}')">
             ${n.is_read ? '' : '<span class="noti-unread-dot">●</span>'}
             <button class="noti-delete-btn" onclick="deleteUserNotification('${n.id}', event)"><i class="fa-solid fa-xmark"></i></button>
-            <p><strong>${n.title || ''}</strong><br>${n.message || ''}</p>
+            <p><strong>${mfEsc(n.title || '')}</strong><br>${mfEsc(n.message || '')}</p>
             <span>${timeAgoLabel(n.created_at)}</span>
         </div>
     `).join('');
@@ -1234,13 +1263,13 @@ async function renderShopInfoCard(m, merchantId) {
         <div style="width:100%;height:120px;border-radius:12px;overflow:hidden;background:#f8f9fa;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
             ${shopImg ? `<img src="${shopImg}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\\'fa-solid fa-shop\\' style=\\'font-size:2.4rem;color:#ccd3da;\\'></i>'">` : `<i class="fa-solid fa-shop" style="font-size:2.4rem;color:#ccd3da;"></i>`}
         </div>
-        <h3 style="margin:0;font-size:1.05rem;color:#2f3542;">${m.shop_name || m.merchant_name || 'Pharmacy'}</h3>
+        <h3 style="margin:0;font-size:1.05rem;color:#2f3542;">${mfEsc(m.shop_name || m.merchant_name || 'Pharmacy')}</h3>
         <p style="margin:2px 0 10px;font-size:0.8rem;color:#747d8c;">by ${ownerName}</p>
         <div style="display:flex;gap:18px;padding:10px 0;border-top:1px solid #f4f6f8;border-bottom:1px solid #f4f6f8;margin-bottom:10px;">
             <div><p style="margin:0;font-size:0.68rem;color:#a4b0be;">Total Orders</p><p style="margin:2px 0 0;font-size:0.95rem;font-weight:700;color:#2f3542;">${totalOrders !== null ? totalOrders : 'Not available'}</p></div>
-            <div><p style="margin:0;font-size:0.68rem;color:#a4b0be;">With MediFinder</p><p style="margin:2px 0 0;font-size:0.95rem;font-weight:700;color:#2f3542;">${joinedLabel}</p></div>
+            <div><p style="margin:0;font-size:0.68rem;color:#a4b0be;">With MediFinder India</p><p style="margin:2px 0 0;font-size:0.95rem;font-weight:700;color:#2f3542;">${joinedLabel}</p></div>
         </div>
-        <p style="margin:0 0 6px;font-size:0.8rem;color:#57606f;"><i class="fa-solid fa-location-dot" style="color:#e02020;"></i> ${m.address || m.city || 'Address not available'}
+        <p style="margin:0 0 6px;font-size:0.8rem;color:#57606f;"><i class="fa-solid fa-location-dot" style="color:#e02020;"></i> ${mfEsc(m.address || m.city || 'Address not available')}
             ${isVerified ? '<span style="color:#28a745;font-weight:600;margin-left:8px;"><i class="fa-solid fa-circle-check"></i> License Verified</span>' : '<span style="color:#a4b0be;font-weight:600;margin-left:8px;">Not yet verified</span>'}
         </p>
         ${hasRxField ? `<p style="margin:0 0 10px;font-size:0.8rem;color:${rxAllowed ? '#28a745' : '#a4b0be'};font-weight:600;"><i class="fa-solid fa-file-prescription"></i> ${rxAllowed ? 'Prescription Allowed' : 'Prescription orders not supported here'}</p>` : ''}
@@ -1302,7 +1331,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                 const merchantCoordsMap = {};
                 if (merchantIdsForDistance.length > 0) {
                     try {
-                        const { data: merchantCoords } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIdsForDistance);
+                        const { data: merchantCoords } = await supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIdsForDistance);
                         if (merchantCoords) {
                             merchantCoords.forEach(m => {
                                 if (m.latitude && m.longitude) merchantCoordsMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) };
@@ -1358,7 +1387,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                     const disabledBtn = isOutOfStock ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
                     
                     return `
-                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
+                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
                         <!-- ✅ FIX: the opening <div class="product-card" ...> tag above was
                              never actually closed with a ">" before this point — every
                              attribute list ran straight into the badge/image markup that
@@ -1368,13 +1397,13 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                              fixes the product image and name positions on the Home page. -->
                         ${overlayBadges}
                         <div class="img-container">
-                            <img src="${img}" alt="${productName}" loading="lazy">
+                            <img src="${mfEsc(img)}" alt="${mfEsc(productName)}" loading="lazy">
                         </div>
                         ${expressBadge ? `<div class="badge-express-row" style="display:flex; justify-content:flex-end; padding:4px 6px 0;">${expressBadge}</div>` : ''}
                         <div class="prod-info">
                             <span class="prod-cat-label" style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${categoryLabel}</span>
                             <div class="product-title-row" style="display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;">
-                                <h4 style="flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${productName}${rxTag}</h4>
+                                <h4 style="flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mfEsc(productName)}${rxTag}</h4>
                                 ${freeDelivery ? `
                                     <span class="free-delivery-mini" style="flex:0 0 auto;background:#0d6efd;color:#fff;font-size:0.55rem;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;line-height:1.2;">
                                         <i class="fa-solid fa-truck"></i> FREE
@@ -1466,7 +1495,7 @@ function applyInstrumentModeUI(active) {
             const bar = document.createElement('div');
             bar.id = 'instrument-mode-back-bar';
             bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
-            bar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder Home';
+            bar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder India Home';
             // ✅ "Back to Home" bug fix: this used to call navigateTo('home')
             // while ALREADY on the home app-page (instrument mode is just a
             // display mode of Home, not a separate page) — navigateTo() saw
@@ -1556,7 +1585,7 @@ async function setupHomePageModules() {
             const backBar = document.createElement('div');
             backBar.id = 'seller-store-back-bar';
             backBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
-            backBar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder Home';
+            backBar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder India Home';
             backBar.addEventListener('click', () => { navigateTo('home'); });
             const productsSection = document.querySelector('.products-showcase-section');
             if (productsSection && productsSection.parentNode) {
@@ -1564,7 +1593,7 @@ async function setupHomePageModules() {
             }
         }
         if (supabase) {
-            supabase.from('merchants').select('*').eq('id', merchantFilterId).maybeSingle()
+            supabase.from('merchants_public').select('*').eq('id', merchantFilterId).maybeSingle()
                 .then(async ({ data: m }) => {
                     if (heading) heading.textContent = m ? 'Products from ' + (m.shop_name || m.merchant_name || 'this Seller') : 'Seller\u2019s Store';
                     if (m) await renderShopInfoCard(m, merchantFilterId);
@@ -2021,7 +2050,7 @@ async function refreshExpressDeliveryBadges() {
     if (cards.length === 0) return;
     const merchantIds = [...new Set(cards.map(c => c.dataset.merchantId))];
     try {
-        const { data: merchantCoords } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIds);
+        const { data: merchantCoords } = await supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIds);
         if (!merchantCoords) return;
         const coordMap = {};
         merchantCoords.forEach(m => { if (m.latitude && m.longitude) coordMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) }; });
@@ -2076,7 +2105,7 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
         });
 
         const { data: merchants, error } = await supabase
-            .from('merchants')
+            .from('merchants_public')
             .select('id, latitude, longitude, shop_name, merchant_name, status')
             .in('status', ['active', 'approved']);
         if (error || !merchants) return null;
@@ -2689,6 +2718,7 @@ async function submitPdReview() {
     if (!supabase || !__pdCurrentData?.id) { showToast('Could not submit — please try again later.', 'error'); return; }
 
     const uid = await getCurrentAuthUserId();
+    if (!uid) { showToast('Please log in to write a review.', 'error'); return; }
     let photoUrl = '';
     try {
         if (fileInput && fileInput.files && fileInput.files[0] && uid) {
@@ -2715,7 +2745,8 @@ async function submitPdReview() {
         document.querySelectorAll('#pd-wr-stars i').forEach(i => { i.className = 'fa-regular fa-star'; });
         loadPdRatingAndReviews(__pdCurrentData);
     } catch (e) {
-        showToast('Reviews aren\u2019t set up yet for this deployment — please try again later.', 'error');
+        console.error('[Review] submit failed:', e);
+        showToast('Review could not be posted: ' + ((e && (e.message || e.details)) || 'please try again'), 'error');
     }
 }
 
@@ -2764,7 +2795,7 @@ async function loadPdSellerVerification(data) {
     const merchantId = data.merchantId || data['data-merchant-id'] || data.merchant_id;
     if (!merchantId) { badge.style.display = 'none'; return; }
     try {
-        const { data: m } = await supabase.from('merchants').select('license_status').eq('id', merchantId).maybeSingle();
+        const { data: m } = await supabase.from('merchants_public').select('license_status').eq('id', merchantId).maybeSingle();
         const verified = m && String(m.license_status || '').toLowerCase() === 'verified';
         badge.style.display = verified ? 'inline-flex' : 'none';
     } catch (e) { badge.style.display = 'none'; }
@@ -2964,7 +2995,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         for (let i = 0; i < __pdQty; i++) addToCart(__pdCurrentData);
-        if (typeof window.navigateTo === 'function') window.navigateTo('cart');
+        // Guest: item is already in the (localStorage) cart; ask for login, then
+        // mfResumePendingAction() brings the user straight back to the cart.
+        (async () => {
+            if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'checkout', reason: 'checkout' }))) return;
+            if (typeof window.navigateTo === 'function') window.navigateTo('cart');
+        })();
     });
 
     const visitShopBtn = document.getElementById('pd-visit-shop-btn');
@@ -3089,7 +3125,7 @@ async function loadShopDetail(merchantId) {
     }
 
     try {
-        const { data: m, error } = await supabase.from('merchants').select('*').eq('id', merchantId).maybeSingle();
+        const { data: m, error } = await supabase.from('merchants_public').select('*').eq('id', merchantId).maybeSingle();
         if (error || !m) throw error || new Error('Shop not found');
 
         // Products (products stat + the grid itself use the same query).
@@ -3119,6 +3155,21 @@ async function loadShopDetail(merchantId) {
         if (skeleton) skeleton.style.display = 'none';
         if (errorState) errorState.style.display = 'block';
     }
+}
+
+let __sdMap = null;
+function renderShopLocationMap(lat, lng, name, addr) {
+    const el = document.getElementById('sd-map');
+    if (!el || typeof L === 'undefined') return;
+    if (__sdMap) { try { __sdMap.remove(); } catch (e) {} __sdMap = null; }
+    __sdMap = L.map(el, { scrollWheelZoom: false }).setView([lat, lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(__sdMap);
+    L.marker([lat, lng]).addTo(__sdMap).bindPopup(`<b>${pdEsc(name)}</b><br>${pdEsc(addr)}`).openPopup();
+    if (typeof userLiveLat !== 'undefined' && userLiveLat && typeof userLiveLng !== 'undefined' && userLiveLng) {
+        L.circleMarker([userLiveLat, userLiveLng], { radius: 8, color: '#1e90ff', fillColor: '#1e90ff', fillOpacity: 0.9 }).addTo(__sdMap).bindTooltip('You');
+        __sdMap.fitBounds([[lat, lng], [userLiveLat, userLiveLng]], { padding: [40, 40], maxZoom: 16 });
+    }
+    setTimeout(() => { if (__sdMap) __sdMap.invalidateSize(); }, 200);
 }
 
 function renderShopDetail(m, totalOrders) {
@@ -3174,7 +3225,7 @@ function renderShopDetail(m, totalOrders) {
         // decision — no accepts_prescription column exists), so this badge
         // always shows for every shop.
         badges += `<span class="sd-badge sd-badge-info"><i class="fa-solid fa-file-prescription"></i> Prescription Available</span>`;
-        if (isLicenseVerified && isActive) badges += `<span class="sd-badge sd-badge-verified"><i class="fa-solid fa-shield-halved"></i> MediFinder Verified</span>`;
+        if (isLicenseVerified && isActive) badges += `<span class="sd-badge sd-badge-verified"><i class="fa-solid fa-shield-halved"></i> MediFinder India Verified</span>`;
         badgesRow.innerHTML = badges;
     }
 
@@ -3193,6 +3244,24 @@ function renderShopDetail(m, totalOrders) {
         else dirBtn.style.display = 'none';
     }
     setText('sd-address', m.resolved_address || m.address || m.city || 'Address not available');
+
+    // Exact shop location map (pin = the spot the merchant dropped during KYC)
+    const locCard = document.getElementById('sd-location-card');
+    if (locCard) {
+        if (hasCoords) {
+            locCard.style.display = '';
+            setText('sd-loc-addr-text', m.resolved_address || m.address || m.city || shopName);
+            const dBtn = document.getElementById('sd-loc-directions');
+            const gBtn = document.getElementById('sd-loc-gmaps');
+            if (dBtn) dBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            if (gBtn) gBtn.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+            // the page is revealed right after this function returns, so draw the map a moment later
+            setTimeout(() => renderShopLocationMap(lat, lng, shopName, m.resolved_address || m.address || ''), 350);
+            setTimeout(() => { if (__sdMap) __sdMap.invalidateSize(); }, 1000);
+        } else {
+            locCard.style.display = 'none';
+        }
+    }
 
     const distEl = document.getElementById('sd-distance');
     const etaEl = document.getElementById('sd-eta');
@@ -3313,14 +3382,14 @@ function renderShopProducts() {
         const hasRealRating = rating > 0;
 
         return `
-        <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${productName}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${img}" data-img2="${prod.image_url_2 || ''}" data-img3="${prod.image_url_3 || ''}" data-expiry="${prod.expiry_date || prod.expiry || ''}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${prod.description || ''}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
+        <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
             ${discount > 0 ? `<div class="badge-express" style="background:#28a745;left:auto;right:8px;top:8px;font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>` : ''}
-            <div class="img-container"><img src="${img}" alt="${productName}" loading="lazy"></div>
+            <div class="img-container"><img src="${mfEsc(img)}" alt="${mfEsc(productName)}" loading="lazy"></div>
             ${isLowStock ? `<div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;"><div class="badge-express" style="position:static;background:#e67e22;"><i class="fa-solid fa-triangle-exclamation"></i> Only ${stock} left</div></div>` : ''}
             <div class="prod-info">
                 <span class="prod-cat-label" style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${categoryLabel}</span>
                 <div class="product-title-row" style="display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;">
-                    <h4 style="flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${productName}${rxTag}</h4>
+                    <h4 style="flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mfEsc(productName)}${rxTag}</h4>
                 </div>
                 ${manufacturer ? `<p style="font-size:0.7rem;color:#888;margin:2px 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${manufacturer}</p>` : ''}
                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
@@ -3579,12 +3648,16 @@ function setupCartPageModules() {
     if (applyCouponBtn) applyCouponBtn.addEventListener('click', handleCouponApplication);
 
     const payWithUpiBtn = document.getElementById('pay-with-upi-btn');
-    if (payWithUpiBtn) payWithUpiBtn.addEventListener('click', handlePayWithUpiClick);
+    if (payWithUpiBtn) payWithUpiBtn.addEventListener('click', async function (e) {
+        if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'checkout', reason: 'checkout' }))) return;
+        return handlePayWithUpiClick.call(this, e);
+    });
 
     // "I've Completed the Payment" under the QR card — same confirmation step
     // as the UPI-app path, just without an app-open attempt first.
     const paidViaQrBtn = document.getElementById('paid-via-qr-btn');
-    if (paidViaQrBtn) paidViaQrBtn.addEventListener('click', () => {
+    if (paidViaQrBtn) paidViaQrBtn.addEventListener('click', async () => {
+        if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'checkout', reason: 'checkout' }))) return;
         const amountRupees = getCartGrandTotalRupees();
         if (amountRupees <= 0) { showToast('Your cart total is ₹0.00 — add items before paying.', 'error'); return; }
         if (!pendingOnlineOrderId) pendingOnlineOrderId = generateOrderId();
@@ -3598,6 +3671,7 @@ function setupCartPageModules() {
     const upiPaymentCompletedBtn = document.getElementById('upi-payment-completed-btn');
     if (upiPaymentCompletedBtn) upiPaymentCompletedBtn.addEventListener('click', () => {
         if (!selectedOnlinePaymentMethod) selectedOnlinePaymentMethod = 'UPI';
+        if (!mfReadUtr('upi-utr-input')) { showToast('Enter the 12-digit UTR / reference number from your payment app.', 'error'); return; }
         processFinalOrderPayload();
     });
 
@@ -3763,7 +3837,7 @@ function renderCartAddressList(list, activeId) {
                 <span class="cart-address-index">Address ${idx + 1}</span>
                 ${a.is_default ? '<span class="addr-default-badge">DEFAULT</span>' : ''}
             </div>
-            <strong>${a.name || ''}</strong>
+            <strong>${mfEsc(a.name || '')}</strong>
             <p>${a.address1}${a.address2 ? ', ' + a.address2 : ''}, ${a.city} - ${a.pincode}</p>
             <i class="fa-solid fa-circle-check cart-address-check"></i>
         </div>
@@ -3779,7 +3853,7 @@ function renderCartPatientChips() {
     if (!chips.find(c => c.id === cartActivePatientId)) cartActivePatientId = 'self';
     wrap.innerHTML = chips.map(c => `
         <div class="cart-patient-chip ${c.id === cartActivePatientId ? 'active' : ''}" onclick="selectCartPatient('${c.id}')">
-            <i class="fa-solid ${c.id === 'self' ? 'fa-user' : 'fa-user-injured'}"></i> ${c.name}
+            <i class="fa-solid ${c.id === 'self' ? 'fa-user' : 'fa-user-injured'}"></i> ${mfEsc(c.name)}
         </div>
     `).join('');
     // ✅ Item 3: the "ORDERING FOR" heading above now reflects who is
@@ -3861,9 +3935,9 @@ function showSavedAddress(addr) {
         display.innerHTML = `
             <div class="addr-premium-top">
                 <span class="addr-premium-tag"><i class="fa-solid fa-house"></i> ${tagLabel}</span>${defaultBadge}
-                <span class="addr-premium-name">${addr.name}</span>
+                <span class="addr-premium-name">${mfEsc(addr.name)}</span>
             </div>
-            <p class="addr-premium-line"><i class="fa-solid fa-location-dot"></i> ${addr.house}${addr.area ? ', ' + addr.area : ''}, ${addr.city} - ${addr.pincode}${addr.landmark ? ', Near ' + addr.landmark : ''}</p>
+            <p class="addr-premium-line"><i class="fa-solid fa-location-dot"></i> ${mfEsc(addr.house)}${addr.area ? ', ' + addr.area : ''}, ${mfEsc(addr.city)} - ${mfEsc(addr.pincode)}${addr.landmark ? ', Near ' + addr.landmark : ''}</p>
             <p class="addr-premium-phone"><i class="fa-solid fa-phone"></i> +91 ${addr.phone}</p>
             <div class="addr-premium-deliver-badge"><i class="fa-solid fa-circle-check"></i> Delivering to this address</div>
         `;
@@ -4100,7 +4174,7 @@ function renderCartPage() {
                     ${rxTick}
                 </div>
                 <div class="cart-item-info">
-                    <h4 class="cart-item-name">${item.name}${rxBadge}</h4>
+                    <h4 class="cart-item-name">${mfEsc(item.name)}${rxBadge}</h4>
                     <p class="cart-item-price">₹${item.price}</p>
                     ${uploadRow}
                     <div class="cart-item-qty" style="position:relative; z-index:3; pointer-events:auto;">
@@ -4383,7 +4457,7 @@ async function refreshDeliveryDistanceAndBill() {
         if (!supabase || currentCart.length === 0) { recalculateBill(); return; }
         const merchantIds = [...new Set(currentCart.map(i => i.merchantId).filter(Boolean))];
         if (merchantIds.length === 0) { recalculateBill(); return; }
-        const { data, error } = await supabase.from('merchants').select('id, latitude, longitude').in('id', merchantIds);
+        const { data, error } = await supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIds);
         if (error || !data || data.length === 0) { recalculateBill(); return; }
 
         // Worst-case shop decides the fee band (one delivery run has to reach
@@ -4476,7 +4550,7 @@ async function refreshShiprocketRateAndBill() {
     try {
         const merchantIds = [...new Set(currentCart.map(i => i.merchantId).filter(Boolean))];
         if (merchantIds.length === 0) { cartShiprocketRate = null; recalculateBill(); return; }
-        const { data: merchants, error } = await supabase.from('merchants').select('id, pincode').in('id', merchantIds);
+        const { data: merchants, error } = await supabase.from('merchants_public').select('id, pincode').in('id', merchantIds);
         if (error || !merchants || merchants.length === 0) { cartShiprocketRate = null; recalculateBill(); return; }
 
         const pincodeByMerchant = {};
@@ -4614,7 +4688,10 @@ function recalculateBill() {
 }
 
 function generateSecureSixDigitOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // crypto-grade randomness (Math.random is predictable)
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return String(100000 + (buf[0] % 900000));
 }
 
 // ============================================================
@@ -4631,7 +4708,7 @@ function generateSecureSixDigitOTP() {
 // order is only saved as payment_verification_status "pending" until
 // MediFinder's team verifies it from the admin panel.
 const UPI_PAYEE_VPA = "9593625498@ibl";
-const UPI_PAYEE_NAME = "MediFinder";
+const UPI_PAYEE_NAME = "MediFinder India";
 
 function isMobileDeviceForUpi() {
     return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
@@ -4670,7 +4747,7 @@ function hideUpiPaymentConfirmStep() {
 function buildUpiDeepLink(amountRupees, orderIdForNote) {
     const amt = (Math.round((parseFloat(amountRupees) || 0) * 100) / 100).toFixed(2);
     let link = `upi://pay?pa=${encodeURIComponent(UPI_PAYEE_VPA)}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${amt}&cu=INR`;
-    if (orderIdForNote) link += `&tn=${encodeURIComponent('MediFinder Order ' + orderIdForNote)}`;
+    if (orderIdForNote) link += `&tn=${encodeURIComponent('MediFinder India Order ' + orderIdForNote)}`;
     return link;
 }
 
@@ -4726,7 +4803,10 @@ function handlePayWithUpiClick() {
 // QR card above and tap "Payment Completed" there (that button calls
 // processFinalOrderPayload() itself); this just guides them to it so a
 // stray tap on the main button can't silently create an unpaid order.
-function handlePlaceOrderClick() {
+async function handlePlaceOrderClick() {
+    // Public-home flow: a guest can browse and fill a cart, but placing an order
+    // needs an account. The cart (localStorage) survives the login round-trip.
+    if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'checkout', reason: 'checkout' }))) return;
     if (selectedPaymentMethod === 'ONLINE') {
         const upiDrawer = document.getElementById('upi-pay-drawer');
         if (upiDrawer) upiDrawer.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4737,6 +4817,7 @@ function handlePlaceOrderClick() {
 }
 
 async function processFinalOrderPayload() {
+    if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'checkout', reason: 'checkout' }))) return;
     if (currentCart.length === 0) { showToast("Your cart is empty!", "error"); return; }
     const addr = JSON.parse(localStorage.getItem('medi_delivery_address') || 'null');
     if (!addr || !addr.house) {
@@ -4894,6 +4975,7 @@ async function processFinalOrderPayload() {
         // (see marchentorders.html/marchenthome.html getActionButtons() and
         // adminuser.js verifyUpiPayment()) — COD orders never carry it.
         payment_verification_status: selectedPaymentMethod === "COD" ? null : "pending",
+        payment_utr: selectedPaymentMethod === "COD" ? null : ((document.getElementById('upi-utr-input')?.value || '').replace(/\s+/g,'') || null),
         status: "pending",
         transit_mode: calculatedTransitMode,
         eta_minutes: calculatedETA,
@@ -4923,7 +5005,15 @@ async function processFinalOrderPayload() {
         discount: discountAmount || 0,
         coupon_code: appliedCouponInfo?.code || appliedCouponInfo?.coupon_code || null,
         delivery_speed: selectedDeliverySpeed || 'manual',
-        delivery_speed_fee: orderSpeedFee
+        delivery_speed_fee: orderSpeedFee,
+        // customer's delivery point for the live-tracking map: the saved address pin if it has one,
+        // otherwise the real GPS fix (only when GPS actually resolved - never the Kolkata fallback)
+        ...(() => {
+            const aLat = Number(addr.lat ?? addr.latitude), aLng = Number(addr.lng ?? addr.lon ?? addr.longitude);
+            if (isFinite(aLat) && isFinite(aLng) && aLat && aLng) return { user_lat: aLat, user_lon: aLng };
+            if (!(Math.abs(userLiveLat - 22.5726) < 0.0005 && Math.abs(userLiveLng - 88.3639) < 0.0005)) return { user_lat: userLiveLat, user_lon: userLiveLng };
+            return {};
+        })()
     };
 
     let activeOrdersSystem = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
@@ -5091,8 +5181,12 @@ async function processFinalOrderPayload() {
             const el4 = document.getElementById('success-otp-code');
             if (el1) el1.textContent = orderId;
             if (el2) el2.textContent = 'Cash on Delivery';
-            if (el3) el3.textContent = calculatedETA + ' mins';
+            const __isCourierOrder = (selectedDeliverySpeed === 'manual');
+            if (el3) el3.textContent = __isCourierOrder ? '5-7 days' : (calculatedETA + ' mins');
             if (el4) el4.textContent = secureDeliveryOTP;
+            // Standard = courier delivery -> no OTP is shared with the customer
+            const __otpBox = document.getElementById('success-otp-box');
+            if (__otpBox) __otpBox.style.display = __isCourierOrder ? 'none' : '';
             successModal.style.display = 'flex';
             setTimeout(function(){ successModal.classList.add('modal-revealed'); }, 50);
             createConfetti();
@@ -5104,7 +5198,7 @@ async function processFinalOrderPayload() {
                 successModal.style.display = 'none';
             }, 5000);
         } else {
-            showToast(`Order placed! Delivery Code: ${secureDeliveryOTP}`, "success");
+            showToast(selectedDeliverySpeed === 'manual' ? 'Order placed!' : `Order placed! Delivery Code: ${secureDeliveryOTP}`, "success");
         }
     } else {
         // Online (UPI/QR) orders never get the "Order Placed!" celebration —
@@ -5393,7 +5487,7 @@ async function getMerchantNameCached(merchantId) {
     if (_merchantNameCache[merchantId] !== undefined) return _merchantNameCache[merchantId];
     if (!supabase) return '';
     try {
-        const { data } = await supabase.from('merchants').select('shop_name, merchant_name').eq('id', merchantId).maybeSingle();
+        const { data } = await supabase.from('merchants_public').select('shop_name, merchant_name').eq('id', merchantId).maybeSingle();
         const name = data?.shop_name || data?.merchant_name || '';
         _merchantNameCache[merchantId] = name;
         return name;
@@ -5573,7 +5667,7 @@ function openOrdersHelpSheet() {
     modal.innerHTML = `
         <div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 26px;width:100%;max-width:420px;box-sizing:border-box;">
             <h3 style="margin:0 0 4px;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> Need help with an order?</h3>
-            <p style="margin:0 0 16px;font-size:0.8rem;color:#747d8c;">Reach out to MediFinder support any time.</p>
+            <p style="margin:0 0 16px;font-size:0.8rem;color:#747d8c;">Reach out to MediFinder India support any time.</p>
             <a href="mailto:medifinderindia@gmail.com" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
                 <i class="fa-solid fa-envelope" style="color:#1c82aa;width:20px;text-align:center;"></i> medifinderindia@gmail.com
             </a>
@@ -5868,6 +5962,46 @@ window.handleReturnOrder = async function(orderId) {
 // (Item 12). Re-uses all the existing tracking/cancel/return/OTP handlers
 // rather than duplicating any of that logic.
 // ============================================================
+// ✅ NEW — Flipkart-style "Buy Again": re-adds a delivered order's items to the cart using the
+// product's CURRENT price/stock (never the old order price), skips anything that is gone or out of
+// stock, then opens the cart.
+window.buyAgainFromOrder = async function (orderId, btn) {
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+    try {
+        const lines = await fetchOrderLineItems(orderId);
+        const ids = [...new Set(lines.map(l => l.medicine_id).filter(Boolean))];
+        if (!ids.length) { showToast('These items are no longer available to reorder.', 'error'); return; }
+        const { data: meds, error } = await supabase.from('medicines')
+            .select('id, name, product_name, selling_price, unit_price, mrp, image_url, merchant_id, stock_qty, is_rx, prescription_req, weight_kg, status, is_visible, admin_approved')
+            .in('id', ids);
+        if (error || !meds) { showToast('Could not load items. Please try again.', 'error'); return; }
+        const byId = {}; meds.forEach(m => { byId[String(m.id)] = m; });
+        let added = 0, skipped = 0;
+        lines.forEach(l => {
+            const m = byId[String(l.medicine_id)];
+            const price = m ? parseFloat(m.selling_price ?? m.unit_price) : NaN;
+            const live = m && m.is_visible !== false && m.admin_approved !== false && !['inactive', 'rejected', 'deleted'].includes(String(m.status || '').toLowerCase());
+            const stock = m ? Number(m.stock_qty) : 0;
+            const rx = m && (m.is_rx === true || m.prescription_req === true || m.prescription_req === 'true');
+            if (!m || !live || !(price > 0) || !(stock > 0) || rx) { skipped++; return; }
+            const qty = Math.max(1, Math.min(parseInt(l.quantity) || 1, stock));
+            for (let i = 0; i < qty; i++) {
+                addToCart({ id: m.id, name: m.name || m.product_name, price, mrp: m.mrp || price, img: m.image_url, merchantId: m.merchant_id, weightKg: m.weight_kg, isRx: false });
+            }
+            added++;
+        });
+        if (!added) { showToast('Sorry, none of these items are available right now.', 'error'); return; }
+        showToast(skipped ? `${added} item(s) added, ${skipped} unavailable.` : `${added} item(s) added to cart.`, 'success');
+        document.getElementById('order-detail-modal')?.remove();
+        if (typeof window.navigateTo === 'function') window.navigateTo('cart');
+    } catch (e) {
+        console.error('[BuyAgain]', e);
+        showToast('Could not reorder. Please try again.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    }
+};
+
 window.openOrderDetailModal = async function (orderId) {
     try {
         document.getElementById('order-detail-modal')?.remove();
@@ -5931,7 +6065,8 @@ window.openOrderDetailModal = async function (orderId) {
 
         // Item 5/9/10/11 — button visibility rules.
         const canCancel = isRx ? (s === 'pending') : !['shipped', 'broadcasted', 'picked_up', 'delivered', 'cancelled'].includes(s);
-        const showOtp = !['cancelled', 'delivered'].includes(s);
+        // OTP is only for MediFinder rider deliveries (Express / Same-day). Standard (courier) orders have no OTP.
+        const showOtp = !['cancelled', 'delivered'].includes(s) && (isRx || __orderIsPersonalRider(order));
         const showTrack = s !== 'cancelled';
         const showInvoice = !isRx;
         const showFeedback = s === 'delivered';
@@ -5970,6 +6105,7 @@ window.openOrderDetailModal = async function (orderId) {
 
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
             ${showTrack ? `<button type="button" id="od-track-btn" style="flex:1;min-width:100px;background:#1c82aa;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Track</button>` : ''}
+            ${(s === 'delivered' && !isRx) ? `<button type="button" id="od-reorder-btn" style="flex:1;min-width:100px;background:#e02020;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Buy Again</button>` : ''}
             ${showInvoice ? `<button type="button" id="od-invoice-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ''}
             ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#2ed573;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
             ${canCancel ? `<button type="button" id="od-cancel-btn" style="flex:1;min-width:100px;background:#ff4d4d;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancel</button>` : ''}
@@ -6053,12 +6189,18 @@ window.openOrderDetailModal = async function (orderId) {
         if (showTrack) {
             const trackBtn = document.getElementById('od-track-btn');
             if (trackBtn) trackBtn.addEventListener('click', () => {
+                // close the details sheet first so the tracking page opens straight away (it was hiding behind the sheet)
+                document.getElementById('order-detail-modal')?.remove();
                 if (isRx && typeof window.openRxOrderTrackingModal === 'function') {
                     window.openRxOrderTrackingModal(order.rx_id, order.status);
                 } else if (typeof window.openLiveTrackingModal === 'function') {
                     window.openLiveTrackingModal(id, order.transit_mode || 'Bike', order.shop_lat || 22.578, order.shop_lng || 88.365, order.eta_minutes || 20, order.status, order.rider_id || null);
                 }
             });
+        }
+        if (s === 'delivered' && !isRx) {
+            const reorderBtn = document.getElementById('od-reorder-btn');
+            if (reorderBtn) reorderBtn.addEventListener('click', () => window.buyAgainFromOrder(id, reorderBtn));
         }
         if (showInvoice) {
             const invoiceBtn = document.getElementById('od-invoice-btn');
@@ -6133,7 +6275,114 @@ function teardownTrackingMap() {
     window._trackingMapState = { map: null, riderMarker: null, shopMarker: null, riderChannel: null, userMarker: null, userPos: null, routeLine: null };
 }
 
-async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, statusText) {
+
+// ============================================================
+// Delivery mode of an order
+//  - personal rider : delivery_speed express / sameday (or a MediFinder rider is assigned) -> OTP + live map
+//  - courier        : delivery_speed manual (Standard, Shiprocket/courier) -> NO OTP, courier timeline
+// ============================================================
+function __orderIsPersonalRider(order) {
+    if (!order) return false;
+    const sp = String(order.delivery_speed || '').toLowerCase();
+    if (sp === 'express' || sp === 'sameday' || sp === 'same_day' || sp === 'same-day') return true;
+    return !!order.rider_id;
+}
+function __isDefaultCoord(lat, lng) {
+    lat = Number(lat); lng = Number(lng);
+    if (!isFinite(lat) || !isFinite(lng) || (!lat && !lng)) return true;
+    return (Math.abs(lat - 22.578) < 0.002 && Math.abs(lng - 88.365) < 0.002) ||
+           (Math.abs(lat - 22.5726) < 0.002 && Math.abs(lng - 88.3639) < 0.002);
+}
+function __trkEsc(s) { return String(s ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
+
+async function renderTrackingForOrder(mapContainer, orderId, shopLat, shopLng, riderId, statusText) {
+    teardownTrackingMap();
+    mapContainer.innerHTML = '<div style="text-align:center;padding:24px;color:#a4b0be;font-size:0.8rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading tracking...</div>';
+    let order = null;
+    try { order = await fetchOrderForBilling(orderId); } catch (e) {}
+    const modal = document.getElementById('tracking-modal');
+    if (!modal || modal.dataset.trackingOrderId !== orderId) return; // closed / switched meanwhile
+
+    const isRxOrder = !!(order && order.is_prescription_order);
+    if (order && !isRxOrder && !__orderIsPersonalRider(order)) {
+        renderCourierTimeline(mapContainer, order);
+        return;
+    }
+
+    // ---- personal rider: real coordinates (never the Kolkata fallback) ----
+    let sLat = Number(order?.shop_lat ?? order?.pharmacy_lat ?? shopLat);
+    let sLng = Number(order?.shop_lng ?? order?.pharmacy_lon ?? shopLng);
+    if (__isDefaultCoord(sLat, sLng) && order?.merchant_id && supabase) {
+        try {
+            const { data: m } = await supabase.from('merchants_public').select('latitude, longitude').eq('id', order.merchant_id).maybeSingle();
+            if (m && !__isDefaultCoord(m.latitude, m.longitude)) { sLat = Number(m.latitude); sLng = Number(m.longitude); }
+        } catch (e) {}
+    }
+    const uLat = Number(order?.user_lat ?? order?.delivery_lat);
+    const uLng = Number(order?.user_lon ?? order?.delivery_lng);
+    const hasUser = isFinite(uLat) && isFinite(uLng) && !(uLat === 0 && uLng === 0);
+    if (!isFinite(sLat) || !isFinite(sLng)) { sLat = shopLat; sLng = shopLng; }
+    renderTrackingLiveMap(mapContainer, sLat, sLng, riderId || order?.rider_id || null, statusText, hasUser ? { userLat: uLat, userLng: uLng } : null);
+}
+
+async function renderCourierTimeline(container, order) {
+    const orderId = order.order_id || order.id;
+    const courier = order.courier_name || order.delivery_partner || '';
+    const awb = order.courier_tracking || '';
+    container.innerHTML = `
+      <div class="courier-track-card">
+        <div class="courier-track-head"><i class="fa-solid fa-truck-fast"></i><div><h4>Track Your Order</h4><p>Order #${__trkEsc(orderId)}</p></div></div>
+        <div class="courier-track-meta">
+          <span><b>Courier</b>${__trkEsc(courier || 'Will be assigned')}</span>
+          <span><b>AWB</b>${__trkEsc(awb || 'Not generated yet')}</span>
+        </div>
+        <div id="courier-track-list" class="courier-track-list"><div class="courier-track-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading updates...</div></div>
+      </div>`;
+    const listEl = () => document.getElementById('courier-track-list');
+    const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }); } catch (e) { return ''; } };
+    const paint = (events) => {
+        const el = listEl(); if (!el) return;
+        if (!events.length) {
+            const s = String(order.status || '').toLowerCase();
+            el.innerHTML = `<div class="courier-track-empty"><i class="fa-regular fa-clock"></i>
+                <p>${awb ? 'Waiting for the courier\'s first scan.' : (s === 'cancelled' ? 'Order cancelled.' : 'Your shipment is being prepared. Courier tracking appears here once it is picked up.')}</p></div>`;
+            return;
+        }
+        el.innerHTML = events.map((ev, i) => `
+            <div class="courier-step ${i === 0 ? 'latest' : ''}">
+                <span class="courier-dot"></span>
+                <div class="courier-step-body">
+                    <b>${__trkEsc(ev.status)}</b>
+                    ${ev.location ? `<span>${__trkEsc(ev.location)}</span>` : ''}
+                    <small>${__trkEsc(fmt(ev.event_time))}</small>
+                </div>
+            </div>`).join('');
+    };
+    const load = async () => {
+        if (!supabase) { paint([]); return; }
+        try {
+            const { data, error } = await supabase.from('order_tracking_events').select('*').eq('order_id', orderId).order('event_time', { ascending: false });
+            if (error) throw error;
+            paint(data || []);
+        } catch (e) { console.error('[Tracking] events load failed:', e); paint([]); }
+    };
+    await load();
+    if (!supabase) return;
+    // Ask Shiprocket (via the Edge Function) for fresh scans, then re-read from Supabase
+    if (awb) {
+        try {
+            const { data: fn } = await supabase.functions.invoke('shiprocket', { body: { action: 'track', order_id: orderId } });
+            if (fn && fn.success) await load();
+        } catch (e) { console.warn('[Tracking] shiprocket refresh failed:', e); }
+    }
+    try {
+        window._trackingMapState.riderChannel = supabase.channel(`courier-track-${orderId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_tracking_events', filter: `order_id=eq.${orderId}` }, () => load())
+            .subscribe();
+    } catch (e) {}
+}
+
+async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, statusText, opts) {
     teardownTrackingMap(); // আগের modal session এর কোনো map/channel থাকলে সরিয়ে ফেলা
 
     mapContainer.innerHTML = `<div id="tracking-live-map" style="height:220px;border-radius:12px;overflow:hidden;"></div>
@@ -6167,7 +6416,20 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
             if (st.userPos) pts.push(st.userPos);
             if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 15 });
         }
-        if (navigator.geolocation) {
+        const userIconHtml = '<div style="background:#16a34a;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(22,163,74,0.5);"><i class="fa-solid fa-house-user" style="color:#fff;font-size:13px;"></i></div>';
+        if (opts && isFinite(opts.userLat) && isFinite(opts.userLng)) {
+            // real delivery location saved on the order
+            const userPos = [opts.userLat, opts.userLng];
+            window._trackingMapState.userPos = userPos;
+            window._trackingMapState.userMarker = L.marker(userPos, { icon: L.divIcon({ html: userIconHtml, className: 'custom-div-icon', iconSize: [30, 30], iconAnchor: [15, 15] }) }).addTo(map).bindPopup('Your location');
+            // shop -> you route (drawn with the real road path when OSRM answers)
+            fetchRoadRoute(shopLat, shopLng, userPos[0], userPos[1]).then(route => {
+                if (!window._trackingMapState.map) return;
+                window._trackingMapState.routeLine = L.polyline(route ? route.coords : [[shopLat, shopLng], userPos], { color: '#1c82aa', weight: 4, opacity: 0.85, dashArray: route ? null : '6,8' }).addTo(map);
+                fitTrackingBounds();
+            }).catch(() => {});
+            fitTrackingBounds();
+        } else if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
                 if (!window._trackingMapState.map) return; // modal closed before this resolved
                 const userPos = [pos.coords.latitude, pos.coords.longitude];
@@ -6203,8 +6465,9 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
                 // drawn from guessed/placeholder coordinates.
                 const st = window._trackingMapState;
                 if (st.userPos) {
-                    if (st.routeLine) { st.routeLine.setLatLngs([pos, st.userPos]); }
-                    else { st.routeLine = L.polyline([pos, st.userPos], { color: '#1c82aa', weight: 3, dashArray: '6,8', opacity: 0.85 }).addTo(map); }
+                    // rider -> you (dashed). The solid line is the shop -> you road route.
+                    if (st.riderLine) { st.riderLine.setLatLngs([pos, st.userPos]); }
+                    else { st.riderLine = L.polyline([pos, st.userPos], { color: '#e02020', weight: 3, dashArray: '6,8', opacity: 0.85 }).addTo(map); }
                 }
                 fitTrackingBounds();
             } catch (e) { /* silent — network hiccup এ map ভেঙে না যাক */ }
@@ -6221,7 +6484,7 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
                 const pos = [r.current_lat, r.current_lon];
                 const st = window._trackingMapState;
                 if (st.riderMarker) st.riderMarker.setLatLng(pos);
-                if (st.userPos && st.routeLine) st.routeLine.setLatLngs([pos, st.userPos]);
+                if (st.userPos && st.riderLine) st.riderLine.setLatLngs([pos, st.userPos]);
             })
             .subscribe();
     }, 150);
@@ -6256,7 +6519,7 @@ function buildOrderReceiptHtml(order) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MediFinder Invoice - ${esc(order.order_id)}</title>
+<title>MediFinder India Invoice - ${esc(order.order_id)}</title>
 <style>
   body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;margin:0;padding:24px;color:#2f3542;}
   .invoice-box{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;}
@@ -6275,7 +6538,7 @@ function buildOrderReceiptHtml(order) {
 <body>
   <div class="invoice-box">
     <div class="invoice-header">
-      <h1>MEDI FINDER</h1>
+      <h1>MEDIFINDER INDIA</h1>
       <p>Order Invoice / Receipt</p>
     </div>
     <div class="invoice-body">
@@ -6290,7 +6553,7 @@ function buildOrderReceiptHtml(order) {
       <div class="row"><span>Delivery, Platform &amp; Other Charges</span><span>&#8377;${otherCharges.toFixed(2)}</span></div>
       <div class="row total"><span>Grand Total Paid</span><span>&#8377;${grandTotal.toFixed(2)}</span></div>
     </div>
-    <div class="footer">Computer-generated receipt from MediFinder. Contact your registered pharmacy for support.</div>
+    <div class="footer">Computer-generated receipt from MediFinder India. Contact your registered pharmacy for support.</div>
   </div>
 </body>
 </html>`;
@@ -6386,7 +6649,7 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
         } else if (typeof L !== 'undefined') {
             // Leaflet লোড হয়ে থাকলে real map দেখাও (pending/accepted/broadcasted/shipped/picked_up সব ক্ষেত্রেই —
             // শুধু rider assign না হলে rider marker থাকবে না, শপ marker সবসময় থাকবে)
-            renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, status);
+            renderTrackingForOrder(mapContainer, orderId, shopLat, shopLng, riderId, status);
         } else {
             mapContainer.innerHTML = `
                 <div style="background:#fff3f3;padding:16px;border-radius:12px;text-align:center;border:1px solid #ffe4e4;">
@@ -6452,18 +6715,23 @@ window.openRxOrderTrackingModal = function(rxId, status) {
 };
 
 window.openDeliveryBoyVerificationModal = async function(orderId, isRx) {
-    let currentSecureOTP = "123456";
+    let currentSecureOTP = "";
     const rxId = isRx ? orderId.replace(/^RX-/, '') : null;
     let activeOrders = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
     let targetOrder = activeOrders.find(o => (o.order_id || o.id) === orderId);
-    if (targetOrder) currentSecureOTP = targetOrder.delivery_secure_code || "123456";
+    if (targetOrder) currentSecureOTP = targetOrder.delivery_secure_code || "";
     if (supabase) {
         try {
             if (isRx) {
                 const { data, error } = await supabase.from('prescription_orders').select('delivery_otp').eq('id', rxId).single();
                 if (!error && data && data.delivery_otp) currentSecureOTP = data.delivery_otp;
             } else {
-                const { data, error } = await supabase.from('orders').select('delivery_secure_code').eq('order_id', orderId).single();
+                const { data, error } = await supabase.from('orders').select('delivery_secure_code, delivery_speed, rider_id').eq('order_id', orderId).single();
+                if (!error && data && !__orderIsPersonalRider(data)) {
+                    // Standard / courier order -> there is no OTP to show
+                    if (typeof showToast === 'function') showToast('Courier delivery - no OTP needed', 'info');
+                    return;
+                }
                 if (!error && data && data.delivery_secure_code) currentSecureOTP = data.delivery_secure_code;
             }
         } catch(e) {}
@@ -6480,7 +6748,7 @@ window.openDeliveryBoyVerificationModal = async function(orderId, isRx) {
         <div class="modal-content" style="background:#fff;width:100%;max-width:400px;border-radius:16px;padding:20px;text-align:center;box-sizing:border-box;border-top:5px solid #ff4d4d;">
             <h3 style="color:#ff4d4d;margin-bottom:10px;"><i class="fa-solid fa-shield-halved"></i> Secure Delivery Gateway</h3>
             <p style="font-size:0.85rem;color:#6c757d;margin-bottom:15px;">Share this 6-digit secure code with the delivery agent to confirm parcel handover.</p>
-            <div id="view-delivery-otp" style="width:80%;margin:0 auto;padding:12px;font-size:1.8rem;font-weight:bold;color:#ff4d4d;letter-spacing:4px;border:2px dashed #ff4d4d;background:#f8f9fa;border-radius:8px;">${currentSecureOTP}</div>
+            <div id="view-delivery-otp" style="width:80%;margin:0 auto;padding:12px;font-size:1.8rem;font-weight:bold;color:#ff4d4d;letter-spacing:4px;border:2px dashed #ff4d4d;background:#f8f9fa;border-radius:8px;">${currentSecureOTP || 'Not available'}</div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button type="button" id="close-otp-modal" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Close</button>
             </div>
@@ -6515,6 +6783,29 @@ async function fetchRoadRoute(fromLat, fromLng, toLat, toLng) {
     return null;
 }
 
+// ---- Map helpers: pincode -> coordinates (for merchants whose saved lat/lng is missing or the Kolkata default)
+const MF_DEFAULT_LAT = 22.5726, MF_DEFAULT_LNG = 88.3639;
+function mfIsDefaultCoord(la, ln) {
+    return !isFinite(la) || !isFinite(ln) || (Math.abs(la - MF_DEFAULT_LAT) < 0.0005 && Math.abs(ln - MF_DEFAULT_LNG) < 0.0005);
+}
+async function mfGeocodePincode(pin) {
+    if (!/^\d{6}$/.test(pin)) return null;
+    let cache = {};
+    try { cache = JSON.parse(localStorage.getItem('mf_pin_geo') || '{}'); } catch (e) {}
+    if (cache[pin]) return cache[pin];
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${pin}&countrycodes=in&format=json&limit=1`);
+        const j = await r.json();
+        if (j && j[0]) {
+            cache[pin] = { lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon) };
+            localStorage.setItem('mf_pin_geo', JSON.stringify(cache));
+            return cache[pin];
+        }
+    } catch (e) {}
+    return null;
+}
+let mapUserPincode = (String(verifiedAddress || '').match(/\b\d{6}\b/) || [''])[0];
+
 async function setupMapPageModules() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
@@ -6531,7 +6822,11 @@ async function setupMapPageModules() {
                 const geo = await resp.json();
                 const city = geo.address?.city || geo.address?.town || geo.address?.village || "Your Location";
                 cityLabel.innerText = city;
+                const pc = String(geo.address?.postcode || '').replace(/\D/g, '');
+                if (/^\d{6}$/.test(pc)) mapUserPincode = pc;
             } catch(e) { cityLabel.innerText = "Your Location"; }
+            // list was first ranked from the Kolkata fallback coords — redo it with the real fix
+            try { if (typeof window.__mfRefreshShops === 'function') window.__mfRefreshShops(true); } catch (e) {}
         }, GEO_OPTIONS_ONE_SHOT);
     }
 
@@ -6563,40 +6858,76 @@ async function setupMapPageModules() {
 
     let pharmacyDatabaseHub = [];
     let allShopMarkers = [];
+    let allPharmaciesCache = [];
+    let activeSearchToken = '';
+    let lastRankLat = null, lastRankLng = null;
     const NEARBY_RADIUS_KM = 20;
+
+    const sameTownPin = (shop) => !!(mapUserPincode && shop.pincode && shop.pincode === mapUserPincode);
+
+    function plotShopMarkers(list) {
+        allShopMarkers.forEach(m => map.removeLayer(m));
+        allShopMarkers = [];
+        list.forEach(shop => {
+            const marker = L.marker([shop.lat, shop.lng], { icon: shopIconActive }).addTo(map)
+                .bindPopup(`<b style="color:#e02020;">${mfEsc(shop.name)}</b><br><span style="font-size:12px;">${mfEsc(shop.address || shop.city || '')}</span>`);
+            allShopMarkers.push(marker);
+        });
+    }
+
+    // Same-pincode shops first, then the rest by real distance from the shopper.
+    function rankNearby() {
+        allPharmaciesCache.forEach(shop => { shop._dist = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng); });
+        const sorted = allPharmaciesCache.slice().sort((a, b) => (sameTownPin(b) - sameTownPin(a)) || (a._dist - b._dist));
+        let nearby = sorted.filter(s => sameTownPin(s) || s._dist <= NEARBY_RADIUS_KM);
+        if (nearby.length === 0) nearby = sorted.slice(0, 5);
+        pharmacyDatabaseHub = nearby;
+        lastRankLat = userLiveLat; lastRankLng = userLiveLng;
+    }
+
+    window.__mfRefreshShops = (force) => {
+        if (!allPharmaciesCache.length || activeSearchToken) return;
+        if (!force && lastRankLat !== null && haversineKm(lastRankLat, lastRankLng, userLiveLat, userLiveLng) < 0.3) return;
+        rankNearby();
+        plotShopMarkers(pharmacyDatabaseHub);
+        if (pharmacyDatabaseHub.length) {
+            const bounds = L.latLngBounds(pharmacyDatabaseHub.map(s => [s.lat, s.lng]));
+            bounds.extend([userLiveLat, userLiveLng]);
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        }
+        renderAllShops(pharmacyDatabaseHub);
+    };
 
     try {
         if (supabase) {
             const { data, error } = await supabase
-                .from('merchants')
-                .select('id, merchant_name, shop_name, latitude, longitude, status, license_status, city, address')
+                .from('merchants_public')
+                .select('id, merchant_name, shop_name, latitude, longitude, status, license_status, city, address, pincode')
                 .in('status', ['active', 'approved']);
             if (!error && data && data.length > 0) {
-                let allPharmacies = data.map(m => ({
-                    id: m.id,
-                    name: m.shop_name || m.merchant_name || 'Pharmacy',
-                    lat: parseFloat(m.latitude) || 22.5726,
-                    lng: parseFloat(m.longitude) || 88.3639,
-                    city: m.city || '',
-                    address: m.address || '',
-                    license: m.license_status || 'Unverified'
-                }));
-
-                // Only show pharmacies actually near the user, closest first —
-                // previously every registered pharmacy in the whole database
-                // showed up regardless of distance.
-                allPharmacies.forEach(shop => { shop._dist = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng); });
-                allPharmacies.sort((a, b) => a._dist - b._dist);
-                let nearby = allPharmacies.filter(s => s._dist <= NEARBY_RADIUS_KM);
-                if (nearby.length === 0) nearby = allPharmacies.slice(0, 5); // fallback if none within radius
-
-                pharmacyDatabaseHub = nearby;
-
-                pharmacyDatabaseHub.forEach(shop => {
-                    const marker = L.marker([shop.lat, shop.lng], { icon: shopIconActive }).addTo(map)
-                        .bindPopup(`<b style="color:#e02020;">${shop.name}</b><br><span style="font-size:12px;">${shop.address || shop.city || ''}</span>`);
-                    allShopMarkers.push(marker);
-                });
+                const prepared = [];
+                for (const m of data) {
+                    let lat = parseFloat(m.latitude), lng = parseFloat(m.longitude);
+                    const pin = String(m.pincode || '').replace(/\D/g, '');
+                    let located = !mfIsDefaultCoord(lat, lng);
+                    // Saved pin is the Kolkata default (merchant never set a real location) → place the shop from its pincode instead
+                    if (!located && pin) {
+                        const g = await mfGeocodePincode(pin);
+                        if (g) { lat = g.lat; lng = g.lng; located = true; }
+                    }
+                    if (!located) continue; // no usable location → can't show a distance, so don't list it
+                    prepared.push({
+                        id: m.id,
+                        name: m.shop_name || m.merchant_name || 'Pharmacy',
+                        lat, lng, pincode: pin,
+                        city: m.city || '',
+                        address: m.address || '',
+                        license: m.license_status || 'Unverified'
+                    });
+                }
+                allPharmaciesCache = prepared;
+                rankNearby();
+                plotShopMarkers(pharmacyDatabaseHub);
 
                 if (pharmacyDatabaseHub.length > 1) {
                     const bounds = L.latLngBounds(pharmacyDatabaseHub.map(s => [s.lat, s.lng]));
@@ -6608,7 +6939,7 @@ async function setupMapPageModules() {
             }
         }
     } catch(e) {
-
+        console.error('[Map] merchant load failed:', e);
     }
 
     renderAllShops(pharmacyDatabaseHub);
@@ -6618,6 +6949,7 @@ async function setupMapPageModules() {
         userLiveLng = pos.coords.longitude;
         renderGPSAccuracyIndicator(pos.coords.accuracy);
         humanMarker.setLatLng([userLiveLat, userLiveLng]);
+        try { window.__mfRefreshShops && window.__mfRefreshShops(false); } catch (e) {}
         if (operationalRoutingControl && activeShopMarker) {
             const dest = activeShopMarker.getLatLng();
             map.removeLayer(operationalRoutingControl);
@@ -6650,7 +6982,7 @@ async function setupMapPageModules() {
         if (operationalRoutingControl) map.removeLayer(operationalRoutingControl);
         if (activeShopMarker) map.removeLayer(activeShopMarker);
         activeShopMarker = L.marker([shop.lat, shop.lng], { icon: shopIcon }).addTo(map)
-            .bindPopup(`<b>${shop.name}</b><br>${shop.address || ''}`).openPopup();
+            .bindPopup(`<b>${mfEsc(shop.name)}</b><br>${mfEsc(shop.address || '')}`).openPopup();
 
         const route = await fetchRoadRoute(userLiveLat, userLiveLng, shop.lat, shop.lng);
         operationalRoutingControl = L.polyline(route ? route.coords : [[userLiveLat, userLiveLng], [shop.lat, shop.lng]], {
@@ -6676,7 +7008,8 @@ async function setupMapPageModules() {
         // true regardless of which list (full hub vs. a medicine-search match)
         // is being rendered.
         shops = shops.slice().sort((a, b) =>
-            haversineKm(userLiveLat, userLiveLng, a.lat, a.lng) - haversineKm(userLiveLat, userLiveLng, b.lat, b.lng)
+            (sameTownPin(b) - sameTownPin(a)) ||
+            (haversineKm(userLiveLat, userLiveLng, a.lat, a.lng) - haversineKm(userLiveLat, userLiveLng, b.lat, b.lng))
         );
         if (countEl) countEl.innerText = `${shops.length} Nearby`;
         if (shops.length === 0) {
@@ -6695,9 +7028,11 @@ async function setupMapPageModules() {
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
                                 <i class="fa-solid fa-shop" style="color:#e02020;font-size:0.85rem;"></i>
-                                <h4 style="color:#e02020;margin:0;font-size:0.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shop.name}</h4>
+                                <h4 style="color:#e02020;margin:0;font-size:0.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${mfEsc(shop.name)}</h4>
                             </div>
-                            <p style="margin:2px 0;font-size:0.75rem;color:#747d8c;"><i class="fa-solid fa-location-dot"></i> ${shop.address || shop.city || 'Location set'}</p>
+                            <p style="margin:2px 0;font-size:0.75rem;color:#747d8c;"><i class="fa-solid fa-location-dot"></i> ${mfEsc(shop.address || shop.city || 'Location set')}${shop.pincode ? ' · ' + shop.pincode : ''}</p>
+                            ${shop._match ? `<p style="margin:3px 0;font-size:0.76rem;color:#1f9d55;font-weight:700;"><i class="fa-solid fa-pills"></i> ${String(shop._match.name).replace(/</g,'&lt;')} · ₹${shop._match.price} · ${shop._match.stock} in stock</p>` : ''}
+                            ${sameTownPin(shop) ? '<span style="display:inline-block;margin-top:2px;font-size:0.66rem;font-weight:800;color:#b91c1c;background:#fee2e2;border-radius:10px;padding:2px 8px;">SAME PINCODE AREA</span>' : ''}
                             <div style="display:flex;gap:12px;margin-top:6px;">
                                 <span class="shop-dist-label" data-shop-dist="${shop.id}" style="font-size:0.73rem;color:#1c82aa;font-weight:600;"><i class="fa-solid fa-route"></i> ${distLabel}</span>
                                 <span class="shop-eta-label" data-shop-eta="${shop.id}" style="font-size:0.73rem;color:#2ed573;font-weight:600;"><i class="fa-solid fa-clock"></i> <i class="fa-solid fa-spinner fa-spin"></i></span>
@@ -6716,9 +7051,15 @@ async function setupMapPageModules() {
         // straight-line estimate already on screen if the routing request fails).
         shops.forEach(async (shop) => {
             const route = await fetchRoadRoute(userLiveLat, userLiveLng, shop.lat, shop.lng);
-            if (!route) return;
             const distEl = displayGrid.querySelector(`[data-shop-dist="${shop.id}"]`);
             const etaEl = displayGrid.querySelector(`[data-shop-eta="${shop.id}"]`);
+            if (!route) {
+                // routing server unreachable: show a labelled estimate instead of a spinner forever
+                const km = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng) * 1.3;
+                const est = Math.max(2, Math.round(km / 25 * 60));
+                if (etaEl) etaEl.innerHTML = `<i class="fa-solid fa-clock"></i> ~${est} min`;
+                return;
+            }
             if (distEl) distEl.innerHTML = `<i class="fa-solid fa-route"></i> ${route.distanceKm < 0.1 ? '< 100 m' : (route.distanceKm < 1 ? Math.round(route.distanceKm * 1000) + ' m' : route.distanceKm.toFixed(1) + ' km')}`;
             if (etaEl) etaEl.innerHTML = `<i class="fa-solid fa-clock"></i> ${route.durationMin < 1 ? '1 min' : (route.durationMin < 60 ? route.durationMin + ' min' : Math.floor(route.durationMin/60) + 'h ' + (route.durationMin%60) + 'm')}`;
         });
@@ -6769,7 +7110,7 @@ async function setupMapPageModules() {
             try {
                 const [medRes, shopRes] = await Promise.all([
                     supabase.from('medicines').select('id, name, product_name').eq('status', 'Approved').or(`name.ilike.%${q}%,product_name.ilike.%${q}%`).limit(4),
-                    supabase.from('merchants').select('id, shop_name, merchant_name').in('status', ['active', 'approved']).or(`shop_name.ilike.%${q}%,merchant_name.ilike.%${q}%`).limit(4)
+                    supabase.from('merchants_public').select('id, shop_name, merchant_name').in('status', ['active', 'approved']).or(`shop_name.ilike.%${q}%,merchant_name.ilike.%${q}%`).limit(4)
                 ]);
                 const medicines = (medRes.data || []).map(m => m.name || m.product_name).filter(Boolean);
                 const shops = (shopRes.data || []).map(s => ({ id: s.id, name: s.shop_name || s.merchant_name })).filter(s => s.name);
@@ -6795,8 +7136,8 @@ async function setupMapPageModules() {
                     return;
                 }
                 mapSuggestBox.innerHTML =
-                    medicines.map(m => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="medicine" data-val="${m}"><span style="font-size:0.62rem;font-weight:700;color:#1c82aa;background:#eef7fb;padding:2px 6px;border-radius:6px;">MEDICINE</span> ${m}</div>`).join('') +
-                    shops.map(s => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="shop" data-val="${s.name}" data-id="${s.id}"><span style="font-size:0.62rem;font-weight:700;color:#e02020;background:#fdecec;padding:2px 6px;border-radius:6px;">SHOP</span> ${s.name}</div>`).join('');
+                    medicines.map(m => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="medicine" data-val="${mfEsc(m)}"><span style="font-size:0.62rem;font-weight:700;color:#1c82aa;background:#eef7fb;padding:2px 6px;border-radius:6px;">MEDICINE</span> ${mfEsc(m)}</div>`).join('') +
+                    shops.map(s => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="shop" data-val="${mfEsc(s.name)}" data-id="${mfEsc(s.id)}"><span style="font-size:0.62rem;font-weight:700;color:#e02020;background:#fdecec;padding:2px 6px;border-radius:6px;">SHOP</span> ${mfEsc(s.name)}</div>`).join('');
                 mapSuggestBox.style.display = 'block';
                 mapSuggestBox.querySelectorAll('.map-sug-item').forEach(item => {
                     item.addEventListener('mousedown', (ev) => {
@@ -6821,56 +7162,62 @@ async function setupMapPageModules() {
 
     if (searchBtn && inputField) {
         searchBtn.addEventListener('click', async () => {
-            const token = inputField.value.trim().toLowerCase();
+            const raw = inputField.value.trim();
+            const token = raw.toLowerCase();
+            allPharmaciesCache.forEach(s => { delete s._match; });
             if (!token) {
+                activeSearchToken = '';
+                rankNearby();
+                plotShopMarkers(pharmacyDatabaseHub);
                 renderAllShops(pharmacyDatabaseHub);
-                allShopMarkers.forEach(m => m.addTo(map));
                 return;
             }
+            activeSearchToken = token;
+            allPharmaciesCache.forEach(s => { s._dist = haversineKm(userLiveLat, userLiveLng, s.lat, s.lng); });
 
-            // Find which NEARBY pharmacies actually have this medicine in stock
-            // (previously this just matched the pharmacy's own name, so it
-            // showed every registered pharmacy regardless of what they stock).
+            // Which shops (anywhere, not only the nearby 20 km) really stock this medicine?
             let matchedStores = [];
             if (supabase) {
                 try {
-                    const nearbyIds = pharmacyDatabaseHub.map(s => s.id);
+                    const safe = token.replace(/[%,()]/g, ' ').trim();
                     const { data: stockRows, error } = await supabase
                         .from('medicines')
-                        .select('merchant_id, name, product_name, stock_qty, status')
+                        .select('merchant_id, name, product_name, composition, selling_price, unit_price, stock_qty, status')
                         .eq('status', 'Approved')
-                        .or(`name.ilike.%${token}%,product_name.ilike.%${token}%`);
+                        .or(`name.ilike.%${safe}%,product_name.ilike.%${safe}%,composition.ilike.%${safe}%`)
+                        .limit(300);
                     if (!error && stockRows) {
-                        const inStockMerchantIds = new Set(
-                            stockRows.filter(r => (r.stock_qty || 0) > 0).map(r => String(r.merchant_id))
-                        );
-                        matchedStores = pharmacyDatabaseHub.filter(s => inStockMerchantIds.has(String(s.id)));
+                        const best = new Map();
+                        stockRows.filter(r => (r.stock_qty || 0) > 0).forEach(r => {
+                            const price = Number(r.selling_price ?? r.unit_price ?? 0);
+                            const key = String(r.merchant_id);
+                            const cur = best.get(key);
+                            if (!cur || price < cur.price) best.set(key, { name: r.name || r.product_name || raw, price, stock: r.stock_qty });
+                        });
+                        matchedStores = allPharmaciesCache.filter(s => best.has(String(s.id)));
+                        matchedStores.forEach(s => { s._match = best.get(String(s.id)); });
                     }
-                } catch (e) { /* fall back below */ }
+                } catch (e) { console.error('[Map] search failed:', e); }
             }
             if (matchedStores.length === 0) {
-                // fallback: at least match by pharmacy name so the search never goes empty on a lookup error
-                matchedStores = pharmacyDatabaseHub.filter(s => s.name.toLowerCase().includes(token));
+                // maybe they typed a shop name
+                matchedStores = allPharmaciesCache.filter(s => s.name.toLowerCase().includes(token));
             }
-            // ✅ FIX (Map search): if there's still no match — no stock row
-            // found for that medicine name/spelling and no pharmacy literally
-            // named after it — the shop list used to render completely empty
-            // ("No pharmacies registered yet"), even though nearby shops
-            // clearly exist. That looked like shop names were broken/missing.
-            // Now it always falls back to showing the nearby shop list so the
-            // shopper can still see and go to a pharmacy, with a toast
-            // explaining no exact stock match was found.
-            if (matchedStores.length === 0 && pharmacyDatabaseHub.length > 0) {
+            if (matchedStores.length === 0) {
+                activeSearchToken = '';
                 matchedStores = pharmacyDatabaseHub;
-                showToast(`No exact stock match for "${inputField.value.trim()}" — showing nearby shops.`, "info");
+                showToast(`No shop has "${raw}" in stock right now — showing nearby shops.`, "info");
+            } else {
+                // same pincode first, then nearest → farthest
+                matchedStores = matchedStores.slice().sort((a, b) => (sameTownPin(b) - sameTownPin(a)) || (a._dist - b._dist));
             }
 
-            allShopMarkers.forEach(m => map.removeLayer(m));
-            matchedStores.forEach(shop => {
-                const marker = L.marker([shop.lat, shop.lng], { icon: shopIcon }).addTo(map)
-                    .bindPopup(`<b>${shop.name}</b><br>${shop.address || ''}`);
-                allShopMarkers.push(marker);
-            });
+            plotShopMarkers(matchedStores);
+            if (matchedStores.length) {
+                const bounds = L.latLngBounds(matchedStores.map(s => [s.lat, s.lng]));
+                bounds.extend([userLiveLat, userLiveLng]);
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+            }
             renderAllShops(matchedStores);
         });
     }
@@ -6886,7 +7233,7 @@ function openMapMedicineProductDetailsPopup(shop, queriedToken) {
     popup.innerHTML = `
         <div class="modal-content" style="background:#fff;width:100%;max-width:400px;border-radius:16px;padding:20px;text-align:center;box-sizing:border-box;border-top:5px solid #ff4d4d;">
             <h2 style="color:#ff4d4d;font-size:1.3rem;">${queriedToken.toUpperCase()}</h2>
-            <p style="font-size:0.85rem;margin:6px 0;">Available at: <strong>${shop.name}</strong></p>
+            <p style="font-size:0.85rem;margin:6px 0;">Available at: <strong>${mfEsc(shop.name)}</strong></p>
             <div style="background:#f8f9fa;padding:10px;border-radius:8px;font-size:0.8rem;margin:10px 0;text-align:left;">
                 <p><i class="fa-solid fa-location-dot" style="color:#ff4d4d;"></i> Distance: <strong>${distKm.toFixed(1)} km</strong></p>
                 <p><i class="fa-solid fa-truck-fast" style="color:#1c82aa;"></i> Est. Delivery: <strong>${etaLabel}</strong></p>
@@ -7163,10 +7510,16 @@ function setupProfilePageModules() {
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
                     if (session && session.user) {
-                        await supabase.from('reminders').insert(freshAlarms.map(a => ({ id: a.id, user_email: session.user.email, medicine: a.medicine, date: a.date, time: a.time, active: true })));
+                        const { error: remErr } = await supabase.from('reminders').insert(freshAlarms.map(a => ({ id: a.id, user_id: session.user.id, user_email: session.user.email, medicine_name: a.medicine, medicine: a.medicine, date: a.date, time: a.time, active: true, is_active: true })));
+                        if (remErr) console.error('[Reminder] DB save failed:', remErr);
                     }
-                } catch(e) { }
+                } catch(e) { console.error('[Reminder] DB save failed:', e); }
             }
+            try {
+                if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+                if (window.__pillAudioCtx === undefined) { const AC = window.AudioContext || window.webkitAudioContext; window.__pillAudioCtx = AC ? new AC() : null; }
+                if (window.__pillAudioCtx && window.__pillAudioCtx.state === 'suspended') window.__pillAudioCtx.resume();
+            } catch (e) {}
             if (document.getElementById('alarm-med-name')) document.getElementById('alarm-med-name').value = "";
             if (alarmDateRowsBox) { alarmDateRowsBox.innerHTML = ''; addAlarmDateRow(); }
             renderAlarmsListUI();
@@ -7248,9 +7601,9 @@ function setupProfilePageModules() {
     // ✅ Item 5: back to the local usert&c.html page per explicit request —
     // Terms, Privacy Policy and Cancellation & Refund all point to it
     // (each can deep-link to its own section via the hash).
-    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert&c.html'; };
-    if (privacyTrigger) privacyTrigger.onclick = () => { window.location.href = 'usert&c.html#privacy-policy'; };
-    if (cancellationTrigger) cancellationTrigger.onclick = () => { window.location.href = 'usert&c.html#cancellation-refund'; };
+    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'info.html#terms'; };
+    if (privacyTrigger) privacyTrigger.onclick = () => { window.location.href = 'info.html#privacy'; };
+    if (cancellationTrigger) cancellationTrigger.onclick = () => { window.location.href = 'info.html#refund'; };
     if (helpTrigger) helpTrigger.onclick = () => toggleModalDisplay('help-modal', true);
     if (referEarnBtn) referEarnBtn.onclick = () => { toggleModalDisplay('referral-modal', true); loadMyReferralState(); loadMyCouponsAndOffers(); };
 
@@ -7396,8 +7749,8 @@ function setupProfilePageModules() {
             <div class="record-subcard-pill" onclick="selectSavedAddressAsActive('${a.id}')">
                 <div>
                     <span class="addr-tag-badge">${a.tag || 'Home'}</span>${a.is_default ? '<span class="addr-default-badge">DEFAULT</span>' : ''}
-                    <div style="margin-top:4px;"><strong>${a.name || ''}</strong></div>
-                    <div class="sub-label">${a.address1}${a.address2 ? ', ' + a.address2 : ''}${a.landmark ? ', Near ' + a.landmark : ''}, ${a.city}, ${a.state} - ${a.pincode}</div>
+                    <div style="margin-top:4px;"><strong>${mfEsc(a.name || '')}</strong></div>
+                    <div class="sub-label">${mfEsc(a.address1)}${a.address2 ? ', ' + a.address2 : ''}${a.landmark ? ', Near ' + a.landmark : ''}, ${mfEsc(a.city)}, ${mfEsc(a.state)} - ${mfEsc(a.pincode)}</div>
                     <div class="sub-label">${a.phone || ''}</div>
                 </div>
                 <div class="addr-actions-col">
@@ -7632,7 +7985,7 @@ async function renderComplaintHistory() {
         wrap.innerHTML = `<h4 style="margin:0 0 8px;font-size:0.82rem;color:#2f3542;">Your Complaints</h4>` + data.map(c => `
             <div style="background:#f8f9fa;border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid #eef2f5;">
                 <div style="display:flex;justify-content:space-between;"><strong style="font-size:0.78rem;">${c.token}</strong><span style="font-size:0.68rem;font-weight:700;color:${c.status === 'resolved' || c.status === 'closed' ? '#2ed573' : '#f59f00'};">${(c.status || 'open').toUpperCase()}</span></div>
-                <p style="margin:4px 0 0;font-size:0.78rem;color:#57606f;">${c.category} — ${c.subject}</p>
+                <p style="margin:4px 0 0;font-size:0.78rem;color:#57606f;">${mfEsc(c.category)} — ${mfEsc(c.subject)}</p>
             </div>
         `).join('');
     } catch (e) { /* silent — history is a nice-to-have, never blocks the form */ }
@@ -7683,7 +8036,7 @@ function openDeleteAccountConfirmModal(reason) {
         <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;text-align:center;">
             <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#e02020;margin-bottom:10px;"></i>
             <h3 style="margin:0 0 10px;font-size:1rem;color:#2f3542;">Are you sure you want to delete your account?</h3>
-            <p style="margin:0 0 18px;font-size:0.8rem;color:#747d8c;">After deletion, you will not be able to log in to this account. You will need to create a new account to use MediFinder again.</p>
+            <p style="margin:0 0 18px;font-size:0.8rem;color:#747d8c;">After deletion, you will not be able to log in to this account. You will need to create a new account to use MediFinder India again.</p>
             <div style="display:flex;gap:10px;">
                 <button type="button" id="da-no" style="flex:1;padding:11px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer;">No</button>
                 <button type="button" id="da-confirm" style="flex:1;padding:11px;border-radius:10px;border:none;background:#e02020;color:#fff;font-weight:700;cursor:pointer;">Yes, Delete</button>
@@ -7779,7 +8132,7 @@ function renderPatientsListUI() {
     recordContainerBox.innerHTML = patientsData.map(patient => `
         <div style="background:#f8f9fa;border:1px solid #e4e7eb;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div>
-                <strong style="font-size:0.85rem;color:#2f3542;">${patient.name}</strong>
+                <strong style="font-size:0.85rem;color:#2f3542;">${mfEsc(patient.name)}</strong>
                 <p style="margin:2px 0 0 0;font-size:0.75rem;color:#747d8c;">Age: ${patient.age} | Gender: ${patient.gender}</p>
             </div>
             <button onclick="destroyPatientRecordFromVault('${patient.id}')" style="background:none;border:none;cursor:pointer;"><i class="fa-solid fa-trash-can" style="font-size:1rem;color:#ff4d4d;"></i></button>
@@ -7824,34 +8177,82 @@ window.destroyAlarmSequenceFromScheduler = function(targetAlarmId) {
 // ============================================================
 function runBackgroundPillAlarmEngine() {
     if (alarmsData.length === 0) return;
-    const liveTimeInstance = new Date();
-    const systemStringClockMatch = liveTimeInstance.toTimeString().substring(0, 5);
-    const systemStringDateMatch = liveTimeInstance.toISOString().slice(0, 10);
-    alarmsData.forEach(alarmItem => {
-        // alarmItem.date is optional for backward compatibility with reminders
-        // saved before dated reminders existed — those keep repeating daily.
-        // Dated reminders only fire on their specific date.
-        const dateMatches = !alarmItem.date || alarmItem.date === systemStringDateMatch;
-        if (alarmItem.time === systemStringClockMatch && dateMatches && alarmItem.active) {
-            // Fire system notification (works even when page is in background)
-            fireSystemNotification(
-                "💊 MediFinder Pill Reminder",
-                `Time to take: ${alarmItem.medicine} at ${alarmItem.time}`
-            );
-            // Fallback alert
-            showToast(`Time to take: ${alarmItem.medicine} at ${alarmItem.time}`, "warning");
-            alarmItem.active = false;
-            if (alarmItem.date) {
-                // One-off dated reminder — it already fired, so drop it instead
-                // of re-arming (there's no "tomorrow" for a specific date).
-                alarmsData = alarmsData.filter(a => a.id !== alarmItem.id);
-                localStorage.setItem('medi_alarms', JSON.stringify(alarmsData));
-                if (document.getElementById('active-alarms-list')) renderAlarmsListUI();
-            } else {
-                setTimeout(() => { alarmItem.active = true; }, 61000);
-            }
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    // ✅ LOCAL date (toISOString() was UTC → alarms between 00:00–05:30 IST never matched their date)
+    const todayLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    let fired = {};
+    try { fired = JSON.parse(localStorage.getItem('medi_alarm_fired') || '{}'); } catch (e) {}
+    let changed = false;
+    alarmsData.slice().forEach(alarmItem => {
+        if (alarmItem.active === false || !alarmItem.time) return;
+        const dateMatches = !alarmItem.date || alarmItem.date === todayLocal;
+        if (!dateMatches) return;
+        const [h, m] = String(alarmItem.time).split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) return;
+        const diff = nowMin - (h * 60 + m);
+        // fire within a 5-minute window so a throttled/background tab still rings once
+        if (diff < 0 || diff > 5) return;
+        const key = alarmItem.id + '|' + todayLocal;
+        if (fired[key]) return;
+        fired[key] = Date.now(); changed = true;
+        ringPillAlarm(alarmItem);
+        if (alarmItem.date) {
+            alarmsData = alarmsData.filter(a => a.id !== alarmItem.id);
+            localStorage.setItem('medi_alarms', JSON.stringify(alarmsData));
+            if (supabase) { try { supabase.from('reminders').delete().eq('id', alarmItem.id).then(() => {}); } catch (e) {} }
+            if (document.getElementById('active-alarms-list')) renderAlarmsListUI();
         }
     });
+    if (changed) {
+        Object.keys(fired).forEach(k => { if (Date.now() - fired[k] > 2 * 86400000) delete fired[k]; });
+        localStorage.setItem('medi_alarm_fired', JSON.stringify(fired));
+    }
+}
+
+function ringPillAlarm(alarmItem) {
+    const msg = `Time to take: ${alarmItem.medicine} at ${alarmItem.time}`;
+    // 1) system notification — Android Chrome forbids `new Notification()`, so go through the service worker
+    try {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const opts = { body: msg, icon: '/icon-192.png', tag: 'pill-' + alarmItem.id, requireInteraction: true, vibrate: [300, 150, 300, 150, 300] };
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                    if (reg && reg.showNotification) reg.showNotification('💊 MediFinder India Pill Reminder', opts);
+                    else { try { new Notification('💊 MediFinder India Pill Reminder', opts); } catch (e) {} }
+                }).catch(() => { try { new Notification('💊 MediFinder India Pill Reminder', opts); } catch (e) {} });
+            } else { try { new Notification('💊 MediFinder India Pill Reminder', opts); } catch (e) {} }
+        }
+    } catch (e) {}
+    // 2) sound + vibration
+    try {
+        if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400]);
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+            const ctx = window.__pillAudioCtx || (window.__pillAudioCtx = new AC());
+            if (ctx.state === 'suspended') ctx.resume();
+            [0, 0.35, 0.7, 1.05].forEach(t => {
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.value = 880;
+                g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+                g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + t + 0.03);
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.3);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.32);
+            });
+        }
+    } catch (e) {}
+    // 3) in-app popup that stays until dismissed (a toast disappears too fast to notice)
+    document.getElementById('pillAlarmPopup')?.remove();
+    const pop = document.createElement('div');
+    pop.id = 'pillAlarmPopup';
+    pop.className = 'pill-alarm-popup';
+    pop.innerHTML = `<div class="pill-alarm-card"><div class="pill-alarm-icon">💊</div><h3>Pill Reminder</h3><p>Time to take <strong></strong></p><span class="pill-alarm-time"></span><button type="button">Done</button></div>`;
+    pop.querySelector('strong').textContent = alarmItem.medicine;
+    pop.querySelector('.pill-alarm-time').textContent = alarmItem.time;
+    pop.querySelector('button').onclick = () => pop.remove();
+    document.body.appendChild(pop);
 }
 
 // ============================================================
@@ -8108,6 +8509,39 @@ function withSponsoredCacheBust(url, item) {
 // image. Preloads the image first so a broken/expired URL never shows a
 // half-rendered slide or throws — it just falls back to the slide's
 // gradient + icon, exactly like a slot with no image at all.
+
+// ✅ Sponsored → product page. Product page lives INSIDE this SPA now, so we open it
+// with navigateToProductDetail() (product-detail.html no longer exists → was a 404).
+function sponsorOpenProduct(p) {
+    if (!p) return;
+    navigateToProductDetail({
+        id: p.id,
+        name: p.name || p.product_name || '',
+        price: Number(p.selling_price ?? p.unit_price ?? p.price ?? 0),
+        mrp: Number(p.mrp ?? 0),
+        img: p.image_url || '', img2: p.image_url_2 || '', img3: p.image_url_3 || '',
+        manufacturer: p.manufacturer || '',
+        desc: p.description || '',
+        isRx: (p.prescription_req ? p.prescription_req === 'Yes' : (p.is_rx === true)) ? 'true' : 'false',
+        category: p.category || p.dosage_form || '',
+        stock: p.stock_qty ?? 0,
+        composition: p.composition || '',
+        dosageForm: p.dosage_form || '',
+        strength: p.strength || '',
+        productType: p.product_type || 'Medicine',
+        merchantId: p.merchant_id || ''
+    });
+}
+async function sponsorOpenProductById(id) {
+    try {
+        const { data, error } = await supabase.from('medicines').select('*').eq('id', id).maybeSingle();
+        if (error || !data) throw (error || new Error('not found'));
+        sponsorOpenProduct(data);
+    } catch (e) {
+        showToast('This product is not available right now.', 'error');
+    }
+}
+
 function applySponsoredSlideVisual(div, imageUrl, gradientCss) {
     const gradient = gradientCss || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
     const iconEl = div.querySelector('.slide-icon');
@@ -8127,11 +8561,10 @@ function applySponsoredSlideVisual(div, imageUrl, gradientCss) {
         // separated layers instead: photo on top ("contain" so it never gets
         // cropped/distorted), gradient underneath ("cover") filling any
         // leftover space.
-        div.style.backgroundImage = `url('${imageUrl}'), ${gradient}`;
-        div.style.backgroundPosition = 'center, center';
-        div.style.backgroundSize = 'contain, cover';
-        div.style.backgroundRepeat = 'no-repeat, no-repeat';
-        div.style.backgroundBlendMode = 'normal';
+        div.style.backgroundImage = '';
+        div.style.background = gradient;
+        div.style.setProperty('--sp-img', `url("${String(imageUrl).replace(/"/g, '%22')}")`);
+        div.classList.add('sp-fit');
         if (iconEl) iconEl.style.display = 'none';
     };
     preloader.onerror = () => {
@@ -8152,6 +8585,8 @@ function navigateToSponsoredLink(rawUrl) {
         if (typeof showToast === 'function') showToast('This sponsored link is currently unavailable.', 'error');
         return;
     }
+    // Old admin rows still say product-detail.html / userhome.html (files that no longer exist) -> the SPA is user.html
+    url = url.replace(/^\/?(product-detail|userhome)\.html/i, 'user.html');
     // "www.site.com" (no scheme) would be treated as a relative page - add https://
     if (!/^(https?:|mailto:|tel:|\/|\.|#)/i.test(url) && /^[\w-]+(\.[\w-]+)+/.test(url) && !/\.html?(\?|#|$)/i.test(url)) {
         url = 'https://' + url;
@@ -8274,19 +8709,20 @@ async function loadSponsoredProducts() {
                     ? `<video class="sponsored-media" src="${safeUrl}" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>`
                     : `<img class="sponsored-media" src="${safeUrl}" alt="${(item.title || 'Sponsored').replace(/"/g, '&quot;')}">`;
                 div.innerHTML = `${mediaEl}<span class="slide-tag sponsored-badge">${tagHtml}</span>`;
+                if (!isSponsoredVideoUrl(mediaUrl)) div.style.setProperty('--sp-img', `url("${safeUrl.replace(/&quot;/g,'%22')}")`);
                 const mEl = div.querySelector('.sponsored-media');
                 if (mEl) mEl.addEventListener('error', () => {
                     div.classList.remove('media-slide');
-                    div.innerHTML = `<div class="slide-content"><span class="slide-tag">${tagHtml}</span><h3>${item.title || ''}</h3><p>${item.subtitle || ''}</p></div>`;
+                    div.innerHTML = `<div class="slide-content"><span class="slide-tag">${tagHtml}</span><h3>${mfEsc(item.title || '')}</h3><p>${mfEsc(item.subtitle || '')}</p></div>`;
                     div.style.background = item.gradient || 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
                 });
             } else
             div.innerHTML = `
                 <div class="slide-content">
                     <span class="slide-tag">${tagHtml}</span>
-                    <h3>${item.title}</h3>
-                    <p>${item.subtitle}</p>
-                    ${item.btn_text ? `<button class="slide-btn" data-btn-action="${(item.btn_action || '').replace(/"/g, '&quot;')}">${item.btn_text} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+                    <h3>${mfEsc(item.title)}</h3>
+                    <p>${mfEsc(item.subtitle)}</p>
+                    ${item.btn_text ? `<button class="slide-btn" data-btn-action="${(item.btn_action || '').replace(/"/g, '&quot;')}">${mfEsc(item.btn_text)} <i class="fa-solid fa-arrow-right"></i></button>` : ''}
                 </div>
                 <div class="slide-icon"><i class="${item.icon_class || 'fa-solid fa-capsules'}"></i></div>
             `;
@@ -8339,7 +8775,7 @@ async function loadSponsoredProducts() {
                             productType: linkedProduct.product_type || 'Medicine'
                         });
                     } else {
-                        window.location.href = `product-detail.html?id=${encodeURIComponent(decodeURIComponent(linkedId[1]))}`;
+                        sponsorOpenProductById(decodeURIComponent(linkedId[1]));
                     }
                 };
                 div.addEventListener('click', goToProduct);
@@ -8391,7 +8827,7 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     } catch (e) { /* fail open — worst case they see the offer again */ }
 
     if (alreadyClaimed) {
-        window.location.href = `product-detail.html?id=${encodeURIComponent(linkedProduct.id)}`;
+        sponsorOpenProduct(linkedProduct);
         return;
     }
 
@@ -8408,9 +8844,9 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.innerHTML = `
         <div style="background:#fff;border-radius:18px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.25);">
-            <div style="position:relative;">
-                <img src="${img}" alt="${name}" style="width:100%;height:220px;object-fit:contain;background:#f8fafc;display:block;">
-                <span style="position:absolute;top:12px;left:12px;background:#e02020;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:20px;">${pct}% OFF — SPONSORED</span>
+            <div style="position:relative;background:#f8fafc;">
+                <div style="padding:12px 52px 0 12px;"><span style="display:inline-block;background:#e02020;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:20px;">${pct}% OFF — SPONSORED</span></div>
+                <div style="padding:10px 12px 12px;display:flex;align-items:center;justify-content:center;height:250px;box-sizing:border-box;"><img src="${mfEsc(img)}" alt="${name}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border-radius:8px;"></div>
                 <button id="sponsoredOfferCloseBtn" style="position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(15,23,42,0.55);color:#fff;font-size:16px;cursor:pointer;">✕</button>
             </div>
             <div style="padding:20px;">
@@ -8434,7 +8870,8 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     document.getElementById('sponsoredOfferCloseBtn').onclick = closeModal;
     document.getElementById('sponsoredOfferViewBtn').onclick = () => {
-        window.location.href = `product-detail.html?id=${encodeURIComponent(linkedProduct.id)}`;
+        closeModal();
+        sponsorOpenProduct(linkedProduct);
     };
     document.getElementById('sponsoredOfferAddBtn').onclick = () => {
         addToCart({
@@ -8783,8 +9220,8 @@ async function renderProfileWishlist() {
             const payload = { id: prod.id, name: productName, price: sellingPrice, mrp: mrp, img: img, manufacturer: prod.manufacturer || '', desc: prod.description || '' };
             return `
             <div class="wishlist-card-item" onclick='navigateToProductDetail(${JSON.stringify(payload).replace(/'/g, "&#39;")})' style="background:#fff;border:1px solid #eef2f5;border-radius:12px;padding:8px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);">
-                <img src="${img}" alt="${productName}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px;">
-                <div style="font-size:0.78rem;font-weight:700;color:#2f3542;line-height:1.2;">${productName}</div>
+                <img src="${mfEsc(img)}" alt="${mfEsc(productName)}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px;">
+                <div style="font-size:0.78rem;font-weight:700;color:#2f3542;line-height:1.2;">${mfEsc(productName)}</div>
                 <div style="font-size:0.75rem;color:#e02020;font-weight:700;margin-top:4px;">₹${sellingPrice.toFixed(0)}</div>
             </div>`;
         }).join('')}</div>`;
@@ -8982,7 +9419,7 @@ async function loadMyCouponsAndOffers() {
                         <div class="record-subcard-pill" style="margin-bottom:8px;">
                             <div>
                                 <span class="addr-tag-badge">${c.code}</span>
-                                <div class="sub-label" style="margin-top:4px;">${c.description || ''}</div>
+                                <div class="sub-label" style="margin-top:4px;">${mfEsc(c.description || '')}</div>
                             </div>
                         </div>
                     `).join('');
@@ -9001,8 +9438,8 @@ async function loadMyCouponsAndOffers() {
                 offersList.innerHTML = data.map(o => `
                     <div class="record-subcard-pill" style="margin-bottom:8px;">
                         <div>
-                            <strong>${o.title || ''}</strong>
-                            <div class="sub-label">${o.description || ''}</div>
+                            <strong>${mfEsc(o.title || '')}</strong>
+                            <div class="sub-label">${mfEsc(o.description || '')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -9123,6 +9560,12 @@ async function loadMyCouponsAndOffers() {
         }
     };
 
+    // push notification tap / app shortcut while the app is already open: only the #hash changes
+    window.addEventListener('hashchange', function () {
+        const h = (window.location.hash || '').replace('#', '');
+        if (h && (PAGE_IDS[h] || h === 'instrument')) window.navigateTo(h);
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         const hash = (window.location.hash || '').replace('#', '');
         if (hash === 'instrument') { window.navigateTo('instrument'); return; }
@@ -9178,14 +9621,14 @@ let currentUser = null;
 async function loadTests(){
   const { data, error } = await supabaseClient.from('lab_tests').select('*').eq('active', true).order('created_at', {ascending:false});
   if(error){ console.error(error); allTests = []; }
-  else allTests = data || [];
+  else allTests = (data || []).filter(t => Number(t.price) > 0 && t.collector_id && t.approval_status === 'approved'); // only tests published by a partner
   renderGrid(document.getElementById('lb_searchInput').value);
 }
 
 function testMatchesPincode(t){
-  if(!userPincode) return true;
-  if(!t.pincodes || t.pincodes.length === 0) return true; // no restriction = serves everywhere
-  return t.pincodes.includes(userPincode);
+  if(!userPincode) return true; // browsing before the pincode check; booking is still validated on the server
+  // a test is only offered where its partner published that pincode
+  return Array.isArray(t.pincodes) && t.pincodes.includes(String(userPincode).trim());
 }
 
 const grid = document.getElementById("lb_testGrid");
@@ -9214,9 +9657,9 @@ function renderGrid(filter=""){
       </div>
       <ul>${(t.items||[]).map(it=>`<li>${esc(it)}</li>`).join("")}</ul>
       <div class="price-row">
-        <span class="price-old">₹${t.old_price}</span>
+        ${Number(t.old_price) > Number(t.price) ? `<span class="price-old">₹${t.old_price}</span>` : ''}
         <span class="price-new">₹${t.price}</span>
-        <span class="off-badge">${t.off_percent}% OFF</span>
+        ${Number(t.off_percent) > 0 ? `<span class="off-badge">${t.off_percent}% OFF</span>` : ''}
       </div>
       <span class="fasting-note ${t.fasting}">
         ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
@@ -9359,7 +9802,8 @@ function resetUpiSteps(){
   upiStepConfirm.style.display = "none";
 }
 
-function startBooking(id){
+async function startBooking(id){
+  if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'booking', page: 'lab-test', reason: 'booking' }))) return;
   currentTest = allTests.find(t=>t.id===id);
   if(!currentTest) return;
 
@@ -9416,9 +9860,12 @@ document.getElementById('lb_upiConfirmYes').addEventListener('click', async ()=>
   if(!currentCoords){ resetUpiSteps(); return; }
   if(!addrPincode.value.trim()){ resetUpiSteps(); addrPincode.focus(); return; }
 
+  const utr = mfReadUtr('lb_utrInput');
+  if(!utr){ alert("Enter the 12-digit UTR / reference number from your payment app."); return; }
+
   const btn = document.getElementById('lb_upiConfirmYes');
   btn.disabled = true; btn.textContent = "Submitting...";
-  await finalizeBooking('Paid');
+  await finalizeBooking('Paid', utr);
   btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Payment Completed';
 });
 
@@ -9489,7 +9936,7 @@ async function uploadPrescription(file, userId){
 // Shared submit path for both payment methods: Cash on Delivery calls this
 // straight from "Submit Booking"; UPI calls this only after the user taps
 // "Payment Completed" on the confirm step (self-declared UPI payment).
-async function finalizeBooking(paymentStatus){
+async function finalizeBooking(paymentStatus, utr){
   const name = patientName.value.trim();
 
   let prescriptionUrl = null;
@@ -9519,6 +9966,7 @@ async function finalizeBooking(paymentStatus){
     prescription_url: prescriptionUrl,
     payment_method: selectedPaymentMethod,
     payment_status: paymentStatus,
+    payment_utr: selectedPaymentMethod === 'upi' ? (utr || null) : null,
     razorpay_payment_id: null,
     status: 'Pending'
   };
@@ -9533,7 +9981,7 @@ async function finalizeBooking(paymentStatus){
   const addressParts = [addrHouse.value.trim(), addrStreet.value.trim(), addrLandmark.value.trim(), addrCity.value.trim(), addrState.value, addrPincode.value.trim()].filter(Boolean);
   const fullAddress = addressParts.length ? addressParts.join(", ") : "(not provided)";
   const mapsLink = `https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}`;
-  const message = `🩺 *MediFinder — New Test Booking*\n\n*Test:* ${currentTest.name}\n*Price:* ₹${currentTest.price}\n*Payment:* ${selectedPaymentMethod.toUpperCase()} (${paymentStatus})\n\n*Patient Name:* ${name}\n*Phone:* ${patientPhone.value.trim() || "(not provided)"}\n*Address:* ${fullAddress}\n\n*Date:* ${bookDate.value}\n*Time:* ${bookTime.value}\n\n*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}\n${mapsLink}`;
+  const message = `🩺 *MediFinder India — New Test Booking*\n\n*Test:* ${currentTest.name}\n*Price:* ₹${currentTest.price}\n*Payment:* ${selectedPaymentMethod.toUpperCase()} (${paymentStatus})\n\n*Patient Name:* ${name}\n*Phone:* ${patientPhone.value.trim() || "(not provided)"}\n*Address:* ${fullAddress}\n\n*Date:* ${bookDate.value}\n*Time:* ${bookTime.value}\n\n*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}\n${mapsLink}`;
   const encoded = encodeURIComponent(message);
   const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, "_blank");
@@ -9572,9 +10020,9 @@ async function openDetails(id){
   detailsBody.innerHTML = `
     <div class="detail-icon" ${badgeStyle}>${badgeInner}</div>
     <div class="price-row">
-      <span class="price-old">₹${t.old_price}</span>
+      ${Number(t.old_price) > Number(t.price) ? `<span class="price-old">₹${t.old_price}</span>` : ''}
       <span class="price-new">₹${t.price}</span>
-      <span class="off-badge">${t.off_percent}% OFF</span>
+      ${Number(t.off_percent) > 0 ? `<span class="off-badge">${t.off_percent}% OFF</span>` : ''}
     </div>
     <span class="fasting-note ${t.fasting}">
       ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
@@ -9747,9 +10195,9 @@ async function cancelMyBooking(id){
 }
 
 async function shareReceipt(b){
-  const text = `MediFinder Booking Receipt\n\nTest: ${b.test_name}\nPrice: ₹${b.test_price}\nPatient: ${b.patient_name}\nDate: ${b.book_date} ${b.book_time}\nStatus: ${b.status}\nPayment: ${b.payment_method.toUpperCase()} (${b.payment_status})`;
+  const text = `MediFinder India Booking Receipt\n\nTest: ${b.test_name}\nPrice: ₹${b.test_price}\nPatient: ${b.patient_name}\nDate: ${b.book_date} ${b.book_time}\nStatus: ${b.status}\nPayment: ${b.payment_method.toUpperCase()} (${b.payment_status})`;
   if(navigator.share){
-    try { await navigator.share({ title: 'MediFinder Receipt', text }); return; } catch(e){}
+    try { await navigator.share({ title: 'MediFinder India Receipt', text }); return; } catch(e){}
   }
   const w = window.open('', '_blank');
   w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
@@ -9800,11 +10248,11 @@ async function pushHomeNotification(title, message){
 
 // ---------------- Fixed service catalogue ----------------
 const SERVICES = [
-  { key:"ayah", label:"আয়া / সাধারণ পরিচারক (Ayah / Basic Attendant)", scope:"বয়স্ক মানুষের সঙ্গী হওয়া, স্নান করানো, খাওয়ানো, হাঁটাচলায় সাহায্য করা।", rate:600, unit:"day" },
-  { key:"gda", label:"জিডিএ (General Duty Assistant)", scope:"ওষুধ ম্যানেজমেন্ট, সুগার-প্রেসার মাপা, নেবুলাইজার দেওয়া, রাইলস টিউবে খাওয়ানো।", rate:800, unit:"day" },
-  { key:"anm_gnm", label:"এএনএম / জিএনএম নার্স (ANM / GNM Skilled Nurse)", scope:"স্যালাইন ও আইভি (IV) চ্যানেল করা, ক্যাথেটার বদলানো, ড্রেসিং, ইনজেকশন দেওয়া।", rate:1000, unit:"day" },
-  { key:"icu_critical", label:"আইসিইউ / ক্রিটিক্যাল কেয়ার (ICU / Critical Care Nurse)", scope:"ভেন্টিলেটর বা ট্র্যাকিওস্টমি ব্যাকগ্রাউন্ডের রোগী, প্যালিয়াটিভ কেয়ার, ২৪ ঘণ্টা কড়া নজরদারি।", rate:2000, unit:"day" },
-  { key:"per_visit", label:"প্রতি ভিজিট (Per Visit — injection, dressing, catheter change)", scope:"শুধুমাত্র ইনজেকশন দেওয়া, ড্রেসিং করা বা ক্যাথেটার চেঞ্জ করার জন্য।", rate:300, unit:"visit" }
+  { key:"ayah", label:"Ayah / Basic Attendant", scope:"Companionship for elderly people, bathing, feeding and help with walking.", rate:600, unit:"day" },
+  { key:"gda", label:"GDA (General Duty Assistant)", scope:"Medication management, checking sugar and blood pressure, giving nebulizer, feeding through Ryle's tube.", rate:800, unit:"day" },
+  { key:"anm_gnm", label:"ANM / GNM Skilled Nurse", scope:"Saline and IV cannulation, catheter change, dressing and giving injections.", rate:1000, unit:"day" },
+  { key:"icu_critical", label:"ICU / Critical Care Nurse", scope:"Care for ventilator or tracheostomy patients, palliative care and 24-hour close monitoring.", rate:2000, unit:"day" },
+  { key:"per_visit", label:"Per Visit (injection, dressing, catheter change)", scope:"Only for giving an injection, doing a dressing or changing a catheter.", rate:300, unit:"visit" }
 ];
 const SERVICE_CHARGE_PCT = 0.10;
 let selectedService = null;
@@ -9960,7 +10408,10 @@ function resetForm(){
 function openSheet(){ resetForm(); overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; }
 function closeSheetUI(){ overlay.classList.remove("active"); }
 window.addEventListener("popstate", ()=>{ if(!document.getElementById("page-nurse-booking").classList.contains("active")) return; if(overlay.classList.contains("active")) closeSheetUI(); sheetOpenViaHistory = false; });
-openBookBtn.addEventListener("click", openSheet);
+openBookBtn.addEventListener("click", async () => {
+  if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'booking', page: 'nurse-booking', reason: 'booking' }))) return;
+  openSheet();
+});
 closeX.addEventListener("click", ()=>{ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } });
 overlay.addEventListener("click",(e)=>{ if(e.target === overlay){ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } } });
 
@@ -9997,6 +10448,8 @@ document.getElementById('nb_upiConfirmBack').addEventListener('click', resetUpiS
 
 document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>{
   if(!validateBookingForm()){ resetUpiSteps(); return; }
+  const utr = mfReadUtr('nb_utrInput');
+  if(!utr){ alert("Enter the 12-digit UTR / reference number from your payment app."); return; }
 
   const days = Math.max(1, parseInt(durationInput.value)||1);
   const subtotal = selectedService.rate * days;
@@ -10030,7 +10483,7 @@ document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>
     addr_landmark: addrLandmark.value.trim() || null, addr_city: addrCity.value.trim(),
     addr_pincode: addrPincode.value.trim(), addr_state: addrState.value,
     contact_no: contactNo.value.trim(), whatsapp_no: whatsappNo.value.trim(),
-    payment_method: 'upi', payment_status: 'Paid', razorpay_payment_id: null,
+    payment_method: 'upi', payment_status: 'Paid', payment_utr: utr, razorpay_payment_id: null,
     status: 'pending'
   };
 
@@ -10042,12 +10495,12 @@ document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>
   pushHomeNotification("Nurse Booking Received", `Your nurse booking request for ${payload.patient_name} on ${payload.book_date} is pending review.`);
   renderBookings();
   if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); }
-  showToast("Payment received! Booking submitted — pending nurse assignment ⏳");
+  showToast("Payment submitted! Admin will verify it, then a nurse will be assigned ⏳");
 });
 
 function sendWhatsAppNotification(b){
   const fullAddress = [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_state, b.addr_pincode].filter(Boolean).join(", ");
-  const message = `🧑‍⚕️ *MediFinder — New Nurse Booking Request*\n\n*Patient:* ${b.patient_name} (${b.patient_age} yrs, ${b.gender})\n*Service:* ${b.service_label}\n*Duration:* ${b.duration} ${b.rate_unit}(s)\n*Total Paid:* ₹${b.total_amount} (${b.payment_method.toUpperCase()} — ${b.payment_status})\n\n*Date:* ${b.book_date}\n*Time:* ${b.book_time}\n*Address:* ${fullAddress}\n\n*Contact No:* ${b.contact_no}\n*WhatsApp No:* ${b.whatsapp_no}\n\n*Status:* Pending — please assign a nurse in the admin panel.`;
+  const message = `🧑‍⚕️ *MediFinder India — New Nurse Booking Request*\n\n*Patient:* ${b.patient_name} (${b.patient_age} yrs, ${b.gender})\n*Service:* ${b.service_label}\n*Duration:* ${b.duration} ${b.rate_unit}(s)\n*Total Paid:* ₹${b.total_amount} (${b.payment_method.toUpperCase()} — ${b.payment_status})\n\n*Date:* ${b.book_date}\n*Time:* ${b.book_time}\n*Address:* ${fullAddress}\n\n*Contact No:* ${b.contact_no}\n*WhatsApp No:* ${b.whatsapp_no}\n\n*Status:* Pending — please assign a nurse in the admin panel.`;
   const encoded = encodeURIComponent(message);
   const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, "_blank");
@@ -10126,9 +10579,9 @@ async function renderBookings(){
 }
 
 async function shareReceipt(b){
-  const text = `MediFinder — Nurse Booking Receipt\n\nPatient: ${b.patient_name}\nService: ${b.service_label}\nRate: ₹${b.rate}/${b.rate_unit} × ${b.duration}\nSubtotal: ₹${b.subtotal}\nService Charge (10%): ₹${b.service_charge}\nTotal Paid: ₹${b.total_amount}\nPayment ID: ${b.razorpay_payment_id || '—'}\nStatus: ${b.status}`;
+  const text = `MediFinder India — Nurse Booking Receipt\n\nPatient: ${b.patient_name}\nService: ${b.service_label}\nRate: ₹${b.rate}/${b.rate_unit} × ${b.duration}\nSubtotal: ₹${b.subtotal}\nService Charge (10%): ₹${b.service_charge}\nTotal Paid: ₹${b.total_amount}\nPayment ID: ${b.razorpay_payment_id || '—'}\nStatus: ${b.status}`;
   if(navigator.share){
-    try { await navigator.share({ title: 'MediFinder Nurse Receipt', text }); return; } catch(e){}
+    try { await navigator.share({ title: 'MediFinder India Nurse Receipt', text }); return; } catch(e){}
   }
   const w = window.open('', '_blank');
   w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
@@ -10340,6 +10793,7 @@ function openBookingModal(driverId, items){
 
 $("ab_confirmBookBtn").addEventListener("click", async () => {
   if (!selectedDriver) return;
+  if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'booking', page: 'ambulance', reason: 'booking' }))) return;
   const phone = $("ab_bkPhone").value.trim();
   if (!/^\d{10}$/.test(phone)) { $("ab_bookingMsg").textContent = "Please enter a valid 10-digit contact number."; return; }
   if (!userLiveLat) { $("ab_bookingMsg").textContent = "Pickup location / GPS is required."; return; }
@@ -10349,7 +10803,7 @@ $("ab_confirmBookBtn").addEventListener("click", async () => {
   $("ab_confirmBookBtn").textContent = "Booking...";
 
   const { data: userData } = await supabase.auth.getUser();
-  const otp = String(Math.floor(100000 + Math.random()*900000));
+  const otp = generateSecureSixDigitOTP();
 
   const payload = {
     user_id: userData?.user?.id || null,
@@ -10419,7 +10873,7 @@ function updateTrackUI(){
   $("ab_cancelRideBtn").style.display = (b.status === "searching") ? "block" : "none";
 
   if (b.status === "completed") {
-    showToast("Ride completed — thank you for using MediFinder");
+    showToast("Ride completed — thank you for using MediFinder India");
     maybeShowPayment(b);
   }
   if (b.status === "cancelled") {
@@ -10487,23 +10941,34 @@ $("ab_cancelRideBtn").addEventListener("click", async () => {
    7) Payment (Razorpay) once ride completes
    ============================================================ */
 function maybeShowPayment(booking){
-  if (!window.Razorpay || booking.payment_status === "paid") return;
-  const options = {
-    key: (typeof RAZORPAY_KEY_ID !== 'undefined') ? RAZORPAY_KEY_ID : "YOUR_RAZORPAY_KEY_ID",
-    amount: Math.round((booking.fare_final || booking.fare_estimate) * 100),
-    currency: "INR",
-    name: "MediFinder Ambulance",
-    description: "Ambulance ride payment",
-    handler: async function(response){
-      await supabase.from("ambulance_bookings").update({
-        payment_status: "paid", razorpay_payment_id: response.razorpay_payment_id
-      }).eq("id", booking.id);
-      showToast("Payment successful — thank you!");
-    },
-    theme: { color: "#e02020" }
+  const v = booking.payment_verification_status;
+  if (booking.payment_status === "paid" || v === "pending" || v === "verified") return;
+  if (document.getElementById("ab_payOverlay")) return;
+  const amount = Number(booking.fare_final || booking.fare_estimate || 0).toFixed(2);
+  const o = document.createElement("div");
+  o.id = "ab_payOverlay";
+  o.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  o.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:18px;text-align:center;font-family:inherit;">
+    <h3 style="margin:0 0 6px;">Pay for your ride</h3>
+    <p style="margin:0 0 10px;font-size:13px;color:#64748b;">Pay <b>\u20B9${amount}</b> to MediFinder India by UPI, then enter the UTR.</p>
+    <img src="medifinderqr.jpeg" alt="UPI QR" style="width:170px;max-width:60%;border-radius:10px;">
+    <div style="font-size:13px;margin:4px 0 10px;">9593625498@ibl</div>
+    <input id="ab_utrInput" inputmode="numeric" maxlength="12" placeholder="12-digit UTR / Ref. No." style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #dcdde1;border-radius:10px;text-align:center;letter-spacing:2px;margin-bottom:10px;">
+    <button id="ab_utrSubmit" style="width:100%;padding:12px;border:none;border-radius:10px;background:#2ed573;color:#fff;font-weight:800;cursor:pointer;margin-bottom:8px;">Payment Completed</button>
+    <button id="ab_utrLater" style="width:100%;padding:10px;border:1px solid #dcdde1;border-radius:10px;background:#fff;cursor:pointer;">Pay later</button>
+  </div>`;
+  document.body.appendChild(o);
+  document.getElementById("ab_utrLater").onclick = () => o.remove();
+  document.getElementById("ab_utrSubmit").onclick = async () => {
+    const utr = mfReadUtr("ab_utrInput");
+    if (!utr) { showToast("Enter the 12-digit UTR from your payment app", "error"); return; }
+    const btn = document.getElementById("ab_utrSubmit"); btn.disabled = true; btn.textContent = "Submitting...";
+    const { error } = await supabase.rpc("submit_ambulance_payment", { p_booking: booking.id, p_utr: utr });
+    if (error) { btn.disabled = false; btn.textContent = "Payment Completed"; showToast(error.message, "error"); return; }
+    o.remove();
+    showToast("Payment submitted \u2014 admin will verify it shortly");
+    refreshHistory();
   };
-  const rzp = new Razorpay(options);
-  rzp.open();
 }
 
 /* ============================================================
@@ -10874,4 +11339,163 @@ function showToast(msg){
   }
 })();
 
+})();
+
+
+/* ==========================================================================
+   PUBLIC-HOME LOGIN GATE  (used by home.html AND user.html)
+   --------------------------------------------------------------------------
+   Visitors browse home.html as guests. Login is requested only for
+   account-specific actions:
+     - Place order / Buy Now / UPI payment  -> mfEnsureLoggedIn({type:'checkout'})
+     - Orders, Profile, Notifications views -> guarded window.navigateTo()
+   The intended action is saved in localStorage ('mf_pending_action', 30 min TTL)
+   so mfResumePendingAction() can return the user to it after login.
+   Auth itself (Supabase client, OAuth, roles, redirects) stays in
+   supabase-config.js - nothing here signs anyone in or redirects by role.
+   ========================================================================== */
+(function () {
+    'use strict';
+
+    var PENDING_KEY = 'mf_pending_action';
+    var PENDING_TTL_MS = 30 * 60 * 1000;
+    var ACCOUNT_ONLY_VIEWS = { order: 'account', profile: 'account', notification: 'account' };
+    var authedCache = null;      // true once a session is confirmed; false after sign-out
+    var redirecting = false;     // guards against double taps queueing two redirects
+
+    function toast(msg, type) {
+        try { if (typeof window.showToast === 'function') window.showToast(msg, type || 'info'); } catch (e) {}
+    }
+
+    function getClient() {
+        return (typeof supabase !== 'undefined' && supabase && supabase.auth) ? supabase : null;
+    }
+
+    // Resolves true when a Supabase session exists. Only a positive answer is cached.
+    async function mfIsLoggedIn() {
+        if (authedCache === true) return true;
+        var client = getClient();
+        if (!client) return false;
+        try {
+            var res = await client.auth.getSession();
+            var ok = !!(res && res.data && res.data.session && res.data.session.user);
+            if (ok) authedCache = true;
+            return ok;
+        } catch (e) {
+            return false;
+        }
+    }
+    window.mfIsLoggedIn = mfIsLoggedIn;
+
+    function savePendingAction(action) {
+        try {
+            localStorage.setItem(PENDING_KEY, JSON.stringify({
+                type: action.type || 'account',
+                page: action.page || '',
+                ts: Date.now()
+            }));
+        } catch (e) {}
+    }
+
+    function readPendingAction() {
+        var raw = null;
+        try { raw = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (e) { raw = null; }
+        if (!raw) return null;
+        if (!raw.ts || Date.now() - raw.ts > PENDING_TTL_MS) {
+            try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+            return null;
+        }
+        return raw;
+    }
+
+    // Returns true when the user may continue. Otherwise remembers the action,
+    // sends the visitor to auth.html and returns false.
+    window.mfEnsureLoggedIn = async function (action) {
+        if (await mfIsLoggedIn()) return true;
+        action = action || { type: 'account' };
+        savePendingAction(action);
+        if (!redirecting) {
+            redirecting = true;
+            toast('Please log in or register to continue.', 'info');
+            setTimeout(function () {
+                window.location.href = 'auth.html?panel=login&reason=' + encodeURIComponent(action.reason || 'account');
+            }, 700);
+        }
+        return false;
+    };
+
+    // After login the user lands on user.html (existing role routing). That page
+    // loads this file too, so the saved action is replayed here.
+    async function mfResumePendingAction() {
+        var pending = readPendingAction();
+        if (!pending) return;
+        if (!(await mfIsLoggedIn())) return;
+        try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+        var go = function (page) {
+            if (page && typeof window.navigateTo === 'function') window.navigateTo(page);
+        };
+        if (pending.type === 'checkout') {
+            go('cart');
+            toast('Welcome! Review your cart and place your order.', 'success');
+        } else if (pending.type === 'nav' || pending.type === 'booking') {
+            go(pending.page);
+            if (pending.type === 'booking') toast('Welcome! You can continue your booking now.', 'success');
+        }
+    }
+    window.mfResumePendingAction = mfResumePendingAction;
+
+    // Account-only views (orders / profile / notifications) need a session.
+    // Everything else (home, shops, cart, product-detail, lab/nurse/ambulance
+    // browsing ...) stays open to guests.
+    function wrapNavigateTo() {
+        var orig = window.navigateTo;
+        if (typeof orig !== 'function' || orig.__mfGuarded) return;
+        var guarded = function (page) {
+            var args = arguments, self = this;
+            if (ACCOUNT_ONLY_VIEWS[page] && authedCache !== true) {
+                mfIsLoggedIn().then(function (ok) {
+                    if (ok) return orig.apply(self, args);
+                    window.mfEnsureLoggedIn({ type: 'nav', page: page, reason: ACCOUNT_ONLY_VIEWS[page] });
+                });
+                return;
+            }
+            return orig.apply(this, args);
+        };
+        guarded.__mfGuarded = true;
+        window.navigateTo = guarded;
+    }
+
+    // Elements marked data-mf-guest-only (e.g. the header "Login / Sign up"
+    // button on home.html) are visible by default and hidden once logged in.
+    function applyGuestUI(loggedIn) {
+        document.querySelectorAll('[data-mf-guest-only]').forEach(function (el) {
+            el.style.display = loggedIn ? 'none' : '';
+        });
+    }
+
+    var client = getClient();
+    if (client && typeof client.auth.onAuthStateChange === 'function') {
+        // Synchronous bookkeeping only (no awaits / no Supabase calls in here).
+        client.auth.onAuthStateChange(function (event, session) {
+            if (session && session.user) {
+                authedCache = true;
+                applyGuestUI(true);
+            } else if (event === 'SIGNED_OUT') {
+                authedCache = false;
+                try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+                applyGuestUI(false);
+            }
+        });
+    }
+
+    function init() {
+        wrapNavigateTo();
+        mfIsLoggedIn().then(function (ok) {
+            applyGuestUI(ok);
+            if (ok) setTimeout(mfResumePendingAction, 400);
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+    window.addEventListener('load', wrapNavigateTo); // in case navigateTo is defined late
 })();

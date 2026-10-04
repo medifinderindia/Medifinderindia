@@ -1,210 +1,133 @@
 // ==========================================
-// MediFinder — Post-Login Permission Wizard
-// Login korar por (user session thakle) ekbar Notification, Location (GPS),
-// Camera, Microphone permission chay. User "Allow" ba "Don't Allow" dite pare.
-// Login page/home e (logged-out) dekhabe na. Prottek user-er jonno ekbar.
-// Dashboard page gulote (user/merchant/delivery/EMS) eta add korte hobe:
-// <script src="permission-every.js?v=2" defer></script>
+// MediFinder India — Lazy Permission Guard (all pages)
+//
+// OLD behaviour: a wizard asked Notification + Location + Camera + Microphone
+// right after login. REMOVED.
+//
+// NEW behaviour:
+//   * Nothing is asked up-front. The browser's own permission prompt appears
+//     only when the visitor actually USES a feature (GPS button, camera /
+//     prescription scan, voice search, ...).
+//   * Once the visitor has answered (Allow / Block / closed the prompt) for a
+//     feature, we never ask for that same feature again until the browser tab
+//     is closed (sessionStorage is wiped when the tab closes).
+//
+// Load this file BEFORE every other script (plain <script>, no defer):
+//   <script src="permission-every.js?v=4"></script>
 // ==========================================
 (function () {
-    const FLAG_PREFIX = 'mf_permissions_setup_';
-    const BRAND_RED = '#e02020';
+    'use strict';
+    if (window.__mfPermissionGuard) return;
+    window.__mfPermissionGuard = true;
 
-    // ---- Logged-in user id (Supabase session localStorage theke) ----
-    function getLoggedInUserId() {
-        try {
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (/^sb-.*-auth-token$/.test(k)) {
-                    const s = JSON.parse(localStorage.getItem(k) || 'null');
-                    const uid = s && ((s.user && s.user.id) || (s.currentSession && s.currentSession.user && s.currentSession.user.id));
-                    if (uid) return uid;
-                }
-            }
-        } catch (e) {}
-        return null;
+    var PREFIX = 'mf_perm_asked_';
+    function flagged(k) { try { return sessionStorage.getItem(PREFIX + k) === '1'; } catch (e) { return false; } }
+    function setFlag(k) { try { sessionStorage.setItem(PREFIX + k, '1'); } catch (e) {} }
+    function clearFlag(k) { try { sessionStorage.removeItem(PREFIX + k); } catch (e) {} }
+
+    // If the visitor later switches the permission to "granted" in browser
+    // settings, honour it immediately instead of waiting for the tab to close.
+    function isNowGranted(name) {
+        if (!(navigator.permissions && navigator.permissions.query)) return Promise.resolve(false);
+        return navigator.permissions.query({ name: name })
+            .then(function (r) { return r.state === 'granted'; })
+            .catch(function () { return false; });
     }
 
-    const STEPS = [
-        {
-            id: 'notification', permName: 'notifications',
-            icon: '🔔', title: 'Notification',
-            desc: 'অর্ডার আপডেট আর অফার মিস করবেন না',
-            request: () => {
-                if (!('Notification' in window)) return Promise.resolve('unsupported');
-                if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
-                return Notification.requestPermission();
-            }
-        },
-        {
-            id: 'location', permName: 'geolocation',
-            icon: '📍', title: 'Location (GPS)',
-            desc: 'কাছের ফার্মেসি ও দ্রুত ডেলিভারির জন্য',
-            request: () => new Promise((resolve) => {
-                if (!('geolocation' in navigator)) return resolve('unsupported');
-                navigator.geolocation.getCurrentPosition(
-                    () => resolve('granted'),
-                    () => resolve('denied'),
-                    { timeout: 10000 }
-                );
-            })
-        },
-        {
-            id: 'camera', permName: 'camera',
-            icon: '📷', title: 'Camera',
-            desc: 'প্রেসক্রিপশন স্ক্যান ও ছবি আপলোডের জন্য',
-            request: () => askMedia({ video: true })
-        },
-        {
-            id: 'microphone', permName: 'microphone',
-            icon: '🎤', title: 'Microphone',
-            desc: 'ভয়েস সার্চ ব্যবহারের জন্য',
-            request: () => askMedia({ audio: true })
-        }
-    ];
+    // ---------- Geolocation ----------
+    if (navigator.geolocation) {
+        var geo = navigator.geolocation;
+        var origGet = geo.getCurrentPosition.bind(geo);
+        var origWatch = geo.watchPosition.bind(geo);
+        var deniedError = function () {
+            return { code: 1, message: 'User denied Geolocation', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 };
+        };
+        var watchSeq = 0;
 
-    function askMedia(constraints) {
-        if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return Promise.resolve('unsupported');
-        return navigator.mediaDevices.getUserMedia(constraints)
-            .then(stream => { stream.getTracks().forEach(t => t.stop()); return 'granted'; })
-            .catch(() => 'denied');
+        geo.getCurrentPosition = function (ok, err, opts) {
+            var wrappedErr = function (e) { if (e && e.code === 1) setFlag('geolocation'); if (err) err(e); };
+            if (!flagged('geolocation')) return origGet(ok, wrappedErr, opts);
+            isNowGranted('geolocation').then(function (granted) {
+                if (granted) { clearFlag('geolocation'); origGet(ok, wrappedErr, opts); }
+                else if (err) err(deniedError());
+            });
+        };
+        geo.watchPosition = function (ok, err, opts) {
+            var wrappedErr = function (e) { if (e && e.code === 1) setFlag('geolocation'); if (err) err(e); };
+            if (!flagged('geolocation')) return origWatch(ok, wrappedErr, opts);
+            var id = --watchSeq; // negative id: nothing is really being watched
+            isNowGranted('geolocation').then(function (granted) {
+                if (granted) clearFlag('geolocation');
+                if (!granted && err) err(deniedError());
+            });
+            return id;
+        };
     }
 
-    // Already granted/denied hole abar jiggesh korbe na (browser abar prompt dey na)
-    async function currentState(step) {
-        try {
-            const r = await navigator.permissions.query({ name: step.permName });
-            return r.state; // 'granted' | 'denied' | 'prompt'
-        } catch (e) {
-            if (step.id === 'notification' && 'Notification' in window) {
-                return Notification.permission === 'default' ? 'prompt' : Notification.permission;
-            }
-            return 'prompt';
-        }
-    }
-
-    let started = false;
-
-    async function start(uid) {
-        if (started) return;
-        started = true;
-        const flagKey = FLAG_PREFIX + uid;
-
-        // Shudhu jegulo ekhono "prompt" state e ache segulo dekhabe
-        const pending = [];
-        for (const s of STEPS) {
-            if ((await currentState(s)) === 'prompt') pending.push(s);
-        }
-        if (!pending.length) { localStorage.setItem(flagKey, 'done'); return; }
-
-        let stepIndex = -1; // -1 = welcome screen
-
-        const style = document.createElement('style');
-        style.textContent = `
-            #mf-perm-overlay { position: fixed; inset: 0; z-index: 999999; background: rgba(20,20,20,.55);
-                display: flex; align-items: flex-end; justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                opacity: 0; transition: opacity .25s ease; }
-            #mf-perm-overlay.mf-show { opacity: 1; }
-            #mf-perm-card { width: 100%; max-width: 420px; background: #fff; border-radius: 20px 20px 0 0;
-                padding: 28px 24px 24px; text-align: center; transform: translateY(30px);
-                transition: transform .3s ease; box-shadow: 0 -8px 30px rgba(0,0,0,.2); }
-            #mf-perm-overlay.mf-show #mf-perm-card { transform: translateY(0); }
-            @media (min-width: 480px) { #mf-perm-overlay { align-items: center; } #mf-perm-card { border-radius: 20px; } }
-            .mf-perm-icon { font-size: 44px; line-height: 1; margin-bottom: 14px; }
-            .mf-perm-title { font-size: 19px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px; }
-            .mf-perm-desc { font-size: 14px; color: #666; margin: 0 0 22px; line-height: 1.5; }
-            .mf-perm-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
-            .mf-perm-dots span { width: 6px; height: 6px; border-radius: 50%; background: #e5e5e5; }
-            .mf-perm-dots span.mf-active { background: ${BRAND_RED}; width: 18px; border-radius: 3px; transition: all .2s; }
-            .mf-perm-btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 12px;
-                font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
-            .mf-perm-btn-primary { background: ${BRAND_RED}; color: #fff; }
-            .mf-perm-btn-primary:active { opacity: .85; }
-            .mf-perm-btn-skip { background: #f4f4f4; color: #555; }
-        `;
-        document.head.appendChild(style);
-
-        const overlay = document.createElement('div');
-        overlay.id = 'mf-perm-overlay';
-        overlay.innerHTML = `<div id="mf-perm-card"></div>`;
-        document.body.appendChild(overlay);
-        requestAnimationFrame(() => overlay.classList.add('mf-show'));
-        const card = overlay.querySelector('#mf-perm-card');
-
-        function renderDots() {
-            if (stepIndex < 0) return '';
-            return `<div class="mf-perm-dots">${pending.map((_, i) =>
-                `<span class="${i === stepIndex ? 'mf-active' : ''}"></span>`).join('')}</div>`;
-        }
-
-        function renderWelcome() {
-            card.innerHTML = `
-                <div class="mf-perm-icon">👋</div>
-                <p class="mf-perm-title">MediFinder-এ স্বাগতম</p>
-                <p class="mf-perm-desc">সবচেয়ে ভালো অভিজ্ঞতার জন্য কিছু পারমিশন দরকার। Allow বা Don't Allow — আপনার ইচ্ছা।</p>
-                <button class="mf-perm-btn mf-perm-btn-primary" id="mf-perm-continue">Continue</button>
-                <button class="mf-perm-btn mf-perm-btn-skip" id="mf-perm-skip-all">Don't Allow</button>
-            `;
-            document.getElementById('mf-perm-continue').onclick = () => nextStep();
-            document.getElementById('mf-perm-skip-all').onclick = () => finish();
-        }
-
-        function renderStep() {
-            const step = pending[stepIndex];
-            card.innerHTML = `
-                ${renderDots()}
-                <div class="mf-perm-icon">${step.icon}</div>
-                <p class="mf-perm-title">${step.title}</p>
-                <p class="mf-perm-desc">${step.desc}</p>
-                <button class="mf-perm-btn mf-perm-btn-primary" id="mf-perm-allow">Allow</button>
-                <button class="mf-perm-btn mf-perm-btn-skip" id="mf-perm-skip">Don't Allow</button>
-            `;
-            document.getElementById('mf-perm-allow').onclick = async () => {
-                const b = document.getElementById('mf-perm-allow');
-                b.textContent = '...'; b.disabled = true;
-                try { await step.request(); } catch (e) {}
-                nextStep();
+    // ---------- Camera / Microphone ----------
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        var md = navigator.mediaDevices;
+        var origGum = md.getUserMedia.bind(md);
+        md.getUserMedia = function (constraints) {
+            var kinds = [];
+            if (constraints && constraints.video) kinds.push('camera');
+            if (constraints && constraints.audio) kinds.push('microphone');
+            var blocked = kinds.filter(flagged);
+            var run = function () {
+                return origGum(constraints).catch(function (e) {
+                    if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+                        kinds.forEach(setFlag);
+                    }
+                    throw e;
+                });
             };
-            // Don't Allow = browser prompt-i dekhano hobe na, sudhu porer step e jabe
-            document.getElementById('mf-perm-skip').onclick = () => nextStep();
-        }
-
-        function nextStep() {
-            stepIndex++;
-            if (stepIndex >= pending.length) return finish();
-            renderStep();
-        }
-
-        function finish() {
-            localStorage.setItem(flagKey, 'done');
-            overlay.classList.remove('mf-show');
-            setTimeout(() => { overlay.remove(); style.remove(); }, 250);
-        }
-
-        renderWelcome();
+            if (!blocked.length) return run();
+            return Promise.all(blocked.map(isNowGranted)).then(function (res) {
+                if (res.every(Boolean)) { blocked.forEach(clearFlag); return run(); }
+                var err;
+                try { err = new DOMException('Permission denied', 'NotAllowedError'); }
+                catch (e) { err = new Error('Permission denied'); err.name = 'NotAllowedError'; }
+                throw err;
+            });
+        };
     }
 
-    // ---- Login detect: page load e + same page e login holeo (poll) ----
-    function check() {
-        const uid = getLoggedInUserId();
-        if (!uid) return false;
-        if (localStorage.getItem(FLAG_PREFIX + uid) === 'done') return true; // ei user er kaj shesh
-        start(uid);
-        return true;
+    // ---------- Notifications ----------
+    if ('Notification' in window && typeof Notification.requestPermission === 'function') {
+        var origReq = Notification.requestPermission.bind(Notification);
+        Notification.requestPermission = function (cb) {
+            // Already decided in the browser (granted / denied) -> nothing to ask.
+            if (Notification.permission !== 'default') {
+                var p = Promise.resolve(Notification.permission);
+                if (typeof cb === 'function') p.then(cb);
+                return p;
+            }
+            // Visitor already saw the prompt this session and closed it -> don't ask again.
+            if (flagged('notifications')) {
+                var q = Promise.resolve('default');
+                if (typeof cb === 'function') q.then(cb);
+                return q;
+            }
+            var result = origReq();
+            result.then(function (perm) { if (perm !== 'granted') setFlag('notifications'); });
+            if (typeof cb === 'function') result.then(cb);
+            return result;
+        };
     }
 
-    function init() {
-        if (check()) return;
-        const t = setInterval(() => { if (check()) clearInterval(t); }, 1500);
-    }
-
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-
-    // Manual trigger (jodi kokhono abar dekhate chan): localStorage theke flag muche
-    window.MF_resetPermissionWizard = function () {
-        const uid = getLoggedInUserId();
-        if (uid) localStorage.removeItem(FLAG_PREFIX + uid);
+    window.MFPermissions = {
+        // 'granted' | 'denied' | 'prompt'  (never triggers a prompt)
+        state: function (name) {
+            if (navigator.permissions && navigator.permissions.query) {
+                return navigator.permissions.query({ name: name }).then(function (r) { return r.state; }).catch(function () { return 'prompt'; });
+            }
+            if (name === 'notifications' && 'Notification' in window) {
+                return Promise.resolve(Notification.permission === 'default' ? 'prompt' : Notification.permission);
+            }
+            return Promise.resolve('prompt');
+        },
+        // Forget "already asked this session" (e.g. after the visitor taps an explicit "Turn on" button)
+        forget: function (name) { clearFlag(name === 'geolocation' ? 'geolocation' : name); }
     };
+    window.MF_resetPermissionWizard = function () {}; // kept so old callers don't break
 })();

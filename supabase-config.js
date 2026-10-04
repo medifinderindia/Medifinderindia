@@ -51,13 +51,13 @@ if (roleRadioButtons && dynamicPolicyLink) {
             const selectedRole = e.target.value;
             if (selectedRole === 'merchant') {
                 dynamicPolicyLink.textContent = "Merchant Policy";
-                dynamicPolicyLink.href = "marchentt&c.html";
+                dynamicPolicyLink.href = "info.html#terms";
             } else if (selectedRole === 'delivery') {
                 dynamicPolicyLink.textContent = "Delivery Partner Policy";
-                dynamicPolicyLink.href = "dboyt&c.html";
+                dynamicPolicyLink.href = "info.html#terms";
             } else {
                 dynamicPolicyLink.textContent = "User Policy";
-                dynamicPolicyLink.href = "usert&c.html";
+                dynamicPolicyLink.href = "info.html#terms";
             }
         });
     });
@@ -84,11 +84,15 @@ function checkPolicyAgreement() {
 // ✅ Fixed: একটাই onAuthStateChange, async করা হয়েছে, else if সঠিক জায়গায়
 supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const path = window.location.pathname.toLowerCase();
-    // ✅ SPA UPDATE: Login & Signup are no longer separate pages — both panels
-    // now live inside home.html. isAuthPage replaces the old isLoginPage/isSignupPage
-    // pathname checks so the redirect logic below still knows when it's safe to
-    // send a signed-in user onward, and when to leave a logged-out user alone.
-    const isAuthPage = path.includes("home.html");
+    // ✅ PUBLIC-HOME ARCHITECTURE: home.html is now the real public landing/shopping
+    // page (it does not load this file at all) and auth.html is the login/signup page.
+    //   isAuthPage   -> auth.html: a signed-in user is sent on to their role dashboard.
+    //   isPublicPage -> auth.html / home.html / index.html (splash): a signed-out
+    //                   visitor must NEVER be bounced away from these.
+    // Every other page that loads this file is a protected page and sends a
+    // signed-out visitor back to the public home.
+    const isAuthPage = path.includes("auth.html");
+    const isPublicPage = isAuthPage || path.includes("home.html") || /\/(index\.html)?$/.test(path);
 
     // ✅ GOOGLE OAUTH FIX: when we've just returned from Google (?oauth=google),
     // handleGoogleOAuthCallback() below owns role-resolution + redirect exclusively
@@ -97,7 +101,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     // callback's getSession() resolves) and either double-run the role upsert or
     // send the user to two different places. This listener still handles every other
     // sign-in path (email, phone OTP, admin, session restore) exactly as before.
-    // Reads window._mfGoogleOAuthPending (set by home.html's inline script before
+    // Reads window._mfGoogleOAuthPending (set by auth.html's inline script before
     // its own showView() call strips ?oauth=google from the URL) instead of
     // re-parsing window.location.search, which would already be too late here.
     const isGoogleOAuthCallback = window._mfGoogleOAuthPending === true;
@@ -132,7 +136,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 else {
                     showToast("Password updated successfully! Please log in.", "success");
                     supabaseClient.auth.signOut();
-                    window.location.href = "home.html?panel=login";
+                    window.location.href = "auth.html?panel=login";
                 }
             });
         }
@@ -185,11 +189,11 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (isAuthPage) {
             redirectUserBasedOnRole(session.user);
         }
-    } else if (!session && !isAuthPage) {
+    } else if (!session && !isPublicPage) {
         // Don't immediately redirect - check if session is still loading
         setTimeout(() => {
             const currentPath = window.location.pathname.toLowerCase();
-            const stillOnProtectedPage = !currentPath.includes("home.html");
+            const stillOnProtectedPage = !(currentPath.includes("auth.html") || currentPath.includes("home.html") || /\/(index\.html)?$/.test(currentPath));
             // Only redirect if we're still on a protected page after 2 seconds
             if (stillOnProtectedPage) {
                 // Double check session before redirecting
@@ -207,7 +211,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
 // ==========================================
 // 🩺 SERVICE PROVIDER (Nurse / Ambulance Driver / Phlebotomist) HELPERS
 // ==========================================
-// Service type is chosen once at signup (see home.html's signup-service-type
+// Service type is chosen once at signup (see auth.html's signup-service-type
 // select). It's stashed in localStorage so it survives a Google OAuth
 // redirect round-trip, where the signup form/DOM is gone by the time we
 // come back.
@@ -222,7 +226,7 @@ function getPendingServiceType() {
 }
 
 // EMS Partner destinations. Each EMS service type lands on its own
-// dedicated partner app instead of the old generic service.html.
+// dedicated partner app (there is no generic service.html anymore).
 const EMS_PARTNER_PAGES = {
     ambulance_driver: 'ambulance-partner.html',
     nurse: 'nurse-patner.html',
@@ -230,7 +234,8 @@ const EMS_PARTNER_PAGES = {
 };
 function getServiceRedirectTarget(serviceType) {
     const t = serviceType || getPendingServiceType() || localStorage.getItem('selected_service_type') || '';
-    return EMS_PARTNER_PAGES[t] || 'service.html';
+    // Unknown/missing service type -> the customer app (service.html no longer exists; user.html is also this file's default target)
+    return EMS_PARTNER_PAGES[t] || 'user.html';
 }
 
 async function upsertServiceProviderProfile(user, serviceType) {
@@ -265,7 +270,7 @@ async function handleOAuthUserRoleUpdate(user) {
             // এই একাউন্ট আগে থেকেই একটা নির্দিষ্ট role এ registered
             if (actualRole !== savedRole) {
                 await supabaseClient.auth.signOut();
-                showToast(`এই একাউন্টটি ইতিমধ্যে "${actualRole}" হিসেবে রেজিস্টার করা আছে। দয়া করে "${actualRole}" রোল সিলেক্ট করে লগইন করুন।`, "error");
+                showToast(`This account is already registered as "${actualRole}". Please select the "${actualRole}" role and log in.`, "error");
                 localStorage.removeItem('selected_role');
                 throw new Error('role_mismatch');
             }
@@ -748,7 +753,7 @@ if (loginForm) {
                 if (actualRole && actualRole !== role) {
                     // ভুল রোল সিলেক্ট করে লগইন করার চেষ্টা — ব্লক করো
                     await supabaseClient.auth.signOut();
-                    showToast(`এই একাউন্টটি "${actualRole}" হিসেবে রেজিস্টার করা। দয়া করে "${actualRole}" রোল সিলেক্ট করে আবার লগইন করুন।`, "error");
+                    showToast(`This account is registered as "${actualRole}". Please select the "${actualRole}" role and log in again.`, "error");
                     if (loginBtn) {
                         loginBtn.disabled = false;
                         loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
@@ -975,7 +980,7 @@ if (verifyOtpBtn) {
 
                 if (actualRole && actualRole !== role) {
                     await supabaseClient.auth.signOut();
-                    showToast(`এই নাম্বারটি "${actualRole}" হিসেবে রেজিস্টার করা। দয়া করে "${actualRole}" রোল সিলেক্ট করে আবার লগইন করুন।`, "error");
+                    showToast(`This number is registered as "${actualRole}". Please select the "${actualRole}" role and log in again.`, "error");
                     verifyOtpBtn.disabled = false;
                     verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
                     return;
@@ -1043,11 +1048,11 @@ async function loginWithGoogle(roleValue) {
     // sends the browser back here, handleGoogleOAuthCallback() below can reliably
     // detect "we just came back from Google" and take over the redirect — instead of
     // silently depending on onAuthStateChange timing, which is what left users stuck
-    // on home.html.
+    // on auth.html.
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.origin + '/home.html?oauth=google'
+            redirectTo: window.location.origin + '/auth.html?oauth=google'
         }
     });
     if (error) showToast("Google Auth Error: " + error.message, "error");
@@ -1057,7 +1062,7 @@ async function loginWithGoogle(roleValue) {
 // ✅ GOOGLE OAUTH CALLBACK — reliable fallback redirect
 // ==========================================
 // Runs only when window._mfGoogleOAuthPending is true (i.e. we've just landed
-// back on home.html after Google finished authenticating — see home.html's
+// back on auth.html after Google finished authenticating — see auth.html's
 // inline script, which captures this before it rewrites the URL and erases
 // the original ?oauth=google param). Independently calls getSession() and
 // drives the redirect itself, so the dashboard redirect no longer depends on
@@ -1079,7 +1084,7 @@ async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Google session:', session ? '(present)' : '(none)');
 
     if (!session || !session.user) {
-        // No session ever materialized — leave the user on home.html rather
+        // No session ever materialized — leave the user on auth.html rather
         // than guessing where to send them.
         return;
     }
@@ -1101,8 +1106,8 @@ async function handleGoogleOAuthCallback() {
         await handleOAuthUserRoleUpdate(user);
     } catch (e) {
         // Role mismatch: handleOAuthUserRoleUpdate() already signed the user
-        // out and showed the toast — just land back on a clean home.html.
-        window.location.replace("home.html");
+        // out and showed the toast — just land back on a clean login panel.
+        window.location.replace("auth.html?panel=login");
         return;
     }
 
@@ -1278,7 +1283,6 @@ const ADMIN_TAP_WINDOW_MS = 3000;   // ei somoyer moddhe tap korte hobe
 
 let logoClickCount = 0;
 let logoClickTimeout;
-const ADMIN_STEP3_OTP = "733140";   // step-3 OTP (phone number-er sathe)
 const ADMIN_REDIRECT_MAX_MS = 20000; // finalize-er por max 20 sec-er moddhe admin.html-e jabei
 let adminPhoneTicket = null; // server-encrypted ticket (email OTP verified, phone number pending)
 
@@ -1465,10 +1469,6 @@ if (adminBtnStep3) {
             showToast("Verification Failed: Please enter the OTP!", "error");
             return;
         }
-        if (enteredOtp !== ADMIN_STEP3_OTP) {
-            showToast("Invalid OTP. Please try again.", "error");
-            return;
-        }
         if (!adminPhoneTicket) {
             showToast("Session expired. Please start again.", "error");
             openAdminVerification();
@@ -1476,7 +1476,7 @@ if (adminBtnStep3) {
         }
 
         adminBtnStep3.disabled = true;
-        const { data, error } = await callAdminAuth('verify-phone', { phone: phoneNumber, ticket: adminPhoneTicket });
+        const { data, error } = await callAdminAuth('verify-phone', { phone: phoneNumber, ticket: adminPhoneTicket, code: enteredOtp });
         adminBtnStep3.disabled = false;
 
         if (error) {

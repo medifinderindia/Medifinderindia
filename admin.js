@@ -1,5 +1,5 @@
 /* =========================================================
-   MediFinder Admin — SPA logic (no external libraries)
+   MediFinder India Admin — SPA logic (no external libraries)
    Data is in-memory mock data; every control mutates STATE/DATA
    and re-renders, so the whole dashboard is click-through-able.
    ========================================================= */
@@ -162,13 +162,21 @@ async function loadZonesFromDB(){
   if(error){ toast("Could not load zones: "+error.message, "danger"); return; }
   DATA.zones = (data || []).map(z=>({
     id: z.id,
-    name: z.name || z.city || "Zone",
+    name: z.name || z.muni || z.ps || z.city || z.dist || "Zone",
+    pin: z.pin || z.pincode || "—",
+    pincode: z.pin || z.pincode || "—",
+    district: z.dist || "—",
+    ps: z.ps || "—",
+    muni: z.muni || "—",
+    state: z.state || "",
     baseFee: Number(z.base_fee||0),
     perKm: Number(z.per_km_fee||0),
     express: Number(z.express_fee||0),
+    suspendReason: z.outage_message || "",
+    suspendedAt: z.outage_start || "",
     riders: z.riders || 0,
     zoneMerchants: z.merchants || 0,
-    status: z.is_active===false ? "paused" : "active",
+    status: (z.status==="approved" && z.is_active!==false) ? "active" : "paused",
   }));
 }
 
@@ -218,6 +226,7 @@ async function loadMerchantsFromDB(){
       address: m.address || m.resolved_address || "—",
       city: m.city || "—",
       pincode: m.pincode || "—",
+      lat: m.latitude, lng: m.longitude,
       joined: (m.created_at || "").slice(0,10),
       orders: s.orders,
       earnings: s.earnings,
@@ -226,6 +235,7 @@ async function loadMerchantsFromDB(){
       license: m.license_status || "unverified",
       status: m.status || "pending",
       kycReason: m.kyc_rejection_reason || "",
+      kycStatusRaw: m.kyc_status || "",
     };
   });
 }
@@ -336,7 +346,9 @@ async function loadMerchantPayoutsFromDB(){
     merchant: merchantNames[p.shop_id] || ("Shop #"+p.shop_id),
     period: (p.created_at||"").slice(0,10),
     amount: Number(p.amount||0),
-    status: (p.status||"Pending").toLowerCase()==="paid" ? "paid" : "processing",
+    status: normPayStatus(p.status),
+    requestedAt: (p.created_at||"").slice(0,16).replace("T"," "),
+    paidAt: (p.paid_at||"").slice(0,16).replace("T"," "),
   }));
 }
 
@@ -352,7 +364,9 @@ async function loadRiderPayoutsFromDB(){
       rider: riderNames[p.rider_id] || ("Rider #"+p.rider_id),
       period: (p.requested_at||"").slice(0,10),
       amount: Number(p.total_payout_amount||p.amount||0),
-      status: ["completed","paid","done","success"].includes(s) ? "paid" : "processing",
+      status: normPayStatus(p.request_status),
+      requestedAt: (p.requested_at||"").slice(0,16).replace("T"," "),
+      paidAt: (p.processed_at||"").slice(0,16).replace("T"," "),
     };
   });
 }
@@ -413,6 +427,7 @@ async function loadNursesFromDB(){
     status: "Listed",
     photo: n.photo_url ? `<img src="${esc(n.photo_url)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : "",
     qualification: n.qualification || "—",
+    authUserId: n.auth_user_id || null,
   }));
 }
 
@@ -426,6 +441,13 @@ async function loadNurseBookingsFromDB(){
     _rawId: b.id,
     customer: b.patient_name || "Customer",
     nurse: b.nurse_name || "Unassigned",
+    provider: b.nurse_name || "Unassigned",
+    phone: b.contact_no || "—",
+    service: b.service_label || b.service_type || "—",
+    location: [b.addr_house, b.addr_street, b.addr_landmark, b.addr_city, b.addr_pincode].filter(Boolean).join(", ") || "—",
+    amount: b.total_amount != null ? Number(b.total_amount) : null,
+    reason: b.cancel_reason || "",
+    history: [["Booked", b.created_at], ["Last updated", b.updated_at], ["Completed", b.completed_at]],
     type: b.service_label || b.service_type || "—",
     date: b.book_date ? `${b.book_date} ${b.book_time||""}`.trim() : fmtDateTime(b.created_at),
     payment: /razorpay|online/i.test(b.payment_method||"") ? "Online" : "COD",
@@ -457,12 +479,19 @@ async function loadLabBookingsFromDB(){
   const collectorMap = await loadSampleCollectorNameMap();
   const { data, error } = await supabase.from('lab_bookings').select('*').order('created_at', { ascending:false }).limit(200);
   if(error){ toast("Could not load lab bookings: "+error.message, "danger"); return; }
+  const hist = {}; (await safeSelect("booking_status_history", "booking_id, new_status, created_at", 1000)).forEach(h=>{ (hist[h.booking_id] = hist[h.booking_id] || []).push([h.new_status, h.created_at]); });
   const statusMap = { Pending:"new", Confirmed:"accepted", "Sample Collected":"accepted", Processing:"accepted", Completed:"completed", Cancelled:"cancelled" };
   DATA.labBookings = (data || []).map(b=>({
     id: b.booking_id || ("LBK-"+String(b.id).slice(0,8)),
     _rawId: b.id,
     customer: b.patient_name || "Customer",
     test: b.test_name || "—",
+    service: b.test_name || "—",
+    phone: b.patient_phone || "—",
+    location: b.full_address || [b.addr_house||b.house_no, b.addr_street||b.street, b.addr_landmark||b.landmark, b.addr_city||b.city, b.addr_pincode||b.pincode].filter(Boolean).join(", ") || "—",
+    amount: b.test_price != null ? Number(b.test_price) : null,
+    reason: b.cancel_reason || "",
+    history: [["Booked", b.created_at], ...(hist[b.id]||[]), ["Collector assigned", b.assigned_at], ["Sample collected", b.sample_collected_at], ["Completed", b.completed_at]],
     provider: b.collector_id ? (collectorMap[b.collector_id] || "Assigned Collector") : "Unassigned",
     date: (b.booking_date || b.book_date) ? `${b.booking_date||b.book_date} ${b.booking_time||b.book_time||""}`.trim() : fmtDateTime(b.created_at),
     payment: /cash/i.test(b.payment_mode||"") ? "COD" : "Online",
@@ -474,6 +503,7 @@ async function loadAmbulanceDriversFromDB(){
   if(!supabase) return;
   const { data, error } = await supabase.from('ambulance_drivers').select('*').order('created_at', { ascending:false });
   if(error){ toast("Could not load ambulance drivers: "+error.message, "danger"); return; }
+  DATA.raw.ambulance = data || [];
   DATA.ambulanceDrivers = (data || []).map(d=>({
     id: d.id,
     name: d.driver_name || "Driver",
@@ -516,6 +546,12 @@ async function loadAmbulanceBookingsFromDB(){
     _rawId: b.id,
     customer: b.patient_name || "Customer",
     provider: b.driver_id ? (driverMap[b.driver_id] || "Assigned Driver") : "Unassigned",
+    phone: b.contact_phone || "—",
+    service: ({non_ac:"Non-AC", ac:"AC", icu:"ICU Support"})[b.vehicle_type] || b.vehicle_type || "—",
+    location: `${b.pickup_address||"—"} → ${b.drop_address||"—"}`,
+    amount: (b.fare_final ?? b.fare_estimate) != null ? Number(b.fare_final ?? b.fare_estimate) : null,
+    reason: b.cancel_reason || "",
+    history: [["Requested", b.created_at], ["Accepted", b.accepted_at], ["Picked up", b.picked_up_at], ["Completed", b.completed_at], ["Cancelled", b.cancelled_at]],
     type: ({non_ac:"Non-AC", ac:"AC", icu:"ICU Support"})[b.vehicle_type] || b.vehicle_type || "—",
     date: fmtDateTime(b.created_at),
     payment: b.payment_status === "paid" ? "Online" : "COD",
@@ -628,6 +664,8 @@ async function refreshLiveData(){
   await loadLabBookingsFromDB();
   await loadAmbulanceDriversFromDB(); // also derives DATA.ambulances (fleet overview)
   await loadAmbulanceBookingsFromDB();
+  await loadPaymentQueue();
+  await loadPartnerExtras(); // KYC queues + payouts (needs merchants/riders/nurses/ambulance loaded)
   await loadAdminsFromDB();
   await loadAuditLogFromDB();
   await loadNotificationBroadcastsFromDB();
@@ -684,6 +722,7 @@ function subscribeLiveData(){
   supabase.channel('admin-coupons-live')
     .on('postgres_changes', { event:'*', schema:'public', table:'coupons' }, ()=>{ loadCouponsFromDB().then(render); })
     .subscribe();
+  subscribePaymentLive();
   supabase.channel('admin-zones-live')
     .on('postgres_changes', { event:'*', schema:'public', table:'service_zones' }, ()=>{ loadZonesFromDB().then(render); })
     .subscribe();
@@ -799,8 +838,8 @@ const DATA = {
     {id:"DOC-03", name:"Dr. Sabrina Yasmin", spec:"Pediatrician", fee:800, status:"available", rating:4.6},
   ],
   homecare: [
-    {id:"HMC-01", name:"Physiotherapy at Home", provider:"CarePlus", rate:"৳900/session", status:"available"},
-    {id:"HMC-02", name:"Elder Care Attendant", provider:"CarePlus", rate:"৳1500/day", status:"available"},
+    {id:"HMC-01", name:"Physiotherapy at Home", provider:"CarePlus", rate:"₹900/session", status:"available"},
+    {id:"HMC-02", name:"Elder Care Attendant", provider:"CarePlus", rate:"₹1500/day", status:"available"},
   ],
   nurses: [
     // Loaded live from Supabase (public.nurses) by loadNursesFromDB() — see bottom of file.
@@ -853,7 +892,7 @@ const STATE = {
   drawerOpen: false,
   viewState: {}, // per-view: {tab, search, sortKey, sortDir}
   settings: {
-    platformName: "MediFinder",
+    platformName: "MediFinder India",
     commission: 12,
     codFee: 10,
     processingFee: 2,
@@ -879,53 +918,53 @@ const NAV = [
     {id:"dashboard", icon:"▣", label:"Dashboard"},
   ]},
   {group:"Operations", items:[
-    {id:"users", icon:"◍", label:"Users",
+    {id:"users", icon:"◍", label:"User",
       children:[{key:"all",label:"All Customers"},{key:"new",label:"New"},{key:"regular",label:"Regular"},{key:"vip",label:"VIP"},{key:"inactive",label:"Inactive"}]},
-    {id:"merchants", icon:"⌂", label:"Merchants",
-      children:[{key:"all",label:"All Merchants"},{key:"pending",label:"Pending Verification"},{key:"suspended",label:"Suspended"},{key:"kyc",label:"Merchant KYC"}]},
-    {id:"products", icon:"⬡", label:"Medicines", count:()=>DATA.products.filter(p=>p.approval==="pending").length,
+    {id:"merchants", icon:"⌂", label:"Merchant",
+      children:[{key:"all",label:"All Merchants"},{key:"pending",label:"Pending Verification"},{key:"suspended",label:"Suspended"}]},
+    {id:"riders", icon:"➔", label:"Rider",
+      children:[{key:"all",label:"All Riders"},{key:"live",label:"Live Riders"}]},
+    {id:"products", icon:"⬡", label:"Medicine", count:()=>DATA.products.filter(p=>p.approval==="pending").length,
       children:[{key:"products",label:"Products"},{key:"pending",label:"Pending Approval"},{key:"categories",label:"Categories"},{key:"brands",label:"Brands"}]},
-    {id:"orders", icon:"▤", label:"Orders", count:()=>DATA.orders.filter(o=>["pending","confirmed"].includes(o.status)).length,
+    {id:"orders", icon:"▤", label:"Order", count:()=>DATA.orders.filter(o=>["pending","confirmed"].includes(o.status)).length,
       children:[{key:"all",label:"All Orders"},{key:"pending",label:"Pending"},{key:"active",label:"Active"},{key:"delivered",label:"Delivered"},{key:"cancelled",label:"Cancelled"}]},
-    {id:"riders", icon:"➔", label:"Riders",
-      children:[{key:"all",label:"All Riders"},{key:"pending",label:"Pending KYC"},{key:"live",label:"Live Riders"}]},
-    {id:"fleet", icon:"🗺", label:"Live Fleet"},
-    {id:"delivery", icon:"⌁", label:"Service Zones"},
-    {id:"deliveryanalytics", icon:"▥", label:"Delivery Analytics"},
+  ]},
+  {group:"Partners", items:[
+    {id:"notifications", icon:"◔", label:"Notification",
+      children:[{key:"user-all",label:"User · All"},{key:"user-one",label:"User · Individual"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab Partner"},{key:"nurse",label:"Nurse Partner"},{key:"ambulance",label:"Ambulance"}]},
+    {id:"kyc", icon:"✔", label:"KYC", count:()=>kycAllRows().filter(r=>r.status==="pending").length,
+      children:[{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"nurse",label:"Nurse"},{key:"lab",label:"Lab"},{key:"ambulance",label:"Ambulance"}]},
+    {id:"fleet", icon:"🗺", label:"Live Fleet Map"},
+    {id:"delivery", icon:"⌁", label:"Zone"},
+    {id:"deliveryanalytics", icon:"▥", label:"Delivery Analysis"},
+    {id:"prescriptions", icon:"▦", label:"Prescription", count:()=>DATA.prescriptions.filter(p=>p.status==="pending").length},
   ]},
   {group:"Money", items:[
-    {id:"finance", icon:"৳", label:"Finance",
-      children:[{key:"transactions",label:"Transactions"},{key:"merchant-payouts",label:"Merchant Payouts"},{key:"rider-payouts",label:"Rider Payouts"},{key:"refunds",label:"Refunds"},{key:"ledger",label:"Settlement Ledger"}]},
-  ]},
-  {group:"Catalogue", items:[
-    {id:"prescriptions", icon:"▦", label:"Prescriptions", count:()=>DATA.prescriptions.filter(p=>p.status==="pending").length},
-  ]},
-  {group:"Healthcare", items:[
-    {id:"healthcare", icon:"✚", label:"Lab / Nursing / Ambulance",
-      children:[{key:"labs",label:"Lab Tests"},{key:"lab-bookings",label:"Lab Bookings"},{key:"nurses",label:"Nurse Directory"},{key:"nurse-bookings",label:"Nursing Bookings"},{key:"ambulance",label:"Ambulance"},{key:"ambulance-drivers",label:"Ambulance Drivers"},{key:"ambulance-bookings",label:"Ambulance Bookings"},{key:"ambulance-fleet",label:"Ambulance Fleet Map"},{key:"doctors",label:"Doctors"},{key:"homecare",label:"Home Care"}]},
+    {id:"finance", icon:"₹", label:"Finance",
+      children:[{key:"transactions",label:"Transaction"},{key:"refunds",label:"Refund"},{key:"ledger",label:"Settlement Ledger"}]},
+    {id:"payout", icon:"⇪", label:"Pay Out",
+      children:[{key:"overview",label:"Overview"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"nurse",label:"Nurse"},{key:"collector",label:"Blood Collector"},{key:"ambulance",label:"Ambulance"}]},
+    {id:"payment", icon:"▭", label:"Payment", count:()=>DATA.payQueue.filter(r=>r.status==="pending").length},
+    {id:"booking", icon:"✚", label:"Booking",
+      children:[{key:"lab",label:"Lab"},{key:"nurse",label:"Nurse"},{key:"ambulance",label:"Ambulance"}]},
   ]},
   {group:"Growth", items:[
-    {id:"coupons", icon:"◈", label:"Sponsored & Offers",
+    {id:"coupons", icon:"◈", label:"Sponsored",
       children:[{key:"coupons",label:"Coupons"},{key:"sponsored",label:"Sponsored Ads"}]},
-    {id:"notifications", icon:"◔", label:"Notifications"},
-  ]},
-  {group:"Support", items:[
-    {id:"support", icon:"◐", label:"Complaints", count:()=>DATA.tickets.filter(t=>t.status==="open").length},
-    {id:"reviews", icon:"☆", label:"Reviews & Ratings"},
-  ]},
-  {group:"Insights", items:[
-    {id:"reports", icon:"▥", label:"Analytics"},
+    {id:"reviews", icon:"☆", label:"Reviews"},
+    {id:"reports", icon:"▥", label:"Analysis"},
+    {id:"support", icon:"◐", label:"Complaint", count:()=>DATA.tickets.filter(t=>t.status==="open").length},
   ]},
   {group:"System", items:[
-    {id:"adminroles", icon:"⚿", label:"Security & Audit"},
-    {id:"syshealth", icon:"❤", label:"System Health"},
-    {id:"emergency", icon:"🆘", label:"Emergency Control"},
-    {id:"settings", icon:"⚙", label:"Settings"},
+    {id:"system", icon:"⚙", label:"System",
+      children:[{key:"security",label:"Security & Audit"},{key:"health",label:"System Health"},{key:"emergency",label:"Emergency Control"},{key:"settings",label:"Settings"}]},
+    {id:"logout", icon:"⏻", label:"Logout"},
   ]},
 ];
+const HIDDEN_NAV = [{id:"settings",label:"Settings"},{id:"adminroles",label:"Security & Audit"},{id:"syshealth",label:"System Health"},{id:"emergency",label:"Emergency Control"}];
 const BOTTOM_NAV = ["dashboard","orders","users","support"];
 const NAV_FLAT = NAV.flatMap(g=>g.items);
-function navItem(id){ return NAV_FLAT.find(i=>i.id===id); }
+function navItem(id){ return NAV_FLAT.find(i=>i.id===id) || HIDDEN_NAV.find(i=>i.id===id); }
 
 /* ---------------------------------------------------------
    4. GENERIC HELPERS
@@ -933,7 +972,7 @@ function navItem(id){ return NAV_FLAT.find(i=>i.id===id); }
 const $ = (sel,root=document)=>root.querySelector(sel);
 const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
 const esc = (s)=> String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const money = (n)=> "৳" + Number(n||0).toLocaleString("en-IN");
+const money = (n)=> "₹" + Number(n||0).toLocaleString("en-IN");
 const fmtDate = (s)=> s;
 
 function toast(msg, kind="default"){
@@ -958,7 +997,7 @@ function statusBadge(status){
   return badge(label, STATUS_TONE[status] || "gray");
 }
 
-function initials(name){ return String(name).trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+function initials(name){ return esc(String(name||"").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase()); }
 
 function sortRows(rows, key, dir){
   if(!key) return rows;
@@ -1037,10 +1076,9 @@ const VIEWS = {};
 
 /* ---- Dashboard ---- */
 const QUICK_ACTIONS = [
-  {ic:"⌂", label:"Verify pending merchants", nav:"merchants"},
-  {ic:"➔", label:"Approve rider KYC", nav:"riders"},
+  {ic:"✔", label:"Review pending KYC", nav:"kyc"},
   {ic:"▦", label:"Review prescriptions", nav:"prescriptions"},
-  {ic:"৳", label:"Process refunds", nav:"finance"},
+  {ic:"₹", label:"Process refunds", nav:"finance"},
   {ic:"◐", label:"Open complaints", nav:"support"},
   {ic:"🆘", label:"Emergency control", nav:"emergency"},
 ];
@@ -1062,7 +1100,7 @@ VIEWS.dashboard = () => {
     ...DATA.riders.filter(r=>r.status==="pending").map(r=>({who:r.name, role:"Rider", when:"—"})),
   ].slice(0,6);
   return `
-  <div class="view-head"><h1>Business Overview</h1><p>Live snapshot of orders, revenue and platform activity across MediFinder.</p></div>
+  <div class="view-head"><h1>Business Overview</h1><p>Live snapshot of orders, revenue and platform activity across MediFinder India.</p></div>
   <div class="stat-grid">
     <div class="stat-card"><div class="lbl">Total Users</div><div class="val">${DATA.users.length*187}</div><div class="delta up">▲ 4.2% this week</div></div>
     <div class="stat-card"><div class="lbl">Total Merchants</div><div class="val">${DATA.merchants.length}</div><div class="delta up">▲ 2 pending review</div></div>
@@ -1160,7 +1198,6 @@ VIEWS.orders = () => {
       {key:"date",label:"Placed"},
       {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell">
           <button class="btn sm" data-act="order-view" data-id="${r.id}">View</button>
-          ${r.status!=="delivered"&&r.status!=="cancelled" ? `<button class="btn sm" data-act="order-assign" data-id="${r.id}">Assign rider</button>` : ""}
         </div>`},
     ], rows, {emptyText:"No orders in this filter."})}
   </div></div>`;
@@ -1191,7 +1228,6 @@ VIEWS.users = () => {
       {key:"orders",label:"Orders"},
       {key:"joined",label:"Joined"},
       {key:"segment",label:"Segment",sortable:false,render:r=>badge(userSegment(r)[0].toUpperCase()+userSegment(r).slice(1), userSegment(r)==="vip"?"gold":userSegment(r)==="inactive"?"red":"blue")},
-      {key:"verified",label:"Verified",render:r=>r.verified?badge("Verified","green"):badge("Unverified","gold")},
       {key:"status",label:"Status",render:r=>statusBadge(r.status)},
       {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell">
           <button class="btn sm" data-act="user-history" data-id="${r.id}">History</button>
@@ -1202,10 +1238,9 @@ VIEWS.users = () => {
 };
 
 /* ---- Merchants ---- */
-const MERCHANT_TABS=[{key:"all",label:"All Merchants"},{key:"pending",label:"Pending Verification"},{key:"suspended",label:"Suspended"},{key:"kyc",label:"Merchant KYC"}];
+const MERCHANT_TABS=[{key:"all",label:"All Merchants"},{key:"pending",label:"Pending Verification"},{key:"suspended",label:"Suspended"}];
 VIEWS.merchants = () => {
   const state = vs("merchants",{tab:"all", search:""});
-  if(state.tab==="kyc") return viewMerchantKyc();
   let rows = DATA.merchants;
   if(state.tab==="pending") rows = rows.filter(m=>m.status==="pending");
   if(state.tab==="suspended") rows = rows.filter(m=>m.status==="suspended");
@@ -1259,7 +1294,7 @@ function viewMerchantKyc(){
 }
 
 /* ---- Riders ---- */
-const RIDER_TABS=[{key:"all",label:"All Riders"},{key:"pending",label:"Pending KYC"},{key:"live",label:"Live Riders"}];
+const RIDER_TABS=[{key:"all",label:"All Riders"},{key:"live",label:"Live Riders"}];
 VIEWS.riders = () => {
   const state = vs("riders",{tab:"all", search:""});
   let rows = DATA.riders;
@@ -1340,7 +1375,7 @@ VIEWS.products = () => {
   return `
   <div class="view-head"><h1>Product / Medicine Management</h1><p>Organize the catalogue by category, brand and prescription requirement.</p></div>
   ${toolbarTabs("products", PRODUCT_TABS)}
-  <div class="view-toolbar">${toolbarSearch("products","Search product, category or brand")}<button class="btn primary" style="margin-left:auto" data-act="product-add">+ Add product</button></div>
+  <div class="view-toolbar">${toolbarSearch("products","Search product, category or brand")}</div>
   <div class="card"><div class="card-body pad0" id="tablewrap-products">
     ${renderTable("products",[
       {key:"name",label:"Product",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div>`},
@@ -1385,7 +1420,7 @@ VIEWS.prescriptions = () => {
 };
 
 /* ---- Finance ---- */
-const FIN_TABS=[{key:"transactions",label:"Transactions"},{key:"merchant-payouts",label:"Merchant Payouts"},{key:"rider-payouts",label:"Rider Payouts"},{key:"refunds",label:"Refunds"},{key:"ledger",label:"Settlement Ledger"}];
+const FIN_TABS=[{key:"transactions",label:"Transaction"},{key:"refunds",label:"Refund"},{key:"ledger",label:"Settlement Ledger"}];
 VIEWS.finance = () => {
   const state = vs("finance",{tab:"transactions"});
   const gmv = DATA.orders.reduce((s,o)=>s+o.total,0);
@@ -1579,14 +1614,16 @@ VIEWS.delivery = () => `
   <div class="view-toolbar"><button class="btn primary" data-act="zone-add">+ Add zone</button></div>
   <div class="card"><div class="card-body pad0" id="tablewrap-delivery">
     ${renderTable("delivery",[
-      {key:"name",label:"Zone"},
+      {key:"name",label:"Zone",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.ps)} · ${esc(r.state)}</div>`},
+      {key:"pincode",label:"Pincode"},
+      {key:"district",label:"District"},
       {key:"baseFee",label:"Base Fee",render:r=>money(r.baseFee)},
       {key:"perKm",label:"Per KM",render:r=>money(r.perKm)},
       {key:"express",label:"Express Fee",render:r=>money(r.express)},
-      {key:"riders",label:"Riders",render:r=>r.riders},
-      {key:"merchants",label:"Merchants",render:r=>DATA.merchants.filter(x=>x.city===r.name).length},
-      {key:"orders",label:"Orders",render:r=>DATA.orders.filter(o=>DATA.merchants.find(m=>m.name===o.merchant)?.city===r.name).length},
-      {key:"status",label:"Status",render:r=>`<label class="toggle"><input type="checkbox" ${r.status==='active'?"checked":""} data-act="zone-toggle" data-name="${r.name}"><span class="track"></span></label>`},
+      {key:"riders",label:"Riders",render:r=>DATA.riders.filter(x=>x.zone===r.name).length},
+      {key:"merchants",label:"Merchants",render:r=>DATA.merchants.filter(x=>String(x.pincode)===String(r.pin)).length},
+      {key:"orders",label:"Orders",render:r=>DATA.orders.filter(o=>DATA.merchants.find(m=>m.name===o.merchant)?.pincode===r.pin).length},
+      {key:"status",label:"Status",render:r=>`<label class="toggle"><input type="checkbox" ${r.status==='active'?"checked":""} data-act="zone-toggle" data-id="${esc(r.id)}"><span class="track"></span></label>${r.status!=='active'&&r.suspendReason?`<div class="cell-sub">Reason: ${esc(r.suspendReason)}</div>`:""}`},
     ], DATA.zones)}
   </div></div>`;
 
@@ -1896,14 +1933,14 @@ VIEWS.adminroles = () => `
 
 /* ---- Settings ---- */
 VIEWS.settings = () => { const s = STATE.settings; return `
-  <div class="view-head"><h1>Platform Settings</h1><p>Fees, commission, tax and policies applied across MediFinder.</p></div>
+  <div class="view-head"><h1>Platform Settings</h1><p>Fees, commission, tax and policies applied across MediFinder India.</p></div>
   <div class="card"><div class="card-head"><h3>General</h3></div><div class="card-body">
     <div class="field-row">
       <div class="field"><label>Platform name</label><input id="setName" value="${esc(s.platformName)}"></div>
       <div class="field"><label>Platform commission (%)</label><input id="setCommission" type="number" value="${s.commission}"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>COD fee (৳)</label><input id="setCod" type="number" value="${s.codFee}"></div>
+      <div class="field"><label>COD fee (₹)</label><input id="setCod" type="number" value="${s.codFee}"></div>
       <div class="field"><label>Processing fee (%)</label><input id="setProcessing" type="number" value="${s.processingFee}"></div>
     </div>
     <div class="field"><label>Tax / VAT (%)</label><input id="setTax" type="number" value="${s.tax}" style="max-width:160px"></div>
@@ -1957,12 +1994,12 @@ const Actions = {
   "user-bulk-message-send": async (el)=>{ const msg=$("#uBulkMsg").value.trim(); if(!msg){ toast("Message is required","danger"); return; }
     const seg=el.dataset.seg;
     if(seg==="all"){
-      const { error } = await supabase.from('notifications').insert({ user_id:null, type:'admin_broadcast', title:'Message from MediFinder', message:msg });
+      const { error } = await supabase.from('notifications').insert({ user_id:null, type:'admin_broadcast', title:'Message from MediFinder India', message:msg });
       if(error){ toast("Failed: "+error.message,"danger"); return; }
     } else {
       const targets = DATA.users.filter(u=>userSegment(u)===seg);
       if(!targets.length){ toast("No customers in this segment","danger"); return; }
-      const rows = targets.map(u=>({ user_id:u.id, type:'admin_broadcast', title:'Message from MediFinder', message:msg }));
+      const rows = targets.map(u=>({ user_id:u.id, type:'admin_broadcast', title:'Message from MediFinder India', message:msg }));
       const { error } = await supabase.from('notifications').insert(rows);
       if(error){ toast("Failed: "+error.message,"danger"); return; }
     }
@@ -1974,7 +2011,7 @@ const Actions = {
     const { error } = await supabase.rpc('approve_merchant_license', { merchant_id_input: m.id });
     if(error){ toast("Approve failed: "+error.message,"danger"); return; }
     await supabase.from('merchants').update({ kyc_status:'approved', kyc_rejection_reason:'' }).eq('id', m.id);
-    await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Shop verified', message:'Your shop & drug licence have been verified. You are now live on MediFinder.', type:'success', category:'kyc' });
+    await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Shop verified', message:'Your shop & drug licence have been verified. You are now live on MediFinder India.', type:'success', category:'kyc' });
     m.status="active"; m.license="verified"; m.kycReason=""; render(); toast("Merchant approved / KYC verified");
   },
   "merchant-reject": (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
@@ -2010,7 +2047,7 @@ const Actions = {
   },
   "merchant-notify-confirm": async (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
     const msg = $("#mNotifyMsg").value.trim(); if(!msg){ toast("Message is required","danger"); return; }
-    const { error } = await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Message from MediFinder Admin', message:msg, type:'info', category:'general' });
+    const { error } = await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Message from MediFinder India Admin', message:msg, type:'info', category:'general' });
     if(error){ toast("Failed to send: "+error.message,"danger"); return; }
     closeModal(); render(); toast(`Notification sent to ${m.name}`);
   },
@@ -2082,7 +2119,7 @@ const Actions = {
       </div>
       <div class="field"><label>Merchant (shop)</label><select id="pMerchant">${DATA.merchants.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div>
       <div class="field-row">
-        <div class="field"><label>Price (৳)</label><input id="pPrice" type="number"></div>
+        <div class="field"><label>Price (₹)</label><input id="pPrice" type="number"></div>
         <div class="field"><label>Stock</label><input id="pStock" type="number"></div>
       </div>
       <div class="field"><label><input type="checkbox" id="pRx" style="width:auto; margin-right:6px">Prescription required</label></div>`,
@@ -2099,7 +2136,7 @@ const Actions = {
   },
   "product-edit": (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
     openModal(`Edit ${p.name}`, `
-      <div class="field-row"><div class="field"><label>Price (৳)</label><input id="epPrice" type="number" value="${p.price}"></div><div class="field"><label>Stock</label><input id="epStock" type="number" value="${p.stock}"></div></div>`,
+      <div class="field-row"><div class="field"><label>Price (₹)</label><input id="epPrice" type="number" value="${p.price}"></div><div class="field"><label>Stock</label><input id="epStock" type="number" value="${p.stock}"></div></div>`,
       `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="product-edit-save" data-id="${p.id}">Save</button>`);
   },
   "product-edit-save": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
@@ -2159,8 +2196,8 @@ const Actions = {
       <div class="field-row"><div class="field"><label>Code</label><input id="cCode" placeholder="e.g. SAVE20"></div>
       <div class="field"><label>Type</label><select id="cType"><option value="percent">Percentage</option><option value="fixed">Fixed amount</option></select></div></div>
       <div class="field-row"><div class="field"><label>Value</label><input id="cValue" type="number"></div>
-      <div class="field"><label>Max discount (৳)</label><input id="cMax" type="number"></div></div>
-      <div class="field-row"><div class="field"><label>Min order (৳)</label><input id="cMin" type="number"></div>
+      <div class="field"><label>Max discount (₹)</label><input id="cMax" type="number"></div></div>
+      <div class="field-row"><div class="field"><label>Min order (₹)</label><input id="cMin" type="number"></div>
       <div class="field"><label>Usage limit</label><input id="cLimit" type="number" value="500"></div></div>
       <div class="field"><label>Expiry date</label><input id="cExpiry" type="date"></div>`,
       `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="coupon-save">Create</button>`),
@@ -2187,7 +2224,7 @@ const Actions = {
     const editId = el.dataset.id ? Number(el.dataset.id) : null;
     const linkedProductId = $("#adProductId").value || null;
     const customLink = $("#adBtnAction").value.trim();
-    const btnAction = linkedProductId ? `product-detail.html?id=${encodeURIComponent(linkedProductId)}` : customLink;
+    const btnAction = linkedProductId ? `user.html?id=${encodeURIComponent(linkedProductId)}` : customLink;
 
     let useCustomImage = false, customImageUrl = null;
     if(AD_UPLOADED_FILE){
@@ -2248,7 +2285,7 @@ const Actions = {
     const map = {doctors:["Doctor name","spec"], nurses:["Nurse name","type"], labs:["Lab / partner name","test"], ambulance:["Provider name","type"], homecare:["Service name","provider"]};
     promptAdd(`Add to ${kind}`, map[kind][0], async (v)=>{
       if(kind==="doctors") DATA.doctors.push({id:nextId("DOC"),name:v,spec:"General Physician",fee:500,status:"available",rating:4.5});
-      if(kind==="homecare") DATA.homecare.push({id:nextId("HMC"),name:v,provider:"CarePlus",rate:"৳900/session",status:"available"});
+      if(kind==="homecare") DATA.homecare.push({id:nextId("HMC"),name:v,provider:"CarePlus",rate:"₹900/session",status:"available"});
       if(kind==="nurses"){
         const { error } = await supabase.from('nurses').insert({ name:v });
         if(error){ toast("Failed to add nurse: "+error.message,"danger"); return; }
@@ -2382,6 +2419,650 @@ function promptAdd(title, label, onSave){
   $("#promptSaveBtn").addEventListener("click", ()=>{ const v=$("#promptVal").value.trim(); if(!v){ toast("This field is required","danger"); return; } closeModal(); onSave(v); });
 }
 
+/* =========================================================
+   6b. ADMIN RESTRUCTURE — KYC / Booking / Payout / Payment /
+       Notification / Zone / System / Logout   (all REAL tables)
+   ========================================================= */
+DATA.raw = { merchantKyc:[], riderKyc:[], nurseKyc:[], collectorKyc:[], collectors:[], ambulance:[] };
+DATA.payouts = { merchant:[], rider:[], nurse:[], collector:[], ambulance:[] };
+
+const isUrl = (v)=> /^https?:\/\//i.test(String(v||""));
+const mask = (v)=> v ? "••••" + String(v).slice(-4) : "—";
+const dash = (v)=> (v===null || v===undefined || v==="") ? "—" : v;
+const fmtTs = (iso)=> iso ? fmtDateTime(iso) : "—";
+function normKyc(v){
+  v = String(v||"").toLowerCase();
+  if(["verified","approved","active"].includes(v)) return "verified";
+  if(["rejected","reject","declined"].includes(v)) return "rejected";
+  if(["pending","pending_review","submitted","under_review"].includes(v)) return "pending";
+  return null; // draft / not_started / not_submitted → not part of KYC queue
+}
+function normPayStatus(v){
+  v = String(v||"pending").toLowerCase().replace(/[\s-]+/g,"_");
+  if(["paid","completed","done","success","settled"].includes(v)) return "paid";
+  if(["processing","approved","in_progress"].includes(v)) return "processing";
+  if(["failed","rejected"].includes(v)) return "failed";
+  if(["on_hold","hold","held"].includes(v)) return "on_hold";
+  return "pending";
+}
+STATUS_TONE.on_hold = "gray"; STATUS_TONE.verified = "green";
+async function safeSelect(table, cols="*", limit=500){
+  if(!supabase) return [];
+  const { data, error } = await supabase.from(table).select(cols).limit(limit);
+  if(error){ console.warn("[admin] "+table+": "+error.message); return []; }
+  return data || [];
+}
+function doc(label, ref, bucket){ return ref ? {label, ref:String(ref), bucket} : null; }
+function jsonDocs(obj, bucket, prefix){
+  const out = [];
+  if(!obj || typeof obj!=="object") return out;
+  Object.entries(obj).forEach(([k,v])=>{
+    const label = (prefix?prefix+" · ":"") + k.replace(/_/g," ");
+    if(typeof v==="string" && v) out.push(doc(label, v, bucket));
+    else if(v && typeof v==="object"){ const ref = v.url || v.path; if(typeof ref==="string" && ref) out.push(doc(label, ref, bucket)); else out.push(...jsonDocs(v, bucket, label)); }
+  });
+  return out.filter(Boolean);
+}
+
+async function loadPartnerExtras(){
+  const R = DATA.raw;
+  R.merchantKyc = await safeSelect("merchant_kyc");
+  R.riderKyc = await safeSelect("rider_kyc_application");
+  R.nurseKyc = await safeSelect("nurse_kyc");
+  R.collectorKyc = await safeSelect("collector_kyc");
+  R.collectors = await safeSelect("sample_collectors", "id, full_name, phone, auth_user_id, kyc_status");
+  const nurseByUid = {}; DATA.nurses.forEach(n=>{ if(n.authUserId) nurseByUid[n.authUserId] = n.name; });
+  R.nurseKyc.forEach(k=>{ if(k.full_name) nurseByUid[k.user_id] = k.full_name; });
+  const colName = {}; R.collectors.forEach(c=>{ colName[c.id] = c.full_name || ("Collector #"+String(c.id).slice(0,6)); });
+  const colKyc = {}; R.collectorKyc.forEach(k=>{ colKyc[k.collector_id] = k; });
+  const drvById = {}; R.ambulance.forEach(d=>{ drvById[d.id] = d; });
+
+  const bankLine = (upi, acct, ifsc, bank)=> upi ? `UPI · ${upi}` : (acct || bank) ? `Bank · ${bank?bank+" ":""}${acct?mask(acct):""}${ifsc?" · "+ifsc:""}` : "—";
+  const base = (p)=>({ gross:null, commission:null, fees:null, adj:null, ...p });
+
+  /* merchant */
+  const mName = {}; DATA.merchants.forEach(m=>{ mName[String(m.id)] = m.name; });
+  DATA.payouts.merchant = (await safeSelect("merchant_payouts")).map(p=>base({
+    kind:"merchant", id:p.id, recipient: mName[String(p.merchant_id ?? p.shop_id)] || ("Shop #"+(p.shop_id ?? p.merchant_id)),
+    period:(p.created_at||"").slice(0,10), gross:Number(p.amount||0), net:Number(p.amount||0),
+    ref: p.order_id ? "Order "+String(p.order_id).slice(0,8) : "", bank: bankLine(p.upi_id, p.bank_account, p.ifsc),
+    requestedAt:p.created_at, paidAt:p.paid_at || p.settled_at, txn:p.txn_ref, note:p.admin_note, status:normPayStatus(p.status),
+  }));
+  /* rider */
+  const riderNames = {}; DATA.riders.forEach(r=>{ riderNames[r.id] = r.name; });
+  DATA.payouts.rider = (await safeSelect("admin_payout_requests")).filter(p=>p.rider_id!=null).map(p=>base({
+    kind:"rider", id:p.id, recipient: riderNames[p.rider_id] || ("Rider #"+p.rider_id),
+    period:(p.requested_at||p.created_at||"").slice(0,10), net:Number(p.total_payout_amount ?? p.amount ?? 0), gross:Number(p.total_payout_amount ?? p.amount ?? 0),
+    ref: p.active_duty_hours!=null ? `${p.active_duty_hours} duty hrs` : "", bank: bankLine(p.upi_id, p.bank_account, p.ifsc),
+    requestedAt:p.requested_at || p.created_at, paidAt:p.processed_at, txn:p.txn_ref, note:p.notes, status:normPayStatus(p.request_status || p.status),
+  }));
+  /* nurse */
+  DATA.payouts.nurse = (await safeSelect("nurse_payouts")).map(p=>base({
+    kind:"nurse", id:p.id, recipient: nurseByUid[p.user_id] || ("Nurse "+String(p.user_id).slice(0,6)),
+    period:(p.created_at||"").slice(0,10), net:Number(p.amount||0), gross:Number(p.amount||0), ref:"",
+    bank: p.upi_id ? `UPI · ${p.upi_id}` : (p.bank_name||p.account_last4) ? `Bank · ${p.bank_name||""} ••••${p.account_last4||""}${p.ifsc?" · "+p.ifsc:""}` : "—",
+    requestedAt:p.created_at, paidAt:p.processed_at, txn:p.txn_ref, note:p.admin_note, status:normPayStatus(p.status),
+  }));
+  /* lab / blood collector */
+  DATA.payouts.collector = (await safeSelect("collector_earnings")).map(p=>{ const k = colKyc[p.collector_id] || {};
+    return base({
+      kind:"collector", id:p.id, recipient: colName[p.collector_id] || ("Collector "+String(p.collector_id).slice(0,6)),
+      period:(p.created_at||"").slice(0,10), gross:Number(p.gross_amount||0), commission:Number(p.commission_amount||0), net:Number(p.net_amount||0),
+      ref:[p.booking_ref, p.test_name].filter(Boolean).join(" · "), bank: bankLine(k.upi_id, k.bank_account_no, k.ifsc, ""),
+      requestedAt:p.created_at, paidAt:p.settled_at, txn:p.txn_ref, note:p.admin_note, status:normPayStatus(p.status),
+    }); });
+  /* ambulance — one settlement per completed ride */
+  const rides = await safeSelect("ambulance_bookings");
+  DATA.payouts.ambulance = rides.filter(b=>b.status==="completed").map(b=>{ const d = drvById[b.driver_id] || {};
+    return base({
+      kind:"ambulance", id:b.id, recipient: d.driver_name || "Driver", period:(b.completed_at||b.created_at||"").slice(0,10),
+      gross:Number(b.fare_final ?? b.fare_estimate ?? 0), commission:Number(b.commission_amount||0), net:Number(b.driver_earning||0),
+      ref:"Ride "+String(b.id).slice(0,8), bank: bankLine(d.bank_upi_id, d.bank_account_number, d.bank_ifsc_code, d.bank_name) + (d.bank_verified?" · verified":" · bank not verified"),
+      requestedAt:b.completed_at || b.created_at, paidAt:b.settled_at, txn:b.settlement_txn_ref, note:b.settlement_note, status:normPayStatus(b.settlement_status),
+    }); });
+}
+
+/* ---------- KYC ---------- */
+function kycAllRows(){
+  const R = DATA.raw, out = [];
+  const mk = {}; R.merchantKyc.forEach(k=>{ mk[k.merchant_id] = k; });
+  DATA.merchants.forEach(m=>{
+    const k = mk[m.id] || {};
+    let st = null;
+    if(m.license==="verified") st = "verified";
+    else if(m.license==="rejected" || m.kycStatusRaw==="rejected") st = "rejected";
+    else if(m.kycStatusRaw==="pending_review" || k.status==="pending") st = "pending";
+    if(!st) return;
+    out.push({kind:"merchant", id:m.id, name:m.name, phone:m.phone, info:`${m.owner} · ${m.city} ${m.pincode}`, status:st, reason:m.kycReason||k.rejection_reason||"", submitted:(k.created_at||"").slice(0,10),
+      details:[["Pharmacy",m.name],["Owner",m.owner],["Phone",m.phone],["Email",m.email],["Address",`${m.address}, ${m.city} ${m.pincode}`],["Shop GPS pin",(m.lat!=null&&m.lng!=null)?`${m.lat}, ${m.lng}  (https://www.google.com/maps?q=${m.lat},${m.lng})`:"Not pinned yet"],["Licence no.",dash(k.license_no)],["Aadhaar",dash(k.aadhaar_number)],["PAN",dash(k.pan_number)]],
+      docs:[doc("Drug licence",k.license_img,"license_docs"),doc("Aadhaar",k.aadhaar_img,"license_docs"),doc("PAN",k.pan_img,"license_docs")].filter(Boolean)});
+  });
+  const rk = {}; R.riderKyc.forEach(k=>{ rk[k.rider_id] = k; });
+  DATA.riders.forEach(r=>{
+    const k = rk[r.id]; if(!k && r.status!=="active") return;
+    const st = r.status==="pending" ? "pending" : r.status==="active" ? "verified" : (k && normKyc(k.status)==="rejected") ? "rejected" : null; if(!st) return;
+    const kk = k || {};
+    out.push({kind:"rider", id:r.id, name:r.name, phone:r.phone, info:`${r.vehicle}`, status:st, reason:r.kycReason||kk.rejection_reason||"", submitted:(kk.submitted_at||"").slice(0,10),
+      details:[["Name",r.name],["Phone",dash(kk.contact_no||r.phone)],["WhatsApp",dash(kk.whatsapp_no)],["Email",dash(kk.email)],["Age",dash(kk.age)],["Address",dash(kk.address)],["Vehicle",`${dash(kk.vehicle_type)} · ${dash(kk.vehicle_no)}`],["Licence no.",dash(kk.license_no)],["ID",`${dash(kk.id_type)} · ${dash(kk.id_no)}`],["UPI",dash(kk.upi_id)],["Account",`${mask(kk.account_no)} · ${dash(kk.ifsc_code)}`]],
+      docs:[doc("Selfie",kk.selfie_img,"rider-documents"),doc("ID proof",kk.id_img,"rider-documents"),doc("Driving licence",kk.license_img,"rider-documents"),doc("Vehicle",kk.vehicle_img,"rider-documents"),doc("Insurance",kk.insurance_img,"rider-documents"),doc("Bank document",kk.bank_doc_img,"rider-documents"),doc("UPI QR",kk.qr_code_img,"rider-documents")].filter(Boolean)});
+  });
+  R.nurseKyc.forEach(k=>{ const st = normKyc(k.status); if(!st) return;
+    out.push({kind:"nurse", id:k.user_id, name:k.full_name||"Nurse", phone:k.contact_no, info:k.qualification||"", status:st, reason:k.rejection_reason||"", submitted:(k.submitted_at||"").slice(0,10),
+      details:[["Name",k.full_name],["DOB",dash(k.dob)],["Phone",dash(k.contact_no)],["WhatsApp",dash(k.whatsapp_no)],["Address",`${dash(k.address_line)}, ${dash(k.city)}, ${dash(k.state)} ${dash(k.pincode)}`],["ID proof",dash(k.id_proof_type)],["Qualification",dash(k.qualification)],["Day charge",k.day_charge!=null?money(k.day_charge):"—"],["Bank",`${dash(k.bank_holder)} · ${dash(k.bank_name)} · ${mask(k.account_no)} · ${dash(k.ifsc)}`],["UPI",dash(k.upi_id)]],
+      docs:[doc("ID proof",k.id_proof_path,"nurse-kyc"),doc("Address proof",k.address_proof_path,"nurse-kyc"),doc("Certificate",k.certificate_path,"nurse-kyc"),doc("Bank proof",k.bank_proof_path,"nurse-kyc")].filter(Boolean)}); });
+  R.collectorKyc.forEach(k=>{ const st = normKyc(k.status); if(!st) return;
+    out.push({kind:"lab", id:k.id, name:k.full_name||"Collector", phone:k.mobile_no, info:`${dash(k.city)} ${dash(k.pincode)}`, status:st, reason:k.rejection_reason||"", submitted:(k.submitted_at||"").slice(0,10),
+      details:[["Name",k.full_name],["Mobile",dash(k.mobile_no)],["WhatsApp",dash(k.whatsapp_no)],["Address",`${dash(k.address)}, ${dash(k.city)}, ${dash(k.state)} ${dash(k.pincode)}`],["ID proof",`${dash(k.id_proof_type)} · ${dash(k.id_proof_number)}`],["Address proof",`${dash(k.address_proof_type)} · ${dash(k.address_proof_number)}`],["Bank",`${dash(k.bank_holder)} · ${mask(k.bank_account_no)} · ${dash(k.ifsc)}`],["UPI",dash(k.upi_id)]],
+      docs:[doc("Photo",k.photo_url,"collector-docs"),doc("ID proof",k.id_proof_url,"collector-docs"),doc("Address proof",k.address_proof_url,"collector-docs"),doc("Passbook",k.passbook_url,"collector-docs")].filter(Boolean)}); });
+  R.ambulance.forEach(d=>{ const st = normKyc(d.kyc_status); if(!st) return;
+    out.push({kind:"ambulance", id:d.id, name:d.driver_name||"Driver", phone:d.phone, info:`${dash(d.vehicle_type)} · ${dash(d.plate_number)}`, status:st, reason:d.kyc_rejection_reason||"", submitted:(d.kyc_submitted_at||"").slice(0,10),
+      details:[["Driver",d.driver_name],["Phone",dash(d.phone)],["Vehicle",`${dash(d.vehicle_type)} · ${dash(d.plate_number)} · ${dash(d.category)}`],["Address",`${dash(d.address)} ${dash(d.pincode)}`],["Emergency contact",`${dash(d.emergency_contact_name)} ${dash(d.emergency_contact_phone)}`],["Bank",`${dash(d.bank_account_holder)} · ${dash(d.bank_name)} · ${mask(d.bank_account_number)} · ${dash(d.bank_ifsc_code)}`],["UPI",dash(d.bank_upi_id)],["Bank verified",d.bank_verified?"Yes":"No"]],
+      docs:[doc("Driver photo",d.photo_url,"ambulance-kyc"),doc("Vehicle photo",d.vehicle_photo_url,"ambulance-kyc"),doc("Plate photo",d.plate_photo_url,"ambulance-kyc"),...jsonDocs(d.kyc_documents,"ambulance-kyc","KYC"),...jsonDocs(d.vehicle_documents,"ambulance-kyc","Vehicle")].filter(Boolean)}); });
+  return out;
+}
+const KYC_STATUS_TABS = [{key:"verified",label:"Verified"},{key:"pending",label:"Pending"},{key:"rejected",label:"Reject"}];
+const KYC_TITLE = {merchant:"Merchant", rider:"Rider", nurse:"Nurse", lab:"Lab / Blood Collector", ambulance:"Ambulance"};
+VIEWS.kyc = () => {
+  const st = vs("kyc",{tab:"merchant"}); const sub = vs("kycstatus",{tab:"pending"});
+  const all = kycAllRows().filter(r=>r.kind===st.tab);
+  const rows = all.filter(r=>r.status===sub.tab);
+  const tabs = KYC_STATUS_TABS.map(t=>({...t, label:`${t.label} (${all.filter(r=>r.status===t.key).length})`}));
+  return `
+  <div class="view-head"><h1>${KYC_TITLE[st.tab]} KYC</h1><p>Applicant details → documents → approve / reject → KYC history.</p></div>
+  ${toolbarTabs("kycstatus", tabs)}
+  <div class="card"><div class="card-body pad0" id="tablewrap-kyc">
+  ${renderTable("kyc",[
+    {key:"name",label:"Applicant",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.info)}</div>`},
+    {key:"phone",label:"Phone"},{key:"submitted",label:"Submitted"},
+    {key:"status",label:"Status",render:r=>statusBadge(r.status)},
+    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm" data-act="kyc-detail" data-kind="${r.kind}" data-id="${esc(r.id)}">Details</button>`},
+  ], rows, {emptyText:"Nothing in this KYC filter."})}
+  </div></div>`;
+};
+function kycFind(kind,id){ return kycAllRows().find(r=>r.kind===kind && String(r.id)===String(id)); }
+
+/* ---------- BOOKING ---------- */
+const BK_STATUS_TABS = [{key:"all",label:"All"},{key:"new",label:"Pending"},{key:"accepted",label:"Accepted"},{key:"cancelled",label:"Rejected"},{key:"completed",label:"Completed"}];
+const BK_META = {
+  lab:{title:"Lab", prefix:"lbk", provider:"Blood collector", rows:()=>DATA.labBookings},
+  nurse:{title:"Nurse", prefix:"nbk", provider:"Nurse", rows:()=>DATA.nurseBookings},
+  ambulance:{title:"Ambulance", prefix:"abk", provider:"Driver", rows:()=>DATA.ambulanceBookings},
+};
+VIEWS.booking = () => {
+  const st = vs("booking",{tab:"lab"}); const sub = vs("bookingstatus",{tab:"all"}); const meta = BK_META[st.tab];
+  let rows = meta.rows();
+  if(sub.tab!=="all") rows = rows.filter(r=> sub.tab==="accepted" ? ["accepted","assigned","on-route"].includes(r.status) : r.status===sub.tab);
+  return `
+  <div class="view-head"><h1>${meta.title} Bookings</h1><p>Pending → booking details → accept / reject (${meta.provider.toLowerCase()}) → status history.</p></div>
+  ${toolbarTabs("bookingstatus", BK_STATUS_TABS)}
+  <div class="card"><div class="card-body pad0" id="tablewrap-booking">
+  ${renderTable("booking",[
+    {key:"id",label:"Booking"},{key:"customer",label:"Customer"},{key:"service",label:"Service"},{key:"provider",label:meta.provider},
+    {key:"date",label:"Date / Time"},{key:"payment",label:"Payment",render:r=>badge(r.payment,r.payment==="COD"?"gold":"blue")},
+    {key:"status",label:"Status",render:r=>statusBadge(r.status)},
+    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm" data-act="bk-detail" data-kind="${st.tab}" data-id="${esc(r.id)}">Details</button>`},
+  ], rows, {emptyText:"No bookings in this filter."})}
+  </div></div>`;
+};
+
+/* ---------- PAYOUT ---------- */
+const PAY_STATUSES = ["pending","processing","paid","failed","on_hold"];
+const PAY_LABEL = {pending:"Pending",processing:"Processing",paid:"Paid",failed:"Failed",on_hold:"On Hold"};
+const PAY_STATUS_TABS = [{key:"all",label:"All"}, ...PAY_STATUSES.map(k=>({key:k,label:PAY_LABEL[k]}))];
+const PAY_KIND_TITLE = {merchant:"Merchant", rider:"Rider", nurse:"Nurse", collector:"Lab / Blood Collector", ambulance:"Ambulance"};
+const payoutRows = (kind)=> DATA.payouts[kind] || [];
+const payTone = (s)=> s==="paid"?"green":s==="failed"?"red":s==="on_hold"?"gray":"gold";
+VIEWS.payout = () => {
+  const st = vs("payout",{tab:"overview"});
+  if(st.tab==="overview"){
+    return `
+    <div class="view-head"><h1>Pay Out</h1><p>Every partner payout in one place — pending, processing, paid, failed and on hold.</p></div>
+    <div class="card"><div class="card-body pad0">
+    ${renderTable("payoverview",[
+      {key:"label",label:"Partner"},
+      ...PAY_STATUSES.map(k=>({key:k,label:PAY_LABEL[k],sortable:false})),
+      {key:"due",label:"Pending amount",sortable:false,render:r=>money(r.due)},
+    ], Object.keys(PAY_KIND_TITLE).map(kind=>{
+      const rows = payoutRows(kind); const o = {label:PAY_KIND_TITLE[kind], due:rows.filter(x=>x.status==="pending").reduce((a,x)=>a+x.net,0)};
+      PAY_STATUSES.forEach(k=>{ o[k] = rows.filter(x=>x.status===k).length; }); return o;
+    }))}
+    </div></div>`;
+  }
+  const sub = vs("payoutstatus",{tab:"all"});
+  let rows = payoutRows(st.tab); if(sub.tab!=="all") rows = rows.filter(r=>r.status===sub.tab);
+  return `
+  <div class="view-head"><h1>${PAY_KIND_TITLE[st.tab]} Payout</h1><p>Pending → earning details → approve payout → paid → transaction history.</p></div>
+  ${toolbarTabs("payoutstatus", PAY_STATUS_TABS)}
+  <div class="card"><div class="card-body pad0" id="tablewrap-payout">
+  ${renderTable("payout",[
+    {key:"recipient",label:"Recipient",render:r=>`<div class="cell-strong">${esc(r.recipient)}</div><div class="cell-sub">${esc(r.ref||"")}</div>`},
+    {key:"period",label:"Period"},{key:"net",label:"Net payable",render:r=>money(r.net)},
+    {key:"requestedAt",label:"Requested",render:r=>esc(fmtTs(r.requestedAt))},
+    {key:"status",label:"Status",render:r=>badge(PAY_LABEL[r.status], payTone(r.status))},
+    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm" data-act="payout-detail" data-kind="${r.kind}" data-id="${esc(r.id)}">Details</button>`},
+  ], rows, {emptyText:"No payouts in this filter."})}
+  </div></div>`;
+};
+
+/* ---------- PAYMENT VERIFICATION (UPI/UTR submitted by customers) ---------- */
+DATA.payQueue = [];
+async function loadPaymentQueue(){
+  if(!supabase) return;
+  const sel = (t, c)=> supabase.from(t).select(c).not("payment_verification_status","is",null).order("created_at",{ascending:false}).limit(150);
+  const [o,l,n,a] = await Promise.all([
+    sel("orders","id, order_id, customer_name, customer_phone, user_name, user_phone, total_amount, payment_utr, payment_verification_status, payment_verified_at, payment_note, status, created_at"),
+    sel("lab_bookings","id, booking_id, patient_name, patient_phone, test_name, test_price, payment_utr, payment_verification_status, payment_verified_at, payment_note, status, created_at"),
+    sel("nurse_bookings","id, patient_name, contact_no, service_label, total_amount, payment_utr, payment_verification_status, payment_verified_at, payment_note, status, created_at"),
+    sel("ambulance_bookings","id, patient_name, contact_phone, vehicle_type, fare_final, fare_estimate, payment_utr, payment_verification_status, payment_verified_at, payment_note, status, created_at"),
+  ]);
+  const st = (r)=> r.payment_verification_status === "verified" ? "verified" : r.payment_verification_status === "rejected" ? "rejected" : "pending";
+  const rows = [];
+  (o.data||[]).forEach(r=>rows.push({kind:"order", rawId:r.id, ref:r.order_id || ("ORD-"+String(r.id).slice(0,8)), what:"Medicine order", customer:r.customer_name||r.user_name||"Customer", phone:r.customer_phone||r.user_phone||"—", amount:Number(r.total_amount||0), utr:r.payment_utr, status:st(r), at:r.created_at, verifiedAt:r.payment_verified_at, note:r.payment_note, itemStatus:r.status}));
+  (l.data||[]).forEach(r=>rows.push({kind:"lab", rawId:r.id, ref:r.booking_id||("LBK-"+String(r.id).slice(0,8)), what:"Lab · "+(r.test_name||"test"), customer:r.patient_name||"Patient", phone:r.patient_phone||"—", amount:Number(r.test_price||0), utr:r.payment_utr, status:st(r), at:r.created_at, verifiedAt:r.payment_verified_at, note:r.payment_note, itemStatus:r.status}));
+  (n.data||[]).forEach(r=>rows.push({kind:"nurse", rawId:r.id, ref:"NBK-"+String(r.id).slice(0,8), what:"Nurse · "+(r.service_label||"visit"), customer:r.patient_name||"Patient", phone:r.contact_no||"—", amount:Number(r.total_amount||0), utr:r.payment_utr, status:st(r), at:r.created_at, verifiedAt:r.payment_verified_at, note:r.payment_note, itemStatus:r.status}));
+  (a.data||[]).forEach(r=>rows.push({kind:"ambulance", rawId:r.id, ref:"ABK-"+String(r.id).slice(0,8), what:"Ambulance ride", customer:r.patient_name||"Patient", phone:r.contact_phone||"—", amount:Number(r.fare_final ?? r.fare_estimate ?? 0), utr:r.payment_utr, status:st(r), at:r.created_at, verifiedAt:r.payment_verified_at, note:r.payment_note, itemStatus:r.status}));
+  DATA.payQueue = rows.sort((x,y)=> new Date(y.at)-new Date(x.at));
+}
+const PAYV_TABS = [{key:"pending",label:"Pending"},{key:"verified",label:"Verified"},{key:"rejected",label:"Rejected"},{key:"all",label:"All"}];
+const PAYV_KIND = {order:"Order", lab:"Lab", nurse:"Nurse", ambulance:"Ambulance"};
+VIEWS.payment = () => {
+  const sub = vs("payment",{tab:"pending"});
+  const kindF = vs("paykind",{tab:"all"}).tab;
+  const base = DATA.payQueue.filter(r=>kindF==="all" || r.kind===kindF);
+  const rows = sub.tab==="all" ? base : base.filter(r=>r.status===sub.tab);
+  const cnt = (s)=> DATA.payQueue.filter(r=>r.status===s).length;
+  const tabs = PAYV_TABS.map(t=>({...t, label: t.key==="all" ? "All" : `${t.label} (${cnt(t.key)})`}));
+  const kinds = [{key:"all",label:"All types"}, ...Object.entries(PAYV_KIND).map(([k,v])=>({key:k,label:v}))];
+  return `
+  <div class="view-head"><h1>Payment</h1><p>Every online (UPI) payment appears here the moment the customer taps “Payment Completed”. Check the UTR in your bank/UPI app, then verify — the order or booking can only be accepted after you verify.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Waiting for verification</div><div class="val">${cnt("pending")}</div></div>
+    <div class="stat-card"><div class="lbl">Pending amount</div><div class="val">${money(DATA.payQueue.filter(r=>r.status==="pending").reduce((s,r)=>s+r.amount,0))}</div></div>
+    <div class="stat-card"><div class="lbl">Verified</div><div class="val">${cnt("verified")}</div></div>
+    <div class="stat-card"><div class="lbl">Rejected</div><div class="val">${cnt("rejected")}</div></div>
+  </div>
+  ${toolbarTabs("payment", tabs)}
+  ${toolbarTabs("paykind", kinds)}
+  <div class="card"><div class="card-body pad0" id="tablewrap-payment">
+  ${renderTable("paymentlist",[
+    {key:"ref",label:"Reference",render:r=>`<div class="cell-strong">${esc(r.ref)}</div><div class="cell-sub">${esc(r.what)}</div>`},
+    {key:"customer",label:"Customer",render:r=>`<div class="cell-strong">${esc(r.customer)}</div><div class="cell-sub">${esc(r.phone)}</div>`},
+    {key:"amount",label:"Amount",render:r=>`<b>${money(r.amount)}</b>`},
+    {key:"utr",label:"UTR",render:r=>`<code>${esc(r.utr||"—")}</code>`},
+    {key:"at",label:"Submitted",render:r=>esc(fmtTs(r.at))},
+    {key:"status",label:"Status",render:r=>badge(r.status==="verified"?"Verified":r.status==="rejected"?"Rejected":"Pending", r.status==="verified"?"green":r.status==="rejected"?"red":"gold")},
+    {key:"_a",label:"",sortable:false,render:r=> r.status==="pending"
+      ? `<div class="actions-cell"><button class="btn sm primary" data-act="pay-verify" data-kind="${r.kind}" data-id="${esc(r.rawId)}">Payment received ✓</button><button class="btn sm danger" data-act="pay-reject" data-kind="${r.kind}" data-id="${esc(r.rawId)}">Not received</button></div>`
+      : `<button class="btn sm" data-act="pay-detail" data-kind="${r.kind}" data-id="${esc(r.rawId)}">Details</button>`},
+  ], rows, {emptyText:"No payments in this filter."})}
+  </div></div>`;
+};
+function payFind(kind,id){ return DATA.payQueue.find(r=>r.kind===kind && String(r.rawId)===String(id)); }
+const payHasPending = (kind,rawId)=> { const r = payFind(kind,rawId); return !!r && r.status!=="verified"; };
+Object.assign(Actions, {
+  "pay-verify": (el)=>{
+    const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    openModal("Verify payment", `
+      <div class="hint">Open your UPI / bank app and confirm that <b>${money(r.amount)}</b> with UTR <b>${esc(r.utr||"—")}</b> has actually arrived. After you confirm, the ${esc(PAYV_KIND[r.kind].toLowerCase())} can be accepted by the merchant / partner.</div>
+      ${detailRow("Reference", esc(r.ref))}${detailRow("Customer", esc(r.customer))}${detailRow("Amount", money(r.amount))}${detailRow("UTR", esc(r.utr||"—"))}
+      <div class="field" style="margin-top:10px"><label>Note (optional)</label><input id="payVNote" placeholder="e.g. Checked in PhonePe business"></div>`,
+      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="pay-verify-confirm" data-kind="${r.kind}" data-id="${esc(r.rawId)}">Yes, payment received</button>`);
+  },
+  "pay-verify-confirm": async (el)=>{
+    const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    const note = (($("#payVNote")||{}).value||"").trim() || null;
+    const { error } = await supabase.rpc("admin_verify_payment", { p_kind:r.kind, p_id:r.rawId, p_verified:true, p_note:note });
+    if(error){ toast("Verify failed: "+error.message,"danger"); return; }
+    await logAdminAction(`Verified payment ${r.ref} (${money(r.amount)}, UTR ${r.utr})`);
+    await refreshAfterPayment(); closeModal(); toast("Payment verified — now it can be accepted");
+  },
+  "pay-reject": (el)=>{
+    const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    openModal("Payment not received", `
+      <div class="hint">The ${esc(PAYV_KIND[r.kind].toLowerCase())} <b>${esc(r.ref)}</b> will be cancelled (nothing can be accepted without a verified payment). Customer sees this reason.</div>
+      <div class="field" style="margin-top:10px"><label>Reason *</label><textarea id="payRNote" placeholder="e.g. UTR not found in account"></textarea></div>`,
+      `<button class="btn" data-close-modal>Cancel</button><button class="btn danger" data-act="pay-reject-confirm" data-kind="${r.kind}" data-id="${esc(r.rawId)}">Reject payment</button>`);
+  },
+  "pay-reject-confirm": async (el)=>{
+    const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    const note = (($("#payRNote")||{}).value||"").trim(); if(!note){ toast("Reason is required","danger"); return; }
+    const { error } = await supabase.rpc("admin_verify_payment", { p_kind:r.kind, p_id:r.rawId, p_verified:false, p_note:note });
+    if(error){ toast("Failed: "+error.message,"danger"); return; }
+    await logAdminAction(`Rejected payment ${r.ref} — ${note}`);
+    await refreshAfterPayment(); closeModal(); toast("Payment rejected","danger");
+  },
+  "pay-detail": (el)=>{
+    const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    openModal(`Payment — ${r.ref}`, `${detailRow("Type", esc(r.what))}${detailRow("Customer", esc(r.customer)+" · "+esc(r.phone))}${detailRow("Amount", money(r.amount))}${detailRow("UTR", esc(r.utr||"—"))}${detailRow("Submitted", esc(fmtTs(r.at)))}${detailRow("Decision at", esc(fmtTs(r.verifiedAt)))}${detailRow("Status", esc(r.status))}${detailRow("Booking / order status", esc(r.itemStatus||"—"))}${r.note?detailRow("Note", esc(r.note)):""}`,
+      `<button class="btn" data-close-modal>Close</button>`);
+  },
+});
+async function refreshAfterPayment(){
+  await loadPaymentQueue();
+  await Promise.all([loadOrdersFromDB(), loadNurseBookingsFromDB(), loadLabBookingsFromDB(), loadAmbulanceBookingsFromDB()]);
+  render();
+}
+function subscribePaymentLive(){
+  if(!supabase) return;
+  ["orders","lab_bookings","nurse_bookings","ambulance_bookings"].forEach(t=>{
+    supabase.channel("admin-pay-"+t)
+      .on("postgres_changes", { event:"*", schema:"public", table:t }, (p)=>{
+        const n = p.new || {};
+        loadPaymentQueue().then(()=>{
+          if(n.payment_verification_status==="pending" && (p.eventType==="INSERT" || (p.old && p.old.payment_verification_status!=="pending"))) toast("💰 New online payment waiting for verification","default");
+          render();
+        });
+      }).subscribe();
+  });
+}
+
+/* ---------- SYSTEM ---------- */
+VIEWS.system = () => {
+  const t = vs("system",{tab:"security"}).tab;
+  const map = {security:"adminroles", health:"syshealth", emergency:"emergency", settings:"settings"};
+  return (VIEWS[map[t]] || VIEWS.adminroles)();
+};
+
+/* ---------- NOTIFICATION ---------- */
+const NTF_AUDIENCE = {"user-all":"All Users","user-one":"Individual User",merchant:"Merchants",rider:"Riders",lab:"Lab Partners",nurse:"Nurse Partners",ambulance:"Ambulance Partners"};
+function ntfTargets(t){
+  if(t==="merchant") return DATA.merchants.map(m=>({id:m.id,label:m.name}));
+  if(t==="rider") return DATA.riders.map(r=>({id:r.id,label:`${r.name} · ${r.phone}`}));
+  if(t==="lab") return DATA.raw.collectors.filter(c=>c.auth_user_id).map(c=>({id:c.auth_user_id,label:c.full_name||c.phone}));
+  if(t==="nurse") return DATA.nurses.filter(n=>n.authUserId).map(n=>({id:n.authUserId,label:n.name}));
+  if(t==="ambulance") return DATA.ambulanceDrivers.map(d=>({id:d.id,label:`${d.name} · ${d.phone}`}));
+  return [];
+}
+VIEWS.notifications = () => {
+  const t = vs("notifications",{tab:"user-all"}).tab;
+  let target = "";
+  if(t==="user-one") target = `<div class="field"><label>Select user</label><select id="ntfTarget">${DATA.users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.phone)}</option>`).join("")}</select></div>`;
+  else if(t!=="user-all") target = `<div class="field"><label>Send to</label><select id="ntfTarget"><option value="all">All ${esc(NTF_AUDIENCE[t].toLowerCase())}</option>${ntfTargets(t).map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join("")}</select></div>`;
+  else target = `<div class="field"><label>Send to</label><input value="All users" disabled></div>`;
+  return `
+  <div class="view-head"><h1>Create Notification</h1><p>${esc(NTF_AUDIENCE[t])} · delivered in-app (stored in the app's own notification table).</p></div>
+  <div class="card"><div class="card-body">
+    ${target}
+    <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
+    <div class="field"><label>Message</label><textarea id="ntfBody" placeholder="Write the notification body..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Image URL (optional)</label><input id="ntfImage" placeholder="https://..."></div>
+      <div class="field"><label>Deep link (optional)</label><input id="ntfLink" placeholder="e.g. orders"></div>
+    </div>
+    <button class="btn primary" data-act="ntf-send">Send notification</button>
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Notification history</h3></div><div class="card-body pad0" id="tablewrap-notifications">
+    ${renderTable("notifications",[
+      {key:"title",label:"Title"},{key:"audience",label:"Audience",render:r=>badge(r.audience,"blue")},
+      {key:"sentAt",label:"Sent"},
+    ], DATA.notificationsHistory, {emptyText:"No notifications sent yet."})}
+  </div></div>`;
+};
+
+function detailRow(label, val){ return `<div style="padding:7px 0;border-bottom:1px solid var(--line,#eee);display:flex;justify-content:space-between;gap:12px"><span class="hint">${esc(label)}</span><span class="cell-strong" style="text-align:right;word-break:break-word">${val}</span></div>`; }
+async function mustUpdate(q, what){
+  const { data, error } = await q.select();
+  if(error) return {ok:false, msg:error.message};
+  if(!data || !data.length) return {ok:false, msg:`${what}: no row updated — this action needs the main admin login (medifinderindia@gmail.com)`};
+  return {ok:true, data};
+}
+
+
+/* ---------- KYC document viewer (inline images, works for pending / verified / rejected) ---------- */
+async function kycDocUrl(bucket, ref){
+  if(isUrl(ref)) return ref;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(ref, 3600);
+  if(error || !data) throw new Error(error ? error.message : "not found");
+  return data.signedUrl;
+}
+function kycIsPdf(ref){ return /\.pdf($|\?)/i.test(String(ref||"")); }
+function kycLightbox(url, label, pdf){
+  document.getElementById("kycLightbox")?.remove();
+  const box = document.createElement("div");
+  box.id = "kycLightbox";
+  box.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px";
+  box.innerHTML = `<div style="color:#fff;font-weight:600;margin-bottom:10px">${esc(label)}</div>
+    ${pdf ? `<iframe src="${esc(url)}" style="width:min(900px,100%);height:80vh;border:0;background:#fff;border-radius:8px"></iframe>`
+          : `<img src="${esc(url)}" alt="${esc(label)}" style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px;background:#fff">`}
+    <div style="margin-top:12px;display:flex;gap:10px">
+      <a href="${esc(url)}" target="_blank" rel="noopener" class="btn sm">Open in new tab</a>
+      <button class="btn sm" id="kycLightboxClose">Close</button></div>`;
+  box.addEventListener("click", (e)=>{ if(e.target===box || e.target.id==="kycLightboxClose") box.remove(); });
+  document.body.appendChild(box);
+}
+function hydrateKycDocs(){
+  document.querySelectorAll(".kyc-doc-frame").forEach(async (frame)=>{
+    const { docBucket:bucket, docRef:ref, docLabel:label } = frame.dataset;
+    try{
+      const url = await kycDocUrl(bucket, ref);
+      const pdf = kycIsPdf(ref);
+      frame.dataset.url = url;
+      frame.style.background = "#fff";
+      frame.innerHTML = pdf
+        ? `<div style="text-align:center;font-size:12px;color:#444"><div style="font-size:34px">📄</div>PDF document</div>`
+        : `<img src="${esc(url)}" alt="${esc(label)}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`;
+      frame.addEventListener("click", ()=>kycLightbox(url, label, pdf));
+    }catch(err){
+      frame.style.color = "#c0392b";
+      frame.textContent = "Could not load";
+      frame.title = err.message;
+    }
+  });
+}
+
+Object.assign(Actions, {
+  "logout": async ()=>{ try{ await supabase.auth.signOut(); }catch(e){} location.reload(); },
+  "doc-open": async (el)=>{
+    const { bucket, ref } = el.dataset;
+    if(isUrl(ref)){ window.open(ref, "_blank", "noopener"); return; }
+    const w = window.open("", "_blank");
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(ref, 3600);
+    if(error || !data){ if(w) w.close(); toast("Could not open document: "+(error?error.message:"not found"),"danger"); return; }
+    if(w) w.location.href = data.signedUrl; else window.open(data.signedUrl, "_blank");
+  },
+
+  /* ----- ZONES (service_zones: pin / dist / ps / muni / state / status / outage_message) ----- */
+  "zone-add": ()=> openModal("New delivery zone", `
+    <div class="field-row">
+      <div class="field"><label>Pincode *</label><input id="zPin" inputmode="numeric" maxlength="6" placeholder="733124"></div>
+      <div class="field"><label>District *</label><input id="zDist" placeholder="Dakshin Dinajpur"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Police station</label><input id="zPs" placeholder="Gangarampur"></div>
+      <div class="field"><label>Municipality / Block</label><input id="zMuni" placeholder="Gangarampur"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>State *</label><input id="zState" value="West Bengal"></div>
+      <div class="field"><label>Zone name (optional)</label><input id="zName" placeholder="defaults to municipality"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="30"></div>
+      <div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="8"></div>
+      <div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="20"></div>
+    </div>`,
+    `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-save">Save zone</button>`),
+  "zone-save": async ()=>{
+    const pin=$("#zPin").value.trim(), dist=$("#zDist").value.trim(), state=$("#zState").value.trim();
+    const ps=$("#zPs").value.trim(), muni=$("#zMuni").value.trim();
+    if(!pin||!dist||!state){ toast("Pincode, district and state are required","danger"); return; }
+    if(!/^\d{6}$/.test(pin)){ toast("Pincode must be exactly 6 digits","danger"); return; }
+    if(DATA.zones.some(z=>String(z.pin)===pin)){ toast("A zone for this pincode already exists","danger"); return; }
+    const name = $("#zName").value.trim() || muni || ps || dist;
+    const row = { name, pin, pincode:pin, dist, ps:ps||null, muni:muni||null, state, status:"approved", is_active:true, outage_message:"",
+      base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
+    const { error } = await supabase.from("service_zones").insert(row);
+    if(error){ toast("Failed: "+error.message,"danger"); return; }
+    closeModal(); await loadZonesFromDB(); await logAdminAction(`Added zone ${pin} (${dist})`); render(); toast("Zone added — customers in this pincode can now order");
+  },
+  "zone-toggle": async (el)=>{
+    const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
+    if(z.status==="active"){
+      openModal(`Suspend zone — ${z.name} (${z.pin})`, `
+        <div class="hint">Customers in this pincode will not be able to order while the zone is suspended. A reason is required and is saved on the zone.</div>
+        <div class="field" style="margin-top:10px"><label>Suspension reason *</label><textarea id="zReason" placeholder="e.g. Flooding, no riders available"></textarea></div>`,
+        `<button class="btn" data-close-modal>Cancel</button><button class="btn danger" data-act="zone-suspend-confirm" data-id="${esc(z.id)}">Suspend zone</button>`);
+      render(); // snap the toggle back until the reason is confirmed
+      return;
+    }
+    const r = await mustUpdate(supabase.from("service_zones").update({status:"approved", is_active:true, outage_message:"", outage_start:null}).eq("id", z.id), "Zone");
+    if(!r.ok){ toast("Failed: "+r.msg,"danger"); render(); return; }
+    await logAdminAction(`Reactivated zone ${z.pin}`); await loadZonesFromDB(); render(); toast(`${z.name} is live again`);
+  },
+  "zone-suspend-confirm": async (el)=>{
+    const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
+    const reason = $("#zReason").value.trim();
+    if(!reason){ toast("Please write a suspension reason","danger"); return; }
+    const r = await mustUpdate(supabase.from("service_zones").update({status:"suspended", is_active:false, outage_message:reason, outage_start:new Date().toISOString()}).eq("id", z.id), "Zone");
+    if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+    await logAdminAction(`Suspended zone ${z.pin} — ${reason}`); closeModal(); await loadZonesFromDB(); render(); toast(`${z.name} suspended`,"danger");
+  },
+
+  /* ----- KYC ----- */
+  "kyc-detail": (el)=>{
+    const r = kycFind(el.dataset.kind, el.dataset.id); if(!r) return;
+    openModal(`${KYC_TITLE[r.kind]} KYC — ${r.name}`, `
+      <div class="hint" style="font-weight:600;margin-bottom:4px">Applicant details</div>
+      ${r.details.map(([k,v])=>detailRow(k, esc(dash(v)))).join("")}
+      <div class="hint" style="font-weight:600;margin:14px 0 6px">Documents</div>
+      ${r.docs.length ? `<div class="kyc-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${r.docs.map(d=>`
+        <figure class="kyc-doc" style="margin:0;border:1px solid var(--line,#e5e5e5);border-radius:10px;overflow:hidden;background:#fafafa">
+          <div class="kyc-doc-frame" data-doc-bucket="${esc(d.bucket)}" data-doc-ref="${esc(d.ref)}" data-doc-label="${esc(d.label)}" style="height:130px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;cursor:pointer">Loading…</div>
+          <figcaption style="padding:6px 8px;font-size:12px;font-weight:600;border-top:1px solid var(--line,#eee)">${esc(d.label)}</figcaption>
+        </figure>`).join("")}</div>
+        <div class="hint" style="margin-top:6px">Tap a document to view it full size.</div>` : `<div class="cell-sub">No documents uploaded.</div>`}
+      <div class="hint" style="font-weight:600;margin:14px 0 4px">KYC history</div>
+      ${detailRow("Submitted", esc(r.submitted||"—"))}${detailRow("Current status", statusBadge(r.status))}${r.reason ? detailRow("Reject reason", esc(r.reason)) : ""}`,
+      `<button class="btn" data-close-modal>Close</button>` + (r.status==="pending" ? `
+        <button class="btn danger" data-act="kyc-reject" data-kind="${r.kind}" data-id="${esc(r.id)}">Reject</button>
+        <button class="btn primary" data-act="kyc-approve" data-kind="${r.kind}" data-id="${esc(r.id)}">Approve</button>` : ""));
+    hydrateKycDocs(); // show the uploaded document images inline (pending AND verified/rejected)
+  },
+  "kyc-approve": async (el)=>{
+    const { kind, id } = el.dataset;
+    if(kind==="merchant"){ await Actions["merchant-approve"]({dataset:{id}}); closeModal(); return; }
+    if(kind==="rider"){ await Actions["rider-approve"]({dataset:{id}}); closeModal(); return; }
+    let q;
+    if(kind==="nurse") q = supabase.from("nurse_kyc").update({status:"approved", rejection_reason:null}).eq("user_id", id);
+    if(kind==="lab") q = supabase.from("collector_kyc").update({status:"verified", rejection_reason:null, reviewed_at:new Date().toISOString()}).eq("id", id);
+    if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"verified", is_verified:true, kyc_rejection_reason:null}).eq("id", id);
+    const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Approve failed: "+r.msg,"danger"); return; }
+    await logAdminAction(`Approved ${kind} KYC ${id}`); await refreshLiveData(); closeModal(); toast("KYC approved — partner notified");
+  },
+  "kyc-reject": (el)=>{
+    const { kind, id } = el.dataset;
+    if(kind==="merchant"){ closeModal(); return Actions["merchant-reject"]({dataset:{id}}); }
+    if(kind==="rider"){ closeModal(); return Actions["rider-reject"]({dataset:{id}}); }
+    openModal("Reject KYC", `<div class="field"><label>Rejection reason *</label><textarea id="kycReason" placeholder="e.g. Certificate photo unclear"></textarea></div>`,
+      `<button class="btn" data-close-modal>Cancel</button><button class="btn danger" data-act="kyc-reject-confirm" data-kind="${kind}" data-id="${esc(id)}">Reject</button>`);
+  },
+  "kyc-reject-confirm": async (el)=>{
+    const { kind, id } = el.dataset; const reason = $("#kycReason").value.trim();
+    if(!reason){ toast("Rejection reason is required","danger"); return; }
+    let q;
+    if(kind==="nurse") q = supabase.from("nurse_kyc").update({status:"rejected", rejection_reason:reason}).eq("user_id", id);
+    if(kind==="lab") q = supabase.from("collector_kyc").update({status:"rejected", rejection_reason:reason, reviewed_at:new Date().toISOString()}).eq("id", id);
+    if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"rejected", is_verified:false, kyc_rejection_reason:reason}).eq("id", id);
+    const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Reject failed: "+r.msg,"danger"); return; }
+    await logAdminAction(`Rejected ${kind} KYC ${id} — ${reason}`); await refreshLiveData(); closeModal(); toast("KYC rejected","danger");
+  },
+
+  /* ----- BOOKING ----- */
+  "bk-detail": (el)=>{
+    const meta = BK_META[el.dataset.kind]; const b = meta.rows().find(x=>String(x.id)===el.dataset.id); if(!b) return;
+    const hist = (b.history||[]).filter(h=>h[1]).sort((a,c)=>new Date(a[1])-new Date(c[1]));
+    openModal(`${meta.title} booking — ${b.id}`, `
+      ${detailRow("Customer", esc(b.customer))}${detailRow("Phone", esc(dash(b.phone)))}${detailRow(meta.provider, esc(b.provider||"Unassigned"))}${detailRow("Service", esc(dash(b.service)))}
+      ${detailRow("Date / Time", esc(b.date))}${detailRow("Location", esc(dash(b.location)))}
+      ${detailRow("Amount", b.amount!=null?money(b.amount):"—")}${detailRow("Payment", esc(b.payment))}${detailRow("Status", statusBadge(b.status))}
+      ${b.reason ? detailRow("Reject / cancel reason", esc(b.reason)) : ""}
+      <div class="hint" style="font-weight:600;margin:14px 0 4px">Activity history</div>
+      ${hist.length ? hist.map(h=>detailRow(h[0], esc(fmtTs(h[1])))).join("") : `<div class="cell-sub">No history recorded.</div>`}`,
+      `<button class="btn" data-close-modal>Close</button>` + ((b.status==="new") ? (()=>{
+        const unpaid = DATA.payQueue.some(p=>p.kind===el.dataset.kind && String(p.rawId)===String(b._rawId) && p.status!=="verified");
+        return `<button class="btn danger" data-act="bk-reject" data-kind="${el.dataset.kind}" data-id="${esc(b.id)}">Reject</button>` +
+          (unpaid ? `<button class="btn" data-nav="payment">Verify payment first →</button>` : `<button class="btn primary" data-act="bk-accept" data-kind="${el.dataset.kind}" data-id="${esc(b.id)}">Accept</button>`);
+      })() : ""));
+  },
+  "bk-accept": async (el)=>{ const meta = BK_META[el.dataset.kind]; await Actions[meta.prefix+"-accept"]({dataset:{id:el.dataset.id}}); closeModal(); },
+  "bk-reject": (el)=>{
+    openModal("Reject booking", `<div class="field"><label>Reason *</label><textarea id="bkReason" placeholder="e.g. No collector available in this area"></textarea></div>`,
+      `<button class="btn" data-close-modal>Cancel</button><button class="btn danger" data-act="bk-reject-confirm" data-kind="${el.dataset.kind}" data-id="${esc(el.dataset.id)}">Reject booking</button>`);
+  },
+  "bk-reject-confirm": async (el)=>{
+    const reason = $("#bkReason").value.trim(); if(!reason){ toast("Reason is required","danger"); return; }
+    const kind = el.dataset.kind; const b = BK_META[kind].rows().find(x=>String(x.id)===el.dataset.id); if(!b) return;
+    let q, reload;
+    if(kind==="lab"){ q = supabase.from("lab_bookings").update({status:"Cancelled", cancel_reason:reason}).eq("id", b._rawId); reload = loadLabBookingsFromDB; }
+    if(kind==="nurse"){ q = supabase.from("nurse_bookings").update({status:"cancelled", cancel_reason:reason}).eq("id", b._rawId); reload = loadNurseBookingsFromDB; }
+    if(kind==="ambulance"){ q = supabase.from("ambulance_bookings").update({status:"cancelled", cancelled_at:new Date().toISOString(), cancel_reason:reason}).eq("id", b._rawId); reload = loadAmbulanceBookingsFromDB; }
+    const r = await mustUpdate(q, "Booking"); if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+    await logAdminAction(`Rejected ${kind} booking ${b.id} — ${reason}`); await reload(); closeModal(); render(); toast("Booking rejected","danger");
+  },
+
+  /* ----- PAYOUT ----- */
+  "payout-detail": (el)=>{
+    const p = payoutRows(el.dataset.kind).find(x=>String(x.id)===el.dataset.id); if(!p) return;
+    const open = p.status!=="paid";
+    const m = (v)=> v==null ? "—" : money(v);
+    openModal(`Payout — ${p.recipient}`, `
+      ${detailRow("Recipient", esc(p.recipient))}${p.ref?detailRow("Reference", esc(p.ref)):""}${detailRow("Period", esc(p.period||"—"))}
+      ${detailRow("Gross earnings", m(p.gross))}${detailRow("Commission", m(p.commission))}${detailRow("Fees", m(p.fees))}${detailRow("Adjustments", m(p.adj))}
+      ${detailRow("Net payable", `<b>${money(p.net)}</b>`)}${detailRow("Bank / UPI", esc(p.bank))}
+      ${detailRow("Requested at", esc(fmtTs(p.requestedAt)))}${detailRow("Paid at", esc(fmtTs(p.paidAt)))}${detailRow("Transaction ID", esc(dash(p.txn)))}${p.note?detailRow("Admin note", esc(p.note)):""}${detailRow("Status", badge(PAY_LABEL[p.status], payTone(p.status)))}
+      ${open ? `<div class="field" style="margin-top:12px"><label>Transaction ID / UTR (needed for Paid) · reason (needed for Hold / Fail)</label><input id="payNote"></div>` : ""}`,
+      `<button class="btn" data-close-modal>Close</button>` + (open ? `
+        <button class="btn" data-act="payout-set" data-to="on_hold" data-kind="${p.kind}" data-id="${esc(p.id)}">Hold</button>
+        <button class="btn danger" data-act="payout-set" data-to="failed" data-kind="${p.kind}" data-id="${esc(p.id)}">Fail</button>
+        ${p.status==="pending"||p.status==="on_hold" ? `<button class="btn" data-act="payout-set" data-to="processing" data-kind="${p.kind}" data-id="${esc(p.id)}">Approve</button>` : ""}
+        <button class="btn primary" data-act="payout-set" data-to="paid" data-kind="${p.kind}" data-id="${esc(p.id)}">Mark paid</button>` : ""));
+  },
+  "payout-set": async (el)=>{
+    const { kind, id, to } = el.dataset; const note = (($("#payNote")||{}).value||"").trim();
+    if(to==="paid" && !note){ toast("Enter the transaction ID / UTR first","danger"); return; }
+    if((to==="failed"||to==="on_hold") && !note){ toast("Enter a reason first","danger"); return; }
+    const now = new Date().toISOString(); const paid = to==="paid"; let q;
+    if(kind==="merchant") q = supabase.from("merchant_payouts").update({status:({processing:"Processing",paid:"Paid",failed:"Failed",on_hold:"On Hold"})[to], ...(paid?{paid_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
+    if(kind==="rider") q = supabase.from("admin_payout_requests").update({request_status:({processing:"processing",paid:"completed",failed:"failed",on_hold:"on_hold"})[to], ...(paid?{processed_at:now, txn_ref:note}:{notes:note||null})}).eq("id", id);
+    if(kind==="nurse") q = supabase.from("nurse_payouts").update({status:to, ...(paid?{processed_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
+    if(kind==="collector") q = supabase.from("collector_earnings").update({status:to, ...(paid?{settled_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
+    if(kind==="ambulance") q = supabase.from("ambulance_bookings").update({settlement_status:({processing:"processing",paid:"settled",failed:"failed",on_hold:"on_hold"})[to], ...(paid?{settled_at:now, settlement_txn_ref:note}:{settlement_note:note||null})}).eq("id", id);
+    const r = await mustUpdate(q, "Payout"); if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+    await logAdminAction(`Payout ${kind} ${id} → ${PAY_LABEL[to]}${note?` (${note})`:""}`);
+    await loadMerchantPayoutsFromDB(); await loadRiderPayoutsFromDB(); await loadPartnerExtras();
+    closeModal(); render(); toast(`Payout ${PAY_LABEL[to].toLowerCase()}`);
+  },
+
+  /* ----- NOTIFICATION ----- */
+  "ntf-send": async ()=>{
+    const t = vs("notifications",{tab:"user-all"}).tab; const title=$("#ntfTitle").value.trim(), message=$("#ntfBody").value.trim();
+    if(!title){ toast("Title is required","danger"); return; }
+    const image=$("#ntfImage").value.trim()||null, link=$("#ntfLink").value.trim()||null;
+    const sel = ($("#ntfTarget")||{}).value || "all"; const all = sel==="all";
+    const extra = { image_url:image, deep_link:link }; let res, count = 0;
+    if(t==="user-all"){ res = await supabase.from("notifications").insert({ user_id:null, type:"admin_broadcast", title, message, ...extra }); count = 1; }
+    else if(t==="user-one"){ if(!sel){ toast("Select a user","danger"); return; } res = await supabase.from("notifications").insert({ user_id:sel, type:"admin_broadcast", title, message, ...extra }); count = 1; }
+    else if(t==="merchant"){
+      const list = all ? DATA.merchants : DATA.merchants.filter(m=>String(m.id)===sel);
+      res = await supabase.from("merchant_notifications").insert(list.map(m=>({ merchant_id:m.id, title, message:message||title, type:"info", category:"admin", action_url:link }))); count = list.length;
+    } else if(t==="rider"){
+      res = await supabase.from("rider_notifications").insert(all ? { rider_id:null, title, message:message||title, type:"admin", ...extra } : { rider_id:Number(sel), title, message:message||title, type:"admin", ...extra }); count = all ? DATA.riders.length : 1;
+    } else if(t==="lab"){
+      const list = ntfTargets("lab").filter(x=>all || x.id===sel);
+      res = list.length ? await supabase.from("notifications").insert(list.map(x=>({ user_id:x.id, type:"admin", title, message, ...extra }))) : {error:{message:"No collector with a linked login"}}; count = list.length;
+    } else if(t==="nurse"){
+      const list = ntfTargets("nurse").filter(x=>all || x.id===sel);
+      res = list.length ? await supabase.from("nurse_notifications").insert(list.map(x=>({ user_id:x.id, type:"admin", title, message, ...extra }))) : {error:{message:"No nurse with a linked login"}}; count = list.length;
+    } else if(t==="ambulance"){
+      const list = ntfTargets("ambulance").filter(x=>all || x.id===sel);
+      res = list.length ? await supabase.from("ambulance_notifications").insert(list.map(x=>({ driver_id:x.id, type:"admin", title, message, is_read:false, ...extra }))) : {error:{message:"No ambulance drivers"}}; count = list.length;
+    }
+    if(res.error){ toast("Failed: "+res.error.message,"danger"); return; }
+    await supabase.from("admin_notification_broadcasts").insert({ audience:NTF_AUDIENCE[t], title, recipients_count:count });
+    await loadNotificationBroadcastsFromDB(); await logAdminAction(`Sent notification "${title}" to ${NTF_AUDIENCE[t]}`);
+    $("#ntfTitle").value=""; $("#ntfBody").value=""; render(); toast(`Notification sent to ${count} ${count===1?"recipient":"recipients"}`);
+  },
+});
+
 /* ---------------------------------------------------------
    7. RENDER / ROUTER
    --------------------------------------------------------- */
@@ -2478,7 +3159,7 @@ function setView(id, childKey){
    --------------------------------------------------------- */
 document.addEventListener("click", (e)=>{
   const navEl = e.target.closest("[data-nav]");
-  if(navEl){ setView(navEl.dataset.nav); return; }
+  if(navEl){ if(navEl.dataset.nav==="logout"){ Actions["logout"](); return; } setView(navEl.dataset.nav); return; }
 
   const childEl = e.target.closest("[data-nav-child]");
   if(childEl){

@@ -2669,3 +2669,73 @@ body {
         font-size: 0.91rem;
     }
 }
+
+
+/* ============================================================
+   Smoothness + KYC upload states
+   ============================================================ */
+html { -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: contain; -webkit-font-smoothing: antialiased; }
+
+/* tab switch: opacity-only fade (no transform, so fixed-position children never jump) */
+.rider-tab:not(.hidden) { animation: riderTabFadeIn 0.2s ease both; }
+@keyframes riderTabFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+button, .period-chip, .nav-item { transition: transform 0.12s ease, opacity 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
+button:active, .period-chip:active, .nav-item:active { transform: scale(0.97); }
+
+#zomatoRealMap { transform: translateZ(0); }
+
+/* KYC: photo is being compressed/saved */
+.kyc-upload-card.processing { opacity: 0.55; pointer-events: none; }
+.kyc-upload-card.processing::after {
+    content: 'Processing photo…';
+    position: absolute; left: 0; right: 0; bottom: 6px;
+    font-size: 0.72rem; font-weight: 600; color: #475569;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rider-tab:not(.hidden) { animation: none; }
+    button, .period-chip, .nav-item { transition: none; }
+}
+
+/* =========================================================
+   SCROLL FIX (final authority — keep at the very END of file)
+   Root cause: the merged page CSS gave BOTH <html> and <body>
+   "overflow-x:hidden" (+ body display:flex). When both are set the
+   body becomes its own scroll box and the real page scroll is
+   swallowed on mobile (Profile and other tabs would not scroll).
+   Fix: only <html> clips horizontally; <body> never scrolls.
+   ========================================================= */
+html {
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+body {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+    position: static;
+}
+.app-container {
+    margin: 0 auto;
+    overflow: visible;
+}
+/* full-screen overlays keep their own inner scroll area */
+.sub-page-overlay .sub-page-body,
+.sub-page-content,
+.kyc-fs-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+/* keep the bottom nav clear of phone gesture bars / browser toolbars */
+.bottom-nav { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.app-container { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
