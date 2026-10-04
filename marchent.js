@@ -669,15 +669,24 @@
             sub_total: order.total || 0,
           }
         });
-        if (srError || !srData || srData.success === false || srData.serviceable === false || !srData.awb_assigned) {
-          throw new Error((srData && (srData.error?.message || srData.error)) || srError?.message || 'Shiprocket could not book this shipment');
+        // functions.invoke() hides the real reason on non-2xx (data is null, error is generic) -> read the response body ourselves
+        let srBody = srData;
+        if (!srBody && srError && srError.context && typeof srError.context.json === 'function') {
+          try { srBody = await srError.context.json(); } catch (_e) { /* keep generic message */ }
         }
-        const patch = { status: 'shipped', delivery_partner: 'courier', courier_name: srData.courier_name || 'Shiprocket', courier_tracking: srData.awb_code || '' };
+        if (srError || !srBody || srBody.success === false || srBody.serviceable === false || !srBody.awb_assigned) {
+          const reason = (srBody && (srBody.error?.message || srBody.error)) || srError?.message || 'Shiprocket could not book this shipment';
+          console.error('Shiprocket booking failed:', { step: srBody && srBody.step, reason, details: srBody && srBody.details });
+          const e = new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
+          e.step = srBody && srBody.step;
+          throw e;
+        }
+        const patch = { status: 'shipped', delivery_partner: 'courier', courier_name: srBody.courier_name || 'Shiprocket', courier_tracking: srBody.awb_code || '' };
         await DB.updateOrder(order.id, patch);
-        const who = `${srData.courier_name || 'Shiprocket'} (AWB ${srData.awb_code})`;
+        const who = `${srBody.courier_name || 'Shiprocket'} (AWB ${srBody.awb_code})`;
         await notifyMerchant('Order Shipped', `Order ${order.code} dispatched via ${who}.`, 'order', order.id);
         await notifyCustomer(order, { title: 'Order on the way', message: `Your order ${order.code} has been handed over to ${who}.`, orderCode: order.code });
-        return { ok: true, mode: 'shiprocket', awb: srData.awb_code, courier: srData.courier_name };
+        return { ok: true, mode: 'shiprocket', awb: srBody.awb_code, courier: srBody.courier_name };
       } catch (e) {
         console.warn('Shiprocket auto-dispatch failed, falling back to manual courier picker', e);
         return { ok: false, error: e };
@@ -1682,7 +1691,9 @@
           if (partner === 'courier' && name === 'Other') name = form.courierOther.value.trim();
           if (partner === 'courier' && !name) { showToast('Enter the courier company name', 'error'); return; }
           const btn = form.querySelector('#dispatchGo'); btn.disabled = true;
-          try { await DB.dispatchOrder(order, partner, name, form.tracking.value.trim()); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder India riders'); onDone(); }
+          const trk = form.tracking.value.trim();
+          if (partner === 'courier' && trk && trk === order.code) { btn.disabled = false; showToast('That is the order ID, not a courier tracking/AWB number', 'error'); return; }
+          try { await DB.dispatchOrder(order, partner, name, trk); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder India riders'); onDone(); }
           catch (err) { console.error(err); btn.disabled = false; showToast('Could not dispatch this order', 'error'); }
         });
       }
@@ -1747,7 +1758,7 @@
             showToast('Booking Shiprocket shipment…');
             const r = await DB.autoDispatch(order);
             if (r.ok) { showToast(`Booked with ${r.courier} (AWB ${r.awb})`); done(); }
-            else { b.disabled = false; showToast('Shiprocket unavailable for this order — choose delivery manually', 'error'); openDispatchSheet(order, done); }
+            else { b.disabled = false; const why = r.error && r.error.message ? String(r.error.message).slice(0, 140) : ''; showToast('Shiprocket booking failed' + (why ? ': ' + why : '') + ' — choose delivery manually', 'error'); openDispatchSheet(order, done); }
           }
         }
         else if (act === 'cancel') openCancelSheet(order, done);

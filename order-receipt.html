@@ -1,470 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Order Receipt | MediFinder India</title>
-    <meta name="description" content="Your MediFinder India order receipt.">
-    <meta name="robots" content="noindex, nofollow">
-    <link rel="canonical" href="https://medifinderindia.com/order-receipt.html">
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/manifest.json">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="MediFinder India">
-    <meta property="og:locale" content="en_IN">
-    <meta property="og:url" content="https://medifinderindia.com/order-receipt.html">
-    <meta property="og:title" content="Order Receipt | MediFinder India">
-    <meta property="og:description" content="Your MediFinder India order receipt.">
-    <meta property="og:image" content="https://medifinderindia.com/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Order Receipt | MediFinder India">
-    <meta name="twitter:description" content="Your MediFinder India order receipt.">
-    <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta name="theme-color" content="#e02020">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
-    <script src="supabase-constants.js"></script>
-    <script src="prod-utils.js?v=13"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        body { background: #f0f2f5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
-        .receipt-wrapper { max-width: 420px; width: 100%; }
-        .receipt-card {
-            background: #fff; border-radius: 16px; overflow: hidden;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.1); margin-bottom: 16px;
-        }
-        .receipt-header {
-            background: #e02020; padding: 20px; text-align: center; color: #fff;
-            position: relative;
-        }
-        .receipt-header .shop-logo {
-            width: 60px; height: 60px; border-radius: 50%; background: #fff;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 10px; font-size: 28px; color: #e02020; font-weight: 900;
-            border: 3px solid rgba(255,255,255,0.3); overflow: hidden;
-        }
-        .receipt-header .shop-logo img { width: 34px; height: 34px; object-fit: contain; }
-        .invoice-no-tag {
-            position: absolute; top: 14px; right: 14px; max-width: 96px; text-align: right;
-            font-size: 10px; color: #fff; opacity: 0.95; line-height: 1.5; word-break: break-word;
-        }
-        .invoice-no-tag .inv-num { font-weight: 800; font-size: 10px; letter-spacing: 0.3px; }
-        .receipt-header h1 { font-size: 20px; letter-spacing: 1px; margin-bottom: 4px; }
-        .receipt-header .shop-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
-        .receipt-header .shop-info { font-size: 11px; opacity: 0.9; line-height: 1.4; }
-        .receipt-badge {
-            display: inline-block; background: rgba(255,255,255,0.2); padding: 3px 12px;
-            border-radius: 20px; font-size: 10px; font-weight: 600; margin-top: 6px;
-            letter-spacing: 0.5px;
-        }
-        .receipt-body { padding: 16px 20px; }
-        .receipt-title {
-            text-align: center; font-size: 14px; font-weight: 700; color: #333;
-            padding-bottom: 12px; border-bottom: 2px dashed #ddd; margin-bottom: 12px;
-        }
-        .receipt-title span { color: #e02020; }
-        .info-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 4px 0; font-size: 12px;
-        }
-        .info-row .label { color: #6b7280; font-weight: 500; }
-        .info-row .value { color: #1a1a2e; font-weight: 600; text-align: right; max-width: 55%; }
-        .info-row .value.status-active { color: #2ed573; }
-        .info-row .value.status-pending { color: #f59e0b; }
-        .info-row .value.status-cancelled { color: #ef4444; }
-        .divider-dashed { border: none; border-top: 1px dashed #ddd; margin: 12px 0; }
-        .section-label {
-            font-size: 11px; font-weight: 700; color: #e02020; text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 8px;
-        }
-        .customer-details { font-size: 12px; line-height: 1.6; color: #333; }
-        .customer-details strong { display: block; font-size: 13px; color: #1a1a2e; }
-        .customer-details i { color: #e02020; width: 16px; }
-        .items-table-header {
-            display: grid; grid-template-columns: 2fr 30px 60px 60px;
-            gap: 4px; padding: 6px 0; font-size: 10px; font-weight: 700;
-            color: #6b7280; border-bottom: 1px solid #e5e7eb; text-transform: uppercase;
-        }
-        .items-table-header .right { text-align: right; }
-        .items-table-row {
-            display: grid; grid-template-columns: 2fr 30px 60px 60px;
-            gap: 4px; padding: 7px 0; font-size: 12px; border-bottom: 1px solid #f3f4f6;
-            align-items: center;
-        }
-        .items-table-row .item-name { font-weight: 600; color: #1a1a2e; }
-        .items-table-row .item-qty { text-align: center; color: #6b7280; }
-        .items-table-row .item-price { text-align: right; color: #6b7280; }
-        .items-table-row .item-total { text-align: right; font-weight: 600; color: #1a1a2e; }
-        .total-breakdown { margin-top: 8px; }
-        .total-breakdown .info-row { font-size: 12px; }
-        .total-breakdown .grand-total-row {
-            font-size: 15px; font-weight: 800; color: #e02020;
-            border-top: 2px solid #e02020; padding-top: 8px; margin-top: 8px;
-        }
-        .payment-badge {
-            display: inline-block; padding: 2px 8px; border-radius: 4px;
-            font-size: 10px; font-weight: 600;
-        }
-        .payment-badge.paid { background: #d1fae5; color: #065f46; }
-        .payment-badge.pending { background: #fef3c7; color: #92400e; }
-        .secure-code-section {
-            background: #f8f9fa; border-radius: 10px; padding: 12px; text-align: center;
-            margin-top: 12px;
-        }
-        .secure-code-section .code-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }
-        .secure-code-section .code-value {
-            font-size: 22px; font-weight: 900; color: #1a1a2e; letter-spacing: 4px;
-            font-family: 'Courier New', monospace; margin-top: 2px;
-        }
-        .barcode-section {
-            text-align: center; padding: 12px 0; margin-top: 8px;
-        }
-        .barcode-section canvas { width: 100%; max-width: 300px; height: 50px; }
-        .barcode-section .order-id-text { font-size: 11px; color: #6b7280; margin-top: 4px; letter-spacing: 2px; }
-        .qr-section {
-            text-align: center; padding: 14px 0 4px; margin-top: 8px; border-top: 1px dashed #ddd;
-        }
-        .qr-section img { width: 110px; height: 110px; border-radius: 8px; border: 1px solid #e5e7eb; padding: 4px; }
-        .qr-section .qr-caption { font-size: 10px; color: #6b7280; margin-top: 6px; letter-spacing: 1px; }
-        .signature-section {
-            display: flex; justify-content: space-between; align-items: flex-end;
-            margin-top: 18px; padding-top: 10px;
-        }
-        .signature-section .sign-box { text-align: center; flex: 1; }
-        .signature-section .sign-line { border-top: 1px solid #9ca3af; width: 90%; margin: 0 auto 4px; }
-        .signature-section .sign-label { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-        .signature-section .verified-tick {
-            display: flex; flex-direction: column; align-items: center; flex: 1;
-        }
-        .signature-section .verified-tick .tick-circle {
-            width: 30px; height: 30px; border-radius: 50%; background: #2ed573; color: #fff;
-            display: flex; align-items: center; justify-content: center; font-size: 15px; margin-bottom: 4px;
-        }
-        .signature-section .verified-tick .sign-label { color: #2ed573; font-weight: 700; }
-        .receipt-footer {
-            padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;
-        }
-        .receipt-footer p { font-size: 11px; color: #6b7280; line-height: 1.5; }
-        .receipt-footer .footer-brand { font-size: 13px; font-weight: 700; color: #e02020; margin-bottom: 4px; }
-        .action-bar {
-            display: flex; gap: 10px; margin-top: 16px;
-        }
-        .action-bar button {
-            flex: 1; padding: 12px; border: none; border-radius: 12px;
-            font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
-        }
-        .action-bar button:active { opacity: 0.8; }
-        .print-btn { background: #e02020; color: #fff; }
-        .back-btn { background: #f3f4f6; color: #333; }
-        .loading-state { text-align: center; padding: 60px 20px; color: #6b7280; }
-        .loading-state i { font-size: 40px; color: #e02020; margin-bottom: 12px; }
-        .error-state { text-align: center; padding: 60px 20px; color: #ef4444; }
-        .error-state i { font-size: 40px; margin-bottom: 12px; }
-        .merchant-extra { font-size: 10px; color: #9ca3af; margin-top: 8px; text-align: center; }
-
-        @media print {
-            body { padding: 0; background: #fff; }
-            .receipt-wrapper { max-width: 100%; }
-            .receipt-card { box-shadow: none; border-radius: 0; }
-            .action-bar, .back-btn, .print-btn { display: none !important; }
-            .no-print { display: none !important; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tax Invoice | MediFinder India</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="favicon.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#111;padding:24px}
+.invoice-wrap{width:min(100%,980px);margin:auto;background:#fff;box-shadow:0 8px 40px #0008}
+.invoice{padding:20px 24px 24px}
+.top-title{text-align:center;font-size:12px;font-weight:700;margin-bottom:10px}
+.top-grid{display:grid;grid-template-columns:1.15fr 1.15fr .75fr;border:1px solid #222}
+.box{padding:8px;border-right:1px solid #222;min-height:150px}
+.box:last-child{border-right:0}
+.box h3{font-size:11px;text-transform:uppercase;margin-bottom:5px}
+.box p{font-size:10px;line-height:1.45}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.brand img{width:42px;height:42px;object-fit:contain}
+.brand b{font-size:16px;color:#e02020}
+.brand small{display:block;color:#555;font-size:8px}
+.invoice-meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin-top:6px}
+.invoice-meta div{font-size:10px}
+.label{color:#555}
+.value{font-weight:700}
+.qr{width:105px;height:105px;display:block;margin:5px auto 3px;border:1px solid #ddd;padding:3px}
+.qr-note{text-align:center;font-size:8px;color:#555}
+.section{border:1px solid #222;border-top:0}
+.section-title{background:#f3f4f6;border-bottom:1px solid #222;padding:6px 8px;font-size:10px;font-weight:700;text-transform:uppercase}
+.customer-grid{display:grid;grid-template-columns:1fr 1fr}
+.customer{padding:8px;border-right:1px solid #222;min-height:82px}
+.customer:last-child{border-right:0}
+.customer strong{font-size:11px}
+.customer div{font-size:9px;line-height:1.45;margin-top:2px}
+.items{width:100%;border-collapse:collapse;font-size:9px}
+.items th,.items td{border-right:1px solid #222;border-bottom:1px solid #222;padding:6px 4px;vertical-align:middle}
+.items th:last-child,.items td:last-child{border-right:0}
+.items th{font-size:8px;background:#f3f4f6;text-transform:uppercase}
+.items td.num,.items th.num{text-align:right}
+.items td.center,.items th.center{text-align:center}
+.items .product{font-weight:700}
+.summary-grid{display:grid;grid-template-columns:1fr 330px;border-top:0}
+.tax-table{border-right:1px solid #222}
+.tax-table table{width:100%;border-collapse:collapse;font-size:8px}
+.tax-table th,.tax-table td{border-right:1px solid #222;border-bottom:1px solid #222;padding:5px 4px;text-align:right}
+.tax-table th:first-child,.tax-table td:first-child{text-align:center}
+.tax-table th{background:#f3f4f6}
+.totals{padding:8px}
+.total-row{display:flex;justify-content:space-between;font-size:10px;padding:3px 0}
+.total-row.grand{border-top:2px solid #222;margin-top:4px;padding-top:7px;font-size:13px;font-weight:800}
+.amount-words{font-size:9px;padding:8px;border-top:1px solid #222}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #222;border-top:0;min-height:105px}
+.bottom-box{padding:8px;border-right:1px solid #222}
+.bottom-box:last-child{border-right:0}
+.bottom-box h4{font-size:9px;margin-bottom:8px}
+.bottom-box p{font-size:8px;line-height:1.5;color:#333}
+.sign{margin-top:40px;border-top:1px solid #555;text-align:center;padding-top:4px;font-size:8px}
+.footer{text-align:center;padding:10px 0 0;font-size:8px;color:#555}
+.actions{width:min(100%,980px);margin:14px auto 0;display:flex;gap:10px}
+.actions button{flex:1;border:0;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer}
+.print{background:#e02020;color:#fff}.back{background:#333;color:#fff}
+.loading{text-align:center;padding:80px;color:#fff}
+.error{text-align:center;padding:80px;color:#e02020;background:#fff}
+@media(max-width:700px){
+ body{padding:0;background:#fff}
+ .invoice-wrap{box-shadow:none;width:100%}
+ .invoice{padding:10px}
+ .top-grid{grid-template-columns:1fr}
+ .box{border-right:0;border-bottom:1px solid #222;min-height:auto}
+ .box:last-child{border-bottom:0}
+ .summary-grid{grid-template-columns:1fr}
+ .tax-table{border-right:0;border-bottom:1px solid #222}
+ .bottom-grid{grid-template-columns:1fr}
+ .bottom-box{border-right:0;border-bottom:1px solid #222;min-height:80px}
+ .bottom-box:last-child{border-bottom:0}
+ .customer-grid{grid-template-columns:1fr}
+ .customer{border-right:0;border-bottom:1px solid #222}
+ .customer:last-child{border-bottom:0}
+ .items{font-size:8px;min-width:760px}
+ .items-wrap{overflow-x:auto}
+ .actions{padding:0 10px 10px}
+}
+@media print{
+ body{padding:0;background:#fff}
+ .invoice-wrap{width:100%;box-shadow:none}
+ .actions{display:none!important}
+ @page{size:A4;margin:8mm}
+}
+</style>
 </head>
 <body>
-    <div class="receipt-wrapper" id="receipt-wrapper">
-        <div class="loading-state" id="loading-state">
-            <i class="fa-solid fa-receipt"></i>
-            <p>Loading receipt...</p>
-        </div>
-    </div>
 
-    <script>
-        // URL & key loaded from supabase-constants.js
-        let supabase = null;
-        try { if (window.supabase && window.supabase.createClient) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { /* error */ }
+<div id="app"><div class="loading">Loading receipt…</div></div>
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const orderId = urlParams.get('order_id');
-        const merchantId = urlParams.get('merchant_id');
+<div class="actions">
+<button class="back" onclick="history.back()">← Back</button>
+<button class="print" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
 
-        function formatCurrency(amount) {
-            return '₹' + parseFloat(amount || 0).toFixed(2);
-        }
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+<script src="supabase-constants.js"></script>
 
-        function formatDate(dateStr) {
-            if (!dateStr) return 'N/A';
-            const d = new Date(dateStr);
-            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
+<script>
+const params=new URLSearchParams(location.search);
+const orderId=params.get('order_id');
+const merchantIdParam=params.get('merchant_id');
 
-        function formatTime(dateStr) {
-            if (!dateStr) return '';
-            const d = new Date(dateStr);
-            return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        }
+let db=null;
+try{
+ if(window.supabase?.createClient && typeof SUPABASE_URL!=='undefined' && typeof SUPABASE_KEY!=='undefined'){
+   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+ }
+}catch(e){}
 
-        async function loadReceipt() {
-            const wrapper = document.getElementById('receipt-wrapper');
-            if (!orderId) {
-                wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-circle-exclamation"></i><p>Missing order ID. Use ?order_id=ORD-XXXX</p></div>`;
-                return;
-            }
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const money=v=>'₹'+Number(v||0).toFixed(2);
+const date=v=>v?new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+const time=v=>v?new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'';
 
-            try {
-                let order, merchant, merchantOrders = [];
+async function load(){
+ const app=document.getElementById('app');
+ if(!orderId){app.innerHTML='<div class="error">Missing order ID. Use ?order_id=ORD-XXXX</div>';return;}
+ if(!db){app.innerHTML='<div class="error">Supabase is not configured. Check supabase-constants.js.</div>';return;}
+ try{
+   const {data:order,error}=await db.from('orders').select('*').eq('order_id',orderId).single();
+   if(error||!order){app.innerHTML='<div class="error">Order not found: '+esc(orderId)+'</div>';return;}
 
-                // Fetch order by order_id (ORD-XXXX text)
-                const { data: orderData, error: orderErr } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .eq('order_id', orderId)
-                    .single();
+   const {data:items}=await db.from('order_items').select('*').eq('order_id',orderId);
+   order.order_items=items||[];
 
-                if (orderErr || !orderData) {
-                    wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-circle-exclamation"></i><p>Order not found: ${orderId}</p></div>`;
-                    return;
-                }
-                order = orderData;
+   let merchant=null;
+   const mid=merchantIdParam||order.merchant_id||(order.order_items[0]?.merchant_id);
+   if(mid){
+     const r=await db.from('merchants').select('*').eq('id',mid).single();
+     merchant=r.data||null;
+   }
+   render(order,merchant);
+ }catch(e){
+   console.error(e);
+   app.innerHTML='<div class="error">Unable to load this receipt. Please try again.</div>';
+ }
+}
 
-                // Fetch order_items separately (FK join broken due to TEXT vs UUID)
-                const { data: itemsData } = await supabase
-                    .from('order_items')
-                    .select('*')
-                    .eq('order_id', orderId);
-                if (itemsData) order.order_items = itemsData;
+function render(o,m){
+ const items=o.order_items||[];
+ const subtotal=items.reduce((s,i)=>s+Number(i.total_price ?? (Number(i.unit_price||0)*Number(i.quantity||1))),0);
+ const total=Number(o.total_amount ?? o.total ?? subtotal);
+ const shipping=Number(o.shipping_fee||0);
+ const delivery=Number(o.delivery_fee||0);
+ const platform=Number(o.platform_fee||0);
+ const processing=Number(o.processing_fee||0);
+ const speed=Number(o.delivery_speed_fee||0);
+ const cod=Number(o.cod_fee||0);
+ const tax=Number(o.tax||0);
+ const discount=Number(o.discount||0);
+ const invoiceNo='INV-'+String(o.order_id||o.id||'').replace(/^ORD-/,'');
+ const payment=(o.payment_method||o.payment_mode||'COD').toUpperCase();
+ const status=(o.status||'Pending').toUpperCase();
+ const customer=o.customer_name||o.user_name||'Customer';
+ const phone=o.customer_phone||o.user_phone||'';
+ const address=o.delivery_address||o.customer_address||o.address||'';
+ const shopName=m?.shop_name||m?.merchant_name||'MediFinder India Partner Store';
+ const shopPhone=m?.phone||'';
+ const shopAddress=m?.resolved_address||m?.address||'';
+ const shopCity=m?.city||'';
+ const shopPin=m?.pincode||'';
+ const soldBy=[shopAddress,shopCity,shopPin].filter(Boolean).join(', ');
+ const created=o.created_at||new Date().toISOString();
+ const qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(location.origin+location.pathname+'?order_id='+encodeURIComponent(o.order_id||o.id||''));
+ const rows=items.length?items.map((i,n)=>{
+   const qty=Number(i.quantity||1), unit=Number(i.unit_price||0), line=Number(i.total_price ?? unit*qty);
+   const gst=Number(i.gst_rate||i.tax_rate||0);
+   const hsn=i.hsn_code||i.hsn||'—';
+   return `<tr>
+     <td class="center">${n+1}</td>
+     <td><div class="product">${esc(i.product_name||i.medicine_name||i.product_category||i.dosage_form||'Medicine')}</div>${i.description?'<div>'+esc(i.description)+'</div>':''}</td>
+     <td>${esc(i.manufacturer||i.mfr_name||'—')}</td>
+     <td>${esc(i.batch_no||i.batch||'—')}</td>
+     <td class="center">${esc(i.expiry_date||i.expiry||'—')}</td>
+     <td class="center">${qty}</td>
+     <td class="num">${money(unit)}</td>
+     <td class="num">${gst}%</td>
+     <td class="num">${money(line)}</td>
+   </tr>`;
+ }).join('') : `<tr><td colspan="9" class="center">No item details available</td></tr>`;
 
-                // Try to find merchant from order or order_items
-                let orderMerchantId = merchantId;
-                if (!orderMerchantId && order.merchant_id) orderMerchantId = order.merchant_id;
-                if (!orderMerchantId && order.order_items && order.order_items.length > 0) {
-                    const firstItem = order.order_items[0];
-                    if (firstItem.merchant_id) orderMerchantId = firstItem.merchant_id;
-                }
+ document.getElementById('app').innerHTML=`
+ <div class="invoice-wrap">
+ <div class="invoice">
+   <div class="top-title">Tax Invoice / Bill of Supply / Cash Memo &nbsp; (Original for Recipient)</div>
 
-                // Fetch merchant info
-                if (orderMerchantId) {
-                    const { data: merchData } = await supabase
-                        .from('merchants')
-                        .select('*')
-                        .eq('id', orderMerchantId)
-                        .single();
-                    if (merchData) merchant = merchData;
-                }
+   <div class="top-grid">
+     <div class="box">
+       <div class="brand"><img src="favicon.png" onerror="this.style.display='none'"><div><b>MEDIFINDER INDIA</b><small>Healthcare & Medicine Delivery Platform</small></div></div>
+       <h3>Sold By</h3>
+       <p><b>${esc(shopName)}</b><br>${esc(soldBy||'Partner pharmacy address not available')}<br>${shopPhone?'Phone: '+esc(shopPhone):''}</p>
+     </div>
 
-                // Render receipt
-                renderReceipt(order, merchant);
+     <div class="box">
+       <h3>Sold To</h3>
+       <p><b>${esc(customer)}</b><br>${phone?'Phone: '+esc(phone)+'<br>':''}${esc(address)}</p>
+       <div class="invoice-meta">
+         <div><span class="label">Payment:</span> <span class="value">${esc(payment)}</span></div>
+         <div><span class="label">Status:</span> <span class="value">${esc(status)}</span></div>
+       </div>
+     </div>
 
-            } catch (e) {
-                wrapper.innerHTML = `<div class="error-state"><i class="fa-solid fa-bug"></i><p>Error loading receipt. Please try again.</p></div>`;
-            }
-        }
+     <div class="box">
+       <h3>Invoice Details</h3>
+       <p><b>Invoice No.</b><br>${esc(invoiceNo)}</p>
+       <div class="invoice-meta">
+         <div><span class="label">Date</span><br><span class="value">${date(created)}</span></div>
+         <div><span class="label">Time</span><br><span class="value">${time(created)}</span></div>
+       </div>
+       <p style="margin-top:5px"><b>Order ID</b><br>${esc(o.order_id||o.id||'—')}</p>
+       <img class="qr" src="${qr}" alt="Order QR">
+       <div class="qr-note">For Internal / Verification Purpose</div>
+     </div>
+   </div>
 
-        function renderReceipt(order, merchant) {
-            const wrapper = document.getElementById('receipt-wrapper');
-            const items = order.order_items || [];
-            const isOldFormat = items.length === 0 && order.items_text;
-            const subtotal = items.reduce((s, i) => s + parseFloat(i.total_price || i.unit_price * i.quantity || 0), 0);
-            const total = parseFloat(order.total_amount || order.total || order.total_bill?.replace('₹', '') || subtotal || 0);
-            const shipping = parseFloat(order.shipping_fee || 0);
-            const delivery = parseFloat(order.delivery_fee || 0);
-            const platformFee = parseFloat(order.platform_fee || 0);
-            const processingFee = parseFloat(order.processing_fee || 0);
-            const speedFee = parseFloat(order.delivery_speed_fee || 0);
-            const codFee = parseFloat(order.cod_fee || 0);
-            const tax = parseFloat(order.tax || 0);
-            const discount = parseFloat(order.discount || 0);
-            const statusClass = (order.status || 'active').toLowerCase();
-            const paymentStatus = (order.payment_status || 'pending').toLowerCase();
+   <div class="section">
+     <div class="section-title">Order Items</div>
+     <div class="items-wrap">
+     <table class="items">
+       <thead><tr>
+         <th style="width:32px">Sr.</th><th>Product Name</th><th>MFR. Name</th><th>Batch No.</th><th>Expiry</th><th class="center">Qty</th><th class="num">MRP/Price</th><th class="num">GST</th><th class="num">Total</th>
+       </tr></thead>
+       <tbody>${rows}</tbody>
+     </table>
+     </div>
+   </div>
 
-            const shopName = merchant?.shop_name || merchant?.merchant_name || 'MediFinder India Partner Store';
-            const shopPhone = merchant?.phone || '';
-            const shopAddress = merchant?.resolved_address || merchant?.address || '';
-            const shopCity = merchant?.city || '';
-            const shopPin = merchant?.pincode || '';
-            const shopFullAddr = [shopAddress, shopCity, shopPin].filter(Boolean).join(', ');
+   <div class="section summary-grid">
+     <div class="tax-table">
+       <table>
+        <thead><tr><th>GST %</th><th>Taxable Amount</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+          <tr><td>5</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+          <tr><td>12</td><td>${money(tax?subtotal:0)}</td><td>0.00</td><td>0.00</td><td>${money(tax)}</td></tr>
+          <tr><td>18</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+        </tbody>
+       </table>
+     </div>
+     <div class="totals">
+       <div class="total-row"><span>Gross Amount</span><b>${money(subtotal)}</b></div>
+       ${shipping?`<div class="total-row"><span>Shipping &amp; Handling</span><b>${money(shipping)}</b></div>`:''}
+       ${delivery?`<div class="total-row"><span>Delivery Charges</span><b>${money(delivery)}</b></div>`:''}
+       ${platform?`<div class="total-row"><span>Platform Fee</span><b>${money(platform)}</b></div>`:''}
+       ${processing?`<div class="total-row"><span>Processing Charge</span><b>${money(processing)}</b></div>`:''}
+       ${speed?`<div class="total-row"><span>Fast Delivery Fee</span><b>${money(speed)}</b></div>`:''}
+       ${cod?`<div class="total-row"><span>COD Handling Fee</span><b>${money(cod)}</b></div>`:''}
+       ${tax?`<div class="total-row"><span>Tax / GST</span><b>${money(tax)}</b></div>`:''}
+       ${discount?`<div class="total-row"><span>Discount</span><b>-${money(discount)}</b></div>`:''}
+       <div class="total-row grand"><span>PAYABLE AMOUNT</span><span>${money(total)}</span></div>
+     </div>
+   </div>
 
-            const customerName = order.customer_name || order.profiles?.full_name || order.user_name || 'Customer';
-            const customerPhone = order.customer_phone || order.user_phone || order.profiles?.phone || '';
-            const customerAddr = order.delivery_address || order.customer_address || order.address || '';
-            const paymentMethod = (order.payment_method || order.payment_mode || 'COD').toUpperCase();
-            const secureCode = order.delivery_secure_code || '';
-            // "Type" the customer picked at checkout — Express (30 min),
-            // Same Day, or Standard (5-7 days, always available regardless
-            // of pincode). Falls back to Standard for older orders placed
-            // before this was tracked.
-            const deliverySpeedRaw = (order.delivery_speed || 'manual').toLowerCase();
-            const deliveryTypeLabel = deliverySpeedRaw === 'express' ? 'Express (30 Min)'
-                : deliverySpeedRaw === 'sameday' ? 'Same Day'
-                : 'Standard (5-7 Days)';
-            const dateStr = order.date_string || formatDate(order.created_at);
-            const timeStr = order.created_at ? formatTime(order.created_at) : '';
-            // Unique invoice number per receipt, derived from the order's own unique ID —
-            // no separate counter table needed, it's already unique per order.
-            // Shown compact (last 10 chars) so it never overflows into the
-            // centered logo on the header — the full order_id is still used
-            // for the QR payload below.
-            const invoiceNoFull = 'INV-' + (order.order_id || order.id || '').toString().replace(/^ORD-/, '');
-            const invoiceNo = invoiceNoFull.length > 14 ? 'INV-' + invoiceNoFull.slice(-10) : invoiceNoFull;
-            const couponCode = order.coupon_code || '';
-            // Data the QR code encodes — enough to look this exact receipt up again.
-            const qrData = encodeURIComponent(`${invoiceNoFull}|${order.order_id || order.id || ''}`);
-            const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + qrData;
+   <div class="amount-words"><b>Amount in Words:</b> ${amountWords(total)}</div>
 
-            // Build items HTML
-            let itemsHtml = '';
-            if (items.length > 0) {
-                itemsHtml = items.map((i, idx) => `
-                    <div class="items-table-row">
-                        <div class="item-name">${i.product_category || i.dosage_form || i.product_name || 'Item'}</div>
-                        <div class="item-qty">×${i.quantity || 1}</div>
-                        <div class="item-price">${formatCurrency(i.unit_price || 0)}</div>
-                        <div class="item-total">${formatCurrency(i.total_price || (i.quantity || 1) * (i.unit_price || 0))}</div>
-                    </div>
-                `).join('');
-            } else if (order.items_text) {
-                const parsedItems = order.items_text.split(', ').map((t, idx) => {
-                    const parts = t.split(' × ');
-                    return `<div class="items-table-row">
-                        <div class="item-name">${parts[0] || t}</div>
-                        <div class="item-qty">${parts[1] ? '×' + parts[1] : ''}</div>
-                        <div class="item-price">—</div>
-                        <div class="item-total">—</div>
-                    </div>`;
-                }).join('');
-                itemsHtml = parsedItems;
-            } else {
-                itemsHtml = '<div style="text-align:center;padding:10px;color:#6b7280;font-size:12px">No items detail available</div>';
-            }
+   <div class="bottom-grid">
+     <div class="bottom-box">
+       <h4>Payment & Delivery</h4>
+       <p>Payment Mode: <b>${esc(payment)}</b><br>Order Status: <b>${esc(status)}</b><br>${o.delivery_speed?('Delivery Type: '+esc(o.delivery_speed)):''}</p>
+     </div>
+     <div class="bottom-box">
+       <h4>Terms & Support</h4>
+       <p>This is a computer generated invoice. For order support, please contact MediFinder India through the support section of the website/app.</p>
+     </div>
+     <div class="bottom-box">
+       <h4>Authorised Signatory</h4>
+       <div class="sign">For MediFinder India / Partner Store</div>
+     </div>
+   </div>
 
-            wrapper.innerHTML = `
-                <div class="receipt-card">
-                    <div class="receipt-header">
-                        <div class="invoice-no-tag">
-                            <div>Invoice No.</div>
-                            <div class="inv-num">${invoiceNo}</div>
-                        </div>
-                        <div class="shop-logo"><img src="favicon.png" alt="MediFinder India"></div>
-                        <div class="shop-name">MediFinder India</div>
-                        <div class="shop-info">${shopFullAddr ? shopFullAddr + '<br>' : ''}${shopPhone ? '📞 ' + shopPhone : ''}</div>
-                        <div class="receipt-badge"><i class="fa-regular fa-clock"></i> ${dateStr} ${timeStr}</div>
-                    </div>
+   <div class="footer">Thank you for choosing <b>MediFinder India</b> · Your Health, Our Priority</div>
+ </div>
+ </div>`;
+}
 
-                    <div class="receipt-body">
-                        <div class="receipt-title">🧾 <span>ORDER RECEIPT</span></div>
-
-                        <div class="info-row">
-                            <span class="label">Order ID</span>
-                            <span class="value">#${order.order_id || order.id?.slice(0, 8) || ''}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Invoice Date</span>
-                            <span class="value">${dateStr}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Payment</span>
-                            <span class="value">${paymentMethod} <span class="payment-badge ${paymentStatus}">${paymentStatus.toUpperCase()}</span></span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Status</span>
-                            <span class="value status-${statusClass}">${(order.status || 'Active').toUpperCase()}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Delivery Type</span>
-                            <span class="value">${deliveryTypeLabel}</span>
-                        </div>
-                        ${order.eta_minutes ? `<div class="info-row"><span class="label">ETA</span><span class="value">${order.eta_minutes} min</span></div>` : ''}
-
-                        <hr class="divider-dashed">
-
-                        <div class="section-label"><i class="fa-solid fa-location-dot"></i> DELIVER TO</div>
-                        <div class="customer-details">
-                            <strong>${customerName}</strong>
-                            <span><i class="fa-solid fa-phone"></i> ${customerPhone}</span><br>
-                            <span><i class="fa-solid fa-location-dot"></i> ${customerAddr}</span>
-                        </div>
-
-                        <hr class="divider-dashed">
-
-                        <div class="section-label"><i class="fa-solid fa-pills"></i> ORDER ITEMS</div>
-                        <div class="items-table-header">
-                            <span>Product</span>
-                            <span class="right">Qty</span>
-                            <span class="right">Price</span>
-                            <span class="right">Total</span>
-                        </div>
-                        ${itemsHtml}
-
-                        <div class="total-breakdown">
-                            <div class="info-row">
-                                <span class="label">Medicine Subtotal</span>
-                                <span class="value">${formatCurrency(subtotal)}</span>
-                            </div>
-                            ${shipping > 0 ? `<div class="info-row"><span class="label">Shipping Charges</span><span class="value">${formatCurrency(shipping)}</span></div>` : ''}
-                            ${delivery > 0 ? `<div class="info-row"><span class="label">Delivery Fees</span><span class="value">${formatCurrency(delivery)}</span></div>` : ''}
-                            ${platformFee > 0 ? `<div class="info-row"><span class="label">Secure Platform Fee</span><span class="value">${formatCurrency(platformFee)}</span></div>` : ''}
-                            ${processingFee > 0 ? `<div class="info-row"><span class="label">Order Processing Charge</span><span class="value">${formatCurrency(processingFee)}</span></div>` : ''}
-                            ${speedFee > 0 ? `<div class="info-row"><span class="label">Fast Delivery Fee</span><span class="value">${formatCurrency(speedFee)}</span></div>` : ''}
-                            ${codFee > 0 ? `<div class="info-row"><span class="label">Cash On Delivery Handling Fee</span><span class="value">${formatCurrency(codFee)}</span></div>` : ''}
-                            ${tax > 0 ? `<div class="info-row"><span class="label">Tax</span><span class="value">${formatCurrency(tax)}</span></div>` : ''}
-                            ${discount > 0 ? `<div class="info-row"><span class="label">Discount${couponCode ? ' (' + couponCode + ')' : ''}</span><span class="value" style="color:#2ed573">-${formatCurrency(discount)}</span></div>` : ''}
-                            <div class="info-row grand-total-row">
-                                <span class="label">Grand Total</span>
-                                <span class="value">${formatCurrency(total)}</span>
-                            </div>
-                        </div>
-
-                        <div class="barcode-section no-print">
-                            <div style="font-family:'Courier New',monospace;font-size:20px;letter-spacing:6px;color:#333;font-weight:700">
-                                ${order.order_id || order.id || ''}
-                            </div>
-                            <div class="order-id-text">ORDER REFERENCE</div>
-                        </div>
-
-                        <div class="qr-section">
-                            <img src="${qrCodeUrl}" alt="Receipt QR Code">
-                            <div class="qr-caption">SCAN TO VERIFY THIS RECEIPT</div>
-                        </div>
-
-                        <div class="signature-section">
-                            <div class="sign-box">
-                                <div class="sign-line"></div>
-                                <div class="sign-label">Customer Sign</div>
-                            </div>
-                            <div class="verified-tick">
-                                <div class="tick-circle"><i class="fa-solid fa-check"></i></div>
-                                <div class="sign-label">Verified</div>
-                            </div>
-                            <div class="sign-box">
-                                <div class="sign-line"></div>
-                                <div class="sign-label">Authorised Sign</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="receipt-footer">
-                        <div class="footer-brand">MEDIFINDER INDIA</div>
-                        <p>Thank you for your order!<br>Track your delivery status on MediFinder India app.<br><span style="color:#e02020">💊 Your Health, Our Priority</span></p>
-                        <div class="merchant-extra">${shopName ? 'Powered by ' + shopName : 'MediFinder India Delivery Service'}</div>
-                    </div>
-                </div>
-
-                <div class="action-bar">
-                    <button class="back-btn" onclick="window.close()"><i class="fa-solid fa-arrow-left"></i> Close</button>
-                    <button class="print-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Receipt</button>
-                </div>
-            `;
-        }
-
-        loadReceipt();
-    </script>
+function amountWords(n){
+ const num=Math.round(Number(n||0));
+ if(num===0)return'Zero only';
+ const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+ const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+ function two(x){return x<20?ones[x]:tens[Math.floor(x/10)]+(x%10?' '+ones[x%10]:'')}
+ function three(x){return x<100?two(x):ones[Math.floor(x/100)]+' Hundred'+(x%100?' '+two(x%100):'')}
+ let x=num,s='';
+ if(x>=10000000){s+=three(Math.floor(x/10000000))+' Crore ';x%=10000000}
+ if(x>=100000){s+=three(Math.floor(x/100000))+' Lakh ';x%=100000}
+ if(x>=1000){s+=three(Math.floor(x/1000))+' Thousand ';x%=1000}
+ if(x)s+=three(x);
+ return ('Rupees '+s.trim()+' only').replace(/\s+/g,' ');
+}
+load();
+</script>
 </body>
 </html>

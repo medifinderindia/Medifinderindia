@@ -40,6 +40,56 @@ function formatPhoneToE164(phone) {
 }
 
 // ==========================================
+// 🔒 ONE EMAIL / ONE PHONE = ONE ROLE (strict) + clean OAuth landing helpers
+// ==========================================
+// A toast shown right before a redirect/reload is lost. So we park the message in
+// sessionStorage and show it once on the next page load (auth.html).
+function setAuthNotice(msg, type) {
+    try { sessionStorage.setItem('mf_auth_notice', JSON.stringify({ msg: msg, type: type || 'error' })); } catch (e) {}
+}
+function flushAuthNotice() {
+    try {
+        const raw = sessionStorage.getItem('mf_auth_notice');
+        if (!raw) return;
+        sessionStorage.removeItem('mf_auth_notice');
+        const n = JSON.parse(raw);
+        if (n && n.msg && typeof showToast === 'function') showToast(n.msg, n.type || 'error');
+    } catch (e) {}
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(flushAuthNotice, 150));
+else setTimeout(flushAuthNotice, 150);
+
+// Full-screen branded cover while we resolve the role after Google returns, so the
+// visitor never sees a half-built / blank auth page. (No text-only "Logging in" page.)
+function showAuthCover() {
+    if (document.getElementById('mf-auth-cover')) return;
+    const c = document.createElement('div');
+    c.id = 'mf-auth-cover';
+    c.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fff;display:flex;align-items:center;justify-content:center;';
+    c.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#e02020;border-radius:50%;animation:mfspin .8s linear infinite"></div>' +
+        '<style>@keyframes mfspin{to{transform:rotate(360deg)}}</style>';
+    (document.body || document.documentElement).appendChild(c);
+}
+function hideAuthCover() {
+    const c = document.getElementById('mf-auth-cover');
+    if (c) c.remove();
+}
+
+// Asks the database (SECURITY DEFINER rpc, see role-lock.sql) which role already owns
+// this email or phone. Returns the role string, or null if free / rpc not installed yet
+// (the DB trigger in role-lock.sql is the hard backstop in that case).
+async function getRegisteredRole(email, phone) {
+    try {
+        const { data, error } = await supabaseClient.rpc('get_registered_role', {
+            p_email: (email || '').trim().toLowerCase(),
+            p_phone: phone ? formatPhoneToE164(phone) : ''
+        });
+        if (error) return null;
+        return data || null;
+    } catch (e) { return null; }
+}
+
+// ==========================================
 // ডায়নামিক রোল পলিসি লিংক চেঞ্জার লজিক
 // ==========================================
 const roleRadioButtons = document.querySelectorAll('input[name="signup-role"]');
@@ -109,6 +159,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     // Splash should play again on the next entry after a logout.
     if (event === 'SIGNED_OUT') {
         try { sessionStorage.removeItem('mf_splash_shown'); } catch (e) {}
+        _roleUpdatePromise = null; _roleUpdateUserId = null;
     }
 
     // ✅ FIXED: PASSWORD_RECOVERY নিজে একটা আলাদা event — আগে এটা "SIGNED_IN" এর
@@ -248,71 +299,95 @@ async function upsertServiceProviderProfile(user, serviceType) {
     }).eq('id', user.id);
 }
 
-let _roleUpdateInProgress = false;
-
-// ✅ FIXED: এখন আর existing account এর role জোর করে ওভাররাইট করবে না।
-// প্রথমবার (নতুন ইউজার) হলে role সেট হবে, কিন্তু আগে থেকে profiles টেবিলে
-// role থাকলে সেটাই আসল/সত্য (source of truth) — mismatch হলে সাইন-আউট করে দেওয়া হবে।
-async function handleOAuthUserRoleUpdate(user) {
-    if (_roleUpdateInProgress) return;
-    const savedRole = localStorage.getItem('selected_role') || 'user';
-    _roleUpdateInProgress = true;
-    try {
-        const { data: existingProfile } = await supabaseClient
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        const actualRole = existingProfile?.role;
-
-        if (actualRole) {
-            // এই একাউন্ট আগে থেকেই একটা নির্দিষ্ট role এ registered
-            if (actualRole !== savedRole) {
-                await supabaseClient.auth.signOut();
-                showToast(`This account is already registered as "${actualRole}". Please select the "${actualRole}" role and log in.`, "error");
-                localStorage.removeItem('selected_role');
-                throw new Error('role_mismatch');
-            }
-            return; // role মিলে গেছে, কিছু পাল্টানোর দরকার নেই
-        }
-
-        // একদম নতুন ইউজার — প্রথমবার role সেট করা হচ্ছে
-        await supabaseClient.auth.updateUser({ data: { role: savedRole } });
-        await supabaseClient.from('profiles').upsert({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-            role: savedRole,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-
-        if (savedRole === 'merchant') {
-            await supabaseClient.from('merchants').upsert({
-                auth_user_id: user.id,
-                merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
-                email: user.email || '',
-                status: 'active'
-            }, { onConflict: 'auth_user_id' });
-        }
-        if (savedRole === 'delivery') {
-            await supabaseClient.from('riders').upsert({
-                auth_user_id: user.id,
-                name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
-                status: 'offline'
-            }, { onConflict: 'auth_user_id' });
-        }
-        if (savedRole === 'service') {
-            const serviceType = getPendingServiceType();
-            await upsertServiceProviderProfile(user, serviceType);
-            localStorage.removeItem('selected_service_type');
-        }
-    } catch (e) {
-        _roleUpdateInProgress = false;
-        throw e; // caller (onAuthStateChange) কে জানিয়ে দাও যে blocked হয়েছে
+// ✅ ONE shared promise per signed-in user. Before, a second caller (splash / listener /
+// OAuth callback) hit `if (_roleUpdateInProgress) return;` and was treated as "role OK"
+// while the real mismatch check was still running — so a wrong-role Google login could
+// slip through to the other role's page. Now every caller awaits the SAME result.
+let _roleUpdatePromise = null;
+let _roleUpdateUserId = null;
+function handleOAuthUserRoleUpdate(user) {
+    if (!_roleUpdatePromise || _roleUpdateUserId !== user.id) {
+        _roleUpdateUserId = user.id;
+        _roleUpdatePromise = _handleOAuthUserRoleUpdateImpl(user);
     }
-    _roleUpdateInProgress = false;
+    return _roleUpdatePromise;
+}
+
+async function _handleOAuthUserRoleUpdateImpl(user) {
+    const savedRole = localStorage.getItem('selected_role') || 'user';
+
+    const { data: existingProfile } = await supabaseClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    const actualRole = existingProfile?.role;
+
+    // Only a FRESH Google sign-in is checked against the role the visitor picked.
+    // supabase-js also fires SIGNED_IN when a tab regains focus / session is re-validated;
+    // comparing against a stale localStorage 'selected_role' then signed people out
+    // ("have to login again and again"). For an already-logged-in user we just trust the DB role.
+    let _fresh = window._mfGoogleOAuthPending === true;
+    try { _fresh = _fresh || sessionStorage.getItem('mf_oauth_pending') === '1'; } catch (e) {}
+
+    if (actualRole && !_fresh) {
+        localStorage.setItem('selected_role', actualRole);
+        return;
+    }
+
+    if (actualRole) {
+        // This account already belongs to exactly ONE role — profiles.role is the truth.
+        if (actualRole !== savedRole) {
+            setAuthNotice(`This account is already registered as "${actualRole}". It cannot be used for the "${savedRole}" role. Please log in with the "${actualRole}" role.`, 'error');
+            localStorage.removeItem('selected_role');
+            await supabaseClient.auth.signOut();
+            throw new Error('role_mismatch');
+        }
+        return; // role matches
+    }
+
+    // Brand-new auth user. Make sure this email/phone is not already owned by ANOTHER role
+    // (covers the case where Supabase created a separate auth user for the same email).
+    const owner = await getRegisteredRole(user.email, user.phone);
+    if (owner && owner !== savedRole) {
+        setAuthNotice(`This email is already registered as "${owner}". One email can only have one role. Please log in with the "${owner}" role.`, 'error');
+        localStorage.removeItem('selected_role');
+        await supabaseClient.auth.signOut();
+        throw new Error('role_mismatch');
+    }
+
+    // First time — set the role once.
+    await supabaseClient.auth.updateUser({ data: { role: savedRole } });
+    await supabaseClient.from('profiles').upsert({
+        id: user.id,
+        email: user.email || '',
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+        role: savedRole,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (savedRole === 'merchant') {
+        await supabaseClient.from('merchants').upsert({
+            auth_user_id: user.id,
+            merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
+            email: user.email || '',
+            status: 'active'
+        }, { onConflict: 'auth_user_id' });
+    }
+    if (savedRole === 'delivery') {
+        await supabaseClient.from('riders').upsert({
+            auth_user_id: user.id,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
+            status: 'offline'
+        }, { onConflict: 'auth_user_id' });
+    }
+    if (savedRole === 'service') {
+        const serviceType = getPendingServiceType();
+        await upsertServiceProviderProfile(user, serviceType);
+        localStorage.removeItem('selected_service_type');
+    }
 }
 
 async function redirectUserBasedOnRole(user) {
@@ -403,6 +478,19 @@ if (signupForm) {
             signupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
         }
 
+        // 🔒 One email / one phone = one role. Stop BEFORE creating anything.
+        const _owner = await getRegisteredRole(email, phone);
+        if (_owner) {
+            showToast(_owner === role
+                ? 'This email or phone is already registered. Please log in instead.'
+                : `This email or phone is already registered as "${_owner}". One email/phone can only have one role. Please log in with the "${_owner}" role.`, 'error');
+            if (signupBtn) {
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
+            }
+            return;
+        }
+
         const { data, error } = await withTimeout(supabaseClient.auth.signUp({
             email: email,
             password: password,
@@ -418,6 +506,14 @@ if (signupForm) {
                 return;
             }
             showToast("Signup Failed! Reason: " + error.message, "error");
+            if (signupBtn) {
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
+            }
+        } else if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+            // Supabase hides "email already exists" by returning a fake user with no identities.
+            // Never write a profile for it.
+            showToast('This email is already registered. Please log in with the role you originally signed up with.', 'error');
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -538,15 +634,32 @@ if (sendSignupOtpBtn) {
         localStorage.setItem('selected_role', role);
         if (serviceType) localStorage.setItem('selected_service_type', serviceType);
 
-        const { data, error } = await supabaseClient.auth.signInWithOtp({
-            phone: phone,
+        const _phoneOwner = await getRegisteredRole('', phone);
+        if (_phoneOwner) {
+            showToast(_phoneOwner === role
+                ? 'This phone number is already registered. Please log in instead.'
+                : `This phone number is already registered as "${_phoneOwner}". One phone can only have one role. Please log in with the "${_phoneOwner}" role.`, 'error');
+            return;
+        }
+
+        const _sendLabel = sendSignupOtpBtn.innerHTML;
+        sendSignupOtpBtn.disabled = true;
+        sendSignupOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        const { data, error } = await withTimeout(supabaseClient.auth.signInWithOtp({
+            phone: formatPhoneToE164(phone),
             options: {
                 data: { full_name: name, role: role }
             }
-        });
+        }));
+
+        sendSignupOtpBtn.disabled = false;
+        sendSignupOtpBtn.innerHTML = _sendLabel;
 
         if (error) {
-            showToast("OTP Send Failed! Reason: " + error.message, "error");
+            showToast(error.message === '__TIMEOUT__'
+                ? "OTP request timed out. Please check your connection and try again."
+                : "OTP Send Failed! Reason: " + error.message, "error");
         } else {
             showToast("OTP Sent Successfully!", "success");
             document.getElementById('signup-otp-wrapper').classList.remove('hidden-section');
@@ -561,7 +674,7 @@ if (resendOtpLink) {
         e.preventDefault();
         const phone = document.getElementById('phone-signup-number').value;
         
-        const { error } = await supabaseClient.auth.signInWithOtp({ phone: phone });
+        const { error } = await supabaseClient.auth.signInWithOtp({ phone: formatPhoneToE164(phone) });
         if (error) {
             showToast("Resend OTP Failed! Reason: " + error.message, "error");
         } else {
@@ -606,6 +719,15 @@ if (verifySignupOtpBtn) {
             try {
                 const user = data.user;
                 if (user) {
+                    // 🔒 Never overwrite an existing account's role.
+                    const { data: _ex } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                    if (_ex && _ex.role && _ex.role !== role) {
+                        await supabaseClient.auth.signOut();
+                        showToast(`This number is already registered as "${_ex.role}". Please log in with the "${_ex.role}" role.`, 'error');
+                        verifySignupOtpBtn.disabled = false;
+                        verifySignupOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify & Signup';
+                        return;
+                    }
                     // Upsert profile with name
                     await supabaseClient.from('profiles').upsert({
                         id: user.id,
@@ -647,7 +769,7 @@ if (verifySignupOtpBtn) {
                     }
                 }
             } catch (profileErr) {
-
+                console.warn('[MediFinder] profile write after OTP signup failed:', profileErr);
             }
 
             localStorage.setItem('selected_role', role);
@@ -891,10 +1013,27 @@ if (sendOtpBtn) {
         sendOtpBtn.disabled = true;
         sendOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-        const { data, error } = await supabaseClient.auth.signInWithOtp({ phone: formattedPhone });
+        // 🔒 Login must only work for an existing number under the SAME role.
+        const _loginOwner = await getRegisteredRole('', formattedPhone);
+        const _pickedRole = roleChecked.value;
+        if (_loginOwner && _loginOwner !== _pickedRole) {
+            showToast(`This number is registered as "${_loginOwner}". Please select the "${_loginOwner}" role to log in.`, "error");
+            sendOtpBtn.disabled = false;
+            sendOtpBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send OTP';
+            return;
+        }
+
+        // shouldCreateUser:false -> an unknown number can NOT silently create a new account from the login screen
+        const { data, error } = await withTimeout(supabaseClient.auth.signInWithOtp({
+            phone: formattedPhone,
+            options: { shouldCreateUser: false }
+        }));
 
         if (error) {
-            showToast("Error sending OTP: " + error.message, "error");
+            let msg = "Error sending OTP: " + error.message;
+            if (error.message === '__TIMEOUT__') msg = "OTP request timed out. Please check your connection and try again.";
+            else if (/signups? not allowed|not found|user.*not/i.test(error.message)) msg = "No account found with this phone number. Please sign up first.";
+            showToast(msg, "error");
             sendOtpBtn.disabled = false;
             sendOtpBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send OTP';
         } else {
@@ -1043,6 +1182,10 @@ if (verifyOtpBtn) {
 
 async function loginWithGoogle(roleValue) {
     localStorage.setItem('selected_role', roleValue);
+    // Marks "a Google round-trip is in flight" so ANY page we land on afterwards
+    // (auth.html OR the splash, if Supabase falls back to the Site URL) resolves
+    // role + mismatch BEFORE showing anything.
+    try { sessionStorage.setItem('mf_oauth_pending', '1'); } catch (e) {}
 
     // ✅ GOOGLE OAUTH FIX: redirectTo now carries ?oauth=google so that, once Google
     // sends the browser back here, handleGoogleOAuthCallback() below can reliably
@@ -1070,6 +1213,7 @@ async function loginWithGoogle(roleValue) {
 // this script running.
 async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Google OAuth callback detected');
+    showAuthCover();
 
     // getSession() can occasionally run a beat before supabase-js finishes
     // parsing the auth params Google appended to the URL, so retry briefly
@@ -1078,7 +1222,7 @@ async function handleGoogleOAuthCallback() {
     for (let attempt = 0; attempt < 10 && !session; attempt++) {
         const { data } = await supabaseClient.auth.getSession();
         session = data && data.session ? data.session : null;
-        if (!session) await new Promise(resolve => setTimeout(resolve, 300));
+        if (!session) await new Promise(resolve => setTimeout(resolve, 150));
     }
 
     console.log('[MediFinder] Google session:', session ? '(present)' : '(none)');
@@ -1086,9 +1230,12 @@ async function handleGoogleOAuthCallback() {
     if (!session || !session.user) {
         // No session ever materialized — leave the user on auth.html rather
         // than guessing where to send them.
+        try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
+        hideAuthCover();
         return;
     }
 
+    try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
     const user = session.user;
 
     // Admin email always goes straight to the admin panel, same as every
@@ -1107,6 +1254,7 @@ async function handleGoogleOAuthCallback() {
     } catch (e) {
         // Role mismatch: handleOAuthUserRoleUpdate() already signed the user
         // out and showed the toast — just land back on a clean login panel.
+        // (notice is parked in sessionStorage and shown on the fresh auth page)
         window.location.replace("auth.html?panel=login");
         return;
     }
@@ -1203,7 +1351,7 @@ if (loginResendOtp) {
 
         let formattedPhone = formatPhoneToE164(phone);
 
-        const { error } = await supabaseClient.auth.signInWithOtp({ phone: formattedPhone });
+        const { error } = await supabaseClient.auth.signInWithOtp({ phone: formattedPhone, options: { shouldCreateUser: false } });
         if (error) {
             showToast("Resend OTP Failed! Reason: " + error.message, "error");
         } else {
@@ -1504,6 +1652,21 @@ window.getRedirectPathForUser = async function (user) {
     if (user.email === 'medifinderindia@gmail.com' &&
         localStorage.getItem('admin_auth_in_progress') !== 'true') {
         return 'admin.html';
+    }
+
+    // Coming back from Google onto THIS page (e.g. Supabase used the Site URL instead of
+    // auth.html?oauth=google)? Then do the exact same first-time/mismatch check first,
+    // and never route a wrong-role Google login into the other role's dashboard.
+    let _oauthPending = false;
+    try { _oauthPending = sessionStorage.getItem('mf_oauth_pending') === '1'; } catch (e) {}
+    if (_oauthPending) {
+        try {
+            await handleOAuthUserRoleUpdate(user);
+        } catch (e) {
+            try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e2) {}
+            return 'auth.html?panel=login';
+        }
+        try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
     }
 
     // The profiles table is the source of truth for role, same as everywhere else in this file.

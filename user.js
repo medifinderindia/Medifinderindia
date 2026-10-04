@@ -2092,7 +2092,7 @@ window.refreshExpressDeliveryBadges = refreshExpressDeliveryBadges;
 // table (already wired up with realtime + the notification bell), tagging
 // each notification with related_prescription_id so tapping it opens this
 // exact request. Returns the new prescription_orders id, or null on failure.
-async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines, customerPhone) {
+async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines, customerPhone, customerAddress) {
     if (!supabase) return null;
     try {
         const userLat = await new Promise((resolve) => {
@@ -2142,7 +2142,7 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
         } catch (e) {}
 
         const defaultAddr = (savedAddresses || []).find(a => a.is_default) || (savedAddresses || [])[0];
-        const userAddress = defaultAddr
+        const userAddress = customerAddress ? customerAddress : defaultAddr
             ? `${defaultAddr.address1 || ''}${defaultAddr.address2 ? ', ' + defaultAddr.address2 : ''}, ${defaultAddr.city || ''} - ${defaultAddr.pincode || ''}`
             : (verifiedAddress || '');
 
@@ -2189,8 +2189,9 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
 // quick bottom sheet showing the prescription number/reference and asking
 // for (or confirming) the phone number the pharmacy should call. Submitting
 // it is what actually triggers the broadcast.
-function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
-    const autoPhone = getAutoUserPhone();
+async function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
+    const rxState = await getRxContactState();
+    const autoPhone = rxState.phone || getAutoUserPhone();
     if (!document.getElementById('presc-bottom-sheet-css')) {
         const style = document.createElement('style');
         style.id = 'presc-bottom-sheet-css';
@@ -2213,6 +2214,7 @@ function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
                 <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:4px;"><i class="fa-solid fa-phone" style="color:#ff4d4d"></i> Your live mobile no. (pharmacy will call you on this)</label>
                 <input type="tel" id="presc-phone-input" value="${autoPhone}" maxlength="10" placeholder="10-digit mobile number" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ced4da;box-sizing:border-box;font-size:0.9rem;">
             </div>
+            ${rxState.hasAddr ? '' : rxAddressFieldsHTML()}
             <div style="display:flex;gap:10px;margin-top:15px;">
                 <button id="cancel-presc" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
                 <button id="submit-presc-phone" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Send to Nearby Pharmacies</button>
@@ -2224,13 +2226,21 @@ function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
     document.getElementById('submit-presc-phone').onclick = async () => {
         const phoneInput = document.getElementById('presc-phone-input');
         const phone = (phoneInput?.value || '').trim();
-        if (phone.length < 10) { showToast("Please enter a valid 10-digit mobile number.", "error"); return; }
+        if (!/^[6-9]\d{9}$/.test(phone)) { showToast("Please enter a valid 10-digit mobile number.", "error"); return; }
         localStorage.setItem('medi_last_phone', phone);
+
+        // No saved address yet -> it must be filled in here (and gets saved to the address book too)
+        let rxAddressText = rxState.addrStr || '';
+        if (!rxState.hasAddr) {
+            const saved = await rxReadAndSaveAddress(phone);
+            if (!saved) return;
+            rxAddressText = saved;
+        }
 
         const submitBtn = document.getElementById('submit-presc-phone');
         if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Sending...'; }
 
-        const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [], phone);
+        const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [], phone, rxAddressText);
         if (rxId) {
             if (activePrescription) {
                 activePrescription.orderId = rxId;
@@ -4263,9 +4273,13 @@ async function handleCartRxUpload(file) {
     showToast(`Prescription verified for ${item.name}!`, "success");
     renderCartPage();
 
-    // Broadcast to nearby pharmacies right away — doesn't block the UI.
+    // Every prescription attached to an order also goes into "My Prescription".
+    addToPrescriptionBox({ fileName: file.name || 'Prescription', url: prescriptionUrl, source: 'cart' });
+
+    // Broadcast to nearby pharmacies right away — if the customer has no
+    // saved mobile number / address, ask for them first.
     if (prescriptionUrl) {
-        broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, [{ id: item.id, name: item.name, price: item.price, img: item.img }], getAutoUserPhone())
+        sendRxToPharmaciesWithContact(prescriptionUrl, [{ id: item.id, name: item.name, price: item.price, img: item.img }])
             .then(rxId => { if (rxId) watchPendingPrescriptionOrder(rxId); });
     }
     pendingRxCartItemId = null;
@@ -4948,6 +4962,7 @@ async function processFinalOrderPayload() {
     const rxCartItems = currentCart.filter(i => i.rxVerified && i.prescriptionUrl);
     const orderPrescriptionRequired = rxCartItems.length > 0;
     const orderPrescriptionUrl = rxCartItems.length > 0 ? rxCartItems[0].prescriptionUrl : null;
+    rxCartItems.forEach(i => addToPrescriptionBox({ fileName: 'Prescription - ' + (i.name || 'order'), url: i.prescriptionUrl, source: 'order', orderId: orderId }));
 
     // For COD, payment_mode stays exactly "COD" as before. For online orders
     // it's saved as the specific method used ("UPI" or "UPI_QR") — matching
@@ -8066,7 +8081,8 @@ async function confirmDeleteAccount(reason) {
 }
 
 
-function openMyPrescriptionBox() {
+// Old popup version — no longer used (it overflowed on phones). Kept for reference only.
+function openMyPrescriptionBoxLegacyPopup() {
     const myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
     let popup = document.createElement('div');
     popup.className = "modal active";
@@ -8100,6 +8116,244 @@ function openMyPrescriptionBox() {
     `;
     document.body.appendChild(popup);
     document.getElementById('close-mybox-btn').onclick = () => popup.remove();
+}
+
+
+// ============================================================
+// MY PRESCRIPTION — full page + shared archive helpers
+// ============================================================
+function openMyPrescriptionBox() {
+    if (typeof window.navigateTo === 'function') window.navigateTo('prescriptions');
+}
+
+// Adds a slip to the local "My Prescription" archive (de-duplicated by URL).
+function addToPrescriptionBox(entry) {
+    try {
+        if (!entry || !entry.url) return;
+        let box = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
+        if (box.some(p => p.url === entry.url)) return;
+        box.push({
+            id: 'PRESC-' + Date.now(),
+            fileName: entry.fileName || 'Prescription',
+            url: entry.url,
+            date: new Date().toLocaleDateString('en-GB'),
+            ts: Date.now(),
+            source: entry.source || 'upload',
+            orderId: entry.orderId || ''
+        });
+        localStorage.setItem('medi_prescription_box', JSON.stringify(box));
+    } catch (e) {}
+}
+
+function rxFileLooksLikePdf(url, name) {
+    return /\.pdf($|\?)/i.test(url || '') || /\.pdf$/i.test(name || '');
+}
+
+window.downloadPrescriptionFile = async function (url, name) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('bad response');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name || 'prescription';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch (e) {
+        window.open(url, '_blank');
+    }
+};
+
+async function renderPrescriptionPage() {
+    const list = document.getElementById('prescriptions-list');
+    if (!list) return;
+
+    // Local archive first (instant), then merge in what the server knows (other devices / orders).
+    const merged = new Map();
+    const push = (url, fileName, ts, dateText, source) => {
+        if (!url || merged.has(url)) return;
+        merged.set(url, { url, fileName: fileName || 'Prescription', ts: ts || 0, dateText: dateText || '', source: source || '' });
+    };
+    const parseTsFromId = (id) => { const m = String(id || '').match(/(\d{10,})/); return m ? Number(m[1]) : 0; };
+    try {
+        (JSON.parse(localStorage.getItem('medi_prescription_box')) || []).forEach(p =>
+            push(p.url, p.fileName, p.ts || parseTsFromId(p.id), p.date, p.source));
+    } catch (e) {}
+
+    const draw = () => {
+        const items = Array.from(merged.values()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        if (items.length === 0) {
+            list.innerHTML = `<div class="rxpage-empty"><i class="fa-solid fa-file-medical"></i><p>No prescriptions uploaded yet.</p></div>`;
+            return;
+        }
+        list.innerHTML = items.map((p, i) => {
+            const isPdf = rxFileLooksLikePdf(p.url, p.fileName);
+            const dateText = p.dateText || (p.ts ? new Date(p.ts).toLocaleDateString('en-GB') : '');
+            const srcLabel = p.source === 'order' || p.source === 'cart' ? 'With order' : (p.source === 'server' ? 'Pharmacy request' : '');
+            return `
+            <div class="rxpage-card">
+                <div class="rxpage-thumb">${isPdf ? '<i class="fa-solid fa-file-pdf"></i>' : `<img src="${mfEsc(p.url)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<i class=&quot;fa-solid fa-file-medical&quot;></i>'">`}</div>
+                <div class="rxpage-info">
+                    <span class="rxpage-name">${mfEsc(p.fileName)}</span>
+                    <span class="rxpage-date">${mfEsc(dateText)}</span>
+                    ${srcLabel ? `<span class="rxpage-src">${srcLabel}</span>` : ''}
+                </div>
+                <div class="rxpage-actions">
+                    <a class="rxpage-btn rxpage-btn-view" href="${mfEsc(p.url)}" target="_blank" rel="noopener" title="View"><i class="fa-solid fa-eye"></i></a>
+                    <button type="button" class="rxpage-btn rxpage-btn-dl" data-rx-dl="${i}" title="Download"><i class="fa-solid fa-download"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+        list.querySelectorAll('[data-rx-dl]').forEach(btn => {
+            btn.onclick = () => {
+                const p = items[Number(btn.dataset.rxDl)];
+                if (p) window.downloadPrescriptionFile(p.url, p.fileName);
+            };
+        });
+    };
+    draw();
+
+    if (!supabase) return;
+    try {
+        const uid = await getCurrentAuthUserId();
+        if (!uid) return;
+        const [ordersRes, rxRes] = await Promise.all([
+            supabase.from('orders').select('order_id, rx_prescription_url, created_at').eq('user_id', uid).not('rx_prescription_url', 'is', null).order('created_at', { ascending: false }).limit(100),
+            supabase.from('prescription_orders').select('id, prescription_url, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(100)
+        ]);
+        (ordersRes.data || []).forEach(o => push(o.rx_prescription_url, 'Prescription - Order ' + (o.order_id || ''), o.created_at ? new Date(o.created_at).getTime() : 0, '', 'order'));
+        (rxRes.data || []).forEach(r => push(r.prescription_url, 'Prescription request', r.created_at ? new Date(r.created_at).getTime() : 0, '', 'server'));
+        draw();
+    } catch (e) { /* non-fatal — the local archive is already shown */ }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const back = document.getElementById('rxpage-back-btn');
+    if (back) back.addEventListener('click', () => { if (typeof window.navigateTo === 'function') window.navigateTo('profile'); });
+});
+
+// ---------- Mobile number + address needed for a prescription order ----------
+async function getRxContactState() {
+    if ((!savedAddresses || savedAddresses.length === 0) && supabase) {
+        try {
+            const uid = await getCurrentAuthUserId();
+            if (uid) {
+                const { data } = await supabase.from('user_addresses').select('*').eq('user_id', uid).order('is_default', { ascending: false }).order('created_at', { ascending: false });
+                if (data && data.length) savedAddresses = data;
+            }
+        } catch (e) {}
+    }
+    let phone = '';
+    try { phone = String(getAutoUserPhone() || ''); } catch (e) {}
+    if (!phone) { try { phone = (JSON.parse(localStorage.getItem('medi_delivery_address') || '{}').phone) || ''; } catch (e) {} }
+    phone = phone.replace(/\D/g, '').slice(-10);
+
+    let addrStr = '';
+    const def = (savedAddresses || []).find(a => a.is_default) || (savedAddresses || [])[0];
+    if (def && def.address1) {
+        addrStr = `${def.address1}${def.address2 ? ', ' + def.address2 : ''}, ${def.city || ''} - ${def.pincode || ''}`;
+    } else {
+        addrStr = localStorage.getItem('medi_verified_address') || '';
+    }
+    const hasAddr = addrStr.replace(/[\s,\-]/g, '').length > 5;
+    return { phone, hasPhone: /^[6-9]\d{9}$/.test(phone), addrStr: hasAddr ? addrStr : '', hasAddr };
+}
+
+function rxAddressFieldsHTML() {
+    return `
+        <div style="margin-top:10px;font-size:0.8rem;font-weight:700;color:#2f3542;"><i class="fa-solid fa-location-dot" style="color:#ff4d4d"></i> Delivery address (required)</div>
+        <div class="rxc-field"><label>House / Flat / Street</label><input type="text" id="rxa-house" placeholder="House no, street"></div>
+        <div class="rxc-field"><label>Area / Locality</label><input type="text" id="rxa-area" placeholder="Area"></div>
+        <div class="rxc-row">
+            <div class="rxc-field"><label>City</label><input type="text" id="rxa-city" placeholder="City"></div>
+            <div class="rxc-field"><label>Pincode</label><input type="tel" id="rxa-pin" maxlength="6" placeholder="6-digit"></div>
+        </div>
+        <div class="rxc-field"><label>Landmark (optional)</label><input type="text" id="rxa-landmark" placeholder="Near..."></div>`;
+}
+
+// Validates the address inputs above, saves them into the address book, and returns the address text (or '' on failure).
+async function rxReadAndSaveAddress(phone) {
+    const v = id => (document.getElementById(id)?.value || '').trim();
+    const house = v('rxa-house'), area = v('rxa-area'), city = v('rxa-city'), pin = v('rxa-pin'), landmark = v('rxa-landmark');
+    if (!house) { showToast("Please enter your house / street address.", "error"); return ''; }
+    if (!city) { showToast("Please enter your city.", "error"); return ''; }
+    if (!/^\d{6}$/.test(pin)) { showToast("Please enter a valid 6-digit pincode.", "error"); return ''; }
+
+    let name = 'Customer';
+    try {
+        const { data } = await supabase.auth.getUser();
+        name = data?.user?.user_metadata?.full_name || name;
+    } catch (e) {}
+
+    const text = `${house}${area ? ', ' + area : ''}, ${city} - ${pin}${landmark ? ', Near ' + landmark : ''}`;
+    localStorage.setItem('medi_verified_address', text);
+    localStorage.setItem('medi_delivery_address', JSON.stringify({ name, phone, house, area, city, pincode: pin, landmark }));
+
+    if (supabase) {
+        try {
+            const uid = await getCurrentAuthUserId();
+            if (uid) {
+                const makeDefault = !(savedAddresses && savedAddresses.length);
+                const payload = { user_id: uid, tag: 'Home', name, phone, address1: house, address2: area || null, landmark: landmark || null, city, state: '', pincode: pin, is_default: makeDefault };
+                const { data } = await supabase.from('user_addresses').insert([payload]).select().single();
+                if (data) savedAddresses = [...(savedAddresses || []), data];
+            }
+        } catch (e) { /* non-fatal — the local copy + this order still carry the address */ }
+    }
+    return text;
+}
+
+// Bottom sheet that asks ONLY for what's missing (mobile number and/or address). Resolves {phone, address} or null if cancelled.
+function openRxContactSheet(state) {
+    return new Promise(resolve => {
+        let popup = document.createElement('div');
+        popup.className = 'modal active';
+        popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-end;z-index:10000;';
+        popup.innerHTML = `
+            <div class="modal-content presc-bottom-sheet" style="background:#fff;width:100%;max-width:600px;border-radius:20px 20px 0 0;padding:20px;box-sizing:border-box;border-top:5px solid #ff4d4d;max-height:88vh;overflow-y:auto;text-align:left;">
+                <div style="width:40px;height:4px;background:#e1e2e6;border-radius:2px;margin:0 auto 12px;"></div>
+                <h3 style="margin:0 0 4px;"><i class="fa-solid fa-file-prescription" style="color:#ff4d4d"></i> Complete your prescription order</h3>
+                <p style="font-size:0.78rem;color:#6c757d;margin:0 0 12px;">The pharmacy needs ${!state.hasPhone && !state.hasAddr ? 'your mobile number and delivery address' : (!state.hasPhone ? 'your mobile number' : 'your delivery address')}.</p>
+                ${state.hasPhone ? '' : `<div class="rxc-field"><label><i class="fa-solid fa-phone" style="color:#ff4d4d"></i> Your live mobile no.</label><input type="tel" id="rxc-phone" maxlength="10" placeholder="10-digit mobile number"></div>`}
+                ${state.hasAddr ? '' : rxAddressFieldsHTML()}
+                <div style="display:flex;gap:10px;margin-top:15px;">
+                    <button id="rxc-cancel" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
+                    <button id="rxc-submit" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Send to Pharmacies</button>
+                </div>
+            </div>`;
+        document.body.appendChild(popup);
+        document.getElementById('rxc-cancel').onclick = () => { popup.remove(); resolve(null); };
+        document.getElementById('rxc-submit').onclick = async () => {
+            let phone = state.phone;
+            if (!state.hasPhone) {
+                phone = (document.getElementById('rxc-phone')?.value || '').trim();
+                if (!/^[6-9]\d{9}$/.test(phone)) { showToast("Please enter a valid 10-digit mobile number.", "error"); return; }
+                localStorage.setItem('medi_last_phone', phone);
+            }
+            let address = state.addrStr;
+            if (!state.hasAddr) {
+                address = await rxReadAndSaveAddress(phone);
+                if (!address) return;
+            }
+            popup.remove();
+            resolve({ phone, address });
+        };
+    });
+}
+
+// Broadcasts a slip to pharmacies; if the customer has no saved mobile/address it asks first.
+async function sendRxToPharmaciesWithContact(prescriptionUrl, medicines) {
+    const state = await getRxContactState();
+    let phone = state.phone, address = state.addrStr;
+    if (!state.hasPhone || !state.hasAddr) {
+        const got = await openRxContactSheet(state);
+        if (!got) { showToast("Mobile number and address are needed to send the prescription to pharmacies.", "info"); return null; }
+        phone = got.phone; address = got.address;
+    }
+    const rxId = await broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, medicines || [], phone, address);
+    if (rxId) showToast("Sent to nearby pharmacies! Waiting for acceptance (5–10 min)...", "success");
+    return rxId;
 }
 
 function toggleModalDisplay(modalId, makeVisible) {
@@ -9469,7 +9723,8 @@ async function loadMyCouponsAndOffers() {
     const PAGE_IDS = {
         home: 'page-home', shops: 'page-shops', order: 'page-order', cart: 'page-cart', profile: 'page-profile', notification: 'page-notification',
         'lab-test': 'page-lab-test', 'nurse-booking': 'page-nurse-booking', 'ambulance': 'page-ambulance', 'tablet-coin': 'page-tablet-coin',
-        'product-detail': 'page-product-detail', 'shop-detail': 'page-shop-detail'
+        'product-detail': 'page-product-detail', 'shop-detail': 'page-shop-detail',
+        'prescriptions': 'page-prescriptions'
     };
 
     function setActiveNavIcon(page) {
@@ -9503,7 +9758,7 @@ async function loadMyCouponsAndOffers() {
         const target = document.getElementById(PAGE_IDS[targetPage]);
         if (target) target.classList.add('active');
 
-        setActiveNavIcon(targetPage);
+        setActiveNavIcon(targetPage === 'prescriptions' ? 'profile' : targetPage);
 
         // Home-only header: shown only when navigating to Home, hidden on
         // Shops/Cart/Orders/Profile. Also refreshes the "Hi, [Name]" /
@@ -9524,6 +9779,10 @@ async function loadMyCouponsAndOffers() {
         // are already correct.
         if (targetPage === 'cart' && typeof renderCartPage === 'function') {
             renderCartPage();
+        }
+
+        if (targetPage === 'prescriptions' && typeof renderPrescriptionPage === 'function') {
+            renderPrescriptionPage();
         }
 
         const notiDropdown = document.getElementById('notiDropdown');

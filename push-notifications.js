@@ -126,7 +126,11 @@
             const sub = reg && await reg.pushManager.getSubscription();
             if (!sub) return;
             const client = getClient();
-            if (client) await client.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            if (client) {
+                // RPC works even after signOut (no session needed); table delete kept as fallback
+                const r = await client.rpc('remove_push_subscription', { p_endpoint: sub.endpoint });
+                if (r && r.error) await client.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            }
             await sub.unsubscribe();
         } catch (e) { console.warn('[MFPush] disable failed', e); }
     }
@@ -260,7 +264,11 @@
             const c = getClient();
             if (c && c.auth && c.auth.onAuthStateChange) {
                 clearInterval(t);
-                c.auth.onAuthStateChange((event) => { if (event === 'SIGNED_IN') init(); });
+                c.auth.onAuthStateChange((event) => {
+                    if (event === 'SIGNED_IN') init();
+                    // logout hole ei device theke purono account er push bondho (role/account mix hobe na)
+                    if (event === 'SIGNED_OUT') disable();
+                });
             }
         }, 500);
         setTimeout(() => clearInterval(t), 15000);

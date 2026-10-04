@@ -1101,6 +1101,32 @@ body {
     box-shadow:0 6px 14px rgba(16,24,40,0.08);
 }
 
+/* ===== OTP / secondary buttons: keep them light with red text =====
+   (the #view-login / #view-signup .btn-premium rules above are more specific than
+   .btn-premium.secondary, which turned "Send OTP" into a solid red block with red text) */
+#view-login .btn-premium.secondary,
+#view-signup .btn-premium.secondary{
+    background:#fff1f1;
+    color:#e02020;
+    border:1.5px solid #f3b9b9;
+    box-shadow:none;
+    margin-bottom:12px;
+}
+#view-login .btn-premium.secondary:hover,
+#view-signup .btn-premium.secondary:hover{
+    background:#ffe3e3;
+    border-color:#e02020;
+    box-shadow:none;
+    transform:translateY(-1px);
+}
+.btn-premium:disabled,
+#view-login .btn-premium:disabled,
+#view-signup .btn-premium:disabled{
+    opacity:.65;
+    cursor:not-allowed;
+    transform:none;
+}
+
 /* ===== Show/Hide password toggle (login + signup) ===== */
 .input-group.has-toggle input{
     padding-right:42px;
@@ -2298,8 +2324,23 @@ if (mfMenuToggle) {
         window._mfPartnerParam = VALID_PARTNERS.indexOf(partner) !== -1 ? partner : '';
         window._mfReasonParam = params.get('reason') || '';
 
+        // Coming back from Google: cover the page IMMEDIATELY (before anything paints) so the
+        // visitor never sees auth.html's landing/home view. supabase-config.js removes the cover
+        // only if sign-in fails; on success the browser jumps straight to the role page.
+        if (window._mfGoogleOAuthPending) {
+            var cv = document.createElement('div');
+            cv.id = 'mf-auth-cover';
+            cv.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fff;display:flex;align-items:center;justify-content:center;';
+            cv.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#e02020;border-radius:50%;animation:mfspin .8s linear infinite"></div><style>@keyframes mfspin{to{transform:rotate(360deg)}}</style>';
+            document.body.appendChild(cv);
+            // safety net: never leave the cover up forever
+            setTimeout(function(){ var c = document.getElementById('mf-auth-cover'); if (c) { c.remove(); showView('login'); } }, 15000);
+        }
+
         var panel = params.get('panel');
-        if (panel === 'login' || panel === 'signup') {
+        if (window._mfGoogleOAuthPending) {
+            showView('login'); // hidden under the cover; no URL rewrite while OAuth is pending
+        } else if (panel === 'login' || panel === 'signup') {
             showView(panel);
         } else if (window._mfPartnerParam) {
             showView('login'); // partner cards land on LOGIN first (they can switch to Register from there)

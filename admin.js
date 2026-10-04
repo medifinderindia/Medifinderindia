@@ -2241,7 +2241,7 @@ const Actions = {
     const payload = {
       title:name, subtitle:$("#adSubtitle").value||"", tag:$("#adTag").value||"",
       btn_text:$("#adBtnText").value||"Shop Now", btn_action:btnAction||"",
-      first_order_discount_percent: +$("#adDiscount").value || 0,
+      first_order_discount_percent: (()=>{ const v = Number($("#adDiscount").value); return (v>0 && v<=100) ? v : null; })(),
       valid_until: $("#adEnd").value || null,
       use_custom_image: useCustomImage, custom_image_url: customImageUrl,
     };

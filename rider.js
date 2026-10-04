@@ -3704,17 +3704,48 @@ function goToKycFromHome() {
     openKycWizard();
 }
 
+// ✅ FIX: "Failed to fetch" = network drop (slow/unstable mobile data). এখন প্রতিটা upload/insert
+// auto-retry হয়, আর যে ছবি একবার upload হয়ে গেছে সেটা দ্বিতীয়বার Submit চাপলে আর আবার upload হয় না।
+const _kycUploadedUrls = new WeakMap(); // blob -> publicUrl
+
+function _isNetworkError(err) {
+    const m = String((err && err.message) || err || '').toLowerCase();
+    return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request failed') ||
+           m.includes('load failed') || m.includes('timeout') || m.includes('aborted');
+}
+
+async function kycWithRetry(label, fn, tries = 3) {
+    let lastErr;
+    for (let i = 1; i <= tries; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastErr = err;
+            console.warn(`KYC ${label} attempt ${i}/${tries} failed:`, err);
+            if (!_isNetworkError(err) || i === tries) break; // DB/RLS error হলে retry করে লাভ নেই
+            await new Promise(r => setTimeout(r, 1200 * i));
+        }
+    }
+    if (lastErr && !lastErr.kycLabel) { try { lastErr.kycLabel = label; } catch (e) {} }
+    throw lastErr;
+}
+
 async function uploadKycFile(inputId, folder) {
     const blob = window._kycFiles && window._kycFiles[inputId];
     if (!blob) return null;
+    if (_kycUploadedUrls.has(blob)) return _kycUploadedUrls.get(blob); // আগের attempt-এ upload হয়ে গেছে
     const riderId = currentRiderId || 'rider';
     const extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
     const ext = extMap[blob.type] || 'jpg';
     const filePath = `rider_docs/${riderId}/kyc/${folder}_${Date.now()}.${ext}`;
-    const { error } = await supabaseClient.storage.from('media').upload(filePath, blob, { contentType: blob.type || 'image/jpeg' });
-    if (error) throw error;
+    await kycWithRetry(`upload (${folder})`, async () => {
+        const { error } = await supabaseClient.storage.from('media').upload(filePath, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+        if (error) throw error;
+    });
     const { data } = supabaseClient.storage.from('media').getPublicUrl(filePath);
-    return data?.publicUrl || null;
+    const url = data?.publicUrl || null;
+    if (url) _kycUploadedUrls.set(blob, url);
+    return url;
 }
 
 async function submitKycApplication() {
@@ -3735,6 +3766,10 @@ async function submitKycApplication() {
             if (vErr) { showKycStep(st); showToast(vErr, 'error'); return; }
         }
 
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            showToast('No internet connection. Please connect to Wi-Fi/mobile data and try again.', 'error');
+            return;
+        }
         showToast('Uploading documents...', 'info');
         // একটা একটা করে আপলোড — ফোনে memory/network চাপ কম
         const up = {};
@@ -3773,20 +3808,27 @@ async function submitKycApplication() {
             qr_code_img: qrImgUrl || existing.qr_code_img || ''
         };
 
-        const { error } = await supabaseClient
-            .from('rider_kyc_application')
-            .upsert(payload, { onConflict: 'rider_id' });
-        if (error) {
-            console.error('KYC SUBMIT ERROR:', { code: error.code, message: error.message, details: error.details, hint: error.hint });
-            throw error;
-        }
+        await kycWithRetry('save application', async () => {
+            const { error } = await supabaseClient
+                .from('rider_kyc_application')
+                .upsert(payload, { onConflict: 'rider_id' });
+            if (error) {
+                console.error('KYC SUBMIT ERROR:', { code: error.code, message: error.message, details: error.details, hint: error.hint });
+                throw error;
+            }
+        });
 
         showToast('✅ KYC application submitted! We will review it shortly.', 'success');
         await clearKycDraft(); // সফল submit — এখন draft মুছে ফেলা
         closeSubPage('kycWizardPage');
         await loadCurrentRiderProfileStatus();
     } catch (err) {
-        showToast('Submission failed: ' + (err.message || err), 'error');
+        console.error('KYC submit failed at step:', err && err.kycLabel, err);
+        if (_isNetworkError(err)) {
+            showToast('Network problem' + (err.kycLabel ? ' during ' + err.kycLabel : '') + '. Check your internet and tap Submit again — uploaded photos are not lost.', 'error');
+        } else {
+            showToast('Submission failed: ' + (err.message || err), 'error');
+        }
     } finally {
         if (btn) { btn.disabled = false; btn.innerText = 'Submit Application'; }
     }

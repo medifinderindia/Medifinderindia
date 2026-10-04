@@ -6142,3 +6142,80 @@ body {
 .sd-loc-addr i{color:#e02020;margin-right:4px;}
 .sd-loc-actions{display:flex;gap:8px;}
 .sd-loc-actions .sd-contact-btn{flex:1;justify-content:center;display:flex;}
+
+
+/* ===== My Prescription — full page (replaces the old overflowing popup) ===== */
+.rxpage-header {
+    background: var(--card-bg, #fff);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+.rxpage-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-color);
+    min-width: 0;
+}
+.rxpage-header h2 i { color: var(--primary-color); }
+.rxpage-back-btn {
+    background: #f1f2f6;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--text-color);
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.rxpage-back-btn:active { transform: scale(0.9); }
+.rxpage-body { padding: 12px 14px 120px; box-sizing: border-box; background: var(--bg-color); }
+.rxpage-sub { margin: 0 0 12px; font-size: 0.8rem; color: var(--text-muted, #747d8c); line-height: 1.4; }
+.rxpage-empty { text-align: center; padding: 50px 20px; color: #b2bec3; }
+.rxpage-empty i { font-size: 2.6rem; margin-bottom: 10px; display: block; }
+.rxpage-card {
+    background: #fff;
+    border: 1px solid #e4e7eb;
+    border-radius: 14px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow-sm);
+    box-sizing: border-box;
+    width: 100%;
+}
+.rxpage-thumb {
+    width: 56px; height: 56px; border-radius: 10px; flex-shrink: 0;
+    background: #fff5f5; color: #ff4d4d; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; overflow: hidden;
+}
+.rxpage-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rxpage-info { flex: 1; min-width: 0; }
+.rxpage-name { display: block; font-size: 0.85rem; font-weight: 700; color: #2f3542; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rxpage-date { display: block; font-size: 0.75rem; color: #747d8c; margin-top: 2px; }
+.rxpage-src { display: inline-block; margin-top: 4px; font-size: 0.66rem; font-weight: 700; color: #1c82aa; background: #e8f4fd; padding: 2px 8px; border-radius: 20px; }
+.rxpage-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.rxpage-btn {
+    border: none; width: 38px; height: 38px; border-radius: 10px; color: #fff; font-size: 0.9rem;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+}
+.rxpage-btn-view { background: #1c82aa; }
+.rxpage-btn-dl { background: #2ed573; }
+
+/* Address fields inside the prescription contact sheet */
+.rxc-field { margin-bottom: 8px; }
+.rxc-field label { font-size: 0.78rem; color: #555; display: block; margin-bottom: 3px; }
+.rxc-field input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 0.9rem; }
+.rxc-row { display: flex; gap: 8px; }
+.rxc-row .rxc-field { flex: 1; min-width: 0; }
