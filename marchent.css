@@ -517,9 +517,11 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
    ========================================================================== */
 .toast{
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
-  background:var(--ink-900);color:#fff;padding:12px 20px;border-radius:99px;
+  background:var(--ink-900);color:#fff;padding:12px 20px;border-radius:16px;
   font-size:13.5px;font-weight:600;z-index:100;box-shadow:var(--shadow-pop);
   display:flex;align-items:center;gap:8px;
+  width:max-content;max-width:calc(100vw - 32px);text-align:left;line-height:1.35;
+  max-height:40vh;overflow-y:auto;
 }
 .toast.error{background:var(--red-600);}
 .toast.success::before{content:'✓';font-weight:800;}

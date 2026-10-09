@@ -3636,6 +3636,11 @@
       <div class="settings-row"><div class="settings-row-label">Theme</div>${themeOptsHtml()}</div>
     </div>
     <div class="card panel">
+      <div class="panel-head"><h3>Courier pickup</h3></div>
+      <div class="settings-row-sub" style="margin-bottom:10px">Register your shop as a NimbusPost pickup point so orders can ship with the cheaper courier.</div>
+      <button class="btn btn-outline" id="nimbusWhBtn" style="width:100%;justify-content:flex-start">${icon('truck')}<span>NimbusPost pickup setup</span></button>
+    </div>
+    <div class="card panel">
       <div class="panel-head"><h3>Security</h3></div>
       <button class="btn btn-outline" id="changePwBtn" style="width:100%;justify-content:flex-start">${icon('lock')}<span>Change password</span></button>
     </div>
@@ -3665,6 +3670,37 @@
       })
     });
   }
+  async function nimbusWh(body) {
+    const { data, error } = await sb.functions.invoke('nimbus-warehouse', { body });
+    let b = data;
+    if (!b && error && error.context && typeof error.context.json === 'function') { try { b = await error.context.json(); } catch (_e) { /* generic */ } }
+    if (error || !b || b.success === false) throw new Error((b && b.error) || (error && error.message) || 'Request failed');
+    return b;
+  }
+  function openNimbusWarehouseSheet() {
+    openSheet('NimbusPost pickup setup', '<p class="cell-muted" style="font-size:13px">Checking…</p>', {
+      onOpen: async (sh) => {
+        const body = () => sh.el.querySelector('.sheet-body') || sh.el;
+        const done = (id) => { body().innerHTML = `<p style="font-size:14px"><b>Connected ✓</b><br><span class="cell-muted">Pickup warehouse: ${esc(id)}</span></p><div class="modal-actions"><button class="btn btn-primary" data-sheet-close>Done</button></div>`; };
+        try {
+          const st = await nimbusWh({ action: 'status' });
+          if (st.connected) return done(st.warehouse_id);
+          body().innerHTML = `<p style="font-size:13px;margin-bottom:12px">We will send an OTP to your shop phone <b>${esc(st.phone || '')}</b> (pincode ${esc(st.pincode || '')}) to register your pickup point with NimbusPost.</p>
+            <form id="nbWhForm"><div id="nbOtpRow" style="display:none"><label class="field"><span>OTP</span><input type="text" name="otp" inputmode="numeric" maxlength="8" autocomplete="one-time-code"></label></div>
+            <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary" id="nbWhGo">Send OTP</button></div></form>`;
+          const f = body().querySelector('#nbWhForm'), go = body().querySelector('#nbWhGo'); let sent = false;
+          f.addEventListener('submit', async (e) => {
+            e.preventDefault(); go.disabled = true;
+            try {
+              if (!sent) { await nimbusWh({ action: 'send_otp' }); sent = true; f.querySelector('#nbOtpRow').style.display = ''; go.textContent = 'Verify & create'; showToast('OTP sent'); }
+              else { const r = await nimbusWh({ action: 'create', otp: f.otp.value }); showToast('Pickup point connected'); done(r.warehouse_id); }
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+            go.disabled = false;
+          });
+        } catch (err) { body().innerHTML = `<p class="cell-muted">${esc(err.message || 'Could not load')}</p>`; }
+      }
+    });
+  }
   AFTER.settings = () => {
     document.querySelectorAll('[data-setting]').forEach(btn => btn.addEventListener('click', async () => {
       const key = btn.dataset.setting, next = !btn.classList.contains('on');
@@ -3674,6 +3710,7 @@
     document.getElementById('langSelect')?.addEventListener('change', async (e) => { await DB.saveSettings({ language: e.target.value }); showToast('Language updated'); });
     document.getElementById('logoutBtn')?.addEventListener('click', confirmLogout);
     document.getElementById('changePwBtn')?.addEventListener('click', openPasswordSheet);
+    document.getElementById('nimbusWhBtn')?.addEventListener('click', openNimbusWarehouseSheet);
   };
 
   /* ============================================================
