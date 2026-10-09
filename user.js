@@ -9,6 +9,7 @@ function mfEsc(v) {
    URL & key loaded from supabase-constants.js
    ========================================================================== */
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
+window.supabaseClient = supabase; // shared with offer.js
 
 let currentCart = JSON.parse(localStorage.getItem('medi_cart')) || [];
 let patientsData = JSON.parse(localStorage.getItem('medi_patients')) || [];
@@ -19,7 +20,6 @@ let selectedOrderPatient = { id: '', name: '' };
 let alarmsData = JSON.parse(localStorage.getItem('medi_alarms')) || [];
 let systemNotifications = [];
 let savedAddresses = []; // Flipkart-style multi-address book, loaded from user_addresses table
-let adminOffers = [];
 
 let currentUserEmail = '';
 let currentAuthUserId = '';   // Supabase auth UUID, set once session resolves — used by the notification system
@@ -58,6 +58,9 @@ let discountAmount = 0;
 // row owned by this user (referral/order rewards); 'public' = a general
 // coupons row anyone with the code can use.
 let appliedCouponInfo = null;
+let coinUseApplied = 0;      // coins the customer chose to spend on this order (1 coin = Rs 1)
+let coinWalletBalance = 0;
+let coinWalletLoaded = false;
 let isPrescriptionUploaded = localStorage.getItem('medi_presc_uploaded_status') === 'true' || false;
 let activePrescription = JSON.parse(localStorage.getItem('medi_active_prescription') || 'null'); // {fileName, url, date} of the currently active upload
 
@@ -795,52 +798,7 @@ function setupServiceWorkerNotifications() {
     }
 }
 
-function fireSystemNotification(title, body) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-        const osNotification = new Notification(title, {
-            body: body,
-            icon: '1779304435608.png',
-            badge: '1779304435608.png',
-            vibrate: [200, 100, 200]
-        });
-        // Tapping the OS notification should bring the app to the front and
-        // land on Home — previously this notification had no click handler
-        // at all, so tapping it did nothing.
-        osNotification.onclick = function() {
-            window.focus();
-            const currentPage = window.location.pathname.split('/').pop();
-            if (currentPage && currentPage !== 'userhome.html') {
-                navigateTo('home');
-            }
-            osNotification.close();
-        };
-    }
-    // Also play alarm tone using Web Audio API
-    playAlarmTone();
-}
 
-function playAlarmTone() {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-        const notes = [523, 659, 784, 659, 523];
-        notes.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = freq;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.3);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.3 + 0.25);
-            osc.start(ctx.currentTime + i * 0.3);
-            osc.stop(ctx.currentTime + i * 0.3 + 0.3);
-        });
-    } catch(e) {
-
-    }
-}
 
 function detectLiveUserGPSCoordinates() {
     safeGetCurrentPosition((pos) => {
@@ -1113,8 +1071,9 @@ function updateNotiBadge() {
     const badge = document.getElementById('noti-badge');
     if (!badge) return;
     const unreadCount = systemNotifications.filter(n => !n.is_read).length;
-    // ✅ Simple red-dot indicator instead of a numeric pill — just show/hide it.
-    badge.style.display = unreadCount > 0 ? 'block' : 'none';
+    // Numeric pill: 1, 2, 3 ... 10, then "10+" for anything above 10.
+    badge.textContent = unreadCount > 10 ? '10+' : String(unreadCount);
+    badge.style.display = unreadCount > 0 ? 'flex' : 'none';
 }
 
 function renderNotificationDropdown(notiDropdown) {
@@ -1185,6 +1144,7 @@ async function setupGlobalNotificationHub() {
         if (notiDropdown && notiPage && notiPage.classList.contains('active')) renderNotificationDropdown(notiDropdown);
     }
 
+    window.__mfRefreshNotifications = refreshNotifications;
     // Unread count loads the moment the session resolves, not just on a later click
     await refreshNotifications();
 
@@ -1312,7 +1272,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
             // composition/ratings/etc. that never matched what a merchant
             // actually uploaded. `medicines` is the real table merchants add
             // to and admin approves — that is the single source of truth now.
-            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved');
+            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
             if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
             if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
             const { data: dbProducts, error: dbError } = await medQuery;
@@ -1320,7 +1280,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
             if (!dbError && dbProducts && dbProducts.length > 0) {
                 allProductNames = dbProducts.map(p => p.name || p.product_name);
 
-                // "20 Min" is a real express-delivery promise, not decoration —
+                // "30+ Min" is a real express-delivery promise, not decoration —
                 // only show it on medicines whose merchant is actually within
                 // 12km of the shopper. Fetch every relevant merchant's saved
                 // location (marchentprofile.html -> merchants.latitude/longitude)
@@ -1367,7 +1327,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                         const merchantCoord = merchantCoordsMap[prod.merchant_id];
                         const withinExpressRange = merchantCoord && haversineKm(userLiveLat, userLiveLng, merchantCoord.lat, merchantCoord.lng) <= 12;
                         if (withinExpressRange) {
-                            expressBadge = '<div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 20 Min</div>';
+                            expressBadge = '<div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 30+ Min</div>';
                         }
                     }
                     if (discount > 0) {
@@ -1387,7 +1347,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                     const disabledBtn = isOutOfStock ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
                     
                     return `
-                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
+                    <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-img4="${mfEsc(prod.image_url_4 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
                         <!-- ✅ FIX: the opening <div class="product-card" ...> tag above was
                              never actually closed with a ">" before this point — every
                              attribute list ran straight into the badge/image markup that
@@ -1410,7 +1370,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                                     </span>
                                 ` : ''}
                             </div>
-                            ${manufacturer ? `<p style="font-size:0.7rem; color:#888; margin:2px 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${manufacturer}</p>` : ''}
+                            ${manufacturer ? `<p style="font-size:0.7rem; color:#888; margin:2px 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${mfEsc(manufacturer)}</p>` : ''}
                             <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
                                 ${hasRealRating
                                     ? `<span style="background:#388e3c; color:#fff; padding:1px 5px; border-radius:3px; font-size:0.65rem; font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>
@@ -1778,6 +1738,7 @@ async function setupHomePageModules() {
                 const totalGridCards = productsGrid.querySelectorAll('.product-card');
                 totalGridCards.forEach(card => {
                     card.style.display = "block";
+                    card.style.order = '';
                 });
                 if (noProductsMsg) noProductsMsg.style.display = 'none';
                 const countBadge = document.getElementById('product-count-badge');
@@ -1793,15 +1754,44 @@ async function setupHomePageModules() {
                 categoryItems[0].classList.add('active');
             }
 
+            // Relevance ranking: the product TYPE the shopper searched for
+            // (tablet / baby / food ...) is pushed to the top. Cards are
+            // re-ordered with CSS `order`, so nothing is removed or re-rendered.
+            const typeAliases = {
+                tablet: ['tablet', 'tablets', 'pill', 'pills', 'medicine', 'medicines'],
+                capsule: ['capsule', 'capsules'],
+                syrup: ['syrup', 'syrups', 'liquid', 'cough syrup'],
+                insulin: ['insulin', 'diabetes', 'diabetic'],
+                baby: ['baby', 'babies', 'infant', 'kids', 'kid', 'child', 'diaper', 'diapers', 'baby care'],
+                food: ['food', 'foods', 'drink', 'drinks', 'nutrition', 'supplement', 'supplements', 'health food', 'food & drinks'],
+                others: ['essential', 'essentials', 'others', 'other', 'daily essentials']
+            };
+            const queryTypeKeys = Object.keys(typeAliases).filter(k => k === query || typeAliases[k].includes(query));
+            const words = query.split(/\s+/).filter(Boolean);
             productCards.forEach(card => {
                 const name = (card.dataset.name || "").toLowerCase();
                 const desc = (card.dataset.desc || "").toLowerCase();
                 const mfg = (card.dataset.manufacturer || "").toLowerCase();
                 const cat = (card.dataset.category || "").toLowerCase();
-                if (name.includes(query) || desc.includes(query) || mfg.includes(query) || cat.includes(query)) {
+                const catRaw = (card.dataset.categoryRaw || "").toLowerCase();
+                const comp = (card.dataset.composition || "").toLowerCase();
+                let score = 0;
+                if (name === query) score += 120;
+                else if (name.startsWith(query)) score += 100;
+                else if (words.length && name.split(/[\s\-\/(),]+/).some(w => w.startsWith(words[0]))) score += 80;
+                else if (name.includes(query)) score += 60;
+                if (queryTypeKeys.includes(cat)) score += 70;            // same product type as searched
+                if (catRaw.includes(query) || cat.includes(query)) score += 50;
+                if (comp.includes(query)) score += 30;
+                if (desc.includes(query)) score += 20;
+                if (mfg.includes(query)) score += 15;
+                if (score > 0) {
+                    score += (Number(card.dataset.stock) > 0 ? 5 : 0) + Math.min(5, Number(card.dataset.rating) || 0);
                     card.style.display = "block"; matchedCount++;
+                    card.style.order = String(-score);                   // higher score -> earlier in the grid
                 } else {
                     card.style.display = "none";
+                    card.style.order = '';
                 }
             });
             if (noProductsMsg) noProductsMsg.style.display = matchedCount === 0 ? "block" : "none";
@@ -1825,11 +1815,41 @@ async function setupHomePageModules() {
             const totalGridCards = productsGrid.querySelectorAll('.product-card');
             totalGridCards.forEach(card => {
                 card.style.display = "block";
+                card.style.order = '';
             });
             const countBadge = document.getElementById('product-count-badge');
             if (countBadge) { countBadge.textContent = `${totalGridCards.length} items`; countBadge.style.display = 'none'; }
         });
     }
+
+    // ============================================================
+    // ROTATING SEARCH HINT (Flipkart style): "Search for Tablets" ->
+    // "Search for Baby Care" -> ... Hidden once the shopper types.
+    // ============================================================
+    (function initRotatingSearchHint() {
+        const hintBox = document.getElementById('mf-search-hint');
+        const wordEl = document.getElementById('mf-hint-word');
+        if (!hintBox || !wordEl || !homeSearchInput || hintBox.dataset.started === '1') return;
+        hintBox.dataset.started = '1';
+        const words = ['Tablets', 'Capsules', 'Syrups', 'Baby Care', 'Food & Drinks', 'Health Essentials', 'Insulin', 'Medical Instruments'];
+        let idx = 0;
+        const syncVisibility = () => hintBox.classList.toggle('is-hidden', homeSearchInput.value.length > 0);
+        homeSearchInput.addEventListener('input', syncVisibility);
+        homeSearchInput.addEventListener('change', syncVisibility);
+        syncVisibility();
+        setInterval(() => {
+            if (document.hidden || homeSearchInput.value.length > 0) return;
+            idx = (idx + 1) % words.length;
+            wordEl.classList.add('leave');
+            setTimeout(() => {
+                wordEl.textContent = words[idx];
+                wordEl.classList.remove('leave');
+                wordEl.classList.add('enter');
+                void wordEl.offsetWidth;            // restart transition
+                wordEl.classList.remove('enter');
+            }, 450);
+        }, 2600);
+    })();
 
     const categoryItems = document.querySelectorAll('.category-item');
     if (categoryItems.length > 0) {
@@ -1846,6 +1866,7 @@ async function setupHomePageModules() {
                 const productCards = productsGrid.querySelectorAll('.product-card');
                 let visibleCount = 0;
                 productCards.forEach(card => {
+                    card.style.order = '';
                     if (targetCategory === 'all' || card.getAttribute('data-category') === targetCategory) {
                         card.style.display = 'block'; visibleCount++;
                     } else {
@@ -2064,7 +2085,7 @@ async function refreshExpressDeliveryBadges() {
                 const badgeEl = document.createElement('div');
                 badgeEl.className = 'badge-express express-20min-badge';
                 badgeEl.style.position = 'static';
-                badgeEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 20 Min';
+                badgeEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 30+ Min';
                 let row = card.querySelector('.badge-express-row');
                 if (!row) {
                     row = document.createElement('div');
@@ -2312,6 +2333,12 @@ function navigateToProductDetail(data) {
         if (seeAllBtn) seeAllBtn.style.display = 'none';
         const writeReviewForm = document.getElementById('pd-write-review-form');
         if (writeReviewForm) writeReviewForm.style.display = 'none';
+        __pdReviewsExpanded = false; __pdWrFiles = []; __pdHelpfulSet = new Set();
+        if (typeof pdRenderWrPhotos === 'function') pdRenderWrPhotos();
+        const stickyBar0 = document.querySelector('#page-product-detail .pd-sticky-actions');
+        if (stickyBar0) stickyBar0.classList.remove('pd-actions-hidden');
+        const pdBody0 = document.querySelector('#page-product-detail .pd-scroll-body');
+        if (pdBody0) pdBody0.scrollTop = 0;
 
         paintProductDetail(data);
 
@@ -2341,6 +2368,7 @@ function navigateToProductDetail(data) {
         renderPdDeliveryBox();
         loadPdFrequentlyBoughtTogether(data);
         loadPdSimilarProducts(data);
+        if (typeof pdMoreReset === 'function') pdMoreReset(data);
         loadPdMoreFromSeller(data);
     } catch (e) {
         showToast('Something went wrong. Please try again.', 'error');
@@ -2371,33 +2399,89 @@ function paintProductDetail(data) {
     setText('pd-manufacturer', data.manufacturer, 'Not specified');
     setText('pd-rating', data.rating, '0.0');
     setText('pd-description', data.desc || data.description, 'No description available for this product.');
-    setText('pd-composition', data.composition, 'Not available');
-    setText('pd-dosage-form', data.dosageForm || data.dosage_form, 'Not available');
-    setText('pd-strength', data.strength, 'Not available');
-    setText('pd-category', data.category || data.categoryRaw || data['data-category-raw'], 'Not available');
-    setText('pd-pack-size', data.packSize || data.pack_size, 'Not specified');
-    setText('pd-storage', data.storage || data.storage_instructions, 'Store in a cool, dry place away from direct sunlight.');
-    setText('pd-side-effects', data.sideEffects || data.side_effects, 'Not specified — check the pack insert or ask your pharmacist.');
-    setText('pd-warnings', data.warnings, 'Not specified — check the pack insert or ask your pharmacist.');
+    // ---- Product info grids: show exactly what the merchant entered ----
+    // (empty rows are hidden by the prune() helper near the end of this file)
+    const pdVal = (v) => (v === undefined || v === null) ? '' : String(v).trim();
+    const pdDate = (v) => { v = pdVal(v); if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? v : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
+    const fill = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = pdVal(val) || '\u2014'; };
+    const catVal = data.category || data.categoryRaw || data['data-category-raw'];
+    fill('pd-generic', data.genericName || data.generic_name);
+    fill('pd-brand', data.brandName || data.brand_name);
+    fill('pd-composition', data.composition);
+    fill('pd-dosage-form', data.dosageForm || data.dosage_form);
+    fill('pd-strength', data.strength);
+    fill('pd-category', catVal);
+    fill('pd-subcategory', data.subCategory || data.sub_category);
+    fill('pd-pack-size', data.packSize || data.pack_size);
+    fill('pd-unit-type', data.unitType || data.unit_type);
+    fill('pd-rx-required', data.rxText || (isRx ? 'Yes' : (data.isRx === undefined ? '' : 'No')));
+    fill('pd-batch', data.batchNo || data.batch_number);
+    fill('pd-lot', data.lotNo || data.lot_number);
+    fill('pd-mfd', pdDate(data.mfd || data.mfd_date));
+    fill('pd-expiry', pdDate(data.expiry || data.expiry_date || data['data-expiry']));
+    fill('pd-storage', isInstrument ? '' : (data.storage || data.storage_instructions));
+    fill('pd-side-effects', data.sideEffects || data.side_effects);
+    fill('pd-warnings', data.warnings);
 
-    // Instrument vs medicine details block — only one shows, based on
-    // product_type, so a device never shows fake composition/dosage fields.
+    // Medicine block vs Instrument block \u2014 only one shows, so a device never
+    // shows fake composition/dosage fields and a medicine never shows device fields.
     const medInfoItem = document.getElementById('pd-medicine-info-item');
     const instInfoItem = document.getElementById('pd-instrument-info-item');
+    const safetyItem = document.getElementById('pd-safety-item');
     if (medInfoItem) medInfoItem.style.display = isInstrument ? 'none' : 'block';
+    if (safetyItem && isInstrument) safetyItem.style.display = 'none';
+    else if (safetyItem && safetyItem.dataset.pdPruned !== '1') safetyItem.style.display = '';
     if (instInfoItem) {
         instInfoItem.style.display = isInstrument ? 'block' : 'none';
         if (isInstrument) {
-            setText('pd-inst-brand', data.brand, 'Not specified');
-            setText('pd-inst-type', data.deviceType || data.device_type, data.categoryRaw || 'Not specified');
-            setText('pd-inst-color', data.color, 'Not specified');
-            setText('pd-inst-display', data.display || data.displayType || data.display_type, 'Not specified');
-            setText('pd-inst-battery', data.battery, 'Not specified');
-            setText('pd-inst-range', data.measurementRange || data.measurement_range, 'Not specified');
-            setText('pd-inst-model', data.modelNumber || data.model_number, 'Not specified');
-            setText('pd-inst-warranty', data.warranty, 'Not specified');
+            fill('pd-inst-brand', data.brand || data.brandName);
+            fill('pd-inst-type', data.deviceType || data.device_type);
+            fill('pd-inst-model', data.modelNumber || data.model_number);
+            fill('pd-inst-color', data.color);
+            fill('pd-inst-display', data.display || data.displayType || data.display_type);
+            fill('pd-inst-battery', data.battery);
+            fill('pd-inst-range', data.measurementRange || data.measurement_range);
+            fill('pd-inst-warranty', data.warranty);
+            fill('pd-inst-category', catVal);
+            fill('pd-inst-subcategory', data.subCategory || data.sub_category);
+            fill('pd-inst-unit', data.unitType || data.unit_type);
+            fill('pd-inst-care', data.care || data.storage);
         }
     }
+
+
+    // ---- Product Highlights: the most important facts as modern tiles ----
+    (function () {
+        const box = document.getElementById('pd-highlights'), card = document.getElementById('pd-highlights-card');
+        if (!box || !card) return;
+        const esc2 = (v) => (typeof pdEsc === 'function' ? pdEsc(v) : String(v));
+        const tiles = [];
+        const add = (icon, label, val, cls) => { val = pdVal(val); if (val) tiles.push(`<div class="pd-hl-tile ${cls || ''}"><span class="pd-hl-ico"><i class="fa-solid ${icon}"></i></span><span class="pd-hl-txt"><small>${esc2(label)}</small><b>${esc2(val)}</b></span></div>`); };
+        const brandV = data.brandName || data.brand || data.manufacturer;
+        if (isInstrument) {
+            add('fa-industry', 'Brand', brandV);
+            add('fa-microchip', 'Device Type', data.deviceType || data.device_type);
+            add('fa-barcode', 'Model', data.modelNumber || data.model_number);
+            add('fa-shield-halved', 'Warranty', data.warranty, 'good');
+            add('fa-palette', 'Color', data.color);
+            add('fa-ruler-horizontal', 'Range', data.measurementRange || data.measurement_range);
+        } else {
+            add('fa-industry', 'Brand', brandV);
+            add('fa-capsules', 'Form', data.dosageForm || data.dosage_form);
+            add('fa-flask', 'Strength', data.strength);
+            add('fa-box', 'Pack Size', data.packSize || data.pack_size);
+            add('fa-file-prescription', 'Prescription', isRx ? 'Required' : (data.rxText ? 'Not required' : ''), isRx ? 'warn' : 'good');
+            add('fa-calendar-xmark', 'Expiry', pdDate(data.expiry || data.expiry_date), 'amber');
+        }
+        box.innerHTML = tiles.join('');
+        card.style.display = tiles.length ? '' : 'none';
+    })();
+    setTimeout(function () {
+        const d = document.getElementById('pd-description'), b = document.getElementById('pd-desc-more');
+        if (!d || !b) return;
+        d.classList.add('pd-clamp'); b.innerHTML = 'Read more <i class="fa-solid fa-chevron-down"></i>';
+        b.style.display = d.scrollHeight > d.clientHeight + 2 ? '' : 'none';
+    }, 60);
 
     const priceEl = document.getElementById('pd-price');
     if (priceEl) priceEl.textContent = `₹${price.toFixed(2)}`;
@@ -2463,20 +2547,25 @@ function paintProductDetail(data) {
         }
     }
 
-    // Return policy — Rx items are never returnable; non-Rx follows the
-    // same ₹499+ eligibility rule already used elsewhere in the app for
-    // "eligible" non-Rx returns; opened/damaged packaging is never eligible
-    // (stated here so the rule doesn't need repeating per item), while an
-    // expired/wrong/damaged item always routes to a complaint instead.
+    // Return / exchange policy \u2014 100% driven by what the admin saved on this
+    // product (is_returnable / return_window_days / is_exchangeable /
+    // exchange_window_days). The window starts the moment the order is delivered.
     const returnPolicyEl = document.getElementById('pd-return-policy');
     if (returnPolicyEl) {
-        if (isRx) {
-            returnPolicyEl.textContent = 'Prescription medicines cannot be returned once dispensed.\nReceived an expired, wrong or damaged item? Raise a complaint from your Orders page instead.';
-        } else if (price >= 499 || mrp >= 499) {
-            returnPolicyEl.textContent = '7-day returns available on this product if unopened and undamaged.\nOpened or damaged packaging is not eligible for return.\nReceived an expired, wrong or damaged item? Raise a complaint from your Orders page instead.';
-        } else {
-            returnPolicyEl.textContent = 'This product is below the ₹499 return-eligibility threshold and cannot be returned once delivered.\nReceived an expired, wrong or damaged item? Raise a complaint from your Orders page instead.';
+        const rd = Number(data.returnDays ?? data.return_window_days ?? 0) || 0;
+        const ed = Number(data.exchangeDays ?? data.exchange_window_days ?? 0) || 0;
+        const known = data.isReturnable !== undefined || data.isExchangeable !== undefined;
+        const canRet = (data.isReturnable === true || data.isReturnable === 'true') && rd > 0;
+        const canEx = (data.isExchangeable === true || data.isExchangeable === 'true') && ed > 0;
+        const lines = [];
+        if (!known) lines.push('Checking return & exchange policy\u2026');
+        else {
+            lines.push(canRet ? `\u21A9 ${rd}-day return \u2014 request it within ${rd} day${rd > 1 ? 's' : ''} of delivery (unopened & undamaged).` : '\u21A9 Return: not available on this product.');
+            lines.push(canEx ? `\u21C4 ${ed}-day exchange \u2014 request it within ${ed} day${ed > 1 ? 's' : ''} of delivery.` : '\u21C4 Exchange: not available on this product.');
         }
+        if (isRx) lines.push('\u2139 Prescription medicine: a valid prescription is needed for the original order.');
+        lines.push('Received an expired, wrong or damaged item? Raise a complaint from your Orders page.');
+        returnPolicyEl.textContent = lines.join('\n');
     }
     setText('pd-delivery-eta', null); // reset — renderPdDeliveryBox() fills this from the saved address
 
@@ -2492,7 +2581,7 @@ function renderPdGallery(data) {
     const mainImg = document.getElementById('pd-main-img');
     if (!track || !mainImg) return;
 
-    const urls = [data.img || data.image_url, data.img2 || data['data-img2'] || data.image_url_2, data.img3 || data['data-img3'] || data.image_url_3]
+    const urls = [data.img || data.image_url, data.img2 || data['data-img2'] || data.image_url_2, data.img3 || data['data-img3'] || data.image_url_3, data.img4 || data['data-img4'] || data.image_url_4]
         .map(u => (u || '').trim()).filter(Boolean);
     const uniqueUrls = [...new Set(urls.length ? urls : [mainImg.src])];
 
@@ -2576,24 +2665,44 @@ async function loadPdAuthoritativeData(originalData) {
             img: row.image_url || originalData.img,
             img2: row.image_url_2 || originalData.img2,
             img3: row.image_url_3 || originalData.img3,
+            img4: row.image_url_4 || originalData.img4,
             productType: row.product_type || originalData.productType,
             packSize: row.pack_size,
-            storage: row.storage_instructions || row.storage,
+            genericName: row.generic_name,
+            brandName: row.brand_name || row.brand,
+            subCategory: row.sub_category,
+            unitType: row.unit_type,
+            batchNo: row.batch_number,
+            lotNo: row.lot_number,
+            mfd: row.mfd_date,
+            expiry: row.expiry_date,
+            rxText: (row.is_rx === true || row.prescription_req === 'Yes') ? 'Yes' : 'No',
+            storage: row.storage_condition || row.storage_instructions || row.storage,
+            care: row.storage_condition,
             sideEffects: row.side_effects,
             warnings: row.warnings,
-            brand: row.brand,
+            brand: row.brand_name || row.brand,
             deviceType: row.device_type,
-            color: row.color,
-            display: row.display_type,
-            battery: row.battery,
+            color: row.item_color || row.color,
+            display: row.display_spec || row.display_type,
+            battery: row.battery_info || row.battery,
             measurementRange: row.measurement_range,
             modelNumber: row.model_number,
-            warranty: row.warranty,
+            warranty: row.warranty_period || row.warranty,
+            // Admin-set return / exchange rule (days counted from the real delivery time)
+            isReturnable: row.is_returnable === true,
+            returnDays: Number(row.return_window_days || 0),
+            isExchangeable: row.is_exchangeable === true,
+            exchangeDays: Number(row.exchange_window_days || 0),
             weightKg: row.weight_kg,
         };
         __pdCurrentData = merged;
         localStorage.setItem('currentProduct', JSON.stringify(merged));
         paintProductDetail(merged);
+        // Now the real category / sub-category / type are known — rank the endless list by them.
+        merged.productType = row.product_type || merged.productType;
+        if (typeof pdMoreReset === 'function') pdMoreReset(merged);
+        if (typeof loadPdSimilarProducts === 'function' && (row.category || row.product_type)) loadPdSimilarProducts(merged);
 
         // Variants — only rendered when the row actually carries a
         // variant group; otherwise the block stays hidden (never fabricated).
@@ -2659,7 +2768,7 @@ async function loadPdRatingAndReviews(data) {
     try {
         const { data: reviews, error } = await supabase.from('product_reviews').select('*').eq('medicine_id', data.id).order('created_at', { ascending: false });
         if (error) throw error;
-        __pdReviewsFull = reviews || [];
+        __pdReviewsFull = (reviews || []).slice().sort((a, b) => ((b.helpful_count || 0) - (a.helpful_count || 0)) || (new Date(b.created_at) - new Date(a.created_at)));
         if (!reviews || reviews.length === 0) {
             if (listEl) listEl.innerHTML = '<p class="pd-no-reviews">No reviews yet — be the first to share your experience.</p>';
             if (breakdownEl) breakdownEl.style.display = 'none';
@@ -2681,13 +2790,54 @@ async function loadPdRatingAndReviews(data) {
             breakdownEl.style.display = 'flex';
         }
 
-        renderPdReviewsList(reviews.slice(0, 3));
-        if (seeAllBtn) seeAllBtn.style.display = reviews.length > 3 ? 'block' : 'none';
+        __pdHelpfulSet = new Set();
+        try {
+            const huid = await getCurrentAuthUserId();
+            if (huid) {
+                const { data: hs } = await supabase.from('review_helpful_votes').select('review_id').eq('user_id', huid).in('review_id', reviews.map(r => r.id));
+                (hs || []).forEach(h => __pdHelpfulSet.add(String(h.review_id)));
+            }
+        } catch (e) { /* review_helpful table not created yet — button still works for display */ }
+        __pdReviewsExpanded = false;
+        pdRenderReviewsView();
     } catch (e) {
         // `product_reviews` table doesn't exist in this deployment yet.
         if (listEl) listEl.innerHTML = '<p class="pd-no-reviews">No reviews yet.</p>';
         if (breakdownEl) breakdownEl.style.display = 'none';
     }
+}
+
+// ============ Reviews: premium cards, photo grid (max 6 + "+N"), full-screen
+// zoom viewer with the reviewer's comment, per-user "Helpful" toggle ============
+let __pdReviewsExpanded = false;
+let __pdWrFiles = [];
+let __pdHelpfulSet = new Set();
+const PD_REVIEWS_COLLAPSED = 4;
+const PD_REVIEW_PHOTOS_SHOWN = 6;
+const PD_REVIEW_PHOTOS_MAX_UPLOAD = 6;
+
+function pdReviewPhotos(r) {
+    let arr = [];
+    const raw = r && r.photo_urls;
+    if (Array.isArray(raw)) arr = raw.slice();
+    else if (typeof raw === 'string' && raw.trim()) {
+        try { const p = JSON.parse(raw); arr = Array.isArray(p) ? p : [raw]; } catch (e) { arr = raw.split(','); }
+    }
+    if (r && r.photo_url && arr.indexOf(r.photo_url) === -1) arr.unshift(r.photo_url);
+    return arr.map(u => String(u || '').trim()).filter(Boolean);
+}
+
+function pdRenderReviewsView() {
+    const list = __pdReviewsFull || [];
+    const btn = document.getElementById('pd-see-all-reviews-btn');
+    renderPdReviewsList(__pdReviewsExpanded ? list : list.slice(0, PD_REVIEWS_COLLAPSED));
+    if (!btn) return;
+    if (list.length > PD_REVIEWS_COLLAPSED) {
+        btn.style.display = 'flex';
+        btn.innerHTML = __pdReviewsExpanded
+            ? '<i class="fa-solid fa-chevron-up"></i> Show less'
+            : `Show more reviews (${list.length - PD_REVIEWS_COLLAPSED} more) <i class="fa-solid fa-chevron-down"></i>`;
+    } else btn.style.display = 'none';
 }
 
 function renderPdReviewsList(reviews) {
@@ -2696,67 +2846,204 @@ function renderPdReviewsList(reviews) {
     listEl.innerHTML = reviews.map(r => {
         const name = r.user_name || 'Anonymous';
         const initial = name.charAt(0).toUpperCase();
-        const stars = '★'.repeat(Math.round(r.rating || 0)) + '☆'.repeat(5 - Math.round(r.rating || 0));
-        const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+        const rating = Math.round(r.rating || 0);
+        const stars = '★'.repeat(rating) + '☆'.repeat(Math.max(0, 5 - rating));
+        const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+        const photos = pdReviewPhotos(r);
+        const extra = photos.length - PD_REVIEW_PHOTOS_SHOWN;
+        const photosHtml = photos.length ? `<div class="pd-rv-photos">${photos.slice(0, PD_REVIEW_PHOTOS_SHOWN).map((u, i) =>
+            `<button type="button" class="pd-rv-ph" data-rid="${pdEsc(String(r.id))}" data-i="${i}" aria-label="Open photo ${i + 1}"><img src="${pdEsc(u)}" alt="Customer photo" loading="lazy">${(i === PD_REVIEW_PHOTOS_SHOWN - 1 && extra > 0) ? `<span class="pd-rv-ph-more">+${extra}</span>` : ''}</button>`).join('')}</div>` : '';
+        const on = __pdHelpfulSet.has(String(r.id));
+        const cnt = r.helpful_count || 0;
         return `
-        <div class="pd-review-item">
+        <div class="pd-review-item pd-rv-card">
             <div class="pd-review-top">
                 <span class="pd-review-avatar">${pdEsc(initial)}</span>
-                <span class="pd-review-name">${pdEsc(name)}</span>
+                <div class="pd-rv-who"><span class="pd-review-name">${pdEsc(name)}</span><span class="pd-rv-verified"><i class="fa-solid fa-circle-check"></i> MediFinder India customer</span></div>
                 <span class="pd-review-date">${pdEsc(date)}</span>
             </div>
-            <div class="pd-review-stars">${stars} ${(r.rating || 0).toFixed ? r.rating.toFixed(1) : r.rating}/5</div>
+            <div class="pd-review-stars"><span class="pd-rv-stars">${stars}</span> <b>${Number(r.rating || 0).toFixed(1)}</b>/5</div>
             <p class="pd-review-text">${pdEsc(r.review_text || '')}</p>
-            ${r.photo_url ? `<img class="pd-review-photo" src="${pdEsc(r.photo_url)}" alt="Customer photo">` : ''}
-            <button type="button" class="pd-review-helpful" data-id="${r.id}"><i class="fa-regular fa-thumbs-up"></i> Helpful${r.helpful_count ? ' (' + r.helpful_count + ')' : ''}</button>
+            ${photosHtml}
+            <div class="pd-rv-foot">
+                <button type="button" class="pd-rv-helpful ${on ? 'on' : ''}" data-id="${pdEsc(String(r.id))}" aria-pressed="${on}">
+                    <i class="${on ? 'fa-solid' : 'fa-regular'} fa-thumbs-up"></i> <span>${on ? 'Helpful' : 'Helpful?'}</span><b class="pd-rv-count" ${cnt ? '' : 'style="display:none;"'}>${cnt}</b>
+                </button>
+                ${cnt ? `<span class="pd-rv-foot-note">${cnt} ${cnt === 1 ? 'person' : 'people'} found this helpful</span>` : ''}
+            </div>
         </div>`;
     }).join('');
-    listEl.querySelectorAll('.pd-review-helpful').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            btn.disabled = true;
-            if (supabase) { try { await supabase.rpc('increment_review_helpful', { review_id: btn.dataset.id }); } catch (e) {} }
-        });
+    listEl.querySelectorAll('.pd-rv-ph').forEach(b => b.addEventListener('click', () => pdOpenReviewLightbox(b.dataset.rid, parseInt(b.dataset.i) || 0)));
+    listEl.querySelectorAll('.pd-rv-helpful').forEach(btn => btn.addEventListener('click', () => pdToggleHelpful(btn)));
+}
+
+async function pdToggleHelpful(btn) {
+    const id = String(btn.dataset.id);
+    const uid = await getCurrentAuthUserId();
+    if (!uid) {
+        showToast('Please log in to mark a review helpful.', 'error');
+        if (typeof window.mfEnsureLoggedIn === 'function') window.mfEnsureLoggedIn({ type: 'account', reason: 'review' });
+        return;
+    }
+    const review = (__pdReviewsFull || []).find(r => String(r.id) === id);
+    const was = __pdHelpfulSet.has(id);
+    const paint = (on, count) => {
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', String(on));
+        btn.querySelector('i').className = (on ? 'fa-solid' : 'fa-regular') + ' fa-thumbs-up';
+        btn.querySelector('span').textContent = on ? 'Helpful' : 'Helpful?';
+        const c = btn.querySelector('.pd-rv-count');
+        if (c) { c.textContent = count; c.style.display = count ? '' : 'none'; }
+        const note = btn.parentElement.querySelector('.pd-rv-foot-note');
+        if (note) note.textContent = count ? `${count} ${count === 1 ? 'person' : 'people'} found this helpful` : '';
+    };
+    const before = review ? (review.helpful_count || 0) : 0;
+    const optimistic = Math.max(0, before + (was ? -1 : 1));
+    if (was) __pdHelpfulSet.delete(id); else __pdHelpfulSet.add(id);
+    if (review) review.helpful_count = optimistic;
+    paint(!was, optimistic);
+    btn.disabled = true;
+    try {
+        const { data, error } = await supabase.rpc('toggle_review_helpful', { p_review_id: review ? review.id : id });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row && typeof row.helpful_count === 'number') { if (review) review.helpful_count = row.helpful_count; paint(row.helpful === true, row.helpful_count); if (row.helpful) __pdHelpfulSet.add(id); else __pdHelpfulSet.delete(id); }
+    } catch (e) {
+        if (was) __pdHelpfulSet.add(id); else __pdHelpfulSet.delete(id);
+        if (review) review.helpful_count = before;
+        paint(was, before);
+        showToast('Could not update right now — please try again.', 'error');
+    } finally { btn.disabled = false; }
+}
+
+// Full-screen photo viewer: pinch / double-tap to zoom, swipe for next photo,
+// and the reviewer's rating + comment stay visible under the picture.
+function pdOpenReviewLightbox(reviewId, startIdx) {
+    const r = (__pdReviewsFull || []).find(x => String(x.id) === String(reviewId));
+    if (!r) return;
+    const photos = pdReviewPhotos(r);
+    if (!photos.length) return;
+    const old = document.getElementById('pd-lightbox'); if (old) old.remove();
+    const name = r.user_name || 'Anonymous';
+    const rating = Math.round(r.rating || 0);
+    const lb = document.createElement('div');
+    lb.id = 'pd-lightbox'; lb.className = 'pd-lightbox';
+    lb.innerHTML = `
+        <div class="pd-lb-top"><span class="pd-lb-counter" id="pd-lb-counter"></span><button type="button" class="pd-lb-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="pd-lb-stage" id="pd-lb-stage"><img class="pd-lb-img" id="pd-lb-img" alt="Customer photo" draggable="false">
+            ${photos.length > 1 ? '<button type="button" class="pd-lb-nav prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button><button type="button" class="pd-lb-nav next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' : ''}
+        </div>
+        <div class="pd-lb-caption">
+            <div class="pd-lb-who"><span class="pd-review-avatar">${pdEsc(name.charAt(0).toUpperCase())}</span><div><b>${pdEsc(name)}</b><div class="pd-lb-stars">${'★'.repeat(rating)}${'☆'.repeat(Math.max(0, 5 - rating))}</div></div>
+            <span class="pd-lb-help"><i class="fa-solid fa-thumbs-up"></i> ${r.helpful_count || 0}</span></div>
+            <p class="pd-lb-text">${pdEsc(r.review_text || '')}</p>
+        </div>`;
+    document.body.appendChild(lb);
+    const stage = lb.querySelector('#pd-lb-stage'), img = lb.querySelector('#pd-lb-img'), counter = lb.querySelector('#pd-lb-counter');
+    let idx = Math.min(Math.max(startIdx || 0, 0), photos.length - 1), scale = 1, tx = 0, ty = 0;
+    const apply = () => { img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+    const show = (i) => { idx = (i + photos.length) % photos.length; scale = 1; tx = 0; ty = 0; img.src = photos[idx]; counter.textContent = `${idx + 1} / ${photos.length}`; apply(); };
+    const close = () => { lb.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && photos.length > 1) show(idx + 1); else if (e.key === 'ArrowLeft' && photos.length > 1) show(idx - 1); };
+    document.addEventListener('keydown', onKey);
+    lb.querySelector('.pd-lb-close').addEventListener('click', close);
+    const prev = lb.querySelector('.pd-lb-nav.prev'), next = lb.querySelector('.pd-lb-nav.next');
+    if (prev) prev.addEventListener('click', (e) => { e.stopPropagation(); show(idx - 1); });
+    if (next) next.addEventListener('click', (e) => { e.stopPropagation(); show(idx + 1); });
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    let t0 = null, pinch = null, lastTap = 0;
+    stage.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) pinch = { d: dist(e.touches), s: scale };
+        else if (e.touches.length === 1) t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty, time: Date.now() };
+    }, { passive: true });
+    stage.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinch) { scale = Math.min(5, Math.max(1, pinch.s * dist(e.touches) / pinch.d)); apply(); e.preventDefault(); }
+        else if (e.touches.length === 1 && t0 && scale > 1) { tx = t0.tx + e.touches[0].clientX - t0.x; ty = t0.ty + e.touches[0].clientY - t0.y; apply(); e.preventDefault(); }
+    }, { passive: false });
+    stage.addEventListener('touchend', (e) => {
+        if (pinch && e.touches.length < 2) { pinch = null; if (scale < 1.05) { scale = 1; tx = 0; ty = 0; apply(); } return; }
+        if (t0 && e.changedTouches.length) {
+            const dx = e.changedTouches[0].clientX - t0.x, dy = e.changedTouches[0].clientY - t0.y, dt = Date.now() - t0.time;
+            if (scale === 1 && photos.length > 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) show(idx + (dx < 0 ? 1 : -1));
+            else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 250) {
+                const now = Date.now();
+                if (now - lastTap < 300) { scale = scale > 1 ? 1 : 2.5; tx = 0; ty = 0; apply(); lastTap = 0; } else lastTap = now;
+            }
+        }
+        t0 = null;
     });
+    img.addEventListener('dblclick', () => { scale = scale > 1 ? 1 : 2.5; tx = 0; ty = 0; apply(); });
+    stage.addEventListener('wheel', (e) => { e.preventDefault(); scale = Math.min(5, Math.max(1, scale + (e.deltaY < 0 ? 0.3 : -0.3))); if (scale === 1) { tx = 0; ty = 0; } apply(); }, { passive: false });
+    show(idx);
+}
+
+// ---- premium "Write a review" photo picker (up to 6 photos, preview + remove) ----
+function pdRenderWrPhotos() {
+    const wrap = document.getElementById('pd-wr-photos');
+    const add = document.getElementById('pd-wr-add-photo');
+    const hint = document.getElementById('pd-wr-photo-name');
+    if (!wrap || !add) return;
+    wrap.querySelectorAll('.pd-wr-thumb').forEach(n => n.remove());
+    __pdWrFiles.forEach((f, i) => {
+        const d = document.createElement('div');
+        d.className = 'pd-wr-thumb';
+        if (!f.__url) f.__url = URL.createObjectURL(f);
+        d.innerHTML = `<img src="${f.__url}" alt="Selected photo ${i + 1}"><button type="button" data-i="${i}" aria-label="Remove photo">&times;</button>`;
+        d.querySelector('button').addEventListener('click', () => { try { URL.revokeObjectURL(f.__url); } catch (e) {} __pdWrFiles.splice(i, 1); pdRenderWrPhotos(); });
+        wrap.insertBefore(d, add);
+    });
+    add.style.display = __pdWrFiles.length >= PD_REVIEW_PHOTOS_MAX_UPLOAD ? 'none' : 'flex';
+    if (hint) hint.textContent = `${__pdWrFiles.length}/${PD_REVIEW_PHOTOS_MAX_UPLOAD}`;
 }
 
 async function submitPdReview() {
     const stars = document.querySelectorAll('#pd-wr-stars i.fa-solid').length;
     const text = document.getElementById('pd-wr-text')?.value.trim();
-    const fileInput = document.getElementById('pd-wr-photo');
     if (!stars) { showToast('Please tap a star rating first.', 'error'); return; }
     if (!text) { showToast('Please write a few words about the product.', 'error'); return; }
     if (!supabase || !__pdCurrentData?.id) { showToast('Could not submit — please try again later.', 'error'); return; }
 
     const uid = await getCurrentAuthUserId();
     if (!uid) { showToast('Please log in to write a review.', 'error'); return; }
-    let photoUrl = '';
+    const submitBtn = document.getElementById('pd-wr-submit-btn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Posting…'; }
     try {
-        if (fileInput && fileInput.files && fileInput.files[0] && uid) {
-            const file = fileInput.files[0];
-            const path = `product-reviews/${__pdCurrentData.id}/${uid}-${Date.now()}-${file.name}`;
+        const photoUrls = [];
+        for (const file of __pdWrFiles.slice(0, PD_REVIEW_PHOTOS_MAX_UPLOAD)) {
+            const safeName = String(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const path = `product-reviews/${__pdCurrentData.id}/${uid}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeName}`;
             const { error: upErr } = await supabase.storage.from('media').upload(path, file);
-            if (!upErr) photoUrl = supabase.storage.from('media').getPublicUrl(path).data?.publicUrl || '';
+            if (!upErr) { const u = supabase.storage.from('media').getPublicUrl(path).data?.publicUrl; if (u) photoUrls.push(u); }
         }
         let userName = 'You';
         try {
             const profile = JSON.parse(localStorage.getItem('medi_profile') || '{}');
-            userName = profile.name || profile.full_name || userName;
+            userName = profile.name || profile.full_name || localStorage.getItem('medi_profile_name') || userName;
         } catch (e) {}
-        const { error } = await supabase.from('product_reviews').insert([{
-            medicine_id: __pdCurrentData.id, user_id: uid || null, user_name: userName,
-            rating: stars, review_text: text, photo_url: photoUrl || null
-        }]);
+        const row = {
+            medicine_id: __pdCurrentData.id, user_id: uid, user_name: userName,
+            rating: stars, review_text: text, photo_url: photoUrls[0] || null, photo_urls: photoUrls
+        };
+        let { error } = await supabase.from('product_reviews').insert([row]);
+        if (error && /photo_urls|column|schema cache/i.test(error.message || '')) {
+            delete row.photo_urls;
+            ({ error } = await supabase.from('product_reviews').insert([row]));
+        }
         if (error) throw error;
         showToast('Thanks — your review has been posted!', 'success');
         document.getElementById('pd-write-review-form').style.display = 'none';
         document.getElementById('pd-wr-text').value = '';
-        if (fileInput) fileInput.value = '';
-        document.getElementById('pd-wr-photo-name').textContent = '';
-        document.querySelectorAll('#pd-wr-stars i').forEach(i => { i.className = 'fa-regular fa-star'; });
+        const cnt = document.getElementById('pd-wr-count'); if (cnt) cnt.textContent = '0';
+        const lbl = document.getElementById('pd-wr-star-label'); if (lbl) lbl.textContent = 'Tap to rate';
+        __pdWrFiles.forEach(f => { try { URL.revokeObjectURL(f.__url); } catch (e) {} });
+        __pdWrFiles = []; pdRenderWrPhotos();
+        document.querySelectorAll('#pd-wr-stars i[data-star]').forEach(i => { i.className = 'fa-regular fa-star'; });
         loadPdRatingAndReviews(__pdCurrentData);
     } catch (e) {
         console.error('[Review] submit failed:', e);
         showToast('Review could not be posted: ' + ((e && (e.message || e.details)) || 'please try again'), 'error');
+    } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Feedback'; }
     }
 }
 
@@ -2921,20 +3208,91 @@ function pdMiniCardHtml(prod) {
     </div>`;
 }
 
-// ============ Similar products (same category, excluding self) ============
+// ============ Similar products — OTHER shops only (same category/type) ============
+const PD_LIVE_STATUSES = ['Approved', 'Active'];
 async function loadPdSimilarProducts(data) {
     const block = document.getElementById('pd-similar-block');
     const listEl = document.getElementById('pd-similar-list');
     if (!supabase || !block) return;
     const category = data.category || data.categoryRaw || data['data-category-raw'];
-    if (!category) { block.style.display = 'none'; return; }
+    const merchantId = data.merchantId || data['data-merchant-id'] || data.merchant_id || '';
+    const ptype = data.productType || data['data-product-type'] || data.product_type || '';
     try {
-        const { data: rows, error } = await supabase.from('medicines').select('*').eq('status', 'Approved').eq('category', category).neq('id', data.id).limit(8);
-        if (error || !rows || rows.length === 0) { block.style.display = 'none'; return; }
+        let rows = [];
+        const base = () => {
+            let q = supabase.from('medicines').select('*').in('status', PD_LIVE_STATUSES).neq('id', data.id);
+            if (merchantId) q = q.neq('merchant_id', merchantId);
+            return q;
+        };
+        if (category) {
+            const { data: r1 } = await base().eq('category', category).limit(12);
+            rows = r1 || [];
+        }
+        if (rows.length < 4 && ptype) {
+            const { data: r2 } = await base().eq('product_type', ptype).limit(12);
+            const have = new Set(rows.map(x => String(x.id)));
+            rows = rows.concat((r2 || []).filter(x => !have.has(String(x.id))));
+        }
+        rows = rows.filter(r => !merchantId || String(r.merchant_id) !== String(merchantId)).slice(0, 10);
+        if (!rows.length) { block.style.display = 'none'; return; }
         listEl.innerHTML = rows.map(pdMiniCardHtml).join('');
         block.style.display = 'block';
+        if (typeof window.pdCheckStickyBar === 'function') window.pdCheckStickyBar();
     } catch (e) { block.style.display = 'none'; }
 }
+
+// ============ More for you — endless list under "Similar" ============
+// Order: same sub-category -> same category -> same product type -> everything live.
+// The list keeps growing as the shopper scrolls (IntersectionObserver), so the page never dead-ends.
+const __pdMore = { stage: 0, offset: 0, seen: new Set(), loading: false, done: false, data: null, token: 0 };
+function pdMoreReset(data) {
+    __pdMore.stage = 0; __pdMore.offset = 0; __pdMore.seen = new Set([String(data.id)]); __pdMore.loading = false; __pdMore.done = false; __pdMore.data = data; __pdMore.token++;
+    const grid = document.getElementById('pd-more-grid'), block = document.getElementById('pd-more-block'), btn = document.getElementById('pd-more-load');
+    if (grid) grid.innerHTML = '';
+    if (block) block.style.display = 'none';
+    if (btn) btn.style.display = '';
+    pdMoreLoad();
+}
+async function pdMoreLoad() {
+    const st = __pdMore;
+    if (st.loading || st.done || !supabase || !st.data) return;
+    st.loading = true; const tok = st.token;
+    const d = st.data;
+    const sub = d.subCategory || d.sub_category || '';
+    const category = d.category || d.categoryRaw || d['data-category-raw'] || '';
+    const ptype = d.productType || d['data-product-type'] || d.product_type || '';
+    const stages = [];
+    if (sub) stages.push(['sub_category', sub]);
+    if (category) stages.push(['category', category]);
+    if (ptype) stages.push(['product_type', ptype]);
+    stages.push([null, null]);
+    const PAGE = 12;
+    try {
+        let fresh = [], guard = 0;
+        while (fresh.length < 6 && st.stage < stages.length && guard++ < 6) {
+            const [col, val] = stages[st.stage];
+            let q = supabase.from('medicines').select('*').in('status', PD_LIVE_STATUSES).order('id', { ascending: false }).range(st.offset, st.offset + PAGE - 1);
+            if (col) q = q.eq(col, val);
+            const { data: rows, error } = await q;
+            if (tok !== st.token) return;
+            if (error) throw error;
+            const got = rows || [];
+            got.forEach(r => { if (!st.seen.has(String(r.id))) { st.seen.add(String(r.id)); fresh.push(r); } });
+            if (got.length < PAGE) { st.stage++; st.offset = 0; } else st.offset += PAGE;
+        }
+        if (st.stage >= stages.length) st.done = true;
+        const grid = document.getElementById('pd-more-grid'), block = document.getElementById('pd-more-block'), btn = document.getElementById('pd-more-load');
+        if (fresh.length && grid) { grid.insertAdjacentHTML('beforeend', fresh.map(pdMiniCardHtml).join('')); if (block) block.style.display = 'block'; }
+        if (btn) btn.style.display = st.done ? 'none' : '';
+        if (!grid || !grid.children.length) { if (block) block.style.display = 'none'; }
+    } catch (e) { st.done = true; const btn = document.getElementById('pd-more-load'); if (btn) btn.style.display = 'none'; }
+    finally { st.loading = false; if (typeof window.pdCheckStickyBar === 'function') window.pdCheckStickyBar(); }
+}
+document.addEventListener('DOMContentLoaded', function () {
+    const sent = document.getElementById('pd-more-sentinel'), body = document.querySelector('#page-product-detail .pd-scroll-body');
+    if (!sent || !('IntersectionObserver' in window)) return;
+    new IntersectionObserver(function (en) { if (en[0].isIntersecting) pdMoreLoad(); }, { root: body || null, rootMargin: '400px 0px' }).observe(sent);
+});
 
 // ============ More from this seller ============
 async function loadPdMoreFromSeller(data) {
@@ -2945,7 +3303,7 @@ async function loadPdMoreFromSeller(data) {
     const merchantId = data.merchantId || data['data-merchant-id'] || data.merchant_id;
     if (!merchantId) { block.style.display = 'none'; return; }
     try {
-        const { data: rows, error } = await supabase.from('medicines').select('*').eq('merchant_id', merchantId).eq('status', 'Approved').neq('id', data.id).limit(8);
+        const { data: rows, error } = await supabase.from('medicines').select('*').eq('merchant_id', merchantId).in('status', PD_LIVE_STATUSES).neq('id', data.id).limit(10);
         if (error || !rows || rows.length === 0) { block.style.display = 'none'; return; }
         let shopName = 'this seller';
         if (typeof getMerchantNameCached === 'function') shopName = (await getMerchantNameCached(merchantId)) || shopName;
@@ -3059,7 +3417,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // See all reviews — reveals the rest of the already-fetched list.
     const seeAllBtn = document.getElementById('pd-see-all-reviews-btn');
-    if (seeAllBtn) seeAllBtn.addEventListener('click', () => { renderPdReviewsList(__pdReviewsFull); seeAllBtn.style.display = 'none'; });
+    if (seeAllBtn) seeAllBtn.addEventListener('click', () => {
+        __pdReviewsExpanded = !__pdReviewsExpanded;
+        pdRenderReviewsView();
+        if (!__pdReviewsExpanded) { const rb = document.getElementById('pd-reviews-block'); if (rb) rb.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
 
     // Write a review — star input + submit.
     const writeReviewBtn = document.getElementById('pd-write-review-btn');
@@ -3072,13 +3434,24 @@ document.addEventListener('DOMContentLoaded', function () {
         const star = e.target.closest('[data-star]');
         if (!star) return;
         const n = parseInt(star.dataset.star);
-        wrStars.querySelectorAll('i').forEach(i => { i.className = parseInt(i.dataset.star) <= n ? 'fa-solid fa-star' : 'fa-regular fa-star'; });
+        wrStars.querySelectorAll('i[data-star]').forEach(i => { i.className = parseInt(i.dataset.star) <= n ? 'fa-solid fa-star' : 'fa-regular fa-star'; });
+        const lbl = document.getElementById('pd-wr-star-label');
+        if (lbl) lbl.textContent = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'][n] || '';
     });
     const wrPhoto = document.getElementById('pd-wr-photo');
     if (wrPhoto) wrPhoto.addEventListener('change', () => {
-        const nameEl = document.getElementById('pd-wr-photo-name');
-        if (nameEl) nameEl.textContent = wrPhoto.files?.[0]?.name || '';
+        const picked = Array.from(wrPhoto.files || []);
+        let skipped = 0;
+        picked.forEach(f => {
+            if (!/^image\//.test(f.type) || f.size > 8 * 1024 * 1024 || __pdWrFiles.length >= PD_REVIEW_PHOTOS_MAX_UPLOAD) { skipped++; return; }
+            __pdWrFiles.push(f);
+        });
+        wrPhoto.value = '';
+        if (skipped) showToast(`Only images up to 8 MB, max ${PD_REVIEW_PHOTOS_MAX_UPLOAD} photos.`, 'error');
+        pdRenderWrPhotos();
     });
+    const wrText = document.getElementById('pd-wr-text');
+    if (wrText) wrText.addEventListener('input', () => { const c = document.getElementById('pd-wr-count'); if (c) c.textContent = String(wrText.value.length); });
     const wrSubmit = document.getElementById('pd-wr-submit-btn');
     if (wrSubmit) wrSubmit.addEventListener('click', submitPdReview);
 });
@@ -3392,7 +3765,7 @@ function renderShopProducts() {
         const hasRealRating = rating > 0;
 
         return `
-        <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
+        <div class="product-card" data-id="${prod.id}" data-category="${categoryKey}" data-name="${mfEsc(productName)}" data-price="${sellingPrice}" data-mrp-orig="${prod.mrp || ''}" data-img="${mfEsc(img)}" data-img2="${mfEsc(prod.image_url_2 || '')}" data-img3="${mfEsc(prod.image_url_3 || '')}" data-img4="${mfEsc(prod.image_url_4 || '')}" data-expiry="${mfEsc(prod.expiry_date || prod.expiry || '')}" data-rating="${rating}" data-manufacturer="${manufacturer}" data-desc="${mfEsc(prod.description || '')}" data-is-rx="${isRx}" data-prescription-req="${prod.prescription_req || (isRx ? 'Yes' : 'No')}" data-merchant-id="${prod.merchant_id || ''}" data-mrp="${mrp}" data-stock="${stock}" data-likes="${prod.likes_count || 0}" data-composition="${(prod.composition || '').replace(/"/g,'&quot;')}" data-dosage-form="${prod.dosage_form || ''}" data-strength="${prod.strength || ''}" data-category-raw="${categoryLabel}" data-product-type="${prod.product_type || 'Medicine'}" data-weight-kg="${prod.weight_kg || ''}">
             ${discount > 0 ? `<div class="badge-express" style="background:#28a745;left:auto;right:8px;top:8px;font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>` : ''}
             <div class="img-container"><img src="${mfEsc(img)}" alt="${mfEsc(productName)}" loading="lazy"></div>
             ${isLowStock ? `<div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;"><div class="badge-express" style="position:static;background:#e67e22;"><i class="fa-solid fa-triangle-exclamation"></i> Only ${stock} left</div></div>` : ''}
@@ -3401,7 +3774,7 @@ function renderShopProducts() {
                 <div class="product-title-row" style="display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;">
                     <h4 style="flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mfEsc(productName)}${rxTag}</h4>
                 </div>
-                ${manufacturer ? `<p style="font-size:0.7rem;color:#888;margin:2px 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${manufacturer}</p>` : ''}
+                ${manufacturer ? `<p style="font-size:0.7rem;color:#888;margin:2px 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${mfEsc(manufacturer)}</p>` : ''}
                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
                     ${hasRealRating
                         ? `<span style="background:#388e3c;color:#fff;padding:1px 5px;border-radius:3px;font-size:0.65rem;font-weight:600;">${rating} <i class="fa-solid fa-star" style="font-size:0.55rem;"></i></span>`
@@ -4002,52 +4375,59 @@ async function saveDeliveryAddress() {
         return;
     }
 
-    // ✅ Standard delivery works for any Indian pincode — this used to block
-    // saving the address entirely just because 30-Min/Same-Day aren't
-    // launched there yet. Now it only informs, never blocks; the fast-speed
-    // gating itself happens separately (see refreshDeliverySpeedAvailability).
-    if (statusMsg) { statusMsg.style.color = '#747d8c'; statusMsg.innerText = 'Checking fast-delivery availability...'; }
-    const zoneCheck = await checkPincodeServiceability(pincode);
-    isPincodeVerified = true;
-    if (statusMsg) {
-        statusMsg.style.color = zoneCheck.available ? '#2ed573' : '#747d8c';
-        statusMsg.innerText = zoneCheck.available
-            ? '✅ 30 Min & Same Day are available here too!'
-            : 'ℹ️ Standard delivery (5-7 days) is available. 30 Min/Same Day aren\'t launched here yet.';
-    }
+    // Double-tap guard (slow network used to let people tap Save 2-3 times)
+    if (window.__addrSaving) return;
+    window.__addrSaving = true;
+    setTimeout(() => { window.__addrSaving = false; }, 1500);
 
+    // ⚡ INSTANT: show + use the address right now (localStorage). Supabase can be
+    // slow, so nothing below this block is allowed to delay the cart UI.
     const addr = { name, phone, house, area, city, pincode, landmark };
     localStorage.setItem('medi_delivery_address', JSON.stringify(addr));
     localStorage.setItem('medi_verified_address', `${house}, ${area}, ${city} - ${pincode}${landmark ? ', Near ' + landmark : ''}`);
     isPincodeVerified = true;
-
-    // Item 10: also persist to the shared `user_addresses` book (same table
-    // the profile page uses) so this becomes the one real saved address
-    // instead of only living in this browser's localStorage.
-    if (supabase) {
-        try {
-            const uid = await getCurrentAuthUserId();
-            if (uid) {
-                const editingId = document.getElementById('cart-editing-address-id')?.value || '';
-                const payload = { user_id: uid, tag: 'Home', name, phone, address1: house, address2: area || null, landmark: landmark || null, city, state: '', pincode, is_default: true };
-                await supabase.from('user_addresses').update({ is_default: false }).eq('user_id', uid);
-                if (editingId) {
-                    const { data } = await supabase.from('user_addresses').update(payload).eq('id', editingId).select().single();
-                    if (data) addr.id = data.id;
-                } else {
-                    const { data } = await supabase.from('user_addresses').insert([payload]).select().single();
-                    if (data) addr.id = data.id;
-                }
-            }
-        } catch (e) {
-            // Non-fatal — localStorage copy above already covers this session/order.
-        }
-    }
-
     if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = '✓ Address saved!'; }
+    const editingIdAtSave = document.getElementById('cart-editing-address-id')?.value || '';
     showSavedAddress(addr);
     recalculateBill();
     refreshShiprocketRateAndBill();
+
+    // 🔄 BACKGROUND (non-blocking): fast-delivery zone info + sync to user_addresses
+    const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+    (async () => {
+        try {
+            const zoneCheck = await withTimeout(checkPincodeServiceability(pincode), 6000);
+            if (zoneCheck && statusMsg) {
+                statusMsg.style.color = zoneCheck.available ? '#2ed573' : '#747d8c';
+                statusMsg.innerText = zoneCheck.available
+                    ? '✓ Address saved! 30 Min & Same Day are available here too!'
+                    : "✓ Address saved! Standard delivery (5-7 days) is available; 30 Min/Same Day aren't launched here yet.";
+            }
+        } catch (e) {}
+        if (!supabase) return;
+        try {
+            const uid = await withTimeout(getCurrentAuthUserId(), 8000);
+            if (!uid) return;
+            const payload = { user_id: uid, tag: 'Home', name, phone, address1: house, address2: area || null, landmark: landmark || null, city, state: '', pincode, is_default: true };
+            await supabase.from('user_addresses').update({ is_default: false }).eq('user_id', uid);
+            let saved = null;
+            if (editingIdAtSave) {
+                const r = await supabase.from('user_addresses').update(payload).eq('id', editingIdAtSave).select().single();
+                saved = r.data;
+            } else {
+                const r = await supabase.from('user_addresses').insert([payload]).select().single();
+                saved = r.data;
+            }
+            if (saved) {
+                addr.id = saved.id;
+                const idEl = document.getElementById('cart-editing-address-id');
+                if (idEl) idEl.value = saved.id;
+                try { savedAddresses = [saved, ...(savedAddresses || []).filter(x => x.id !== saved.id).map(x => ({ ...x, is_default: false }))]; renderCartAddressList(savedAddresses, saved.id); } catch (e) {}
+            }
+        } catch (e) {
+            // Non-fatal — localStorage copy already covers this session/order.
+        }
+    })();
 }
 
 async function handleCouponApplication() {
@@ -4641,7 +5021,12 @@ function recalculateBill() {
     let cod = (selectedPaymentMethod === "COD" && subtotal > 0) ? 10 : 0;
     let speedFee = subtotal > 0 ? (selectedDeliverySpeedFee || 0) : 0;
     discountAmount = Math.min(discountAmount, subtotal);
-    let grandTotal = Math.max(0, (subtotal - discountAmount) + shipping + delivery + dynamicPlatformFee + dynamicProcessingCharge + cod + speedFee);
+    // Tablet Coins: 1 coin = Rs 1 off. Never more than the medicine value left after other discounts.
+    const coinCap = Math.max(0, Math.floor(subtotal - discountAmount));
+    const coinDiscount = Math.max(0, Math.min(coinUseApplied, coinWalletBalance, coinCap));
+    window.__mfCoinDiscount = coinDiscount;
+    let grandTotal = Math.max(0, (subtotal - discountAmount - coinDiscount) + shipping + delivery + dynamicPlatformFee + dynamicProcessingCharge + cod + speedFee);
+    if (typeof mfCoinRefreshUI === 'function') mfCoinRefreshUI(coinCap, coinDiscount);
 
     const speedRow = document.getElementById('bill-speed-fee-row');
     const speedFeeEl = document.getElementById('bill-speed-fee');
@@ -4698,6 +5083,8 @@ function recalculateBill() {
     const stickyTotal = document.getElementById('sticky-total-price');
     const stickyBar = document.getElementById('sticky-checkout-bar');
     if (stickyTotal) stickyTotal.textContent = `₹${grandTotal.toFixed(2)}`;
+    const upiAmtLive = document.getElementById('upi-drawer-amount');
+    if (upiAmtLive) upiAmtLive.textContent = `₹${grandTotal.toFixed(2)}`;
     if (stickyBar) stickyBar.style.display = subtotal > 0 ? 'flex' : 'none';
 }
 
@@ -4913,7 +5300,7 @@ async function processFinalOrderPayload() {
     const primaryMerchantId = currentCart.find(item => item.merchantId)?.merchantId || null;
     let physicalDistanceKm = Math.sqrt(Math.pow(userLiveLat - shopCoordinates.lat, 2) + Math.pow(userLiveLng - shopCoordinates.lng, 2)) * 111;
     let calculatedTransitMode = physicalDistanceKm > 15 ? "Truck" : physicalDistanceKm > 5 ? "Van" : "Bike";
-    let calculatedETA = Math.round(physicalDistanceKm * 6 + 15);
+    let calculatedETA = Math.max(30, Math.round(physicalDistanceKm * 6 + 15)); // never promise under 30 minutes
     const secureDeliveryOTP = generateSecureSixDigitOTP();
     const itemsDescription = currentCart.map(i => `${i.name} × ${i.qty}`).join(', ');
     const firstProductImg = currentCart[0]?.img || "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400";
@@ -5018,6 +5405,7 @@ async function processFinalOrderPayload() {
         processing_fee: orderProcessingFee,
         cod_fee: orderCodFee,
         discount: discountAmount || 0,
+        coins_used: window.__mfCoinDiscount || 0,
         coupon_code: appliedCouponInfo?.code || appliedCouponInfo?.coupon_code || null,
         delivery_speed: selectedDeliverySpeed || 'manual',
         delivery_speed_fee: orderSpeedFee,
@@ -5058,9 +5446,35 @@ async function processFinalOrderPayload() {
                 retryGuard++;
             }
             if (!error && insertedOrder) {
+                if ((window.__mfCoinDiscount || 0) > 0) {
+                    try { await supabase.rpc('use_coins_on_order', { p_coins: window.__mfCoinDiscount, p_order_ref: orderId }); } catch (e) {}
+                    coinUseApplied = 0; coinWalletLoaded = false; localStorage.removeItem('mf_coin_mode');
+                }
+                try { refreshOrdersFromServer(); } catch (e) {}
                 pushUserNotification(currentUserId, 'order_placed', 'Order Placed', `Your order ${orderId} has been placed successfully.`, orderId);
-                const orderItemsPayload = currentCart.map(item => ({
+                // Snapshot real product data onto each order line so the invoice shows
+                // true manufacturer / batch / expiry / HSN / GST even if the listing changes later.
+                let medMap = {};
+                try {
+                    const medIds = currentCart.map(i => i.id).filter(id => id && /^[0-9a-f-]{32,36}$/i.test(String(id)));
+                    if (medIds.length) {
+                        const medRes = await Promise.race([
+                            supabase.from('medicines').select('*').in('id', medIds),
+                            new Promise(r => setTimeout(() => r(null), 5000))
+                        ]);
+                        (medRes && medRes.data || []).forEach(m => { medMap[String(m.id)] = m; });
+                    }
+                } catch (e) {}
+                const orderItemsPayload = currentCart.map(item => {
+                    const med = medMap[String(item.id)] || null;
+                    return {
                     order_id: orderId,
+                    medicine_id: med ? med.id : null,
+                    manufacturer: med ? (med.manufacturer || med.brand_name || null) : null,
+                    batch_number: med ? (med.batch_number || med.lot_number || null) : null,
+                    expiry_date: med ? (med.expiry_date || null) : null,
+                    hsn_code: med ? (med.hsn_code || null) : null,
+                    gst_rate: med && med.gst_rate != null ? med.gst_rate : null,
                     product_name: item.name,
                     product_image: item.img || '',
                     quantity: item.qty,
@@ -5074,13 +5488,14 @@ async function processFinalOrderPayload() {
                     // falls back to the original, safe payload automatically instead
                     // of failing the whole order-items save.
                     mrp: item.mrp || item.price
-                }));
+                    };
+                });
                 try {
                     const { error: itemsErr } = await supabase.from('order_items').insert(orderItemsPayload);
                     if (itemsErr) throw itemsErr;
                 } catch (e) {
                     try {
-                        const basicItemsPayload = orderItemsPayload.map(({ mrp, ...rest }) => rest);
+                        const basicItemsPayload = orderItemsPayload.map(({ mrp, medicine_id, manufacturer, batch_number, expiry_date, hsn_code, gst_rate, ...rest }) => rest);
                         await supabase.from('order_items').insert(basicItemsPayload);
                     } catch (e2) {
                         showToast("Order items save error: " + (e2.message || e2), "error");
@@ -5459,20 +5874,22 @@ async function fetchReturnForOrder(orderId) {
 // "Requested" if nothing further has been updated yet.
 function buildReturnStatusTimeline(ret) {
     const s = (ret?.status || 'pending').toLowerCase();
+    const isEx = String(ret?.request_type || '').toLowerCase() === 'exchange';
+    const reqLabel = isEx ? 'Exchange Requested' : 'Return Requested';
     if (s === 'rejected' || s === 'declined') {
         return [
-            { label: 'Return Requested', done: true },
+            { label: reqLabel, done: true },
             { label: 'Rejected', done: true, isCancelled: true }
         ];
     }
     const stageIndexMap = { pending: 0, requested: 0, approved: 1, accepted: 1, pickup_scheduled: 2, scheduled: 2, picked_up: 3, collected: 3, refunded: 4, completed: 4 };
     const currentIdx = stageIndexMap[s] ?? 0;
     const stages = [
-        { label: 'Return Requested', idx: 0 },
+        { label: reqLabel, idx: 0 },
         { label: 'Approved', idx: 1 },
         { label: ret?.return_pickup_date ? `Pickup Scheduled — ${new Date(ret.return_pickup_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'Pickup Scheduled', idx: 2 },
         { label: 'Picked Up', idx: 3 },
-        { label: 'Refunded', idx: 4 }
+        { label: isEx ? 'Replacement Sent' : 'Refunded', idx: 4 }
     ];
     return stages.map(st => ({ label: st.label, done: currentIdx >= st.idx, active: currentIdx === st.idx }));
 }
@@ -5515,11 +5932,11 @@ async function getMerchantNameCached(merchantId) {
 // order-receipt.html with the real order_id (+ merchant_id when known).
 // Never generates a new receipt page, a Blob invoice, or a temporary file —
 // order-receipt.html itself is left completely untouched.
-window.openOrderInvoice = function (orderId, merchantId) {
+window.openOrderInvoice = function (orderId, merchantId, autoDownload) {
     if (!orderId) { showToast("Invoice not available for this order.", "error"); return; }
     window.open(
         'order-receipt.html?order_id=' + encodeURIComponent(orderId) +
-        '&merchant_id=' + encodeURIComponent(merchantId || ''),
+        '&merchant_id=' + encodeURIComponent(merchantId || '') + (autoDownload ? '&download=1' : ''),
         '_blank'
     );
 };
@@ -5543,31 +5960,91 @@ function computeOrderBill(order, items) {
     return { subtotal: +subtotal.toFixed(2), charges, total: +total.toFixed(2) };
 }
 
-// Item 9 — RETURN LOGIC. Delivered only, within 7 days of delivery, and
-// ONLY if at least one product in the order had an original/listing price
-// (or a special/selling price) above ₹299 — never for orders where every
-// single item was ₹299 or below.
-function computeReturnEligibility(order, items) {
-    const s = (order?.status || '').toLowerCase();
-    if (s !== 'delivered') return { eligible: false };
-    const deliveredDate = safeParseOrderDate(order);
-    if (!deliveredDate) return { eligible: false };
-    const daysSince = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
-    if (daysSince > 7) return { eligible: false, expired: true };
-
-    let hasQualifyingItem = false;
-    if (items && items.length > 0) {
-        hasQualifyingItem = items.some(it => {
-            const price = Math.max(safeParseCurrency(it.mrp), safeParseCurrency(it.unit_price));
-            return price > 299;
-        });
-    } else {
-        // No line-item data available (older order, or fetch failed) — fall
-        // back to the order's own total so return isn't silently hidden.
-        hasQualifyingItem = safeParseCurrency(order?.total_amount ?? order?.total_bill) > 299;
-    }
-    return { eligible: hasQualifyingItem, daysLeft: Math.max(0, 7 - daysSince) };
+// Item 9 — RETURN / EXCHANGE LOGIC (real).
+// Every product carries the rule the ADMIN saved for it: is_returnable +
+// return_window_days and is_exchangeable + exchange_window_days. The window
+// starts at the exact moment the order was delivered (orders.delivered_at)
+// and runs for exactly that many days — to the minute.
+async function fetchReturnPolicies(items, order) {
+    const out = { byId: {}, byName: {} };
+    if (!supabase || !items || !items.length) return out;
+    try {
+        const ids = [...new Set(items.map(it => it.medicine_id).filter(Boolean))];
+        let rows = [];
+        const cols = 'id, product_name, name, merchant_id, is_rx, prescription_req, is_returnable, return_window_days, is_exchangeable, exchange_window_days, image_url';
+        if (ids.length) {
+            const { data } = await supabase.from('medicines').select(cols).in('id', ids);
+            rows = data || [];
+        }
+        const missing = items.filter(it => !it.medicine_id && it.product_name);
+        if (missing.length) {
+            const names = [...new Set(missing.map(it => it.product_name))];
+            let q = supabase.from('medicines').select(cols).in('product_name', names);
+            const mid = order && order.merchant_id;
+            if (mid) q = q.eq('merchant_id', mid);
+            const { data } = await q;
+            rows = rows.concat(data || []);
+        }
+        rows.forEach(r => { out.byId[String(r.id)] = r; if (r.product_name) out.byName[String(r.product_name).toLowerCase()] = r; });
+    } catch (e) { /* columns not created yet — nothing is returnable until the SQL is run */ }
+    return out;
 }
+
+function mfOrderDeliveredAt(order) {
+    const c = order && (order.delivered_at || order.delivery_time || order.completed_at);
+    if (c) { const d = new Date(c); if (!isNaN(d.getTime())) return d; }
+    // Older orders have no delivered_at; the last status change is the closest real time we have.
+    const u = order && (order.updated_at || order.status_updated_at);
+    if (u) { const d = new Date(u); if (!isNaN(d.getTime())) return d; }
+    return safeParseOrderDate(order);
+}
+
+function mfFormatRemaining(ms) {
+    if (ms <= 0) return 'closed';
+    const mins = Math.floor(ms / 60000);
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    if (d > 0) return `${d}d ${h}h left`;
+    if (h > 0) return `${h}h ${m}m left`;
+    return `${Math.max(1, m)}m left`;
+}
+
+async function computeReturnEligibilityReal(order, items) {
+    const s = (order?.status || '').toLowerCase();
+    if (s !== 'delivered') return { eligible: false, exchangeEligible: false, items: [] };
+    const deliveredAt = mfOrderDeliveredAt(order);
+    if (!deliveredAt) return { eligible: false, exchangeEligible: false, items: [] };
+    const pol = await fetchReturnPolicies(items, order);
+    const now = Date.now();
+    const DAY = 86400000;
+    const lines = (items || []).map(it => {
+        const row = (it.medicine_id && pol.byId[String(it.medicine_id)]) || pol.byName[String(it.product_name || '').toLowerCase()] || null;
+        const isRx = !!(row && (row.is_rx === true || row.prescription_req === 'Yes'));
+        const retDays = row && row.is_returnable === true ? Number(row.return_window_days || 0) : 0;
+        const exDays = row && row.is_exchangeable === true ? Number(row.exchange_window_days || 0) : 0;
+        const returnUntil = retDays > 0 ? new Date(deliveredAt.getTime() + retDays * DAY) : null;
+        const exchangeUntil = exDays > 0 ? new Date(deliveredAt.getTime() + exDays * DAY) : null;
+        return {
+            item: it, medicineId: row ? row.id : (it.medicine_id || null), merchantId: (row && row.merchant_id) || it.merchant_id || order.merchant_id || null,
+            name: it.product_name || (row && (row.product_name || row.name)) || 'Item', image: it.product_image || (row && row.image_url) || '',
+            qty: Number(it.quantity || 1), unitPrice: safeParseCurrency(it.unit_price),
+            retDays, exDays, returnUntil, exchangeUntil,
+            canReturn: !!(returnUntil && now <= returnUntil.getTime()),
+            canExchange: !!(exchangeUntil && now <= exchangeUntil.getTime())
+        };
+    });
+    const retLines = lines.filter(l => l.canReturn), exLines = lines.filter(l => l.canExchange);
+    const everHad = lines.some(l => l.retDays > 0 || l.exDays > 0);
+    const lastUntil = lines.reduce((m, l) => Math.max(m, l.returnUntil ? l.returnUntil.getTime() : 0, l.exchangeUntil ? l.exchangeUntil.getTime() : 0), 0);
+    return {
+        eligible: retLines.length > 0, exchangeEligible: exLines.length > 0,
+        expired: everHad && retLines.length === 0 && exLines.length === 0,
+        items: lines, deliveredAt,
+        closesInMs: lastUntil ? Math.max(0, lastUntil - now) : 0
+    };
+}
+
+// Kept for any older caller — always resolves to "not eligible" synchronously.
+function computeReturnEligibility(order, items) { return { eligible: false }; }
 
 function mapPrescriptionOrderToCard(rx) {
     const statusMap = { pending: 'pending', accepted: 'accepted', cancelled: 'cancelled' };
@@ -5611,7 +6088,7 @@ async function refreshOrdersFromServer() {
                     ...(dbOrders || []),
                     ...((dbRxOrders || []).map(mapPrescriptionOrderToCard))
                 ];
-                if (allOrders.length > 0) {
+                {
                     const active = allOrders.filter(o => !['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
                     const completed = allOrders.filter(o => ['delivered', 'cancelled'].includes((o.status || '').toLowerCase()));
                     localStorage.setItem('medi_active_orders', JSON.stringify(active));
@@ -5732,9 +6209,15 @@ function listenToUserOrders() {
                 // পুরনো (stale) স্টেপ/স্ট্যাটাসই দেখাত।
                 const trackingModal = document.getElementById('tracking-modal');
                 if (trackingModal && trackingModal.classList.contains('active') && trackingModal.dataset.trackingOrderId === id && typeof window.openLiveTrackingModal === 'function') {
-                    window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 20, updated.status, updated.rider_id || null);
+                    window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 30, updated.status, updated.rider_id || null);
                 }
             })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+                const o = payload.new || {};
+                if (o.user_id !== currentAuthUserId && o.user_email !== currentUserEmail) return;
+                refreshOrdersFromServer();
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, () => { refreshOrdersFromServer(); })
             .subscribe();
     }
     // Mirrors the same pattern for prescription orders — the moment a pharmacy
@@ -5742,6 +6225,9 @@ function listenToUserOrders() {
     if (!userRxOrdersChannel) {
         userRxOrdersChannel = supabase
             .channel('user-rx-orders-realtime')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'prescription_orders' }, (payload) => {
+                if (payload.new && payload.new.user_id === currentAuthUserId) refreshOrdersFromServer();
+            })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'prescription_orders' }, (payload) => {
                 const updated = payload.new;
                 if (updated.user_id !== currentAuthUserId) return;
@@ -5797,11 +6283,11 @@ function renderOrdersUI() {
         const itemCountLabel = itemCount > 0 ? `${itemCount} item${itemCount > 1 ? 's' : ''}` : '';
         const inTransit = ['picked_up', 'shipped', 'broadcasted', 'out_for_delivery'].includes(s);
         const etaVal = parseFloat(order.eta_minutes);
-        const etaLabel = (inTransit && !isNaN(etaVal) && etaVal > 0 && etaVal <= 1440) ? `ETA ${Math.round(etaVal)} min` : '';
+        const etaLabel = (inTransit && !isNaN(etaVal) && etaVal > 0 && etaVal <= 1440) ? `ETA ${Math.max(30, Math.round(etaVal))}+ min` : '';
         const showQuickActions = s !== 'cancelled';
         const trackOnclick = isRx
             ? `window.openRxOrderTrackingModal('${(order.rx_id || '').toString().replace(/'/g, "\\'")}','${s}')`
-            : `window.openLiveTrackingModal('${id}','${order.transit_mode || 'Bike'}',${order.shop_lat || 22.578},${order.shop_lng || 88.365},${order.eta_minutes || 20},'${s}',${order.rider_id ? `'${order.rider_id}'` : 'null'})`;
+            : `window.openLiveTrackingModal('${id}','${order.transit_mode || 'Bike'}',${order.shop_lat || 22.578},${order.shop_lng || 88.365},${order.eta_minutes || 30},'${s}',${order.rider_id ? `'${order.rider_id}'` : 'null'})`;
 
         return `
             <div class="single-order-card" id="order-card-${id}" onclick="openOrderDetailModal('${id}')" style="cursor:pointer;margin-bottom:12px;padding:14px;background:#ffffff;border-radius:16px;border:1px solid #eef2f5;box-shadow:0 4px 6px rgba(0,0,0,0.05);box-sizing:border-box;max-width:100%;overflow:hidden;">
@@ -5914,58 +6400,152 @@ window.handleCancelOrderFlow = function(orderId, pipelineStatus) {
     });
 };
 
-window.handleReturnOrder = async function(orderId) {
-    const reason = await new Promise(resolve => {
-        const m = document.createElement('div');
-        m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-        m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center;">
-            <h3 style="margin:0 0 12px;font-size:1rem;color:#2f3542;">Return Reason</h3>
-            <select id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;">
-                <option value="">Select reason...</option>
-                <option value="defective">Defective Product</option>
-                <option value="wrong_item">Wrong Item Delivered</option>
-                <option value="damaged">Damaged in Transit</option>
-                <option value="expired">Expired Product</option>
-                <option value="not_as_described">Not as Described</option>
-                <option value="quality_issue">Quality Issue</option>
-                <option value="changed_mind">Changed Mind</option>
-            </select>
-            <textarea id="_pd" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;min-height:60px;resize:vertical;" placeholder="Additional details (optional)"></textarea>
-            <div style="display:flex;gap:10px;">
-                <button onclick="this.closest('[style*=\"position: fixed\"]')?.remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
-                <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">Submit Return</button>
-            </div>
-        </div>`;
-        document.body.appendChild(m);
-        m.querySelector('#_pi').focus();
-        m.querySelector('#_po').onclick = () => { const v = m.querySelector('#_pi').value; const d = m.querySelector('#_pd').value; m.remove(); resolve(v ? {reason:v, description:d} : null); };
-        m.onclick = (e) => { if (e.target === m) { m.remove(); resolve(null); } };
-    });
-    if (!reason) return;
-    const reasonLabels = {defective:'Defective Product',wrong_item:'Wrong Item Delivered',damaged:'Damaged in Transit',expired:'Expired Product',not_as_described:'Not as Described',quality_issue:'Quality Issue',changed_mind:'Changed Mind'};
-    if (supabase) {
-        try {
-            const { error } = await supabase.from('returns').insert([{
-                order_id: orderId,
-                reason: reason.reason,
-                description: reason.description || '',
-                status: 'pending'
-            }]);
-            if (error) throw error;
-            showToast("Return request submitted successfully!", "success");
-        } catch(e) {
+window.handleReturnOrder = async function (orderId) {
+    const ctx = (window.__mfReturnInfo || {})[orderId];
+    if (!ctx || !ctx.info) { showToast('Please reopen the order and try again.', 'error'); return; }
+    const info = ctx.info, order = ctx.order || {};
+    const lines = info.items.filter(l => l.canReturn || l.canExchange);
+    if (!lines.length) { showToast('The return / exchange window has closed for this order.', 'error'); return; }
+    const esc = (v) => (typeof pdEsc === 'function' ? pdEsc(v) : String(v == null ? '' : v));
+    const fmt = (d) => d ? d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const defaultAddr = order.customer_address || order.delivery_address || order.address || localStorage.getItem('medi_verified_address') || '';
+    const reasons = [
+        ['defective', 'Defective product'], ['wrong_item', 'Wrong item delivered'], ['damaged', 'Damaged in transit'],
+        ['expired', 'Expired / near expiry'], ['not_as_described', 'Not as described'], ['quality_issue', 'Quality issue'], ['changed_mind', 'Changed my mind']
+    ];
+    const photoReasons = ['defective', 'wrong_item', 'damaged', 'expired', 'not_as_described', 'quality_issue'];
+    const state = { sel: {}, photos: [] };
+    lines.forEach((l, i) => { state.sel[i] = { on: false, qty: 1, type: l.canReturn ? 'return' : 'exchange' }; });
 
-            showToast("Return request submitted. We'll process it shortly.", "info");
+    document.getElementById('mf-rx-sheet')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'mf-rx-sheet'; wrap.className = 'mf-rx-sheet';
+    wrap.innerHTML = `
+      <div class="mf-rx-head"><button type="button" class="mf-rx-back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><div><h3>Return / Exchange</h3><p>Order ${esc(orderId)}</p></div></div>
+      <div class="mf-rx-body">
+        <div class="mf-rx-banner"><i class="fa-solid fa-clock"></i><div><b>${esc(mfFormatRemaining(info.closesInMs))} to request</b><span>Delivered ${esc(fmt(info.deliveredAt))}. Each product has its own return / exchange days set by MediFinder India.</span></div></div>
+        <div class="mf-rx-steps"><span><i class="fa-solid fa-hand-pointer"></i>Select</span><span><i class="fa-solid fa-camera"></i>Photo</span><span><i class="fa-solid fa-truck-pickup"></i>Pickup</span><span><i class="fa-solid fa-circle-check"></i>Done</span></div>
+        <h4 class="mf-rx-h">1. Choose products</h4>
+        <div id="mf-rx-items">${lines.map((l, i) => `
+          <div class="mf-rx-item" data-i="${i}">
+            <label class="mf-rx-check"><input type="checkbox" data-i="${i}"><span></span></label>
+            <div class="mf-rx-img">${l.image ? `<img src="${esc(l.image)}" alt="">` : '<i class="fa-solid fa-pills"></i>'}</div>
+            <div class="mf-rx-info">
+              <b>${esc(l.name)}</b>
+              <small>Qty ordered: ${l.qty} · ₹${l.unitPrice.toFixed(2)} each</small>
+              <div class="mf-rx-chips">
+                ${l.canReturn ? `<span class="chip ok"><i class="fa-solid fa-rotate-left"></i> ${l.retDays}-day return · till ${esc(fmt(l.returnUntil))}</span>` : (l.retDays ? '<span class="chip off">Return closed</span>' : '<span class="chip off">No return</span>')}
+                ${l.canExchange ? `<span class="chip ok2"><i class="fa-solid fa-right-left"></i> ${l.exDays}-day exchange · till ${esc(fmt(l.exchangeUntil))}</span>` : (l.exDays ? '<span class="chip off">Exchange closed</span>' : '<span class="chip off">No exchange</span>')}
+              </div>
+              <div class="mf-rx-opts" data-i="${i}" style="display:none;">
+                <div class="mf-rx-seg">
+                  ${l.canReturn ? `<button type="button" data-t="return" class="${state.sel[i].type === 'return' ? 'on' : ''}">Return &amp; refund</button>` : ''}
+                  ${l.canExchange ? `<button type="button" data-t="exchange" class="${state.sel[i].type === 'exchange' ? 'on' : ''}">Exchange</button>` : ''}
+                </div>
+                <div class="mf-rx-qty"><span>Quantity</span><div><button type="button" data-d="-1">−</button><b>1</b><button type="button" data-d="1">+</button></div></div>
+              </div>
+            </div>
+          </div>`).join('')}</div>
+        <h4 class="mf-rx-h">2. What went wrong?</h4>
+        <select id="mf-rx-reason" class="mf-rx-input"><option value="">Select reason…</option>${reasons.map(r => `<option value="${r[0]}">${r[1]}</option>`).join('')}</select>
+        <textarea id="mf-rx-desc" class="mf-rx-input" rows="3" placeholder="Tell us more (optional)"></textarea>
+        <h4 class="mf-rx-h">3. Add photos <small id="mf-rx-photo-req"></small></h4>
+        <div class="mf-rx-photos" id="mf-rx-photos"><label class="mf-rx-addph" id="mf-rx-addph"><i class="fa-solid fa-camera"></i><span>Add</span><input type="file" id="mf-rx-file" accept="image/*" multiple style="display:none;"></label></div>
+        <h4 class="mf-rx-h">4. Pickup address</h4>
+        <textarea id="mf-rx-addr" class="mf-rx-input" rows="2" placeholder="Pickup address">${esc(defaultAddr)}</textarea>
+        <p class="mf-rx-note"><i class="fa-solid fa-circle-info"></i> Items must be unopened and undamaged unless you are reporting a defect. Our team will approve the request and schedule a pickup — you can follow every step from the order page.</p>
+      </div>
+      <div class="mf-rx-foot"><div id="mf-rx-summary">Select a product to continue</div><button type="button" id="mf-rx-submit" disabled>Submit request</button></div>`;
+    document.body.appendChild(wrap);
+
+    const $q = (sel) => wrap.querySelector(sel);
+    const refresh = () => {
+        const picked = Object.keys(state.sel).filter(k => state.sel[k].on);
+        const reason = $q('#mf-rx-reason').value;
+        const needPhoto = photoReasons.includes(reason);
+        $q('#mf-rx-photo-req').textContent = needPhoto ? '(required for this reason)' : '(optional)';
+        const ok = picked.length && reason && (!needPhoto || state.photos.length) && $q('#mf-rx-addr').value.trim().length > 5;
+        $q('#mf-rx-submit').disabled = !ok;
+        const rc = picked.filter(k => state.sel[k].type === 'return').length, ex = picked.length - rc;
+        $q('#mf-rx-summary').textContent = picked.length ? `${rc ? rc + ' return' : ''}${rc && ex ? ' + ' : ''}${ex ? ex + ' exchange' : ''}` : 'Select a product to continue';
+    };
+    const renderPhotos = () => {
+        const box = $q('#mf-rx-photos'), add = $q('#mf-rx-addph');
+        box.querySelectorAll('.mf-rx-ph').forEach(n => n.remove());
+        state.photos.forEach((f, i) => {
+            if (!f.__url) f.__url = URL.createObjectURL(f);
+            const d = document.createElement('div'); d.className = 'mf-rx-ph';
+            d.innerHTML = `<img src="${f.__url}" alt=""><button type="button" aria-label="Remove">&times;</button>`;
+            d.querySelector('button').onclick = () => { state.photos.splice(i, 1); renderPhotos(); refresh(); };
+            box.insertBefore(d, add);
+        });
+        add.style.display = state.photos.length >= 4 ? 'none' : 'flex';
+    };
+    wrap.querySelectorAll('.mf-rx-item').forEach(row => {
+        const i = row.dataset.i, opts = row.querySelector('.mf-rx-opts'), cb = row.querySelector('input[type=checkbox]');
+        cb.addEventListener('change', () => { state.sel[i].on = cb.checked; opts.style.display = cb.checked ? 'block' : 'none'; row.classList.toggle('on', cb.checked); refresh(); });
+        opts.querySelectorAll('.mf-rx-seg button').forEach(b => b.addEventListener('click', () => { state.sel[i].type = b.dataset.t; opts.querySelectorAll('.mf-rx-seg button').forEach(x => x.classList.toggle('on', x === b)); refresh(); }));
+        opts.querySelectorAll('.mf-rx-qty button').forEach(b => b.addEventListener('click', () => {
+            const max = lines[i].qty; state.sel[i].qty = Math.min(max, Math.max(1, state.sel[i].qty + parseInt(b.dataset.d)));
+            opts.querySelector('.mf-rx-qty b').textContent = state.sel[i].qty;
+        }));
+    });
+    $q('#mf-rx-reason').addEventListener('change', refresh);
+    $q('#mf-rx-addr').addEventListener('input', refresh);
+    $q('#mf-rx-file').addEventListener('change', (e) => {
+        Array.from(e.target.files || []).forEach(f => { if (/^image\//.test(f.type) && f.size <= 8 * 1024 * 1024 && state.photos.length < 4) state.photos.push(f); });
+        e.target.value = ''; renderPhotos(); refresh();
+    });
+    $q('.mf-rx-back').addEventListener('click', () => wrap.remove());
+    refresh();
+
+    $q('#mf-rx-submit').addEventListener('click', async () => {
+        const btn = $q('#mf-rx-submit');
+        // Re-check the window at the moment of submitting — it may have closed while the page was open.
+        const nowMs = Date.now();
+        const picked = Object.keys(state.sel).filter(k => state.sel[k].on).map(k => ({ line: lines[k], sel: state.sel[k] }));
+        for (const p of picked) {
+            const until = p.sel.type === 'exchange' ? p.line.exchangeUntil : p.line.returnUntil;
+            if (!until || nowMs > until.getTime()) { showToast(`The ${p.sel.type} window for "${p.line.name}" has just closed.`, 'error'); return; }
         }
-    } else {
-        showToast("Return request submitted. We'll process it shortly.", "info");
-    }
-    document.getElementById('order-detail-modal')?.remove();
-    renderOrdersUI();
-    // ✅ Reopen straight into the same order's detail sheet so the customer
-    // immediately sees the new "Return Status" panel/timeline, instead of
-    // being dropped back on the plain orders list with no visible confirmation.
-    window.openOrderDetailModal(orderId);
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+        try {
+            const uid = await getCurrentAuthUserId();
+            const reason = $q('#mf-rx-reason').value, description = $q('#mf-rx-desc').value.trim(), addr = $q('#mf-rx-addr').value.trim();
+            const urls = [];
+            for (const f of state.photos) {
+                const path = `returns/${orderId}/${uid || 'guest'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${String(f.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                const { error: upErr } = await supabase.storage.from('media').upload(path, f);
+                if (!upErr) { const u = supabase.storage.from('media').getPublicUrl(path).data?.publicUrl; if (u) urls.push(u); }
+            }
+            const rows = picked.map(p => ({
+                order_id: orderId, merchant_id: p.line.merchantId || order.merchant_id || null, customer_id: uid || null,
+                medicine_id: p.line.medicineId || null, medicine_name: p.line.name, quantity: p.sel.qty,
+                request_type: p.sel.type, reason, description, customer_photos: urls, pickup_address: addr,
+                refund_amount: p.sel.type === 'return' ? +(p.line.unitPrice * p.sel.qty).toFixed(2) : 0,
+                delivered_at: info.deliveredAt ? info.deliveredAt.toISOString() : null,
+                window_closes_at: (p.sel.type === 'exchange' ? p.line.exchangeUntil : p.line.returnUntil).toISOString(),
+                status: 'pending'
+            }));
+            let { error } = await supabase.from('returns').insert(rows);
+            if (error && /column|schema cache/i.test(error.message || '')) {
+                // SQL not run yet — keep the request working with the original columns only.
+                const slim = rows.map(r => ({ order_id: r.order_id, merchant_id: r.merchant_id, customer_id: r.customer_id, medicine_name: r.medicine_name, quantity: r.quantity, reason: r.reason, description: `[${r.request_type.toUpperCase()}] ${r.description}`.trim(), customer_photos: r.customer_photos, refund_amount: r.refund_amount, status: 'pending' }));
+                ({ error } = await supabase.from('returns').insert(slim));
+            }
+            if (error) throw error;
+            try { pushUserNotification(uid, 'return', 'Request received', `Your ${picked.some(p => p.sel.type === 'exchange') ? 'exchange' : 'return'} request for order ${orderId} has been received.`, orderId); } catch (e) {}
+            showToast('Request submitted — we will confirm shortly.', 'success');
+            wrap.remove();
+            document.getElementById('order-detail-modal')?.remove();
+            renderOrdersUI();
+            window.openOrderDetailModal(orderId);
+        } catch (e) {
+            console.error('[Return] submit failed', e);
+            btn.disabled = false; btn.textContent = 'Submit request';
+            showToast('Could not submit: ' + (e.message || 'please try again'), 'error');
+        }
+    });
 };
 
 // ============================================================
@@ -6041,8 +6621,8 @@ window.openOrderDetailModal = async function (orderId) {
 
         const modal = document.createElement('div');
         modal.id = 'order-detail-modal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
-        modal.innerHTML = `<div id="order-detail-sheet" style="background:#f8f9fb;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;box-sizing:border-box;padding:0 0 24px;">
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f8f9fb;z-index:9999;display:flex;align-items:stretch;justify-content:center;';
+        modal.innerHTML = `<div id="order-detail-sheet" style="background:#f8f9fb;border-radius:0;width:100%;max-width:none;height:100%;max-height:none;overflow-y:auto;box-sizing:border-box;padding:0 0 24px;">
            <div style="position:sticky;top:0;background:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eef2f5;border-radius:20px 20px 0 0;z-index:2;">
              <h3 style="margin:0;font-size:1rem;color:#2f3542;">Order Details</h3>
              <button type="button" id="order-detail-close" style="background:none;border:none;font-size:1.2rem;color:#747d8c;cursor:pointer;padding:4px 8px;"><i class="fa-solid fa-xmark"></i></button>
@@ -6053,18 +6633,19 @@ window.openOrderDetailModal = async function (orderId) {
         </div>`;
         document.body.appendChild(modal);
         document.getElementById('order-detail-close').addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-
+        
         // Real per-item prices (for the bill box + ₹299 return-eligibility
         // rule) — fetched async so the sheet can open instantly above.
         const items = await fetchOrderLineItems(id);
         if (!document.body.contains(modal)) return; // closed while items were loading
         const bill = computeOrderBill(order, items);
-        const returnInfo = computeReturnEligibility(order, items);
+        const returnInfo = await computeReturnEligibilityReal(order, items);
+        window.__mfReturnInfo = window.__mfReturnInfo || {}; window.__mfReturnInfo[id] = { info: returnInfo, order };
+        const canReturnOrExchange = returnInfo.eligible || returnInfo.exchangeEligible;
         // ✅ If a return has already been requested for this order, fetch it
         // so its pickup-status timeline can be shown instead of just
         // silently letting the customer tap "Return" again.
-        const existingReturn = returnInfo.eligible || s === 'delivered' ? await fetchReturnForOrder(id) : null;
+        const existingReturn = (canReturnOrExchange || s === 'delivered') ? await fetchReturnForOrder(id) : null;
         if (!document.body.contains(modal)) return; // closed while the return lookup was in flight
 
         // Item 7 — delivery address, pulled from the order's own saved
@@ -6124,7 +6705,7 @@ window.openOrderDetailModal = async function (orderId) {
             ${showInvoice ? `<button type="button" id="od-invoice-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ''}
             ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#2ed573;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
             ${canCancel ? `<button type="button" id="od-cancel-btn" style="flex:1;min-width:100px;background:#ff4d4d;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancel</button>` : ''}
-            ${returnInfo.eligible && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#e02020;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Return</button>` : ''}
+            ${canReturnOrExchange && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#e02020;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> ${returnInfo.eligible && returnInfo.exchangeEligible ? 'Return / Exchange' : (returnInfo.eligible ? 'Return' : 'Exchange')}</button>` : ''}
           </div>
 
           ${s === 'cancelled' ? `<div style="background:#fff5f5;border:1px solid #ffd6d6;color:#e02020;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> This order was cancelled.</div>` : ''}
@@ -6152,7 +6733,7 @@ window.openOrderDetailModal = async function (orderId) {
                   : existingReturn.return_pickup_date ? '' /* date already shown in the timeline label above */
                   : `<p style="margin:10px 0 0;font-size:0.72rem;color:#a4b0be;">We'll notify you here as soon as pickup is scheduled.</p>`;
               return `<div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">
-                  <h4 style="margin:0 0 4px;font-size:0.85rem;color:#2f3542;">Return Status</h4>
+                  <h4 style="margin:0 0 4px;font-size:0.85rem;color:#2f3542;">${String(existingReturn.request_type || '').toLowerCase() === 'exchange' ? 'Exchange' : 'Return'} Status</h4>
                   <p style="margin:0 0 12px;font-size:0.75rem;color:#747d8c;">Reason: ${reasonLabel}</p>
                   ${retTimelineHtml}
                   ${nextStepNote}
@@ -6188,7 +6769,14 @@ window.openOrderDetailModal = async function (orderId) {
             <div style="display:flex;justify-content:space-between;font-size:0.9rem;font-weight:700;color:#2f3542;padding:8px 0 0;border-top:1px dashed #eef2f5;margin-top:6px;"><span>Total</span><span>${formatRupees(bill.total)}</span></div>
           </div>
 
-          ${returnInfo.expired ? `<p style="text-align:center;font-size:0.72rem;color:#a4b0be;margin:-6px 0 14px;">Return window has closed for this order.</p>` : ''}
+          ${(returnInfo.items && returnInfo.items.some(l => l.retDays || l.exDays)) ? `<div class="mf-pol-card">
+              <div class="mf-pol-head"><i class="fa-solid fa-rotate-left"></i><div><b>Return &amp; Exchange</b><small>Counted from delivery · ${returnInfo.deliveredAt ? returnInfo.deliveredAt.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</small></div></div>
+              ${returnInfo.items.map(l => `<div class="mf-pol-row"><span class="nm">${mfEsc(l.name)}</span><span class="tags">
+                  ${l.retDays ? `<span class="tg ${l.canReturn ? 'ok' : 'off'}">Return ${l.retDays}d · ${l.canReturn ? mfFormatRemaining(l.returnUntil.getTime() - Date.now()) : 'closed'}</span>` : '<span class="tg off">No return</span>'}
+                  ${l.exDays ? `<span class="tg ${l.canExchange ? 'ok2' : 'off'}">Exchange ${l.exDays}d · ${l.canExchange ? mfFormatRemaining(l.exchangeUntil.getTime() - Date.now()) : 'closed'}</span>` : '<span class="tg off">No exchange</span>'}
+              </span></div>`).join('')}
+          </div>` : ''}
+          ${returnInfo.expired ? `<p style="text-align:center;font-size:0.72rem;color:#a4b0be;margin:-6px 0 14px;">Return / exchange window has closed for this order.</p>` : ''}
 
           ${showFeedback ? `
           <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">
@@ -6209,7 +6797,7 @@ window.openOrderDetailModal = async function (orderId) {
                 if (isRx && typeof window.openRxOrderTrackingModal === 'function') {
                     window.openRxOrderTrackingModal(order.rx_id, order.status);
                 } else if (typeof window.openLiveTrackingModal === 'function') {
-                    window.openLiveTrackingModal(id, order.transit_mode || 'Bike', order.shop_lat || 22.578, order.shop_lng || 88.365, order.eta_minutes || 20, order.status, order.rider_id || null);
+                    window.openLiveTrackingModal(id, order.transit_mode || 'Bike', order.shop_lat || 22.578, order.shop_lng || 88.365, order.eta_minutes || 30, order.status, order.rider_id || null);
                 }
             });
         }
@@ -6229,7 +6817,7 @@ window.openOrderDetailModal = async function (orderId) {
             const cancelBtn = document.getElementById('od-cancel-btn');
             if (cancelBtn) cancelBtn.addEventListener('click', () => window.handleCancelOrderFlow(id, order.status));
         }
-        if (returnInfo.eligible && !existingReturn) {
+        if (canReturnOrExchange && !existingReturn) {
             const returnBtn = document.getElementById('od-return-btn');
             if (returnBtn) returnBtn.addEventListener('click', () => window.handleReturnOrder(id));
         }
@@ -6575,6 +7163,10 @@ function buildOrderReceiptHtml(order) {
 }
 
 function downloadOrderReceipt(order) {
+    if (order && (order.order_id || order.id)) {
+        window.openOrderInvoice(order.order_id || order.id, order.merchant_id || '', true);
+        return;
+    }
     const html = buildOrderReceiptHtml(order);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -6607,7 +7199,7 @@ function renderTrackingBillingSection(container, order) {
     if (btn) btn.onclick = () => downloadOrderReceipt(order);
 }
 
-window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat = 22.578, shopLng = 88.365, baseEta = 20, currentStatus = "Active", riderId = null) {
+window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat = 22.578, shopLng = 88.365, baseEta = 30, currentStatus = "Active", riderId = null) {
     const modal = document.getElementById('tracking-modal');
     if (!modal) return;
     modal.style.display = "flex";
@@ -6670,7 +7262,7 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
                 <div style="background:#fff3f3;padding:16px;border-radius:12px;text-align:center;border:1px solid #ffe4e4;">
                     <i class="fa-solid fa-clock" style="font-size:2rem;color:#e02020;margin-bottom:8px;display:block;"></i>
                     <p style="font-size:0.85rem;font-weight:700;color:#e02020;margin:0 0 4px 0;">Estimated Delivery</p>
-                    <p style="font-size:1.5rem;font-weight:800;color:#2f3542;margin:0;"><span id="live-countdown-val">${baseEta}</span> mins</p>
+                    <p style="font-size:1.5rem;font-weight:800;color:#2f3542;margin:0;"><span id="live-countdown-val">${Math.max(30, parseInt(baseEta) || 30)}+</span> mins</p>
                 </div>
             `;
         }
@@ -7120,7 +7712,7 @@ async function setupMapPageModules() {
         // replacing the old hardcoded demo medicine-name list. Debounced so
         // typing quickly doesn't fire a query per keystroke.
         let suggestDebounceTimer = null;
-        async function fetchRealSuggestions(q) {
+        async function fetchRealSuggestions(q) { q = String(q == null ? '' : q).replace(/[%,()"\\]/g, ' ').trim(); if (!q) return { medicines: [], shops: [] };
             if (!supabase) return { medicines: [], shops: [] };
             try {
                 const [medRes, shopRes] = await Promise.all([
@@ -7238,37 +7830,6 @@ async function setupMapPageModules() {
     }
 }
 
-function openMapMedicineProductDetailsPopup(shop, queriedToken) {
-    let popup = document.createElement('div');
-    popup.className = "modal active";
-    popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
-    const distKm = Math.sqrt(Math.pow(userLiveLat - shop.lat, 2) + Math.pow(userLiveLng - shop.lng, 2)) * 111;
-    const etaMins = Math.round(distKm * 6 + 5);
-    const etaLabel = etaMins < 60 ? `${etaMins} mins` : `${Math.floor(etaMins/60)}h ${etaMins%60}m`;
-    popup.innerHTML = `
-        <div class="modal-content" style="background:#fff;width:100%;max-width:400px;border-radius:16px;padding:20px;text-align:center;box-sizing:border-box;border-top:5px solid #ff4d4d;">
-            <h2 style="color:#ff4d4d;font-size:1.3rem;">${queriedToken.toUpperCase()}</h2>
-            <p style="font-size:0.85rem;margin:6px 0;">Available at: <strong>${mfEsc(shop.name)}</strong></p>
-            <div style="background:#f8f9fa;padding:10px;border-radius:8px;font-size:0.8rem;margin:10px 0;text-align:left;">
-                <p><i class="fa-solid fa-location-dot" style="color:#ff4d4d;"></i> Distance: <strong>${distKm.toFixed(1)} km</strong></p>
-                <p><i class="fa-solid fa-truck-fast" style="color:#1c82aa;"></i> Est. Delivery: <strong>${etaLabel}</strong></p>
-                <p><strong>Composition:</strong> Active Pharma Molecule Salts</p>
-                <p><strong>Safety Warning:</strong> Prescription required for Rx items.</p>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:15px;">
-                <button id="map-modal-close" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Back to Map</button>
-                <button id="map-modal-buy" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Buy / Add to Cart</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(popup);
-    document.getElementById('map-modal-close').onclick = () => popup.remove();
-    document.getElementById('map-modal-buy').onclick = () => {
-        addToCart({ id: "m1", name: queriedToken.toUpperCase() + " Core Dose", price: 45.00, img: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400", isRx: false });
-        popup.remove();
-        navigateTo('cart');
-    };
-}
 
 // ============================================================
 // PROFILE PAGE
@@ -7428,8 +7989,36 @@ function setupProfilePageModules() {
             if (referralStatusNotice) { referralStatusNotice.innerText = "✓ Referral code copied!"; setTimeout(() => { referralStatusNotice.innerText = ""; }, 3000); }
         };
     }
-    loadMyReferralState();
-    if (document.getElementById('my-coupons-list')) loadMyCouponsAndOffers();
+    // Who has used my referral code (RPC get_my_referrals if it exists, else profiles.referred_by)
+    async function loadReferralUsers() {
+        const box = document.getElementById('referral-users-list');
+        if (!box || !supabase) return;
+        box.innerHTML = '<p style="font-size:0.78rem;color:#999;">Loading...</p>';
+        let rows = null;
+        try { const r = await supabase.rpc('get_my_referrals'); if (!r.error && Array.isArray(r.data)) rows = r.data; } catch (e) {}
+        if (!rows && myReferralCode) {
+            try {
+                const r = await supabase.from('profiles').select('full_name, email, created_at').eq('referred_by', myReferralCode);
+                if (!r.error && Array.isArray(r.data)) rows = r.data;
+            } catch (e) {}
+        }
+        if (!rows || rows.length === 0) {
+            box.innerHTML = '<p style="font-size:0.8rem;color:#999;">No one has used your code yet. Share it with friends to earn coins.</p>';
+            return;
+        }
+        const maskName = (r) => {
+            const n = (r.full_name || r.name || '').trim();
+            if (n) return n;
+            const em = String(r.email || r.user_email || '');
+            return em ? em.replace(/^(.{2}).*(@.*)$/, '$1***$2') : 'MediFinder India user';
+        };
+        box.innerHTML = '<p style="font-size:0.78rem;color:#2f3542;font-weight:700;margin:0 0 8px;">' + rows.length + ' friend' + (rows.length > 1 ? 's' : '') + ' joined with your code</p>' +
+            rows.map(r => `<div style="background:#fff;border:1px solid #eef2f5;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <div><strong style="font-size:0.85rem;color:#2f3542;">${mfEsc(maskName(r))}</strong>
+                <div style="font-size:0.7rem;color:#a4b0be;">${r.created_at || r.used_at ? new Date(r.created_at || r.used_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div></div>
+                <span style="font-size:0.7rem;font-weight:800;color:#16a34a;background:#e3faf2;padding:3px 9px;border-radius:20px;">USED</span></div>`).join('');
+    }
+    loadMyReferralState().then(loadReferralUsers);
 
     const languageSelectNode = document.getElementById('language-select');
     const activeAppLanguageEnv = localStorage.getItem('medi_active_language_env') || 'en';
@@ -7616,22 +8205,17 @@ function setupProfilePageModules() {
     // ✅ Item 5: back to the local usert&c.html page per explicit request —
     // Terms, Privacy Policy and Cancellation & Refund all point to it
     // (each can deep-link to its own section via the hash).
-    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'info.html#terms'; };
-    if (privacyTrigger) privacyTrigger.onclick = () => { window.location.href = 'info.html#privacy'; };
-    if (cancellationTrigger) cancellationTrigger.onclick = () => { window.location.href = 'info.html#refund'; };
+    if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert%26c.html#terms'; };
+    if (privacyTrigger) privacyTrigger.onclick = () => { window.location.href = 'usert%26c.html#privacy'; };
+    if (cancellationTrigger) cancellationTrigger.onclick = () => { window.location.href = 'usert%26c.html#refund'; };
     if (helpTrigger) helpTrigger.onclick = () => toggleModalDisplay('help-modal', true);
-    if (referEarnBtn) referEarnBtn.onclick = () => { toggleModalDisplay('referral-modal', true); loadMyReferralState(); loadMyCouponsAndOffers(); };
+    if (referEarnBtn) referEarnBtn.onclick = () => { toggleModalDisplay('referral-modal', true); loadMyReferralState().then(loadReferralUsers); };
 
     // Separate "Offers & Coupons" entry — opens the same referral modal
     // (which already renders the full coupons/offers list) so there's no
     // duplicated logic, just a more discoverable dedicated entry point.
     const offersCouponsBtn = document.getElementById('offers-coupons-btn');
-    if (offersCouponsBtn) offersCouponsBtn.addEventListener('click', () => {
-        toggleModalDisplay('referral-modal', true);
-        loadMyReferralState();
-        loadMyCouponsAndOffers();
-        setTimeout(() => { document.getElementById('my-coupons-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
-    });
+    if (offersCouponsBtn) offersCouponsBtn.addEventListener('click', () => openOffersPage());
 
     // Wishlist — lists every product the user has hearted, each opening the
     // real product detail page on tap.
@@ -7927,6 +8511,7 @@ function setupAccountSupportSection() {
     const deleteBtn = document.getElementById('open-delete-account-btn');
     if (complaintBtn) complaintBtn.addEventListener('click', openComplaintCenterModal);
     if (deleteBtn) deleteBtn.addEventListener('click', openDeleteAccountModal);
+    startComplaintRealtime();
 }
 
 const COMPLAINT_CATEGORIES = ['Payment', 'Merchant', 'Delivery', 'Order', 'Wrong Product', 'Missing Product', 'Damaged Product', 'Prescription', 'Refund', 'Account', 'Not Working', 'Technical Problem', 'Other'];
@@ -7935,30 +8520,64 @@ async function openComplaintCenterModal() {
     document.getElementById('complaint-center-modal')?.remove();
     const modal = document.createElement('div');
     modal.id = 'complaint-center-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:flex-end;justify-content:center;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f8f9fb;z-index:10000;overflow-y:auto;-webkit-overflow-scrolling:touch;';
     modal.innerHTML = `
-        <div style="background:#fff;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;box-sizing:border-box;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 style="margin:0;font-size:1rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> File a Complaint</h3>
-                <span id="cc-close" style="cursor:pointer;font-size:1.3rem;color:#747d8c;">&times;</span>
+        <div style="position:sticky;top:0;z-index:2;background:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #eef2f5;">
+            <button type="button" id="cc-close" aria-label="Back" style="background:#f1f2f6;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1rem;color:#2f3542;"><i class="fa-solid fa-arrow-left"></i></button>
+            <h3 style="margin:0;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> Complaints</h3>
+        </div>
+        <div style="padding:16px 16px calc(40px + env(safe-area-inset-bottom,0px));max-width:640px;margin:0 auto;box-sizing:border-box;">
+            <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #eef2f5;">
+                <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Category</label>
+                <select id="cc-category" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 12px;font-size:0.85rem;">
+                    <option value="">Select category...</option>
+                    ${COMPLAINT_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+                <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Subject</label>
+                <input type="text" id="cc-subject" placeholder="Brief subject" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 12px;font-size:0.85rem;">
+                <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Describe the problem</label>
+                <textarea id="cc-message" placeholder="Tell us what happened..." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 14px;font-size:0.85rem;min-height:90px;resize:vertical;"></textarea>
+                <button type="button" id="cc-submit" style="width:100%;padding:12px;border:none;border-radius:10px;background:#1c82aa;color:#fff;font-weight:700;cursor:pointer;">Submit Complaint</button>
             </div>
-            <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Category</label>
-            <select id="cc-category" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 12px;font-size:0.85rem;">
-                <option value="">Select category...</option>
-                ${COMPLAINT_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
-            </select>
-            <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Subject</label>
-            <input type="text" id="cc-subject" placeholder="Brief subject" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 12px;font-size:0.85rem;">
-            <label style="font-size:0.78rem;font-weight:700;color:#57606f;">Describe the problem</label>
-            <textarea id="cc-message" placeholder="Tell us what happened..." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;margin:6px 0 14px;font-size:0.85rem;min-height:80px;resize:vertical;"></textarea>
-            <button type="button" id="cc-submit" style="width:100%;padding:12px;border:none;border-radius:10px;background:#1c82aa;color:#fff;font-weight:700;cursor:pointer;">Submit Complaint</button>
             <div id="cc-history-wrap" style="margin-top:18px;"></div>
         </div>`;
     document.body.appendChild(modal);
     document.getElementById('cc-close').onclick = () => modal.remove();
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     document.getElementById('cc-submit').onclick = submitComplaint;
     renderComplaintHistory();
+    startComplaintRealtime();
+}
+
+// Admin reply text can live in different columns depending on how the admin
+// panel saves it — read whichever one is filled.
+function complaintReplyOf(c) {
+    return c.admin_reply || c.admin_response || c.reply || c.response || c.resolution || c.admin_note || c.admin_notes || '';
+}
+
+// Live updates: when the admin replies or closes a complaint, the user gets a
+// bell notification (which also goes out as a push) and the list refreshes.
+let _complaintRealtimeStarted = false;
+async function startComplaintRealtime() {
+    if (_complaintRealtimeStarted || !supabase) return;
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) return;
+        _complaintRealtimeStarted = true;
+        supabase.channel('complaints-mine-' + uid)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'complaints', filter: `user_id=eq.${uid}` }, (p) => {
+                const n = p.new || {}, o = p.old || {};
+                const replied = complaintReplyOf(n) && complaintReplyOf(n) !== complaintReplyOf(o);
+                const closed = /^(closed|resolved)$/i.test(n.status || '') && n.status !== o.status;
+                if (replied || closed) {
+                    const title = closed ? 'Complaint closed' : 'Admin replied to your complaint';
+                    const msg = (closed ? 'Your complaint ' : 'Reply on complaint ') + (n.token || '') + (replied ? ': ' + String(complaintReplyOf(n)).slice(0, 120) : ' has been closed.');
+                    pushUserNotification(uid, 'complaint', title, msg);
+                    if (typeof showToast === 'function') showToast(title, 'success');
+                }
+                renderComplaintHistory();
+            }).subscribe();
+    } catch (e) {}
 }
 
 async function submitComplaint() {
@@ -7997,12 +8616,17 @@ async function renderComplaintHistory() {
         if (!session?.user?.id) return;
         const { data, error } = await supabase.from('complaints').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
         if (error || !data || data.length === 0) return;
-        wrap.innerHTML = `<h4 style="margin:0 0 8px;font-size:0.82rem;color:#2f3542;">Your Complaints</h4>` + data.map(c => `
-            <div style="background:#f8f9fa;border-radius:10px;padding:10px 12px;margin-bottom:8px;border:1px solid #eef2f5;">
-                <div style="display:flex;justify-content:space-between;"><strong style="font-size:0.78rem;">${c.token}</strong><span style="font-size:0.68rem;font-weight:700;color:${c.status === 'resolved' || c.status === 'closed' ? '#2ed573' : '#f59f00'};">${(c.status || 'open').toUpperCase()}</span></div>
-                <p style="margin:4px 0 0;font-size:0.78rem;color:#57606f;">${mfEsc(c.category)} — ${mfEsc(c.subject)}</p>
-            </div>
-        `).join('');
+        wrap.innerHTML = `<h4 style="margin:0 0 8px;font-size:0.9rem;color:#2f3542;">Your Complaints</h4>` + data.map(c => {
+            const done = /^(resolved|closed)$/i.test(c.status || '');
+            const reply = complaintReplyOf(c);
+            return `
+            <div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid #eef2f5;">
+                <div style="display:flex;justify-content:space-between;align-items:center;"><strong style="font-size:0.8rem;">${mfEsc(c.token)}</strong><span style="font-size:0.68rem;font-weight:800;padding:3px 9px;border-radius:20px;background:${done ? '#e3faf2' : '#fff4e0'};color:${done ? '#16a34a' : '#f59f00'};">${done ? 'CLOSED' : (c.status || 'open').toUpperCase()}</span></div>
+                <p style="margin:6px 0 0;font-size:0.8rem;color:#57606f;font-weight:600;">${mfEsc(c.category)} — ${mfEsc(c.subject)}</p>
+                ${c.message ? `<p style="margin:4px 0 0;font-size:0.76rem;color:#747d8c;">${mfEsc(c.message)}</p>` : ''}
+                ${reply ? `<div style="margin-top:10px;background:#e7f4fb;border-left:3px solid #1c82aa;border-radius:8px;padding:9px 11px;"><div style="font-size:0.68rem;font-weight:800;color:#1c82aa;margin-bottom:3px;"><i class="fa-solid fa-headset"></i> MediFinder Support replied</div><div style="font-size:0.8rem;color:#2f3542;white-space:pre-wrap;">${mfEsc(reply)}</div></div>` : (done ? '' : '<div style="margin-top:8px;font-size:0.72rem;color:#a4b0be;">Waiting for admin reply…</div>')}
+            </div>`;
+        }).join('');
     } catch (e) { /* silent — history is a nice-to-have, never blocks the form */ }
 }
 
@@ -8082,41 +8706,6 @@ async function confirmDeleteAccount(reason) {
 
 
 // Old popup version — no longer used (it overflowed on phones). Kept for reference only.
-function openMyPrescriptionBoxLegacyPopup() {
-    const myBox = JSON.parse(localStorage.getItem('medi_prescription_box')) || [];
-    let popup = document.createElement('div');
-    popup.className = "modal active";
-    popup.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.65);display:flex;justify-content:center;align-items:center;z-index:10000;padding:16px;box-sizing:border-box;`;
-    popup.innerHTML = `
-        <div style="background:#fff;width:100%;max-width:440px;border-radius:16px;padding:20px;box-sizing:border-box;border-top:5px solid #ff4d4d;max-height:85vh;overflow-y:auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                <h3 style="color:#ff4d4d;margin:0;"><i class="fa-solid fa-box-archive"></i> My Prescription Box</h3>
-                <span id="close-mybox-btn" style="cursor:pointer;font-size:1.3rem;color:#747d8c;">&times;</span>
-            </div>
-            <p style="font-size:0.8rem;color:#747d8c;margin-bottom:12px;">All your uploaded prescriptions are stored here. You can view and download them anytime.</p>
-            <div id="mybox-list">
-                ${myBox.length === 0 ? `<div style="text-align:center;padding:30px;color:#ccc;"><i class="fa-solid fa-file-medical" style="font-size:2.5rem;"></i><p>No prescriptions uploaded yet.</p></div>` :
-                myBox.map(p => `
-                    <div style="background:#f8f9fa;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #e4e7eb;display:flex;justify-content:space-between;align-items:center;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <i class="fa-solid fa-file-medical" style="color:#ff4d4d;font-size:1.5rem;"></i>
-                            <div>
-                                <strong style="font-size:0.85rem;display:block;">${p.fileName || 'Prescription'}</strong>
-                                <span style="font-size:0.75rem;color:#747d8c;">Uploaded: ${p.date}</span>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:6px;">
-                            ${p.url ? `<a href="${p.url}" target="_blank" style="background:#1c82aa;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:0.75rem;text-decoration:none;font-weight:600;"><i class="fa-solid fa-eye"></i></a>` : ''}
-                            ${p.url ? `<a href="${p.url}" download style="background:#2ed573;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:0.75rem;text-decoration:none;font-weight:600;"><i class="fa-solid fa-download"></i></a>` : ''}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    document.body.appendChild(popup);
-    document.getElementById('close-mybox-btn').onclick = () => popup.remove();
-}
 
 
 // ============================================================
@@ -8441,7 +9030,7 @@ function runBackgroundPillAlarmEngine() {
     let changed = false;
     alarmsData.slice().forEach(alarmItem => {
         if (alarmItem.active === false || !alarmItem.time) return;
-        const dateMatches = !alarmItem.date || alarmItem.date === todayLocal;
+        const dateMatches = !alarmItem.date || todayLocal >= alarmItem.date; // repeats daily from start date until deleted
         if (!dateMatches) return;
         const [h, m] = String(alarmItem.time).split(':').map(Number);
         if (isNaN(h) || isNaN(m)) return;
@@ -8452,12 +9041,7 @@ function runBackgroundPillAlarmEngine() {
         if (fired[key]) return;
         fired[key] = Date.now(); changed = true;
         ringPillAlarm(alarmItem);
-        if (alarmItem.date) {
-            alarmsData = alarmsData.filter(a => a.id !== alarmItem.id);
-            localStorage.setItem('medi_alarms', JSON.stringify(alarmsData));
-            if (supabase) { try { supabase.from('reminders').delete().eq('id', alarmItem.id).then(() => {}); } catch (e) {} }
-            if (document.getElementById('active-alarms-list')) renderAlarmsListUI();
-        }
+        // reminder stays and rings again every day until the user deletes it
     });
     if (changed) {
         Object.keys(fired).forEach(k => { if (Date.now() - fired[k] > 2 * 86400000) delete fired[k]; });
@@ -8486,16 +9070,34 @@ function ringPillAlarm(alarmItem) {
         if (AC) {
             const ctx = window.__pillAudioCtx || (window.__pillAudioCtx = new AC());
             if (ctx.state === 'suspended') ctx.resume();
-            [0, 0.35, 0.7, 1.05].forEach(t => {
-                const o = ctx.createOscillator(), g = ctx.createGain();
-                o.type = 'sine'; o.frequency.value = 880;
-                g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-                g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + t + 0.03);
-                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.3);
-                o.connect(g); g.connect(ctx.destination);
-                o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.32);
-            });
+            // ring for 30 seconds (beep pattern repeats every 1.4s) or until dismissed
+            if (window.__pillToneTimer) clearInterval(window.__pillToneTimer);
+            // Distinct pill-alarm tone: fast two-pitch square-wave "alarm clock" ring, so it can
+            // never be confused with the soft chime used for normal notifications.
+            const beepBurst = () => {
+                [0, 0.18, 0.36, 0.54, 0.9, 1.08, 1.26, 1.44].forEach((t, idx) => {
+                    const o = ctx.createOscillator(), g = ctx.createGain();
+                    o.type = 'square'; o.frequency.value = (idx % 2 === 0) ? 1200 : 900;
+                    g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+                    g.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + t + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.15);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.17);
+                });
+                if (navigator.vibrate) navigator.vibrate([400, 200, 400]);
+            };
+            beepBurst();
+            const toneEnd = Date.now() + 30000;
+            window.__pillToneTimer = setInterval(() => {
+                if (Date.now() >= toneEnd || !document.getElementById('pillAlarmPopup')) { clearInterval(window.__pillToneTimer); return; }
+                beepBurst();
+            }, 1900);
         }
+    } catch (e) {}
+    // 2b) bell notification row too (goes out as push for installed devices)
+    try { if (typeof pushUserNotification === 'function' && typeof getCurrentAuthUserIdSafe === 'function') {} } catch (e) {}
+    try {
+        if (supabase) supabase.auth.getSession().then(r => { const u = r && r.data && r.data.session && r.data.session.user; if (u) pushUserNotification(u.id, 'pill_reminder', '💊 Pill Reminder', msg); });
     } catch (e) {}
     // 3) in-app popup that stays until dismissed (a toast disappears too fast to notice)
     document.getElementById('pillAlarmPopup')?.remove();
@@ -8505,7 +9107,7 @@ function ringPillAlarm(alarmItem) {
     pop.innerHTML = `<div class="pill-alarm-card"><div class="pill-alarm-icon">💊</div><h3>Pill Reminder</h3><p>Time to take <strong></strong></p><span class="pill-alarm-time"></span><button type="button">Done</button></div>`;
     pop.querySelector('strong').textContent = alarmItem.medicine;
     pop.querySelector('.pill-alarm-time').textContent = alarmItem.time;
-    pop.querySelector('button').onclick = () => pop.remove();
+    pop.querySelector('button').onclick = () => { if (window.__pillToneTimer) clearInterval(window.__pillToneTimer); pop.remove(); };
     document.body.appendChild(pop);
 }
 
@@ -8607,6 +9209,21 @@ const MF_UI_DICT = {
   "search medicines, syrups, baby care...": { bn: "ওষুধ, সিরাপ, বেবি কেয়ার খুঁজুন...", hi: "दवाइयाँ, सिरप, बेबी केयर खोजें..." },
   "search medicines, health products...": { bn: "ওষুধ, স্বাস্থ্যপণ্য খুঁজুন...", hi: "दवाइयाँ, स्वास्थ्य उत्पाद खोजें..." },
   "search medicine in this shop...": { bn: "এই দোকানে ওষুধ খুঁজুন...", hi: "इस दुकान में दवा खोजें..." },
+  "my bookings": { bn: "আমার বুকিং", hi: "मेरी बुकिंग" }, "live booking": { bn: "লাইভ বুকিং", hi: "लाइव बुकिंग" },
+  "history": { bn: "ইতিহাস", hi: "इतिहास" }, "book": { bn: "বুক করুন", hi: "बुक करें" }, "back to home": { bn: "হোমে ফিরুন", hi: "होम पर वापस" },
+  "pickup": { bn: "পিকআপ", hi: "पिकअप" }, "dropping": { bn: "গন্তব্য", hi: "ड्रॉप" }, "live direction": { bn: "লাইভ দিকনির্দেশ", hi: "लाइव दिशा" },
+  "pickup → drop": { bn: "পিকআপ → গন্তব্য", hi: "पिकअप → ड्रॉप" }, "cancel ride": { bn: "রাইড বাতিল করুন", hi: "राइड रद्द करें" },
+  "ambulance booking": { bn: "অ্যাম্বুলেন্স বুকিং", hi: "एम्बुलेंस बुकिंग" }, "ambulance": { bn: "অ্যাম্বুলেন্স", hi: "एम्बुलेंस" },
+  "find ambulance": { bn: "অ্যাম্বুলেন্স খুঁজুন", hi: "एम्बुलेंस खोजें" }, "available ambulances": { bn: "উপলব্ধ অ্যাম্বুলেন্স", hi: "उपलब्ध एम्बुलेंस" },
+  "pickup location": { bn: "পিকআপের স্থান", hi: "पिकअप स्थान" }, "drop location / hospital": { bn: "গন্তব্য / হাসপাতাল", hi: "ड्रॉप स्थान / अस्पताल" },
+  "tablet coin": { bn: "ট্যাবলেট কয়েন", hi: "टैबलेट कॉइन" }, "book nurse now": { bn: "এখনই নার্স বুক করুন", hi: "अभी नर्स बुक करें" },
+  "book a verified nurse at home": { bn: "বাড়িতে যাচাইকৃত নার্স বুক করুন", hi: "घर पर प्रमाणित नर्स बुक करें" },
+  "confirm & submit booking": { bn: "নিশ্চিত করে বুকিং জমা দিন", hi: "पुष्टि करें और बुकिंग जमा करें" },
+  "enter your utr / ref. no. after paying *": { bn: "পেমেন্টের পর UTR / রেফ নম্বর দিন *", hi: "भुगतान के बाद UTR / रेफ. नंबर दर्ज करें *" },
+  "status": { bn: "স্থিতি", hi: "स्थिति" }, "confirmed": { bn: "নিশ্চিত", hi: "पुष्टि हो गई" }, "approved": { bn: "অনুমোদিত", hi: "स्वीकृत" },
+  "pending": { bn: "অপেক্ষমাণ", hi: "लंबित" }, "completed": { bn: "সম্পন্ন", hi: "पूर्ण" }, "cancelled": { bn: "বাতিল", hi: "रद्द" },
+  "receipt": { bn: "রসিদ", hi: "रसीद" }, "no bookings yet.": { bn: "এখনও কোনো বুকিং নেই।", hi: "अभी तक कोई बुकिंग नहीं।" },
+  "redeem coins": { bn: "কয়েন রিডিম করুন", hi: "कॉइन रिडीम करें" }, "view history": { bn: "ইতিহাস দেখুন", hi: "इतिहास देखें" },
   "logout": { bn: "লগআউট", hi: "लॉगआउट" }, "cart": { bn: "কার্ট", hi: "कार्ट" }
 };
 let __mfLang = 'en';
@@ -8614,25 +9231,88 @@ const __mfOrig = new WeakMap();
 const __mfNorm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
 function __mfTr(text, lang) {
     const hit = MF_UI_DICT[__mfNorm(text)];
-    return hit && hit[lang] ? hit[lang] : null;
+    if (hit && hit[lang]) return hit[lang];
+    return mfMtLookup(text, lang); // anything not in the dictionary is translated live (cached)
+}
+// ---- Live machine-translation fallback: every word follows the selected language, incl. product details ----
+const __mfMtCache = (() => { try { return JSON.parse(localStorage.getItem('mf_mt_cache') || '{}'); } catch (e) { return {}; } })();
+const __mfMtQueue = new Set();
+const __mfMtFail = {};
+let __mfMtBusy = false, __mfMtSaveT = null, __mfMtReapplyT = null;
+function mfMtLookup(text, lang) {
+    if (!lang || lang === 'en') return null;
+    const t = String(text).replace(/\s+/g, ' ').trim();
+    if (t.length < 2 || t.length > 450 || !/[A-Za-z]{2}/.test(t)) return null;
+    const key = lang + '|' + t;
+    if (Object.prototype.hasOwnProperty.call(__mfMtCache, key)) return __mfMtCache[key] || null;
+    __mfMtQueue.add(key);
+    mfMtPump();
+    return null;
+}
+async function mfMtPump() {
+    if (__mfMtBusy) return;
+    __mfMtBusy = true;
+    try {
+        while (__mfMtQueue.size) {
+            const batch = Array.from(__mfMtQueue).slice(0, 8);
+            batch.forEach(k => __mfMtQueue.delete(k));
+            await Promise.all(batch.map(async key => {
+                const i = key.indexOf('|'); const lang = key.slice(0, i); const txt = key.slice(i + 1);
+                try {
+                    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(lang === 'rjb' ? 'bn' : lang) + '&dt=t&q=' + encodeURIComponent(txt));
+                    if (!r.ok) throw new Error('mt http ' + r.status);
+                    const j = await r.json();
+                    const out = (j[0] || []).map(p => p[0]).join('');
+                    __mfMtCache[key] = out && out !== txt ? out : '';
+                } catch (e) { const n = (__mfMtFail[key] || 0) + 1; __mfMtFail[key] = n; if (n < 3) { delete __mfMtCache[key]; setTimeout(() => { __mfMtQueue.add(key); mfMtPump(); }, 1500 * n); } else { __mfMtCache[key] = ''; } }
+            }));
+            clearTimeout(__mfMtReapplyT);
+            __mfMtReapplyT = setTimeout(() => { try { mfApplyGenericTranslation(__mfLang); } catch (e) {} }, 250);
+            clearTimeout(__mfMtSaveT);
+            __mfMtSaveT = setTimeout(() => { try { const ks = Object.keys(__mfMtCache); if (ks.length > 4000) ks.slice(0, 1000).forEach(k => delete __mfMtCache[k]); localStorage.setItem('mf_mt_cache', JSON.stringify(__mfMtCache)); } catch (e) {} }, 800);
+        }
+    } finally { __mfMtBusy = false; }
+}
+const __mfSet = new WeakMap();   // text node -> the translated text WE wrote
+const __mfAttrOrig = new WeakMap(); // element -> { attr: {orig, set} }
+const __MF_ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+function __mfTranslateAttrs(el, lang) {
+    if (!el.getAttribute) return;
+    let rec = __mfAttrOrig.get(el);
+    const names = __MF_ATTRS.slice();
+    if (el.nodeName === 'INPUT' && /^(button|submit|reset)$/i.test(el.getAttribute('type') || '')) names.push('value');
+    names.forEach(name => {
+        if (!el.hasAttribute(name)) return;
+        const cur = el.getAttribute(name);
+        if (!rec) { rec = {}; __mfAttrOrig.set(el, rec); }
+        let r = rec[name];
+        if (!r) { if (!cur || !cur.trim()) return; r = rec[name] = { orig: cur, set: null }; }
+        else if (cur !== (r.set !== null ? r.set : r.orig)) { r.orig = cur; r.set = null; } // app changed it
+        const tr = lang === 'en' ? null : __mfTr(r.orig, lang);
+        const want = tr || r.orig;
+        if (cur !== want) el.setAttribute(name, want);
+        r.set = tr ? want : null;
+    });
 }
 function __mfTranslateNode(node, lang) {
     if (node.nodeType === 3) {
         const parent = node.parentNode;
         if (!parent || /^(SCRIPT|STYLE|TEXTAREA)$/.test(parent.nodeName)) return;
-        if (!__mfOrig.has(node)) { if (!node.nodeValue.trim()) return; __mfOrig.set(node, node.nodeValue); }
+        const cur = node.nodeValue;
+        if (!__mfOrig.has(node)) { if (!cur.trim()) return; __mfOrig.set(node, cur); }
+        else if (cur !== (__mfSet.has(node) ? __mfSet.get(node) : __mfOrig.get(node))) {
+            // the app wrote new text into this node: that is the new English original
+            if (!cur.trim()) return;
+            __mfOrig.set(node, cur); __mfSet.delete(node);
+        }
         const orig = __mfOrig.get(node);
         const tr = lang === 'en' ? null : __mfTr(orig, lang);
-        const next = tr ? orig.replace(orig.trim(), tr) : orig;
+        const next = tr ? orig.replace(orig.trim(), () => tr) : orig;
         if (node.nodeValue !== next) node.nodeValue = next;
+        if (tr) __mfSet.set(node, next); else __mfSet.delete(node);
     } else if (node.nodeType === 1) {
         if (/^(SCRIPT|STYLE)$/.test(node.nodeName)) return;
-        if (node.hasAttribute && node.hasAttribute('placeholder')) {
-            if (!node.__mfPh) node.__mfPh = node.getAttribute('placeholder');
-            const tr = lang === 'en' ? null : __mfTr(node.__mfPh, lang);
-            const want = tr || node.__mfPh;
-            if (node.getAttribute('placeholder') !== want) node.setAttribute('placeholder', want);
-        }
+        __mfTranslateAttrs(node, lang);
         node.childNodes.forEach(c => __mfTranslateNode(c, lang));
     }
 }
@@ -8640,20 +9320,47 @@ function mfApplyGenericTranslation(lang) {
     __mfLang = lang || 'en';
     __mfTranslateNode(document.body, __mfLang);
 }
+// Translate a single string on demand (used for alert() text)
+function mfTranslateAsync(text, lang) {
+    return new Promise(resolve => {
+        const t = String(text == null ? '' : text);
+        if (!lang || lang === 'en' || !/[A-Za-z]{2}/.test(t)) return resolve(t);
+        const hit = MF_UI_DICT[__mfNorm(t)];
+        if (hit && hit[lang]) return resolve(hit[lang]);
+        const key = lang + '|' + t.replace(/\s+/g, ' ').trim();
+        if (__mfMtCache[key]) return resolve(__mfMtCache[key]);
+        fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(lang === 'rjb' ? 'bn' : lang) + '&dt=t&q=' + encodeURIComponent(t))
+            .then(r => r.json()).then(j => { const out = (j[0] || []).map(p => p[0]).join(''); if (out) __mfMtCache[key] = out; resolve(out || t); })
+            .catch(() => resolve(t));
+    });
+}
+(function mfWrapAlert() {
+    const nativeAlert = window.alert.bind(window);
+    window.alert = function (msg) {
+        if (__mfLang === 'en' || msg == null) return nativeAlert(msg);
+        mfTranslateAsync(msg, __mfLang).then(t => nativeAlert(t));
+    };
+})();
 (function mfStartTranslationObserver() {
-    let pending = false;
+    const queue = new Set();
+    let scheduled = false;
+    const flush = () => {
+        scheduled = false;
+        const nodes = Array.from(queue); queue.clear();
+        if (__mfLang === 'en') return;
+        nodes.forEach(n => { if (n.isConnected !== false) __mfTranslateNode(n, __mfLang); });
+    };
     const start = () => {
         new MutationObserver((muts) => {
-            if (__mfLang === 'en' || pending) return;
-            pending = true;
-            requestAnimationFrame(() => {
-                pending = false;
-                muts.forEach(m => {
-                    m.addedNodes.forEach(n => __mfTranslateNode(n, __mfLang));
-                    if (m.type === 'characterData') __mfTranslateNode(m.target, __mfLang);
-                });
+            if (__mfLang === 'en') return;
+            muts.forEach(m => {
+                if (m.type === 'childList') m.addedNodes.forEach(n => queue.add(n));
+                else queue.add(m.target); // characterData / attributes
             });
-        }).observe(document.body, { childList: true, subtree: true });
+            if (!scheduled && queue.size) { scheduled = true; requestAnimationFrame(flush); }
+        }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: __MF_ATTRS.concat(['value']) });
+        // safety sweep: catches anything rendered by code paths the observer can miss
+        setInterval(() => { if (__mfLang !== 'en' && !document.hidden) { try { mfApplyGenericTranslation(__mfLang); } catch (e) {} } }, 5000);
     };
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
@@ -8773,7 +9480,7 @@ function sponsorOpenProduct(p) {
         name: p.name || p.product_name || '',
         price: Number(p.selling_price ?? p.unit_price ?? p.price ?? 0),
         mrp: Number(p.mrp ?? 0),
-        img: p.image_url || '', img2: p.image_url_2 || '', img3: p.image_url_3 || '',
+        img: p.image_url || '', img2: p.image_url_2 || '', img3: p.image_url_3 || '', img4: p.image_url_4 || '',
         manufacturer: p.manufacturer || '',
         desc: p.description || '',
         isRx: (p.prescription_req ? p.prescription_req === 'Yes' : (p.is_rx === true)) ? 'true' : 'false',
@@ -8870,7 +9577,7 @@ function syncSponsoredVideos() {
     document.querySelectorAll('#home-slider .slide').forEach(sl => {
         const v = sl.querySelector('video.sponsored-media');
         if (!v) return;
-        if (sl.classList.contains('active-slide')) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+        if (sl.classList.contains('active-slide')) { if (v.ended) v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => {}); }
         else { v.pause(); }
     });
 }
@@ -8894,6 +9601,23 @@ async function loadSponsoredProducts() {
         if (error) {
             const fallback = await supabase.from('sponsored_products').select('*').eq('is_active', true).order('sort_order', { ascending: true });
             data = fallback.data; error = fallback.error;
+        }
+        // PLACEMENT: admin picks Home page / User page / Both (column show_on).
+        // home.html (public) and user.html (logged-in) both run this file, so each
+        // page keeps only the banners meant for it. Missing/unknown value = both.
+        const mfSponsorPage = (document.getElementById('mf-public-only-js') || /\/home(\.html)?\/?$/i.test(location.pathname)) ? 'home' : 'user';
+        if (data && data.length) {
+            data = data.filter(it => {
+                const w = (it.show_on === 'home' || it.show_on === 'user') ? it.show_on : 'both';
+                return w === 'both' || w === mfSponsorPage;
+            });
+        }
+        // Video sponsored slides ALWAYS first (stable sort: baki order = sort_order same thake)
+        if (Array.isArray(data) && data.length) {
+            data = data
+                .map((it, idx) => ({ it, idx, v: isSponsoredVideoUrl(getSponsoredMediaUrl(it)) ? 0 : 1 }))
+                .sort((a, b) => (a.v - b.v) || (a.idx - b.idx))
+                .map(o => o.it);
         }
         const sliderSection = slider.closest('.auto-slider-section');
         if (error || !data || data.length === 0) {
@@ -8960,11 +9684,12 @@ async function loadSponsoredProducts() {
                 div.classList.add('media-slide');
                 const safeUrl = withSponsoredCacheBust(mediaUrl, item).replace(/"/g, '&quot;');
                 const mediaEl = isSponsoredVideoUrl(mediaUrl)
-                    ? `<video class="sponsored-media" src="${safeUrl}" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>`
+                    ? `<video class="sponsored-media" src="${safeUrl}" autoplay muted playsinline webkit-playsinline preload="metadata"></video>`
                     : `<img class="sponsored-media" src="${safeUrl}" alt="${(item.title || 'Sponsored').replace(/"/g, '&quot;')}">`;
-                div.innerHTML = `${mediaEl}<span class="slide-tag sponsored-badge">${tagHtml}</span>`;
+                div.innerHTML = `${mediaEl}<span class="slide-tag sponsored-badge">Sponsored</span>`;
                 if (!isSponsoredVideoUrl(mediaUrl)) div.style.setProperty('--sp-img', `url("${safeUrl.replace(/&quot;/g,'%22')}")`);
                 const mEl = div.querySelector('.sponsored-media');
+                if (mEl && mEl.tagName === 'IMG') mEl.addEventListener('load', () => { if (typeof mfFitSponsoredSlide === 'function') mfFitSponsoredSlide(); });
                 if (mEl) mEl.addEventListener('error', () => {
                     div.classList.remove('media-slide');
                     div.innerHTML = `<div class="slide-content"><span class="slide-tag">${tagHtml}</span><h3>${mfEsc(item.title || '')}</h3><p>${mfEsc(item.subtitle || '')}</p></div>`;
@@ -9017,7 +9742,7 @@ async function loadSponsoredProducts() {
                             mrp: Number(linkedProduct.mrp ?? 0),
                             img: linkedProduct.image_url || '',
                             img2: linkedProduct.image_url_2 || '',
-                            img3: linkedProduct.image_url_3 || '',
+                            img3: linkedProduct.image_url_3 || '', img4: linkedProduct.image_url_4 || '',
                             manufacturer: linkedProduct.manufacturer || '',
                             desc: linkedProduct.description || '',
                             isRx: (linkedProduct.prescription_req ? linkedProduct.prescription_req === 'Yes' : (linkedProduct.is_rx === true)) ? 'true' : 'false',
@@ -9049,6 +9774,7 @@ async function loadSponsoredProducts() {
             slider.appendChild(div);
         });
         syncSponsoredVideos();
+        try { mfFitSponsoredSlide(); } catch (e) {}
     } catch (e) {
 
     }
@@ -9176,6 +9902,7 @@ function initAutoSlider() {
         currentSlide = index;
         slides[currentSlide].classList.add('active-slide');
         dotsContainer.children[currentSlide].classList.add('active-dot');
+        if (typeof mfFitSponsoredSlide === 'function') mfFitSponsoredSlide();
         if (typeof syncSponsoredVideos === 'function') syncSponsoredVideos();
     }
 
@@ -9184,9 +9911,36 @@ function initAutoSlider() {
         goToSlide(next);
     }
 
-    function startAutoSlide() {
-        window._autoSliderInterval = setInterval(nextSlide, 3500);
+    // Current slide e video cholche (ses hoy ni) hole auto-scroll hobe na
+    function currentVideoBusy() {
+        const v = slides[currentSlide] && slides[currentSlide].querySelector('video.sponsored-media');
+        return !!(v && !v.ended && !v.error && !v.paused);
     }
+
+    function autoTick() {
+        if (currentVideoBusy()) return;
+        nextSlide();
+    }
+
+    function startAutoSlide() {
+        window._autoSliderInterval = setInterval(autoTick, 3500);
+    }
+
+    // Video ses hole (ba error hole) sathe sathe porer slide e jabe
+    window._sliderOnVideoDone = function (videoEl) {
+        if (slides[currentSlide] && slides[currentSlide].contains(videoEl)) {
+            nextSlide();
+            resetAutoSlide();
+        }
+    };
+    slides.forEach(sl => {
+        const v = sl.querySelector('video.sponsored-media');
+        if (v && !v._mfDoneBound) {
+            v._mfDoneBound = true;
+            v.addEventListener('ended', () => window._sliderOnVideoDone && window._sliderOnVideoDone(v));
+            v.addEventListener('error', () => window._sliderOnVideoDone && window._sliderOnVideoDone(v));
+        }
+    });
 
     function resetAutoSlide() {
         clearInterval(window._autoSliderInterval);
@@ -9650,6 +10404,101 @@ function initServicesMenu() {
 // "New Offers" = platform-wide active offers from platform_offers,
 // which simply accumulates whatever admin adds/activates.
 // ============================================================
+
+// ============================================================
+// OFFERS & COUPONS — dedicated full page. Shows ONLY offers that are running right now:
+// the user's own coupons, merchant offers/coupons, platform offers and public coupons.
+// Refreshes live when a merchant/admin adds or changes one.
+// ============================================================
+function __offerIsRunning(o) {
+    if (!o) return false;
+    if (o.is_active === false || o.active === false || o.is_used === true) return false;
+    const now = new Date();
+    const from = o.valid_from || o.start_date;
+    const to = o.valid_until || o.end_date || o.expiry_date;
+    if (from && new Date(from) > now) return false;
+    if (to && new Date(to + (String(to).length <= 10 ? 'T23:59:59' : '')) < now) return false;
+    return true;
+}
+function __offerCard(o, tagText, tagColor) {
+    const code = o.coupon_code || o.code || '';
+    const title = o.title || o.discount_label || o.name || (o.discount_value ? ((String(o.discount_type || '').toLowerCase() === 'percentage' ? o.discount_value + '% OFF' : '\u20B9' + o.discount_value + ' OFF')) : 'Offer');
+    const to = o.valid_until || o.end_date || o.expiry_date;
+    return `<div style="background:#fff;border:1px dashed ${tagColor};border-radius:14px;padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <strong style="font-size:0.9rem;color:#2f3542;">${mfEsc(title)}</strong>
+            <span style="font-size:0.62rem;font-weight:800;color:${tagColor};background:${tagColor}18;padding:3px 8px;border-radius:20px;white-space:nowrap;">${tagText}</span>
+        </div>
+        ${o.description ? `<div style="font-size:0.78rem;color:#747d8c;margin-top:4px;">${mfEsc(o.description)}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.7rem;color:#a4b0be;">${(o.min_order_amount || o.min_order) ? 'Min order \u20B9' + (o.min_order_amount || o.min_order) + ' \u00B7 ' : ''}${to ? 'Valid till ' + new Date(to).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Running now'}</span>
+            ${code ? `<button type="button" class="offer-copy-btn" data-code="${mfEsc(code)}" style="background:${tagColor};color:#fff;border:none;border-radius:8px;padding:5px 12px;font-weight:800;font-size:0.76rem;cursor:pointer;">${mfEsc(code)} <i class="fa-regular fa-copy"></i></button>` : ''}
+        </div></div>`;
+}
+async function renderOffersPageBody() {
+    const body = document.getElementById('offers-page-body');
+    if (!body || !supabase) return;
+    const sections = [];
+    try {
+        const uid = await getCurrentAuthUserId();
+        if (uid) {
+            const { data } = await supabase.from('user_coupons').select('*').eq('user_id', uid).eq('is_used', false).order('created_at', { ascending: false });
+            const mine = (data || []).filter(__offerIsRunning);
+            if (mine.length) sections.push(['Your coupons', mine.map(c => __offerCard(c, 'YOURS', '#d6249f')).join('')]);
+        }
+    } catch (e) {}
+    try {
+        const { data } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
+        const mo = (data || []).filter(__offerIsRunning);
+        if (mo.length) sections.push(['Shop & product offers', mo.map(o => __offerCard(o, o.product_id || o.product_name ? 'PRODUCT OFFER' : 'SHOP OFFER', '#e8590c')).join('')]);
+    } catch (e) {}
+    try {
+        const { data } = await supabase.from('coupons').select('*').eq('is_active', true).order('created_at', { ascending: false });
+        const pc = (data || []).filter(__offerIsRunning);
+        if (pc.length) sections.push(['Coupon codes', pc.map(o => __offerCard(o, 'COUPON', '#1c82aa')).join('')]);
+    } catch (e) {}
+    try {
+        const { data } = await supabase.from('platform_offers').select('*').eq('is_active', true).order('created_at', { ascending: false });
+        const po = (data || []).filter(__offerIsRunning);
+        if (po.length) sections.push(['MediFinder India offers', po.map(o => __offerCard(o, 'MEDIFINDER INDIA', '#16a34a')).join('')]);
+    } catch (e) {}
+    body.innerHTML = sections.length
+        ? sections.map(s => `<h4 style="margin:16px 0 8px;font-size:0.85rem;color:#2f3542;">${s[0]}</h4>${s[1]}`).join('')
+        : '<div style="text-align:center;padding:60px 20px;color:#a4b0be;"><i class="fa-solid fa-tags" style="font-size:2.2rem;display:block;margin-bottom:10px;"></i>No offers are running right now.</div>';
+    body.querySelectorAll('.offer-copy-btn').forEach(btn => btn.onclick = () => {
+        try { navigator.clipboard.writeText(btn.dataset.code); } catch (e) {}
+        if (typeof showToast === 'function') showToast('Code ' + btn.dataset.code + ' copied', 'success');
+    });
+}
+let __offersRealtimeChannel = null;
+function openOffersPage() {
+    document.getElementById('offers-page-modal')?.remove();
+    const page = document.createElement('div');
+    page.id = 'offers-page-modal';
+    page.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f8f9fb;z-index:3600;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    page.innerHTML = `
+        <div style="position:sticky;top:0;z-index:2;background:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #eef2f5;">
+            <button type="button" id="offers-page-back" aria-label="Back" style="background:#f1f2f6;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1rem;color:#2f3542;"><i class="fa-solid fa-arrow-left"></i></button>
+            <h3 style="margin:0;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-tags" style="color:#f59f00;"></i> Offers &amp; Coupons</h3>
+        </div>
+        <div id="offers-page-body" style="padding:6px 16px calc(40px + env(safe-area-inset-bottom,0px));max-width:640px;margin:0 auto;"><p style="text-align:center;color:#a4b0be;padding:40px 0;"><i class="fa-solid fa-spinner fa-spin"></i> Loading offers...</p></div>`;
+    document.body.appendChild(page);
+    document.getElementById('offers-page-back').onclick = () => page.remove();
+    renderOffersPageBody();
+    if (supabase && !__offersRealtimeChannel) {
+        try {
+            let t = null;
+            const refresh = () => { clearTimeout(t); t = setTimeout(() => { if (document.getElementById('offers-page-body')) renderOffersPageBody(); }, 400); };
+            __offersRealtimeChannel = supabase.channel('offers-live')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, refresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, refresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'platform_offers' }, refresh)
+                .subscribe();
+        } catch (e) {}
+    }
+}
+window.openOffersPage = openOffersPage;
+
 async function loadMyCouponsAndOffers() {
     const couponsList = document.getElementById('my-coupons-list');
     const offersList = document.getElementById('new-offers-list');
@@ -9804,6 +10653,8 @@ async function loadMyCouponsAndOffers() {
 
         window.scrollTo(0, 0);
         try { history.replaceState(null, '', '#' + page); } catch (e) {}
+        // Every page re-syncs with Supabase each time it is opened (SPA: nothing reloads on its own)
+        try { window.dispatchEvent(new CustomEvent('mf:page-enter', { detail: { page: targetPage } })); } catch (e) {}
 
         if (enteringInstrument && typeof setInstrumentMode === 'function') {
             setInstrumentMode(true);
@@ -9880,7 +10731,7 @@ let currentUser = null;
 async function loadTests(){
   const { data, error } = await supabaseClient.from('lab_tests').select('*').eq('active', true).order('created_at', {ascending:false});
   if(error){ console.error(error); allTests = []; }
-  else allTests = (data || []).filter(t => Number(t.price) > 0 && t.collector_id && t.approval_status === 'approved'); // only tests published by a partner
+  else allTests = (data || []).filter(t => Number(t.price) > 0 && t.collector_id && t.approval_status !== 'rejected'); // tests published by a partner go live instantly (no admin approval)
   renderGrid(document.getElementById('lb_searchInput').value);
 }
 
@@ -9904,29 +10755,58 @@ function renderGrid(filter=""){
     return;
   }
 
+  if(!document.getElementById('lbProCss')){const st=document.createElement('style');st.id='lbProCss';st.textContent=`
+.pg-lab .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.pg-lab .card.lb-pro{padding:0;gap:0;overflow:hidden;border-radius:14px;background:#fff;border:1px solid #f3dede;box-shadow:0 4px 12px rgba(160,30,30,.08);display:flex;flex-direction:column;cursor:pointer;position:relative;align-self:start}
+.lb-hero{position:relative;height:84px;background:linear-gradient(135deg,#fdecec,#fff5f5) center/cover no-repeat;display:grid;place-items:center}
+.lb-hero svg{width:38px;height:38px}
+.lb-off{position:absolute;top:6px;left:6px;z-index:2;background:#d92d20;color:#fff;font-weight:800;font-size:10px;padding:3px 8px;border-radius:20px}
+.lb-share-btn{position:absolute;top:6px;right:6px;z-index:3;width:28px;height:28px;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#a11212;font-size:12px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.15);cursor:pointer}
+.lb-title{padding:8px 10px 0;margin:0;font-size:13px;font-weight:800;color:#2a1212;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:32px}
+.lb-body{padding:5px 10px 10px;display:flex;flex-direction:column;gap:5px}
+.lb-meta{font-size:11px;color:#8a2b2b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-lab .card.lb-pro .price-row{margin-top:0}
+.pg-lab .card.lb-pro .price-new{font-size:16px}
+.pg-lab .card.lb-pro .price-old{font-size:11px}
+.pg-lab .card.lb-pro .fasting-note{font-size:10.5px;padding:3px 7px}
+.pg-lab .card.lb-pro .buy-btn{width:100%;margin-top:3px;border:0;border-radius:10px;padding:8px;font-weight:800;font-size:12.5px;letter-spacing:.3px;color:#fff;background:linear-gradient(135deg,#d92d20,#f04438)}
+.lb-pub{display:flex;align-items:center;gap:6px;margin:10px 0 2px;padding:8px 12px;background:#f3f1ff;color:#4b3fb8;border-radius:10px;font-size:12.5px;font-weight:600}
+.lb-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.lb-info-item{background:var(--cream);border-radius:10px;padding:8px 10px;font-size:12px;color:#5b463d;min-width:0;overflow-wrap:anywhere}
+.lb-info-item b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:#9c7b6d;margin-bottom:2px}
+.lb-info-item.full{grid-column:1/-1}
+.lb-desc{font-size:13px;color:#5b463d;line-height:1.55;margin:8px 0;white-space:pre-line}
+.lb-share-lg{width:100%;margin-top:10px;padding:11px;border-radius:12px;border:1.5px solid #d92d20;background:#fff;color:#d92d20;font-weight:800;font-size:13.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+`;document.head.appendChild(st)}
   visible.forEach(t=>{
     const card = document.createElement("div");
-    card.className = "card";
-    const badgeStyle = t.bg_image_url ? `style="background-image:url('${esc(t.bg_image_url)}');"` : '';
-    const badgeInner = t.bg_image_url ? '' : (icons[t.icon] || icons.default);
+    card.className = "card lb-pro";
+    const heroStyle = t.bg_image_url ? `style="background-image:url('${esc(t.bg_image_url)}');"` : '';
+    const heroInner = t.bg_image_url ? '' : (icons[t.icon] || icons.default);
+    const items = t.items || [];
+    const metaBits = [t.sample_type ? `🧪 ${esc(t.sample_type)}` : '', t.report_time ? `⏱ ${esc(t.report_time)}` : '', items.length ? `📋 ${items.length}` : ''].filter(Boolean);
     card.innerHTML = `
-      <div class="card-head" data-detail-id="${t.id}">
-        <div class="icon-badge" ${badgeStyle}>${badgeInner}</div>
-        <h3>${esc(t.name)}</h3>
+      <div class="lb-hero" ${heroStyle}>${heroInner}${Number(t.off_percent) > 0 ? `<span class="lb-off">${t.off_percent}% OFF</span>` : ''}<button type="button" class="lb-share-btn" data-share-id="${t.id}" aria-label="Share"><i class="fa-solid fa-share-nodes"></i></button></div>
+      <h3 class="lb-title">${esc(t.name)}</h3>
+      <div class="lb-body">
+        ${metaBits.length ? `<div class="lb-meta">${metaBits.join(' · ')}</div>` : ''}
+        <div class="price-row">
+          ${Number(t.old_price) > Number(t.price) ? `<span class="price-old">₹${t.old_price}</span>` : ''}
+          <span class="price-new">₹${t.price}</span>
+        </div>
+        <span class="fasting-note ${t.fasting}">
+          ${t.fasting === "before" ? "⚠️ Fasting Required" : "✅ No Fasting"}
+        </span>
+        <button class="buy-btn" data-id="${t.id}">BUY NOW</button>
       </div>
-      <ul>${(t.items||[]).map(it=>`<li>${esc(it)}</li>`).join("")}</ul>
-      <div class="price-row">
-        ${Number(t.old_price) > Number(t.price) ? `<span class="price-old">₹${t.old_price}</span>` : ''}
-        <span class="price-new">₹${t.price}</span>
-        ${Number(t.off_percent) > 0 ? `<span class="off-badge">${t.off_percent}% OFF</span>` : ''}
-      </div>
-      <span class="fasting-note ${t.fasting}">
-        ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
-      </span>
-      <span class="home-note">🏠 Home Sample Collection Available</span>
-      <button class="buy-btn" data-id="${t.id}">BUY NOW</button>
     `;
-    card.querySelector(".card-head").addEventListener("click", ()=> openDetails(t.id));
+    // Tap anywhere on the card (except Buy / Share) opens the full details.
+    card.addEventListener("click", (e)=>{
+      if(e.target.closest(".buy-btn")) return;
+      const sh = e.target.closest(".lb-share-btn");
+      if(sh){ e.stopPropagation(); shareLabTest(t.id); return; }
+      openDetails(t.id);
+    });
     grid.appendChild(card);
   });
 }
@@ -10084,11 +10964,17 @@ async function startBooking(id){
   updateUpiAmount(currentTest.price);
   selectPaymentMethod('upi');
   gpsStatus.className = "gps-status";
-  gpsStatus.textContent = "📍 Getting your live location...";
-  confirmBtn.disabled = true;
+  gpsStatus.textContent = "📍 Live location is optional — add it for faster sample collection";
+  confirmBtn.disabled = false;
+  updateGpsButtons(false);
 
   openSheet();
-  getLocation();
+  // GPS is optional: only auto-fetch silently if the browser already has permission.
+  try {
+    if(navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({name:"geolocation"}).then(p=>{ if(p.state === "granted") getLocation(); }).catch(()=>{});
+    }
+  } catch(_){}
 }
 
 grid.addEventListener("click", (e)=>{
@@ -10109,6 +10995,8 @@ function selectPaymentMethod(method){
 }
 
 document.getElementById('lb_upiDoneBtn').addEventListener('click', ()=>{
+  if(!patientName.value.trim()){ alert("Please enter the patient's full name"); patientName.focus(); return; }
+  if(!validateLabAddress()) return;
   upiStepAmount.style.display = "none";
   upiStepConfirm.style.display = "";
 });
@@ -10116,8 +11004,7 @@ document.getElementById('lb_upiConfirmBack').addEventListener('click', resetUpiS
 document.getElementById('lb_upiConfirmYes').addEventListener('click', async ()=>{
   const name = patientName.value.trim();
   if(!name){ resetUpiSteps(); patientName.focus(); return; }
-  if(!currentCoords){ resetUpiSteps(); return; }
-  if(!addrPincode.value.trim()){ resetUpiSteps(); addrPincode.focus(); return; }
+  if(!validateLabAddress()){ resetUpiSteps(); return; }
 
   const utr = mfReadUtr('lb_utrInput');
   if(!utr){ alert("Enter the 12-digit UTR / reference number from your payment app."); return; }
@@ -10125,7 +11012,7 @@ document.getElementById('lb_upiConfirmYes').addEventListener('click', async ()=>
   const btn = document.getElementById('lb_upiConfirmYes');
   btn.disabled = true; btn.textContent = "Submitting...";
   await finalizeBooking('Paid', utr);
-  btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Payment Completed';
+  btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm & Submit Booking';
 });
 
 document.getElementById('lb_rxUploadBox').addEventListener('click', ()=> document.getElementById('lb_rxFileInput').click());
@@ -10161,27 +11048,63 @@ window.addEventListener("popstate", ()=>{
 closeX.addEventListener("click", ()=>{ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } });
 overlay.addEventListener("click", (e)=>{ if(e.target === overlay){ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } } });
 
+// Address is required (GPS is optional).
+function validateLabAddress(){
+  const checks = [
+    [addrHouse,  "Please enter your House No. / Flat / Building"],
+    [addrStreet, "Please enter your Street / Area / Locality"],
+    [addrCity,   "Please enter your City / Town"],
+    [addrPincode,"Please enter a valid 6-digit pincode"]
+  ];
+  for(const [el, msg] of checks){
+    const v = el.value.trim();
+    if(!v || (el === addrPincode && !/^\d{6}$/.test(v))){
+      alert(msg);
+      el.focus();
+      return false;
+    }
+  }
+  return true;
+}
+
+function updateGpsButtons(loading){
+  const label = currentCoords ? "Location added ✓ (tap to refresh)" : "";
+  ["lb_gpsBtnTop","lb_gpsBtn"].forEach(id=>{
+    const b = document.getElementById(id); if(!b) return;
+    b.disabled = !!loading;
+    b.classList.toggle("ok", !!currentCoords);
+    if(loading) b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Getting location...';
+    else if(currentCoords) b.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + label;
+    else b.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> ' + (id==="lb_gpsBtnTop" ? "Use my current location (optional)" : "Add my location");
+  });
+}
+
 function getLocation(){
   if(!navigator.geolocation){
     gpsStatus.className = "gps-status err";
-    gpsStatus.textContent = "❌ Location isn't supported on this browser";
+    gpsStatus.textContent = "ℹ️ Location isn't supported on this browser — you can still submit the booking";
     return;
   }
+  gpsStatus.className = "gps-status";
+  gpsStatus.textContent = "📍 Getting your live location...";
+  updateGpsButtons(true);
   navigator.geolocation.getCurrentPosition(
     (pos)=>{
       currentCoords = { lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) };
       gpsStatus.className = "gps-status ok";
       gpsStatus.textContent = "✅ Location found: " + currentCoords.lat + ", " + currentCoords.lng;
-      confirmBtn.disabled = false;
+      updateGpsButtons(false);
     },
     ()=>{
       gpsStatus.className = "gps-status err";
-      gpsStatus.textContent = "❌ Couldn't get your location. Please turn on GPS and try again.";
-      confirmBtn.disabled = true;
+      gpsStatus.textContent = "ℹ️ Couldn't get your location — you can still submit, or turn on GPS and tap the button to try again.";
+      updateGpsButtons(false);
     },
     { enableHighAccuracy:true, timeout:10000 }
   );
 }
+document.getElementById("lb_gpsBtnTop").addEventListener("click", getLocation);
+document.getElementById("lb_gpsBtn").addEventListener("click", getLocation);
 
 async function uploadPrescription(file, userId){
   const ext = file.name.split('.').pop();
@@ -10206,6 +11129,7 @@ async function finalizeBooking(paymentStatus, utr){
   const payload = {
     booking_id: `LAB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
     test_id: currentTest.id,
+    collector_id: currentTest.collector_id || null, // goes straight to the partner who published this test
     test_name: currentTest.name,
     test_price: currentTest.price,
     fasting: currentTest.fasting,
@@ -10218,8 +11142,8 @@ async function finalizeBooking(paymentStatus, utr){
     addr_city: addrCity.value.trim() || null,
     addr_pincode: addrPincode.value.trim(),
     addr_state: addrState.value,
-    lat: parseFloat(currentCoords.lat),
-    lng: parseFloat(currentCoords.lng),
+    lat: currentCoords ? parseFloat(currentCoords.lat) : null,
+    lng: currentCoords ? parseFloat(currentCoords.lng) : null,
     book_date: bookDate.value,
     book_time: bookTime.value,
     prescription_url: prescriptionUrl,
@@ -10239,8 +11163,8 @@ async function finalizeBooking(paymentStatus, utr){
   // Optional WhatsApp copy to the admin/team, same as before.
   const addressParts = [addrHouse.value.trim(), addrStreet.value.trim(), addrLandmark.value.trim(), addrCity.value.trim(), addrState.value, addrPincode.value.trim()].filter(Boolean);
   const fullAddress = addressParts.length ? addressParts.join(", ") : "(not provided)";
-  const mapsLink = `https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}`;
-  const message = `🩺 *MediFinder India — New Test Booking*\n\n*Test:* ${currentTest.name}\n*Price:* ₹${currentTest.price}\n*Payment:* ${selectedPaymentMethod.toUpperCase()} (${paymentStatus})\n\n*Patient Name:* ${name}\n*Phone:* ${patientPhone.value.trim() || "(not provided)"}\n*Address:* ${fullAddress}\n\n*Date:* ${bookDate.value}\n*Time:* ${bookTime.value}\n\n*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}\n${mapsLink}`;
+  const mapsLink = currentCoords ? `https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}` : "";
+  const message = `🩺 *MediFinder India — New Test Booking*\n\n*Test:* ${currentTest.name}\n*Price:* ₹${currentTest.price}\n*Payment:* ${selectedPaymentMethod.toUpperCase()} (${paymentStatus})\n\n*Patient Name:* ${name}\n*Phone:* ${patientPhone.value.trim() || "(not provided)"}\n*Address:* ${fullAddress}\n\n*Date:* ${bookDate.value}\n*Time:* ${bookTime.value}${currentCoords ? `\n\n*Live Location:* ${currentCoords.lat}, ${currentCoords.lng}\n${mapsLink}` : ""}`;
   const encoded = encodeURIComponent(message);
   const url = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, "_blank");
@@ -10252,8 +11176,7 @@ async function finalizeBooking(paymentStatus, utr){
 confirmBtn.addEventListener("click", async ()=>{
   const name = patientName.value.trim();
   if(!name){ patientName.focus(); return; }
-  if(!currentCoords){ return; }
-  if(!addrPincode.value.trim()){ addrPincode.focus(); return; }
+  if(!validateLabAddress()) return;
 
   confirmBtn.disabled = true;
   confirmBtn.textContent = "Processing...";
@@ -10270,6 +11193,48 @@ const detailTitle = document.getElementById('lb_detailTitle');
 document.getElementById('lb_closeDetailsX').addEventListener('click', ()=> history.back());
 detailsOverlay.addEventListener('click', (e)=>{ if(e.target === detailsOverlay) history.back(); });
 
+// ---------------- Share + publisher name ----------------
+function shareLabTest(id){
+  const t = allTests.find(x=>x.id===id);
+  if(!t) return;
+  const priceTxt = (Number(t.old_price) > Number(t.price) ? `₹${t.price} (was ₹${t.old_price})` : `₹${t.price}`);
+  const text = `🩺 ${t.name} — ${priceTxt}\n${t.sample_type ? 'Sample: ' + t.sample_type + '\n' : ''}${t.report_time ? 'Report: ' + t.report_time + '\n' : ''}${t.fasting === 'before' ? 'Fasting required' : 'No fasting needed'} · Home sample collection\nBook on MediFinder India:`;
+  const url = location.href.split('#')[0];
+  if(navigator.share){
+    navigator.share({ title: t.name, text, url }).catch(()=>{});
+    return;
+  }
+  const full = text + ' ' + url;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(full).then(()=>{
+      if(typeof showToast === 'function') showToast('Link copied!'); else alert('Copied to clipboard');
+    }).catch(()=> window.open('https://wa.me/?text=' + encodeURIComponent(full), '_blank'));
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(full), '_blank');
+  }
+}
+
+const labPublisherCache = {};
+async function getLabPublisherName(t){
+  const direct = t.collector_name || t.publisher_name || t.lab_name || t.partner_name || t.published_by_name;
+  if(direct) return direct;
+  if(!t.collector_id) return null;
+  if(labPublisherCache[t.collector_id] !== undefined) return labPublisherCache[t.collector_id];
+  let name = null;
+  try{
+    const { data } = await supabaseClient.from('merchants_public').select('*').eq('id', t.collector_id).maybeSingle();
+    if(data) name = data.shop_name || data.store_name || data.business_name || data.lab_name || data.name || data.full_name || null;
+  }catch(_){}
+  if(!name){
+    try{
+      const { data } = await supabaseClient.from('profiles').select('full_name').eq('id', t.collector_id).maybeSingle();
+      if(data) name = data.full_name || null;
+    }catch(_){}
+  }
+  labPublisherCache[t.collector_id] = name;
+  return name;
+}
+
 async function openDetails(id){
   const t = allTests.find(x=>x.id===id);
   if(!t) return;
@@ -10278,6 +11243,7 @@ async function openDetails(id){
   const badgeInner = t.bg_image_url ? '' : (icons[t.icon] || icons.default);
   detailsBody.innerHTML = `
     <div class="detail-icon" ${badgeStyle}>${badgeInner}</div>
+    <div class="lb-pub" id="lb_detailPub" style="display:none;"></div>
     <div class="price-row">
       ${Number(t.old_price) > Number(t.price) ? `<span class="price-old">₹${t.old_price}</span>` : ''}
       <span class="price-new">₹${t.price}</span>
@@ -10286,15 +11252,33 @@ async function openDetails(id){
     <span class="fasting-note ${t.fasting}">
       ${t.fasting === "before" ? "⚠️ Fasting Required (Before Food)" : "✅ No Fasting Needed (After Food)"}
     </span>
+    <div class="lb-info-grid">
+      ${t.sample_type ? `<div class="lb-info-item"><b>Sample Type</b>${esc(t.sample_type)}</div>` : ''}
+      ${t.report_time ? `<div class="lb-info-item"><b>Report Time</b>${esc(t.report_time)}</div>` : ''}
+      <div class="lb-info-item"><b>Fasting</b>${t.fasting === "before" ? "Required (before food)" : "Not needed"}</div>
+      <div class="lb-info-item"><b>Collection</b>Home sample collection</div>
+      ${(t.items||[]).length ? `<div class="lb-info-item"><b>Parameters</b>${(t.items||[]).length} included</div>` : ''}
+      ${Number(t.off_percent) > 0 ? `<div class="lb-info-item"><b>Discount</b>${t.off_percent}% OFF</div>` : ''}
+      ${(Array.isArray(t.pincodes) && t.pincodes.length) ? `<div class="lb-info-item full"><b>Available Pincodes</b>${t.pincodes.slice(0,15).map(p=>esc(String(p))).join(', ')}${t.pincodes.length > 15 ? ` +${t.pincodes.length-15} more` : ''}</div>` : ''}
+    </div>
+    ${(t.description || t.about || t.details) ? `<div class="field-group-title">About this test</div><p class="lb-desc">${esc(t.description || t.about || t.details)}</p>` : ''}
+    ${(t.preparation || t.instructions) ? `<div class="field-group-title">Preparation</div><p class="lb-desc">${esc(t.preparation || t.instructions)}</p>` : ''}
+    ${(t.items||[]).length ? `<div class="field-group-title">Parameters Included</div>` : ''}
     <ul>${(t.items||[]).map(it=>`<li>${esc(it)}</li>`).join("")}</ul>
     <div class="detail-stats-row" id="lb_detailStats">
       <div class="detail-stat">Loading stats…</div>
     </div>
     <div class="field-group-title">Reviews</div>
     <div id="lb_detailReviews"><p class="no-reviews">Loading reviews…</p></div>
-    <button class="confirm-btn" id="lb_detailBookBtn" style="margin-top:16px;">Book Now</button>
+    <button type="button" class="lb-share-lg" id="lb_detailShareBtn"><i class="fa-solid fa-share-nodes"></i> Share this test</button>
+    <button class="confirm-btn" id="lb_detailBookBtn" style="margin-top:12px;">Book Now</button>
   `;
   document.getElementById('lb_detailBookBtn').addEventListener('click', ()=>{ history.back(); startBooking(t.id); });
+  document.getElementById('lb_detailShareBtn').addEventListener('click', ()=> shareLabTest(t.id));
+  getLabPublisherName(t).then(n=>{
+    const el = document.getElementById('lb_detailPub');
+    if(n && el){ el.innerHTML = '<i class="fa-solid fa-store"></i> Published by: <b>' + esc(n) + '</b>'; el.style.display = ''; }
+  });
   detailsOverlay.classList.add('active');
   history.pushState({detailsSheet:true}, "");
   loadTestStats(t.id);
@@ -10439,13 +11423,16 @@ async function loadMyBookings(){
         <div class="booking-row-meta">${esc(addr)}</div>
         <div class="booking-row-actions">
           ${b.status==='Pending' ? `<button class="cancel-btn" onclick="cancelMyBooking('${b.id}')">Cancel Booking</button>` : ''}
-          <button class="receipt-btn" onclick='shareReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Receipt</button>
+          <button class="receipt-btn" onclick='labDownloadReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'><i class="fa-solid fa-download"></i> Download Receipt</button>
         </div>
         ${needsFeedback ? `<button class="feedback-cta" onclick="openRateSheet(window.__myBookingsCache.find(x=>x.id==='${b.id}'))"><i class="fa-solid fa-star"></i> Upload your feedback or rating</button>` : ''}
       </div>`;
   }).join('');
 }
 
+// Exposed on window: these are called from inline onclick="" strings rendered above, but live inside an IIFE
+window.openRateSheet = openRateSheet;
+window.cancelMyBooking = cancelMyBooking;
 async function cancelMyBooking(id){
   if(!confirm('Cancel this booking?')) return;
   const { error } = await supabaseClient.from('lab_bookings').update({status:'Cancelled'}).eq('id', id).eq('status','Pending');
@@ -10453,7 +11440,7 @@ async function cancelMyBooking(id){
   loadMyBookings();
 }
 
-async function shareReceipt(b){
+async function labDownloadReceiptOld(b){
   const text = `MediFinder India Booking Receipt\n\nTest: ${b.test_name}\nPrice: ₹${b.test_price}\nPatient: ${b.patient_name}\nDate: ${b.book_date} ${b.book_time}\nStatus: ${b.status}\nPayment: ${b.payment_method.toUpperCase()} (${b.payment_status})`;
   if(navigator.share){
     try { await navigator.share({ title: 'MediFinder India Receipt', text }); return; } catch(e){}
@@ -10464,6 +11451,8 @@ async function shareReceipt(b){
 }
 
 // ---------------- Init ----------------
+window.addEventListener('mf:auth', (e)=>{ currentUser = (e.detail && e.detail.user) || null; try{ loadMyBookings(); }catch(_){} });
+window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='lab-test'){ try{ loadMyBookings(); }catch(_){} } });
 document.addEventListener('DOMContentLoaded', async ()=>{
   const { data } = await supabaseClient.auth.getUser();
   currentUser = data?.user || null;
@@ -10571,6 +11560,7 @@ function resetUpiSteps(){
 const addrPincode = document.getElementById('nb_addrPincode');
 const pinNote = document.getElementById('nb_pinNote');
 let pincodeOk = false;
+let nbGeo = null; // exact GPS pin of the visit location {lat,lng,acc}
 addrPincode.addEventListener('blur', checkPincodeAvailability);
 async function checkPincodeAvailability(){
   const pin = addrPincode.value.trim();
@@ -10656,6 +11646,7 @@ function resetForm(){
   document.getElementById('nb_billBox').style.display = 'none';
   pinNote.className='pin-note'; pinNote.textContent='Enter your pincode to check nurse availability in your area.';
   pincodeOk = false;
+  nbGeo = null; nbSetGeoStatus();
   resetUpiSteps();
   updateUpiAmount(0);
   const today = new Date();
@@ -10664,8 +11655,58 @@ function resetForm(){
   errMsg.style.display = "none";
 }
 
-function openSheet(){ resetForm(); overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; }
+function openSheet(){ resetForm(); overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; nbInjectGeoUI(); nbCaptureGps(true); }
 function closeSheetUI(){ overlay.classList.remove("active"); }
+
+// ---------------- GPS pin for the nurse visit location ----------------
+function nbInjectGeoUI(){
+  if(document.getElementById('nb_geoBox')) return;
+  const field = addrHouse.closest('.field') || addrHouse.parentElement;
+  const box = document.createElement('div');
+  box.id = 'nb_geoBox';
+  box.style.cssText = 'margin:0 0 12px;padding:12px;border:1px dashed #b71c1c;border-radius:12px;background:#fff7f7';
+  box.innerHTML = '<div style="font-weight:700;font-size:13px;color:#b71c1c;margin-bottom:4px">📍 Exact visit location (GPS)</div>' +
+    '<div id="nb_geoStatus" style="font-size:12px;color:#555;margin-bottom:8px"></div>' +
+    '<button type="button" id="nb_geoBtn" style="border:0;background:#b71c1c;color:#fff;padding:9px 14px;border-radius:10px;font-weight:700;font-size:13px">Use my current location</button>' +
+    '<div style="font-size:11px;color:#777;margin-top:6px">Stand at the patient\'s home and tap this so the nurse can navigate exactly to the right place.</div>';
+  field.parentNode.insertBefore(box, field);
+  document.getElementById('nb_geoBtn').addEventListener('click', ()=> nbCaptureGps(false));
+  nbSetGeoStatus();
+}
+function nbSetGeoStatus(msg){
+  const el = document.getElementById('nb_geoStatus'); if(!el) return;
+  if(msg){ el.textContent = msg; return; }
+  el.textContent = nbGeo ? `✅ Location pinned (${nbGeo.lat.toFixed(5)}, ${nbGeo.lng.toFixed(5)}) • accuracy ~${Math.round(nbGeo.acc||0)} m` : 'Not pinned yet — tap the button below.';
+}
+function nbGetPosition(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation) return reject(new Error('GPS not supported on this device'));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+  });
+}
+async function nbCaptureGps(silent){
+  nbInjectGeoUI();
+  const btn = document.getElementById('nb_geoBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Getting location…'; }
+  nbSetGeoStatus('Getting your GPS location…');
+  try{
+    const pos = await nbGetPosition();
+    nbGeo = { lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy };
+    nbSetGeoStatus();
+    try{
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${nbGeo.lat}&lon=${nbGeo.lng}&format=json&zoom=18&addressdetails=1`);
+      const j = await r.json(); const a = (j && j.address) || {};
+      if(!addrStreet.value.trim()) addrStreet.value = [a.road, a.neighbourhood || a.suburb || a.village].filter(Boolean).join(', ');
+      if(!addrCity.value.trim()) addrCity.value = a.city || a.town || a.village || a.county || a.state_district || '';
+      if(a.state){ const opt = [...addrState.options].find(o=>o.value.toLowerCase()===a.state.toLowerCase()); if(opt) addrState.value = opt.value; }
+      if(!addrPincode.value.trim() && a.postcode){ addrPincode.value = String(a.postcode).replace(/\s/g,'').slice(0,6); checkPincodeAvailability(); }
+    }catch(e){}
+  }catch(e){
+    nbGeo = null;
+    nbSetGeoStatus(silent ? 'GPS not shared yet — tap the button below to pin the exact location.' : ('Could not get GPS: ' + (e.code===1 ? 'location permission denied. Allow location for this site and try again.' : (e.message||'try again'))));
+  }
+  if(btn){ btn.disabled = false; btn.textContent = nbGeo ? 'Update location' : 'Use my current location'; }
+}
 window.addEventListener("popstate", ()=>{ if(!document.getElementById("page-nurse-booking").classList.contains("active")) return; if(overlay.classList.contains("active")) closeSheetUI(); sheetOpenViaHistory = false; });
 openBookBtn.addEventListener("click", async () => {
   if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'booking', page: 'nurse-booking', reason: 'booking' }))) return;
@@ -10709,6 +11750,8 @@ document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>
   if(!validateBookingForm()){ resetUpiSteps(); return; }
   const utr = mfReadUtr('nb_utrInput');
   if(!utr){ alert("Enter the 12-digit UTR / reference number from your payment app."); return; }
+  if(!currentUser){ const { data:_u } = await supabaseClient.auth.getUser(); currentUser = _u?.user || null; }
+  if(!currentUser){ alert('Please log in to book a nurse.'); resetUpiSteps(); return; }
 
   const days = Math.max(1, parseInt(durationInput.value)||1);
   const subtotal = selectedService.rate * days;
@@ -10717,6 +11760,13 @@ document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>
 
   const btn = document.getElementById('nb_upiConfirmYes');
   btn.disabled = true; btn.textContent = "Submitting...";
+
+  if(!nbGeo){
+    try{ await nbCaptureGps(true); }catch(e){}
+    if(!nbGeo && !confirm('Your exact GPS location is not pinned. The nurse will only get the written address, which may be hard to find. Continue without GPS pin?')){
+      btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm & Submit Booking'; resetUpiSteps(); return;
+    }
+  }
 
   let prescriptionUrl = null;
   if(selectedRxFile) prescriptionUrl = await uploadToMedia(selectedRxFile, 'nurse-prescriptions');
@@ -10741,13 +11791,28 @@ document.getElementById('nb_upiConfirmYes').addEventListener('click', async ()=>
     addr_house: addrHouse.value.trim(), addr_street: addrStreet.value.trim(),
     addr_landmark: addrLandmark.value.trim() || null, addr_city: addrCity.value.trim(),
     addr_pincode: addrPincode.value.trim(), addr_state: addrState.value,
+    addr_lat: nbGeo ? nbGeo.lat : null, addr_lng: nbGeo ? nbGeo.lng : null, addr_accuracy_m: nbGeo ? Math.round(nbGeo.acc || 0) : null,
     contact_no: contactNo.value.trim(), whatsapp_no: whatsappNo.value.trim(),
-    payment_method: 'upi', payment_status: 'Paid', payment_utr: utr, razorpay_payment_id: null,
+    payment_method: 'upi', payment_status: 'pending', payment_utr: utr, razorpay_payment_id: null,
     status: 'pending'
   };
 
-  const { error } = await supabaseClient.from('nurse_bookings').insert(payload);
-  btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Payment Completed';
+  // The nurse_bookings table has CHECK constraints on payment_status / status whose
+  // allowed spelling differs between projects (Pending vs pending). Try the known
+  // spellings in order until the database accepts one, instead of failing the booking.
+  const _nbPayVariants = ['pending', 'Pending', 'Payment verification pending', 'Unpaid', 'unpaid'];
+  const _nbStatusVariants = ['pending', 'Pending'];
+  let error = null;
+  outer: for (const ps of _nbPayVariants) {
+    for (const st of _nbStatusVariants) {
+      payload.payment_status = ps; payload.status = st;
+      const res = await supabaseClient.from('nurse_bookings').insert(payload);
+      error = res.error;
+      if (!error) break outer;
+      if (!/check constraint/i.test(error.message || '')) break outer;
+    }
+  }
+  btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm & Submit Booking';
   if(error){ alert("Could not save your booking: " + error.message); return; }
 
   sendWhatsAppNotification(payload);
@@ -10830,14 +11895,14 @@ async function renderBookings(){
         ${b.prescription_url ? `<img class="rx-thumb" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;margin-top:8px;" src="${esc(b.prescription_url)}" alt="Prescription">` : ""}
         ${nurseBlock}
         <div class="bcard-actions">
-          <button class="receipt-btn" onclick='shareReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Receipt</button>
+          <button class="receipt-btn" onclick='nurseDownloadReceipt(${JSON.stringify(b).replace(/'/g,"&#39;")})'><i class="fa-solid fa-download"></i> Download Receipt</button>
         </div>
       </div>
     `;
   }).join("");
 }
 
-async function shareReceipt(b){
+async function nurseDownloadReceiptOld(b){
   const text = `MediFinder India — Nurse Booking Receipt\n\nPatient: ${b.patient_name}\nService: ${b.service_label}\nRate: ₹${b.rate}/${b.rate_unit} × ${b.duration}\nSubtotal: ₹${b.subtotal}\nService Charge (10%): ₹${b.service_charge}\nTotal Paid: ₹${b.total_amount}\nPayment ID: ${b.razorpay_payment_id || '—'}\nStatus: ${b.status}`;
   if(navigator.share){
     try { await navigator.share({ title: 'MediFinder India Nurse Receipt', text }); return; } catch(e){}
@@ -10859,13 +11924,18 @@ function showToast(msg){
 
 
 // ---------------- Init ----------------
+window.addEventListener('mf:auth', (e)=>{ currentUser = (e.detail && e.detail.user) || null; renderBookings(); });
+window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='nurse-booking') renderBookings(); });
 document.addEventListener('DOMContentLoaded', async ()=>{
   const { data } = await supabaseClient.auth.getUser();
   currentUser = data?.user || null;
   renderBookings();
 
   supabaseClient.channel('nurse_bookings_mine')
-    .on('postgres_changes', {event:'*', schema:'public', table:'nurse_bookings'}, renderBookings)
+    .on('postgres_changes', {event:'*', schema:'public', table:'nurse_bookings'}, (p)=>{
+      const r = (p.new && p.new.user_id !== undefined) ? p.new : p.old;
+      if(!currentUser || !r || r.user_id === undefined || r.user_id === currentUser.id) renderBookings();
+    })
     .subscribe();
 });
 
@@ -10896,8 +11966,10 @@ const TYPE_LABEL = { non_ac: "Non-AC", ac: "AC / Oxygen", icu: "ICU / Advanced" 
 const $ = (id) => document.getElementById(id);
 function escapeHtml(str){ return String(str||"").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function showToast(msg){ const t=$("ab_toast"); t.textContent=msg; t.classList.remove("hidden"); setTimeout(()=>t.classList.add("hidden"),2800); }
-function openModal(id){ $(id).classList.remove("hidden"); }
-function closeModal(id){ $(id).classList.add("hidden"); }
+// HTML ids are prefixed "ab_" (ab_bookingModal / ab_trackModal) – accept both forms
+function abModalEl(id){ return $(id) || $("ab_" + id); }
+function openModal(id){ const m = abModalEl(id); if (m) m.classList.remove("hidden"); else console.error("Ambulance modal not found:", id); }
+function closeModal(id){ const m = abModalEl(id); if (m) m.classList.add("hidden"); }
 document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => closeModal(btn.dataset.close)));
 document.querySelectorAll(".modal-overlay").forEach(o => o.addEventListener("click", e => { if(e.target===o) o.classList.add("hidden"); }));
 
@@ -10953,31 +12025,53 @@ $("ab_gpsBtn").addEventListener("click", () => {
     } catch { $("ab_pickupInput").value = `${userLiveLat}, ${userLiveLng}`; }
     showToast("Current location set");
     if (allDrivers.length) renderAmbulances();
-  }, () => showToast("Couldn't get location — please allow GPS permission"));
+  }, () => showToast("Couldn't get location — allow GPS permission or type your pickup"), { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
 });
+
+// Typed pickup text -> lat/lng (Nominatim). Used when user types instead of tapping GPS.
+async function geocodePickup(){
+  const q = $("ab_pickupInput").value.trim();
+  if (!q) return false;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(q)}`);
+    const j = await r.json();
+    if (j && j[0]) { userLiveLat = parseFloat(j[0].lat); userLiveLng = parseFloat(j[0].lon); return true; }
+  } catch (e) { console.error("geocode failed", e); }
+  return false;
+}
+// If the user edits the pickup text by hand, old GPS coords are stale -> drop them
+$("ab_pickupInput").addEventListener("input", () => { userLiveLat = null; userLiveLng = null; });
+$("ab_pickupInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("ab_searchBtn").click(); } });
 
 /* ============================================================
    4) Load & render online, verified drivers (realtime)
    ============================================================ */
 async function loadDrivers(){
   if (!supabase) return;
-  const { data, error } = await supabase.from("ambulance_drivers")
-    .select("*").eq("is_verified", true).eq("is_online", true).eq("is_on_ride", false);
-  if (error) { console.error(error); return; }
-  allDrivers = data || [];
-  renderAmbulances();
+  // RLS blocks direct reads of ambulance_drivers (bank/KYC data) -> use the safe RPC
+  const { data, error } = await supabase.rpc("get_available_ambulances");
+  if (error) { console.error("ambulance_drivers load error:", error); showToast("Couldn't load ambulances — check connection"); return; }
+  const next = data || [];
+  let changed = true;
+  try { changed = JSON.stringify(next) !== JSON.stringify(allDrivers); } catch (e) {}
+  allDrivers = next;
+  if (changed) renderAmbulances();
 }
 
 function subscribeDrivers(){
   if (!supabase) return;
-  driversChannel = supabase.channel("amb-drivers-list")
-    .on("postgres_changes", { event: "*", schema: "public", table: "ambulance_drivers" }, () => loadDrivers())
-    .subscribe();
+  // Realtime doesn't deliver rows customers can't SELECT, so refresh by polling
+  if (driversChannel) clearInterval(driversChannel);
+  driversChannel = setInterval(() => { if (!document.hidden) loadDrivers(); }, 15000);
 }
 
-$("ab_searchBtn").addEventListener("click", () => {
-  if (!userLiveLat) { showToast("Tap GPS or enter a pickup location first"); }
-  renderAmbulances();
+$("ab_searchBtn").addEventListener("click", async () => {
+  if (!userLiveLat) {
+    showToast("Finding pickup location...");
+    await geocodePickup();
+  }
+  if (!userLiveLat) { showToast("Tap GPS or enter a valid pickup location"); return; }
+  await loadDrivers();   // fresh list + render with distance/fare
 });
 document.querySelectorAll(".type-chip").forEach(chip => {
   chip.addEventListener("click", () => {
@@ -11019,12 +12113,12 @@ function renderAmbulances(){
       <div class="amb-info">
         <div class="amb-type-row"><span class="amb-type-tag ${d.vehicle_type}">${TYPE_LABEL[d.vehicle_type]}</span></div>
         <div class="amb-driver-name">${escapeHtml(d.driver_name)}</div>
-        <div class="amb-meta"><i class="fa-solid fa-location-dot"></i> ${d._dist != null ? d._dist.toFixed(1)+" km away" : "Distance unknown — set pickup location"}</div>
+        <div class="amb-meta"><i class="fa-solid fa-location-dot"></i> ${d._dist != null ? d._dist.toFixed(1)+" km away" : "Add pickup location to see distance"}</div>
         <div class="amb-meta"><i class="fa-solid fa-star" style="color:#f5b301;"></i> ${(d.rating||5).toFixed(1)} · ${d.total_rides||0} rides</div>
       </div>
       <div class="amb-price-book">
-        <div class="amb-price">${d._fare != null ? "₹"+d._fare : "—"}</div>
-        <button class="amb-book-btn" data-id="${d.id}" ${d._fare==null ? "disabled" : ""}>BOOK</button>
+        <div class="amb-price">${d._fare != null ? "₹"+d._fare : "Fare after pickup"}</div>
+        <button class="amb-book-btn" data-id="${d.id}" ${d._fare==null ? "disabled" : ""}>${d._fare==null ? "Set pickup" : "Book"}</button>
       </div>
     </div>
   `).join("");
@@ -11038,7 +12132,7 @@ function renderAmbulances(){
    5) Booking modal
    ============================================================ */
 function openBookingModal(driverId, items){
-  selectedDriver = items.find(d => d.id === driverId);
+  selectedDriver = items.find(d => String(d.id) === String(driverId));
   if (!selectedDriver) return;
   $("ab_bookingAmbInfo").innerHTML =
     `🚑 <b>${escapeHtml(selectedDriver.driver_name)}</b> — ${TYPE_LABEL[selectedDriver.vehicle_type]} — Plate ${escapeHtml(selectedDriver.plate_number)}`;
@@ -11050,11 +12144,15 @@ function openBookingModal(driverId, items){
   openModal("bookingModal");
 }
 
+let abBooking = false;   // blocks double/triple taps creating duplicate bookings
 $("ab_confirmBookBtn").addEventListener("click", async () => {
-  if (!selectedDriver) return;
+  if (!selectedDriver || abBooking) return;
+  abBooking = true;
+  try {
   if (typeof window.mfEnsureLoggedIn === 'function' && !(await window.mfEnsureLoggedIn({ type: 'booking', page: 'ambulance', reason: 'booking' }))) return;
   const phone = $("ab_bkPhone").value.trim();
   if (!/^\d{10}$/.test(phone)) { $("ab_bookingMsg").textContent = "Please enter a valid 10-digit contact number."; return; }
+  if (!userLiveLat) { await geocodePickup(); }
   if (!userLiveLat) { $("ab_bookingMsg").textContent = "Pickup location / GPS is required."; return; }
   if (!supabase) { $("ab_bookingMsg").textContent = "Booking service unavailable — please call 9593625498."; return; }
 
@@ -11095,6 +12193,7 @@ $("ab_confirmBookBtn").addEventListener("click", async () => {
   openTrackModal();
   subscribeToBooking(currentBooking.id);
   showToast("Request sent — waiting for a driver to accept");
+  } finally { abBooking = false; }
 });
 
 /* ============================================================
@@ -11126,7 +12225,7 @@ function updateTrackUI(){
 
   if (b.driver_id) {
     $("ab_driverContactBlock").classList.remove("hidden");
-    loadDriverInfoForTrack(b.driver_id);
+    loadDriverInfoForTrack(b.driver_id, b.id);
   }
 
   $("ab_cancelRideBtn").style.display = (b.status === "searching") ? "block" : "none";
@@ -11140,9 +12239,12 @@ function updateTrackUI(){
   }
 }
 
-async function loadDriverInfoForTrack(driverId){
+async function loadDriverInfoForTrack(driverId, bookingId){
   if (!supabase) return;
-  const { data: d } = await supabase.from("ambulance_drivers").select("*").eq("id", driverId).maybeSingle();
+  const bid = bookingId || (currentBooking && currentBooking.id);
+  if (!bid) return;
+  const { data: rows } = await supabase.rpc("get_booking_driver", { p_booking: bid });
+  const d = Array.isArray(rows) ? rows[0] : rows;
   if (!d) return;
   $("ab_trackDriverName").textContent = d.driver_name;
   $("ab_trackDriverPlate").textContent = `${TYPE_LABEL[d.vehicle_type]} · ${d.plate_number}`;
@@ -11178,13 +12280,13 @@ function subscribeToBooking(bookingId){
     .subscribe();
 
   // also watch the driver row for live GPS pings (every ~5s from the driver app)
-  supabase.channel("amb-driver-track-"+bookingId)
-    .on("postgres_changes", { event:"UPDATE", schema:"public", table:"ambulance_drivers" }, (payload) => {
-      if (currentBooking && payload.new.id === currentBooking.driver_id) {
-        plotDriverOnTrackMap(payload.new.current_lat, payload.new.current_lon);
-      }
-    })
-    .subscribe();
+  if (window.__abTrackTimer) clearInterval(window.__abTrackTimer);
+  window.__abTrackTimer = setInterval(async () => {
+    if (!currentBooking || currentBooking.id !== bookingId) { clearInterval(window.__abTrackTimer); return; }
+    const { data: rows } = await supabase.rpc("get_booking_driver", { p_booking: bookingId });
+    const d = Array.isArray(rows) ? rows[0] : rows;
+    if (d && d.current_lat && d.current_lon) plotDriverOnTrackMap(d.current_lat, d.current_lon);
+  }, 5000);
 }
 
 $("ab_cancelRideBtn").addEventListener("click", async () => {
@@ -11238,42 +12340,186 @@ $("ab_historyFab").addEventListener("click", () => { openHistory(); refreshHisto
 // ✅ Category-strip navigation between these pages is now handled by
 // the single shared .cat-item[data-cat] listener in the main SPA router.
 $("ab_drawerOverlay").addEventListener("click", closeHistory);
-function openHistory(){ $("ab_historyDrawer").classList.add("open"); $("ab_drawerOverlay").classList.add("show"); }
-function closeHistory(){ $("ab_historyDrawer").classList.remove("open"); $("ab_drawerOverlay").classList.remove("show"); }
+let liveMap = null, liveTimer = null, liveBookingId = null, liveBooking = null;
+let livePickup = null, liveDrop = null, liveDriverMarker = null, liveDriverLine = null, liveLastRouteAt = 0, liveFitted = false;
+const LIVE_LABELS = {
+  searching: "Searching for driver…", accepted: "Driver assigned — on the way", arriving: "Driver is arriving",
+  picked_up: "Patient picked up — en route", completed: "Ride completed", cancelled: "Ride cancelled"
+};
+const mbOpen = () => $("ab_historyDrawer").classList.contains("open");
+function openHistory(){ $("ab_historyDrawer").classList.add("open"); document.body.classList.add("mb-open"); }
+function closeHistory(){ $("ab_historyDrawer").classList.remove("open"); document.body.classList.remove("mb-open"); stopLive(); }
+if ($("ab_historyBack")) $("ab_historyBack").addEventListener("click", closeHistory);
+
+function stopLive(){
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  if (liveMap) { try { liveMap.remove(); } catch (e) {} liveMap = null; }
+  liveBookingId = null; liveBooking = null; livePickup = null; liveDrop = null; liveDriverMarker = null; liveDriverLine = null; liveLastRouteAt = 0; liveFitted = false;
+}
+async function geocodeText(q){
+  if (!q) return null;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(q)}`);
+    const j = await r.json();
+    if (j && j[0]) return [parseFloat(j[0].lat), parseFloat(j[0].lon)];
+  } catch (e) {}
+  return null;
+}
+async function osrmRoute(a, b){
+  try {
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`);
+    const j = await r.json(); const rt = j.routes && j.routes[0];
+    if (!rt) return null;
+    return { pts: rt.geometry.coordinates.map(c => [c[1], c[0]]), km: rt.distance / 1000, min: Math.max(1, Math.round(rt.duration / 60)) };
+  } catch (e) { return null; }
+}
+function liveCardHtml(b){
+  return `<div class="mb-live-card">
+    <div class="mb-live-top"><span id="ab_lvPill" class="track-status-pill ${b.status}"></span><b class="mb-fare">₹${b.fare_final || b.fare_estimate || 0}</b></div>
+    <div class="mb-route">
+      <div class="mb-stop"><span class="mb-dot pickup"></span><div><small>Pickup</small><p>${escapeHtml(b.pickup_address)}</p></div></div>
+      <div class="mb-stop"><span class="mb-dot drop"></span><div><small>Dropping</small><p>${escapeHtml(b.drop_address)}</p></div></div>
+    </div>
+    <div id="ab_liveMap" class="mb-map"></div>
+    <div class="mb-eta">
+      <div><small>Live direction</small><b id="ab_lvEtaDriver">Waiting for driver…</b></div>
+      <div><small>Pickup → Drop</small><b id="ab_lvEtaTrip">Calculating…</b></div>
+    </div>
+    <div id="ab_lvOtp" class="otp-display hidden"><div class="code" id="ab_lvOtpCode">------</div><p>Share this OTP with the driver at pickup to start the ride</p></div>
+    <div id="ab_lvDriver" class="driver-contact-row hidden">
+      <div><div class="name" id="ab_lvDriverName">—</div><div class="plate" id="ab_lvDriverPlate">—</div></div>
+      <button id="ab_lvCall" class="call-driver-btn" type="button"><i class="fa-solid fa-phone"></i></button>
+    </div>
+    <button id="ab_lvCancel" class="cancel-ride-btn" type="button">Cancel Ride</button>
+  </div>`;
+}
+function updateLive(b){
+  const pill = $("ab_lvPill"); if (!pill) return;
+  pill.className = "track-status-pill " + b.status;
+  pill.textContent = LIVE_LABELS[b.status] || b.status;
+  const showOtp = ["accepted","arriving","picked_up"].includes(b.status) && !b.otp_verified;
+  $("ab_lvOtp").classList.toggle("hidden", !showOtp);
+  if (showOtp) $("ab_lvOtpCode").textContent = b.otp;
+  $("ab_lvCancel").style.display = (b.status === "searching") ? "block" : "none";
+}
+function wireLive(b){
+  $("ab_lvCancel").onclick = async () => {
+    if (!supabase || !confirm("Cancel this ambulance booking?")) return;
+    await supabase.from("ambulance_bookings").update({ status:"cancelled", cancelled_at:new Date().toISOString() }).eq("id", b.id);
+    if (currentBooking && currentBooking.id === b.id) currentBooking = null;
+    try { closeModal("trackModal"); } catch (e) {}
+    stopLive(); refreshHistory();
+  };
+}
+async function plotLiveDriver(pos, b){
+  if (!liveMap) return;
+  const ambIcon = L.divIcon({ className:"", html:'<div style="font-size:24px;line-height:1;">🚑</div>', iconSize:[28,28], iconAnchor:[14,14] });
+  if (liveDriverMarker) liveDriverMarker.setLatLng(pos); else liveDriverMarker = L.marker(pos, { icon: ambIcon }).addTo(liveMap);
+  const toDrop = b.status === "picked_up";
+  const target = toDrop ? liveDrop : livePickup;
+  if (!target) return;
+  if (Date.now() - liveLastRouteAt > 12000) {
+    liveLastRouteAt = Date.now();
+    const r = await osrmRoute(pos, target);
+    if (r && liveMap) {
+      if (liveDriverLine) liveMap.removeLayer(liveDriverLine);
+      liveDriverLine = L.polyline(r.pts, { color:"#2563eb", weight:5, opacity:.9 }).addTo(liveMap);
+      const el = $("ab_lvEtaDriver");
+      if (el) el.textContent = `${r.km.toFixed(1)} km · ~${r.min} min ${toDrop ? "to drop" : "to pickup"}`;
+      if (!liveFitted) { liveFitted = true; liveMap.fitBounds(L.latLngBounds([pos, target].concat(livePickup ? [livePickup] : [])).pad(0.2)); }
+    }
+  }
+}
+async function pollLive(){
+  const id = liveBookingId; if (!id || !supabase) return;
+  const { data: fresh } = await supabase.from("ambulance_bookings").select("*").eq("id", id).maybeSingle();
+  if (id !== liveBookingId) return;
+  if (fresh) {
+    liveBooking = fresh;
+    if (currentBooking && currentBooking.id === id) currentBooking = fresh;
+    updateLive(fresh);
+    if (["completed","cancelled"].includes(fresh.status)) { stopLive(); refreshHistory(); return; }
+  }
+  const b = liveBooking; if (!b) return;
+  if (b.driver_id || ["accepted","arriving","picked_up"].includes(b.status)) {
+    const { data: rows } = await supabase.rpc("get_booking_driver", { p_booking: id });
+    const d = Array.isArray(rows) ? rows[0] : rows;
+    if (d && id === liveBookingId) {
+      $("ab_lvDriver").classList.remove("hidden");
+      $("ab_lvDriverName").textContent = d.driver_name;
+      $("ab_lvDriverPlate").textContent = `${TYPE_LABEL[d.vehicle_type] || ""} · ${d.plate_number}`;
+      $("ab_lvCall").onclick = () => { window.location.href = `tel:${d.phone}`; };
+      if (d.current_lat && d.current_lon) await plotLiveDriver([Number(d.current_lat), Number(d.current_lon)], b);
+    }
+  }
+}
+async function initLive(b){
+  stopLive(); liveBookingId = b.id; liveBooking = b;
+  const el = $("ab_liveMap"); if (!el) return;
+  if (!window.L) { el.innerHTML = '<div class="mb-map-empty">Map is loading — reopen in a moment</div>'; return; }
+  livePickup = (b.pickup_lat && b.pickup_lon) ? [Number(b.pickup_lat), Number(b.pickup_lon)] : await geocodeText(b.pickup_address);
+  if (liveBookingId !== b.id) return;
+  liveDrop = await geocodeText(b.drop_address);
+  if (liveBookingId !== b.id) return;
+  if (!livePickup) { el.innerHTML = '<div class="mb-map-empty">Map not available for this address</div>'; $("ab_lvEtaTrip").textContent = "—"; }
+  else {
+    liveMap = L.map(el, { zoomControl:false, attributionControl:false }).setView(livePickup, 14);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(liveMap);
+    L.marker(livePickup, { icon: L.divIcon({ className:"", html:'<div class="mb-pin pickup"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
+    if (liveDrop) {
+      L.marker(liveDrop, { icon: L.divIcon({ className:"", html:'<div class="mb-pin drop"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
+      const r = await osrmRoute(livePickup, liveDrop);
+      if (liveBookingId !== b.id || !liveMap) return;
+      if (r) {
+        L.polyline(r.pts, { color:"#e11d48", weight:5, opacity:.85 }).addTo(liveMap);
+        $("ab_lvEtaTrip").textContent = `${r.km.toFixed(1)} km · ~${r.min} min`;
+        liveMap.fitBounds(L.latLngBounds(r.pts).pad(0.15));
+      } else { $("ab_lvEtaTrip").textContent = "Route not available"; liveMap.fitBounds(L.latLngBounds([livePickup, liveDrop]).pad(0.3)); }
+    } else { $("ab_lvEtaTrip").textContent = "Drop location not found on map"; }
+    setTimeout(() => { if (liveMap) liveMap.invalidateSize(); }, 300);
+  }
+  pollLive();
+  liveTimer = setInterval(pollLive, 5000);
+}
 
 async function refreshHistory(){
   if (!supabase) return;
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) { $("ab_historyList").innerHTML = `<p style="font-size:12.5px;color:var(--muted);">Log in to see your booking history.</p>`; return; }
-
+  if (!userData?.user) {
+    $("ab_liveSection").classList.add("hidden");
+    $("ab_historyList").innerHTML = `<p class="mb-empty">Log in to see your booking history.</p>`;
+    return;
+  }
   const { data, error } = await supabase.from("ambulance_bookings")
-    .select("*").eq("user_id", userData.user.id).order("created_at", { ascending:false }).limit(20);
+    .select("*").eq("user_id", userData.user.id).order("created_at", { ascending:false }).limit(30);
   if (error) { console.error(error); return; }
+  const rows = data || [];
+  const active = rows.find(b => !["completed","cancelled"].includes(b.status));
+  $("ab_historyFab").classList.toggle("has-active", !!active);
 
-  const hasActive = (data||[]).some(b => !["completed","cancelled"].includes(b.status));
-  $("ab_historyFab").classList.toggle("has-active", hasActive);
+  const sec = $("ab_liveSection");
+  if (active) {
+    sec.classList.remove("hidden");
+    if (liveBookingId !== active.id || !$("ab_liveMap")) {
+      $("ab_liveCard").innerHTML = liveCardHtml(active);
+      wireLive(active); updateLive(active);
+      if (mbOpen()) initLive(active);
+    } else { updateLive(active); }
+  } else {
+    sec.classList.add("hidden"); $("ab_liveCard").innerHTML = ""; stopLive();
+  }
 
-  if (!data || data.length===0) { $("ab_historyList").innerHTML = `<p style="font-size:12.5px;color:var(--muted);">No bookings yet.</p>`; return; }
-
-  $("ab_historyList").innerHTML = data.map(b => `
-    <div class="history-item">
-      <div class="hi-top"><span>${TYPE_LABEL[b.vehicle_type]||b.vehicle_type}</span><span class="hi-status ${b.status}">${b.status.replace('_',' ')}</span></div>
-      <div class="hi-route">${escapeHtml(b.pickup_address)} → ${escapeHtml(b.drop_address)}</div>
-      <div class="hi-route">${new Date(b.created_at).toLocaleString()} · ₹${b.fare_final || b.fare_estimate || 0}</div>
-      ${!["completed","cancelled"].includes(b.status) ? `<button class="link-view-btn" data-id="${b.id}" style="margin-top:6px;border:none;background:none;color:var(--teal);font-weight:700;font-size:12px;cursor:pointer;">Track this ride →</button>` : ""}
-    </div>
-  `).join("");
-
-  $("ab_historyList").querySelectorAll(".link-view-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const b = data.find(x => x.id === btn.dataset.id);
-      if (!b) return;
-      currentBooking = b;
-      closeHistory();
-      openTrackModal();
-      subscribeToBooking(b.id);
-    });
-  });
+  const past = rows.filter(b => b !== active);
+  $("ab_historyList").innerHTML = past.length ? past.map(b => `
+    <div class="mb-hist-card">
+      <div class="mb-hist-top"><span class="mb-hist-type">${TYPE_LABEL[b.vehicle_type] || b.vehicle_type}</span><span class="hi-status ${b.status}">${String(b.status).replace("_", " ")}</span></div>
+      <div class="mb-route small">
+        <div class="mb-stop"><span class="mb-dot pickup"></span><p>${escapeHtml(b.pickup_address)}</p></div>
+        <div class="mb-stop"><span class="mb-dot drop"></span><p>${escapeHtml(b.drop_address)}</p></div>
+      </div>
+      <div class="mb-hist-foot"><span>${new Date(b.created_at).toLocaleString()}</span><b>₹${b.fare_final || b.fare_estimate || 0}</b></div>
+      ${b.status !== "cancelled" ? `<button class="receipt-btn" style="margin-top:8px;width:100%;background:#e2e8f0;color:#1e293b;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer" onclick="window.open('order-receipt.html?type=ambulance&download=1&id=${encodeURIComponent(b.id)}','_blank')"><i class="fa-solid fa-download"></i> Download Receipt</button>` : ""}
+    </div>`).join("") : `<p class="mb-empty">No bookings yet.</p>`;
 }
 
 /* ============================================================
@@ -11313,13 +12559,9 @@ resumeActiveBooking();
 (function(){
 
 /* ============================================================
-   TABLET COIN — reward-for-watching-ads system
-   Storage: localStorage (swap with Supabase calls where marked)
+   TABLET COIN — real wallet (Supabase: profiles.coins + coin_transactions)
    ============================================================ */
 
-const STORAGE_BALANCE = "mf_tablet_coin_balance";
-const STORAGE_HISTORY = "mf_tablet_coin_history";
-const STORAGE_COOLDOWN = "mf_tablet_coin_cooldown"; // per-task last-claim timestamps
 
 // ---------------- Earn rules ----------------
 // Every rule here is credited server-side (Supabase trigger/RPC — see
@@ -11341,14 +12583,6 @@ const earnTasks = [
   { id:"milestone_5",       icon:"🏆", title:"Loyalty Milestone",        desc:"One-time bonus on your 5th delivered order.",                   reward:30, auto:true },
   { id:"daily_checkin",     icon:"📅", title:"Daily Check-in",           desc:"Tap once a day to collect a small bonus.",                       reward:2,  auto:false },
   { id:"profile_complete",  icon:"✅", title:"Complete Your Profile",    desc:"One-time bonus for adding your address and verified phone.",    reward:10, auto:false },
-];
-
-// ---------------- Redeem options ----------------
-const redeemOptions = [
-  { id:"r1", coins:50,  title:"₹50 Order Discount",  desc:"Apply on any medicine order above ₹300" },
-  { id:"r2", coins:100, title:"₹100 Order Discount", desc:"Apply on any medicine order above ₹500" },
-  { id:"r3", coins:200, title:"Free Delivery x3",    desc:"Waive delivery charge on next 3 orders" },
-  { id:"r4", coins:500, title:"₹500 Order Discount", desc:"Apply on any medicine order above ₹1500" },
 ];
 
 // ---------------- State helpers ----------------
@@ -11486,47 +12720,20 @@ earnGrid.addEventListener("click", async (e)=>{
 // ---------------- Render redeem grid ----------------
 const redeemGrid = document.getElementById("tc_redeemGrid");
 function renderRedeemGrid(){
-  redeemGrid.innerHTML = "";
   const bal = getBalance();
-  redeemOptions.forEach(opt=>{
-    const canAfford = bal >= opt.coins;
-    const card = document.createElement("div");
-    card.className = "redeem-card";
-    card.innerHTML = `
-      <div class="r-coin">🪙 ${opt.coins} Coins</div>
-      <h4>${opt.title}</h4>
-      <p>${opt.desc}</p>
-      <button data-id="${opt.id}" ${canAfford ? "" : "disabled"}>
-        ${canAfford ? "Redeem" : "Not enough coins"}
-      </button>
-    `;
-    redeemGrid.appendChild(card);
-  });
+  redeemGrid.innerHTML = `
+    <div class="baby-redeem" style="grid-column:1/-1;">
+      <h4>👶 Baby Essentials</h4>
+      <p>Pampers, baby food and baby care products. Your Tablet Coins are applied automatically at checkout, and the cart shows exactly how many coins you used and how much you saved.</p>
+      <div class="bb-chips"><span>Diapers</span><span>Baby Food</span><span>Baby Care</span></div>
+      <div class="bb-bal">You have 🪙 ${bal} coins = ₹${bal} off</div>
+      <button type="button" id="tc_babyRedeemBtn" ${bal > 0 ? "" : "disabled"}>${bal > 0 ? "Shop Baby Essentials" : "Earn coins to redeem"}</button>
+    </div>`;
+  const btn = document.getElementById("tc_babyRedeemBtn");
+  if (btn) btn.addEventListener("click", ()=> document.getElementById("tc_openRedeem").click());
 }
 
-redeemGrid.addEventListener("click", async (e)=>{
-  if(e.target.tagName !== "BUTTON" || e.target.disabled) return;
-  const opt = redeemOptions.find(o=>o.id === e.target.getAttribute("data-id"));
-  if(!opt) return;
-  if(getBalance() < opt.coins) return;
-  e.target.disabled = true;
-  e.target.textContent = "Redeeming…";
-  try{
-    // Real redemption: server checks the balance again, deducts it and
-    // generates the actual coupon code — never done from client state.
-    const { data, error } = await sbClient.rpc("redeem_tablet_coin", { p_option_id: opt.id });
-    if(error){ showToast(error.message || "Could not redeem right now."); renderRedeemGrid(); return; }
-    await tcLoadWallet();
-    renderRedeemGrid();
-    renderEarnGrid();
-    const code = data && data.coupon_code ? data.coupon_code : null;
-    showToast(code ? `Redeemed! Code: ${code} 🎉` : `Redeemed: ${opt.title} 🎉`);
-    pushHomeNotification("Tablet Coin Redeemed", `You redeemed ${opt.coins} Tablet Coin for "${opt.title}".${code ? ` Code: ${code}` : ""}`);
-  }catch(err){
-    showToast("Network error — please try again.");
-    renderRedeemGrid();
-  }
-});
+
 
 // ---------------- History sheet ----------------
 const histOverlay = document.getElementById("tc_histOverlay");
@@ -11543,7 +12750,14 @@ histOverlay.addEventListener("click",(e)=>{
   if(e.target === histOverlay) histOverlay.classList.remove("active");
 });
 document.getElementById("tc_openRedeem").addEventListener("click", ()=>{
-  document.querySelector(".redeem-grid").scrollIntoView({behavior:"smooth", block:"start"});
+  // Redeem Coins -> Baby Essentials (diapers, baby food...). Coins are applied automatically at checkout.
+  try { localStorage.setItem('mf_coin_mode','1'); } catch(e) {}
+  if (typeof navigateTo === 'function') navigateTo('home');
+  setTimeout(()=>{
+    const baby = document.querySelector('.category-item[data-category="baby"]');
+    if (baby) { baby.click(); baby.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); }
+    if (typeof showToast === 'function') showToast('Baby essentials: your Tablet Coins apply automatically at checkout');
+  }, 350);
 });
 
 function renderHistory(){
@@ -11580,23 +12794,35 @@ function showToast(msg){
 }
 
 // ---------------- Init ----------------
-(async function tcInit(){
+let _tcChannel = null;
+async function tcInit(){
   await tcLoadWallet();
   renderEarnGrid();
   renderRedeemGrid();
   const uid = await tcGetUserId();
+  if(_tcChannel){ try{ sbClient.removeChannel(_tcChannel); }catch(_){} _tcChannel = null; }
   if(uid && sbClient){
     // Live-refresh whenever the server credits/debits coins (order delivered,
     // referral completes, redemption, etc.) while this screen is open.
-    sbClient.channel("tablet-coin-" + uid)
+    _tcChannel = sbClient.channel("tablet-coin-" + uid)
       .on("postgres_changes", { event:"*", schema:"public", table:"coin_transactions", filter:`user_id=eq.${uid}` }, async ()=>{
         await tcLoadWallet();
         renderEarnGrid();
         renderRedeemGrid();
+        try{ window.dispatchEvent(new CustomEvent('mf:coins-changed')); }catch(_){}
+      })
+      .on("postgres_changes", { event:"UPDATE", schema:"public", table:"profiles", filter:`id=eq.${uid}` }, async ()=>{
+        await tcLoadWallet();
+        renderEarnGrid();
+        renderRedeemGrid();
+        try{ window.dispatchEvent(new CustomEvent('mf:coins-changed')); }catch(_){}
       })
       .subscribe();
   }
-})();
+}
+tcInit();
+window.addEventListener('mf:auth', ()=>{ _tcUserId = null; _tcBalance = 0; _tcHistory = []; tcInit(); });
+window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='tablet-coin'){ tcLoadWallet().then(()=>{ renderEarnGrid(); renderRedeemGrid(); }); } });
 
 })();
 
@@ -11757,4 +12983,462 @@ function showToast(msg){
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
     window.addEventListener('load', wrapNavigateTo); // in case navigateTo is defined late
+})();
+
+/* ===== Product detail: split run-together sentences into tidy bullet lines ===== */
+(function(){
+  var ids=['pd-side-effects','pd-composition','pd-warnings','pd-storage'];
+  function fmt(el){
+    if(!el||el.dataset.fmt==='1')return;
+    var t=(el.textContent||'').trim();
+    if(t.length<70)return;
+    // "Title: text.NextTitle: text" -> separate lines
+    var parts=t.replace(/([a-z0-9\)])\.([A-Z][A-Za-z &\/-]{2,40}:)/g,'$1.\n$2').split('\n').filter(Boolean);
+    if(parts.length<2)return;
+    el.dataset.fmt='1';
+    el.innerHTML=parts.map(function(p){
+      var m=p.match(/^([^:]{2,40}):\s*(.*)$/);
+      var esc=function(s){return s.replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+      return '<span class="pd-line">'+(m?'<b>'+esc(m[1])+':</b> '+esc(m[2]):esc(p))+'</span>';
+    }).join('');
+  }
+  function run(){ids.forEach(function(i){var e=document.getElementById(i);if(e){e.dataset.fmt='';fmt(e);}});}
+  document.addEventListener('DOMContentLoaded',function(){
+    ids.forEach(function(i){var e=document.getElementById(i);if(!e)return;
+      new MutationObserver(function(){ if(e.dataset.fmt==='1'&&e.querySelector('.pd-line'))return; e.dataset.fmt='';fmt(e);}).observe(e,{childList:true,characterData:true,subtree:true});});
+  });
+})();
+
+
+/* ===== Tablet Coins at checkout ===== */
+async function mfCoinLoadBalance() {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase.from('profiles').select('coins').eq('id', user.id).maybeSingle();
+        coinWalletBalance = Number(data && data.coins) || 0;
+        coinWalletLoaded = true;
+        // Came here via "Redeem Coins" -> coins are applied automatically
+        if (localStorage.getItem('mf_coin_mode') === '1' && coinWalletBalance > 0) coinUseApplied = coinWalletBalance;
+        if (typeof recalculateBill === 'function') { try { recalculateBill(); } catch (e) {} }
+    } catch (e) {}
+}
+window.addEventListener('mf:auth', () => { coinWalletLoaded = false; coinWalletBalance = 0; });
+window.addEventListener('mf:coins-changed', () => { coinWalletLoaded = 'loading'; mfCoinLoadBalance(); });
+window.addEventListener('mf:page-enter', (e) => { if (e.detail && e.detail.page === 'cart') { coinWalletLoaded = false; } });
+function mfCoinRefreshUI(cap, applied) {
+    const box = document.getElementById('coin-box');
+    if (!box) return;
+    if (!coinWalletLoaded && typeof supabase !== 'undefined' && supabase) { coinWalletLoaded = 'loading'; mfCoinLoadBalance(); }
+    if (coinWalletBalance <= 0) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    document.getElementById('coin-balance-txt').textContent = coinWalletBalance;
+    const btn = document.getElementById('coin-use-btn');
+    const sv = document.getElementById('coin-save-txt');
+    if (applied > 0) { sv.textContent = 'Using ' + applied + ' coins - you save \u20B9' + applied; btn.textContent = 'Remove'; }
+    else { const can = Math.min(coinWalletBalance, cap); sv.textContent = can > 0 ? 'Use coins to save up to \u20B9' + can : 'Add more items to use coins'; btn.textContent = 'Use'; }
+    if (!btn.dataset.bound) {
+        btn.dataset.bound = '1';
+        btn.onclick = () => {
+            coinUseApplied = (window.__mfCoinDiscount > 0) ? 0 : coinWalletBalance;
+            localStorage.removeItem('mf_coin_mode');
+            if (typeof recalculateBill === 'function') recalculateBill();
+        };
+    }
+}
+
+/* ===== Every new notification also shows as a device (push-style) notification while the app is open/backgrounded ===== */
+(function(){
+  var started = false;
+  async function start(){
+    if (started || typeof supabase === 'undefined' || !supabase) return;
+    try {
+      var r = await supabase.auth.getUser();
+      var uid = r && r.data && r.data.user ? r.data.user.id : null;
+      if (!uid) return;
+      started = true;
+      supabase.channel('mf_device_push_' + uid)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, function(p){
+          var n = p && p.new; if (!n) return;
+          if (n.user_id && n.user_id !== uid) return;
+          if (!('Notification' in window) || Notification.permission !== 'granted') return;
+          var opts = { body: n.message || '', icon: '/icon-192.png', tag: 'mf-' + n.id, vibrate: [200,100,200], data: { url: n.deep_link || 'home.html' } };
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+            navigator.serviceWorker.getRegistration().then(function(reg){
+              if (reg && reg.showNotification) reg.showNotification(n.title || 'MediFinder India', opts);
+              else { try { new Notification(n.title || 'MediFinder India', opts); } catch(e){} }
+            });
+          } else { try { new Notification(n.title || 'MediFinder India', opts); } catch(e){} }
+        }).subscribe();
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(start, 2500); setTimeout(start, 9000); });
+  window.addEventListener('mf:auth', function(e){ if (e.detail && e.detail.user) { started = false; start(); } });
+})();
+
+
+/* ===== Receipt download (lab + nurse): saves a printable HTML receipt file ===== */
+function mfDownloadReceipt(fileName, title, rows) {
+  var esc = function(v){ return String(v == null ? '-' : v).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + '</title>' +
+    '<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:20px auto;padding:0 16px;color:#2f3542}h1{color:#b71c1c;font-size:20px;margin:0}' +
+    '.sub{color:#777;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}td{padding:9px 4px;border-bottom:1px solid #eee;font-size:14px}td:first-child{color:#777;width:42%}' +
+    '.t td{font-weight:800;color:#b71c1c;border-top:2px solid #b71c1c}</style></head><body><h1>MediFinder India</h1><div class="sub">' + esc(title) + ' - ' + new Date().toLocaleString() + '</div><table>' +
+    rows.map(function(r){ return '<tr' + (r[2] ? ' class="t"' : '') + '><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') +
+    '</table><p style="font-size:11px;color:#999;margin-top:20px">Computer generated receipt.</p></body></html>';
+  var blob = new Blob([html], { type: 'text/html' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fileName; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+async function labDownloadReceipt(b) {
+  if (b && b.id) { window.open('order-receipt.html?type=lab&download=1&id=' + encodeURIComponent(b.id), '_blank'); return; }
+  mfDownloadReceipt('MediFinder-India-lab-receipt-' + String(b.id || '').slice(0, 8) + '.html', 'Lab Test Booking Receipt', [
+    ['Test', b.test_name], ['Patient', b.patient_name], ['Date', (b.book_date || '') + ' ' + (b.book_time || '')],
+    ['Status', b.status], ['Payment', String(b.payment_method || '').toUpperCase() + ' (' + (b.payment_status || '') + ')'],
+    ['Amount', '\u20B9' + b.test_price, true]]);
+}
+async function nurseDownloadReceipt(b) {
+  if (b && b.id) { window.open('order-receipt.html?type=nurse&download=1&id=' + encodeURIComponent(b.id), '_blank'); return; }
+  mfDownloadReceipt('MediFinder-India-nurse-receipt-' + String(b.id || '').slice(0, 8) + '.html', 'Nurse Booking Receipt', [
+    ['Patient', b.patient_name], ['Service', b.service_label], ['Duration', b.duration + ' ' + (b.rate_unit || '')],
+    ['Schedule', (b.book_date || '') + ' ' + (b.book_time || '')], ['Status', b.status],
+    ['Subtotal', '\u20B9' + b.subtotal], ['Service charge', '\u20B9' + b.service_charge], ['Total paid', '\u20B9' + b.total_amount, true]]);
+}
+
+
+/* ===== Lab page: live (running) booking on top + history at bottom ===== */
+(function(){
+  var list = document.getElementById('lb_myBookingsList');
+  if (!list) return;
+  function sync(){
+    var data = window.__myBookingsCache || [];
+    var hist = document.getElementById('lb_inlineHistory');
+    var live = document.getElementById('lb_liveBooking');
+    if (hist) hist.innerHTML = list.innerHTML;
+    if (live) {
+      var running = data.filter(function(b){ return b.status !== 'Completed' && b.status !== 'Cancelled'; })[0];
+      live.innerHTML = running ? '<div style="background:linear-gradient(135deg,#e02020,#ff6b6b);color:#fff;border-radius:16px;padding:14px 16px;margin:10px 0;box-shadow:0 6px 18px rgba(224,32,32,.25)">' +
+        '<div style="font-size:.72rem;font-weight:700;opacity:.9">Live booking</div>' +
+        '<div style="font-weight:800;font-size:1rem;margin:4px 0">' + String(running.test_name || '').replace(/[<>&]/g,'') + '</div>' +
+        '<div style="font-size:.85rem">Status: <b>' + String(running.status || '').replace(/[<>&]/g,'') + '</b> &middot; ' + (running.book_date || '') + ' ' + (running.book_time || '') + '</div></div>' : '';
+    }
+  }
+  new MutationObserver(sync).observe(list, { childList: true });
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ if (typeof loadMyBookings === 'function') loadMyBookings(); }, 1500); });
+  try { if (typeof supabaseClient !== 'undefined') supabaseClient.channel('lab_bookings_live').on('postgres_changes', { event:'*', schema:'public', table:'lab_bookings' }, function(){ if (typeof loadMyBookings === 'function') loadMyBookings(); }).subscribe(); } catch(e) {}
+})();
+
+
+/* ===== Lab / Nurse: Book | History tabs + nurse live booking on the main page ===== */
+(function(){
+  function wire(pageId, svc){
+    var page = document.getElementById(pageId);
+    if (!page) return;
+    var bar = page.querySelector('.svc-tabs[data-svc="' + svc + '"]');
+    if (!bar) return;
+    bar.addEventListener('click', function(e){
+      var btn = e.target.closest('.svc-tab'); if (!btn) return;
+      var hist = btn.getAttribute('data-tab') === 'history';
+      page.classList.toggle('svc-show-history', hist);
+      bar.querySelectorAll('.svc-tab').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      var sc = page.querySelector('.main-content-scrollable'); if (sc) sc.scrollTop = 0;
+      page.scrollTop = 0;
+    });
+  }
+  wire('page-lab-test', 'lab');
+  wire('page-nurse-booking', 'nurse');
+
+  // Nurse: copy every still-running booking card into the "Live Booking" block on the main tab.
+  var wrap = document.getElementById('nb_bookingsWrap');
+  var liveWrap = document.getElementById('nb_liveWrap');
+  var liveSec = document.getElementById('nb_liveSection');
+  if (wrap && liveWrap && liveSec) {
+    var syncing = false;
+    function syncLive(){
+      if (syncing) return; syncing = true;
+      try {
+        var running = Array.prototype.filter.call(wrap.querySelectorAll('.bcard'), function(card){
+          var pill = card.querySelector('.status-pill');
+          var cls = pill ? pill.className : '';
+          return !/\b(completed|cancelled|rejected|declined)\b/i.test(cls);
+        });
+        liveWrap.innerHTML = '';
+        running.slice(0, 3).forEach(function(c){ liveWrap.appendChild(c.cloneNode(true)); });
+        liveSec.style.display = running.length ? '' : 'none';
+      } finally { syncing = false; }
+    }
+    new MutationObserver(syncLive).observe(wrap, { childList: true });
+    syncLive();
+  }
+})();
+
+
+/* ===== Product details: hide info boxes that have no real data (removes dead gaps) ===== */
+(function(){
+  function prune(){
+    var root = document.getElementById('page-product-detail');
+    if (!root) return;
+    root.querySelectorAll('.detail-item').forEach(function(item){
+      var v = item.querySelector('.detail-value');
+      var t = v ? v.textContent.trim().toLowerCase() : '';
+      var empty = !t || t === '\u2014' || t === '-' || t === 'n/a' || t === 'not specified' || t === 'null' || t === 'undefined';
+      item.classList.toggle('pd-empty-hidden', empty);
+    });
+    // hide a whole accordion card when every box inside it is empty (except overview / returns)
+    root.querySelectorAll('.pd-accordion-item').forEach(function(card){
+      var items = card.querySelectorAll('.detail-item');
+      if (!items.length) return;
+      var allEmpty = Array.prototype.every.call(items, function(i){ return i.classList.contains('pd-empty-hidden'); });
+      if (allEmpty) { card.dataset.pdPruned = '1'; card.style.display = 'none'; }
+      else if (card.dataset.pdPruned === '1') { card.dataset.pdPruned = ''; card.style.display = ''; }
+    });
+  }
+  var t = null;
+  function schedule(){ clearTimeout(t); t = setTimeout(prune, 120); }
+  document.addEventListener('DOMContentLoaded', function(){
+    var root = document.getElementById('page-product-detail');
+    if (root) new MutationObserver(schedule).observe(root, { childList: true, subtree: true, characterData: true });
+  });
+})();
+
+
+/* ============================================================
+   SESSION + REALTIME BUS
+   user.html is a SPA now, so nothing reloads when the user logs in or places an
+   order. This keeps every page in sync with Supabase:
+   - mf:auth        -> fired on login / logout / account switch
+   - mf:page-enter  -> fired every time a page is opened (see navigateTo)
+   ============================================================ */
+(function () {
+  if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
+  var lastUid = undefined;
+  function clearUserCaches() {
+    ['medi_active_orders', 'medi_completed_orders', 'medi_active_prescription'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  }
+  function onUser(user) {
+    var uid = user ? user.id : null;
+    if (uid === lastUid) return;
+    var firstRun = (lastUid === undefined);
+    lastUid = uid;
+    try { currentUserEmail = (user && user.email) || ''; currentAuthUserId = uid || ''; } catch (e) {}
+    if (!firstRun) clearUserCaches();
+    try { window.dispatchEvent(new CustomEvent('mf:auth', { detail: { user: user || null } })); } catch (e) {}
+    if (uid) {
+      try { listenToUserOrders(); } catch (e) {}
+      try { refreshOrdersFromServer(); } catch (e) {}
+      try { if (window.__mfRefreshNotifications) window.__mfRefreshNotifications(); } catch (e) {}
+    }
+  }
+  supabase.auth.onAuthStateChange(function (event, session) {
+    setTimeout(function () { onUser(session && session.user ? session.user : null); }, 0);
+  });
+  supabase.auth.getSession().then(function (r) { onUser(r && r.data && r.data.session ? r.data.session.user : null); }).catch(function () {});
+
+  window.addEventListener('mf:page-enter', function (e) {
+    var p = e.detail && e.detail.page;
+    if (p === 'order') { try { listenToUserOrders(); refreshOrdersFromServer(); } catch (err) {} }
+    if (p === 'notification' || p === 'home') { try { if (window.__mfRefreshNotifications) window.__mfRefreshNotifications(); } catch (err) {} }
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    try { refreshOrdersFromServer(); if (window.__mfRefreshNotifications) window.__mfRefreshNotifications(); } catch (e) {}
+  });
+})();
+
+
+/* ===== Service pages: 10-digit mobile numbers only + required UTR for online payment ===== */
+(function(){
+  function el(id){ return document.getElementById(id); }
+  function wire(){
+    ['nb_contactNo','nb_whatsappNo','lb_patientPhone'].forEach(function(id){
+      var i = el(id); if(!i || i.__mf10) return; i.__mf10 = 1;
+      i.setAttribute('maxlength','10'); i.setAttribute('inputmode','numeric');
+      i.addEventListener('input', function(){ var v = i.value.replace(/\D/g,'').slice(0,10); if(v !== i.value) i.value = v; i.style.borderColor=''; });
+    });
+    function bad(id, label){
+      var i = el(id); if(!i) return false;
+      if(!/^[6-9][0-9]{9}$/.test(i.value.trim())){ alert(label + ' must be a valid 10-digit mobile number.'); i.focus(); i.style.borderColor = '#e5575f'; return true; }
+      return false;
+    }
+    function guard(btnId, checks){
+      var b = el(btnId); if(!b || b.__mfG) return; b.__mfG = 1;
+      b.addEventListener('click', function(e){
+        for(var k=0;k<checks.length;k++){ if(bad(checks[k][0], checks[k][1])){ e.stopImmediatePropagation(); e.preventDefault(); return; } }
+      }, true);
+    }
+    guard('nb_upiConfirmYes', [['nb_contactNo','Contact number'],['nb_whatsappNo','WhatsApp number']]);
+    guard('nb_upiDoneBtn',    [['nb_contactNo','Contact number'],['nb_whatsappNo','WhatsApp number']]);
+    guard('lb_upiConfirmYes', [['lb_patientPhone','Phone number']]);
+    guard('lb_upiDoneBtn',    [['lb_patientPhone','Phone number']]);
+    guard('lb_confirmBtn',    [['lb_patientPhone','Phone number']]);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+  setTimeout(wire, 1500);
+})();
+
+
+/* ============================================================
+   PRODUCT DETAIL — layout helpers
+   1) --mf-nav-h : real height of the bottom nav (0 when it is hidden) so
+      fixed bars always sit exactly ABOVE it and never get covered.
+   2) The ADD TO CART / BUY NOW bar hides itself once the shopper scrolls
+      down to the "Similar Products" section, and returns when they scroll up.
+   ============================================================ */
+(function () {
+    function setNavHeight() {
+        var nav = document.getElementById('bottom-nav');
+        var h = 0;
+        if (nav) {
+            var cs = window.getComputedStyle(nav);
+            if (cs.display !== 'none' && cs.visibility !== 'hidden') h = Math.round(nav.getBoundingClientRect().height);
+        }
+        document.documentElement.style.setProperty('--mf-nav-h', h + 'px');
+    }
+    window.mfSetNavHeight = setNavHeight;
+    function checkSticky() {
+        var bar = document.querySelector('#page-product-detail .pd-sticky-actions');
+        var sim = document.getElementById('pd-similar-block');
+        if (!bar || !sim) return;
+        var shown = sim.style.display !== 'none' && sim.getClientRects().length > 0;
+        if (!shown) { bar.classList.remove('pd-actions-hidden'); return; }
+        var top = sim.getBoundingClientRect().top;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        bar.classList.toggle('pd-actions-hidden', top < vh - 140);
+    }
+    window.pdCheckStickyBar = checkSticky;
+    document.addEventListener('DOMContentLoaded', function () {
+        setNavHeight();
+        window.addEventListener('resize', setNavHeight);
+        window.addEventListener('orientationchange', function () { setTimeout(setNavHeight, 250); });
+        window.addEventListener('mf:page-enter', function () { setTimeout(setNavHeight, 60); setTimeout(checkSticky, 120); });
+        var nav = document.getElementById('bottom-nav');
+        if (nav) {
+            if (window.ResizeObserver) new ResizeObserver(setNavHeight).observe(nav);
+            new MutationObserver(setNavHeight).observe(nav, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+        new MutationObserver(setNavHeight).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        var page = document.getElementById('page-product-detail');
+        if (page) {
+            var raf = 0;
+            page.addEventListener('scroll', function () { if (!raf) raf = requestAnimationFrame(function () { raf = 0; checkSticky(); }); }, true);
+        }
+        setTimeout(setNavHeight, 400);
+    });
+})();
+
+
+/* ===== Product details: tabs + "Read more" ===== */
+document.addEventListener('click', function (e) {
+    const tab = e.target.closest && e.target.closest('#page-product-detail .pd-tab');
+    if (tab) {
+        const card = tab.closest('.pd-modern-card');
+        card.querySelectorAll('.pd-tab').forEach(t => t.classList.toggle('on', t === tab));
+        card.querySelectorAll(':scope > .pd-pane').forEach(p => p.classList.toggle('on', p.id === tab.dataset.pane));
+        return;
+    }
+    const more = e.target.closest && e.target.closest('#pd-desc-more');
+    if (more) {
+        const d = document.getElementById('pd-description');
+        const open = d.classList.toggle('pd-clamp') === false;
+        more.innerHTML = open ? 'Show less <i class="fa-solid fa-chevron-up"></i>' : 'Read more <i class="fa-solid fa-chevron-down"></i>';
+    }
+});
+
+
+/* Sponsored banner: the slider takes the image's own shape (whole poster visible, text readable) */
+function mfFitSponsoredSlide() {
+    const cont = document.querySelector('.slider-container');
+    if (!cont) return;
+    const slides = cont.querySelectorAll('.slide');
+    // Learn every banner's shape up-front (not only the visible one) so the
+    // card is already the right height when a slide comes into view - this is
+    // what used to leave blurred side bars right after login / refresh.
+    slides.forEach(s => {
+        const im = s.querySelector('img.sponsored-media');
+        if (im && im.naturalWidth > 0) s.dataset.ratio = String(im.naturalHeight / im.naturalWidth);
+        else if (im && !im.dataset.mfFitBound) {
+            im.dataset.mfFitBound = '1';
+            im.addEventListener('load', () => { try { mfFitSponsoredSlide(); } catch (e) {} });
+        }
+    });
+    const act = cont.querySelector('.slide.active-slide');
+    const ratio = act ? parseFloat(act.dataset.ratio) : NaN;
+    if (ratio > 0) {
+        const h = Math.round(cont.clientWidth * ratio);
+        cont.style.height = Math.min(360, Math.max(150, h)) + 'px';
+    } else cont.style.height = '';
+}
+window.addEventListener('resize', function () { try { mfFitSponsoredSlide(); } catch (e) {} });
+
+
+/* ==========================================================================
+   OCT 9 — dark/light setting, keyboard-aware bottom nav, map-search mic
+   ========================================================================== */
+(function () {
+    // ---- Dark / light toggle (persisted) ----
+    function applyTheme(t) {
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+        try { localStorage.setItem('mf_theme', t); } catch (e) {}
+        const cb = document.getElementById('theme-toggle-input');
+        if (cb) cb.checked = (t === 'dark');
+    }
+    function initTheme() {
+        const cb = document.getElementById('theme-toggle-input');
+        if (!cb) return;
+        let cur = 'light'; try { cur = localStorage.getItem('mf_theme') === 'dark' ? 'dark' : 'light'; } catch (e) {}
+        cb.checked = cur === 'dark';
+        cb.addEventListener('change', () => applyTheme(cb.checked ? 'dark' : 'light'));
+        const row = document.getElementById('theme-toggle-row');
+        if (row) row.addEventListener('click', (e) => { if (!e.target.closest('.mf-theme-switch')) { cb.checked = !cb.checked; applyTheme(cb.checked ? 'dark' : 'light'); } });
+    }
+
+    // ---- Keyboard open -> hide bottom nav (it used to ride up above the keyboard) ----
+    const TEXTY = /^(text|search|tel|email|number|password|url|date|time|)$/i;
+    const isTextField = (el) => el && ((el.tagName === 'INPUT' && TEXTY.test(el.type || '')) || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    let kbTimer = null;
+    document.addEventListener('focusin', (e) => { if (isTextField(e.target)) { clearTimeout(kbTimer); document.body.classList.add('kb-open'); } });
+    document.addEventListener('focusout', () => { clearTimeout(kbTimer); kbTimer = setTimeout(() => { if (!isTextField(document.activeElement)) document.body.classList.remove('kb-open'); }, 150); });
+    if (window.visualViewport) {
+        let base = window.visualViewport.height;
+        window.visualViewport.addEventListener('resize', () => {
+            const h = window.visualViewport.height;
+            if (h > base) base = h;
+            if (base - h > 140) document.body.classList.add('kb-open');
+            else if (!isTextField(document.activeElement)) document.body.classList.remove('kb-open');
+        });
+    }
+
+    // ---- Map page search: voice button ----
+    function initMapMic() {
+        const btn = document.getElementById('map-voice-btn');
+        const input = document.getElementById('medicine-search');
+        if (!btn || !input) return;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { btn.addEventListener('click', () => { if (typeof showToast === 'function') showToast("Voice search isn't supported on this browser. Please use Chrome.", 'warning'); }); return; }
+        const rec = new SR(); rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
+        let on = false;
+        btn.addEventListener('click', () => {
+            if (on) { rec.stop(); return; }
+            const l = localStorage.getItem('medi_active_language_env') || 'en';
+            rec.lang = l === 'bn' ? 'bn-IN' : l === 'hi' ? 'hi-IN' : 'en-IN';
+            try { rec.start(); } catch (e) { try { rec.stop(); } catch (e2) {} }
+        });
+        rec.addEventListener('start', () => { on = true; btn.classList.add('listening'); });
+        rec.addEventListener('end', () => { on = false; btn.classList.remove('listening'); });
+        rec.addEventListener('error', (ev) => {
+            on = false; btn.classList.remove('listening');
+            if (typeof showToast === 'function') showToast(ev.error === 'not-allowed' ? 'Microphone access denied. Please allow mic permission and try again.' : 'Voice search failed. Please try again.', 'warning');
+        });
+        rec.addEventListener('result', (ev) => {
+            const t = (ev.results[0][0].transcript || '').trim();
+            if (!t) return;
+            input.value = t; input.dispatchEvent(new Event('input', { bubbles: true }));
+            const go = document.getElementById('map-search-btn'); if (go) go.click();
+        });
+    }
+
+    const boot = () => { initTheme(); initMapMic(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

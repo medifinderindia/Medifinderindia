@@ -26,6 +26,8 @@
     <meta name="twitter:description" content="MediFinder India ambulance partner portal.">
     <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#e02020">
+<script>try{var __t=localStorage.getItem('mfa_theme')||'light';if(__t==='system')__t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',__t);var __l=localStorage.getItem('mfa_lang');if(__l==='bn'||__l==='hi')document.documentElement.lang=__l}catch(e){}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--p:#087f5b;--dark:#073b2b;--bg:#f5f8f7;--text:#17211d;--muted:#718078;--line:#e4ece8;--red:#d94841;--orange:#a86100;--blue:#1864ab;--purple:#6741d9}
@@ -147,6 +149,156 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 .kyc-ban{margin:0 0 14px;font-size:12px}.kyc-ban.new{background:#ffe8e6;color:#9e302b}.kyc-ban.way{background:#e8f1ff;color:var(--blue)}
 .kyc-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 15px;border-radius:12px;margin-bottom:18px;font-size:13px;font-weight:650;background:#fff8e6;border:1px solid #ffe08a;color:#7a5c00}.kyc-top.rejected{background:#ffe8e6;border-color:#ffd5d2;color:#9e302b}.kyc-top.pending{background:#e8f1ff;border-color:#c5dcff;color:var(--blue)}
 .kyc-nav{display:flex;gap:10px;margin-top:6px}.kyc-nav .btn{flex:1;padding:12px;font-weight:750}
+
+/* ===== premium layer ===== */
+.main,.content{min-width:0;overflow-x:clip}
+body{background:linear-gradient(180deg,#f3f8f6,#eef4f1) fixed}
+.sidebar{background:linear-gradient(180deg,#073b2b,#052a1f)}
+.nav button{font-weight:600;transition:.18s}.nav button.active{background:linear-gradient(90deg,#0b6248,#0f7a58);box-shadow:inset 3px 0 0 #8ce1be}
+.card,.req-card,.stat,.trip-card{border-radius:18px;border-color:#e1eae6;box-shadow:0 10px 30px rgba(22,50,40,.07)}
+.btn{font-weight:700;border-radius:12px;padding:11px 16px;transition:.18s;letter-spacing:.2px}
+.btn:active,.action:active,.quick button:active{transform:scale(.97)}
+.primary{background:linear-gradient(135deg,#12b886,#087f5b);box-shadow:0 8px 18px rgba(8,127,91,.3)}
+.light{background:#fff;border:1px solid #dbe6e1;color:#1f3b32;box-shadow:0 3px 8px rgba(22,50,40,.06)}
+.danger{background:linear-gradient(135deg,#f0595e,#c92a2a);box-shadow:0 8px 18px rgba(201,42,42,.3)}
+.action{display:inline-block;border-radius:10px;padding:8px 14px;font-weight:700;font-size:11px;background:#f1faf6;border:1px solid #cfeadf;color:var(--p);transition:.18s}
+.link{font-weight:700;background:#eaf7f1;padding:8px 13px;border-radius:10px}
+.quick button{border-radius:14px;transition:.18s}.quick button:hover{border-color:var(--p);transform:translateY(-1px);box-shadow:0 8px 18px rgba(22,50,40,.09)}
+.status,.doc-status{letter-spacing:.2px}
+.online-card{display:flex;justify-content:space-between;align-items:center;gap:14px;background:#fff;border:1px solid #e1eae6;border-radius:18px;padding:16px 18px;margin-bottom:20px;box-shadow:0 10px 30px rgba(22,50,40,.07);border-left:5px solid #adb5bd}
+.online-card.on{border-left-color:#12b886;background:linear-gradient(90deg,#eafaf3,#fff)}
+.online-card b{font-size:15px;display:block}.online-card small{color:var(--muted);font-size:12px}
+.switch.big{width:58px;height:32px}.switch.big .slider{border-radius:32px}.switch.big .slider:before{width:26px;height:26px;box-shadow:0 2px 6px rgba(0,0,0,.2)}.switch.big input:checked + .slider:before{transform:translateX(26px)}
+.switch input:checked + .slider{background:linear-gradient(135deg,#12b886,#087f5b)}
+.stats.s4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1050px){.stats.s4{grid-template-columns:repeat(2,1fr)}}
+.vf-field input[type=text]:disabled{background:#f4f6f5;color:var(--muted)}
+.vf-field input:focus,.vf-field select:focus,textarea:focus{outline:2px solid #12b88655;border-color:var(--p)}
+.lock-note{font-size:11px;color:var(--muted);margin:2px 0 12px}
+/* ===== MediFinder premium (red + white) ===== */
+:root{--p:#e02020;--dark:#24100f;--brand:#e02020;--brand2:#b81414;--ok:#16a34a}
+.sidebar{background:linear-gradient(180deg,#2a1013,#150808)!important}
+.nav button{color:#e9cfcf}.nav button:hover{background:rgba(255,255,255,.08)!important}
+.nav button.active{background:linear-gradient(90deg,#b81414,#e02020)!important;box-shadow:inset 3px 0 0 #ffb4b4!important;color:#fff}
+.nav-label{color:#b98f8f!important}
+.driver-mini{background:rgba(255,255,255,.07)!important}.driver-mini .verified{color:#6ee7a1!important}
+.available{background:#e8f7ee!important;color:#15803d!important}
+.btn.primary,.action.primary{background:linear-gradient(135deg,#e02020,#b81414)!important;color:#fff!important;box-shadow:0 10px 22px rgba(224,32,32,.26)}
+.link{color:#e02020!important}
+input.kyc-ok,select.kyc-ok{border-color:#16a34a!important;background-color:#f3fcf8!important}.kyc-hint.ok{color:#15803d!important}
+.page-in,#dashboardView,#hubView,#requestsView,#myTripsView,#earningsView,#ratingsView,#notifView,#profileView,#supportView,#activeView,#liveView,#vehicleKycView{animation:mfIn .22s ease both}
+@keyframes mfIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.stat,.req-card,.trip-card,.card{transition:transform .2s,box-shadow .2s}.stat:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(36,16,15,.12)}
+/* popups -> full pages */
+.overlay{background:#fff!important;overflow-y:auto;z-index:60}
+.modal{width:100%!important;max-width:820px;margin:0 auto!important;min-height:100%;border-radius:0!important;padding:0 18px 110px!important;box-shadow:none!important;animation:mfIn .2s ease both}
+.modal-head{position:sticky;top:0;background:#fff;padding:16px 0!important;margin:0 0 14px!important;z-index:2;border-bottom:1px solid #eee}
+.modal-head h3{font-size:18px}
+.modal .foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #eee;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;justify-content:center;z-index:3}
+.modal .foot .btn{flex:1;max-width:380px;padding:14px}
+/* hero */
+.mf-hero{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;padding:20px;border-radius:22px;color:#fff;margin-bottom:18px;background:linear-gradient(135deg,#2a1013,#7a1212 55%,#e02020);box-shadow:0 16px 36px rgba(224,32,32,.25)}
+.mf-who{display:flex;align-items:center;gap:14px;min-width:0}
+.mf-av{width:62px;height:62px;border-radius:50%;background:#fff;color:#e02020;display:grid;place-items:center;font-weight:900;font-size:22px;overflow:hidden;flex:0 0 auto;border:3px solid rgba(255,255,255,.55)}.mf-av img{width:100%;height:100%;object-fit:cover}
+.mf-who h2{font-size:20px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mf-who small{display:block;opacity:.85;font-size:12.5px;margin-top:3px}
+.mf-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mf-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.18)}
+.mf-chip.ok{background:#16a34a}.mf-chip.warn{background:#f59e0b;color:#2a1a00}
+.mf-ring{--v:0;width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#fff calc(var(--v)*1%),rgba(255,255,255,.2) 0)}
+.mf-ring div{width:74px;height:74px;border-radius:50%;background:#7a1212;display:grid;place-items:center;text-align:center;font-weight:900;font-size:22px;line-height:1}.mf-ring small{display:block;font-size:9px;font-weight:700;opacity:.8;margin-top:2px;letter-spacing:.5px}
+.mf-sub{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.mf-box{background:rgba(255,255,255,.12);border-radius:16px;padding:13px 14px;font-size:13px}.mf-box b{display:block;font-size:12px;letter-spacing:.4px;text-transform:uppercase;opacity:.9;margin-bottom:6px}
+.mf-box p{opacity:.92;line-height:1.5}.mf-box .btn{margin-top:9px;background:#fff!important;color:#b81414!important;box-shadow:none!important;padding:9px 14px;border:0;border-radius:11px;font-weight:800;margin-right:6px}
+.mf-skel,.skel{background:linear-gradient(90deg,#f0e4e4 25%,#fbf3f3 50%,#f0e4e4 75%);background-size:200% 100%;animation:sk 1.2s infinite;border-radius:14px;min-height:90px}@keyframes sk{to{background-position:-200% 0}}
+/* hub */
+.hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.hub-grid .full{grid-column:1/-1}
+.hub-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.hub-h h3{font-size:16px}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.hrow:last-child{border:0}.hrow span.m{color:var(--muted);font-size:11.5px;display:block}
+.pill{font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap}.pill.ok{background:#e8f7ee;color:#15803d}.pill.warn{background:#fff4de;color:#9a5b00}.pill.bad{background:#fdecec;color:#b42318}.pill.mute{background:#f1f1f1;color:#666}
+.bar{height:8px;border-radius:8px;background:#f1e3e3;overflow:hidden;margin:6px 0 4px}.bar i{display:block;height:100%;background:linear-gradient(90deg,#e02020,#ff6b6b);border-radius:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chips button{border:1.5px solid #ead5d5;background:#fff;border-radius:12px;padding:10px 16px;font-weight:800;font-size:13px;cursor:pointer}.chips button.on{background:#e02020;color:#fff;border-color:#e02020}
+.ach{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.ach div{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;font-size:12px;font-weight:700}.ach div.on{background:linear-gradient(135deg,#fff5f5,#ffe3e3);border-color:#f5b5b5}.ach div:not(.on){opacity:.5;filter:grayscale(1)}.ach b{display:block;font-size:22px;margin-bottom:4px}
+.kv4{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}.kv4 div{background:#faf5f5;border-radius:14px;padding:12px}.kv4 small{display:block;color:var(--muted);font-size:11px}.kv4 b{font-size:17px}
+.hub-btn{display:block;width:100%;border:0;border-radius:12px;padding:13px;font-weight:800;cursor:pointer;margin-top:10px;background:#f3eaea;color:#4a2b2b}.hub-btn.red{background:linear-gradient(135deg,#e02020,#b81414);color:#fff;box-shadow:0 10px 22px rgba(224,32,32,.26)}
+.hub-in{width:100%;height:46px;border:1.5px solid #ead5d5;border-radius:12px;padding:0 14px;font-size:14px;background:#fffafa;margin-top:6px}.hub-in:focus{outline:0;border-color:#e02020;box-shadow:0 0 0 4px rgba(224,32,32,.12)}
+.hub-l{font-size:12px;font-weight:700;color:#5a3a3a;margin-top:12px;display:block}
+.empty-s{text-align:center;color:var(--muted);padding:22px 10px;font-size:13px}.empty-s b{display:block;font-size:26px;margin-bottom:6px}
+.bnav{display:none}
+@media(max-width:760px){.hub-grid{grid-template-columns:1fr}.mf-hero{grid-template-columns:1fr;padding:16px}.mf-ring{justify-self:start}
+ .content{padding-bottom:92px}
+ .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:25;background:#fff;border-top:1px solid #f0dede;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px rgba(36,16,15,.08)}
+ .bnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:#8a7474;padding:6px 0;border-radius:10px;position:relative}
+ .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.bnav button.on{color:#e02020}
+ .bnav .bd{position:absolute;top:2px;left:55%;min-width:16px;height:16px;border-radius:8px;background:#e02020;color:#fff;font-size:9px;display:none;place-items:center;padding:0 4px}}
+html[data-theme=dark]{--bg:#140d0d;--text:#f1e6e6;--line:#3a2626;--muted:#b49b9b;color-scheme:dark}
+html[data-theme=dark] body{background:#140d0d;color:#f1e6e6}
+html[data-theme=dark] .card,html[data-theme=dark] .req-card,html[data-theme=dark] .stat,html[data-theme=dark] .trip-card,html[data-theme=dark] .topbar,html[data-theme=dark] .online-card,html[data-theme=dark] .bnav,html[data-theme=dark] .overlay,html[data-theme=dark] .modal,html[data-theme=dark] .modal-head,html[data-theme=dark] .modal .foot,html[data-theme=dark] .quick button{background:#1e1414!important;color:#f1e6e6;border-color:#3a2626!important}
+html[data-theme=dark] .hub-in,html[data-theme=dark] .vf-field input,html[data-theme=dark] .vf-field select,html[data-theme=dark] input[type=text],html[data-theme=dark] select,html[data-theme=dark] textarea{background-color:#150e0e!important;color:#f1e6e6!important;border-color:#4a3030!important}
+html[data-theme=dark] .kv4 div{background:#251818}html[data-theme=dark] .hub-btn{background:#2a1c1c;color:#f1e6e6}html[data-theme=dark] .chips button{background:#1e1414;color:#f1e6e6;border-color:#4a3030}
+html[data-theme=dark] .hub-l{color:#d8c2c2}html[data-theme=dark] th{background:#251818!important}
+/* ===== Theme v2: one consistent red brand (green only for success/online), full dark mode, topbar buttons ===== */
+:root{--bg:#fbf6f6;--text:#2a1a1a;--muted:#8a7474;--line:#f0dede}
+body{background:var(--bg);color:var(--text)}
+.logo{color:#e02020}
+.avatar{background:#fde8e8;color:#e02020}
+.ico,.circle{background:#fde8e8}
+.profile-photo{background:#fde8e8;color:#e02020}
+.note{background:#fdf2f2;color:#7a3030}
+.action{background:#fff5f5;border-color:#f3d2d2;color:#e02020}
+.accepted,.doc-status.verified{background:#e8f7ee;color:#15803d}
+.primary{background:linear-gradient(135deg,#e02020,#b81414);box-shadow:0 8px 18px rgba(224,32,32,.3)}
+.vf-field input:focus,.vf-field select:focus,textarea:focus{outline:2px solid rgba(224,32,32,.22);border-color:#e02020}
+.progress-fill{background:linear-gradient(90deg,#e02020,#ff6b6b)}
+.online-card{border-color:var(--line)}
+.stat,.card,.req-card{box-shadow:0 8px 28px rgba(36,16,15,.06)}
+.trips th{background:#fdf8f8}.trips td,.item{border-bottom-color:#f6eaea}
+.quick button:hover{box-shadow:0 8px 18px rgba(36,16,15,.09)}
+.title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar>div:first-child{min-width:0;flex:1}
+.actions{flex:0 0 auto}
+.icon{display:inline-grid;place-items:center;font-size:17px;color:inherit;transition:.18s}
+.icon:hover{border-color:#e02020;background:#fff5f5}
+.mf-lang{position:relative}
+.mf-lang>.icon{width:auto;min-width:40px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.mf-code{font-size:11px;font-weight:800;letter-spacing:.3px}
+.mf-lang-menu{display:none;position:absolute;right:0;top:48px;min-width:160px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(36,16,15,.2);padding:6px;z-index:60}
+.mf-lang-menu.open{display:block}
+.mf-lang-menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;border:0;background:none;padding:10px 12px;border-radius:10px;font-weight:700;font-size:13px;color:inherit;text-align:left}
+.mf-lang-menu button:hover{background:#fff5f5}
+.mf-lang-menu button.on{background:#e02020;color:#fff}
+@media(max-width:430px){.actions{gap:7px}.mf-code{display:none}.mf-lang>.icon{min-width:36px;padding:0 8px}}
+html[data-theme=dark]{--bg:#140d0d;--text:#f1e6e6;--line:#3a2626;--muted:#b49b9b}
+html[data-theme=dark] .icon,html[data-theme=dark] .mf-lang-menu{background:#1e1414!important;border-color:#3a2626!important;color:#f1e6e6}
+html[data-theme=dark] .icon:hover,html[data-theme=dark] .mf-lang-menu button:hover{background:#2a1c1c!important;border-color:#e02020!important}
+html[data-theme=dark] .mf-lang-menu button.on{background:#e02020!important;color:#fff!important}
+html[data-theme=dark] .avatar,html[data-theme=dark] .ico,html[data-theme=dark] .circle,html[data-theme=dark] .profile-photo{background:#3a1d1d;color:#ff8a8a}
+html[data-theme=dark] .note{background:#2a1a1a;color:#e8c9c9}
+html[data-theme=dark] .action{background:#2a1c1c;border-color:#4a3030;color:#ff8a8a}
+html[data-theme=dark] .accepted,html[data-theme=dark] .doc-status.verified,html[data-theme=dark] .pill.ok,html[data-theme=dark] .available{background:#12382a!important;color:#6fe0a8!important}
+html[data-theme=dark] .new,html[data-theme=dark] .req-badge.emergency{background:#3a1a18;color:#ff9a92}
+html[data-theme=dark] .way,html[data-theme=dark] .req-badge.normal{background:#10294a;color:#8ec5ff}
+html[data-theme=dark] .complete{background:#2a2250;color:#c0b0ff}
+html[data-theme=dark] .pill.warn{background:#3a2b10;color:#ffc069}
+html[data-theme=dark] .pill.bad{background:#3a1a18;color:#ff9a92}
+html[data-theme=dark] .pill.mute{background:#2a2222;color:#c9b5b5}
+html[data-theme=dark] .alert{background:#2e1717;border-color:#5a2a2a}
+html[data-theme=dark] .alert b{color:#ff9a92}html[data-theme=dark] .alert p{color:#d8b5b5}
+html[data-theme=dark] .online-card.on{background:linear-gradient(90deg,#10261c,#1e1414)!important}
+html[data-theme=dark] .trips td,html[data-theme=dark] .item,html[data-theme=dark] .hrow,html[data-theme=dark] .modal-head,html[data-theme=dark] .modal .foot,html[data-theme=dark] .bnav{border-color:#2d1e1e!important}
+html[data-theme=dark] .ach div.on{background:linear-gradient(135deg,#2e1717,#3a1d1d);border-color:#5a2a2a}
+html[data-theme=dark] .bar{background:#2a1c1c}
+html[data-theme=dark] .mf-skel,html[data-theme=dark] .skel{background:linear-gradient(90deg,#241818 25%,#2e2020 50%,#241818 75%);background-size:200% 100%}
+html[data-theme=dark] .bnav button{color:#b49b9b}html[data-theme=dark] .bnav button.on{color:#ff6b6b}
+html[data-theme=dark] .link{color:#ff7a7a!important}
+html[data-theme=dark] .tl-step .dot{background:#3a2626;border-color:#1e1414}
+html[data-theme=dark] .action:hover{border-color:#e02020}
+html[data-theme=dark] .stat:hover{box-shadow:0 14px 30px rgba(0,0,0,.5)}
+html[data-theme=dark] .stat,html[data-theme=dark] .card,html[data-theme=dark] .req-card{box-shadow:none}
+html[data-theme=dark] .trips th,html[data-theme=dark] th{background:#251818!important;color:#cdb6b6}
+html[data-theme=dark] [style*="background:#fff"],html[data-theme=dark] [style*="background: #fff"],html[data-theme=dark] [style*="background:white"]{background:#1e1414!important;color:#f1e6e6!important}
+html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="color:#111"],html[data-theme=dark] [style*="color:#000"]{color:#f1e6e6!important}
+html[data-theme=dark] [style*="color:#718078"]{color:#b49b9b!important}
+html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeholder{color:#8f7777}
 </style>
 </head>
 <body>
@@ -159,23 +311,18 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 <button class="active" onclick="navClick(this,'Dashboard')">🏠 <i></i>Dashboard</button>
 <button onclick="navClick(this,'New Ambulance Requests')">🚨 <i></i>New Requests</button>
 <button onclick="navClick(this,'My Trips')">📋 <i></i>My Trips</button>
-<button onclick="navClick(this,'Today\'s Trips')">📍 <i></i>Today's Trips</button>
 <div class="nav-label">Active Trip</div>
 <button onclick="navClick(this,'Live Location & Navigation')">🗺️ <i></i>Live Location & Navigation</button>
 <button onclick="navClick(this,'Patient Details')">👤 <i></i>Patient Details</button>
 <button onclick="navClick(this,'Hospital / Drop Location')">🏥 <i></i>Hospital / Drop Location</button>
 <div class="nav-label">Vehicle</div>
-<button onclick="navClick(this,'Ambulance & Vehicle')">🚑 <i></i>Ambulance & Vehicle</button>
-<button onclick="navClick(this,'Driver KYC')">📄 <i></i>Driver KYC</button>
-<button onclick="navClick(this,'Vehicle Documents')">🚑 <i></i>Vehicle Documents</button>
+<button onclick="navClick(this,'Vehicle & KYC')">🚑 <i></i>Vehicle & KYC</button>
 <div class="nav-label">Money</div>
-<button onclick="navClick(this,'Earnings & Settlement')">💰 <i></i>Earnings & Settlement</button>
-<button onclick="navClick(this,'Bank Account')">🏦 <i></i>Bank Account</button>
+<button onclick="navClick(this,'Earnings & Bank')">💰 <i></i>Earnings & Bank</button>
 <div class="nav-label">Performance</div>
-<button onclick="navClick(this,'Ratings & Reviews')">⭐ <i></i>Ratings & Reviews</button>
-<button onclick="navClick(this,'Performance')">📊 <i></i>Performance</button>
-<button onclick="navClick(this,'Rewards & Incentives')">🏆 <i></i>Rewards & Incentives</button>
+<button onclick="navClick(this,'Ratings & Performance')">⭐ <i></i>Ratings & Performance</button>
 <div class="nav-label">Account</div>
+<button onclick="navClick(this,'Partner Hub')">🏅 <i></i>Partner Hub</button>
 <button onclick="navClick(this,'Notifications')">🔔 <i></i>Notifications</button>
 <button onclick="navClick(this,'Profile & Settings')">⚙️ <i></i>Profile & Settings</button>
 <button onclick="navClick(this,'Emergency / Support')">🆘 <i></i>Emergency / Support</button>
@@ -187,13 +334,15 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 <main class="main">
 <header class="topbar">
 <div style="display:flex;align-items:center;gap:12px"><button class="mobile" onclick="toggleSide()">☰</button><div class="title" id="pageTitle">Ambulance Dashboard</div></div>
-<div class="actions"><button class="icon" onclick="goToNotifications()">🔔<span class="dot" id="bellDot" style="display:none"></span></button><div class="avatar" id="avatarInitials">--</div></div>
+<div class="actions"><div class="mf-lang notranslate"><button class="icon" id="langBtn" type="button" onclick="mfLangMenu(event)" aria-label="Change language" title="Change language" aria-haspopup="true">🌐<span class="mf-code" id="langCode">EN</span></button><div class="mf-lang-menu" id="langMenu" role="menu"><button type="button" data-l="en" onclick="mfLang('en')">English</button><button type="button" data-l="bn" onclick="mfLang('bn')">বাংলা</button><button type="button" data-l="hi" onclick="mfLang('hi')">हिन्दी</button></div></div><button class="icon" id="themeBtn" type="button" onclick="mfToggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button><button class="icon" onclick="goToNotifications()" aria-label="Notifications">🔔<span class="dot" id="bellDot" style="display:none"></span></button><div class="avatar" id="avatarInitials">--</div></div>
 </header>
 
 <section class="content">
 <div id="dashboardView">
 <div id="kycBanner"></div>
-<div class="welcome"><div><h1 id="welcomeHeading">Loading…</h1><p>Manage ambulance requests, trips and patient pickups from one place.</p></div><div class="available" id="availabilityBadge" onclick="toggleAvailability()" style="cursor:pointer">● Loading…</div></div>
+<div class="welcome"><div><h1 id="welcomeHeading">Loading…</h1><p>Manage ambulance requests, trips and patient pickups from one place.</p></div></div>
+<div class="mf-skel" id="mfHero"></div>
+<div class="online-card" id="onlineCard"><div><b id="onlineTitle">Loading…</b><small id="onlineSub"></small></div><label class="switch big"><input type="checkbox" id="onlineToggle" onchange="toggleAvailability()"><span class="slider"></span></label></div>
 
 <div class="stats">
 <div class="stat" style="cursor:pointer" onclick="goToRequests()"><div class="stat-top"><span>New Requests</span><div class="ico">🚨</div></div><h2 id="statNewRequests">–</h2><span class="green" id="statNewRequestsSub"></span></div>
@@ -313,17 +462,26 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 <div id="supportContent"></div>
 </div>
 
-<div id="rewardsView" style="display:none">
-<div class="head" style="padding:0 0 16px;border:0">
-<div><h1 style="font-size:22px">Rewards & Incentives</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Your milestones this month.</p></div>
-<button class="link" onclick="goToDashboard()">← Back to Dashboard</button>
+<div id="hubView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0"><div><h1 style="font-size:22px">Partner Hub</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Verification, vehicle health, performance, safety and security.</p></div><button class="link" onclick="goToDashboard()">← Back to Dashboard</button></div>
+<div id="hubContent"><div class="skel"></div></div>
 </div>
-<div id="rewardsContent"></div>
+
+<div id="activeView" style="display:none">
+<div class="head" style="padding:0 0 16px;border:0"><div><h1 style="font-size:22px">Active Trip</h1><p style="font-size:13px;color:var(--muted);margin-top:4px">Details of the trip you are on right now.</p></div><button class="link" onclick="goToDashboard()">← Back to Dashboard</button></div>
+<div id="activeContent"></div>
 </div>
 </section>
 </main>
 </div>
 
+<nav class="bnav" id="bnav" aria-label="Main">
+<button data-k="home" onclick="goToDashboard()"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button>
+<button data-k="req" onclick="goToRequests()"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span>Requests</span><i class="bd" id="bnReqBd"></i></button>
+<button data-k="act" onclick="goToActive('patient')"><svg viewBox="0 0 24 24"><path d="M3 13h4l2 5 4-12 2 7h6"/></svg><span>Active Trip</span></button>
+<button data-k="earn" onclick="goToEarnings('Earnings & Bank')"><svg viewBox="0 0 24 24"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><circle cx="16.5" cy="14" r="1"/></svg><span>Earnings</span></button>
+<button data-k="more" onclick="toggleSide()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button>
+</nav>
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
 <div class="modal">
 <div class="modal-head"><h3 id="mt">Trip Details</h3><button class="close" onclick="closeModal()">✕</button></div>
@@ -333,9 +491,249 @@ button{font:inherit;cursor:pointer}.app{min-height:100vh;display:flex}
 </div>
 
 <script src="permission-every.js?v=4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script src="prod-utils.js"></script>
+<script>
+/* MediFinder India — shared KYC enhancer
+   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
+   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
+   - Date fields -> Year, then Month, then Day (selects)
+   - State text box -> state dropdown
+   - Premium form styling
+*/
+(function () {
+  if (window.__kycEnh) return;
+  window.__kycEnh = true;
+
+  /* ---------------- STYLES ---------------- */
+  var css = `
+  .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
+  .kyc-hint.ok{color:#e02020}.kyc-hint.bad{color:#d94841}
+  input.kyc-ok,select.kyc-ok{border-color:#ef4444!important;background-color:#f3fcf8!important}
+  input.kyc-bad{border-color:#d94841!important;background-color:#fff8f7!important}
+  .kyc-date{display:grid;grid-template-columns:1.1fr 1.5fr 1fr;gap:8px;width:100%}
+  .kyc-date select,.kyc-sel{width:100%;height:46px;padding:0 34px 0 12px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;color:#17211d;font-size:14px;font-weight:600;font-family:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .18s,box-shadow .18s,background-color .18s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e02020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+  .kyc-date select:focus,.kyc-sel:focus{outline:0;border-color:#ef4444;background-color:#fff;box-shadow:0 0 0 4px rgba(224,32,32,.14)}
+  .kyc-date select:disabled{opacity:.5;cursor:not-allowed;background-color:#f1f4f3}
+  .kyc-date .step-tag{grid-column:1/-1;font-size:10.5px;color:#7b8d85;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin:-2px 0 0}
+  .kyc-date-sm select{height:36px;font-size:12px;border-radius:9px;padding-right:26px}
+  /* ambulance */
+  #vehicleKycContent .req-card{border:1px solid #e4ece8;border-radius:18px;padding:18px;box-shadow:0 6px 24px rgba(22,50,40,.06);background:#fff}
+  #vehicleKycContent .req-card:focus-within{border-color:#f5b5b5;box-shadow:0 10px 30px rgba(224,32,32,.12)}
+  #vehicleKycContent .vf-field label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;margin-bottom:7px}
+  #vehicleKycContent .vf-field input[type=text],#vehicleKycContent .vf-field select{height:48px;padding:0 14px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #vehicleKycContent .vf-field input[type=text]:focus,#vehicleKycContent .vf-field select:focus{outline:0;border-color:#ef4444;background-color:#fff;box-shadow:0 0 0 4px rgba(224,32,32,.14)}
+  #vehicleKycContent .vf-field select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e02020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #vehicleKycContent .kyc-nav .btn.primary,#vehicleKycContent .btn.primary{background:linear-gradient(135deg,#e02020,#ef4444);border:0;color:#fff;border-radius:13px;box-shadow:0 10px 22px rgba(224,32,32,.28);transition:all .18s}
+  #vehicleKycContent .kyc-nav .btn.primary:hover{transform:translateY(-1px)}
+  .inr-wrap{position:relative}.inr-wrap>input{padding-left:34px!important}.inr-wrap:before{content:"₹";position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;color:#e02020;z-index:1;pointer-events:none}
+  /* nurse */
+  #kycRoot .input,#kycRoot .select{height:48px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #kycRoot .input:focus,#kycRoot .select:focus{border-color:#ef4444;background-color:#fff;box-shadow:0 0 0 4px rgba(224,32,32,.14)}
+  #kycRoot .select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e02020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #kycRoot .field-label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;display:block;margin-bottom:7px}
+  #kycRoot .card{border-radius:18px;box-shadow:0 6px 24px rgba(22,50,40,.06)}
+  #kycRoot .btn.primary{background:linear-gradient(135deg,#e02020,#ef4444);border:0;color:#fff;border-radius:13px;font-weight:800;box-shadow:0 10px 22px rgba(224,32,32,.28)}
+  @media(max-width:430px){.kyc-date{grid-template-columns:1fr 1.3fr .9fr}}
+  `;
+  var st = document.createElement('style');
+  st.id = 'kycEnhCss';
+  st.textContent = css;
+  document.head.appendChild(st);
+
+  /* ---------------- INPUT RULES ---------------- */
+  var digits = function (v) { return v.replace(/\D/g, ''); };
+  var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+  var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
+
+  var RULES = [
+    { name: 'phone', test: /(phone|mobile|whatsapp|contact_?no|pdwa$|ecphone)/i, fmt: digits, max: 10, exact: 10, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[6-9]\d{9}$/.test(v); } },
+    { name: 'pin', test: /(pincode|pdpin$|pfpin$|_pin$)/i, fmt: digits, max: 6, exact: 6, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[1-9]\d{5}$/.test(v); } },
+    { name: 'acc', test: /(account_?no2?$|[a-z]acc2?$|^acc2?$)/i, fmt: digits, max: 18, min: 9, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^\d{9,18}$/.test(v); } },
+    { name: 'ifsc', test: /ifsc$/i, fmt: upalnum, max: 11, exact: 11, hint: 'chars', check: function (v) { return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v); } },
+    { name: 'upi', test: /upi(_id)?$/i, fmt: function (v) { return v.toLowerCase().replace(/[^a-z0-9.\-_@]/g, ''); }, max: 50 },
+    { name: 'charge', test: /(per_?km|day_?charge)/i, fmt: digits, max: 5, inputmode: 'numeric' },
+    { name: 'name', test: /(full_?name|holder|pdname|pfname|ecname|bank_?name|ks?bank$|ebbank$)/i, fmt: letters, max: 60 }
+  ];
+
+  var DOC_RULES = { // by selected document type text
+    aadhaar: { fmt: digits, max: 12, label: 'Aadhaar (12 digits)' },
+    pan: { fmt: upalnum, max: 10, label: 'PAN (10 chars)' },
+    driving: { fmt: upalnum, max: 16, label: 'Licence number' },
+    voter: { fmt: upalnum, max: 10, label: 'Voter ID (10 chars)' },
+    passport: { fmt: upalnum, max: 8, label: 'Passport (8 chars)' }
+  };
+  function docRuleFor(input) {
+    var m = /^k_(id|addr)_number$/.exec(input.id || '');
+    if (!m) return null;
+    var sel = document.getElementById('k_' + m[1] + '_type');
+    var t = sel ? String(sel.value).toLowerCase() : '';
+    if (/aadhaar/.test(t)) return DOC_RULES.aadhaar;
+    if (/pan/.test(t)) return DOC_RULES.pan;
+    if (/driving/.test(t)) return DOC_RULES.driving;
+    if (/voter/.test(t)) return DOC_RULES.voter;
+    if (/passport/.test(t)) return DOC_RULES.passport;
+    return { fmt: function (v) { return v.toUpperCase().replace(/[^A-Z0-9\-\/ ]/g, ''); }, max: 20 };
+  }
+
+  function ruleFor(el) {
+    if (!el || el.tagName !== 'INPUT') return null;
+    var id = el.id || '';
+    if (!id) return null;
+    var t = (el.type || '').toLowerCase();
+    if (t !== 'text' && t !== 'tel' && t !== 'number' && t !== '') return null;
+    var dr = docRuleFor(el);
+    if (dr) return dr;
+    for (var i = 0; i < RULES.length; i++) if (RULES[i].test.test(id)) return RULES[i];
+    return null;
+  }
+
+  function hintEl(el) {
+    var h = el.parentNode && el.parentNode.querySelector(':scope > .kyc-hint[data-for="' + el.id + '"]');
+    if (!h) {
+      h = document.createElement('span');
+      h.className = 'kyc-hint';
+      h.setAttribute('data-for', el.id);
+      el.insertAdjacentElement('afterend', h);
+    }
+    return h;
+  }
+
+  function paint(el, r) {
+    var v = el.value, h = null;
+    if (r.exact || r.min) h = hintEl(el);
+    el.classList.remove('kyc-ok', 'kyc-bad');
+    if (!v) { if (h) { h.textContent = ''; h.className = 'kyc-hint'; } return; }
+    var good = r.check ? r.check(v) : (r.exact ? v.length === r.exact : r.min ? v.length >= r.min : true);
+    if (r.exact || r.min) {
+      h.textContent = v.length + '/' + (r.exact || r.max) + (good ? ' ✓' : '');
+      h.className = 'kyc-hint ' + (good ? 'ok' : (v.length >= (r.exact || r.min) ? 'bad' : ''));
+    }
+    if (good) el.classList.add('kyc-ok');
+    else if (r.exact && v.length >= r.exact) el.classList.add('kyc-bad');
+  }
+
+  function prep(el) {
+    var r = ruleFor(el);
+    if (!r) return;
+    if (el.dataset.kycR === '1' && !docRuleFor(el)) return;
+    el.dataset.kycR = '1';
+    if (r.max) el.setAttribute('maxlength', r.max);
+    if (r.inputmode) el.setAttribute('inputmode', r.inputmode);
+    el.setAttribute('autocomplete', el.getAttribute('autocomplete') || 'off');
+    if (el.type === 'number') { try { el.type = 'text'; } catch (e) {} }
+    var v = el.value;
+    if (r.name === 'phone' && v) v = digits(v).slice(-10);
+    else if (v) v = r.fmt(v);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    if (r.name === 'charge' && !el.parentNode.classList.contains('inr-wrap') && !el.parentNode.classList.contains('vf-field') && false) { /* reserved */ }
+    paint(el, r);
+  }
+
+  document.addEventListener('input', function (e) {
+    var el = e.target, r = ruleFor(el);
+    if (!r) return;
+    var v = r.fmt(el.value);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    paint(el, r);
+  }, true);
+
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el && /^k_(id|addr)_type$/.test(el.id || '')) { // document type changed -> reset number format
+      var num = document.getElementById(el.id.replace('_type', '_number'));
+      if (num) { num.value = ''; prep(num); }
+    }
+  }, true);
+
+  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dim(y, m) { return new Date(y, m, 0).getDate(); }
+
+  function enhanceDate(inp) {
+    if (inp.dataset.dp) return;
+    inp.dataset.dp = '1';
+    var now = new Date(), y0 = now.getFullYear();
+    var past = /dob|birth/i.test(inp.id) || inp.hasAttribute('max');
+    var years = [];
+    if (past) { for (var y = y0 - 18; y >= y0 - 80; y--) years.push(y); }
+    else { for (var y2 = y0; y2 <= y0 + 30; y2++) years.push(y2); }
+    var cur = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.value || '');
+    var cy = cur ? +cur[1] : 0, cm = cur ? +cur[2] : 0, cd = cur ? +cur[3] : 0;
+    if (cy && years.indexOf(cy) < 0) { years.push(cy); years.sort(function (a, b) { return past ? b - a : a - b; }); }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'kyc-date' + (inp.closest('.doc-row') ? ' kyc-date-sm' : '');
+    var sy = document.createElement('select'), sm = document.createElement('select'), sd = document.createElement('select');
+    sy.setAttribute('aria-label', 'Year'); sm.setAttribute('aria-label', 'Month'); sd.setAttribute('aria-label', 'Day');
+    sy.innerHTML = '<option value="">Year</option>' + years.map(function (y) { return '<option value="' + y + '"' + (y === cy ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+    sm.innerHTML = '<option value="">Month</option>' + MONTHS.map(function (n, i) { return '<option value="' + (i + 1) + '"' + (i + 1 === cm ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+    function fillDays() {
+      var y = +sy.value, m = +sm.value, keep = +sd.value;
+      var n = (y && m) ? dim(y, m) : 31, h = '<option value="">Day</option>';
+      for (var d = 1; d <= n; d++) h += '<option value="' + d + '"' + (d === keep || (!keep && d === cd) ? ' selected' : '') + '>' + d + '</option>';
+      sd.innerHTML = h;
+      if (keep > n) sd.value = '';
+    }
+    function lock() { sm.disabled = !sy.value; sd.disabled = !(sy.value && sm.value); }
+    function sync(fire) {
+      var y = +sy.value, m = +sm.value, d = +sd.value, v = '';
+      if (y && m && d) v = y + '-' + pad(m) + '-' + pad(d);
+      if (v !== inp.value) {
+        inp.value = v;
+        if (fire && v) inp.dispatchEvent(new Event('change', { bubbles: true }));
+        else if (fire) inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    fillDays(); lock();
+    sy.addEventListener('change', function () { if (!sy.value) { sm.value = ''; sd.value = ''; } fillDays(); lock(); sync(true); });
+    sm.addEventListener('change', function () { if (!sm.value) sd.value = ''; fillDays(); lock(); sync(true); });
+    sd.addEventListener('change', function () { sync(true); });
+    wrap.appendChild(sy); wrap.appendChild(sm); wrap.appendChild(sd);
+    try { inp.type = 'hidden'; } catch (e) { inp.style.display = 'none'; }
+    inp.style.display = 'none';
+    inp.insertAdjacentElement('afterend', wrap);
+  }
+
+  /* ---------------- STATE DROPDOWN ---------------- */
+  var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
+  function enhanceState(inp) {
+    if (inp.dataset.st) return;
+    inp.dataset.st = '1';
+    var sel = document.createElement('select');
+    sel.id = inp.id;
+    sel.className = (inp.className + ' kyc-sel select').trim();
+    sel.setAttribute('style', inp.getAttribute('style') || '');
+    var v = (inp.value || '').trim();
+    var list = STATES.slice();
+    if (v && list.map(function (s) { return s.toLowerCase(); }).indexOf(v.toLowerCase()) < 0) list.unshift(v);
+    sel.innerHTML = '<option value="">Select state</option>' + list.map(function (s) {
+      return '<option value="' + s.replace(/"/g, '&quot;') + '"' + (s.toLowerCase() === v.toLowerCase() ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    inp.replaceWith(sel);
+  }
+
+  /* ---------------- SCAN ---------------- */
+  var queued = false;
+  function scan() {
+    queued = false;
+    document.querySelectorAll('input[type=date]:not([data-dp])').forEach(enhanceDate);
+    document.querySelectorAll('input[id$="_state"]:not([data-st]),input#k_state:not([data-st])').forEach(function (i) { if (i.type === 'text' || !i.type) enhanceState(i); });
+    document.querySelectorAll('input[id]').forEach(function (el) {
+      var r = ruleFor(el);
+      if (r && (el.dataset.kycR !== '1' || /^k_(id|addr)_number$/.test(el.id))) prep(el);
+    });
+  }
+  function queue() { if (!queued) { queued = true; requestAnimationFrame(scan); } }
+  new MutationObserver(queue).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.readyState !== 'loading') queue(); else document.addEventListener('DOMContentLoaded', queue);
+})();
+
+</script>
 <script>
 // ==========================================
 // AMBULANCE PARTNER PORTAL — Live Supabase wiring
@@ -367,19 +765,20 @@ function navClick(btn,title){
   if(title==='Dashboard'){ goToDashboard(); return; }
   if(title==='New Ambulance Requests'){ goToRequests(); return; }
   if(title==='Live Location & Navigation'){ goToLiveLocation(); return; }
-  if(title==='Ambulance & Vehicle' || title==='Driver KYC' || title==='Vehicle Documents'){ goToVehicleKyc(title); return; }
+  if(title==='Vehicle & KYC' || title==='Ambulance & Vehicle' || title==='Driver KYC' || title==='Vehicle Documents'){ goToVehicleKyc(title); return; }
   if(title==='My Trips' || title==="Today's Trips"){ goToMyTrips(title); return; }
-  if(title==='Earnings & Settlement' || title==='Bank Account'){ goToEarnings(title); return; }
-  if(title==='Ratings & Reviews' || title==='Performance'){ goToRatings(title); return; }
+  if(title==='Earnings & Bank' || title==='Earnings & Settlement' || title==='Bank Account'){ goToEarnings(title); return; }
+  if(title==='Ratings & Performance' || title==='Ratings & Reviews' || title==='Performance'){ goToRatings(title); return; }
   if(title==='Notifications'){ goToNotifications(); return; }
   if(title==='Profile & Settings'){ goToProfile(); return; }
   if(title==='Emergency / Support'){ goToSupport(); return; }
-  if(title==='Rewards & Incentives'){ goToRewards(); return; }
-  show(title);
+  if(title==='Partner Hub'){ goToHub(); return; }
+  if(title==='Patient Details'){ goToActive('patient'); return; }
+  if(title==='Hospital / Drop Location'){ goToActive('hospital'); return; }
 }
 
 function showView(viewId, navLabel, title){
-  ['dashboardView','requestsView','liveView','vehicleKycView','myTripsView','earningsView','ratingsView','notifView','profileView','supportView','rewardsView'].forEach(id => {
+  ['dashboardView','requestsView','liveView','vehicleKycView','myTripsView','earningsView','ratingsView','notifView','profileView','supportView','activeView','hubView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = (id === viewId ? '' : 'none');
   });
@@ -404,7 +803,7 @@ function goToLiveLocation(){
 }
 
 function goToVehicleKyc(fromTitle){
-  const navLabel = fromTitle === 'Driver KYC' ? 'Driver KYC' : fromTitle === 'Vehicle Documents' ? 'Vehicle Documents' : 'Ambulance & Vehicle';
+  const navLabel = 'Vehicle & KYC';
   showView('vehicleKycView', navLabel, 'Ambulance & Vehicle / KYC');
   renderVehicleKycView();
   setTimeout(() => {
@@ -421,7 +820,7 @@ function goToMyTrips(fromTitle){
 }
 
 function goToEarnings(fromTitle){
-  const navLabel = fromTitle === 'Bank Account' ? 'Bank Account' : 'Earnings & Settlement';
+  const navLabel = 'Earnings & Bank';
   showView('earningsView', navLabel, 'Earnings & Bank');
   loadEarningsData();
   setTimeout(() => {
@@ -431,7 +830,7 @@ function goToEarnings(fromTitle){
 }
 
 function goToRatings(fromTitle){
-  const navLabel = fromTitle === 'Performance' ? 'Performance' : 'Ratings & Reviews';
+  const navLabel = 'Ratings & Performance';
   showView('ratingsView', navLabel, 'Ratings & Performance');
   renderRatingsView();
   setTimeout(() => {
@@ -456,9 +855,24 @@ function goToSupport(){
   loadTickets();
 }
 
-function goToRewards(){
-  showView('rewardsView', 'Rewards & Incentives', 'Rewards & Incentives');
-  renderRewardsView();
+let activeKind='patient';
+function goToActive(kind){
+  activeKind=kind;
+  showView('activeView', kind==='patient'?'Patient Details':'Hospital', kind==='patient'?'Patient Details':'Hospital / Drop Location');
+  renderActiveView();
+}
+function renderActiveView(){
+  const c=document.getElementById('activeContent');if(!c)return;
+  const a=myBookings.find(b=>['accepted','arriving','picked_up'].includes(b.status));
+  if(!a){c.innerHTML='<div class="req-empty">'+(activeKind==='patient'?'👤':'🏥')+'<br><br>No active trip right now.<br>Accept a request to see details here.</div>';return}
+  const e=MedUtils.escapeAttr,f=(k,v)=>`<div class="field"><small>${k}</small><strong>${e(v||'—')}</strong></div>`;
+  const dest=activeKind==='patient'?{lat:a.pickup_lat,lng:a.pickup_lng,addr:a.pickup_address}:{lat:a.drop_lat,lng:a.drop_lng,addr:a.drop_address};
+  const nav=`https://www.google.com/maps/dir/?api=1&destination=${(dest.lat&&dest.lng)?dest.lat+','+dest.lng:encodeURIComponent(dest.addr||'')}`;
+  const stage={accepted:['arriving','Mark Arriving'],arriving:['picked_up','Patient Picked Up'],picked_up:['completed','Mark Trip Completed']}[a.status];
+  c.innerHTML=`<div class="req-card"><div class="details">${activeKind==='patient'
+    ?f('Patient',a.patient_name)+f('Status',statusMeta(a.status).label)+f('Contact',a.contact_phone)+f('Ambulance Type',a.vehicle_type)+f('Pickup Address',a.pickup_address)+f('Pickup OTP',a.otp)
+    :f('Hospital / Drop',a.drop_address)+f('Patient',a.patient_name)+f('Status',statusMeta(a.status).label)+f('Pickup',a.pickup_address)}</div>
+    <div class="live-actions">${a.contact_phone?`<a class="btn light" href="tel:${e(a.contact_phone)}">📞 Call</a>`:''}<a class="btn primary" href="${nav}" target="_blank" rel="noopener">🗺️ Navigate</a>${stage?`<button class="btn primary" onclick="updateBookingStatus('${a.id}','${stage[0]}')">${stage[1]}</button>`:''}</div></div>`;
 }
 
 async function doLogout(){
@@ -542,23 +956,18 @@ function renderDriverHeader(){
   document.getElementById('driverStatusMini').innerHTML = driverRow.is_verified
     ? '<span class="verified">● KYC Verified • ' + (driverRow.is_online ? 'Ambulance Active' : 'Offline') + '</span>'
     : (driverRow.kyc_status==='pending' ? '● KYC Under Review' : '● KYC Not Verified');
-  const badge = document.getElementById('availabilityBadge');
-  if (driverRow.is_online) {
-    badge.textContent = '● Available for Emergency Calls';
-    badge.style.background = '#e8f7f1'; badge.style.color = '#087f5b';
-  } else {
-    badge.textContent = '● Offline — Tap to go online';
-    badge.style.background = '#f1f2f6'; badge.style.color = '#718078';
-  }
+  const tg=document.getElementById('onlineToggle');if(tg)tg.checked=!!driverRow.is_online;
+  const ot=document.getElementById('onlineTitle'),os=document.getElementById('onlineSub');
+  if(ot){ot.textContent=driverRow.is_online?'You are Online':'You are Offline';os.textContent=driverRow.is_online?'Receiving emergency requests':(isVerified()?'Switch on to receive requests':'Complete KYC to go online');document.getElementById('onlineCard').classList.toggle('on',!!driverRow.is_online)}
   renderKycBanner(); updateBell();
 }
 
 async function toggleAvailability(){
   if (!driverRow) return;
-  if (!driverRow.is_online && !requireKyc()) { renderProfileView(); return; }
   const newVal = !driverRow.is_online;
+  if (newVal && !isVerified()) { renderDriverHeader(); requireKyc(); return; }
   const { error } = await supabaseClient.from('ambulance_drivers').update({ is_online: newVal, updated_at: new Date().toISOString() }).eq('id', driverRow.id);
-  if (error) { MedUtils.handleError(error, 'Availability update'); return; }
+  if (error) { renderDriverHeader(); MedUtils.handleError(error, 'Availability update'); return; }
   driverRow.is_online = newVal;
   renderDriverHeader();
   MedUtils.toast(newVal ? 'You are now Online' : 'You are now Offline', 'success');
@@ -586,6 +995,7 @@ async function refreshBookings(){
   renderLiveView();
   renderMyTripsView();
   renderRatingsView();
+  if(document.getElementById('activeView').style.display!=='none')renderActiveView();
 }
 
 function subscribeRealtime(){
@@ -872,18 +1282,31 @@ function stopLocationWatch(){
 }
 
 // ---------- AMBULANCE & VEHICLE / KYC (step-by-step, locked after submit) ----------
-const KYC_DOCS=[{key:'aadhaar',label:'Aadhaar Card'},{key:'pan',label:'PAN Card'},{key:'license',label:'Driving Licence'},{key:'photo',label:'Driver Photo (clear face)',img:1},{key:'address_proof',label:'Address Proof'}];
+const KYC_DOCS=[{key:'aadhaar',label:'Aadhaar Card'},{key:'pan',label:'PAN Card'},{key:'license',label:'Driving Licence'},{key:'photo',label:'Selfie Photo (clear face)',img:1},{key:'address_proof',label:'Address Proof'}];
 const VEHICLE_DOCS=[{key:'vehicle_photo',label:'Ambulance Photo',img:1},{key:'plate_photo',label:'Number Plate Photo',img:1},{key:'rc',label:'RC (Registration Certificate)'},{key:'insurance',label:'Insurance',exp:1},{key:'fitness',label:'Fitness Certificate',exp:1},{key:'pollution',label:'Pollution Certificate',exp:1},{key:'permit',label:'Permit',exp:1}];
 const BANK_PROOF={key:'bank_proof',label:'Bank Proof (Cancelled Cheque / Passbook photo)',img:1};
 let kycStep=0;
 const docs=c=>(c==='vehicle'?driverRow.vehicle_documents:driverRow.kyc_documents)||{};
 const isVerified=()=>!!driverRow&&(driverRow.is_verified===true||driverRow.kyc_status==='verified');
 const kycStatus=()=>isVerified()?'verified':(driverRow.kyc_status||'not_submitted');
+const bankOk=()=>!!driverRow&&(driverRow.bank_verified===true||isVerified());
 const kycLocked=()=>['pending','verified'].includes(kycStatus());
 const bankLocked=()=>!!driverRow.bank_submitted_at;
 const plateOk=p=>/^[A-Z]{2}[- ]?\d{1,2}[- ]?[A-Z]{1,3}[- ]?\d{4}$/.test(p);
 const step1Missing=()=>{const d=docs('vehicle');return VEHICLE_DOCS.filter(x=>!d[x.key]?.url).map(x=>x.label)};
 const step2Missing=()=>{const d=docs('kyc');return KYC_DOCS.filter(x=>!d[x.key]?.url).map(x=>x.label)};
+const ph10=x=>(x||'').replace(/\D/g,'').slice(-10);
+const kycNo=k=>(docs('kyc')[k]&&docs('kyc')[k].number)||'';
+const aadhaarOk=v=>/^[2-9]\d{11}$/.test(v||'');
+const panOk=v=>/^[A-Z]{5}\d{4}[A-Z]$/.test(v||'');
+const dlOk=v=>/^[A-Z]{2}\d{2}[A-Z0-9]{11,13}$/.test(v||'');
+const maskNo=(n,k)=>k==='license'?n:'•'.repeat(Math.max(0,n.length-4))+n.slice(-4);
+const FMT={digits:v=>v.replace(/\D/g,''),name:v=>v.replace(/[^A-Za-z .]/g,'').replace(/\s{2,}/g,' '),ifsc:v=>v.toUpperCase().replace(/[^A-Z0-9]/g,''),idno:v=>v.toUpperCase().replace(/[^A-Z0-9]/g,''),plate:v=>v.toUpperCase().replace(/[^A-Z0-9\- ]/g,''),upi:v=>v.toLowerCase().replace(/[^a-z0-9.\-_@]/g,'')};
+document.addEventListener('input',e=>{const t=e.target,f=t.dataset&&t.dataset.fmt;if(!f||!FMT[f])return;let v=FMT[f](t.value);const m=+t.dataset.max;if(m)v=v.slice(0,m);if(v!==t.value)t.value=v});
+const personalMissing=()=>{const d=driverRow,m=[];if(!aadhaarOk(kycNo('aadhaar')))m.push('Aadhaar number');if(!panOk(kycNo('pan')))m.push('PAN number');if(!dlOk(kycNo('license')))m.push('Driving licence number');if((d.driver_name||'').trim().length<3)m.push('Full name');if(!(d.address||'').trim())m.push('Address');if(ph10(d.phone).length!==10)m.push('Contact number');if(ph10(d.whatsapp_number).length!==10)m.push('WhatsApp number');if(!/^[1-9]\d{5}$/.test(String(xv('pincode'))))m.push('Pincode');return m};
+const perKmOk=()=>Number(xv('charge_per_km'))>0;
+function personalFormHtml(){const d=driverRow,i=(id,l,v,x='')=>`<div class="vf-field"><label>${l}</label><input type="text" id="${id}" value="${MedUtils.escapeAttr(v||'')}" ${x}></div>`;
+return `<div class="req-card"><div class="head" style="padding:0 0 12px;border:0"><h3>👤 Personal Details</h3></div><div class="vf-grid">${i('pdName','Full Name (as on Aadhaar) *',d.driver_name,'maxlength="60" data-fmt="name" data-max="60" autocomplete="name"')}${i('pdPhone','Contact Number (10 digits) *',ph10(d.phone),'inputmode="numeric" maxlength="10" data-fmt="digits" data-max="10" placeholder="10-digit mobile"')}${i('pdWa','WhatsApp Number (10 digits) *',ph10(d.whatsapp_number),'inputmode="numeric" maxlength="10" data-fmt="digits" data-max="10" placeholder="10-digit WhatsApp"')}${i('pdAadhaar','Aadhaar Number (12 digits) *',kycNo('aadhaar'),'inputmode="numeric" maxlength="12" data-fmt="digits" data-max="12" placeholder="12-digit Aadhaar"')}${i('pdPan','PAN Number *',kycNo('pan'),'maxlength="10" data-fmt="idno" data-max="10" placeholder="ABCDE1234F" style="text-transform:uppercase"')}${i('pdDl','Driving Licence Number *',kycNo('license'),'maxlength="17" data-fmt="idno" data-max="17" placeholder="e.g. WB0620110012345" style="text-transform:uppercase"')}<div class="vf-field" style="grid-column:1/-1"><label>Full Address *</label><input type="text" maxlength="200" id="pdAddr" value="${MedUtils.escapeAttr(d.address||'')}"></div>${i('pdPin','Pincode (6 digits) *',String(xv('pincode')),'inputmode="numeric" maxlength="6" data-fmt="digits" data-max="6" placeholder="e.g. 700001"')}</div><p class="lock-note">All fields are required. They cannot be changed after verification.</p></div>`}
 const plateSet=()=>driverRow.plate_number&&driverRow.plate_number!=='PENDING';
 const val=id=>document.getElementById(id).value, chk=id=>document.getElementById(id).checked;
 
@@ -893,10 +1316,19 @@ function requireKyc(){
   if(kycStatus()!=='pending')goToVehicleKyc('Driver KYC');
   return false;
 }
+const EXTRA_COLS=['charge_per_km','pincode','service_radius_km'];
+const xv=k=>{const v=driverRow&&driverRow[k];return(v!==undefined&&v!==null&&v!=='')?v:((((driverRow&&driverRow.vehicle_documents)||{})._meta||{})[k]||'')};
 async function saveDriver(f){
-  const{data,error}=await supabaseClient.from('ambulance_drivers').update(f).eq('id',driverRow.id).select().maybeSingle();
-  if(error){MedUtils.toast(error.message||'Could not save','error');return false}
-  driverRow=data;return true;
+  let r=await supabaseClient.from('ambulance_drivers').update(f).eq('id',driverRow.id).select().maybeSingle();
+  if(r.error&&/column|schema cache/i.test(r.error.message||'')&&EXTRA_COLS.some(c=>c in f)){
+    // safe fallback: DB column missing -> keep the values inside vehicle_documents._meta until the migration is run
+    const g={...f},meta={...(((f.vehicle_documents||driverRow.vehicle_documents)||{})._meta||{})};
+    EXTRA_COLS.forEach(c=>{if(c in g){meta[c]=g[c];delete g[c]}});
+    g.vehicle_documents={...(f.vehicle_documents||driverRow.vehicle_documents||{}),_meta:meta};
+    r=await supabaseClient.from('ambulance_drivers').update(g).eq('id',driverRow.id).select().maybeSingle();
+  }
+  if(r.error){MedUtils.toast(r.error.message||'Could not save','error');return false}
+  driverRow=r.data;return true;
 }
 function keepInputs(fn){
   const s={};document.querySelectorAll('#vehicleKycContent [id],#earningsContent [id]').forEach(e=>{if(/^(INPUT|SELECT)$/.test(e.tagName)&&e.type!=='file')s[e.id]=e.type==='checkbox'?e.checked:e.value});
@@ -910,10 +1342,11 @@ async function compress(file){
     return await new Promise(r=>c.toBlob(x=>r(x||file),'image/jpeg',.82));}catch(e){return file}
 }
 function docRowHtml(cat,doc,locked){
-  const e=docs(cat)[doc.key],st=e?.status||'not_uploaded';
+  const e=docs(cat)[doc.key],st0=e?.status||'not_uploaded',st=((cat==='bank'?bankOk():isVerified())&&e?.url&&st0!=='rejected')?'verified':st0;
+  const num=e?.number?`<div class="sub">${MedUtils.escapeAttr(maskNo(e.number,doc.key))}</div>`:'';
   const L={not_uploaded:'Required',uploaded:'Uploaded',pending:'Pending Verification',verified:'Verified',rejected:'Rejected'}[st]||st;
   const exp=doc.exp?(locked?`<div class="sub">${e?.expiry_date?'Expires '+new Date(e.expiry_date).toLocaleDateString('en-IN'):'No expiry set'}</div>`:`<div class="sub">Expiry <input type="date" value="${e?.expiry_date||''}" onchange="setDocExpiry('${cat}','${doc.key}',this.value)" style="border:1px solid var(--line);border-radius:6px;font-size:11px;padding:2px 4px"></div>`):'';
-  return `<div class="doc-row"><div style="display:flex;gap:10px;align-items:center">${e?.mime?.startsWith('image/')?`<img class="doc-thumb" src="${e.url}" alt="">`:''}<div><b style="font-size:13px">${doc.label}</b><div style="margin-top:4px"><span class="doc-status ${st==='uploaded'?'pending':st}">${L}</span>${e?.rejection_reason?` <span style="font-size:11px;color:var(--red)">• ${MedUtils.escapeAttr(e.rejection_reason)}</span>`:''}</div>${exp}</div></div><div class="doc-actions">${e?.url?`<a class="action" href="${e.url}" target="_blank" rel="noopener">View</a>`:''}${locked?'':`<label class="action" style="cursor:pointer">${e?.url?'Replace':'Upload'}<input type="file" accept="${doc.img?'image/*':'image/*,.pdf'}" style="display:none" onchange="uploadDoc('${cat}','${doc.key}',this)"></label>`}</div></div>`;
+  return `<div class="doc-row"><div style="display:flex;gap:10px;align-items:center">${e?.mime?.startsWith('image/')?`<img class="doc-thumb" src="${e.url}" alt="">`:''}<div><b style="font-size:13px">${doc.label}</b><div style="margin-top:4px"><span class="doc-status ${st==='uploaded'?'pending':st}">${L}</span>${e?.rejection_reason?` <span style="font-size:11px;color:var(--red)">• ${MedUtils.escapeAttr(e.rejection_reason)}</span>`:''}</div>${num}${exp}</div></div><div class="doc-actions">${e?.url?`<a class="action" href="${e.url}" target="_blank" rel="noopener">View</a>`:''}${locked?'':`<label class="action" style="cursor:pointer">${e?.url?'Replace':'Upload'}<input type="file" accept="${doc.img?'image/*':'image/*,.pdf'}" style="display:none" onchange="uploadDoc('${cat}','${doc.key}',this)"></label>`}</div></div>`;
 }
 function expiringVehicleDocs(){
   const s=docs('vehicle');
@@ -944,14 +1377,15 @@ async function setDocExpiry(cat,key,value){
 }
 function vehicleFormHtml(){
   const d=driverRow,o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`,ck=(id,l,on)=>`<label class="vf-check"><input type="checkbox" id="${id}" ${on?'checked':''}> ${l}</label>`;
-  return `<div class="req-card"><div class="head" style="padding:0 0 14px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="vf-grid"><div class="vf-field"><label>Ambulance / Plate Number</label><input type="text" id="vfPlate" value="${MedUtils.escapeAttr(plateSet()?d.plate_number:'')}" placeholder="e.g. WB-06-AB-1234" style="text-transform:uppercase"></div><div class="vf-field"><label>Vehicle Type</label><select id="vfType">${o('non_ac','Non-AC',d.vehicle_type)}${o('ac','AC',d.vehicle_type)}</select></div><div class="vf-field"><label>Category</label><select id="vfCategory">${o('basic','Basic',d.category)}${o('advanced','Advanced',d.category)}${o('icu','ICU',d.category)}</select></div></div><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Equipment Available</label><div class="vf-checks">${ck('vfOxygen','Oxygen',d.oxygen_available)}${ck('vfVentilator','Ventilator',d.ventilator_available)}${ck('vfStretcher','Stretcher',d.stretcher_available!==false)}${ck('vfWheelchair','Wheelchair',d.wheelchair_available)}${ck('vfFirstAid','First-aid Kit',d.first_aid_available!==false)}</div></div>
+  return `<div class="req-card"><div class="head" style="padding:0 0 14px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="vf-grid"><div class="vf-field"><label>Ambulance / Plate Number</label><input type="text" id="vfPlate" maxlength="13" data-fmt="plate" data-max="13" value="${MedUtils.escapeAttr(plateSet()?d.plate_number:'')}" placeholder="e.g. WB-06-AB-1234" style="text-transform:uppercase"></div><div class="vf-field"><label>Vehicle Type</label><select id="vfType">${o('non_ac','Non-AC',d.vehicle_type)}${o('ac','AC',d.vehicle_type)}</select></div><div class="vf-field"><label>Category</label><select id="vfCategory">${o('basic','Basic',d.category)}${o('advanced','Advanced',d.category)}${o('icu','ICU',d.category)}</select></div><div class="vf-field"><label>Charge per km (₹) *</label><input type="text" id="vfPerKm" inputmode="numeric" maxlength="5" data-fmt="digits" data-max="5" value="${MedUtils.escapeAttr(String(xv('charge_per_km')||''))}" placeholder="e.g. 25"></div></div><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600">Equipment Available</label><div class="vf-checks">${ck('vfOxygen','Oxygen',d.oxygen_available)}${ck('vfVentilator','Ventilator',d.ventilator_available)}${ck('vfStretcher','Stretcher',d.stretcher_available!==false)}${ck('vfWheelchair','Wheelchair',d.wheelchair_available)}${ck('vfFirstAid','First-aid Kit',d.first_aid_available!==false)}</div></div>
   <div class="req-card"><div class="head" style="padding:0 0 6px;border:0"><h3>Vehicle Photos & Documents</h3></div><p style="font-size:12px;color:var(--muted)">All items are required.</p>${VEHICLE_DOCS.map(x=>docRowHtml('vehicle',x,false)).join('')}</div>`;
 }
 function kycSummaryHtml(){
   const d=driverRow,eq=[['oxygen_available','Oxygen'],['ventilator_available','Ventilator'],['stretcher_available','Stretcher'],['wheelchair_available','Wheelchair'],['first_aid_available','First-aid']].filter(x=>d[x[0]]).map(x=>x[1]).join(', ')||'—';
   const f=(k,v)=>`<div class="field"><small>${k}</small><strong>${MedUtils.escapeAttr(v)}</strong></div>`;
-  return `<div class="req-card" id="vehicleProfileSection"><div class="head" style="padding:0 0 12px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="details">${f('Plate Number',d.plate_number||'—')}${f('Type',d.vehicle_type==='ac'?'AC':'Non-AC')}${f('Category',(d.category||'—').toUpperCase())}${f('Equipment',eq)}</div></div>
+  return `<div class="req-card" id="vehicleProfileSection"><div class="head" style="padding:0 0 12px;border:0"><h3>🚑 Ambulance & Vehicle</h3></div><div class="details">${f('Plate Number',d.plate_number||'—')}${f('Type',d.vehicle_type==='ac'?'AC':'Non-AC')}${f('Category',(d.category||'—').toUpperCase())}${f('Charge per km',xv('charge_per_km')?'₹'+xv('charge_per_km')+' / km':'—')}${f('Equipment',eq)}</div></div>
   <div class="req-card" id="vehicleDocsSection"><div class="head" style="padding:0 0 6px;border:0"><h3>🚑 Vehicle Documents</h3></div>${VEHICLE_DOCS.map(x=>docRowHtml('vehicle',x,true)).join('')}</div>
+  <div class="req-card"><div class="head" style="padding:0 0 12px;border:0"><h3>👤 Personal Details</h3></div><div class="details">${[['Full Name',d.driver_name],['Contact Number',d.phone],['WhatsApp Number',d.whatsapp_number],['Address',d.address],['Pincode',xv('pincode')]].map(([k,v])=>`<div class="field"><small>${k}</small><strong>${MedUtils.escapeAttr(v||'—')}</strong></div>`).join('')}</div></div>
   <div class="req-card" id="kycDocsSection"><div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver KYC</h3></div>${KYC_DOCS.map(x=>docRowHtml('kyc',x,true)).join('')}</div>${bankFormHtml('ks')}`;
 }
 function renderVehicleKycView(){
@@ -960,10 +1394,10 @@ function renderVehicleKycView(){
   const bn={pending:['way','⏳ KYC submitted — waiting for admin verification. You will be notified here.'],verified:['note','✅ KYC verified. You can go online and accept requests.'],rejected:['new','❌ KYC rejected'+(driverRow.kyc_rejection_reason?': '+driverRow.kyc_rejection_reason:'')+'. Fix the documents and submit again.']}[st];
   const ban=(bn?`<div class="note kyc-ban ${bn[0]}">${MedUtils.escapeAttr(bn[1])}</div>`:'')+(ex.length?`<div class="emergency" style="margin-bottom:14px">🚨 ${ex.map(d=>`${d.label} ${d.days<0?'has EXPIRED':`expires in ${d.days} day${d.days===1?'':'s'}`}`).join(' • ')}</div>`:'');
   if(kycLocked()){c.innerHTML=ban+kycSummaryHtml();return}
-  if(!kycStep)kycStep=(step1Missing().length||!plateSet())?1:step2Missing().length?2:!bankLocked()?3:4;
+  if(!kycStep)kycStep=(step1Missing().length||!plateSet()||!perKmOk())?1:(step2Missing().length||personalMissing().length)?2:!bankLocked()?3:4;
   const names=['Vehicle','Driver ID','Bank','Review'];
   const stp=`<div class="stepper">${names.map((n,i)=>`<div class="stp ${kycStep===i+1?'on':kycStep>i+1?'done':''}"><span>${kycStep>i+1?'✓':i+1}</span>${n}</div>`).join('')}</div>`;
-  const body=kycStep===1?vehicleFormHtml():kycStep===2?`<div class="req-card"><div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver Identity</h3></div><p style="font-size:12px;color:var(--muted)">Upload all documents to continue.</p>${KYC_DOCS.map(x=>docRowHtml('kyc',x,false)).join('')}</div>`:kycStep===3?bankFormHtml('kb'):kycSummaryHtml()+`<label class="vf-check" style="margin-bottom:14px"><input type="checkbox" id="kycConfirm"> I confirm all details are correct. I understand I cannot edit anything after submitting.</label>`;
+  const body=kycStep===1?vehicleFormHtml():kycStep===2?personalFormHtml()+`<div class="req-card"><div class="head" style="padding:0 0 6px;border:0"><h3>📄 Driver Identity</h3></div><p style="font-size:12px;color:var(--muted)">Upload all documents to continue.</p>${KYC_DOCS.map(x=>docRowHtml('kyc',x,false)).join('')}</div>`:kycStep===3?bankFormHtml('kb'):kycSummaryHtml()+`<label class="vf-check" style="margin-bottom:14px"><input type="checkbox" id="kycConfirm"> I confirm all details are correct. I understand I cannot edit anything after submitting.</label>`;
   const nav=`<div class="kyc-nav">${kycStep>1?'<button class="btn light" onclick="kycBack()">← Back</button>':''}${kycStep<4?'<button class="btn primary" onclick="kycNext()">Continue →</button>':'<button class="btn primary" onclick="submitKyc()">Submit to Admin</button>'}</div>`;
   c.innerHTML=ban+stp+body+nav;
 }
@@ -973,16 +1407,33 @@ async function kycNext(){
   if(kycStep===1){
     const p=val('vfPlate').trim().toUpperCase();
     if(!plateOk(p))return w('Enter a valid plate number e.g. WB-06-AB-1234');
+    const perKm=parseInt(val('vfPerKm'),10);
+    if(!(perKm>=1))return w('Enter how many ₹ you charge per km');
+    if(perKm>500)return w('Charge per km looks too high — please check (max ₹500)');
     const m=step1Missing();if(m.length)return w('Upload: '+m.join(', '));
-    if(!await saveDriver({plate_number:p,vehicle_type:val('vfType'),category:val('vfCategory'),oxygen_available:chk('vfOxygen'),ventilator_available:chk('vfVentilator'),stretcher_available:chk('vfStretcher'),wheelchair_available:chk('vfWheelchair'),first_aid_available:chk('vfFirstAid')}))return;
+    if(!await saveDriver({plate_number:p,charge_per_km:perKm,vehicle_type:val('vfType'),category:val('vfCategory'),oxygen_available:chk('vfOxygen'),ventilator_available:chk('vfVentilator'),stretcher_available:chk('vfStretcher'),wheelchair_available:chk('vfWheelchair'),first_aid_available:chk('vfFirstAid')}))return;
   }
-  if(kycStep===2){const m=step2Missing();if(m.length)return w('Upload: '+m.join(', '))}
+  if(kycStep===2){
+    const p={driver_name:val('pdName').trim(),phone:ph10(val('pdPhone')),whatsapp_number:ph10(val('pdWa')),address:val('pdAddr').trim(),pincode:val('pdPin').replace(/\D/g,'')};
+    if(p.driver_name.length<3)return w('Enter your full name');
+    if(p.phone.length!==10)return w('Enter a valid 10-digit contact number');
+    if(p.whatsapp_number.length!==10)return w('Enter a valid 10-digit WhatsApp number');
+    if(p.address.length<8)return w('Enter your full address');
+    if(!/^[1-9]\d{5}$/.test(p.pincode))return w('Pincode must be exactly 6 digits');
+    const no={aadhaar:val('pdAadhaar').replace(/\D/g,''),pan:val('pdPan').toUpperCase().trim(),license:val('pdDl').toUpperCase().replace(/[\s-]/g,'')};
+    if(!aadhaarOk(no.aadhaar))return w('Aadhaar number must be exactly 12 digits');
+    if(!panOk(no.pan))return w('Enter a valid 10-character PAN (e.g. ABCDE1234F)');
+    if(!dlOk(no.license))return w('Enter a valid Driving Licence number (e.g. WB0620110012345)');
+    const kd={...docs('kyc')};Object.keys(no).forEach(k=>{kd[k]={...(kd[k]||{}),number:no[k]}});
+    if(!await saveDriver({...p,kyc_documents:kd}))return;
+    const m=step2Missing();if(m.length)return w('Upload: '+m.join(', '));
+  }
   if(kycStep===3&&!bankLocked())return w('Submit your bank details first');
   kycStep++;renderAllKyc();window.scrollTo(0,0);
 }
 async function submitKyc(){
   const w=m=>MedUtils.toast(m,'warning');
-  if(step1Missing().length||step2Missing().length||!bankLocked()||!plateSet())return w('Complete all steps first');
+  if(step1Missing().length||step2Missing().length||personalMissing().length||!bankLocked()||!plateSet()||!perKmOk())return w('Complete all steps first');
   if(!document.getElementById('kycConfirm')?.checked)return w('Please tick the confirmation');
   if(!confirm('Submit KYC to admin? You cannot edit anything after submitting.'))return;
   const fin=o=>Object.fromEntries(Object.entries(o||{}).map(([k,v])=>[k,{...v,status:'pending',rejection_reason:null}]));
@@ -1000,11 +1451,11 @@ function renderKycBanner(){
 // ---------- BANK (submit once, then locked) ----------
 const maskAcc=a=>a?'•'.repeat(Math.max(0,a.length-4))+a.slice(-4):'—';
 function bankFormHtml(p){
-  const L=bankLocked(),d=driverRow,st=d.bank_verified?['accepted','Verified']:L?['way','Under Review']:['new','Required'];
+  const L=bankLocked(),d=driverRow,st=bankOk()?['accepted','Verified']:L?['way','Under Review']:['new','Required'];
   const head=`<div class="req-card" ${p==='eb'?'id="bankSection"':''}><div class="head" style="padding:0 0 14px;border:0"><h3>🏦 Bank Account</h3><span class="status ${st[0]}">${st[1]}</span></div>`;
   if(L)return head+`<div class="details">${[['Account Holder',d.bank_account_holder],['Bank',d.bank_name],['Account Number',maskAcc(d.bank_account_number)],['IFSC',d.bank_ifsc_code],['UPI ID',d.bank_upi_id],['Settlement',d.settlement_preference==='upi'?'UPI':'Bank Transfer']].map(([k,v])=>`<div class="field"><small>${k}</small><strong>${MedUtils.escapeAttr(v||'—')}</strong></div>`).join('')}</div><p style="font-size:11px;color:var(--muted);margin:10px 0">🔒 Submitted — bank details cannot be changed. Contact support if something is wrong.</p>${docRowHtml('bank',BANK_PROOF,true)}</div>`;
   const i=(k,l,v,x='')=>`<div class="vf-field"><label>${l}</label><input type="text" id="${p}${k}" value="${MedUtils.escapeAttr(v||'')}" ${x}></div>`;
-  return head+`<div class="vf-grid">${i('Holder','Account Holder Name',d.bank_account_holder,'placeholder="As per bank passbook"')}${i('Bank','Bank Name',d.bank_name,'placeholder="e.g. SBI, HDFC"')}${i('Acc','Account Number',d.bank_account_number,'inputmode="numeric"')}${i('Acc2','Confirm Account Number','','inputmode="numeric"')}${i('Ifsc','IFSC Code',d.bank_ifsc_code,'style="text-transform:uppercase"')}${i('Upi','UPI ID (optional)',d.bank_upi_id,'placeholder="name@bank"')}<div class="vf-field"><label>Settlement Preference</label><select id="${p}Pref"><option value="bank" ${d.settlement_preference!=='upi'?'selected':''}>Bank Transfer</option><option value="upi" ${d.settlement_preference==='upi'?'selected':''}>UPI</option></select></div></div>${docRowHtml('bank',BANK_PROOF,false)}<button class="btn primary" style="margin-top:14px" onclick="submitBank('${p}')">Submit Bank Details</button><p style="font-size:11px;color:var(--muted);margin-top:8px">⚠️ You can submit only once. Double-check everything.</p></div>`;
+  return head+`<div class="vf-grid">${i('Holder','Account Holder Name *',d.bank_account_holder,'placeholder="As per bank passbook" maxlength="60" data-fmt="name" data-max="60"')}${i('Bank','Bank Name *',d.bank_name,'placeholder="e.g. SBI, HDFC" maxlength="40" data-fmt="name" data-max="40"')}${i('Acc','Account Number (9–18 digits) *',d.bank_account_number,'inputmode="numeric" maxlength="18" data-fmt="digits" data-max="18"')}${i('Acc2','Confirm Account Number *','','inputmode="numeric" maxlength="18" data-fmt="digits" data-max="18" autocomplete="off"')}${i('Ifsc','IFSC Code (11 characters) *',d.bank_ifsc_code,'maxlength="11" data-fmt="ifsc" data-max="11" placeholder="e.g. SBIN0001234" style="text-transform:uppercase"')}${i('Upi','UPI ID (optional)',d.bank_upi_id,'placeholder="name@bank" maxlength="50" data-fmt="upi" data-max="50"')}<div class="vf-field"><label>Settlement Preference</label><select id="${p}Pref"><option value="bank" ${d.settlement_preference!=='upi'?'selected':''}>Bank Transfer</option><option value="upi" ${d.settlement_preference==='upi'?'selected':''}>UPI</option></select></div></div>${docRowHtml('bank',BANK_PROOF,false)}<button class="btn primary" style="margin-top:14px" onclick="submitBank('${p}')">Submit Bank Details</button><p style="font-size:11px;color:var(--muted);margin-top:8px">⚠️ You can submit only once. Double-check everything.</p></div>`;
 }
 async function submitBank(p){
   const g=k=>document.getElementById(p+k).value.trim();
@@ -1059,6 +1510,7 @@ function openTrip(id){
   </div>
   ${b.otp ? `<div class="note">Pickup OTP: <b>${MedUtils.escapeAttr(b.otp)}</b> — ask the patient/attendant to confirm this on pickup.</div>` : ''}`;
 
+  if (['accepted','arriving','picked_up','completed'].includes(b.status)) document.getElementById('mb').insertAdjacentHTML('beforeend', `<a href="order-receipt.html?type=ambulance&id=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" style="display:block;margin-top:12px;padding:12px;border-radius:10px;background:#0a7d3b;color:#fff;text-align:center;font-weight:700;text-decoration:none">🧾 Open Invoice / Verify &amp; Sign</a>`);
   const btn = document.getElementById('ma');
   if (b.status === 'searching') {
     btn.textContent = 'Accept Trip';
@@ -1210,7 +1662,7 @@ function renderEarningsView(){
   }).join('') : `<tr><td colspan="6" style="text-align:center;color:#718078;padding:22px">No completed trips yet.</td></tr>`;
 
   content.innerHTML = `
-    <div class="stats" id="earningsStatsSection" style="grid-template-columns:repeat(4,1fr)">
+    <div class="stats s4" id="earningsStatsSection">
       <div class="stat"><div class="stat-top"><span>Today</span><div class="ico">💰</div></div><h2>${MedUtils.formatCurrency(stats.today)}</h2></div>
       <div class="stat"><div class="stat-top"><span>Last 7 Days</span><div class="ico">📅</div></div><h2>${MedUtils.formatCurrency(stats.week)}</h2></div>
       <div class="stat"><div class="stat-top"><span>This Month</span><div class="ico">🗓️</div></div><h2>${MedUtils.formatCurrency(stats.month)}</h2></div>
@@ -1292,7 +1744,7 @@ function renderRatingsView(){
       <textarea id="reply_${b.id}" placeholder="Write a reply…">${MedUtils.escapeAttr(b.driver_response||'')}</textarea>
       <div style="display:flex;gap:10px;margin-top:6px">
         <button class="action" onclick="saveReply('${b.id}')">Save Reply</button>
-        <button class="action" onclick="disputeRating('${b.id}')">Dispute this rating</button>
+        
       </div>
     </div>`).join('') : '<p style="font-size:12px;color:var(--muted);padding:10px 0">No reviews yet.</p>';
 
@@ -1323,7 +1775,6 @@ function renderRatingsView(){
       <div class="head" style="padding:6px 0;border:0"><h3 style="font-size:13px">Completed Trips — Last 7 Days</h3></div>
       <div class="trend-chart">${trend.map(t => `<div class="trend-bar" style="height:${Math.max(6, t.count/maxTrend*100)}%" title="${t.count}"></div>`).join('')}</div>
       <div class="trend-labels">${trend.map(t => `<span>${t.label}</span>`).join('')}</div>
-      <p style="font-size:11px;color:var(--muted);margin-top:14px">Online hours, distance travelled and earnings/hour aren't shown yet — they need session/GPS-log tracking that isn't set up in the database. Ask if you'd like that added.</p>
     </div>`;
 }
 
@@ -1335,11 +1786,6 @@ async function saveReply(id){
   MedUtils.toast('Reply saved', 'success');
 }
 
-function disputeRating(id){
-  const reason = prompt('Briefly describe why you\'re disputing this rating:', '');
-  if (!reason) return;
-  MedUtils.toast('Your dispute has been noted — support will review it', 'success');
-}
 
 // ---------- NOTIFICATIONS ----------
 function getNotifPrefs(){
@@ -1366,7 +1812,7 @@ async function addNotif(type,title,message){await supabaseClient.from('ambulance
 function popup(title,msg,go){
   const p=getNotifPrefs();MedUtils.toast(msg?`${title} — ${msg}`:title,'success');
   if(p.sound!==false)playAlertSound();if(p.vibrate!==false&&navigator.vibrate)navigator.vibrate([200,100,200]);
-  if(p.popup!==false&&'Notification' in window&&Notification.permission==='granted'&&document.hidden){try{const n=new Notification(title,{body:msg||''});n.onclick=()=>{window.focus();go&&go();n.close()}}catch(e){}}
+  if(p.push!==false)pushNow(title,msg,go);
 }
 function subscribeDriverRealtime(){
   if(!driverRow)return;if(driverChannel)supabaseClient.removeChannel(driverChannel);
@@ -1389,20 +1835,41 @@ async function markAllRead(){
 }
 function notifSettingsHtml(p){
   const pr=getNotifPrefs(),row=(k,l)=>`<div class="toggle-row"><span>${l}</span><label class="switch"><input type="checkbox" id="${p}${k}" ${pr[k.toLowerCase()]!==false?'checked':''} onchange="saveNotifPrefs('${p}')"><span class="slider"></span></label></div>`;
-  return `<div class="req-card"><div class="head" style="padding:0 0 4px;border:0"><h3>Notification Settings</h3></div>${row('Sound','Sound on new request')}${row('Vibrate','Vibration on new request')}${row('Popup','Pop-up alerts when app is in background')}</div>`;
+  return `<div class="req-card"><div class="head" style="padding:0 0 4px;border:0"><h3>Alert Settings</h3></div>${row('Sound','Sound on new request')}${row('Vibrate','Vibration on new request')}</div>`;
 }
 function saveNotifPrefs(p){
   const g=k=>document.getElementById(p+k).checked;
-  setNotifPrefs({sound:g('Sound'),vibrate:g('Vibrate'),popup:g('Popup')});
-  if(g('Popup')&&'Notification' in window&&Notification.permission==='default')Notification.requestPermission();
+  setNotifPrefs({...getNotifPrefs(),sound:g('Sound'),vibrate:g('Vibrate')});
   MedUtils.toast('Preferences saved','success');
+}
+function pushCardHtml(){
+  const on=getNotifPrefs().push!==false&&'Notification' in window&&Notification.permission==='granted';
+  return `<div class="req-card"><div class="toggle-row"><div><b style="font-size:13px">🔔 Push notifications</b><div style="font-size:11px;color:var(--muted);margin-top:3px">Every new notification is pushed to your device</div></div><label class="switch"><input type="checkbox" ${on?'checked':''} onchange="togglePush(this)"><span class="slider"></span></label></div></div>`;
+}
+async function togglePush(el){
+  const p=getNotifPrefs();
+  if(el.checked){
+    if(!('Notification' in window)){el.checked=false;return MedUtils.toast('Push is not supported on this device','warning')}
+    let perm=Notification.permission;if(perm==='default')perm=await Notification.requestPermission();
+    if(perm!=='granted'){el.checked=false;p.push=false;setNotifPrefs(p);return MedUtils.toast('Allow notifications in your browser settings','warning')}
+    p.push=true;MedUtils.toast('Push notifications ON','success');
+  }else{p.push=false;MedUtils.toast('Push notifications OFF','success')}
+  setNotifPrefs(p);
+}
+async function pushNow(title,msg,go){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='granted')return;
+    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification)return reg.showNotification(title,{body:msg||'',icon:'/icon-192.png',tag:'mf-'+Date.now()});
+    const n=new Notification(title,{body:msg||'',icon:'/icon-192.png'});n.onclick=()=>{window.focus();go&&go();n.close()};
+  }catch(e){}
 }
 function renderNotifications(){
   const c=document.getElementById('notifContent');if(!c||!driverRow)return;
   const der=derivedNotifications();
   const dh=der.length?der.map(n=>`<div class="notif-item unread"><div class="notif-ico">${n.icon}</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title)}</b><br><small>Live</small></div></div>`).join(''):'<p style="font-size:12px;color:var(--muted);padding:8px 0">Nothing needs your attention right now.</p>';
   const sh=storedNotifications.length?storedNotifications.map(n=>`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead('${n.id}')" style="cursor:pointer"><div class="notif-ico">🔔</div><div><b style="font-size:12.5px">${MedUtils.escapeAttr(n.title||n.type||'Update')}</b>${n.message?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${MedUtils.escapeAttr(n.message)}</div>`:''}<small>${n.created_at?new Date(n.created_at).toLocaleString('en-IN'):''}</small></div></div>`).join(''):'<p style="font-size:12px;color:var(--muted);padding:8px 0">No notifications yet.</p>';
-  c.innerHTML=`<div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>Needs Your Attention</h3></div>${dh}</div><div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>All Notifications</h3>${unreadCount()?'<button class="link" onclick="markAllRead()">Mark all read</button>':''}</div>${sh}</div>${notifSettingsHtml('nf')}`;
+  c.innerHTML=`${pushCardHtml()}<div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>Needs Your Attention</h3></div>${dh}</div><div class="req-card"><div class="head" style="padding:0 0 8px;border:0"><h3>All Notifications</h3>${unreadCount()?'<button class="link" onclick="markAllRead()">Mark all read</button>':''}</div>${sh}</div>`;
 }
 async function deleteAccount(){
   if(myBookings.some(b=>['accepted','arriving','picked_up'].includes(b.status)))return MedUtils.toast('Finish your active trip before deleting your account','warning');
@@ -1428,25 +1895,21 @@ function renderProfileView(){
     <div class="req-card">
       <div class="profile-photo-row">
         ${photoSrc() ? `<img class="profile-photo" src="${photoSrc()}">` : `<div class="profile-photo">${initials}</div>`}
-        <label class="action" style="cursor:pointer">Change Photo<input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)"></label>
+        ${kycLocked()?'':`<label class="action" style="cursor:pointer">Change Photo<input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)"></label>`}
       </div>
-      <div class="vf-grid">
-        <div class="vf-field"><label>Full Name</label><input type="text" id="pfName" value="${MedUtils.escapeAttr(driverRow.driver_name||'')}"></div>
-        <div class="vf-field"><label>Phone</label><input type="text" id="pfPhone" value="${MedUtils.escapeAttr(driverRow.phone||'')}"></div>
+      ${kycLocked()?'<p class="lock-note">🔒 Name, phone and address are locked after KYC submission.</p>':''}<div class="vf-grid">
+        <div class="vf-field"><label>Full Name</label><input type="text" id="pfName" value="${MedUtils.escapeAttr(driverRow.driver_name||'')}" ${kycLocked()?'disabled':''}></div>
+        <div class="vf-field"><label>Phone</label><input type="text" id="pfPhone" inputmode="numeric" maxlength="10" data-fmt="digits" data-max="10" value="${MedUtils.escapeAttr(ph10(driverRow.phone))}" ${kycLocked()?'disabled':''}></div>
         <div class="vf-field"><label>Email</label><input type="text" value="${MedUtils.escapeAttr(currentUser?.email||'')}" disabled style="background:#f4f6f5;color:var(--muted)"></div>
         <div class="vf-field"><label>Language</label><select id="pfLang">
           <option value="bn" ${driverRow.language!=='en'?'selected':''}>বাংলা</option>
           <option value="en" ${driverRow.language==='en'?'selected':''}>English</option>
         </select></div>
-        <div class="vf-field" style="grid-column:1/-1"><label>Address</label><input type="text" id="pfAddress" value="${MedUtils.escapeAttr(driverRow.address||'')}"></div>
+        <div class="vf-field" style="grid-column:1/-1"><label>Address</label><input type="text" id="pfAddress" value="${MedUtils.escapeAttr(driverRow.address||'')}" ${kycLocked()?'disabled':''}></div>
         <div class="vf-field"><label>Emergency Contact Name</label><input type="text" id="pfEcName" value="${MedUtils.escapeAttr(driverRow.emergency_contact_name||'')}"></div>
         <div class="vf-field"><label>Emergency Contact Phone</label><input type="text" id="pfEcPhone" value="${MedUtils.escapeAttr(driverRow.emergency_contact_phone||'')}"></div>
       </div>
       <button class="btn primary" onclick="saveProfile()">Save Profile</button>
-    </div>
-    <div class="req-card">
-      <div class="head" style="padding:0 0 4px;border:0"><h3>Availability</h3></div>
-      <div class="toggle-row"><span>Available for new trips</span><label class="switch"><input type="checkbox" ${driverRow.is_online?'checked':''} onchange="toggleAvailability()"><span class="slider"></span></label></div>
     </div>
     ${notifSettingsHtml('pf')}
     <div class="req-card">
@@ -1456,11 +1919,8 @@ function renderProfileView(){
     </div>
     <div class="req-card">
       <div class="head" style="padding:0 0 4px;border:0"><h3>Account</h3></div>
-      <div class="vf-grid">
-        <div class="vf-field"><label>New Password</label><input type="password" id="pfNewPass" placeholder="min 6 characters"></div>
-      </div>
-      <button class="btn light" onclick="changePassword()">Change Password</button>
-      <button class="btn light" style="margin-top:10px;color:var(--red)" onclick="doLogout()">🚪 Logout</button>
+      <p class="lock-note">We will email you a secure link to set a new password.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn light" onclick="changePassword()">🔑 Change Password</button><button class="btn danger" onclick="doLogout()">🚪 Logout</button></div>
     </div>
     <div class="req-card" style="border-color:#ffd5d2">
       <div class="head" style="padding:0 0 4px;border:0"><h3 style="color:var(--red)">Delete Account</h3></div>
@@ -1495,6 +1955,7 @@ async function saveProfile(){
     emergency_contact_name: document.getElementById('pfEcName').value.trim(),
     emergency_contact_phone: document.getElementById('pfEcPhone').value.trim()
   };
+  if (kycLocked()) { delete fields.driver_name; delete fields.phone; delete fields.address; }
   const { data, error } = await supabaseClient.from('ambulance_drivers').update(fields).eq('id', driverRow.id).select().maybeSingle();
   if (error) { MedUtils.toast('Could not save: ' + error.message, 'error'); return; }
   driverRow = data;
@@ -1514,12 +1975,11 @@ async function checkLocationPermission(){
 }
 
 async function changePassword(){
-  const pass = document.getElementById('pfNewPass').value;
-  if (!pass || pass.length < 6) { MedUtils.toast('Password must be at least 6 characters', 'warning'); return; }
-  const { error } = await supabaseClient.auth.updateUser({ password: pass });
-  if (error) { MedUtils.handleError(error, 'Change password'); return; }
-  document.getElementById('pfNewPass').value = '';
-  MedUtils.toast('Password updated', 'success');
+  const email=currentUser&&currentUser.email;
+  if(!email)return MedUtils.toast('No email on this account — contact support','warning');
+  const{error}=await supabaseClient.auth.resetPasswordForEmail(email);
+  if(error)return MedUtils.handleError(error,'Password reset');
+  MedUtils.toast('Password reset link sent to '+email,'success');
 }
 
 // ---------- EMERGENCY / SUPPORT ----------
@@ -1586,28 +2046,336 @@ async function submitTicket(){
   MedUtils.toast(`Ticket #${String(data.id).slice(0,6).toUpperCase()} submitted`,'success');renderTicketsList();
 }
 
-// ---------- REWARDS & INCENTIVES ----------
-const MONTHLY_TARGET = 50; // example milestone — adjust to your real program
-
-function renderRewardsView(){
-  const content = document.getElementById('rewardsContent');
-  if (!content) return;
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const completedThisMonth = myBookings.filter(b => b.status === 'completed' && b.completed_at && new Date(b.completed_at) >= monthStart).length;
-  const pct = Math.min(100, Math.round(completedThisMonth / MONTHLY_TARGET * 100));
-  content.innerHTML = `
-    <div class="reward-card">
-      <div class="head" style="padding:0 0 8px;border:0"><h3>🏆 Monthly Trip Milestone</h3></div>
-      <p style="font-size:12px;color:var(--muted)">${completedThisMonth} of ${MONTHLY_TARGET} trips completed this month</p>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-      <p style="font-size:11px;color:var(--muted)">${pct}% towards this month's milestone</p>
-    </div>
-    <div class="req-card">
-      <div class="head" style="padding:0 0 8px;border:0"><h3>Reward Programs</h3></div>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7">Bonuses, peak-hour incentives, emergency-response bonuses and referral rewards aren't configured yet — they need a rewards/business-rules table on the backend so real payout amounts can be shown here instead of placeholders. Tell us the actual reward structure (e.g. ₹ per milestone, peak-hour multiplier) and we'll wire it up.</p>
-    </div>`;
-}
 </script>
 <script src="push-notifications.js?v=4" defer></script>
+<script>
+/* ===== MediFinder premium layer: hero, Partner Hub, safety, bottom nav ===== */
+(function(){
+  var E=function(v){return MedUtils.escapeAttr(String(v==null?'':v))};
+  var $$=function(id){return document.getElementById(id)};
+  /* theme */
+  function theme(){var t='light';try{t=localStorage.getItem('mfa_theme')||'light'}catch(e){}
+    if(t==='system')t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t)}
+  theme();
+  window.mfTheme=function(v){try{localStorage.setItem('mfa_theme',v)}catch(e){}theme()};
+
+  /* ---- derived data (all from real rows) ---- */
+  function stats(){
+    var ps=performanceStats(),rs=ratingStats(),parts=[];
+    if(ps.completionRate!=null)parts.push(ps.completionRate);
+    if(rs.avg!=null)parts.push(rs.avg*20);
+    if(ps.avgResponse!=null)parts.push(Math.max(0,100-ps.avgResponse*10));
+    var score=parts.length?Math.round(parts.reduce(function(a,b){return a+b},0)/parts.length):null;
+    var t=ps.completedCount,r=rs.avg,lv='Starter',ic='🥉';
+    if(t>=150&&r!=null&&r>=4.7){lv='Elite';ic='💎'}else if(t>=50&&r!=null&&r>=4.5){lv='Pro';ic='🥇'}else if(t>=10&&r!=null&&r>=4){lv='Trusted';ic='🥈'}
+    var next={Starter:'Complete 10 trips with a 4.0+ rating to reach Trusted',Trusted:'Complete 50 trips with a 4.5+ rating to reach Pro',Pro:'Complete 150 trips with a 4.7+ rating to reach Elite',Elite:'You are at the top level'}[lv];
+    return{ps:ps,rs:rs,score:score,level:lv,icon:ic,next:next};
+  }
+  function completion(){
+    var d=driverRow,f=[d.driver_name,d.phone,d.whatsapp_number,d.address,xv('pincode'),photoSrc(),plateSet(),xv('charge_per_km'),d.emergency_contact_name,d.emergency_contact_phone,bankLocked(),!step1Missing().length,!step2Missing().length,d.service_radius_km];
+    return Math.round(f.filter(Boolean).length/f.length*100);
+  }
+  function daysTo(s){return s?Math.ceil((new Date(s)-new Date())/864e5):null}
+  function expState(s){var d=daysTo(s);if(d==null)return['mute','No expiry set'];if(d<0)return['bad','Expired'];if(d<=30)return['warn','Expiring in '+d+'d'];return['ok','Valid']}
+  function pill(a){return '<span class="pill '+a[0]+'">'+a[1]+'</span>'}
+
+  /* ---- dashboard hero ---- */
+  var heroSig='';
+  function hero(){
+    var host=$$('mfHero');if(!host)return;
+    if(!driverRow){return}
+    var s=stats(),d=driverRow,ver=isVerified(),on=!!d.is_online;
+    var act=myBookings.filter(function(b){return['accepted','arriving','picked_up'].indexOf(b.status)>-1})[0];
+    var al=[];try{expiringVehicleDocs().forEach(function(x){al.push(x.label+(x.days<0?' has expired':' expires in '+x.days+' day(s)'))})}catch(e){}
+    if(!ver)al.push(kycStatus()==='pending'?'KYC is under review':'Complete KYC to start accepting requests');
+    var nr=parseInt(($$('statNewRequests')||{}).textContent,10);if(nr>0)al.push(nr+' new request'+(nr>1?'s':'')+' waiting');
+    var ph=photoSrc(),ini=(d.driver_name||'D').trim().split(/\s+/).map(function(x){return x[0]}).slice(0,2).join('').toUpperCase();
+    var h='<div class="mf-who"><div class="mf-av">'+(ph?'<img src="'+E(ph)+'" alt="">':E(ini))+'</div><div style="min-width:0"><h2>'+E(d.driver_name||'Partner')+'</h2><small>'+(s.rs.avg!=null?'⭐ '+s.rs.avg.toFixed(1):'⭐ No ratings yet')+' · '+s.ps.completedCount+' trips</small><div class="mf-badges">'+(ver?'<span class="mf-chip ok">✓ Verified Partner</span>':'<span class="mf-chip warn">KYC '+(kycStatus()==='pending'?'under review':'pending')+'</span>')+'<span class="mf-chip">'+s.icon+' '+s.level+'</span><span class="mf-chip">'+(on?'🟢 Online':'⚪ Offline')+'</span></div></div></div>'
+     +'<div class="mf-ring" style="--v:'+(s.score||0)+'"><div><span>'+(s.score!=null?s.score:'—')+'<small>SCORE</small></span></div></div>'
+     +'<div class="mf-sub"><div class="mf-box"><b>Active trip</b>'+(act?'<p>'+E(act.patient_name||'Patient')+'<br>'+E((act.pickup_address||'')+' → '+(act.drop_address||''))+'</p><button class="btn" onclick="goToActive(\'patient\')">Open trip</button><button class="btn" onclick="goToLiveLocation()">Navigate</button>':'<p>No active trip right now.</p>')+'</div>'
+     +'<div class="mf-box"><b>Important alerts</b>'+(al.length?'<p>'+al.map(function(x){return '• '+E(x)}).join('<br>')+'</p>':'<p>✓ Everything looks good.</p>')+'</div></div>';
+    if(h!==heroSig){heroSig=h;host.className='mf-hero';host.innerHTML=h}
+    var bd=$$('bnReqBd');if(bd){bd.style.display=nr>0?'grid':'none';bd.textContent=nr>0?nr:''}
+  }
+
+  /* ---- Partner Hub ---- */
+  function row(t,m,p){return '<div class="hrow"><div>'+t+(m?'<span class="m">'+m+'</span>':'')+'</div>'+(p||'')+'</div>'}
+  window.goToHub=function(){showView('hubView','Partner Hub','Partner Hub');renderHub()};
+  window.renderHub=function(){
+    var c=$$('hubContent');if(!c)return;
+    if(!driverRow){c.innerHTML='<div class="skel"></div><div class="skel" style="margin-top:14px"></div>';return}
+    var d=driverRow,s=stats(),ver=isVerified(),pc=completion(),vd=docs('vehicle'),kd=docs('kyc');
+    var kst=ver?['ok','Verified']:kycStatus()==='pending'?['warn','Under review']:['bad','Pending'];
+    var h='<div class="hub-grid">';
+    /* profile + status center */
+    h+='<div class="req-card"><div class="hub-h"><h3>👤 Partner Profile</h3>'+pill(kst)+'</div><b style="font-size:17px">'+E(d.driver_name||'Partner')+'</b><div style="font-size:12.5px;color:var(--muted);margin:4px 0 10px">'+(s.rs.avg!=null?'⭐ '+s.rs.avg.toFixed(1)+' · ':'')+s.ps.completedCount+' trips · '+(d.is_online?'Online':'Offline')+'</div><small>Profile '+pc+'% complete</small><div class="bar"><i style="width:'+pc+'%"></i></div>'+(pc<100?'<button class="hub-btn" onclick="goToProfile()">Complete profile →</button>':'')+'</div>';
+    h+='<div class="req-card"><div class="hub-h"><h3>🛡️ Verification Center</h3></div>'
+      +row('KYC','Identity documents',pill(kst))
+      +row('Vehicle','Ambulance documents',pill(step1Missing().length?['bad',step1Missing().length+' missing']:ver?['ok','Verified']:['warn','Uploaded']))
+      +row('Bank','Payout account',pill(bankOk()?['ok','Verified']:bankLocked()?['warn','Under review']:['bad','Required']))
+      +row('Service area','Radius',pill(d.service_radius_km?['ok',d.service_radius_km+' km']:['bad','Not set']))+'</div>';
+    /* performance */
+    h+='<div class="req-card"><div class="hub-h"><h3>📊 Performance & Level</h3><span class="pill ok">'+s.icon+' '+s.level+'</span></div>'
+      +(s.score==null?'<div class="empty-s"><b>📈</b>Complete your first trip to see your score.</div>':'<div class="kv4"><div><small>Score</small><b>'+s.score+'/100</b></div><div><small>Completion</small><b>'+(s.ps.completionRate!=null?s.ps.completionRate+'%':'—')+'</b></div><div><small>Rating</small><b>'+(s.rs.avg!=null?s.rs.avg.toFixed(1)+' ★':'—')+'</b></div><div><small>Response</small><b>'+(s.ps.avgResponse!=null?Math.round(s.ps.avgResponse)+' min':'—')+'</b></div></div>')
+      +'<p style="font-size:12px;color:var(--muted);margin-top:10px">'+s.next+'</p></div>';
+    /* month earnings */
+    var now=new Date(),mo=myBookings.filter(function(b){return b.status==='completed'&&b.completed_at&&new Date(b.completed_at).getMonth()===now.getMonth()&&new Date(b.completed_at).getFullYear()===now.getFullYear()});
+    var gross=0,comm=0,net=0;mo.forEach(function(b){var f=parseFloat(b.fare_final||b.fare_estimate||0),cm=parseFloat(b.commission_amount||0);gross+=f;comm+=cm;net+=(b.driver_earning!=null?parseFloat(b.driver_earning):f-cm)});
+    h+='<div class="req-card"><div class="hub-h"><h3>💰 This Month</h3><button class="link" onclick="goToEarnings(\'Earnings & Bank\')">Details →</button></div>'
+      +(mo.length?'<div class="kv4"><div><small>Trips</small><b>'+mo.length+'</b></div><div><small>Gross</small><b>'+MedUtils.formatCurrency(gross)+'</b></div><div><small>Avg / trip</small><b>'+MedUtils.formatCurrency(gross/mo.length)+'</b></div><div><small>Commission</small><b>'+MedUtils.formatCurrency(comm)+'</b></div><div><small>Net</small><b>'+MedUtils.formatCurrency(net)+'</b></div></div>':'<div class="empty-s"><b>🧾</b>No completed trips this month yet.</div>')+'</div>';
+    /* vehicle health */
+    var vh='';VEHICLE_DOCS.forEach(function(x){var e=vd[x.key]||{};vh+=row(x.label,e.url?(x.exp&&e.expiry_date?'Expires '+new Date(e.expiry_date).toLocaleDateString('en-IN'):''):'Not uploaded',pill(!e.url?['bad','Missing']:x.exp?expState(e.expiry_date):['ok','Uploaded']))});
+    vh+=row('Driving licence','',pill((kd.license||{}).url?['ok','Uploaded']:['bad','Missing']));
+    h+='<div class="req-card"><div class="hub-h"><h3>🚑 Vehicle Health</h3><button class="link" onclick="goToVehicleKyc(\'Vehicle Documents\')">Manage →</button></div>'+vh+'</div>';
+    /* equipment */
+    var eq=[['oxygen_available','Oxygen'],['ventilator_available','Ventilator'],['stretcher_available','Stretcher'],['wheelchair_available','Wheelchair'],['first_aid_available','First-aid kit']],on=eq.filter(function(x){return d[x[0]]}).length;
+    h+='<div class="req-card"><div class="hub-h"><h3>🛠️ Equipment</h3><span class="pill '+(on?'ok':'mute')+'">'+on+'/'+eq.length+'</span></div>'+eq.map(function(x){return row(x[1],'',pill(d[x[0]]?(ver?['ok','✓ Verified']:['warn','Declared']):['mute','Not available']))}).join('')+'<p style="font-size:11.5px;color:var(--muted);margin-top:8px">Edit equipment in Vehicle & KYC before submitting KYC.</p></div>';
+    /* service radius */
+    h+='<div class="req-card"><div class="hub-h"><h3>📍 Service Radius</h3></div><div class="chips">'+[5,10,15,20,30].map(function(n){return '<button class="'+(d.service_radius_km===n?'on':'')+'" onclick="mfRadius('+n+')">'+n+' km</button>'}).join('')+'</div><p style="font-size:12px;color:var(--muted);margin-top:10px">How far you are willing to travel for a pickup.</p></div>';
+    /* achievements */
+    var t=s.ps.completedCount,A=[['🚑','First trip',t>=1],['🔟','10 trips',t>=10],['🏆','100 trips',t>=100],['⭐','4.8+ rating (10+ reviews)',s.rs.count>=10&&s.rs.avg>=4.8],['⚡','Fast responder (< 2 min)',s.ps.avgResponse!=null&&s.ps.avgResponse<2],['💯','Verified partner',ver]];
+    h+='<div class="req-card"><div class="hub-h"><h3>🏆 Achievements</h3><span class="pill ok">'+A.filter(function(x){return x[2]}).length+'/'+A.length+'</span></div><div class="ach">'+A.map(function(x){return '<div class="'+(x[2]?'on':'')+'"><b>'+x[0]+'</b>'+x[1]+'</div>'}).join('')+'</div></div>';
+    /* safety */
+    h+='<div class="req-card full"><div class="hub-h"><h3>🆘 Safety Center</h3></div><div class="hub-grid"><div><button class="hub-btn red" style="margin-top:0" onclick="mfSos()">🚨 SOS — Call 112</button><button class="hub-btn" onclick="mfShareLoc()">📍 Share live location</button><button class="hub-btn" onclick="goToSupport()">⚠️ Report incident</button><button class="hub-btn" onclick="goToSupport()">🎧 MediFinder emergency support</button></div><div><label class="hub-l" style="margin-top:0">Emergency contact name</label><input class="hub-in" id="hubEcName" maxlength="60" value="'+E(d.emergency_contact_name||'')+'"><label class="hub-l">Emergency contact number (10 digits)</label><input class="hub-in" id="hubEcPhone" inputmode="numeric" maxlength="10" value="'+E(ph10(d.emergency_contact_phone))+'"><button class="hub-btn red" onclick="mfSaveEc()">Save contact</button></div></div></div>';
+    /* appearance + security */
+    var th='light';try{th=localStorage.getItem('mfa_theme')||'light'}catch(e){}
+    h+='<div class="req-card"><div class="hub-h"><h3>🌙 Appearance</h3></div><div class="chips">'+[['light','Light'],['dark','Dark'],['system','System']].map(function(x){return '<button class="'+(th===x[0]?'on':'')+'" onclick="mfTheme(\''+x[0]+'\');renderHub()">'+x[1]+'</button>'}).join('')+'</div>'
+      +'<label class="hub-l">Language</label><div class="chips notranslate">'+[['en','English'],['bn','বাংলা'],['hi','हिन्दी']].map(function(x){var cl='';try{cl=localStorage.getItem('mfa_lang')||'en'}catch(e){}return '<button class="'+(cl===x[0]?'on':'')+'" onclick="mfLang(\''+x[0]+'\')">'+x[1]+'</button>'}).join('')+'</div></div>';
+    var u=currentUser||{};
+    h+='<div class="req-card"><div class="hub-h"><h3>🔐 Security</h3></div><label class="hub-l" style="margin-top:0">New password (min 8)</label><input class="hub-in" id="hubPw1" type="password" autocomplete="new-password"><label class="hub-l">Confirm password</label><input class="hub-in" id="hubPw2" type="password" autocomplete="new-password"><button class="hub-btn red" onclick="mfPw()">Change password</button>'
+      +row('Last sign-in','',"<b style='font-size:12px'>"+(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('en-IN'):'—')+'</b>')
+      +'<button class="hub-btn" onclick="mfLogoutAll()">Logout from all devices</button></div>';
+    c.innerHTML=h+'</div>';
+  };
+  window.mfRadius=async function(n){if(await saveDriver({service_radius_km:n})){MedUtils.toast('Service radius set to '+n+' km','success');renderHub()}};
+  window.mfSaveEc=async function(){
+    var n=$$('hubEcName').value.trim(),p=$$('hubEcPhone').value.replace(/\D/g,'');
+    if(n.length<3)return MedUtils.toast('Enter contact name','warning');
+    if(!/^[6-9]\d{9}$/.test(p))return MedUtils.toast('Enter a valid 10-digit number','warning');
+    if(await saveDriver({emergency_contact_name:n,emergency_contact_phone:p}))MedUtils.toast('Emergency contact saved','success');
+  };
+  window.mfSos=function(){if(confirm('Call emergency number 112 now?'))location.href='tel:112'};
+  window.mfShareLoc=function(){
+    if(!navigator.geolocation)return MedUtils.toast('Location not supported','warning');
+    navigator.geolocation.getCurrentPosition(async function(p){
+      var m='My live location (MediFinder ambulance): https://www.google.com/maps?q='+p.coords.latitude+','+p.coords.longitude;
+      try{if(navigator.share){await navigator.share({text:m});return}}catch(e){if(e&&e.name==='AbortError')return}
+      try{await navigator.clipboard.writeText(m);MedUtils.toast('Location link copied','success')}catch(e){prompt('Copy location link',m)}
+    },function(){MedUtils.toast('Allow location access to share it','warning')},{enableHighAccuracy:true,timeout:15000});
+  };
+  window.mfPw=async function(){
+    var a=$$('hubPw1').value,b=$$('hubPw2').value;
+    if(a.length<8)return MedUtils.toast('Password must be at least 8 characters','warning');
+    if(a!==b)return MedUtils.toast('Passwords do not match','warning');
+    var r=await supabaseClient.auth.updateUser({password:a});
+    if(r.error)return MedUtils.toast(r.error.message||'Could not change password','error');
+    $$('hubPw1').value='';$$('hubPw2').value='';MedUtils.toast('Password changed','success');
+  };
+  window.mfLogoutAll=async function(){
+    if(!confirm('Logout from all devices, including this one?'))return;
+    try{await supabaseClient.auth.signOut({scope:'global'})}catch(e){}
+    location.href='home.html?panel=login';
+  };
+
+  /* ---- trip receipt link in trip cards: add to My Trips via delegation ---- */
+  /* ---- bottom nav active state ---- */
+  function bn(){
+    var vis=function(id){var e=$$(id);return e&&e.style.display!=='none'};
+    var k=vis('requestsView')?'req':(vis('activeView')||vis('liveView'))?'act':vis('earningsView')?'earn':vis('dashboardView')?'home':'';
+    document.querySelectorAll('#bnav button').forEach(function(b){b.classList.toggle('on',b.dataset.k===k)});
+  }
+  setInterval(function(){try{hero();bn()}catch(e){}},1500);
+  setTimeout(function(){try{hero();bn()}catch(e){}},600);
+})();
+</script>
+<script>
+/* ===== Language (English / বাংলা / हिन्दी) + dark/light toggle for the top bar ===== */
+(function(){
+  var LK='mfa_lang',TK='mfa_theme',LI={bn:0,hi:1},NAMES={en:'EN',bn:'বাং',hi:'हिं'};
+  var D={
+'Ambulance Partner Portal':['অ্যাম্বুলেন্স পার্টনার পোর্টাল','एम्बुलेंस पार्टनर पोर्टल'],'Main':['মূল','मुख्य'],'Dashboard':['ড্যাশবোর্ড','डैशबोर्ड'],
+'New Requests':['নতুন অনুরোধ','नए अनुरोध'],'My Trips':['আমার ট্রিপ','मेरी ट्रिप'],'Active Trip':['চলমান ট্রিপ','चालू ट्रिप'],
+'Live Location & Navigation':['লাইভ লোকেশন ও নেভিগেশন','लाइव लोकेशन और नेविगेशन'],'Patient Details':['রোগীর বিবরণ','मरीज़ का विवरण'],
+'Hospital / Drop Location':['হাসপাতাল / ড্রপ লোকেশন','अस्पताल / ड्रॉप लोकेशन'],'Vehicle':['গাড়ি','वाहन'],'Vehicle & KYC':['গাড়ি ও কেওয়াইসি','वाहन और केवाईसी'],
+'Money':['অর্থ','पैसा'],'Earnings & Bank':['আয় ও ব্যাংক','कमाई और बैंक'],'Performance':['পারফরম্যান্স','प्रदर्शन'],
+'Ratings & Performance':['রেটিং ও পারফরম্যান্স','रेटिंग और प्रदर्शन'],'Account':['অ্যাকাউন্ট','खाता'],'Partner Hub':['পার্টনার হাব','पार्टनर हब'],
+'Notifications':['নোটিফিকেশন','सूचनाएं'],'Profile & Settings':['প্রোফাইল ও সেটিংস','प्रोफ़ाइल और सेटिंग्स'],
+'Emergency / Support':['জরুরি / সহায়তা','आपातकाल / सहायता'],'Logout':['লগআউট','लॉग आउट'],'Loading…':['লোড হচ্ছে…','लोड हो रहा है…'],
+'● Loading…':['● লোড হচ্ছে…','● लोड हो रहा है…'],'Ambulance Dashboard':['অ্যাম্বুলেন্স ড্যাশবোর্ড','एम्बुलेंस डैशबोर्ड'],
+'Manage ambulance requests, trips and patient pickups from one place.':['অ্যাম্বুলেন্সের অনুরোধ, ট্রিপ ও রোগী তোলা এক জায়গা থেকে পরিচালনা করুন।','एम्बुलेंस अनुरोध, ट्रिप और मरीज़ पिकअप एक ही जगह से संभालें।'],
+"Today's Trips":['আজকের ট্রিপ','आज की ट्रिप'],"Today's Earnings":['আজকের আয়','आज की कमाई'],"Today's Ambulance Trips":['আজকের অ্যাম্বুলেন্স ট্রিপ','आज की एम्बुलेंस ट्रिप'],
+'View All →':['সব দেখুন →','सभी देखें →'],'Emergency Request Nearby':['কাছেই জরুরি অনুরোধ','पास में आपातकालीन अनुरोध'],
+'Time':['সময়','समय'],'Patient':['রোগী','मरीज़'],'Pickup':['পিকআপ','पिकअप'],'Drop':['ড্রপ','ड्रॉप'],'Status':['অবস্থা','स्थिति'],
+'Loading trips…':['ট্রিপ লোড হচ্ছে…','ट्रिप लोड हो रही हैं…'],'Quick Actions':['দ্রুত কাজ','त्वरित कार्य'],
+'Emergency Requests':['জরুরি অনুরোধ','आपातकालीन अनुरोध'],'View urgent nearby bookings':['কাছের জরুরি বুকিং দেখুন','पास की जरूरी बुकिंग देखें'],
+'Start Navigation':['নেভিগেশন শুরু করুন','नेविगेशन शुरू करें'],'Open current trip route':['চলমান ট্রিপের রুট খুলুন','चालू ट्रिप का रूट खोलें'],
+'Vehicle Details':['গাড়ির বিবরণ','वाहन विवरण'],'Ambulance status & documents':['অ্যাম্বুলেন্সের অবস্থা ও নথি','एम्बुलेंस स्थिति और दस्तावेज़'],
+'My Earnings':['আমার আয়','मेरी कमाई'],'Trips and settlements':['ট্রিপ ও সেটেলমেন্ট','ट्रिप और सेटलमेंट'],
+'Live Trip Activity':['লাইভ ট্রিপ কার্যকলাপ','लाइव ट्रिप गतिविधि'],'Loading activity…':['কার্যকলাপ লোড হচ্ছে…','गतिविधि लोड हो रही है…'],
+'New Ambulance Requests':['নতুন অ্যাম্বুলেন্স অনুরোধ','नए एम्बुलेंस अनुरोध'],
+'Nearby patients waiting for a driver. Accept quickly to respond.':['কাছের রোগীরা ড্রাইভারের অপেক্ষায়। দ্রুত গ্রহণ করুন।','पास के मरीज़ ड्राइवर का इंतज़ार कर रहे हैं। जल्दी स्वीकार करें।'],
+'Back to Dashboard':['ড্যাশবোর্ডে ফিরুন','डैशबोर्ड पर वापस जाएं'],'Track and navigate your current active trip.':['আপনার চলমান ট্রিপ ট্র্যাক ও নেভিগেট করুন।','अपनी चालू ट्रिप को ट्रैक और नेविगेट करें।'],
+'Ambulance & Vehicle / KYC':['অ্যাম্বুলেন্স ও গাড়ি / কেওয়াইসি','एम्बुलेंस और वाहन / केवाईसी'],
+'Vehicle specs, equipment and your verification documents.':['গাড়ির স্পেসিফিকেশন, সরঞ্জাম ও আপনার যাচাইয়ের নথি।','वाहन विनिर्देश, उपकरण और आपके सत्यापन दस्तावेज़।'],
+'All your ambulance trips — search, filter and review any trip.':['আপনার সব অ্যাম্বুলেন্স ট্রিপ — খুঁজুন, ফিল্টার করুন ও দেখুন।','आपकी सभी एम्बुलेंस ट्रिप — खोजें, फ़िल्टर करें और देखें।'],
+'Search patient or trip ID…':['রোগী বা ট্রিপ আইডি খুঁজুন…','मरीज़ या ट्रिप आईडी खोजें…'],'All Trips':['সব ট্রিপ','सभी ट्रिप'],'Upcoming':['আসন্ন','आगामी'],
+'Active':['চলমান','चालू'],'Completed':['সম্পন্ন','पूर्ण'],'Cancelled':['বাতিল','रद्द'],'Today only':['শুধু আজ','सिर्फ़ आज'],
+'Your trip earnings, settlement status and payout account.':['আপনার ট্রিপের আয়, সেটেলমেন্টের অবস্থা ও পেআউট অ্যাকাউন্ট।','आपकी ट्रिप की कमाई, सेटलमेंट स्थिति और पेआउट खाता।'],
+"How patients rate you, and how you're performing.":['রোগীরা আপনাকে কেমন রেট করছে এবং আপনার পারফরম্যান্স কেমন।','मरीज़ आपको कैसे रेट करते हैं और आपका प्रदर्शन कैसा है।'],
+'Bookings, KYC, documents and settlement updates.':['বুকিং, কেওয়াইসি, নথি ও সেটেলমেন্ট আপডেট।','बुकिंग, केवाईसी, दस्तावेज़ और सेटलमेंट अपडेट।'],
+'Your details, notification and location preferences.':['আপনার তথ্য, নোটিফিকেশন ও লোকেশন পছন্দ।','आपका विवरण, सूचना और लोकेशन प्राथमिकताएं।'],
+'Get urgent help, raise a ticket, or browse FAQs.':['জরুরি সাহায্য নিন, টিকিট করুন বা FAQ দেখুন।','तुरंत मदद लें, टिकट बनाएं या FAQ देखें।'],
+'Verification, vehicle health, performance, safety and security.':['যাচাই, গাড়ির অবস্থা, পারফরম্যান্স, নিরাপত্তা ও সুরক্ষা।','सत्यापन, वाहन स्वास्थ्य, प्रदर्शन, सुरक्षा और संरक्षण।'],
+'Details of the trip you are on right now.':['আপনি এখন যে ট্রিপে আছেন তার বিবরণ।','आप जिस ट्रिप पर हैं उसका विवरण।'],
+'Home':['হোম','होम'],'Requests':['অনুরোধ','अनुरोध'],'Earnings':['আয়','कमाई'],'More':['আরও','और'],'Trip Details':['ট্রিপের বিবরণ','ट्रिप विवरण'],
+'Close':['বন্ধ করুন','बंद करें'],'Accept Trip':['ট্রিপ গ্রহণ করুন','ट्रिप स्वीकार करें'],
+'New Request':['নতুন অনুরোধ','नया अनुरोध'],'Accepted':['গৃহীত','स्वीकृत'],'Arriving':['পৌঁছাচ্ছে','पहुँच रहे हैं'],'On The Way':['পথে আছে','रास्ते में'],
+'You are Online':['আপনি অনলাইনে আছেন','आप ऑनलाइन हैं'],'You are Offline':['আপনি অফলাইনে আছেন','आप ऑफ़लाइन हैं'],
+'Receiving emergency requests':['জরুরি অনুরোধ পাচ্ছেন','आपातकालीन अनुरोध मिल रहे हैं'],'Switch on to receive requests':['অনুরোধ পেতে চালু করুন','अनुरोध पाने के लिए चालू करें'],
+'Complete KYC to go online':['অনলাইনে যেতে কেওয়াইসি সম্পন্ন করুন','ऑनलाइन होने के लिए केवाईसी पूरा करें'],
+'● KYC Verified • Ambulance Active':['● কেওয়াইসি যাচাইকৃত • অ্যাম্বুলেন্স সক্রিয়','● केवाईसी सत्यापित • एम्बुलेंस सक्रिय'],
+'● KYC Verified • Offline':['● কেওয়াইসি যাচাইকৃত • অফলাইন','● केवाईसी सत्यापित • ऑफ़लाइन'],
+'● KYC Under Review':['● কেওয়াইসি যাচাই চলছে','● केवाईसी समीक्षा में'],'● KYC Not Verified':['● কেওয়াইসি যাচাই হয়নি','● केवाईसी सत्यापित नहीं'],
+'No pending requests':['কোনো অপেক্ষমাণ অনুরোধ নেই','कोई लंबित अनुरोध नहीं'],'Trip in progress':['ট্রিপ চলছে','ट्रिप जारी है'],'No active trip':['কোনো চলমান ট্রিপ নেই','कोई चालू ट्रिप नहीं'],
+"From today's completed trips":['আজকের সম্পন্ন ট্রিপ থেকে','आज की पूर्ण ट्रिप से'],
+'You are now Online':['আপনি এখন অনলাইনে','आप अब ऑनलाइन हैं'],'You are now Offline':['আপনি এখন অফলাইনে','आप अब ऑफ़लाइन हैं'],
+'Trip accepted!':['ট্রিপ গ্রহণ করা হয়েছে!','ट्रिप स्वीकार की गई!'],'Trip updated':['ট্রিপ আপডেট হয়েছে','ट्रिप अपडेट हुई'],'Request skipped':['অনুরোধ বাদ দেওয়া হয়েছে','अनुरोध छोड़ा गया'],
+'Profile saved':['প্রোফাইল সংরক্ষিত','प्रोफ़ाइल सहेजी गई'],'Preferences saved':['পছন্দ সংরক্ষিত','प्राथमिकताएं सहेजी गईं'],'Photo updated':['ছবি আপডেট হয়েছে','फ़ोटो अपडेट हुई'],
+'Password changed':['পাসওয়ার্ড বদলানো হয়েছে','पासवर्ड बदल दिया गया'],'Passwords do not match':['পাসওয়ার্ড মিলছে না','पासवर्ड मेल नहीं खाते'],
+'Password must be at least 8 characters':['পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে','पासवर्ड कम से कम 8 अक्षरों का होना चाहिए'],
+'Location link copied':['লোকেশন লিঙ্ক কপি হয়েছে','लोकेशन लिंक कॉपी हुआ'],'Location not supported':['লোকেশন সমর্থিত নয়','लोकेशन समर्थित नहीं'],
+'Emergency contact saved':['জরুরি যোগাযোগ সংরক্ষিত','आपातकालीन संपर्क सहेजा गया'],'Enter contact name':['যোগাযোগের নাম লিখুন','संपर्क का नाम दर्ज करें'],
+'Enter a valid 10-digit number':['সঠিক ১০ সংখ্যার নম্বর দিন','सही 10 अंकों का नंबर दर्ज करें'],'Reply saved':['উত্তর সংরক্ষিত','जवाब सहेजा गया'],
+'Deletion cancelled':['মুছে ফেলা বাতিল হয়েছে','हटाना रद्द किया गया'],'Another driver already accepted this request':['অন্য একজন ড্রাইভার এই অনুরোধ আগেই গ্রহণ করেছেন','किसी अन्य ड्राइवर ने यह अनुरोध पहले ही स्वीकार कर लिया'],
+'Allow location access to share it':['শেয়ার করতে লোকেশনের অনুমতি দিন','साझा करने के लिए लोकेशन की अनुमति दें'],'Could not get your location':['আপনার লোকেশন পাওয়া যায়নি','आपकी लोकेशन नहीं मिल सकी'],
+'Push notifications ON':['পুশ নোটিফিকেশন চালু','पुश सूचनाएं चालू'],'Push notifications OFF':['পুশ নোটিফিকেশন বন্ধ','पुश सूचनाएं बंद'],
+'Uploading…':['আপলোড হচ্ছে…','अपलोड हो रहा है…'],'Uploaded':['আপলোড হয়েছে','अपलोड हुआ'],'File too large (max 5 MB)':['ফাইল খুব বড় (সর্বোচ্চ ৫ MB)','फ़ाइल बहुत बड़ी है (अधिकतम 5 MB)'],
+'Only images or PDF allowed':['শুধু ছবি বা PDF অনুমোদিত','सिर्फ़ फ़ोटो या PDF मान्य'],
+'Appearance':['চেহারা','दिखावट'],'Light':['লাইট','लाइट'],'Dark':['ডার্ক','डार्क'],'System':['সিস্টেম','सिस्टम'],'Language':['ভাষা','भाषा'],
+'Security':['নিরাপত্তা','सुरक्षा'],'Achievements':['অর্জন','उपलब्धियां'],'Safety Center':['নিরাপত্তা কেন্দ্র','सुरक्षा केंद्र'],'Performance & Level':['পারফরম্যান্স ও লেভেল','प्रदर्शन और स्तर'],
+'Service Radius':['সেবার পরিসর','सेवा दायरा'],'Vehicle Health':['গাড়ির অবস্থা','वाहन स्वास्थ्य'],'Verification Center':['যাচাই কেন্দ্র','सत्यापन केंद्र'],
+'Share live location':['লাইভ লোকেশন শেয়ার করুন','लाइव लोकेशन साझा करें'],'SOS — Call 112':['SOS — ১১২ নম্বরে কল করুন','SOS — 112 पर कॉल करें'],
+'Report incident':['ঘটনা জানান','घटना की रिपोर्ट करें'],'MediFinder emergency support':['মেডিফাইন্ডার জরুরি সহায়তা','मेडिफाइंडर आपातकालीन सहायता'],
+'New password (min 8)':['নতুন পাসওয়ার্ড (কমপক্ষে ৮)','नया पासवर्ड (कम से कम 8)'],'Confirm password':['পাসওয়ার্ড নিশ্চিত করুন','पासवर्ड की पुष्टि करें'],
+'Change password':['পাসওয়ার্ড বদলান','पासवर्ड बदलें'],'Change Password':['পাসওয়ার্ড বদলান','पासवर्ड बदलें'],'Logout from all devices':['সব ডিভাইস থেকে লগআউট','सभी डिवाइस से लॉग आउट'],
+'Save Profile':['প্রোফাইল সংরক্ষণ করুন','प्रोफ़ाइल सहेजें'],'Raise a Ticket':['টিকিট করুন','टिकट बनाएं'],'Submit Ticket':['টিকিট জমা দিন','टिकट जमा करें'],
+'Your Tickets':['আপনার টিকিট','आपके टिकट'],'Settlement History':['সেটেলমেন্টের ইতিহাস','सेटलमेंट इतिहास'],'Recent Reviews':['সাম্প্রতিক রিভিউ','हाल की समीक्षाएं'],
+'Mark all read':['সব পড়া হয়েছে','सभी पढ़ा हुआ करें'],'No notifications yet.':['এখনও কোনো নোটিফিকেশন নেই।','अभी तक कोई सूचना नहीं।'],
+'No active trip right now.':['এখন কোনো চলমান ট্রিপ নেই।','अभी कोई चालू ट्रिप नहीं है।'],'No reviews yet.':['এখনও কোনো রিভিউ নেই।','अभी तक कोई समीक्षा नहीं।'],
+'No recent activity yet':['এখনও কোনো সাম্প্রতিক কার্যকলাপ নেই','अभी तक कोई हाल की गतिविधि नहीं'],'Nothing needs your attention right now.':['এখন আপনার মনোযোগ দরকার এমন কিছু নেই।','अभी आपके ध्यान की कोई ज़रूरत नहीं।'],
+'Needs Your Attention':['আপনার মনোযোগ দরকার','आपके ध्यान की ज़रूरत'],'Navigate':['নেভিগেট','नेविगेट'],'Reject':['প্রত্যাখ্যান','अस्वीकार'],'View Details':['বিবরণ দেখুন','विवरण देखें'],
+'Mark Arriving':['পৌঁছাচ্ছি চিহ্নিত করুন','पहुँच रहे हैं चिह्नित करें'],'Patient Picked Up':['রোগীকে তোলা হয়েছে','मरीज़ को पिकअप किया'],'Mark Trip Completed':['ট্রিপ সম্পন্ন চিহ্নিত করুন','ट्रिप पूर्ण चिह्नित करें'],
+'Date':['তারিখ','तारीख'],'Today':['আজ','आज'],'This Month':['এই মাস','इस महीने'],'Month':['মাস','महीना'],'Week':['সপ্তাহ','सप्ताह'],'Year':['বছর','साल'],'Total':['মোট','कुल'],
+'Rating':['রেটিং','रेटिंग'],'Score':['স্কোর','स्कोर'],'Trips':['ট্রিপ','ट्रिप'],'Phone':['ফোন','फ़ोन'],'Email':['ইমেইল','ईमेल'],'Address':['ঠিকানা','पता'],'Category':['বিভাগ','श्रेणी'],
+'Payment':['পেমেন্ট','भुगतान'],'Commission':['কমিশন','कमीशन'],'Gross':['মোট (গ্রস)','सकल'],'Net':['নিট','शुद्ध'],'Your Share':['আপনার অংশ','आपका हिस्सा'],
+'Personal Details':['ব্যক্তিগত তথ্য','व्यक्तिगत विवरण'],'Partner Profile':['পার্টনার প্রোফাইল','पार्टनर प्रोफ़ाइल'],'Bank Account':['ব্যাংক অ্যাকাউন্ট','बैंक खाता'],
+'Submit Bank Details':['ব্যাংকের তথ্য জমা দিন','बैंक विवरण जमा करें'],'Submit to Admin':['অ্যাডমিনের কাছে জমা দিন','एडमिन को जमा करें'],'Delete Account':['অ্যাকাউন্ট মুছুন','खाता हटाएं'],
+'Equipment':['সরঞ্জাম','उपकरण'],'Vehicle Documents':['গাড়ির নথি','वाहन दस्तावेज़'],'Driver KYC':['ড্রাইভার কেওয়াইসি','ड्राइवर केवाईसी'],'Driver Identity':['ড্রাইভারের পরিচয়','ड्राइवर पहचान'],
+'Ratings & Reviews':['রেটিং ও রিভিউ','रेटिंग और समीक्षाएं'],'Push notifications':['পুশ নোটিফিকেশন','पुश सूचनाएं'],'Continue →':['চালিয়ে যান →','जारी रखें →'],
+'Estimated Fare':['আনুমানিক ভাড়া','अनुमानित किराया'],'Trip ID':['ট্রিপ আইডি','ट्रिप आईडी'],'Live ETA':['লাইভ ETA','लाइव ETA'],'Distance Remaining':['বাকি দূরত্ব','शेष दूरी'],
+'Completion Rate':['সম্পন্নের হার','पूर्णता दर'],'Cancellation Rate':['বাতিলের হার','रद्द करने की दर'],'Avg. Response Time':['গড় সাড়ার সময়','औसत प्रतिक्रिया समय'],
+'Hospital / Drop':['হাসপাতাল / ড্রপ','अस्पताल / ड्रॉप'],'Drop / Hospital':['ড্রপ / হাসপাতাল','ड्रॉप / अस्पताल'],'Ambulance & Vehicle':['অ্যাম্বুলেন্স ও গাড়ি','एम्बुलेंस और वाहन'],
+'Verified Partner':['যাচাইকৃত পার্টনার','सत्यापित पार्टनर'],'FAQ':['FAQ','FAQ'],'Other':['অন্যান্য','अन्य'],'Save contact':['যোগাযোগ সংরক্ষণ করুন','संपर्क सहेजें'],
+'Download Statement':['স্টেটমেন্ট ডাউনলোড','स्टेटमेंट डाउनलोड करें'],'Go to KYC':['কেওয়াইসিতে যান','केवाईसी पर जाएं'],'Refresh Status':['অবস্থা রিফ্রেশ করুন','स्थिति रीफ़्रेश करें'],
+'Toggle dark mode':['ডার্ক মোড পাল্টান','डार्क मोड बदलें'],'Change language':['ভাষা পাল্টান','भाषा बदलें']
+  };
+  var GREET={'Good day':['শুভ দিন','शुभ दिन'],'Good morning':['সুপ্রভাত','सुप्रभात'],'Good afternoon':['শুভ অপরাহ্ন','शुभ दोपहर'],'Good evening':['শুভ সন্ধ্যা','शुभ संध्या']};
+  var ATTRS=['placeholder','title','aria-label'];
+  function lget(){try{return localStorage.getItem(LK)||'en'}catch(e){return'en'}}
+  function curLang(){var l=lget();return LI.hasOwnProperty(l)?l:'en'}
+  function look(core,i){
+    if(D[core])return D[core][i];
+    var m,n;
+    if((m=core.match(/^(Good (?:day|morning|afternoon|evening)), (.+)$/))&&GREET[m[1]])return GREET[m[1]][i]+', '+m[2];
+    if((m=core.match(/^(.+) • Driver$/)))return m[1]+' • '+(i===0?'ড্রাইভার':'ड्राइवर');
+    if((m=core.match(/^(\d+) awaiting a driver$/)))return i===0?m[1]+'টি ড্রাইভারের অপেক্ষায়':m[1]+' ड्राइवर की प्रतीक्षा में';
+    if((m=core.match(/^(\d+) completed$/)))return i===0?m[1]+'টি সম্পন্ন':m[1]+' पूर्ण';
+    if((m=core.match(/^Service radius set to (\d+) km$/)))return i===0?'সেবার পরিসর '+m[1]+' কিমি করা হয়েছে':'सेवा दायरा '+m[1]+' किमी सेट किया';
+    return null;
+  }
+  function tr(str,lang){
+    var i=LI[lang];if(i===undefined)return str;
+    var m=str.match(/^(\s*)([\s\S]*?)(\s*)$/),lead=m[1],core=m[2].replace(/\s+/g,' '),trail=m[3];
+    if(!core)return str;
+    var hit=look(core,i);if(hit!==null)return lead+hit+trail;
+    var s=core.match(/^([^A-Za-z0-9\u0900-\u09FF"'(]+)([\s\S]+)$/);   /* leading emoji / arrows / ticks */
+    if(s){hit=look(s[2],i);if(hit!==null)return lead+s[1]+hit+trail}
+    var e=core.match(/^([\s\S]+?)(\s*[^A-Za-z0-9\u0900-\u09FF.!?…)]+)$/); /* trailing emoji */
+    if(e){hit=look(e[1],i);if(hit!==null)return lead+hit+e[2]+trail}
+    return str;
+  }
+  var tn=new WeakMap(),an=new WeakMap();
+  function doText(n,lang){
+    var r=tn.get(n),cur=n.nodeValue;
+    if(r&&cur===r.out){if(lang==='en'){n.nodeValue=r.orig;tn.delete(n);return}var o2=tr(r.orig,lang);if(o2!==r.out){n.nodeValue=o2;r.out=o2}return}
+    if(lang==='en')return;
+    var out=tr(cur,lang);if(out!==cur){tn.set(n,{orig:cur,out:out});n.nodeValue=out}else if(r)tn.delete(n);
+  }
+  function doAttr(el,lang){
+    ATTRS.forEach(function(a){
+      var v=el.getAttribute(a);if(v===null)return;
+      var mm=an.get(el)||{},r=mm[a];
+      if(r&&v===r.out){if(lang==='en'){el.setAttribute(a,r.orig);delete mm[a];return}var o2=tr(r.orig,lang);if(o2!==r.out){el.setAttribute(a,o2);r.out=o2}return}
+      if(lang==='en')return;
+      var out=tr(v,lang);if(out!==v){mm[a]={orig:v,out:out};an.set(el,mm);el.setAttribute(a,out)}
+    });
+  }
+  var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,NOSCRIPT:1};
+  function walk(root,lang){
+    if(root.nodeType===3){if(!(root.parentNode&&SKIP[root.parentNode.nodeName]))doText(root,lang);return}
+    if(root.nodeType!==1||SKIP[root.nodeName]||(root.closest&&root.closest('.notranslate,[translate=no]')))return;
+    doAttr(root,lang);
+    var c=root.firstChild;while(c){walk(c,lang);c=c.nextSibling}
+  }
+  var obs=null,queue=new Set(),raf=0;
+  function start(){obs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:ATTRS})}
+  function flush(){raf=0;var lang=curLang();if(obs)obs.disconnect();queue.forEach(function(n){if(n.isConnected!==false)walk(n,lang)});queue.clear();if(obs)start()}
+  function onMut(ms){
+    if(curLang()==='en')return;
+    ms.forEach(function(m){if(m.type==='childList')m.addedNodes.forEach(function(n){queue.add(n)});else queue.add(m.target)});
+    if(!raf)raf=requestAnimationFrame(flush);
+  }
+  function syncLangUi(){
+    var l=curLang(),c=document.getElementById('langCode');if(c)c.textContent=NAMES[l];
+    document.querySelectorAll('#langMenu button').forEach(function(b){b.classList.toggle('on',b.dataset.l===l)});
+  }
+  function applyLang(){
+    var lang=curLang();document.documentElement.lang=lang;
+    if(obs)obs.disconnect();walk(document.body,lang);if(obs)start();syncLangUi();
+  }
+  window.mfLang=function(v){
+    try{localStorage.setItem(LK,LI.hasOwnProperty(v)?v:'en')}catch(e){}
+    var mn=document.getElementById('langMenu');if(mn)mn.classList.remove('open');
+    applyLang();
+    try{if(typeof renderHub==='function'&&document.getElementById('hubView')&&document.getElementById('hubView').style.display!=='none')renderHub()}catch(e){}
+  };
+  window.mfLangMenu=function(ev){
+    if(ev)ev.stopPropagation();
+    var mn=document.getElementById('langMenu');if(mn)mn.classList.toggle('open');
+  };
+  document.addEventListener('click',function(e){var mn=document.getElementById('langMenu');if(mn&&!e.target.closest('.mf-lang'))mn.classList.remove('open')});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){var mn=document.getElementById('langMenu');if(mn)mn.classList.remove('open')}});
+
+  /* ---- dark / light toggle ---- */
+  function isDark(){return document.documentElement.getAttribute('data-theme')==='dark'}
+  function syncThemeUi(){
+    var b=document.getElementById('themeBtn');if(b)b.textContent=isDark()?'☀️':'🌙';
+    var mt=document.querySelector('meta[name=theme-color]');if(mt)mt.setAttribute('content',isDark()?'#140d0d':'#e02020');
+  }
+  window.mfToggleTheme=function(){
+    var nv=isDark()?'light':'dark';
+    try{localStorage.setItem(TK,nv)}catch(e){}
+    document.documentElement.setAttribute('data-theme',nv);syncThemeUi();
+    try{if(typeof renderHub==='function'&&document.getElementById('hubView')&&document.getElementById('hubView').style.display!=='none')renderHub()}catch(e){}
+  };
+  new MutationObserver(syncThemeUi).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){
+    var t='light';try{t=localStorage.getItem(TK)||'light'}catch(e){}
+    if(t==='system'){document.documentElement.setAttribute('data-theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}
+  })}catch(e){}
+  function init(){obs=new MutationObserver(onMut);syncThemeUi();applyLang();start()}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
 </body>
 </html>

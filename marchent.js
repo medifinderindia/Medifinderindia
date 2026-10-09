@@ -1,3 +1,35 @@
+/* ===== Light / Dark theme manager (saved in localStorage 'mf_theme') ===== */
+(function () {
+  'use strict';
+  var KEY = 'mf_theme', root = document.documentElement;
+  function get() { try { return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; } }
+  function sync() {
+    var t = get(), n = document.querySelectorAll('[data-theme-opt]');
+    for (var i = 0; i < n.length; i++) {
+      var on = n[i].getAttribute('data-theme-opt') === t;
+      if (n[i].classList.contains('active') !== on) n[i].classList.toggle('active', on);
+      n[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  function paint() { var t = get(); root.setAttribute('data-theme', t); root.style.colorScheme = t; sync(); }
+  function set(t) { try { localStorage.setItem(KEY, t === 'dark' ? 'dark' : 'light'); } catch (e) {} paint(); }
+  window.MFTheme = { get: get, set: set };
+  paint();
+  window.addEventListener('storage', function (e) { if (e.key === KEY) paint(); });
+  document.addEventListener('click', function (e) {
+    var o = e.target && e.target.closest && e.target.closest('[data-theme-opt]');
+    if (o) set(o.getAttribute('data-theme-opt'));
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    sync();
+    if (!window.MutationObserver) return;
+    var q = false;
+    new MutationObserver(function () { if (q) return; q = true; (window.requestAnimationFrame || setTimeout)(function () { q = false; sync(); }); })
+      .observe(document.body, { childList: true, subtree: true });
+  });
+})();
+/* ===== end theme manager ===== */
+
 /* ==========================================================================
    MEDIFINDER INDIA — MERCHANT SIDE
    marchent.js — routing, state, live Supabase data layer, and all page renderers.
@@ -33,6 +65,8 @@
     search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
     more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    play: '<path d="M7 4l13 8-13 8z"/>',
     edit: '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
     check: '<path d="M4 12l6 6L20 6"/>',
@@ -231,7 +265,8 @@
      ============================================================ */
 
   /* ---------- small shared helpers ---------- */
-  const TERMS_URL = 'info.html#terms';              // Terms & Policies (info.html)
+  const TERMS_URL = 'marchentt&c.html#terms';       // Terms & Conditions (marchentt&c.html)
+  const PRIVACY_URL = 'marchentt&c.html#privacy';   // Privacy Policy (same page)
   const RATE_PER_DAY = 10;                          // ₹ per product per day — Featured / Promote
   const PROMO_FAR_END = '2099-12-31T23:59:59.000Z';   // "no end date"
   const SETTINGS_KEY = 'mf_merchant_settings';
@@ -286,7 +321,7 @@
     else if (raw === 'rejected') status = 'rejected';
     else if (raw === 'in_progress') status = 'in_progress';
     // merchants verified by the older admin flow only have license_status = 'verified'
-    if (status === 'not_started' && String(r.license_status || '').toLowerCase() === 'verified') status = 'verified';
+    if (status !== 'rejected' && String(r.license_status || '').toLowerCase() === 'verified') status = 'verified';
     return status;
   }
 
@@ -372,7 +407,7 @@
       rxVerified: !!(r.prescription_verified || r.rx_verified),
       prescriptionUrl: r.prescription_url || r.rx_prescription_url || '',
       partner: r.delivery_partner || (['shipped', 'picked_up'].includes(status) ? 'medifinder' : ''),
-      courierName: r.courier_name || '', courierTracking: r.courier_tracking || '',
+      courierName: r.courier_name || '', courierTracking: r.courier_tracking || '', courierProvider: r.courier_provider || '', courierCost: num(r.courier_cost),
       deliverySpeed: r.delivery_speed || 'manual',
       coupon: r.coupon_code || '', cancelReason: r.cancellation_reason || '',
       createdAt: r.created_at, deliveredAt: r.delivered_at
@@ -490,7 +525,7 @@
       amount, originalAmount, requestDate: r.created_at, status,
       refundStatus: r.refund_status, refundMethod: r.refund_method || '', refundedAt: r.refund_processed_at,
       pickupDate: r.return_pickup_date, pickupSlot: r.pickup_slot || '', pickupAddress: r.pickup_address || (order && order.address) || '',
-      receivedDate: r.return_received_date, restockingFee: num(r.restocking_fee), notes: r.merchant_notes || '', updatedAt: r.updated_at
+      receivedDate: r.return_received_date, returnAwb: r.return_awb || '', returnCourier: r.return_courier_name || '', restockingFee: num(r.restocking_fee), notes: r.merchant_notes || '', updatedAt: r.updated_at
     };
   }
 
@@ -635,69 +670,50 @@
         return { ok: true, mode: 'medifinder' };
       }
       try {
-        const merchant = await loadMerchantRow();
-        const pickupPincode = merchant.pincode;
-        const deliveryPincode = (String(order.address || '').match(/\b(\d{6})\b/) || [])[1];
-        if (!pickupPincode || !deliveryPincode) throw new Error('Pincode missing for Shiprocket booking');
-
-        const { data: itemRows } = await sb.from('order_items').select('medicine_id, product_name, name, quantity, unit_price, price').eq('order_id', order.code);
-        const rows = itemRows || [];
-        const medIds = [...new Set(rows.map(i => i.medicine_id).filter(Boolean))];
-        let weightMap = {};
-        if (medIds.length) {
-          const { data: meds } = await sb.from('medicines').select('id, weight_kg').in('id', medIds);
-          (meds || []).forEach(m => { weightMap[m.id] = m.weight_kg; });
+        const { data, error } = await sb.functions.invoke('courier', { body: { action: 'dispatch', order_id: order.code } });
+        let body = data;
+        if (!body && error && error.context && typeof error.context.json === 'function') { try { body = await error.context.json(); } catch (_e) { /* generic */ } }
+        if (error || !body || body.success === false || !body.awb_code) {
+          const reason = (body && body.error) || (error && error.message) || 'Courier could not be booked';
+          throw new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
         }
-        const weightKg = rows.reduce((sum, i) => sum + (parseFloat(weightMap[i.medicine_id]) || 0.5) * (num(i.quantity) || 1), 0) || 0.5;
-        const isCOD = String(order.paymentMode || '').toUpperCase().includes('COD');
-
-        const [name, ...rest] = String(order.customer || 'Customer').trim().split(' ');
-        const { data: srData, error: srError } = await sb.functions.invoke('shiprocket', {
-          body: {
-            action: 'create_order',
-            order_id: order.code,
-            pickup_postcode: pickupPincode,
-            delivery_postcode: deliveryPincode,
-            weight: weightKg,
-            cod: isCOD,
-            billing_customer_name: name || 'Customer',
-            billing_last_name: rest.join(' '),
-            billing_address: order.address || '',
-            billing_pincode: deliveryPincode,
-            billing_phone: order.phone || '',
-            order_items: rows.map(i => ({ name: i.product_name || i.name || 'Item', sku: String(i.medicine_id || order.code), units: num(i.quantity) || 1, selling_price: num(i.unit_price || i.price) || 0 })),
-            sub_total: order.total || 0,
-          }
-        });
-        // functions.invoke() hides the real reason on non-2xx (data is null, error is generic) -> read the response body ourselves
-        let srBody = srData;
-        if (!srBody && srError && srError.context && typeof srError.context.json === 'function') {
-          try { srBody = await srError.context.json(); } catch (_e) { /* keep generic message */ }
-        }
-        if (srError || !srBody || srBody.success === false || srBody.serviceable === false || !srBody.awb_assigned) {
-          const reason = (srBody && (srBody.error?.message || srBody.error)) || srError?.message || 'Shiprocket could not book this shipment';
-          console.error('Shiprocket booking failed:', { step: srBody && srBody.step, reason, details: srBody && srBody.details });
-          const e = new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
-          e.step = srBody && srBody.step;
-          throw e;
-        }
-        const patch = { status: 'shipped', delivery_partner: 'courier', courier_name: srBody.courier_name || 'Shiprocket', courier_tracking: srBody.awb_code || '' };
-        await DB.updateOrder(order.id, patch);
-        const who = `${srBody.courier_name || 'Shiprocket'} (AWB ${srBody.awb_code})`;
+        invalidateOrders();
+        const who = `${body.courier_name} (AWB ${body.awb_code})`;
         await notifyMerchant('Order Shipped', `Order ${order.code} dispatched via ${who}.`, 'order', order.id);
         await notifyCustomer(order, { title: 'Order on the way', message: `Your order ${order.code} has been handed over to ${who}.`, orderCode: order.code });
-        return { ok: true, mode: 'shiprocket', awb: srBody.awb_code, courier: srBody.courier_name };
+        return { ok: true, mode: 'courier', awb: body.awb_code, courier: body.courier_name, cost: body.cost };
       } catch (e) {
-        console.warn('Shiprocket auto-dispatch failed, falling back to manual courier picker', e);
+        console.warn('Courier auto-dispatch failed, falling back to manual courier picker', e);
         return { ok: false, error: e };
       }
     },
     markDelivered: async (order) => {
+      if (order.partner === 'courier' && order.courierProvider) throw appError('AUTO', 'Courier orders are marked delivered automatically by the courier.');
       await DB.updateOrder(order.id, { status: 'delivered', delivered_at: new Date().toISOString() });
       await notifyMerchant('Order Delivered', `Order ${order.code} marked as delivered.`, 'order', order.id);
       await notifyCustomer(order, { title: 'Order delivered', message: `Your order ${order.code} has been delivered.`, orderCode: order.code });
     },
+    // approve -> auto-book reverse pickup with the cheaper courier (edge function skips non-courier orders)
+    bookReturnPickup: async (returnId) => {
+      const { data, error } = await sb.functions.invoke('courier', { body: { action: 'return', return_id: returnId } });
+      let body = data;
+      if (!body && error && error.context && typeof error.context.json === 'function') { try { body = await error.context.json(); } catch (_e) { /* generic */ } }
+      if (error || !body || body.success === false) throw new Error((body && body.error) || (error && error.message) || 'Return pickup could not be booked');
+      return body;
+    },
     updateCourier: async (order, courierName, tracking) => DB.updateOrder(order.id, { courier_name: courierName, courier_tracking: tracking }),
+
+    // Courier shipping label (the sticker that goes on the parcel). Fetched by the `courier` edge function
+    // (action 'label'), which asks Shiprocket / NimbusPost for the real label PDF and hands it back as base64.
+    downloadCourierLabel: async (order) => {
+      const { data, error } = await sb.functions.invoke('courier', { body: { action: 'label', order_id: order.code } });
+      let body = data;
+      if (!body && error && error.context && typeof error.context.json === 'function') { try { body = await error.context.json(); } catch (_e) { /* generic */ } }
+      if (error || !body || body.success === false || !body.base64) throw new Error((body && body.error) || (error && error.message) || 'Courier label is not available yet');
+      const bin = atob(body.base64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      saveBlobAs(new Blob([bytes], { type: body.content_type || 'application/pdf' }), body.filename || `label-${order.code}.pdf`);
+    },
 
     /* ---- prescriptions (broadcast requests; first pharmacy to accept wins) ---- */
     getPrescriptions: async () => {
@@ -708,7 +724,7 @@
       const rows = (data || []).filter(r => !(r.status === 'pending' && dismissed.has(r.id)));
       const mine = rows.filter(r => r.accepted_by === mid && r.prescription_url);
       const linked = await inChunks('orders', 'id,order_id,prescription_url,status', 'prescription_url', mine.map(r => r.prescription_url), (q) => q.eq('merchant_id', mid));
-      return rows.map(r => {
+      const out = rows.map(r => {
         const link = r.accepted_by === mid ? linked.find(o => o.prescription_url === r.prescription_url) : null;
         let status = r.status;
         if (r.status === 'accepted') status = link ? 'ordered' : 'accepted';
@@ -718,6 +734,23 @@
           acceptedBy: r.accepted_by, createdAt: r.created_at, orderId: link ? link.id : null, orderCode: link ? link.order_id : null
         };
       });
+      // fill any missing phone / address / name from the customer's own profile + saved addresses
+      await Promise.all(out.filter(x => x.acceptedBy === mid && (!x.phone || !x.address)).map(async (x) => {
+        const c = await DB.getRxContact(x.id);
+        if (!c) return;
+        x.phone = x.phone || c.phone || '';
+        x.address = x.address || c.address || '';
+        if ((!x.customer || x.customer === 'Customer') && c.name) x.customer = c.name;
+      }));
+      return out;
+    },
+    // customer's phone / address / name straight from the user tables (profiles + user_addresses)
+    getRxContact: async (id) => {
+      try {
+        const { data, error } = await sb.rpc('get_rx_contact', { p_id: id });
+        if (error) throw error;
+        return data || null;
+      } catch (e) { console.warn('rx contact lookup failed', e); return null; }
     },
     acceptPrescription: async (id) => {
       const mid = await requireMerchantId();
@@ -749,6 +782,10 @@
     createRxOrder: async (rx, lines, paymentMode) => {
       const mid = await requireMerchantId();
       const m = await loadMerchantRow();
+      if (rx && rx.id && (!rx.phone || !rx.address)) {
+        const c = await DB.getRxContact(rx.id);
+        if (c) rx = Object.assign({}, rx, { phone: rx.phone || c.phone || '', address: rx.address || c.address || '', customer: (rx.customer && rx.customer !== 'Customer') ? rx.customer : (c.name || rx.customer) });
+      }
       const code = 'ORD-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
       const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
       const cod = paymentMode !== 'ONLINE';
@@ -813,6 +850,14 @@
       if (error) { console.error(error); throw error; }
       productsCache = null;
       return rowToProduct(data);
+    },
+    // Pause (status Inactive -> hidden from customers, can't be ordered) / Resume (only for admin-approved products)
+    setProductActive: async (id, active) => {
+      const mid = await requireMerchantId();
+      const { data, error } = await sb.from('medicines').update({ status: active ? 'Approved' : 'Inactive' }).eq('id', id).eq('merchant_id', mid).eq('admin_approved', true).select('id');
+      if (error) { console.error(error); throw error; }
+      if (!data || !data.length) throw appError('DENIED', 'This product could not be updated.');
+      productsCache = null;
     },
     deleteProduct: async (id) => {
       const mid = await requireMerchantId();
@@ -1183,10 +1228,11 @@
     { route: 'payments', label: 'Payments', icon: 'wallet' },
     { route: 'analytics', label: 'Analytics', icon: 'chart' },
     { route: 'notifications', label: 'Notifications', icon: 'bell', badge: 'notif' },
+    { route: 'faq', label: 'FAQ', icon: 'help' },
     { route: 'support', label: 'Support', icon: 'help' },
     { route: 'settings', label: 'Settings', icon: 'settings' }
   ];
-  const BOTTOM_MAIN = ['dashboard', 'orders', 'inventory', 'prescription'];
+  const BOTTOM_MAIN = ['dashboard', 'orders', 'inventory', 'prescription', 'faq'];
   const DRAWER_ROUTES = ['categories', 'promotions', 'customers', 'returns', 'delivery', 'payments', 'analytics', 'notifications', 'support', 'settings'];
   const BOTTOM_ICON_OVERRIDE = { dashboard: 'home' };
   const ROUTE_TITLE = Object.fromEntries(NAV_FULL.map(n => [n.route, n.label]));
@@ -1253,16 +1299,18 @@
   /* ============================================================
      SHEETS (bottom-sheet / dialog) — used by profile, RX, delivery, promotions…
      ============================================================ */
-  function closeSheet() { document.querySelectorAll('.sheet-scrim').forEach(el => el.remove()); }
+  function closeSheet() { document.querySelectorAll('.sheet-scrim').forEach(el => el.remove()); document.body.classList.remove('sheet-open'); }
   function openSheet(title, bodyHtml, opts) {
     opts = opts || {};
     closeSheet();
     const scrim = document.createElement('div');
     scrim.className = 'modal-scrim sheet-scrim';
     scrim.innerHTML = `<div class="modal sheet${opts.wide ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-      <div class="modal-head"><h3>${esc(title)}</h3><button class="icon-btn" data-sheet-close aria-label="Close">${icon('close')}</button></div>
+      <div class="modal-head"><button class="icon-btn" data-sheet-close aria-label="Back">${icon('chevronL')}</button><h3>${esc(title)}</h3></div>
       <div class="modal-body sheet-body">${bodyHtml}</div></div>`;
     document.getElementById('app').appendChild(scrim);
+    document.body.classList.add('sheet-open');
+    scrim.scrollTop = 0;
     scrim.addEventListener('mousedown', (e) => { scrim._down = e.target === scrim; });
     scrim.addEventListener('click', (e) => { if ((e.target === scrim && scrim._down) || e.target.closest('[data-sheet-close]')) closeSheet(); });
     const body = scrim.querySelector('.sheet-body');
@@ -1594,6 +1642,28 @@
     </div>`;
   }
 
+  /* ---------- downloads: saved file + order receipt PDF ---------- */
+  function saveBlobAs(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  let jsPdfPromise = null;
+  function loadJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+    if (!jsPdfPromise) jsPdfPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = () => (window.jspdf && window.jspdf.jsPDF) ? resolve(window.jspdf.jsPDF) : reject(new Error('PDF library failed to load'));
+      s.onerror = () => { jsPdfPromise = null; reject(new Error('Could not load the PDF library — check your internet connection')); };
+      document.head.appendChild(s);
+    });
+    return jsPdfPromise;
+  }
+  // Order receipt = the official MediFinder India invoice page (order-receipt.html): QR-scannable by anyone, verified/signed only by this merchant
+  function openOrderReceipt(order) { window.open('order-receipt.html?type=order&order_id=' + encodeURIComponent(order.code), '_blank'); }
+
   const ORDER_STEPS = ['pending', 'accepted', 'shipped', 'picked_up', 'delivered'];
   const ORDER_STEP_TITLE = { pending: 'Order placed', accepted: 'Accepted by you', shipped: 'Dispatched', picked_up: 'Out for delivery', delivered: 'Delivered' };
 
@@ -1609,7 +1679,7 @@
     let actions = '';
     if (order.status === 'pending') actions = `<button class="btn btn-primary" data-order-action="accept" data-order-id="${order.id}">Accept order</button><button class="btn btn-outline" data-order-action="cancel" data-order-id="${order.id}">Reject order</button>`;
     else if (order.status === 'accepted') actions = `<button class="btn btn-primary" data-order-action="dispatch" data-order-id="${order.id}">${icon('truck')}<span>Dispatch order</span></button><button class="btn btn-outline" data-order-action="cancel" data-order-id="${order.id}">Cancel order</button>`;
-    else if (order.status === 'shipped' && courier) actions = `<button class="btn btn-primary" data-order-action="delivered" data-order-id="${order.id}">Mark delivered</button><button class="btn btn-outline" data-order-action="courier" data-order-id="${order.id}">Edit tracking</button>`;
+    else if (order.status === 'shipped' && courier) actions = order.courierProvider ? `<p class="cell-muted" style="font-size:12.5px">${esc(order.courierName)} · AWB ${esc(order.courierTracking)} — status updates automatically when the courier delivers.</p>` : `<button class="btn btn-primary" data-order-action="delivered" data-order-id="${order.id}">Mark delivered</button><button class="btn btn-outline" data-order-action="courier" data-order-id="${order.id}">Edit tracking</button>`;
 
     return `
     <button class="detail-back" data-route="orders">${icon('chevronL')}<span>Back to orders</span></button>
@@ -1643,6 +1713,13 @@
           <div class="review-row"><span>Delivered by</span><span>${partnerLabel}</span></div>
           ${courier && order.courierTracking ? `<div class="review-row"><span>Tracking ID</span><span class="cell-mono">${esc(order.courierTracking)}</span></div>` : ''}
           ${!courier && !order.rider && order.status === 'shipped' ? '<div class="review-row"><span>Rider</span><span>Waiting for a rider to accept</span></div>' : ''}
+        </div>` : ''}
+
+        ${['shipped', 'picked_up', 'delivered'].includes(order.status) ? `
+        <div class="card panel">
+          <div class="panel-head"><h3>${courier ? 'Receipts (2)' : 'Receipt'}</h3></div>
+          ${courier ? `<div class="review-row"><span>${esc(order.courierName || 'Courier')} shipping label${order.courierTracking ? ' · AWB ' + esc(order.courierTracking) : ''}</span><span><button class="btn btn-outline btn-sm" data-order-action="label" data-order-id="${order.id}"${order.courierProvider ? '' : ' disabled title="Shipment was entered manually - no courier label exists"'}>${icon('truck')}<span>Download label</span></button></span></div>` : ''}
+          <div class="review-row"><span>MediFinder India order receipt<br><small>Open it to download, or to verify / sign as the seller</small></span><span><button class="btn btn-primary btn-sm" data-order-action="receipt" data-order-id="${order.id}"><span>Open receipt</span></button></span></div>
         </div>` : ''}
 
         ${order.status === 'cancelled' && order.cancelReason ? `<div class="rejection-note"><strong>Cancelled:</strong> ${esc(order.cancelReason)}</div>` : ''}
@@ -1755,14 +1832,16 @@
             else { b.disabled = false; showToast('Could not dispatch this order', 'error'); }
           } else {
             b.disabled = true;
-            showToast('Booking Shiprocket shipment…');
+            showToast('Finding the cheapest courier…');
             const r = await DB.autoDispatch(order);
             if (r.ok) { showToast(`Booked with ${r.courier} (AWB ${r.awb})`); done(); }
-            else { b.disabled = false; const why = r.error && r.error.message ? String(r.error.message).slice(0, 140) : ''; showToast('Shiprocket booking failed' + (why ? ': ' + why : '') + ' — choose delivery manually', 'error'); openDispatchSheet(order, done); }
+            else { b.disabled = false; const why = r.error && r.error.message ? String(r.error.message).slice(0, 140) : ''; showToast('Courier booking failed' + (why ? ': ' + why : '') + ' — choose delivery manually', 'error'); openDispatchSheet(order, done); }
           }
         }
         else if (act === 'cancel') openCancelSheet(order, done);
         else if (act === 'courier') openCourierSheet(order, done);
+        else if (act === 'receipt') openOrderReceipt(order);
+        else if (act === 'label') { b.disabled = true; showToast('Fetching courier label…'); try { await DB.downloadCourierLabel(order); showToast('Courier label downloaded'); } catch (e) { showToast('Courier label: ' + String(e.message || e).slice(0, 120), 'error'); } finally { b.disabled = false; } }
       } catch (err) { console.error(err); b.disabled = false; showToast('Could not update this order', 'error'); }
     }));
   };
@@ -1963,6 +2042,10 @@
     return renderInventoryList(products, categories);
   };
 
+  // Pause / Resume only makes sense for admin-approved products
+  const pauseBtn = (p) => ((p.status || 'approved') === 'approved')
+    ? `<button class="btn btn-ghost btn-sm" data-pause-product="${p.id}" data-pause-to="${p.active ? 'pause' : 'resume'}" title="${p.active ? 'Pause' : 'Resume'}">${icon(p.active ? 'pause' : 'play')}<span>${p.active ? 'Pause' : 'Resume'}</span></button>`
+    : '';
   function renderInventoryList(products, categories) {
     const f = state.filters.inventory;
     let list = products.filter(p => {
@@ -1984,7 +2067,7 @@
         <td>${stockPill(p)}</td>
         <td>${p.rxRequired ? '<span class="pill pill-teal">RX</span>' : '<span class="cell-muted">—</span>'}</td>
         <td>${productStatusPill(p)}</td>
-        <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit-product="${p.id}">${icon('edit')}</button><button class="btn btn-ghost btn-sm" data-delete-product="${p.id}">${icon('trash')}</button></div></td>
+        <td><div class="row-actions">${pauseBtn(p)}<button class="btn btn-ghost btn-sm" data-edit-product="${p.id}" title="Edit">${icon('edit')}</button><button class="btn btn-ghost btn-sm" data-delete-product="${p.id}" title="Delete">${icon('trash')}</button></div></td>
       </tr>`).join('');
     const cards = list.map(p => `
       <div class="item-card">
@@ -1993,8 +2076,8 @@
           <div class="item-card-title">${esc(p.name)}</div>
           <div class="item-card-sub">${esc(p.category)} · ${money(p.price)} · ♥ ${likesOf(p)}</div>
           <div class="item-card-meta">${stockPill(p)}${productStatusPill(p)}</div>
+          <div class="row-actions" style="margin-top:10px;flex-wrap:wrap">${pauseBtn(p)}<button class="btn btn-ghost btn-sm" data-edit-product="${p.id}" title="Edit">${icon('edit')}<span>Edit</span></button><button class="btn btn-ghost btn-sm" data-delete-product="${p.id}" title="Delete">${icon('trash')}<span>Delete</span></button></div>
         </div>
-        <div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit-product="${p.id}">${icon('edit')}</button></div>
       </div>`).join('');
 
     return `
@@ -2006,7 +2089,7 @@
       <div class="search-box">${icon('search')}<input type="text" id="invSearch" placeholder="Search medicine or generic name" value="${esc(f.q)}"></div>
     </div>
     <div class="chip-row" style="margin-bottom:16px">
-      ${[['all', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['active', 'Active'], ['inactive', 'Inactive'], ['pending', 'Drafts & pending']].map(([k, l]) => `<button class="filter-chip${f.status === k ? ' active' : ''}" data-inv-filter="${k}">${l}</button>`).join('')}
+      ${[['all', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['active', 'Active'], ['inactive', 'Paused'], ['pending', 'Drafts & pending']].map(([k, l]) => `<button class="filter-chip${f.status === k ? ' active' : ''}" data-inv-filter="${k}">${l}</button>`).join('')}
     </div>
     <div class="card">
       <div class="table-wrap"><table class="data-table"><thead><tr><th>Product</th><th>Category</th><th>Likes</th><th>Price</th><th>Stock</th><th>RX</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -2024,7 +2107,7 @@
     if (p.status === 'draft') return '<span class="pill pill-gray">Draft</span>';
     if (p.status === 'pending') return '<span class="pill pill-amber">Pending approval</span>';
     if (p.status === 'rejected') return '<span class="pill pill-red">Rejected</span>';
-    return p.active ? '<span class="pill pill-green">Active</span>' : '<span class="pill pill-gray">Inactive</span>';
+    return p.active ? '<span class="pill pill-green">Active</span>' : '<span class="pill pill-gray">Paused</span>';
   }
   function stockPill(p) {
     if (p.stock === 0) return '<span class="pill pill-red">Out of stock</span>';
@@ -2037,6 +2120,17 @@
     document.querySelectorAll('[data-inv-filter]').forEach(b => b.addEventListener('click', () => { state.filters.inventory.status = b.dataset.invFilter; refreshInventoryOnly(); }));
     document.getElementById('addProductBtn')?.addEventListener('click', () => navigate('add-product'));
     document.querySelectorAll('[data-edit-product]').forEach(b => b.addEventListener('click', () => navigate('add-product', b.dataset.editProduct)));
+    document.querySelectorAll('[data-pause-product]').forEach(b => b.addEventListener('click', async () => {
+      const id = b.dataset.pauseProduct, resume = b.dataset.pauseTo === 'resume';
+      if (resume) {
+        const p = (await DB.getProducts()).find(x => String(x.id) === String(id));
+        if (p && Number(p.stock) <= 0) { showToast('Add stock first — edit the product and set the quantity', 'error'); return; }
+      }
+      b.disabled = true;
+      try { await DB.setProductActive(id, resume); showToast(resume ? 'Product is live again' : 'Product paused — customers can’t order it'); }
+      catch (err) { console.error(err); showToast('Could not update this product', 'error'); }
+      refreshInventoryOnly();
+    }));
     document.querySelectorAll('[data-delete-product]').forEach(b => b.addEventListener('click', async () => {
       const ok = await confirmDialog('Delete this product?', 'This cannot be undone. The product will be removed from your storefront.');
       if (!ok) return;
@@ -3161,9 +3255,10 @@
         ${r.status === 'pending' ? `<div class="card panel"><div class="panel-head"><h3>Decision</h3></div><div class="modal-actions" style="justify-content:flex-start;margin-top:0"><button class="btn btn-primary" data-ret-act="approve">Approve return</button><button class="btn btn-outline" data-ret-act="reject">Reject</button></div></div>` : ''}
 
         ${approved ? `<div class="card panel"><div class="panel-head"><h3>Pickup</h3></div>
-          ${r.pickupDate ? `<div class="review-row"><span>Date</span><span>${fmtDate(r.pickupDate)}</span></div><div class="review-row"><span>Slot</span><span>${esc(r.pickupSlot || '—')}</span></div><div class="review-row"><span>Address</span><span>${esc(r.pickupAddress || '—')}</span></div>` : ''}
-          ${r.status === 'approved' ? `<button class="btn btn-outline" style="margin-top:10px" data-ret-act="pickup">${r.pickupDate ? 'Reschedule pickup' : 'Schedule pickup'}</button>` : ''}
-          ${r.status === 'approved' && !r.receivedDate ? `<button class="btn btn-primary" style="margin:10px 0 0 8px" data-ret-act="received">Mark item received</button>` : ''}</div>
+          ${r.returnAwb ? `<div class="review-row"><span>Courier</span><span>${esc(r.returnCourier)}</span></div><div class="review-row"><span>AWB</span><span class="cell-mono">${esc(r.returnAwb)}</span></div><p class="cell-muted" style="font-size:12px;margin-top:6px">Pickup is arranged automatically. "Received" is marked when the courier delivers it back to you.</p>` : ''}
+          ${r.pickupDate && !r.returnAwb ? `<div class="review-row"><span>Date</span><span>${fmtDate(r.pickupDate)}</span></div><div class="review-row"><span>Slot</span><span>${esc(r.pickupSlot || '—')}</span></div><div class="review-row"><span>Address</span><span>${esc(r.pickupAddress || '—')}</span></div>` : ''}
+          ${r.status === 'approved' && !r.returnAwb ? `<button class="btn btn-outline" style="margin-top:10px" data-ret-act="pickup">${r.pickupDate ? 'Reschedule pickup' : 'Schedule pickup'}</button>` : ''}
+          ${r.status === 'approved' && !r.receivedDate && !r.returnAwb ? `<button class="btn btn-primary" style="margin:10px 0 0 8px" data-ret-act="received">Mark item received</button>` : ''}</div>
 
         <div class="card panel"><div class="panel-head"><h3>Refund</h3></div>
           <div class="review-row"><span>Original amount</span><span>${money(r.originalAmount)}</span></div>
@@ -3215,7 +3310,17 @@
     document.querySelectorAll('[data-ret-act]').forEach(b => b.addEventListener('click', async () => {
       const act = b.dataset.retAct;
       try {
-        if (act === 'approve') { await DB.updateReturn(r.id, { status: 'approved' }); await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. A pickup will be scheduled.`); done('Return approved'); }
+        if (act === 'approve') {
+          await DB.updateReturn(r.id, { status: 'approved' });
+          let msg = 'Return approved';
+          try {
+            showToast('Booking return pickup…');
+            const bk = await DB.bookReturnPickup(r.id);
+            if (bk && bk.awb_code) { msg = `Return approved · pickup booked with ${bk.courier_name} (AWB ${bk.awb_code})`; await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. ${bk.courier_name} will pick it up (AWB ${bk.awb_code}).`); }
+            else await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. A pickup will be scheduled.`);
+          } catch (e) { console.error(e); msg = 'Return approved, but courier pickup could not be booked — schedule it manually'; await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. A pickup will be scheduled.`); }
+          done(msg);
+        }
         else if (act === 'reject') {
           openSheet('Reject return', `<form id="rejForm"><label class="field"><span>Reason for rejection</span><textarea name="reason" rows="3" required maxlength="200"></textarea></label><div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Back</button><button class="btn btn-danger">Reject return</button></div></form>`, {
             onOpen: (sh) => sh.el.querySelector('#rejForm').addEventListener('submit', async (e) => {
@@ -3265,7 +3370,7 @@
         ${isC ? `
           <div class="review-row"><span>Courier</span><span>${esc(o.courierName || '—')}</span></div>
           <div class="review-row"><span>Tracking ID</span><span class="cell-mono">${esc(o.courierTracking || '—')}</span></div>
-          <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-outline btn-sm" data-order-action="courier" data-order-id="${o.id}">Edit tracking</button><button class="btn btn-primary btn-sm" data-order-action="delivered" data-order-id="${o.id}">Mark delivered</button></div>`
+          ${o.courierProvider ? `<p class="cell-muted" style="font-size:12px;margin-top:8px">Delivered status updates automatically from the courier.</p>` : `<div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-outline btn-sm" data-order-action="courier" data-order-id="${o.id}">Edit tracking</button><button class="btn btn-primary btn-sm" data-order-action="delivered" data-order-id="${o.id}">Mark delivered</button></div>`}`
           : `
           <div class="review-row"><span>Rider</span><span>${o.rider ? esc(o.rider) : 'Waiting for a rider to accept'}</span></div>
           ${o.rider && o.riderPhone ? `<div class="review-row"><span>Rider phone</span><span><a href="tel:${esc(o.riderPhone)}">${esc(o.riderPhone)}</a></span></div>` : ''}
@@ -3299,22 +3404,25 @@
   const NOTIF_ICON = { order: 'orders', rx: 'rx', prescription: 'rx', stock: 'inventory', rider: 'truck', payout: 'wallet', return: 'undo', admin: 'bell', system: 'bell' };
   const notifIcon = (t) => NOTIF_ICON[String(t || '').toLowerCase()] || 'bell';
   /* ---------- Push notifications on/off ---------- */
-  const PUSH_KEY = 'mf_push_enabled';
+  /* Real push is handled by push-notifications.js (window.MFPush) — it subscribes this device and saves it to Supabase.
+     Its on/off preference lives in localStorage 'mf_push_pref'. */
+  const PUSH_PREF_KEY = 'mf_push_pref';
   function pushState() {
-    const supported = 'Notification' in window;
+    const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
     const perm = supported ? Notification.permission : 'unsupported';
-    let pref = null; try { pref = localStorage.getItem(PUSH_KEY); } catch (e) { /* storage blocked */ }
+    let pref = null; try { pref = localStorage.getItem(PUSH_PREF_KEY); } catch (e) { /* storage blocked */ }
     return { supported, perm, on: supported && perm === 'granted' && pref !== 'off' };
   }
   async function setPush(on) {
+    if (!window.MFPush) return { ok: false, perm: Notification.permission };
     if (on) {
-      const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-      if (perm !== 'granted') return { ok: false, perm };
+      const r = await window.MFPush.enable();      // sets pref ON, asks permission if needed, subscribes + saves to Supabase
+      if (!r || !r.ok) return { ok: false, perm: Notification.permission, reason: r && r.reason };
+      return { ok: true, perm: 'granted' };
     }
-    try { localStorage.setItem(PUSH_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
-    /* push-notifications.js can listen to this to subscribe / unsubscribe */
-    window.dispatchEvent(new CustomEvent('mf:push-toggle', { detail: { enabled: on } }));
-    return { ok: true, perm: 'granted' };
+    try { localStorage.setItem(PUSH_PREF_KEY, 'off'); } catch (e) { /* storage blocked */ }
+    await window.MFPush.disable();                  // removes this device from Supabase + unsubscribes
+    return { ok: true, perm: Notification.permission };
   }
   function pushCardHtml() {
     const st = pushState();
@@ -3331,7 +3439,7 @@
       btn.classList.add('busy');
       try {
         const r = await setPush(next);
-        if (!r.ok) { showToast('Notifications are blocked — allow them in browser settings', 'error'); return; }
+        if (!r.ok) { showToast(r.perm === 'denied' ? 'Notifications are blocked — allow them in browser settings' : 'Could not turn on push — please try again', 'error'); return; }
         btn.classList.toggle('on', next); btn.setAttribute('aria-checked', String(next));
         showToast(next ? 'Push notifications on' : 'Push notifications off');
       } catch (err) { console.error(err); showToast('Could not change push setting', 'error'); }
@@ -3425,12 +3533,48 @@
      SUPPORT  (real tickets in merchant_complaints)
      ============================================================ */
   const SUPPORT_EMAILS = ['support@medifinderindia.com', 'medifinderindia@gmail.com'];
-  const FAQS = [
-    ['How do I get paid?', 'Payouts are processed to your registered bank account after order completion, shown under Payments.'],
-    ['How does prescription (RX) ordering work?', 'Accept the request first, then add the medicines from your inventory — the price is filled in automatically — and create the order.'],
-    ['Who delivers my orders?', 'When you dispatch an order choose MediFinder India delivery (our riders) or hand it to a courier company and add the tracking ID.'],
-    ['How do I change my drug licence details?', 'Once your KYC is verified, licence changes go through Support so our team can re-verify the document.']
+  const FAQ_GROUPS = [
+    ['Getting started & KYC', [
+      ['Why do I need to complete KYC?', 'KYC (store details, address, drug licence, ID and bank details) lets our team verify your pharmacy before you start selling. Until it is verified, some features stay locked.'],
+      ['How long does verification take?', 'Our team reviews your submission and updates the status on your Profile. While it is under review your details are locked and cannot be edited.'],
+      ['How do I change my drug licence details?', 'Once your KYC is verified, licence changes go through Support so our team can re-verify the document.'],
+      ['How do I change my bank details?', 'Verified bank details are locked for safety. Raise a ticket under Support and we will re-verify the new details.'],
+      ['What if my KYC is rejected?', 'Open your Profile, read the rejection note, correct the section mentioned and submit again.']
+    ]],
+    ['Orders', [
+      ['How do I accept or reject an order?', 'Open Orders, tap the new order and accept it, or reject it with a reason. The customer is notified automatically.'],
+      ['Can I cancel an order after accepting it?', 'Yes, use Reject order and choose a reason. Please cancel only when the medicine is genuinely unavailable.']
+    ]],
+    ['Prescription (RX)', [
+      ['How does prescription (RX) ordering work?', 'Accept the request first, then add the medicines from your inventory — the price is filled in automatically — and create the order.']
+    ]],
+    ['Inventory & products', [
+      ['How do I add a medicine?', 'Go to Inventory and tap Add product, then follow the steps.'],
+      ['How do I update price or stock?', 'Open the product from Inventory and edit it. You can also schedule price changes to apply later.']
+    ]],
+    ['Promotions', [
+      ['What promotions can I run?', 'You can create product discounts, coupon codes and flash sales, and feature products for more visibility, all from Promotions.']
+    ]],
+    ['Delivery', [
+      ['Who delivers my orders?', 'When you dispatch an order choose MediFinder India delivery (our riders) or hand it to a courier company and add the tracking ID.'],
+      ['How do I update courier tracking?', 'Open the order and choose Edit tracking to change the courier name or tracking ID.']
+    ]],
+    ['Returns', [
+      ['How do I handle a return request?', 'Open Returns, review the reason and photos, then approve or reject. For approved returns you can schedule a pickup.']
+    ]],
+    ['Payments', [
+      ['How do I get paid?', 'Payouts are processed to your registered bank account after order completion, shown under Payments.'],
+      ['Can I turn off Cash on delivery?', 'Yes. Go to Settings → Order settings and switch Cash on delivery off.']
+    ]],
+    ['Account & settings', [
+      ['How do I change the app language?', 'Open Profile → Language, or Settings → App preferences.'],
+      ['Who do I contact for other problems?', 'Raise a ticket from Support or email us. Contact details are on the Support page.']
+    ]]
   ];
+  PAGES.faq = async () => `
+    <div class="page-head"><div><h1>FAQ</h1><p class="page-sub">Answers to common merchant questions</p></div></div>
+    ${FAQ_GROUPS.map(([title, items]) => `<div class="card panel faq-group"><div class="panel-head"><h3>${title}</h3></div>${items.map(([q, a]) => `<details class="faq-item"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`).join('')}
+    <div class="card panel"><div class="panel-head"><h3>Still need help?</h3></div><button class="btn btn-outline" data-route="support">${icon('help')}<span>Go to Support</span></button></div>`;
   function supportHtml(tickets) {
     return `
       <div class="review-block"><h4>Contact us</h4>
@@ -3445,7 +3589,7 @@
       <div class="review-block"><h4>Your tickets</h4>
         ${tickets.length ? tickets.map(t => `<div class="review-row"><span>${esc(t.subject)}<div class="cell-muted" style="font-size:12px">${esc(t.id)} · ${esc(t.category)} · ${fmtDate(t.createdAt)}</div></span><span class="pill ${t.status === 'Open' ? 'pill-amber' : 'pill-green'}">${t.status}</span></div>`).join('') : '<p class="cell-muted" style="font-size:13px">No tickets yet.</p>'}</div>
       <div class="review-block"><h4>Frequently asked questions</h4>
-        ${FAQS.map(([q, a]) => `<div style="margin-bottom:12px"><div class="cell-strong" style="font-size:13.5px">${q}</div><p style="font-size:13px;color:var(--ink-500);margin-top:3px">${a}</p></div>`).join('')}</div>`;
+        <button class="btn btn-outline" style="width:100%" data-route="faq">${icon('help')}<span>Open all FAQs</span></button></div>`;
   }
   function wireTicketForm(root, reload) {
     root.querySelector('#ticketForm')?.addEventListener('submit', async (e) => {
@@ -3489,6 +3633,7 @@
     <div class="card panel">
       <div class="panel-head"><h3>App preferences</h3></div>
       <div class="settings-row"><div class="settings-row-label">Language</div>${languageSelect(s.language)}</div>
+      <div class="settings-row"><div class="settings-row-label">Theme</div>${themeOptsHtml()}</div>
     </div>
     <div class="card panel">
       <div class="panel-head"><h3>Security</h3></div>
@@ -3498,6 +3643,7 @@
       <button class="btn btn-danger" id="logoutBtn" style="width:100%">${icon('logout')}<span>Logout</span></button>
     </div>`;
   };
+  const themeOptsHtml = () => `<div class="theme-seg" role="group" aria-label="Theme"><button type="button" data-theme-opt="light">Light</button><button type="button" data-theme-opt="dark">Dark</button></div>`;
   const languageSelect = (cur) => `<select id="langSelect" class="filter-chip" style="height:36px">${['English', 'Bengali', 'Hindi'].map(l => `<option${cur === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   function settingsSwitch(key, label, val) {
     return `<div class="settings-row"><div class="settings-row-label">${label}</div><button class="switch${val ? ' on' : ''}" data-setting="${key}" aria-label="${label}"></button></div>`;
@@ -3613,7 +3759,8 @@
     <div class="profile-list">
       <div class="profile-row card" data-profile-action="notifications">${icon('bell')}<span class="profile-row-label">Notifications</span>${unread ? `<span class="nav-badge inline">${unread}</span>` : ''}<span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="support">${icon('help')}<span class="profile-row-label">Help &amp; Support</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
-      <a class="profile-row card" href="${TERMS_URL}">${icon('doc2')}<span class="profile-row-label">Terms &amp; Policies</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
+      <a class="profile-row card" href="${esc(TERMS_URL)}">${icon('doc2')}<span class="profile-row-label">Terms &amp; Conditions</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
+      <a class="profile-row card" href="${esc(PRIVACY_URL)}">${icon('lock')}<span class="profile-row-label">Privacy Policy</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
       <div class="profile-row card" data-profile-action="logout">${icon('logout')}<span class="profile-row-label">Logout</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>`;
   };
@@ -3670,7 +3817,58 @@
 
   /* ---------- KYC read-only detail (verified merchant) ---------- */
   const KYC_SECTION_LABEL = { store: 'Store Information', address: 'Business Address', license: 'Drug License', identity: 'Identity', bank: 'Bank & Payment' };
-  const docView = (v) => v ? `<a class="doc-preview" href="${esc(v)}" target="_blank" rel="noopener">${icon('file')}<span>View document</span></a>` : `<div class="doc-preview">${icon('file')}<span>Not uploaded</span></div>`;
+  const isPdfUrl = (u) => /\.pdf(\?|#|$)/i.test(u || '');
+  const docView = (v) => !v ? `<div class="doc-preview">${icon('file')}<span>Not uploaded</span></div>`
+    : isPdfUrl(v) ? `<a class="doc-preview" href="${esc(v)}" target="_blank" rel="noopener">${icon('file')}<span>Open PDF document</span></a>`
+    : `<button type="button" class="doc-img" data-zoom="${esc(v)}" aria-label="View document full screen"><img src="${esc(v)}" alt="Document" loading="lazy"><span class="doc-img-hint">Tap to zoom</span></button>`;
+  // stored file that is not an image (e.g. a PDF without extension) -> plain link fallback
+  function wireDocImages(root) {
+    (root || document).querySelectorAll('.doc-img img').forEach(img => img.addEventListener('error', () => {
+      const b = img.closest('.doc-img'); if (!b) return;
+      const a = document.createElement('a');
+      a.className = 'doc-preview'; a.href = b.dataset.zoom; a.target = '_blank'; a.rel = 'noopener';
+      a.innerHTML = `${icon('file')}<span>Open document</span>`;
+      b.replaceWith(a);
+    }));
+  }
+  /* ---------- Full-screen image viewer: pinch / double-tap / wheel zoom, drag to pan ---------- */
+  function closeLightbox() { document.getElementById('lightbox')?.remove(); document.body.classList.remove('lightbox-open'); }
+  function openLightbox(src) {
+    closeLightbox();
+    const lb = document.createElement('div');
+    lb.id = 'lightbox'; lb.className = 'lightbox';
+    lb.innerHTML = `<button class="lightbox-close" aria-label="Close">${icon('close')}</button><div class="lightbox-stage"><img src="${esc(src)}" alt="Document" draggable="false"></div><div class="lightbox-hint">Pinch or double-tap to zoom</div>`;
+    document.getElementById('app').appendChild(lb);
+    document.body.classList.add('lightbox-open');
+    const stage = lb.querySelector('.lightbox-stage'), img = lb.querySelector('img');
+    let s = 1, x = 0, y = 0, lastDist = 0, lastTap = 0;
+    const pts = new Map();
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const apply = () => { if (s <= 1) { s = 1; x = 0; y = 0; } img.style.transform = `translate(${x}px,${y}px) scale(${s})`; };
+    const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    stage.addEventListener('pointerdown', (e) => {
+      stage.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) { lastDist = dist(); return; }
+      const now = Date.now();
+      if (now - lastTap < 300) { s = s > 1 ? 1 : 2.5; x = 0; y = 0; apply(); }
+      lastTap = now;
+    });
+    stage.addEventListener('pointermove', (e) => {
+      const prev = pts.get(e.pointerId); if (!prev) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) { const d = dist(); if (lastDist) s = clamp(s * d / lastDist, 1, 6); lastDist = d; apply(); }
+      else if (s > 1) { x += e.clientX - prev.x; y += e.clientY - prev.y; apply(); }
+    });
+    const up = (e) => { pts.delete(e.pointerId); lastDist = 0; };
+    stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+    stage.addEventListener('wheel', (e) => { e.preventDefault(); s = clamp(s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), 1, 6); apply(); }, { passive: false });
+    lb.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+  }
+  document.addEventListener('click', (e) => {
+    const z = e.target.closest('[data-zoom]');
+    if (z) { e.preventDefault(); openLightbox(z.dataset.zoom); }
+  });
   PAGES['kyc-detail'] = async (section) => {
     const m = await DB.getMerchant();
     if (!KYC_SECTION_LABEL[section]) return emptyBlock('doc2', 'Not found', 'This section does not exist.');
@@ -3686,6 +3884,8 @@
       <div class="detail-field"><div class="detail-field-label">Verified on</div><div class="detail-field-value">${fmtDate(m.kyc.verifiedOn)}</div></div>
     </div>`;
   };
+  AFTER['kyc-detail'] = () => wireDocImages(document.getElementById('pageOutlet'));
+  AFTER['profile-kyc-review'] = AFTER['kyc-detail'];
   function kycSectionFields(m, section) {
     if (section === 'store') return [['Shop name', m.shopName || '—'], ['Owner name', m.ownerName || '—'], ['Business category', m.category || '—'], ['About shop', m.about || '—']];
     if (section === 'address') return [['Full address', m.address.fullAddress || '—'], ['City', m.address.city || '—'], ['District', m.address.district || '—'], ['State', m.address.state || '—'], ['Pincode', m.address.pincode || '—'], ['GPS location', m.address.gps || '—']];
@@ -3705,7 +3905,7 @@
       <p style="font-size:13px;color:var(--ink-500);margin-bottom:14px">Your details are locked while under review. You cannot edit, replace documents, or change bank details until a decision is made.</p>
       ${['store', 'address', 'license', 'identity', 'bank'].map(sec => `
         <div class="review-block"><h4>${KYC_SECTION_LABEL[sec]}</h4>
-        ${kycSectionFields(m, sec).map(([l, v, isDoc]) => `<div class="review-row"><span>${l}</span><span>${isDoc ? (v ? `<a class="link-a" href="${esc(v)}" target="_blank" rel="noopener">📄 View</a>` : 'Not uploaded') : esc(v)}</span></div>`).join('')}
+        ${kycSectionFields(m, sec).map(([l, v, isDoc]) => `<div class="review-row"><span>${l}</span><span>${isDoc ? docView(v) : esc(v)}</span></div>`).join('')}
         </div>`).join('')}
     </div>`;
   };
@@ -4034,7 +4234,7 @@
       const toastEl = e.target.closest('[data-toast]');
       if (toastEl) { showToast(toastEl.dataset.toast); return; }
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSheet(); closeDrawer(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (document.getElementById('lightbox')) closeLightbox(); else { closeSheet(); closeDrawer(); } } });
 
     document.getElementById('drawerClose')?.addEventListener('click', closeDrawer);
     document.getElementById('drawerScrim')?.addEventListener('click', closeDrawer);
@@ -4046,7 +4246,7 @@
   async function init() {
     bindGlobalUI();
     initKeyboardAwareFooter();
-    window.addEventListener('hashchange', () => { closeSheet(); render(); });   // SPA navigation: re-render on every route change
+    window.addEventListener('hashchange', () => { closeSheet(); closeLightbox(); render(); });   // SPA navigation: re-render on every route change
     if (sb) sb.auth.onAuthStateChange((evt) => {
       if (evt === 'SIGNED_OUT') { stopRealtime(); state.merchant = null; goHome(); }
     });

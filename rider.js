@@ -1,3 +1,47 @@
+/* ===== Light / Dark theme manager (saved in localStorage 'mf_theme') ===== */
+(function () {
+  'use strict';
+  var KEY = 'mf_theme', root = document.documentElement;
+  function get() { try { return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; } }
+  function sync() {
+    var t = get(), n = document.querySelectorAll('[data-theme-opt]');
+    for (var i = 0; i < n.length; i++) {
+      var on = n[i].getAttribute('data-theme-opt') === t;
+      if (n[i].classList.contains('active') !== on) n[i].classList.toggle('active', on);
+      n[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  function paint() { var t = get(); root.setAttribute('data-theme', t); root.style.colorScheme = t; sync(); }
+  function set(t) { try { localStorage.setItem(KEY, t === 'dark' ? 'dark' : 'light'); } catch (e) {} paint(); }
+  window.MFTheme = { get: get, set: set };
+  paint();
+  window.addEventListener('storage', function (e) { if (e.key === KEY) paint(); });
+  document.addEventListener('click', function (e) {
+    var o = e.target && e.target.closest && e.target.closest('[data-theme-opt]');
+    if (o) set(o.getAttribute('data-theme-opt'));
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    sync();
+    if (!window.MutationObserver) return;
+    var q = false;
+    new MutationObserver(function () { if (q) return; q = true; (window.requestAnimationFrame || setTimeout)(function () { q = false; sync(); }); })
+      .observe(document.body, { childList: true, subtree: true });
+  });
+})();
+/* ===== end theme manager ===== */
+
+/* ===== MediFinder premium icon helpers (sprite lives in rider.html) ===== */
+window.MF_VEH = { bike: ['bike', 'Bike'], motorcycle: ['bike', 'Bike'], scooty: ['scooter', 'Scooty'], scooter: ['scooter', 'Scooter'],
+  bicycle: ['bicycle', 'Cycle'], cycle: ['bicycle', 'Cycle'], ev: ['ev', 'EV'], truck: ['truck', 'Truck'], van: ['truck', 'Van'] };
+window.mfVehKey = function (t) {
+  t = String(t || 'bike').toLowerCase().trim();
+  if (window.MF_VEH[t]) return t;
+  if (/cycl/.test(t) && !/motor/.test(t)) return 'bicycle';
+  if (/scoot/.test(t)) return 'scooty';
+  if (/ev|electric/.test(t)) return 'ev';
+  return 'bike';
+};
+window.mfIco = function (id, cls) { return '<svg class="mf-ico ' + (cls || '') + '" aria-hidden="true"><use href="#i-' + id + '"/></svg>'; };
 ﻿// ==========================================
 // 1. Global Configuration & Supabase Initialization
 // URL & key loaded from supabase-constants.js
@@ -69,8 +113,10 @@ async function getShopInfo(order) {
                 address = merchant.resolved_address || merchant.address ||
                     [merchant.address, merchant.city, merchant.district, merchant.state, merchant.pincode].filter(Boolean).join(', ');
                 phone = merchant.phone || '';
-                if (lat === null && merchant.latitude !== null && merchant.latitude !== undefined) lat = Number(merchant.latitude);
-                if (lon === null && merchant.longitude !== null && merchant.longitude !== undefined) lon = Number(merchant.longitude);
+                // merchants table = real shop location. orders.pharmacy_lat/lon can hold a stale default, so merchant wins.
+                const mLat = (merchant.latitude !== null && merchant.latitude !== undefined) ? Number(merchant.latitude) : null;
+                const mLon = (merchant.longitude !== null && merchant.longitude !== undefined) ? Number(merchant.longitude) : null;
+                if (mLat !== null && mLon !== null && !isNaN(mLat) && !isNaN(mLon)) { lat = mLat; lon = mLon; }
             }
         } catch (e) {
             // silent fallback to whatever order-level data exists — never fake it
@@ -150,9 +196,19 @@ function toastOnce(key, msg, type = 'error', cooldownMs = 60000) {
 //   ≤ 10 km  → ₹25
 //   > 10 km  → ₹35  (20 km বা তার বেশিও ₹35)
 // ============================================================
-const DELIVERY_NEAR_KM = 10;
-const DELIVERY_NEAR_CHARGE = 25;
-const DELIVERY_FAR_CHARGE = 35;
+// Rider base fee by shop -> customer ROAD distance (km):
+//   up to 3 km = Rs20, 3-5 = Rs22, 5-8 = Rs25, 8-10 = Rs28 (above 10 km stays at the top slab until a new rule is set)
+// On-time bonus: +Rs5 if the order is delivered within 30 minutes of the rider accepting it.
+const DELIVERY_SLABS = [[3, 20], [5, 22], [8, 25], [10, 28]];
+const DELIVERY_TOP_CHARGE = 28;
+const DELIVERY_BONUS = 5;
+const DELIVERY_BONUS_MINUTES = 30;
+const DELIVERY_VALID_BASE = [20, 22, 25, 28];
+
+function slabForKm(km) {
+    for (const [maxKm, fee] of DELIVERY_SLABS) { if (km <= maxKm) return fee; }
+    return DELIVERY_TOP_CHARGE;
+}
 
 function distanceKmExact(lat1, lon1, lat2, lon2) {
     const R = 6371;
@@ -164,21 +220,33 @@ function distanceKmExact(lat1, lon1, lat2, lon2) {
 }
 
 function computeDeliveryCharge(order) {
-    if (!order) return DELIVERY_NEAR_CHARGE;
+    if (!order) return DELIVERY_VALID_BASE[0];
     const num = v => (v === undefined || v === null || v === '') ? null : Number(v);
-    const shop = order.__shopInfoCache || {};
-    const pLat = num(order.pharmacy_lat) !== null ? num(order.pharmacy_lat) : num(shop.lat);
-    const pLon = num(order.pharmacy_lon) !== null ? num(order.pharmacy_lon) : num(shop.lon);
+    const stored = Number(order.delivery_charge);
+    if (DELIVERY_VALID_BASE.indexOf(stored) !== -1) return stored;          // fixed at accept time
+    if (num(order.__roadKm) !== null) return slabForKm(Number(order.__roadKm)); // real road distance (OSRM)
+    const shop = order.__shopInfoCache || {};                                 // fallback: straight line x 1.3
+    const pLat = num(shop.lat) !== null ? num(shop.lat) : num(order.pharmacy_lat);
+    const pLon = num(shop.lon) !== null ? num(shop.lon) : num(order.pharmacy_lon);
     const uLat = num(order.user_lat);
     const uLon = num(order.user_lon);
     if ([pLat, pLon, uLat, uLon].every(v => v !== null && !isNaN(v))) {
-        const km = distanceKmExact(pLat, pLon, uLat, uLon);
-        return km <= DELIVERY_NEAR_KM ? DELIVERY_NEAR_CHARGE : DELIVERY_FAR_CHARGE;
+        return slabForKm(distanceKmExact(pLat, pLon, uLat, uLon) * 1.3);
     }
-    // coordinates নেই — আগে থেকে সঠিক slab সেভ থাকলে সেটাই, না থাকলে base charge
-    const stored = Number(order.delivery_charge);
-    if (stored === DELIVERY_NEAR_CHARGE || stored === DELIVERY_FAR_CHARGE) return stored;
-    return DELIVERY_NEAR_CHARGE;
+    return DELIVERY_VALID_BASE[0];
+}
+
+function getAcceptedAtMs(order) {
+    if (!order) return null;
+    if (order.accepted_at_ms) return Number(order.accepted_at_ms);
+    if (order.pickup_deadline_at) { const t = Date.parse(order.pickup_deadline_at); if (!isNaN(t)) return t - 25 * 60 * 1000; }
+    return null;
+}
+
+function computeOnTimeBonus(order) {
+    const t = getAcceptedAtMs(order);
+    if (!t) return 0;
+    return (Date.now() - t) <= DELIVERY_BONUS_MINUTES * 60 * 1000 ? DELIVERY_BONUS : 0;
 }
 
 // ============================================================
@@ -608,11 +676,13 @@ async function initBaseTrackingMap() {
     }
 
     map = L.map('zomatoRealMap').setView([centerLat, centerLon], (gotGps || sessionOrder) ? 12 : 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        attribution: 'MediFinder India Express Tracking',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
         updateWhenIdle: true,
         keepBuffer: 2
     }).addTo(map);
+    if (map.attributionControl) map.attributionControl.setPrefix(false);
 
     // ✅ FIX: rider marker এখন থেকে সবসময় আসল GPS position এ বসবে (আগে ফেক midpoint এ বসতো,
     // যা পরে লাইভ GPS marker এর সাথে দুইটা আলাদা marker দেখাতো)
@@ -731,23 +801,11 @@ function updateMapVehiclePill(mode) {
     const pillBox = document.getElementById("vehiclePillBox");
     const pillIcon = document.getElementById("vehiclePillIcon");
     const pillText = document.getElementById("vehiclePillText");
-    
     if (!pillBox || !pillIcon || !pillText) return;
-    
-    pillBox.className = "vehicle-pill"; 
-    if (mode === 'truck') {
-        pillBox.classList.add("truck-mode");
-        pillIcon.className = "fa-solid fa-truck";
-        pillText.innerText = "Truck";
-    } else if (mode === 'van') {
-        pillBox.classList.add("van-mode");
-        pillIcon.className = "fa-solid fa-van-shuttle";
-        pillText.innerText = "Van";
-    } else {
-        pillBox.classList.add("bike-mode");
-        pillIcon.className = "fa-solid fa-motorcycle";
-        pillText.innerText = "Bike";
-    }
+    const k = mfVehKey(window._mfVehicle || mode), v = MF_VEH[k];
+    pillBox.className = "vehicle-pill " + k + "-mode";
+    const u = pillIcon.querySelector('use'); if (u) u.setAttribute('href', '#i-' + v[0]);
+    pillText.innerText = v[1];
 }
 
 // ✅ REWRITE (#3 + #15): markers now carry real shop/customer name,
@@ -762,8 +820,8 @@ async function renderMapMarkers(order, shopInfo) {
     const uLat = (order.user_lat !== undefined && order.user_lat !== null) ? Number(order.user_lat) : null;
     const uLon = (order.user_lon !== undefined && order.user_lon !== null) ? Number(order.user_lon) : null;
 
-    const shopIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/4320/4320355.png', iconSize: [35, 35] });
-    const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1216/1216844.png', iconSize: [35, 35] });
+    const shopIcon = L.divIcon({ className: '', html: '<div class="mf-shop">' + mfIco('store') + '</div>', iconSize: [44, 44], iconAnchor: [22, 22] });
+    const userIcon = L.divIcon({ className: '', html: '<div class="mf-drop"><span>' + mfIco('house') + '</span></div>', iconSize: [36, 36], iconAnchor: [18, 44] });
 
     const shopPopup = `
         <div style="min-width:180px;">
@@ -956,7 +1014,7 @@ function renderAvailableOrder(order) {
     const cardHtml = `
         <div class="order-card" id="order-${order.order_id}">
             <div class="card-header">
-                <span class="vehicle-tag bike"><i class="fa-solid fa-motorcycle"></i> ${order.vehicle_type ? order.vehicle_type.toUpperCase() : 'DELIVERY'}</span>
+                <span class="vehicle-tag bike">${mfIco(MF_VEH[mfVehKey(window._mfVehicle || order.vehicle_type)][0])} ${MF_VEH[mfVehKey(window._mfVehicle || order.vehicle_type)][1]}</span>
                 <span class="parcel-number">Parcel ID: #${order.order_id}</span>
                 <span class="earnings-amount">₹${computeDeliveryCharge(order)}</span>
             </div>
@@ -1120,7 +1178,7 @@ async function loadAcceptedOrderDetails(order, shopInfo) {
             <!-- ✅ NEW: পিকআপ স্ট্যাটাস টগল স্টেপ — কাস্টমারের কাছে যাওয়ার আগে ফার্মেসিতে আগে পৌঁছাতে/প্যাক করতে হবে -->
             <div id="statusStepBar" style="margin-bottom: 15px;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 10px; gap: 8px; flex-wrap: wrap;">
-                <div><span>Earnings: </span><strong style="color: #2ec4b6; font-size: 18px;">₹${computeDeliveryCharge(order)}</strong></div>
+                <div><span>Earnings: </span><strong style="color: #2ec4b6; font-size: 18px;">₹${computeDeliveryCharge(order)}</strong><br><small style="color:#64748b;font-size:.7rem;">+₹${DELIVERY_BONUS} bonus if delivered within ${DELIVERY_BONUS_MINUTES} min of accepting</small></div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items:center;">
                     <span id="phaseCallBtnSlot"></span>
                     <button id="otpVerifyTriggerBtn" onclick="openOtpModal()" style="background: #e63946; color:#fff; border:none; padding: 10px 18px; border-radius: 8px; font-weight:600; cursor:pointer;">Verify OTP</button>
@@ -1212,7 +1270,7 @@ function renderDeliveryStatusStep(order) {
         // ডিফল্ট: 'assigned' স্টেজ — এখনও ফার্মেসিতে পৌঁছায়নি
         stepBar.innerHTML = `
             <button onclick="markArrivedAtStore()" style="width:100%; background:#f59e0b; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer;">
-                <i class="fa-solid fa-store"></i> Arrived at Pharmacy
+                ${mfIco('store')} Arrived at Pharmacy
             </button>`;
         lockOtpButton(otpBtn, true);
     }
@@ -1300,8 +1358,9 @@ function renderDutyToggleUI() {
         else pulseDot.classList.remove("active");
     }
     if (homeDutyBtn) {
-        homeDutyBtn.innerText = isOnDuty ? "🟢 On Duty" : "🔴 Off Duty";
-        homeDutyBtn.style.background = isOnDuty ? "#10b981" : "#94a3b8";
+        homeDutyBtn.innerHTML = '<span class="mf-duty-dot"></span><span class="mf-duty-txt">' + (isOnDuty ? 'On Duty' : 'Off Duty') + '</span>';
+        homeDutyBtn.classList.toggle('on', !!isOnDuty); homeDutyBtn.classList.toggle('off', !isOnDuty);
+        homeDutyBtn.style.background = '';
     }
 }
 
@@ -1612,7 +1671,7 @@ function updateLiveRiderMarkerOnMap(lat, lon) {
         if (liveRiderMarker) {
             liveRiderMarker.setLatLng([lat, lon]);
         } else {
-            const riderIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972185.png', iconSize: [40, 40] });
+            const riderIcon = L.divIcon({ className: '', html: '<div class="mf-rider"><span class="mf-pulse"></span>' + mfIco(MF_VEH[mfVehKey(window._mfVehicle)][0]) + '</div>', iconSize: [44, 44], iconAnchor: [22, 22] });
             liveRiderMarker = L.marker([lat, lon], { icon: riderIcon }).addTo(map).bindPopup("<b>You (Live)</b>");
         }
     } catch (e) {
@@ -1734,42 +1793,34 @@ async function verifyOtpCode() {
     const otpInput = document.getElementById("otpInput");
     const otpFormContent = document.getElementById("otpFormContent");
     if (!otpInput || !otpFormContent) return;
-    const enteredOtp = otpInput.value;
-    const correctOtp = activeOrderData.delivery_secure_code || activeOrderData.customer_otp;
-    if (!correctOtp) { showToast('No delivery code found for this order. Contact support.', 'error'); return; }
+    const enteredOtp = String(otpInput.value || "").trim();
+    if (!enteredOtp) { showToast("Please enter the delivery code.", "error"); return; }
 
-    if (enteredOtp !== correctOtp) {
-        showToast("Incorrect OTP Code! Please provide a valid transaction security code.", "error");
-        otpInput.value = "";
-        otpInput.focus();
-        return; // ✅ (#5) stays on the OTP form — success screen never touched
-    }
-
-    clearInterval(countdownTimer);
     const verifyBtn = document.querySelector('.btn-modal-submit');
     if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.innerText = "Verifying..."; }
 
     try {
-        // STEP 2: resolve the real BIGINT riders.id for the logged-in rider
-        const { data: { session }, error: sessErr } = await supabaseClient.auth.getSession();
-        if (sessErr) throw sessErr;
-        if (!session?.user?.id) throw new Error("You're not logged in. Please log in again.");
+        // SECURITY: the OTP check, the 'delivered' status change and the wallet credit now all
+        // happen on the server (RPC complete_delivery). The browser can no longer set its own
+        // earning amount or wallet balance, and cannot skip the customer's code.
+        const { data: res, error: rpcErr } = await supabaseClient.rpc('complete_delivery', {
+            p_order_id: String(activeOrderData.order_id),
+            p_otp: enteredOtp
+        });
+        if (rpcErr) {
+            if (/incorrect otp/i.test(rpcErr.message || '')) {
+                if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.innerText = "Verify & Complete"; }
+                showToast("Incorrect OTP Code! Please provide a valid transaction security code.", "error");
+                otpInput.value = "";
+                otpInput.focus();
+                return; // stays on the OTP form, countdown keeps running
+            }
+            throw rpcErr;
+        }
 
-        const { data: riderRow, error: riderErr } = await supabaseClient
-            .from('riders').select('id').eq('auth_user_id', session.user.id).maybeSingle();
-        if (riderErr) throw riderErr;
-        if (!riderRow || !riderRow.id) throw new Error("Rider profile not found. Contact support.");
-        const riderId = riderRow.id;
+        clearInterval(countdownTimer);
 
-        // STEP 3: check if this order was already delivered (duplicate protection)
-        const { data: orderRow, error: orderFetchErr } = await supabaseClient
-            .from('orders').select('order_id, status, delivery_charge').eq('order_id', activeOrderData.order_id).maybeSingle();
-        if (orderFetchErr) throw orderFetchErr;
-        if (!orderRow) throw new Error("Order not found. It may have been removed.");
-
-        if (orderRow.status === 'delivered') {
-            // Already delivered previously — do NOT insert duplicate earning/history,
-            // and do NOT show the green success screen (no new credit happened this time)
+        if (res && res.already) {
             localStorage.removeItem("active_delivery_order");
             showToast("This order was already delivered — no duplicate earning added.", "info");
             closeOtpModal();
@@ -1777,63 +1828,16 @@ async function verifyOtpCode() {
             return;
         }
 
-        // STEP 4: earning এখন দূরত্ব-নিয়ম (≤10 km ₹25, তার বেশি ₹35) থেকে বের হয় —
-        // একই amount order এ লেখা হয় (history/total এর সোর্স) এবং wallet এ যোগ হয়
-        const amount = computeDeliveryCharge({ ...activeOrderData, ...orderRow, delivery_charge: activeOrderData.delivery_charge });
-
-        // STEP 4b: mark order as delivered
-        const { error: updateErr } = await supabaseClient
-            .from('orders')
-            .update({ status: 'delivered', payment_status: 'Paid', delivery_charge: amount, updated_at: new Date().toISOString() })
-            .eq('order_id', activeOrderData.order_id);
-        if (updateErr) throw updateErr;
-
-        // STEP 5 + 6: credit riders_wallet — upsert the single per-rider row,
-        // guarding against double-crediting the exact same order (e.g. double click / retry)
-
-        const { data: existingWallet, error: walletFetchErr } = await supabaseClient
-            .from('riders_wallet').select('id, order_id, balance, total_earned').eq('rider_id', riderId).maybeSingle();
-        if (walletFetchErr) throw walletFetchErr;
-
-        if (existingWallet && String(existingWallet.order_id) === String(activeOrderData.order_id)) {
-            // Same order already credited to this rider's wallet — skip, not an error
-        } else if (existingWallet) {
-            const newBalance = (Number(existingWallet.balance) || 0) + amount;
-            const newTotalEarned = (Number(existingWallet.total_earned) || 0) + amount;
-            const { error: walletUpdateErr } = await supabaseClient
-                .from('riders_wallet')
-                .update({
-                    order_id: activeOrderData.order_id,
-                    amount_earned: amount,
-                    balance: newBalance,
-                    total_earned: newTotalEarned,
-                    status: 'success',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existingWallet.id);
-            if (walletUpdateErr) throw walletUpdateErr;
-        } else {
-            const { error: walletInsertErr } = await supabaseClient
-                .from('riders_wallet')
-                .insert([{
-                    rider_id: riderId,
-                    order_id: activeOrderData.order_id,
-                    amount_earned: amount,
-                    balance: amount,
-                    total_earned: amount,
-                    total_withdrawn: 0,
-                    status: 'success',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }]);
-            if (walletInsertErr) throw walletInsertErr;
-        }
+        const amount = Number(res && res.amount) || 0;
+        const bonusAmount = Number(res && res.bonus) || 0;
 
         // ✅ (#7,#8,#9) Everything succeeded (OTP correct + order delivered + wallet
         // credited) — ONLY now show the full-screen green success UI, with the real
         // delivery_charge amount, then auto-route to the Earning tab.
         localStorage.removeItem("active_delivery_order");
         showOtpSuccessScreen(amount);
+        const noteEl = document.querySelector('#otpSuccessScreen .otp-success-note');
+        if (noteEl) noteEl.textContent = bonusAmount ? `Payment added to your earning wallet (includes ₹${bonusAmount} on-time bonus)` : 'Payment added to your earning wallet';
 
     } catch (err) {
         // ✅ Never silently succeed on failure — revert UI so rider can retry
@@ -2291,7 +2295,7 @@ function normalizePayoutStatus(raw) {
         return { key: 'in_progress', label: 'In Progress' };
     }
     if (s === 'rejected' || s === 'declined' || s === 'failed') {
-        return { key: 'pending', label: 'Rejected' };
+        return { key: 'rejected', label: 'Rejected' };
     }
     return { key: 'pending', label: 'Pending' };
 }
@@ -2299,10 +2303,13 @@ function normalizePayoutStatus(raw) {
 async function openPayoutHistory() {
     openSubPage('payoutHistoryPage');
     const body = document.getElementById('payoutHistoryBody');
-    if (!body) return;
-    body.innerHTML = `<p style="text-align:center;color:#999;padding:20px;">Loading payout requests...</p>`;
-    if (!supabaseClient) return;
+    if (body && !body.querySelector('.pay-card')) body.innerHTML = '<div class="pay-loading"><span></span><span></span><span></span></div>';
+    await renderPayoutHistory();
+}
 
+async function renderPayoutHistory() {
+    const body = document.getElementById('payoutHistoryBody');
+    if (!body || !supabaseClient) return;
     try {
         const { data: { session }, error: sessErr } = await supabaseClient.auth.getSession();
         if (sessErr) throw sessErr;
@@ -2321,25 +2328,53 @@ async function openPayoutHistory() {
         if (reqErr) throw reqErr;
 
         if (!requests || requests.length === 0) {
-            body.innerHTML = `<p style="text-align:center;color:#999;padding:20px;">No payout requests yet. Once you request a payout, its status will show up here.</p>`;
+            body.innerHTML = `<div class="pay-empty">${mfIco('wallet')}<b>No payout requests yet</b><p>When you request a payout, you can follow it here from request to payment.</p></div>`;
             return;
         }
 
-        body.innerHTML = requests.map(r => {
-            const st = normalizePayoutStatus(r.request_status);
-            const dt = r.requested_at ? new Date(r.requested_at) : null;
-            const dateLabel = dt && !isNaN(dt.getTime()) ? dt.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-            return `
-                <div class="payout-history-item">
-                    <div class="payout-history-left">
-                        <h4>₹${Number(r.total_payout_amount || 0).toLocaleString('en-IN')}</h4>
-                        <p>${escapeHtml(dateLabel)}</p>
+        const money = v => '₹' + Number(v || 0).toLocaleString('en-IN');
+        let paid = 0, review = 0;
+        const rows = requests.map(r => ({ r, st: normalizePayoutStatus(r.request_status) }));
+        rows.forEach(({ r, st }) => {
+            const a = Number(r.total_payout_amount || 0);
+            if (st.key === 'completed') paid += a;
+            else if (st.key !== 'rejected') review += a;
+        });
+
+        const step = (label, state) => `<div class="pay-step ${state}"><i>${state === 'done' ? mfIco('check') : state === 'fail' ? mfIco('triangle-exclamation') : ''}</i><span>${label}</span></div>`;
+        const icoFor = k => k === 'completed' ? 'check' : k === 'in_progress' ? 'clock' : k === 'rejected' ? 'triangle-exclamation' : 'wallet';
+
+        body.innerHTML = `
+            <div class="pay-summary">
+                <span class="pay-sum-label">Total paid to you</span>
+                <b class="pay-sum-amt">${money(paid)}</b>
+                <div class="pay-sum-row">
+                    <div><small>Waiting for payment</small><strong>${money(review)}</strong></div>
+                    <div><small>Requests</small><strong>${requests.length}</strong></div>
+                </div>
+            </div>
+            <h4 class="pay-list-title">Your requests</h4>
+            ${rows.map(({ r, st }) => {
+                const dt = r.requested_at ? new Date(r.requested_at) : null;
+                const dateLabel = dt && !isNaN(dt.getTime()) ? dt.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                const s2 = st.key === 'rejected' ? 'fail' : (st.key === 'in_progress' || st.key === 'completed') ? 'done' : 'now';
+                const s3 = st.key === 'completed' ? 'done' : '';
+                const s1 = 'done';
+                const s2label = st.key === 'rejected' ? 'Rejected' : 'In progress';
+                return `
+                <div class="pay-card st-${st.key}">
+                    <div class="pay-row">
+                        <span class="pay-ic">${mfIco(icoFor(st.key))}</span>
+                        <div class="pay-main"><b class="pay-amt">${money(r.total_payout_amount)}</b><small>${escapeHtml(dateLabel)}</small></div>
+                        <span class="pay-pill">${st.label}</span>
                     </div>
-                    <span class="payout-status-pill status-${st.key}">${st.label}</span>
+                    <div class="pay-steps">
+                        ${step('Requested', s1)}${step(s2label, s2)}${step('Paid', s3)}
+                    </div>
                 </div>`;
-        }).join('');
+            }).join('')}`;
     } catch (err) {
-        body.innerHTML = `<p style="text-align:center;color:#ef4444;padding:20px;">Could not load payout history: ${escapeHtml(err.message || String(err))}</p>`;
+        body.innerHTML = `<div class="pay-empty err">${mfIco('triangle-exclamation')}<b>Could not load payments</b><p>${escapeHtml(err.message || String(err))}</p></div>`;
     }
 }
 
@@ -2489,19 +2524,62 @@ async function saveRiderProfileToDatabase() {
     }
 }
 
+const MF_LANG_NAMES = { en: 'English', bn: 'বাংলা', hi: 'हिंदी', ne: 'नेपाली', sat: 'ᱥᱟᱱᱛᱟᱲᱤ', ur: 'اردو' };
+
+function mfSetGoogCookie(lang) {
+    const val = lang === 'en' ? '' : '/en/' + lang;
+    const exp = lang === 'en' ? '; expires=Thu, 01 Jan 1970 00:00:00 GMT' : '';
+    document.cookie = 'googtrans=' + val + '; path=/' + exp;
+    try { document.cookie = 'googtrans=' + val + '; path=/; domain=' + location.hostname + exp; } catch (e) {}
+}
+
+function mfLoadGoogleTranslate() {
+    if (window._mfGT) return;
+    window._mfGT = true;
+    if (!document.getElementById('google_translate_element')) {
+        const d = document.createElement('div');
+        d.id = 'google_translate_element';
+        document.body.appendChild(d);
+    }
+    window.googleTranslateElementInit = function () {
+        new google.translate.TranslateElement({ pageLanguage: 'en', includedLanguages: 'en,bn,hi,ne,sat,ur', autoDisplay: false }, 'google_translate_element');
+    };
+    const s = document.createElement('script');
+    s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+    s.async = true;
+    document.head.appendChild(s);
+}
+
+function mfApplyGoogle(lang, tries) {
+    const sel = document.querySelector('select.goog-te-combo');
+    if (!sel) { if ((tries || 0) < 40) setTimeout(() => mfApplyGoogle(lang, (tries || 0) + 1), 250); return; }
+    if (sel.value !== lang) { sel.value = lang; sel.dispatchEvent(new Event('change')); }
+}
+
 function setAppLanguage(lang) {
+    const prev = localStorage.getItem("app_language") || "en";
     localStorage.setItem("app_language", lang);
     applyInstantTranslation(lang);
-    showToast(`Language updated to: ${lang.toUpperCase()}`, "info");
+    showToast(`Language changed to ${MF_LANG_NAMES[lang] || lang}`, "info");
     closeSubPage('languagePage');
 }
 
 function applyInstantTranslation(lang) {
-    const translationTargets = document.querySelectorAll(".tr-text");
-    translationTargets.forEach(element => {
+    // 1) hand-written strings (en / bn / hi) switch instantly
+    document.querySelectorAll(".tr-text").forEach(element => {
         const translatedText = element.getAttribute(`data-${lang}`);
         if (translatedText) element.innerText = translatedText;
     });
+    // 2) the WHOLE page (every screen, order cards, notifications, KYC...) via Google Translate
+    const translated = document.documentElement.classList.contains('translated-ltr') || document.documentElement.classList.contains('translated-rtl');
+    if (lang === 'en') {
+        mfSetGoogCookie('en');
+        if (translated) location.reload();
+        return;
+    }
+    mfSetGoogCookie(lang);
+    mfLoadGoogleTranslate();
+    mfApplyGoogle(lang);
 }
 
 // Global safe closeSubPage function
@@ -2559,7 +2637,7 @@ function closeNotiDropdownOutside(e) {
 // ✅ NEW: order-সংক্রান্ত notification-এ order_id থাকলে সেটা DOM-এ data-order-id হিসেবে বসানো
 // হয়, যাতে অন্য রাইডার অর্ডারটা accept করলে (listenToAvailableOrders এ দেখুন) মিলিয়ে সেই
 // notification নিজে থেকেই সরিয়ে দেওয়া যায়।
-const NOTI_AUTO_PURGE_DAYS = 10;
+const NOTI_AUTO_PURGE_DAYS = 20;
 
 // ✅ NEW: DB থেকে delete করার সাথে সাথে localStorage-এও permanently "dismissed" হিসেবে
 // মার্ক রাখা হয় — কারণ Supabase-এ rider_notifications টেবিলে DELETE policy না থাকলে (RLS)
@@ -2625,14 +2703,14 @@ async function loadDeliveryNotifications() {
             .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
             .gte('created_at', purgeBeforeIso)
             .order('created_at', { ascending: false })
-            .limit(30);
+            .limit(80);
         if (res1.error) {
             const res2 = await supabaseClient.from('rider_notifications')
                 .select('id, title, message, created_at, is_read')
                 .or(`rider_id.eq.${parseInt(numericRiderId)},rider_id.is.null`)
                 .gte('created_at', purgeBeforeIso)
                 .order('created_at', { ascending: false })
-                .limit(30);
+                .limit(80);
             data = res2.data;
         } else {
             data = res1.data;
@@ -2640,7 +2718,7 @@ async function loadDeliveryNotifications() {
 
         // ✅ FIX: যেসব ID আগে ক্রস করা হয়েছিল (localStorage-এ dismissed), সেগুলো বাদ দিয়ে রেন্ডার
         // করা হয় — DB-তে delete সফল না হলেও (RLS ইত্যাদির কারণে) এগুলো আর কখনো ফিরে আসবে না।
-        const visibleData = (data || []).filter(n => !dismissed[n.id]).slice(0, 15);
+        const visibleData = (data || []).filter(n => !dismissed[n.id]).slice(0, 60);
         const dismissedUnreadCount = (data || []).filter(n => dismissed[n.id] && !n.is_read).length;
         unread = Math.max(0, unread - dismissedUnreadCount);
 
@@ -2674,12 +2752,24 @@ function sanitizeNotificationMessage(msg) {
     return msg;
 }
 
+function notiIconFor(n) {
+    const t = ((n.title || '') + ' ' + (n.message || '')).toLowerCase();
+    let id = 'bell';
+    if (/payout|payment|earning|wallet|₹/.test(t)) id = 'wallet';
+    else if (/kyc|verif|document|approved|rejected/.test(t)) id = 'shield-halved';
+    else if (/order|parcel|deliver|pickup|picked|accept/.test(t)) id = 'box';
+    return mfIco(id);
+}
+
 function renderNotiItemHtml(n) {
     return `<div class="noti-item ${n.is_read ? 'read' : 'unread'}" data-noti-id="${n.id}" ${n.order_id ? `data-order-id="${n.order_id}"` : ''} onclick="markNotificationAsRead(${n.id}, this)">
         <button class="noti-cross-btn" title="Remove" onclick="event.stopPropagation(); deleteNotification(${n.id}, this)"><i class="fa-solid fa-xmark"></i></button>
-        <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
-        <p>${escapeHtml(sanitizeNotificationMessage(n.message))}</p>
-        <span>${n.created_at ? timeAgo(n.created_at) : 'Just now'}</span>
+        <span class="noti-ico">${notiIconFor(n)}</span>
+        <div class="noti-txt">
+            <p><strong>${escapeHtml(n.title) || 'Notification'}</strong></p>
+            <p>${escapeHtml(sanitizeNotificationMessage(n.message))}</p>
+            <span class="noti-time">${n.created_at ? timeAgo(n.created_at) : 'Just now'}</span>
+        </div>
     </div>`;
 }
 
@@ -3838,9 +3928,35 @@ async function submitKycApplication() {
 function kycReadRow(label, value) {
     return `<div class="kyc-preview-row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value || '—')}</span></div>`;
 }
-function kycReadImg(url, alt) {
-    return url ? `<img src="${escapeHtml(url)}" class="kyc-preview-img" alt="${escapeHtml(alt || '')}">` : '';
+function kycReadImg(url, label) {
+    if (!url) return '';
+    const u = escapeHtml(url), l = escapeHtml(label || 'Document');
+    return `<div class="kyc-doc-card">
+        <div class="kyc-doc-label"><span><i class="fa-solid fa-image"></i> ${l}</span><small>Tap to zoom</small></div>
+        <div class="kyc-doc-frame" data-full="${u}" data-label="${l}">
+            <img src="${u}" alt="${l}" loading="lazy" decoding="async"
+                 onerror="this.parentNode.classList.add('failed')">
+            <div class="kyc-doc-fail"><i class="fa-regular fa-image"></i><span>Image could not be loaded</span><a href="${u}" target="_blank" rel="noopener">Open image</a></div>
+        </div>
+    </div>`;
 }
+function openKycImageViewer(src, label) {
+    let v = document.getElementById('kycImgViewer');
+    if (!v) {
+        v = document.createElement('div');
+        v.id = 'kycImgViewer';
+        v.innerHTML = '<div class="kiv-bar"><span id="kivLabel"></span><button type="button" id="kivClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="kiv-stage"><img id="kivImg" alt=""></div>';
+        document.body.appendChild(v);
+        v.addEventListener('click', e => { if (e.target.id === 'kivClose' || e.target.closest('#kivClose') || e.target.classList.contains('kiv-stage')) v.classList.remove('open'); });
+    }
+    document.getElementById('kivImg').src = src;
+    document.getElementById('kivLabel').textContent = label || '';
+    v.classList.add('open');
+}
+document.addEventListener('click', function (e) {
+    const f = e.target.closest && e.target.closest('.kyc-doc-frame');
+    if (f && !f.classList.contains('failed') && f.dataset.full) openKycImageViewer(f.dataset.full, f.dataset.label);
+});
 
 function openKycReadonly(section) {
     const app = window._kycApplicationCache;
@@ -3871,13 +3987,13 @@ function openKycReadonly(section) {
         html += `<div class="kyc-preview-section">
             ${kycReadRow('Type', app.vehicle_type)}
             ${skipDoc ? '' : kycReadRow('Vehicle No.', app.vehicle_no)}
-        </div>${kycReadImg(app.vehicle_img, 'Vehicle')}`;
+        </div>${kycReadImg(app.vehicle_img, 'Vehicle Photo')}`;
     } else if (section === 'license') {
         titleEl.innerText = 'License & Insurance';
         if (skipDoc) {
             html += `<p class="kyc-note">Not required for this vehicle type.</p>`;
         } else {
-            html += `<div class="kyc-preview-section">${kycReadRow('License No.', app.license_no)}</div>${kycReadImg(app.license_img, 'License')}`;
+            html += `<div class="kyc-preview-section">${kycReadRow('License No.', app.license_no)}</div>${kycReadImg(app.license_img, 'Driving License')}`;
         }
         if (app.insurance_img) html += kycReadImg(app.insurance_img, 'Insurance');
     } else if (section === 'identity') {
@@ -3885,7 +4001,7 @@ function openKycReadonly(section) {
         html += `<div class="kyc-preview-section">
             ${kycReadRow('ID Type', app.id_type)}
             ${kycReadRow('ID No.', app.id_no)}
-        </div>${kycReadImg(app.selfie_img, 'Selfie')}${kycReadImg(app.id_img, 'ID')}`;
+        </div>${kycReadImg(app.selfie_img, 'Selfie')}${kycReadImg(app.id_img, 'ID Proof')}`;
     } else if (section === 'banking') {
         titleEl.innerText = 'Bank & Payment';
         html += `<div class="kyc-preview-section">
@@ -3893,7 +4009,7 @@ function openKycReadonly(section) {
             ${kycReadRow('IFSC', app.ifsc_code)}
             ${kycReadRow('Branch', app.branch)}
             ${kycReadRow('UPI ID', app.upi_id)}
-        </div>${kycReadImg(app.bank_doc_img, 'Bank Document')}`;
+        </div>${kycReadImg(app.bank_doc_img, 'Passbook / Bank Document')}${kycReadImg(app.qr_code_img, 'UPI QR Code')}`;
     }
 
     bodyEl.innerHTML = html;
@@ -3977,3 +4093,413 @@ async function loadTotalLifetimeIncome(riderId) {
 async function loadCurrentMerchantStatus() {
 
 }
+
+// ==================== RIDER UPGRADE LAYER (map, notifications, payment, vehicle) ====================
+/* MediFinder Rider upgrade layer — rider.js er PORE load hobe */
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => (typeof escapeHtml === 'function' ? escapeHtml(s) : String(s == null ? '' : s));
+const num = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+const mf = window._mf = { markers: null, rl: null, map: null, rider: null, km: null, from: null, key: '', busy: false, last: 0 };
+
+/* ---------- routing (no external API) ---------- */
+const rCache = {};
+async function roadRoute(a, b) {
+  // No external routing API: only Leaflet + OpenStreetMap tiles are used.
+  // Returning null makes every caller use its straight-line (haversine) fallback.
+  return null;
+}
+function getPos() {
+  return new Promise(res => {
+    if (cachedRiderPosition) return res(cachedRiderPosition);
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => { cachedRiderPosition = { lat: p.coords.latitude, lon: p.coords.longitude }; res(cachedRiderPosition); },
+      () => res(null), { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 });
+  });
+}
+const distM = (a, lat, lon) => Math.hypot((lat - a.lat) * 111320, (lon - a.lon) * 111320 * Math.cos(lat * Math.PI / 180));
+
+/* ---------- payment: COD / Prepaid ---------- */
+function payLabel(o) {
+  // DB: payment_method hamesha 'cod' thake, tai asol source = payment_mode (COD / UPI / UPI_QR / ONLINE)
+  const mode = String(o.payment_mode || '').toUpperCase().trim();
+  if (mode) return mode === 'COD' ? 'COD' : 'Prepaid';
+  const m = String(o.payment_method || '').toLowerCase();
+  const s = String(o.payment_status || '').toLowerCase();
+  if (/online|upi|razorpay|prepaid/.test(m) || o.razorpay_payment_id) return 'Prepaid';
+  return (/cod|cash/.test(m) || !s) ? 'COD' : 'Prepaid';
+}
+function setPay(o) {
+  const el = $('paymentStatusValue'); if (!el || !o) return;
+  const l = payLabel(o);
+  el.textContent = l; el.className = 'value emphasis mf-pay-' + l.toLowerCase();
+}
+
+/* ---------- order card: real distance + payment badge ---------- */
+async function fillCardDistance(order) {
+  const card = document.getElementById('order-' + order.order_id); if (!card) return;
+  let el = card.querySelector('.distance-info');
+  const pds = card.querySelectorAll('.party-details');
+  if (!el && pds[0]) { pds[0].insertAdjacentHTML('beforeend', '<span class="distance-info" style="font-size:.75rem;color:#64748b"></span>'); el = pds[0].querySelector('.distance-info'); }
+  if (pds[1] && !pds[1].querySelector('.mf-pay-badge')) pds[1].insertAdjacentHTML('beforeend', `<span class="mf-pay-badge ${payLabel(order).toLowerCase()}">${payLabel(order)}</span>`);
+  if (!el) return;
+  const ic = '<i class="fa-solid fa-location-dot"></i> ';
+  el.innerHTML = ic + 'Locating...';
+  const shop = await getShopInfo(order);
+  const nm = card.querySelector('.party-name'); if (nm && shop.name) nm.textContent = shop.name;
+  if (shop.lat == null) { el.innerHTML = ic + 'Distance unavailable'; return; }
+  const pos = await getPos();
+  if (!pos) { el.innerHTML = ic + 'Turn on location'; return; }
+  const rt = await roadRoute(pos, { lat: shop.lat, lon: shop.lon });
+  el.innerHTML = rt ? `${ic}${rt.km.toFixed(1)} km away · ${Math.max(1, Math.round(rt.min))} min`
+                    : `${ic}~${haversineKm(pos.lat, pos.lon, shop.lat, shop.lon)} km away`;
+}
+/* ---------- delivery fee from real road distance (shop -> customer) ---------- */
+async function resolveRoadKm(order) {
+  if (!order) return null;
+  if (order.__roadKm != null) return order.__roadKm;
+  const shop = await getShopInfo(order);
+  const uLat = num(order.user_lat), uLon = num(order.user_lon);
+  if (shop.lat == null || shop.lon == null || uLat == null || uLon == null) return null;
+  const rt = await roadRoute({ lat: shop.lat, lon: shop.lon }, { lat: uLat, lon: uLon });
+  order.__roadKm = rt ? rt.km : distanceKmExact(shop.lat, shop.lon, uLat, uLon) * 1.3;
+  return order.__roadKm;
+}
+async function fillCardFee(order) {
+  try {
+    await resolveRoadKm(order);
+    const card = document.getElementById('order-' + order.order_id); if (!card) return;
+    const fee = card.querySelector('.earnings-amount'); if (fee) fee.textContent = '₹' + computeDeliveryCharge(order);
+    const flow = card.querySelectorAll('.party-details')[1];
+    if (flow && order.__roadKm != null && !flow.querySelector('.mf-trip-km')) flow.insertAdjacentHTML('beforeend', `<span class="mf-trip-km">${order.__roadKm.toFixed(1)} km delivery trip</span>`);
+  } catch (e) {}
+}
+const _ao = window.acceptOrder;
+if (typeof _ao === 'function') window.acceptOrder = async function (orderId, orderObj) {
+  try {
+    if (typeof orderObj === 'string') orderObj = JSON.parse(decodeURIComponent(orderObj));
+    if (orderObj) { await resolveRoadKm(orderObj); orderObj.accepted_at_ms = Date.now(); }
+  } catch (e) {}
+  return _ao.call(this, orderId, orderObj);
+};
+
+const _ra = window.renderAvailableOrder;
+if (_ra) window.renderAvailableOrder = function (order) { _ra.apply(this, arguments); fillCardDistance(order); fillCardFee(order); };
+
+/* ---------- vehicle from KYC ---------- */
+const VEH = window.MF_VEH;
+window.updateMapVehiclePill = function (mode) {
+  const k = mfVehKey(window._mfVehicle || mode), v = VEH[k];
+  const box = $('vehiclePillBox'), ic = $('vehiclePillIcon'), tx = $('vehiclePillText');
+  if (!box) return;
+  box.className = 'vehicle-pill ' + k + '-mode';
+  const u = ic && ic.querySelector('use'); if (u) u.setAttribute('href', '#i-' + v[0]);
+  tx.textContent = v[1];
+  if (mf.rider) mf.rider.setIcon(riderIcon());
+};
+async function loadVehicle() {
+  try {
+    const id = localStorage.getItem('riderId') || currentRiderId;
+    if (!id || !supabaseClient) return;
+    const { data } = await supabaseClient.from('rider_kyc_application').select('vehicle_type').eq('rider_id', id).maybeSingle();
+    if (data && data.vehicle_type) { window._mfVehicle = data.vehicle_type; updateMapVehiclePill(); }
+  } catch (e) {}
+}
+
+/* ---------- map ---------- */
+function ensure() {
+  if (!map) return false;
+  if (mf.map !== map) { mf.map = map; mf.markers = L.layerGroup().addTo(map); mf.rl = L.layerGroup().addTo(map); mf.rider = null; }
+  return true;
+}
+function upgradeTiles() {
+  // Base map is already plain OpenStreetMap (see initBaseTrackingMap). Just tidy the attribution.
+  if (!map || map._mfTiles) return;
+  if (map.attributionControl) map.attributionControl.setPrefix(false);
+  map._mfTiles = true;
+}
+function riderIcon() {
+  const v = VEH[mfVehKey(window._mfVehicle)];
+  return L.divIcon({ className: '', html: `<div class="mf-rider"><span class="mf-pulse"></span>${mfIco(v[0])}</div>`, iconSize: [44, 44], iconAnchor: [22, 22] });
+}
+function moveRider(lat, lon) {
+  if (!ensure()) return;
+  if (!mf.rider) { mf.rider = L.marker([lat, lon], { icon: riderIcon(), zIndexOffset: 1000 }).addTo(map).bindPopup('<b>You (Live)</b>'); return; }
+  const from = mf.rider.getLatLng(), t0 = performance.now(), D = 1200;
+  cancelAnimationFrame(mf.raf);
+  const step = t => {
+    const k = Math.min(1, (t - t0) / D), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    mf.rider.setLatLng([from.lat + (lat - from.lat) * e, from.lng + (lon - from.lng) * e]);
+    if (k < 1) mf.raf = requestAnimationFrame(step);
+  };
+  mf.raf = requestAnimationFrame(step);
+}
+const stageKey = o => o.order_id + ':' + (o.rider_pickup_stage === 'picked_up' ? 'c' : 's');
+function maybeRedraw(lat, lon) {
+  if (!activeOrderData || mf.busy) return;
+  const moved = !mf.from || distM(mf.from, lat, lon) > 80;
+  if (mf.key !== stageKey(activeOrderData) || (moved && Date.now() - mf.last > 10000)) drawRoute(false);
+}
+window.updateLiveRiderMarkerOnMap = function (lat, lon) { moveRider(lat, lon); maybeRedraw(lat, lon); };
+
+async function drawRoute(fit) {
+  if (!map || !activeOrderData || mf.busy) return;
+  mf.busy = true;
+  try {
+    ensure();
+    const o = activeOrderData, toCust = o.rider_pickup_stage === 'picked_up';
+    const shop = await getShopInfo(o);
+    const tgt = toCust ? { lat: num(o.user_lat), lon: num(o.user_lon) } : { lat: shop.lat, lon: shop.lon };
+    mf.key = stageKey(o); mf.rl.clearLayers(); mf.km = null;
+    if (tgt.lat == null || tgt.lon == null) { updateLiveDistanceAndETA(); return; }
+    const pos = cachedRiderPosition;
+    if (!pos) { map.setView([tgt.lat, tgt.lon], 15); return; }
+    const rt = await roadRoute(pos, tgt);
+    const pts = rt ? rt.pts : [[pos.lat, pos.lon], [tgt.lat, tgt.lon]];
+    L.polyline(pts, { color: '#fff', weight: 9, opacity: .9, lineCap: 'round' }).addTo(mf.rl);
+    const line = L.polyline(pts, { color: toCust ? '#2563eb' : '#e02020', weight: 5, opacity: .95, lineCap: 'round', lineJoin: 'round' }).addTo(mf.rl);
+    mf.km = rt ? rt.km : haversineKm(pos.lat, pos.lon, tgt.lat, tgt.lon);
+    mf.min = rt ? rt.min : null;
+    mf.from = { lat: pos.lat, lon: pos.lon }; mf.last = Date.now();
+    updateLiveDistanceAndETA();
+    if (fit) map.fitBounds(line.getBounds(), { padding: [50, 50], maxZoom: 16 });
+  } finally { mf.busy = false; }
+}
+window.panMapToPhaseTarget = function () { drawRoute(true); };
+
+const _ud = window.updateLiveDistanceAndETA;
+window.updateLiveDistanceAndETA = function () {
+  _ud.apply(this, arguments);
+  const el = $('distanceLeftValue');
+  if (el && activeOrderData && cachedRiderPosition && mf.km != null && mf.key === stageKey(activeOrderData)) el.textContent = mf.km.toFixed(1) + ' km';
+  const et = $('etaValue');
+  if (et && activeOrderData && mf.min != null && mf.key === stageKey(activeOrderData)) et.textContent = Math.max(1, Math.round(mf.min)) + ' min';
+};
+
+window.renderMapMarkers = async function (order, shopInfo) {
+  if (!ensure()) return;
+  if (!shopInfo) shopInfo = await getShopInfo(order);
+  const cust = getCustomerInfo(order);
+  mf.markers.clearLayers();
+  const shopIcon = L.divIcon({ className: '', html: '<div class="mf-shop">' + mfIco('store') + '</div>', iconSize: [44, 44], iconAnchor: [22, 22] });
+  const dropIcon = L.divIcon({ className: '', html: '<div class="mf-drop"><span>' + mfIco('house') + '</span></div>', iconSize: [36, 36], iconAnchor: [18, 44] });
+  const pop = (n, a, p, lbl) => `<div style="min-width:180px"><b>${esc(n)}</b><br><span style="font-size:.8rem;color:#555">${esc(a) || 'Address unavailable'}</span><div style="margin-top:6px">${buildCallButtonHtml(lbl, p)}</div></div>`;
+  if (shopInfo.lat != null) L.marker([shopInfo.lat, shopInfo.lon], { icon: shopIcon }).addTo(mf.markers).bindPopup(pop(shopInfo.name, shopInfo.address, shopInfo.phone, 'Call Pharmacy'));
+  const uLat = num(order.user_lat), uLon = num(order.user_lon);
+  if (uLat != null && uLon != null) L.marker([uLat, uLon], { icon: dropIcon }).addTo(mf.markers).bindPopup(pop(cust.name, cust.address, cust.phone, 'Call Customer'));
+  const bar = document.querySelector('#tab-delivery .map-bottom-bar');
+  if (bar) {
+    let row = $('mfCallRow');
+    if (!row) { row = document.createElement('div'); row.id = 'mfCallRow'; bar.insertAdjacentElement('afterend', row); }
+    row.innerHTML = buildCallButtonHtml('Call Customer', cust.phone, 'mf-call') + buildCallButtonHtml('Call Shop', shopInfo.phone, 'mf-call mf-call-shop');
+  }
+  setPay(order);
+  drawRoute(true);
+};
+
+const _init = window.initBaseTrackingMap;
+window.initBaseTrackingMap = async function () {
+  await _init.apply(this, arguments);
+  try { upgradeTiles(); ensure(); if (activeOrderData) setPay(activeOrderData); } catch (e) {}
+  loadVehicle();
+};
+
+/* ---------- notifications: full page + push on/off ---------- */
+const pushOn = () => {
+  if (window.MFPush && typeof window.MFPush.isOn === 'function') return window.MFPush.isOn();
+  return 'Notification' in window && Notification.permission === 'granted' && localStorage.getItem('mf_push_pref') !== 'off';
+};
+async function sys(title, body, tag) {
+  if (!pushOn()) return;
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    const opt = { body, tag, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [160, 80, 160], renotify: true, requireInteraction: /New delivery/i.test(title), data: { url: 'rider.html' } };
+    if (reg && reg.showNotification) return reg.showNotification(title, opt);
+    new Notification(title, opt);
+  } catch (e) {}
+}
+function logRender() {
+  const box = $('mfLocalNoti'); if (!box) return;
+  const me = String(localStorage.getItem('riderId') || ''), cut = Date.now() - 20 * 86400000;
+  const a = JSON.parse(localStorage.getItem('mf_local_noti') || '[]').filter(n => n.at > cut && (!n.o || n.o === me));
+  box.innerHTML = a.map(n => `<div class="mf-noti">${mfIco('bell')}<div><b>${esc(n.t)}</b><p>${esc(n.b)}</p><small>${new Date(n.at).toLocaleString()}</small></div></div>`).join('');
+}
+const selfSent = {};
+async function persist(title, body) {
+  try {
+    const rid = parseInt(localStorage.getItem('riderId') || localStorage.getItem('rider_id'));
+    if (!rid || !supabaseClient) return false;
+    const { error } = await supabaseClient.from('rider_notifications').insert([{ rider_id: rid, title, message: body, is_read: false }]);
+    return !error;
+  } catch (e) { return false; }
+}
+// log !== false  -> saved in the database (kept 20 days, survives login / refresh) + push
+// log === false  -> push only
+function notify(title, body, tag, log) {
+  if (log === false) { sys(title, body, tag || title); return; }
+  selfSent[title] = Date.now();
+  persist(title, body).then(ok => {
+    if (ok) { if (typeof loadDeliveryNotifications === 'function') loadDeliveryNotifications(); sys(title, body, tag || title); return; }
+    const a = JSON.parse(localStorage.getItem('mf_local_noti') || '[]');
+    a.unshift({ t: title, b: body, at: Date.now(), o: String(localStorage.getItem('riderId') || '') });
+    localStorage.setItem('mf_local_noti', JSON.stringify(a.slice(0, 100))); logRender();
+    sys(title, body, tag || title);
+  });
+}
+function ensureNotiPage(d) {
+  if (d.dataset.mf) return; d.dataset.mf = '1';
+  d.insertAdjacentHTML('afterbegin', `
+    <div class="mf-noti-head"><button type="button" class="mf-back" onclick="toggleNotifications()">${mfIco('arrow-left')}</button><h3>Notifications</h3></div>
+    <div id="mf-push-switch"></div>
+    <div id="mfLocalNoti"></div>`);
+  if (window.MFPush && window.MFPush.mountSwitch) window.MFPush.mountSwitch('#mf-push-switch');
+  logRender();
+}
+window.toggleNotifications = function () {
+  const d = $('notiDropdown'); if (!d) return;
+  ensureNotiPage(d);
+  const open = d.classList.contains('hidden');
+  d.classList.toggle('hidden', !open); document.body.classList.toggle('mf-noti-open', open);
+  if (open && window.MFPush && window.MFPush.refreshSwitches) window.MFPush.refreshSwitches();
+};
+const closeNoti = () => { const d = $('notiDropdown'); if (d) d.classList.add('hidden'); document.body.classList.remove('mf-noti-open'); };
+
+const EVENTS = [
+  [/Order Accepted/i, 'Order accepted'], [/Order Picked Up/i, 'Order picked up'], [/marked as delivered/i, 'Order delivered'],
+  [/Payout of/i, 'Payout requested'], [/Earnings updated/i, 'Earnings updated'], [/cancelled/i, 'Order cancelled'],
+  [/KYC.*(approved|verified)|documents? (approved|verified)/i, 'Account verified'], [/KYC.*rejected|documents? rejected/i, 'Account needs changes'],
+  [/ON DUTY/i, 'You are on duty', 'push'], [/OFF DUTY/i, 'You are off duty', 'push']];
+let lastMsg = '', lastAt = 0;
+const _st = window.showToast;
+if (typeof _st === 'function') window.showToast = function (msg) {
+  const m = String(msg || '');
+  if (/^🔔/.test(m)) {
+    // already written by this app a moment ago -> push was sent, don't push twice
+    const mine = Object.keys(selfSent).some(t => Date.now() - selfSent[t] < 15000 && m.indexOf(t) !== -1);
+    if (!mine) notify('New notification', m.replace(/^🔔\s*/, ''), 'db-' + m.length, false);
+    return;
+  }
+  const ev = EVENTS.find(e => e[0].test(m));
+  if (ev && !(m === lastMsg && Date.now() - lastAt < 3000)) {
+    lastMsg = m; lastAt = Date.now(); mf.ownAt = Date.now();
+    notify(ev[1], m, null, ev[2] === 'push' ? false : undefined);
+  }
+  return _st.apply(this, arguments);
+};
+window.fireNewOrderNotification = function (o) {
+  notify('New delivery request', `Parcel #${o.order_id} • ₹${computeDeliveryCharge(o)}`, 'order-' + o.order_id, false);
+};
+
+/* ---------- admin-side changes become notifications (payout status, order status) ---------- */
+const seenKey = k => 'mf_seen_' + k;
+const once = k => { if (localStorage.getItem(seenKey(k))) return false; try { localStorage.setItem(seenKey(k), '1'); } catch (e) {} return true; };
+function watchAdminEvents() {
+  if (!supabaseClient || mf.watching) return;
+  const rid = parseInt(localStorage.getItem('riderId') || localStorage.getItem('rider_id'));
+  if (!rid) { setTimeout(watchAdminEvents, 3000); return; }
+  mf.watching = true;
+  supabaseClient.channel('mf-admin-events-' + rid)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'admin_payout_requests', filter: 'rider_id=eq.' + rid }, p => {
+      const n = p.new || {}, st = normalizePayoutStatus(n.request_status);
+      const pg = $('payoutHistoryPage'); if (pg && !pg.classList.contains('hidden') && typeof renderPayoutHistory === 'function') renderPayoutHistory();
+      if (!once('payout_' + n.id + '_' + st.key)) return;
+      const amt = '₹' + Number(n.total_payout_amount || 0).toLocaleString('en-IN');
+      const txt = st.key === 'completed' ? `Your payout of ${amt} has been paid.` : st.key === 'in_progress' ? `Your payout of ${amt} is being processed.` : st.key === 'rejected' ? `Your payout request of ${amt} was rejected.` : `Your payout request of ${amt} is pending.`;
+      notify('Payout ' + st.label.toLowerCase(), txt, 'payout-' + n.id + '-' + st.key);
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: 'rider_id=eq.' + rid }, p => {
+      const n = p.new || {}, s = String(n.status || '').toLowerCase();
+      if (!n.order_id || !s) return;
+      if (Date.now() - (mf.ownAt || 0) < 15000) return; // rider did it themselves just now
+      const map = { delivered: ['Order delivered', 'delivered'], cancelled: ['Order cancelled', 'cancelled'], canceled: ['Order cancelled', 'cancelled'], assigned: ['Order accepted', 'assigned to you'], accepted: ['Order accepted', 'accepted'], picked_up: ['Order picked up', 'picked up'] };
+      const e = map[s]; if (!e || !once('order_' + n.order_id + '_' + s)) return;
+      notify(e[0], `Parcel #${n.order_id} is ${e[1]}.`, 'order-' + n.order_id + '-' + s);
+    })
+    .subscribe();
+}
+setTimeout(watchAdminEvents, 2000);
+
+/* ---------- one-tap "turn on push" card on Home (push works with app closed only after this) ---------- */
+function pushCard() {
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const old = $('mfPushCard');
+  const need = supported && window.MFPush && !(Notification.permission === 'granted' && window.MFPush.isOn());
+  if (!need) { if (old) old.remove(); return; }
+  if (old) return;
+  const host = $('homeKycBanner'); if (!host) return;
+  host.insertAdjacentHTML('afterend', `<div id="mfPushCard" class="mf-push-card">${mfIco('bell')}<div><b>Get new orders even when the app is closed</b><small>Turn on push notifications</small></div><button type="button" id="mfPushCardBtn">Turn on</button></div>`);
+  $('mfPushCardBtn').onclick = async () => {
+    const b = $('mfPushCardBtn'); b.disabled = true;
+    try {
+      const r = await window.MFPush.enable();
+      if (r && r.reason === 'blocked' && typeof showToast === 'function') showToast('Notifications are blocked. Allow them in browser/app site settings, then try again.', 'error');
+      else if (r && !r.ok && r.reason && typeof showToast === 'function') showToast('Push could not start: ' + r.reason, 'error');
+    } catch (e) {}
+    b.disabled = false; pushCard();
+  };
+}
+setTimeout(pushCard, 1500);
+setInterval(pushCard, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pushCard(); });
+
+/* ---------- ask for push permission once, on the rider's first tap ---------- */
+(function () {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  const ask = () => {
+    document.removeEventListener('click', ask, true);
+    try {
+      if (window.MFPush && typeof window.MFPush.enable === 'function') window.MFPush.enable().catch(() => {});
+      else Notification.requestPermission();
+    } catch (e) {}
+  };
+  document.addEventListener('click', ask, true);
+})();
+
+/* ---------- tab switch ---------- */
+const _sw = window.switchRiderTab;
+window.switchRiderTab = function (t) { closeNoti(); _sw.apply(this, arguments); };
+})();
+
+// ==================== SPEED LAYER: instant tabs / no repeated loading ====================
+(function () {
+  'use strict';
+  // 1) getSession ek-ta call kore 20s cache (code e 10+ jaygay await hoy)
+  try {
+    const a = supabaseClient.auth, orig = a.getSession.bind(a);
+    let pr = null, t = 0;
+    a.getSession = function () {
+      if (pr && Date.now() - t < 20000) return pr;
+      t = Date.now(); pr = orig().catch(e => { pr = null; throw e; }); return pr;
+    };
+    a.onAuthStateChange(() => { pr = null; });
+  } catch (e) {}
+  // 2) rider id bar bar DB theke ana hobe na
+  const _e = window.ensureRiderBigIntId;
+  if (typeof _e === 'function') {
+    let c = null;
+    window.ensureRiderBigIntId = async function () { if (c) return c; const v = await _e.apply(this, arguments); if (v) c = v; return v; };
+  }
+  // 3) last dekha data screen e sathe sathe (stale-while-revalidate), pore real data diye replace hobe
+  const KEY = 'mf_rider_snap_v1';
+  const IDS = ['todayTotalEarnings', 'totalLifetimeIncome', 'earning-history-list', 'noti-dropdown-body', 'activeHoursTracker', 'profileDisplayName', 'profileDisplayUsername'];
+  const owner = () => String(localStorage.getItem('riderId') || '');
+  try {
+    const snap = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (snap && snap.o && snap.o === owner()) IDS.forEach(id => { const el = document.getElementById(id); if (el && snap.d[id]) el.innerHTML = snap.d[id]; });
+  } catch (e) {}
+  function save() {
+    try {
+      if (!owner()) return;
+      const d = {};
+      IDS.forEach(id => { const el = document.getElementById(id); if (el && el.innerHTML && !/Loading|N\/A/i.test(el.textContent)) d[id] = el.innerHTML; });
+      localStorage.setItem(KEY, JSON.stringify({ o: owner(), d }));
+    } catch (e) {}
+  }
+  setInterval(save, 4000);
+  window.addEventListener('pagehide', save);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  const _lo = window.processGlobalLogout;
+  if (typeof _lo === 'function') window.processGlobalLogout = function () { try { localStorage.removeItem(KEY); } catch (e) {} return _lo.apply(this, arguments); };
+})();

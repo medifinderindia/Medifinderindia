@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>try{var __p=JSON.parse(localStorage.getItem('mfn_prefs')||'{}'),__t=__p.theme||'light';if(__t==='system')__t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',__t);if(__p.lang==='bn'||__p.lang==='hi')document.documentElement.lang=__p.lang}catch(e){}</script>
     <title>Nurse Partner Portal | MediFinder India</title>
     <meta name="description" content="MediFinder India nurse partner portal.">
     <meta name="robots" content="noindex, nofollow">
@@ -52,6 +53,73 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:
 .stepper{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}.step{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;text-align:left;color:var(--muted);font-size:12px}.step b{width:26px;height:26px;border-radius:50%;background:#eef3f0;display:grid;place-items:center;font-size:12px;flex:0 0 auto}.step.on{border-color:var(--p);color:var(--text);background:#f1faf6}.step.on b{background:var(--p);color:#fff}.step.done b{background:#d3f2e5;color:var(--p)}
 .filebox{border:1.5px dashed #b9d3c8;background:#f8fcfa;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}.filebox small{color:var(--muted);font-size:12px}.kyc-actions{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
 @media(max-width:560px){.stepper{grid-template-columns:1fr}.step span{font-size:12px}}
+/* ===== Premium upgrade ===== */
+.nav-label{font-size:10px;letter-spacing:1.3px;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,.45);padding:16px 12px 6px}
+.nav-label:first-child{padding-top:4px}
+.page.active{animation:pgIn .22s ease both}@keyframes pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.card,.stat,.mini-card{border-radius:16px;transition:box-shadow .2s,transform .2s}
+.stat:hover,.mini-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(22,50,40,.10)}
+.btn{transition:transform .15s,box-shadow .15s,opacity .15s}.btn:active{transform:scale(.97)}
+.modal{animation:mIn .2s ease both}@keyframes mIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.toast{animation:tIn .2s ease both}@keyframes tIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.status:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px}
+.empty{padding:34px 16px!important;color:var(--muted);text-align:center;font-size:13px}
+.calm *{animation:none!important;transition:none!important}
+.hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding:20px 22px;border-radius:20px;color:#fff;background:linear-gradient(135deg,#073b2b,#087f5b 60%,#0ca678);box-shadow:0 14px 34px rgba(8,127,91,.25)}
+.hero small{display:block;font-size:12px;opacity:.85;font-weight:600}.hero h2{font-size:22px;letter-spacing:-.3px;margin-top:4px}
+.hero-r{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.14);padding:10px 12px 10px 14px;border-radius:16px}
+.hero-r b{display:block;font-size:14px}.hero-dot{width:11px;height:11px;border-radius:50%;background:#9aa8a1;box-shadow:0 0 0 4px rgba(255,255,255,.15)}.hero-dot.on{background:#4ff0a8;animation:pulse 1.8s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(79,240,168,.1)}}
+.hero .btn{background:#fff!important;color:#087f5b!important;box-shadow:none!important;padding:10px 16px;border-radius:12px;font-weight:800;border:0}
+.set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.set-card{padding:20px}.set-card h3{font-size:16px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--line)}
+.set-card .field-label{display:block;font-size:12px;font-weight:700;color:#4b5d55;margin-bottom:6px}
+.set-card .btn{display:block;width:100%;padding:13px;border-radius:12px;font-weight:800;border:0;cursor:pointer}
+.set-card .btn.light{background:#eef4f1;color:#355047;border:1px solid #dbe8e2}
+.set-card .btn.sos,.set-card .btn.danger{background:linear-gradient(135deg,#d94841,#b42318);color:#fff;box-shadow:0 10px 22px rgba(217,72,65,.28)}
+.set-card .btn.primary{background:linear-gradient(135deg,#087f5b,#0ca678);color:#fff}
+.set-rows{margin-top:14px}.set-rows div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.set-rows span{color:var(--muted)}.set-rows b{text-align:right}
+.set-note{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+.safe-list{margin:12px 0;padding-left:18px;font-size:12.5px;color:#4b5d55;line-height:1.7}
+.tg{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;font-weight:600;cursor:pointer}.tg input{width:20px;height:20px;accent-color:#087f5b}
+.bnav{display:none}
+@media(max-width:760px){.set-grid{grid-template-columns:1fr}.main{padding-bottom:78px}
+ .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:#fff;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px rgba(22,50,40,.08)}
+ .bnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:#7b8d85;padding:6px 0;border-radius:10px}
+ .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.bnav button.on{color:#087f5b}
+ .hero{padding:16px}.hero-r{width:100%;justify-content:space-between}.toast{bottom:84px}}
+body.compact .content{padding:16px}body.compact .card,body.compact .stat{padding:12px}
+html[data-theme=dark]{--bg:#0e1512;--text:#e6efeb;--line:#24352e;--muted:#93a69d;color-scheme:dark}
+html[data-theme=dark] body{background:#0e1512;color:#e6efeb}
+html[data-theme=dark] .card,html[data-theme=dark] .stat,html[data-theme=dark] .mini-card,html[data-theme=dark] .topbar,html[data-theme=dark] .modal,html[data-theme=dark] .bnav,html[data-theme=dark] .step{background:#15201b!important;color:#e6efeb;border-color:#24352e!important}
+html[data-theme=dark] .input,html[data-theme=dark] .select,html[data-theme=dark] .textarea,html[data-theme=dark] .kyc-date select{background-color:#0f1a15!important;color:#e6efeb!important;border-color:#2a3d34!important}
+html[data-theme=dark] th{background:#1a2822!important;color:#cfe0d8}html[data-theme=dark] td{border-color:#24352e!important}
+html[data-theme=dark] .set-rows div{border-color:#24352e}html[data-theme=dark] .set-card .btn.light{background:#1d2c26;color:#cfe0d8;border-color:#2a3d34}
+html[data-theme=dark] .safe-list,html[data-theme=dark] .set-card .field-label{color:#b9cbc2}
+html[data-theme=dark] .icon,html[data-theme=dark] .list-item,html[data-theme=dark] .quick button,html[data-theme=dark] .action,html[data-theme=dark] .mobile:hover{background:#15201b!important;color:#e6efeb;border-color:#24352e!important}
+html[data-theme=dark] .btn.light,html[data-theme=dark] .close,html[data-theme=dark] .step b{background:#1d2c26!important;color:#cfe0d8!important}
+html[data-theme=dark] .field,html[data-theme=dark] .filebox,html[data-theme=dark] .visits th,html[data-theme=dark] .data-table th{background:#1a2822!important;color:#cfe0d8!important}
+html[data-theme=dark] .filebox,html[data-theme=dark] .map-placeholder{border-color:#2f4a3e!important}
+html[data-theme=dark] .map-placeholder{background:#15201b!important}
+html[data-theme=dark] .step.on{background:#143328!important}
+html[data-theme=dark] .step.on b{background:var(--p)!important;color:#fff!important}
+html[data-theme=dark] .tag,html[data-theme=dark] .pill,html[data-theme=dark] .online,html[data-theme=dark] .accepted,html[data-theme=dark] .ico,html[data-theme=dark] .avatar,html[data-theme=dark] .note{background:#12382c!important;color:#6fe0b6!important}
+html[data-theme=dark] .new{background:#3a2b10!important;color:#ffc069!important}
+html[data-theme=dark] .way{background:#10294a!important;color:#8ec5ff!important}
+html[data-theme=dark] .done{background:#2a2250!important;color:#c0b0ff!important}
+html[data-theme=dark] .banner.warn{background:#33270f!important;color:#ffd27a!important;border-color:#5a4416!important}
+html[data-theme=dark] .banner.bad{background:#3a1a18!important;color:#ff9a92!important;border-color:#5e2a27!important}
+html[data-theme=dark] .banner.info{background:#10263d!important;color:#8ec5ff!important;border-color:#1f4468!important}
+html[data-theme=dark] .banner.ok{background:#12382c!important;color:#6fe0b6!important;border-color:#1f5a45!important}
+html[data-theme=dark] .mf-logout-top{background:#3a1a18!important;color:#ff8a82!important}
+html[data-theme=dark] .action.danger{color:#ff8a82!important;border-color:#5e2a27!important}
+html[data-theme=dark] .visits th,html[data-theme=dark] .visits td,html[data-theme=dark] .slot,html[data-theme=dark] .data-table th,html[data-theme=dark] .data-table td{border-color:#24352e!important}
+html[data-theme=dark] .toast{background:#e6efeb;color:#0e1512}
+html[data-theme=dark] .bnav button{color:#93a69d}html[data-theme=dark] .bnav button.on{color:#4ff0a8}
+html[data-theme=dark] [style*="background:#fff"],html[data-theme=dark] [style*="background: #fff"],html[data-theme=dark] [style*="background:white"]{background:#15201b!important;color:#e6efeb}
+html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="color:#111"],html[data-theme=dark] [style*="color:#000"]{color:#e6efeb!important}
+.icon#themeBtn{font-size:17px;line-height:1}
+@media(max-width:760px){.set-card{padding:16px}}
 </style>
 </head>
 <body>
@@ -62,19 +130,25 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:
     <button class="side-close" aria-label="Close menu" onclick="closeSide()">✕</button>
   </div>
   <nav class="nav" id="nav">
+    <div class="nav-label">Main</div>
     <button class="active" data-page="dashboard"><i>🏠</i><span>Dashboard</span></button>
-    <button data-page="requests"><i>🔔</i><span>New Booking Requests</span><span class="badge" id="requestBadge" style="display:none">0</span></button>
+    <button data-page="requests"><i>🔔</i><span>Booking Requests</span><span class="badge" id="requestBadge" style="display:none">0</span></button>
     <button data-page="bookings"><i>📋</i><span>My Bookings</span></button>
     <button data-page="schedule"><i>📅</i><span>Schedule</span></button>
     <button data-page="visits"><i>📍</i><span>Today's Visits</span></button>
+    <div class="nav-label">Patients</div>
     <button data-page="patients"><i>👤</i><span>Patients</span></button>
+    <div class="nav-label">Finance</div>
     <button data-page="earnings"><i>💰</i><span>Earnings</span></button>
-    <button data-page="ratings"><i>⭐</i><span>Ratings & Reviews</span></button>
-    <button data-page="kyc"><i>📄</i><span>KYC & Verification</span></button>
     <button data-page="bank"><i>🏦</i><span>Bank & Payouts</span></button>
-    <button data-page="notifications"><i>🔔</i><span>Notifications</span></button>
+    <div class="nav-label">Performance</div>
+    <button data-page="ratings"><i>⭐</i><span>Ratings & Reviews</span></button>
     <button data-page="performance"><i>📊</i><span>Performance</span></button>
-    <button data-page="profile"><i>⚙️</i><span>Profile & Settings</span></button>
+    <div class="nav-label">Account</div>
+    <button data-page="kyc"><i>📄</i><span>KYC & Verification</span></button>
+    <button data-page="notifications"><i>🔔</i><span>Notifications</span></button>
+    <button data-page="profile"><i>👩‍⚕️</i><span>Profile</span></button>
+    <button data-page="settings"><i>⚙️</i><span>Settings</span></button>
     <button data-page="support"><i>❓</i><span>Support</span></button>
   </nav>
   <div class="nurse-mini"><b id="nurseNameMini">Loading…</b><span class="verified" id="nurseStatusMini">● Loading…</span></div><button type="button" class="mf-logout-side" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button>
@@ -83,13 +157,14 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:
 <main class="main">
 <header class="topbar">
   <div style="display:flex;align-items:center;gap:12px"><button class="mobile" id="menuBtn" aria-label="Open menu" onclick="toggleSide()">☰</button><div class="title" id="pageTitle">Nurse Dashboard</div></div>
-  <div class="actions"><button class="icon" onclick="navigate('notifications')" aria-label="Notifications">🔔<span class="dot" id="notifDot"></span></button><button type="button" class="mf-logout-top" onclick="logoutPartner()" aria-label="Logout" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button><div class="avatar" id="avatarInitials">--</div></div>
+  <div class="actions"><button class="icon" id="themeBtn" type="button" onclick="mfToggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button><button class="icon" onclick="navigate('notifications')" aria-label="Notifications">🔔<span class="dot" id="notifDot"></span></button><button type="button" class="mf-logout-top" onclick="logoutPartner()" aria-label="Logout" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button><div class="avatar" id="avatarInitials">--</div></div>
 </header>
 <section class="content">
 <div id="kycBanner"></div>
 
 <section class="page active" id="page-dashboard">
 <div class="welcome"><div><h1 id="welcomeHeading">Loading…</h1><p>Manage your patient visits and nursing bookings from one place.</p></div><div class="online" id="onlineBadge" onclick="toggleOnline()" style="cursor:pointer">● …</div></div>
+<div class="hero" id="heroCard"><div><small id="heroGreet">Welcome</small><h2 id="heroLine">Loading…</h2></div><div class="hero-r"><span class="hero-dot" id="heroDot"></span><div><b id="heroState">…</b><small id="heroSub"></small></div><button type="button" class="btn primary" id="heroBtn" onclick="mfHero()">…</button></div></div>
 <div class="stats">
 <div class="stat"><div class="stat-top"><span>New Requests</span><div class="ico">🔔</div></div><h2 id="statNewRequests">–</h2><span class="green" id="statNewRequestsSub"></span></div>
 <div class="stat"><div class="stat-top"><span>Today's Visits</span><div class="ico">📍</div></div><h2 id="statTodayVisits">–</h2><span class="green" id="statTodayVisitsSub"></span></div>
@@ -120,21 +195,298 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:
 
 <section class="page" id="page-bank"><div class="section-head"><div><h1>Bank & Payouts</h1><p>Your verified settlement account and payout requests.</p></div></div><div class="cards" id="walletCards"></div><div class="grid"><div class="card"><div class="head"><h3>Settlement Account</h3></div><div id="bankBox" style="padding:20px"></div></div><div class="card"><div class="head"><h3>Request Payout</h3></div><div id="payoutBox" style="padding:20px"></div></div></div><div class="card" style="margin-top:16px"><div class="head"><h3>Payout History</h3></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Amount</th><th>Paid to</th><th>Status</th><th>Reference / Note</th></tr></thead><tbody id="payoutBody"></tbody></table></div></div></section>
 
-<section class="page" id="page-notifications"><div class="section-head"><div><h1>Notifications</h1><p>Booking and portal updates derived from your current records.</p></div><button class="btn light" onclick="markNotificationsRead()">Mark as read</button></div><div class="list" id="notificationsList"></div></section>
+<section class="page" id="page-notifications"><div class="section-head"><div><h1>Notifications</h1><p>Booking and portal updates derived from your current records.</p></div><button class="btn light" onclick="markNotificationsRead()">Mark as read</button></div><div id="mf-push-switch" style="margin-bottom:6px"></div><div class="list" id="notificationsList"></div></section>
 
 <section class="page" id="page-performance"><div class="section-head"><div><h1>Performance</h1><p>Simple metrics calculated from your current bookings.</p></div></div><div class="cards" id="performanceCards"></div><div class="card" style="margin-top:16px"><div class="head"><h3>Performance Breakdown</h3></div><div style="padding:20px" id="performanceBreakdown"></div></div></section>
 
-<section class="page" id="page-profile"><div class="section-head"><div><h1>Profile & Settings</h1><p>Update the nurse fields already supported by the current portal.</p></div></div><div class="card"><div style="padding:20px"><form id="profileForm" class="form-grid"><div><span class="field-label">Name</span><input class="input" style="width:100%" id="profileName"></div><div><span class="field-label">Contact number</span><input class="input" style="width:100%" id="profilePhone"></div><div><span class="field-label">Qualification</span><input class="input" style="width:100%" id="profileQualification"></div><div><span class="field-label">WhatsApp number</span><input class="input" style="width:100%" id="profileWhatsapp"></div><div class="full"><span class="field-label">Services I offer *</span><p style="margin:2px 0 8px;font-size:12px;color:#6b7c75">You only receive booking requests for the categories you tick here. The first nurse to accept a request gets it.</p><div id="serviceTypeBox" style="display:flex;flex-wrap:wrap;gap:8px"><label class="svc-chip"><input type="checkbox" value="ayah"> Ayah / Basic Attendant</label><label class="svc-chip"><input type="checkbox" value="gda"> GDA (General Duty Assistant)</label><label class="svc-chip"><input type="checkbox" value="anm_gnm"> ANM / GNM Skilled Nurse</label><label class="svc-chip"><input type="checkbox" value="icu_critical"> ICU / Critical Care Nurse</label><label class="svc-chip"><input type="checkbox" value="per_visit"> Per Visit (injection, dressing, catheter)</label></div></div><div class="full"><button class="btn primary" type="submit">Save Profile</button></div></form><style>.svc-chip{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border:1px solid #d9e4df;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;background:#fff}.svc-chip:has(input:checked){background:#e8f6ef;border-color:#2e9e6b;color:#16724a}.svc-chip input{accent-color:#2e9e6b}</style></div></div><button type="button" class="mf-logout-card" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button></section>
+<section class="page" id="page-profile"><div class="section-head"><div><h1>Profile & Settings</h1><p>Update the nurse fields already supported by the current portal.</p></div></div><div class="card"><div style="padding:20px"><form id="profileForm" class="form-grid"><div><span class="field-label">Name</span><input class="input" style="width:100%" id="profileName"></div><div><span class="field-label">Contact number</span><input class="input" style="width:100%" id="profilePhone"></div><div><span class="field-label">Qualification</span><select class="select" style="width:100%" id="profileQualification"></select></div><div><span class="field-label">WhatsApp number</span><input class="input" style="width:100%" id="profileWhatsapp"></div><div class="full"><span class="field-label">Services I offer *</span><p style="margin:2px 0 8px;font-size:12px;color:#6b7c75">You only receive booking requests for the categories you tick here. The first nurse to accept a request gets it.</p><div id="serviceTypeBox" style="display:flex;flex-wrap:wrap;gap:8px"><label class="svc-chip"><input type="checkbox" value="ayah"> Ayah / Basic Attendant</label><label class="svc-chip"><input type="checkbox" value="gda"> GDA (General Duty Assistant)</label><label class="svc-chip"><input type="checkbox" value="anm_gnm"> ANM / GNM Skilled Nurse</label><label class="svc-chip"><input type="checkbox" value="icu_critical"> ICU / Critical Care Nurse</label><label class="svc-chip"><input type="checkbox" value="per_visit"> Per Visit (injection, dressing, catheter)</label></div></div><div class="full"><button class="btn primary" type="submit">Save Profile</button></div></form><style>.svc-chip{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border:1px solid #d9e4df;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;background:#fff}.svc-chip:has(input:checked){background:#e8f6ef;border-color:#2e9e6b;color:#16724a}.svc-chip input{accent-color:#2e9e6b}</style></div></div><button type="button" class="mf-logout-card" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button></section>
 
+<section class="page" id="page-settings"><div class="section-head"><div><h1>Settings</h1><p>Security, preferences, safety and account controls.</p></div></div>
+<div class="set-grid">
+<div class="card set-card"><h3>🔐 Security & Privacy</h3>
+ <span class="field-label">New password (min 8 characters)</span><input class="input" style="width:100%" id="setPw1" type="password" autocomplete="new-password" minlength="8">
+ <span class="field-label" style="margin-top:10px">Confirm new password</span><input class="input" style="width:100%" id="setPw2" type="password" autocomplete="new-password">
+ <button class="btn primary" style="margin-top:12px" onclick="mfChangePw()">Change Password</button>
+ <div class="set-rows" id="setLogin"></div>
+ <button class="btn light" style="margin-top:12px" onclick="mfLogoutAll()">Logout from all devices</button>
+ <p class="set-note">Two-factor sign-in is not available yet.</p></div>
+<div class="card set-card"><h3>📱 App Preferences</h3>
+ <span class="field-label">Theme</span><select class="select" style="width:100%" id="setTheme" onchange="mfPref('theme',this.value)"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select>
+ <span class="field-label" style="margin-top:10px">Language</span><select class="select notranslate" style="width:100%" id="setLang" onchange="mfSetLang(this.value)"><option value="en">English</option><option value="bn">বাংলা</option><option value="hi">हिन्दी</option></select>
+ <label class="tg"><input type="checkbox" id="setCompact" onchange="mfPref('compact',this.checked)"><span>Compact mode</span></label>
+ <label class="tg"><input type="checkbox" id="setCalm" onchange="mfPref('calm',this.checked)"><span>Reduce animations</span></label></div>
+<div class="card set-card"><h3>🆘 Emergency & Safety</h3>
+ <button class="btn sos" onclick="mfSos()">🚨 SOS — Call 112</button>
+ <button class="btn light" style="margin-top:10px" onclick="mfShareLoc()">📍 Share my live location</button>
+ <span class="field-label" style="margin-top:14px">Emergency contact name</span><input class="input" style="width:100%" id="setEcName" maxlength="60" placeholder="Full name">
+ <span class="field-label" style="margin-top:10px">Emergency contact number (10 digits)</span><input class="input" style="width:100%" id="setEcPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile">
+ <button class="btn primary" style="margin-top:12px" onclick="mfSaveEc()">Save Contact</button>
+ <p class="set-note">Contact is saved on this device only. Location is shared only when you tap the button.</p>
+ <ul class="safe-list"><li>Tell someone before you go to a new address.</li><li>Keep your phone charged and location on.</li><li>Leave immediately if you feel unsafe and call 112.</li></ul>
+ <button class="btn light" onclick="mfReport()">⚠️ Report unsafe patient / location</button></div>
+<div class="card set-card"><h3>📊 Account & Activity</h3><div class="set-rows" id="setAct"></div>
+ <button class="btn primary" style="margin-top:12px" onclick="mfCsv()">⬇ Download earnings statement</button></div>
+<div class="card set-card"><h3>🗑️ Account Management</h3>
+ <button class="btn light" onclick="mfPause()">Pause account (go offline)</button>
+ <button class="btn light" style="margin-top:10px" onclick="mfDelReq()">Request account deletion</button>
+ <button class="btn danger" style="margin-top:10px" onclick="logoutPartner()">Logout</button></div>
+</div></section>
 <section class="page" id="page-support"><div class="section-head"><div><h1>Support</h1><p>Get help with bookings, payments, patients or account issues.</p></div></div><div class="cards"><div class="mini-card"><div class="label">Booking Support</div><div class="value">📋</div><div class="hint">Need help with a booking? Keep the booking ID ready.</div></div><div class="mini-card"><div class="label">Payment Support</div><div class="value">₹</div><div class="hint">For settlement questions, provide the relevant booking details.</div></div><div class="mini-card"><div class="label">Account / KYC</div><div class="value">📄</div><div class="hint">Contact MediFinder India support for verification issues.</div></div></div><div class="card" style="margin-top:16px"><div class="head"><h3>Support Request</h3></div><div style="padding:20px"><form id="supportForm" class="form-grid"><div><span class="field-label">Category</span><select class="select" style="width:100%"><option>Booking</option><option>Payment</option><option>Patient</option><option>KYC</option><option>Account</option></select></div><div><span class="field-label">Subject</span><input class="input" style="width:100%" required></div><div class="full"><span class="field-label">Message</span><textarea class="textarea" style="width:100%;min-height:110px" required></textarea></div><div class="full"><button class="btn primary" type="submit">Create Support Request</button></div></form></div></div></section>
 
 </section></main></div>
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="modal-head"><h3 id="mt">Visit Details</h3><button class="close" onclick="closeModal()">✕</button></div><div id="mb"></div><div class="foot"><button class="btn light" onclick="closeModal()">Close</button><button class="btn light" id="mc" style="display:none"></button><button class="btn primary" id="ma">Start Visit</button></div></div></div>
+<nav class="bnav" id="bnav" aria-label="Main">
+<button data-p="dashboard" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button>
+<button data-p="requests" onclick="navigate('requests')"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span>Requests</span></button>
+<button data-p="schedule" onclick="navigate('schedule')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Schedule</span></button>
+<button data-p="earnings" onclick="navigate('earnings')"><svg viewBox="0 0 24 24"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><circle cx="16.5" cy="14" r="1"/></svg><span>Earnings</span></button>
+<button data-p="more" onclick="toggleSide()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button>
+</nav>
 <div class="toast" id="toast"></div>
 <script src="permission-every.js?v=4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
+<script>
+/* MediFinder India — shared KYC enhancer
+   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
+   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
+   - Date fields -> Year, then Month, then Day (selects)
+   - State text box -> state dropdown
+   - Premium form styling
+*/
+(function () {
+  if (window.__kycEnh) return;
+  window.__kycEnh = true;
+
+  /* ---------------- STYLES ---------------- */
+  var css = `
+  .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
+  .kyc-hint.ok{color:#087f5b}.kyc-hint.bad{color:#d94841}
+  input.kyc-ok,select.kyc-ok{border-color:#0ca678!important;background-color:#f3fcf8!important}
+  input.kyc-bad{border-color:#d94841!important;background-color:#fff8f7!important}
+  .kyc-date{display:grid;grid-template-columns:1.1fr 1.5fr 1fr;gap:8px;width:100%}
+  .kyc-date select,.kyc-sel{width:100%;height:46px;padding:0 34px 0 12px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;color:#17211d;font-size:14px;font-weight:600;font-family:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .18s,box-shadow .18s,background-color .18s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+  .kyc-date select:focus,.kyc-sel:focus{outline:0;border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  .kyc-date select:disabled{opacity:.5;cursor:not-allowed;background-color:#f1f4f3}
+  .kyc-date .step-tag{grid-column:1/-1;font-size:10.5px;color:#7b8d85;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin:-2px 0 0}
+  .kyc-date-sm select{height:36px;font-size:12px;border-radius:9px;padding-right:26px}
+  /* ambulance */
+  #vehicleKycContent .req-card{border:1px solid #e4ece8;border-radius:18px;padding:18px;box-shadow:0 6px 24px rgba(22,50,40,.06);background:#fff}
+  #vehicleKycContent .req-card:focus-within{border-color:#9fdcc6;box-shadow:0 10px 30px rgba(12,166,120,.12)}
+  #vehicleKycContent .vf-field label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;margin-bottom:7px}
+  #vehicleKycContent .vf-field input[type=text],#vehicleKycContent .vf-field select{height:48px;padding:0 14px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #vehicleKycContent .vf-field input[type=text]:focus,#vehicleKycContent .vf-field select:focus{outline:0;border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  #vehicleKycContent .vf-field select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #vehicleKycContent .kyc-nav .btn.primary,#vehicleKycContent .btn.primary{background:linear-gradient(135deg,#087f5b,#0ca678);border:0;color:#fff;border-radius:13px;box-shadow:0 10px 22px rgba(8,127,91,.28);transition:all .18s}
+  #vehicleKycContent .kyc-nav .btn.primary:hover{transform:translateY(-1px)}
+  .inr-wrap{position:relative}.inr-wrap>input{padding-left:34px!important}.inr-wrap:before{content:"₹";position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;color:#087f5b;z-index:1;pointer-events:none}
+  /* nurse */
+  #kycRoot .input,#kycRoot .select{height:48px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #kycRoot .input:focus,#kycRoot .select:focus{border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  #kycRoot .select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #kycRoot .field-label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;display:block;margin-bottom:7px}
+  #kycRoot .card{border-radius:18px;box-shadow:0 6px 24px rgba(22,50,40,.06)}
+  #kycRoot .btn.primary{background:linear-gradient(135deg,#087f5b,#0ca678);border:0;color:#fff;border-radius:13px;font-weight:800;box-shadow:0 10px 22px rgba(8,127,91,.28)}
+  @media(max-width:430px){.kyc-date{grid-template-columns:1fr 1.3fr .9fr}}
+  `;
+  var st = document.createElement('style');
+  st.id = 'kycEnhCss';
+  st.textContent = css;
+  document.head.appendChild(st);
+
+  /* ---------------- INPUT RULES ---------------- */
+  var digits = function (v) { return v.replace(/\D/g, ''); };
+  var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+  var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
+
+  var RULES = [
+    { name: 'phone', test: /(phone|mobile|whatsapp|contact_?no|pdwa$|ecphone)/i, fmt: digits, max: 10, exact: 10, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[6-9]\d{9}$/.test(v); } },
+    { name: 'pin', test: /(pincode|pdpin$|pfpin$|_pin$)/i, fmt: digits, max: 6, exact: 6, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[1-9]\d{5}$/.test(v); } },
+    { name: 'acc', test: /(account_?no2?$|[a-z]acc2?$|^acc2?$)/i, fmt: digits, max: 18, min: 9, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^\d{9,18}$/.test(v); } },
+    { name: 'ifsc', test: /ifsc$/i, fmt: upalnum, max: 11, exact: 11, hint: 'chars', check: function (v) { return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v); } },
+    { name: 'upi', test: /upi(_id)?$/i, fmt: function (v) { return v.toLowerCase().replace(/[^a-z0-9.\-_@]/g, ''); }, max: 50 },
+    { name: 'charge', test: /(per_?km|day_?charge)/i, fmt: digits, max: 5, inputmode: 'numeric' },
+    { name: 'name', test: /(full_?name|holder|pdname|pfname|ecname|bank_?name|ks?bank$|ebbank$)/i, fmt: letters, max: 60 }
+  ];
+
+  var DOC_RULES = { // by selected document type text
+    aadhaar: { fmt: digits, max: 12, label: 'Aadhaar (12 digits)' },
+    pan: { fmt: upalnum, max: 10, label: 'PAN (10 chars)' },
+    driving: { fmt: upalnum, max: 16, label: 'Licence number' },
+    voter: { fmt: upalnum, max: 10, label: 'Voter ID (10 chars)' },
+    passport: { fmt: upalnum, max: 8, label: 'Passport (8 chars)' }
+  };
+  function docRuleFor(input) {
+    var m = /^k_(id|addr)_number$/.exec(input.id || '');
+    if (!m) return null;
+    var sel = document.getElementById('k_' + m[1] + '_type');
+    var t = sel ? String(sel.value).toLowerCase() : '';
+    if (/aadhaar/.test(t)) return DOC_RULES.aadhaar;
+    if (/pan/.test(t)) return DOC_RULES.pan;
+    if (/driving/.test(t)) return DOC_RULES.driving;
+    if (/voter/.test(t)) return DOC_RULES.voter;
+    if (/passport/.test(t)) return DOC_RULES.passport;
+    return { fmt: function (v) { return v.toUpperCase().replace(/[^A-Z0-9\-\/ ]/g, ''); }, max: 20 };
+  }
+
+  function ruleFor(el) {
+    if (!el || el.tagName !== 'INPUT') return null;
+    var id = el.id || '';
+    if (!id) return null;
+    var t = (el.type || '').toLowerCase();
+    if (t !== 'text' && t !== 'tel' && t !== 'number' && t !== '') return null;
+    var dr = docRuleFor(el);
+    if (dr) return dr;
+    for (var i = 0; i < RULES.length; i++) if (RULES[i].test.test(id)) return RULES[i];
+    return null;
+  }
+
+  function hintEl(el) {
+    var h = el.parentNode && el.parentNode.querySelector(':scope > .kyc-hint[data-for="' + el.id + '"]');
+    if (!h) {
+      h = document.createElement('span');
+      h.className = 'kyc-hint';
+      h.setAttribute('data-for', el.id);
+      el.insertAdjacentElement('afterend', h);
+    }
+    return h;
+  }
+
+  function paint(el, r) {
+    var v = el.value, h = null;
+    if (r.exact || r.min) h = hintEl(el);
+    el.classList.remove('kyc-ok', 'kyc-bad');
+    if (!v) { if (h) { h.textContent = ''; h.className = 'kyc-hint'; } return; }
+    var good = r.check ? r.check(v) : (r.exact ? v.length === r.exact : r.min ? v.length >= r.min : true);
+    if (r.exact || r.min) {
+      h.textContent = v.length + '/' + (r.exact || r.max) + (good ? ' ✓' : '');
+      h.className = 'kyc-hint ' + (good ? 'ok' : (v.length >= (r.exact || r.min) ? 'bad' : ''));
+    }
+    if (good) el.classList.add('kyc-ok');
+    else if (r.exact && v.length >= r.exact) el.classList.add('kyc-bad');
+  }
+
+  function prep(el) {
+    var r = ruleFor(el);
+    if (!r) return;
+    if (el.dataset.kycR === '1' && !docRuleFor(el)) return;
+    el.dataset.kycR = '1';
+    if (r.max) el.setAttribute('maxlength', r.max);
+    if (r.inputmode) el.setAttribute('inputmode', r.inputmode);
+    el.setAttribute('autocomplete', el.getAttribute('autocomplete') || 'off');
+    if (el.type === 'number') { try { el.type = 'text'; } catch (e) {} }
+    var v = el.value;
+    if (r.name === 'phone' && v) v = digits(v).slice(-10);
+    else if (v) v = r.fmt(v);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    if (r.name === 'charge' && !el.parentNode.classList.contains('inr-wrap') && !el.parentNode.classList.contains('vf-field') && false) { /* reserved */ }
+    paint(el, r);
+  }
+
+  document.addEventListener('input', function (e) {
+    var el = e.target, r = ruleFor(el);
+    if (!r) return;
+    var v = r.fmt(el.value);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    paint(el, r);
+  }, true);
+
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el && /^k_(id|addr)_type$/.test(el.id || '')) { // document type changed -> reset number format
+      var num = document.getElementById(el.id.replace('_type', '_number'));
+      if (num) { num.value = ''; prep(num); }
+    }
+  }, true);
+
+  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dim(y, m) { return new Date(y, m, 0).getDate(); }
+
+  function enhanceDate(inp) {
+    if (inp.dataset.dp) return;
+    inp.dataset.dp = '1';
+    var now = new Date(), y0 = now.getFullYear();
+    var past = /dob|birth/i.test(inp.id) || inp.hasAttribute('max');
+    var years = [];
+    if (past) { for (var y = y0 - 18; y >= y0 - 80; y--) years.push(y); }
+    else { for (var y2 = y0; y2 <= y0 + 30; y2++) years.push(y2); }
+    var cur = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.value || '');
+    var cy = cur ? +cur[1] : 0, cm = cur ? +cur[2] : 0, cd = cur ? +cur[3] : 0;
+    if (cy && years.indexOf(cy) < 0) { years.push(cy); years.sort(function (a, b) { return past ? b - a : a - b; }); }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'kyc-date' + (inp.closest('.doc-row') ? ' kyc-date-sm' : '');
+    var sy = document.createElement('select'), sm = document.createElement('select'), sd = document.createElement('select');
+    sy.setAttribute('aria-label', 'Year'); sm.setAttribute('aria-label', 'Month'); sd.setAttribute('aria-label', 'Day');
+    sy.innerHTML = '<option value="">Year</option>' + years.map(function (y) { return '<option value="' + y + '"' + (y === cy ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+    sm.innerHTML = '<option value="">Month</option>' + MONTHS.map(function (n, i) { return '<option value="' + (i + 1) + '"' + (i + 1 === cm ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+    function fillDays() {
+      var y = +sy.value, m = +sm.value, keep = +sd.value;
+      var n = (y && m) ? dim(y, m) : 31, h = '<option value="">Day</option>';
+      for (var d = 1; d <= n; d++) h += '<option value="' + d + '"' + (d === keep || (!keep && d === cd) ? ' selected' : '') + '>' + d + '</option>';
+      sd.innerHTML = h;
+      if (keep > n) sd.value = '';
+    }
+    function lock() { sm.disabled = !sy.value; sd.disabled = !(sy.value && sm.value); }
+    function sync(fire) {
+      var y = +sy.value, m = +sm.value, d = +sd.value, v = '';
+      if (y && m && d) v = y + '-' + pad(m) + '-' + pad(d);
+      if (v !== inp.value) {
+        inp.value = v;
+        if (fire && v) inp.dispatchEvent(new Event('change', { bubbles: true }));
+        else if (fire) inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    fillDays(); lock();
+    sy.addEventListener('change', function () { if (!sy.value) { sm.value = ''; sd.value = ''; } fillDays(); lock(); sync(true); });
+    sm.addEventListener('change', function () { if (!sm.value) sd.value = ''; fillDays(); lock(); sync(true); });
+    sd.addEventListener('change', function () { sync(true); });
+    wrap.appendChild(sy); wrap.appendChild(sm); wrap.appendChild(sd);
+    try { inp.type = 'hidden'; } catch (e) { inp.style.display = 'none'; }
+    inp.style.display = 'none';
+    inp.insertAdjacentElement('afterend', wrap);
+  }
+
+  /* ---------------- STATE DROPDOWN ---------------- */
+  var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
+  function enhanceState(inp) {
+    if (inp.dataset.st) return;
+    inp.dataset.st = '1';
+    var sel = document.createElement('select');
+    sel.id = inp.id;
+    sel.className = (inp.className + ' kyc-sel select').trim();
+    sel.setAttribute('style', inp.getAttribute('style') || '');
+    var v = (inp.value || '').trim();
+    var list = STATES.slice();
+    if (v && list.map(function (s) { return s.toLowerCase(); }).indexOf(v.toLowerCase()) < 0) list.unshift(v);
+    sel.innerHTML = '<option value="">Select state</option>' + list.map(function (s) {
+      return '<option value="' + s.replace(/"/g, '&quot;') + '"' + (s.toLowerCase() === v.toLowerCase() ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    inp.replaceWith(sel);
+  }
+
+  /* ---------------- SCAN ---------------- */
+  var queued = false;
+  function scan() {
+    queued = false;
+    document.querySelectorAll('input[type=date]:not([data-dp])').forEach(enhanceDate);
+    document.querySelectorAll('input[id$="_state"]:not([data-st]),input#k_state:not([data-st])').forEach(function (i) { if (i.type === 'text' || !i.type) enhanceState(i); });
+    document.querySelectorAll('input[id]').forEach(function (el) {
+      var r = ruleFor(el);
+      if (r && (el.dataset.kycR !== '1' || /^k_(id|addr)_number$/.test(el.id))) prep(el);
+    });
+  }
+  function queue() { if (!queued) { queued = true; requestAnimationFrame(scan); } }
+  new MutationObserver(queue).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.readyState !== 'loading') queue(); else document.addEventListener('DOMContentLoaded', queue);
+})();
+
+</script>
 <script src="prod-utils.js"></script>
 <script>
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
@@ -246,12 +598,55 @@ function skipVisit(id){const s=skippedIds();if(!s.includes(id))s.push(id);lsSet(
 function openVisit(id){
   const v=visitsById[id];if(!v)return;const meta=statusMeta(v);
   $('mt').textContent='Visit Details';
-  $('mb').innerHTML=`<div class="details"><div class="field"><small>Patient</small><strong>${esc(v.patient_name||'Unknown')}</strong></div><div class="field"><small>Date & Time</small><strong>${esc(dateFmt(v.book_date))} ${esc(v.book_time||'')}</strong></div><div class="field"><small>Service</small><strong>${esc(v.service_label||v.service_type||'—')}</strong></div><div class="field"><small>Status</small><strong>${esc(meta.label)}</strong></div><div class="field"><small>Amount</small><strong>${money(v.total_amount)}</strong></div><div class="field"><small>Duration</small><strong>${esc(v.duration||1)} ${esc(v.rate_unit||'day')}(s)</strong></div></div>${v.status!=='pending'?`<div class="note">Contact: ${esc(v.contact_no||'—')} • ${esc(v.addr_house||'')} ${esc(v.addr_street||'')}, ${esc(v.addr_city||'')}</div>`:'<div class="note">Full patient address and contact will appear once you accept this request.</div>'}`;
+  $('mb').innerHTML=`<div class="details"><div class="field"><small>Patient</small><strong>${esc(v.patient_name||'Unknown')}</strong></div><div class="field"><small>Date & Time</small><strong>${esc(dateFmt(v.book_date))} ${esc(v.book_time||'')}</strong></div><div class="field"><small>Service</small><strong>${esc(v.service_label||v.service_type||'—')}</strong></div><div class="field"><small>Status</small><strong>${esc(meta.label)}</strong></div><div class="field"><small>Amount</small><strong>${money(v.total_amount)}</strong></div><div class="field"><small>Duration</small><strong>${esc(v.duration||1)} ${esc(v.rate_unit||'day')}(s)</strong></div></div>${v.status!=='pending'?visitExtra(v):'<div class="note">Full patient address, exact map location, prescription and contact will appear once you accept this request.</div>'}`;
+  if(v.status==='approved'&&String(v.nurse_id)===String(nurseRow?.id))$('mb').insertAdjacentHTML('beforeend',`<a href="order-receipt.html?type=nurse&id=${encodeURIComponent(v.id)}" target="_blank" rel="noopener" style="display:block;margin-top:12px;padding:12px;border-radius:10px;background:#0a7d3b;color:#fff;text-align:center;font-weight:700;text-decoration:none">🧾 Open Invoice / Verify &amp; Sign</a>`);
   const btn=$('ma'),b2=$('mc');b2.style.display='none';
   if(v.status==='pending'){btn.textContent='Accept Request';btn.onclick=()=>acceptVisit(v.id);b2.style.display='';b2.textContent='Not interested';b2.onclick=()=>skipVisit(v.id)}
   else if(v.status==='approved'&&!v.completed_at&&String(v.nurse_id)===String(nurseRow?.id)){btn.textContent='Mark Visit Completed';btn.onclick=()=>completeVisit(v.id);b2.style.display='';b2.textContent='Cancel Visit';b2.onclick=()=>releaseVisit(v.id)}
   else{btn.textContent='Close';btn.onclick=closeModal}
   $('overlay').style.display='block';
+}
+/* ---------- location / prescription / receipt ---------- */
+function visitAddress(v){return [v.addr_house,v.addr_street,v.addr_landmark,v.addr_city,v.addr_state,v.addr_pincode].filter(Boolean).join(', ')}
+function hasCoords(v){return Number.isFinite(Number(v.addr_lat))&&Number.isFinite(Number(v.addr_lng))&&v.addr_lat!==null&&v.addr_lng!==null&&(Number(v.addr_lat)||Number(v.addr_lng))}
+function mapsUrl(v){return hasCoords(v)?`https://www.google.com/maps/dir/?api=1&destination=${v.addr_lat},${v.addr_lng}&travelmode=driving`:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(visitAddress(v))}`}
+function osmEmbed(v){const la=Number(v.addr_lat),ln=Number(v.addr_lng),d=0.004;return `https://www.openstreetmap.org/export/embed.html?bbox=${ln-d},${la-d},${ln+d},${la+d}&layer=mapnik&marker=${la},${ln}`}
+function visitExtra(v){
+  const addr=visitAddress(v);const gps=hasCoords(v);
+  let h=`<div class="note"><b>Patient address</b><br>${esc(addr||'—')}<br><b>Contact:</b> ${esc(v.contact_no||'—')}${v.whatsapp_no?' • WhatsApp: '+esc(v.whatsapp_no):''}</div>`;
+  h+=`<div style="margin-top:10px"><b style="font-size:13px">Visit location</b>`;
+  if(gps){h+=`<iframe src="${osmEmbed(v)}" style="width:100%;height:200px;border:1px solid #dce7e2;border-radius:12px;margin-top:6px" loading="lazy" referrerpolicy="no-referrer"></iframe><div style="font-size:11px;color:#6b7c75;margin-top:4px">📍 Exact GPS pin shared by the patient (${Number(v.addr_lat).toFixed(5)}, ${Number(v.addr_lng).toFixed(5)})${v.addr_accuracy_m?' • accuracy ~'+Math.round(v.addr_accuracy_m)+' m':''}</div>`}
+  else{h+=`<div style="font-size:12px;color:#6b7c75;margin:6px 0">Patient did not share a GPS pin — navigation uses the written address.</div>`}
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><a class="btn primary" style="text-decoration:none" target="_blank" rel="noopener" href="${esc(mapsUrl(v))}">🧭 Navigate in Google Maps</a>${v.contact_no?`<a class="btn light" style="text-decoration:none" href="tel:${esc(v.contact_no)}">📞 Call</a>`:''}</div></div>`;
+  if(v.prescription_url)h+=`<div style="margin-top:12px"><b style="font-size:13px">Prescription</b><a href="${esc(v.prescription_url)}" target="_blank" rel="noopener"><img src="${esc(v.prescription_url)}" alt="Prescription" style="width:100%;max-height:260px;object-fit:contain;border:1px solid #dce7e2;border-radius:12px;margin-top:6px;background:#fafafa" onerror="this.style.display='none'"></a><div style="font-size:11px;color:#6b7c75">Tap to open full size</div></div>`;
+  if(v.doctor_name)h+=`<div class="note" style="margin-top:8px"><b>Doctor:</b> ${esc(v.doctor_name)}</div>`;
+  const pct=Number(wallet?.commission_pct??5),fee=Math.round(Number(v.total_amount||0)*pct)/100,earn=Number(v.total_amount||0)-fee;
+  h+=`<div class="note" style="margin-top:10px"><b>Earnings for this visit</b><br>Booking total ${money(v.total_amount)} − platform fee (${pct}%) ${money(fee)} = <b>You earn ${money(earn)}</b></div>`;
+  h+=`<div style="margin-top:10px"><button class="btn light" onclick="downloadVisitReceipt('${esc(v.id)}')">⬇ Download receipt</button></div>`;
+  return h;
+}
+function downloadVisitReceipt(id){
+  const v=visitsById[id];if(!v)return;
+  const pct=Number(wallet?.commission_pct??5),total=Number(v.total_amount||0),fee=Math.round(total*pct)/100,earn=total-fee;
+  const ref='NB-'+String(v.id).slice(0,8).toUpperCase();
+  const rows=[['Reference',ref],['Patient',v.patient_name||'—'],['Service',v.service_label||v.service_type||'—'],['Date & time',dateFmt(v.book_date)+' '+(v.book_time||'')],['Duration',(v.duration||1)+' '+(v.rate_unit||'day')+'(s)'],['Rate',money(v.rate)],['Address',visitAddress(v)],['Contact',v.contact_no||'—'],['Status',v.completed_at?'Completed':'Accepted'],['Booking total',money(total)],['Platform fee ('+pct+'%)','− '+money(fee)],['Nurse earning',money(earn),1]];
+  // Receipt document is built with DOM APIs (no page-markup text inside this inline script),
+  // so hosts/minifiers/parsers can never mis-read it as page markup.
+  const rd=document.implementation.createHTMLDocument('Nurse visit receipt '+ref);
+  const meta=rd.createElement('meta');meta.setAttribute('charset','utf-8');rd.head.appendChild(meta);
+  const vp=rd.createElement('meta');vp.name='viewport';vp.content='width=device-width,initial-scale=1';rd.head.appendChild(vp);
+  const st=rd.createElement('style');
+  st.textContent='body{font-family:system-ui,sans-serif;max-width:560px;margin:20px auto;padding:0 16px;color:#1f2d28}h1{color:#16724a;font-size:20px;margin:0}.sub{color:#777;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}td{padding:9px 4px;border-bottom:1px solid #eee;font-size:14px}td:first-child{color:#777;width:40%}.t td{font-weight:800;color:#16724a;border-top:2px solid #16724a}.foot{font-size:11px;color:#999;margin-top:20px}';
+  rd.head.appendChild(st);
+  const mk=(tag,txt,cls)=>{const n=rd.createElement(tag);if(txt!=null)n.textContent=txt;if(cls)n.className=cls;return n};
+  rd.body.appendChild(mk('h1','MediFinder India - Nurse Visit Receipt'));
+  rd.body.appendChild(mk('div','Generated '+new Date().toLocaleString(),'sub'));
+  const tb=rd.createElement('table');
+  rows.forEach(r=>{const tr=rd.createElement('tr');if(r[2])tr.className='t';tr.appendChild(mk('td',r[0]==null?'-':r[0]));tr.appendChild(mk('td',r[1]==null?'-':r[1]));tb.appendChild(tr)});
+  rd.body.appendChild(tb);
+  rd.body.appendChild(mk('p','Computer generated receipt.','foot'));
+  const html='<!DOCTYPE html>\n'+rd.documentElement.outerHTML;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='MediFinder-nurse-receipt-'+ref+'.html';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast('Receipt downloaded');
 }
 async function acceptVisit(id){
   if(!nurseRow)return;
@@ -298,6 +693,7 @@ function subscribeRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'nurse_bookings'},scheduleRefresh)
     .on('postgres_changes',{event:'*',schema:'public',table:'nurse_kyc',filter:'user_id=eq.'+currentUser.id},async()=>{await loadKyc(false);renderNurseHeader();scheduleRefresh()})
     .on('postgres_changes',{event:'*',schema:'public',table:'nurse_payouts',filter:'user_id=eq.'+currentUser.id},scheduleRefresh)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'nurse_notifications',filter:'user_id=eq.'+currentUser.id},async p=>{await loadAdminNotifs();updateBadges();if(currentPage==='notifications')renderNotificationsPage();toast((p.new&&p.new.title)||'New notification');scheduleRefresh()})
     .subscribe();
   if(!window.__nursePoll)window.__nursePoll=setInterval(()=>{if(document.visibilityState==='visible'&&isOnline())refreshVisits()},15000);
 }
@@ -378,9 +774,13 @@ function pickKycFile(key,el){const f=el.files&&el.files[0];if(!f)return;if(f.siz
 function stepDone(n){return(kyc?.kyc_step||1)>n}
 function gotoKycStep(n){if(n<1||n>3)return;if(n>(kyc?.kyc_step||1)){toast('Complete the previous step first');return}kycStepView=n;renderKycPage()}
 function kycStepper(){const names=['Identity & Address','Qualification','Bank Details'];return `<div class="stepper">${names.map((n,i)=>`<button type="button" class="step${kycStepView===i+1?' on':''}${stepDone(i+1)?' done':''}" onclick="gotoKycStep(${i+1})"><b>${stepDone(i+1)?'✔':i+1}</b><span>${n}</span></button>`).join('')}</div>`}
-function kycStep1(){return inp('Full name (as on ID)','k_full_name',kv('full_name')||nurseRow?.name||'')+inp('Date of birth','k_dob',kv('dob'),'date','max="'+new Date().toISOString().slice(0,10)+'"')+`<div class="full"><span class="field-label">Address *</span><input class="input" style="width:100%" id="k_address_line" value="${esc(kv('address_line'))}" placeholder="House no, street, area"></div>`+inp('City','k_city',kv('city'))+inp('State','k_state',kv('state'))+inp('Pincode','k_pincode',kv('pincode'),'text','inputmode="numeric" maxlength="6"')+`<div><span class="field-label">Identity proof type *</span><select class="select" style="width:100%" id="k_id_proof_type">${opt(ID_TYPES,kv('id_proof_type'))}</select></div>`+fileRow('id_proof','id_proof_path','Identity proof document')+`<div><span class="field-label">Address proof type *</span><select class="select" style="width:100%" id="k_address_proof_type">${opt(ADDR_TYPES,kv('address_proof_type'))}</select></div>`+fileRow('address_proof','address_proof_path','Address proof document')}
-function kycStep2(){return inp('Qualification / Degree','k_qualification',kv('qualification')||nurseRow?.qualification||'','text','placeholder="e.g. GNM, B.Sc Nursing, ANM"')+inp('Charge per day (₹)','k_day_charge',kv('day_charge'),'number','min="1" step="1"')+fileRow('certificate','certificate_path','Qualification / degree certificate')+inp('Contact number','k_contact_no',kv('contact_no')||nurseRow?.contact_no||'','tel','inputmode="numeric" maxlength="13"')+inp('WhatsApp number','k_whatsapp_no',kv('whatsapp_no')||nurseRow?.whatsapp_no||'','tel','inputmode="numeric" maxlength="13"')}
-function kycStep3(){return inp('Account holder name','k_bank_holder',kv('bank_holder')||kv('full_name'))+inp('Bank name','k_bank_name',kv('bank_name'))+inp('Account number','k_account_no',kv('account_no'),'text','inputmode="numeric" autocomplete="off"')+inp('Confirm account number','k_account_no2',kv('account_no'),'text','inputmode="numeric" autocomplete="off"')+inp('IFSC code','k_ifsc',kv('ifsc'),'text','maxlength="11" style="text-transform:uppercase"')+inp('UPI ID','k_upi_id',kv('upi_id'),'text','placeholder="name@bank"')+fileRow('bank_proof','bank_proof_path','Bank proof image (passbook first page / cancelled cheque)')}
+function kycStep1(){return inp('Full name (as on ID)','k_full_name',kv('full_name')||nurseRow?.name||'')+inp('Date of birth','k_dob',kv('dob'),'date','max="'+new Date().toISOString().slice(0,10)+'"')+`<div class="full"><span class="field-label">Address *</span><input class="input" style="width:100%" id="k_address_line" value="${esc(kv('address_line'))}" placeholder="House no, street, area"></div>`+inp('City','k_city',kv('city'))+inp('State','k_state',kv('state'))+inp('Pincode (6 digits)','k_pincode',kv('pincode'),'text','inputmode="numeric" maxlength="6" placeholder="e.g. 700001"')+`<div><span class="field-label">Identity proof type *</span><select class="select" style="width:100%" id="k_id_proof_type">${opt(ID_TYPES,kv('id_proof_type'))}</select></div>`+fileRow('id_proof','id_proof_path','Identity proof document')+`<div><span class="field-label">Address proof type *</span><select class="select" style="width:100%" id="k_address_proof_type">${opt(ADDR_TYPES,kv('address_proof_type'))}</select></div>`+fileRow('address_proof','address_proof_path','Address proof document')}
+const DEGREES=['ANM (Auxiliary Nurse Midwife)','GNM (General Nursing & Midwifery)','B.Sc Nursing','Post Basic B.Sc Nursing','M.Sc Nursing','Diploma in Nursing','Nursing Assistant / GDA Course','Home Health Aide / Ayah Training','Other'];
+function degreeOpts(sel){const l=DEGREES.slice();if(sel&&!l.includes(sel))l.unshift(sel);return '<option value="">Select degree</option>'+l.map(x=>`<option value="${esc(x)}"${x===sel?' selected':''}>${esc(x)}</option>`).join('')}
+const SVC_LIST=[['ayah','Ayah / Basic Attendant'],['gda','GDA (General Duty Assistant)'],['anm_gnm','ANM / GNM Skilled Nurse'],['icu_critical','ICU / Critical Care Nurse'],['per_visit','Per Visit (injection, dressing, catheter)']];
+function kycServicesBox(){const cur=(kyc&&kyc.service_types&&kyc.service_types.length?kyc.service_types:(nurseRow?.service_types||[]));return `<div class="full"><span class="field-label">Services you offer *</span><p style="margin:2px 0 8px;font-size:12px;color:#6b7c75">You will only receive booking requests for the services you tick here.</p><div id="kycServiceBox" style="display:flex;flex-wrap:wrap;gap:8px">${SVC_LIST.map(([v,l])=>`<label class="svc-chip"><input type="checkbox" value="${v}" ${cur.includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>`}
+function kycStep2(){return `<div><span class="field-label">Nursing degree / qualification *</span><select class="select" style="width:100%" id="k_qualification">${degreeOpts(kv('qualification')||nurseRow?.qualification||'')}</select></div>`+inp('Charge per day (₹)','k_day_charge',kv('day_charge'),'text','inputmode="numeric" placeholder="e.g. 1200"')+fileRow('certificate','certificate_path','Qualification / degree certificate')+kycServicesBox()+inp('Contact number (10 digits)','k_contact_no',kv('contact_no')||nurseRow?.contact_no||'','tel','inputmode="numeric" maxlength="10" placeholder="10-digit mobile"')+inp('WhatsApp number (10 digits)','k_whatsapp_no',kv('whatsapp_no')||nurseRow?.whatsapp_no||'','tel','inputmode="numeric" maxlength="10" placeholder="10-digit WhatsApp"')}
+function kycStep3(){return inp('Account holder name','k_bank_holder',kv('bank_holder')||kv('full_name'))+inp('Bank name','k_bank_name',kv('bank_name'))+inp('Account number (9–18 digits)','k_account_no',kv('account_no'),'text','inputmode="numeric" autocomplete="off" maxlength="18"')+inp('Confirm account number','k_account_no2',kv('account_no'),'text','inputmode="numeric" autocomplete="off" maxlength="18"')+inp('IFSC code (11 characters)','k_ifsc',kv('ifsc'),'text','maxlength="11" placeholder="e.g. SBIN0001234" style="text-transform:uppercase"')+inp('UPI ID','k_upi_id',kv('upi_id'),'text','placeholder="name@bank"')+fileRow('bank_proof','bank_proof_path','Bank proof image (passbook first page / cancelled cheque)')}
 function renderKycPage(){
   const root=$('kycRoot');if(!root)return;const st=kycStatus();
   if(st==='pending'||st==='approved'){
@@ -400,7 +800,7 @@ function kycSummary(){
   const sec=(t,rows)=>`<div class="card" style="margin-bottom:16px"><div class="head"><h3>${t}</h3></div><div class="list" style="padding:6px 18px">${rows}</div></div>`;
   const doc=(k,p)=>`<div class="list-item"><div><b>${k}</b></div>${docLink(p)}</div>`;
   return sec('1 · Identity & Address',sumRow('Name',esc(kv('full_name')))+sumRow('Date of birth',dobTxt)+sumRow('Address',esc([kv('address_line'),kv('city'),kv('state'),kv('pincode')].filter(Boolean).join(', ')))+doc('Identity proof — '+esc(kv('id_proof_type')),kv('id_proof_path'))+doc('Address proof — '+esc(kv('address_proof_type')),kv('address_proof_path')))
-  +sec('2 · Qualification & Contact',sumRow('Qualification',esc(kv('qualification')))+doc('Certificate',kv('certificate_path'))+sumRow('Charge per day',money(kv('day_charge')))+sumRow('Contact',esc(kv('contact_no')))+sumRow('WhatsApp',esc(kv('whatsapp_no'))))
+  +sec('2 · Qualification & Contact',sumRow('Qualification',esc(kv('qualification')))+doc('Certificate',kv('certificate_path'))+sumRow('Charge per day',money(kv('day_charge')))+sumRow('Services',esc((kv('service_types')||[]).map(x=>(SVC_LIST.find(a=>a[0]===x)||[0,x])[1]).join(', ')||'—'))+sumRow('Contact',esc(kv('contact_no')))+sumRow('WhatsApp',esc(kv('whatsapp_no'))))
   +sec('3 · Bank Details',sumRow('Account holder',esc(kv('bank_holder')))+sumRow('Bank',esc(kv('bank_name')))+sumRow('Account number',esc(maskAcc(kv('account_no'))))+sumRow('IFSC',esc(kv('ifsc')))+sumRow('UPI ID',esc(kv('upi_id')))+doc('Bank proof',kv('bank_proof_path')));
 }
 async function viewDoc(path){const{data,error}=await supabaseClient.storage.from(KYC_BUCKET).createSignedUrl(path,120);if(error||!data){toast('Could not open document');return}window.open(data.signedUrl,'_blank','noopener')}
@@ -428,7 +828,9 @@ function collectKyc(step){
   }else if(step===2){
     f.qualification=g('k_qualification');f.day_charge=Number(g('k_day_charge'));f.contact_no=digits(g('k_contact_no')).slice(-10);f.whatsapp_no=digits(g('k_whatsapp_no')).slice(-10);
     files.certificate='certificate_path';
+    f.service_types=[...document.querySelectorAll('#kycServiceBox input:checked')].map(i=>i.value);
     if(f.qualification.length<2)err='Enter your qualification / degree';
+    else if(!f.service_types.length)err='Select at least one service you offer';
     else if(!(f.day_charge>0))err='Enter your charge per day';
     else if(!/^[6-9]\d{9}$/.test(f.contact_no))err='Enter a valid 10-digit contact number';
     else if(!/^[6-9]\d{9}$/.test(f.whatsapp_no))err='Enter a valid 10-digit WhatsApp number';
@@ -481,7 +883,7 @@ function seenTs(){return Number(lsGet('nurse_notif_seen_'+(currentUser?.id||''))
 function isUnread(x){return !x.ts||new Date(x.ts).getTime()>seenTs()}
 function unreadCount(){return notifItems().filter(isUnread).length}
 function updateBadges(){const b=$('requestBadge');b.textContent=openVisits.length;b.style.display=openVisits.length?'grid':'none';$('notifDot').style.display=unreadCount()>0?'block':'none'}
-function renderNotificationsPage(){
+function renderNotificationsPage(){try{window.MFPush&&window.MFPush.mountSwitch&&window.MFPush.mountSwitch('#mf-push-switch')}catch(e){}
   const items=notifItems().sort((a,b)=>new Date(b.ts||Date.now())-new Date(a.ts||Date.now()));
   $('notificationsList').innerHTML=items.length?items.map(x=>`<div class="list-item"><div><b>${isUnread(x)?'● ':''}${esc(x.t)}</b><p>${esc(x.p)}${x.ts?' · '+esc(dateFmt(x.ts)):''}</p></div><button class="action" onclick="${x.id?`openVisit('${esc(x.id)}')`:`navigate('${x.go}')`}">View</button></div>`).join(''):'<div class="card"><div class="empty">No new notifications.</div></div>';
 }
@@ -501,10 +903,10 @@ function renderRatingsPage(){
 }
 function renderProfilePage(){
   if(!nurseRow)return;
-  $('profileName').value=nurseRow.name||'';$('profilePhone').value=nurseRow.contact_no||'';$('profileQualification').value=nurseRow.qualification||'';$('profileWhatsapp').value=nurseRow.whatsapp_no||'';
+  $('profileName').value=nurseRow.name||'';$('profilePhone').value=nurseRow.contact_no||'';$('profileQualification').innerHTML=degreeOpts(nurseRow.qualification||'');$('profileQualification').value=nurseRow.qualification||'';$('profileWhatsapp').value=nurseRow.whatsapp_no||'';
   const st=nurseRow.service_types||[];document.querySelectorAll('#serviceTypeBox input').forEach(i=>{i.checked=st.includes(i.value)});
   const lock=['pending','approved'].includes(kycStatus());
-  ['profileName','profilePhone','profileQualification'].forEach(id=>{$(id).readOnly=lock;$(id).style.opacity=lock?'.7':'1'});
+  ['profileName','profilePhone','profileQualification'].forEach(id=>{$(id).readOnly=lock;if(id==='profileQualification')$(id).disabled=lock;$(id).style.opacity=lock?'.7':'1'});
 }
 function renderPage(page){
   renderGlobalBanner();updateOnlineBadge();
@@ -538,5 +940,279 @@ document.addEventListener('DOMContentLoaded',init);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSide()}});
 </script>
 <script src="push-notifications.js?v=4" defer></script>
+<script>
+/* ===== Premium upgrade: hero, settings, bottom nav ===== */
+(function(){
+  var PK='mfn_prefs';
+  function P(){try{return JSON.parse(localStorage.getItem(PK)||'{}')}catch(e){return{}}}
+  function SP(o){try{localStorage.setItem(PK,JSON.stringify(Object.assign(P(),o)))}catch(e){}}
+  function applyPrefs(){var p=P(),t=p.theme||'light';if(t==='system')t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+    document.documentElement.setAttribute('data-theme',t);document.body.classList.toggle('compact',!!p.compact);document.documentElement.classList.toggle('calm',!!p.calm)}
+  applyPrefs();
+  window.mfPref=function(k,v){var o={};o[k]=v;SP(o);applyPrefs()};
+  var fd=function(v){return v?new Date(v).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'};
+  function device(){var u=navigator.userAgent;var b=/Edg\//.test(u)?'Edge':/Chrome\//.test(u)?'Chrome':/Firefox\//.test(u)?'Firefox':/Safari\//.test(u)?'Safari':'Browser';
+    var o=/Android/.test(u)?'Android':/iPhone|iPad/.test(u)?'iOS':/Windows/.test(u)?'Windows':/Mac/.test(u)?'macOS':/Linux/.test(u)?'Linux':'device';return b+' on '+o}
+  function rows(a){return a.map(function(r){return '<div><span>'+r[0]+'</span><b>'+esc(r[1])+'</b></div>'}).join('')}
+  function isOnline(){var t=($('onlineBadge')||{}).textContent||'';return /online/i.test(t)&&!/offline/i.test(t)}
+
+  /* ---- hero ---- */
+  function hero(){
+    var b=$('onlineBadge');if(!b||!$('heroCard'))return;var t=b.textContent||'',kyc=/kyc/i.test(t),on=isOnline();
+    var h=new Date().getHours(),g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+    var first=((nurseRow&&nurseRow.name)||'').trim().split(/\s+/)[0]||'there';
+    var v=parseInt(($('statTodayVisits')||{}).textContent,10);
+    $('heroGreet').textContent=g+', '+first;
+    $('heroLine').textContent=isNaN(v)?'Your visits at a glance':(v>0?'You have '+v+' visit'+(v>1?'s':'')+' today':'No visits scheduled today');
+    $('heroDot').className='hero-dot'+(on?' on':'');
+    $('heroState').textContent=kyc?'KYC required':on?'You are online':'You are offline';
+    $('heroSub').textContent=kyc?'Complete verification to receive bookings':on?'Accepting new bookings':'Go online to receive new bookings';
+    $('heroBtn').textContent=kyc?'Open KYC':on?'Go Offline':'Go Online';
+  }
+  window.mfHero=function(){/kyc/i.test(($('onlineBadge')||{}).textContent||'')?navigate('kyc'):toggleOnline()};
+  setInterval(hero,1200);
+
+  /* ---- settings ---- */
+  window.renderSettings=function(){
+    var p=P(),u=currentUser||{};
+    $('setTheme').value=p.theme||'light';$('setCompact').checked=!!p.compact;$('setCalm').checked=!!p.calm;
+    $('setLogin').innerHTML=rows([['Email',u.email||'—'],['Last sign-in',fd(u.last_sign_in_at)],['Account created',fd(u.created_at)],['This device',device()]]);
+    try{var ec=JSON.parse(localStorage.getItem('mfn_ec')||'{}');$('setEcName').value=ec.n||'';$('setEcPhone').value=ec.p||''}catch(e){}
+    var done=myVisits.filter(function(v){return v.status==='approved'&&v.completed_at}).length;
+    var canc=myVisits.filter(function(v){return /cancel|reject/i.test(v.status||'')}).length;
+    $('setAct').innerHTML=rows([['Completed visits',done],['Cancelled visits',canc],['Total bookings',myVisits.length]]);
+  };
+  window.mfChangePw=async function(){
+    var a=$('setPw1').value,b=$('setPw2').value;
+    if(a.length<8)return toast('Password must be at least 8 characters');
+    if(a!==b)return toast('Passwords do not match');
+    var r=await supabaseClient.auth.updateUser({password:a});
+    if(r.error)return toast(r.error.message||'Could not change password');
+    $('setPw1').value='';$('setPw2').value='';toast('Password changed');
+  };
+  window.mfLogoutAll=async function(){
+    if(!confirm('Logout from all devices, including this one?'))return;
+    try{await supabaseClient.auth.signOut({scope:'global'})}catch(e){}
+    location.href='home.html?panel=login';
+  };
+  window.mfSos=function(){if(confirm('Call emergency number 112 now?'))location.href='tel:112'};
+  window.mfShareLoc=function(){
+    if(!navigator.geolocation)return toast('Location is not supported on this device');
+    navigator.geolocation.getCurrentPosition(async function(pos){
+      var link='https://www.google.com/maps?q='+pos.coords.latitude+','+pos.coords.longitude,msg='My live location (MediFinder nurse): '+link;
+      try{if(navigator.share){await navigator.share({text:msg});return}}catch(e){if(e&&e.name==='AbortError')return}
+      try{await navigator.clipboard.writeText(msg);toast('Location link copied')}catch(e){prompt('Copy location link',msg)}
+    },function(){toast('Could not get your location. Please allow location access.')},{enableHighAccuracy:true,timeout:15000});
+  };
+  window.mfSaveEc=function(){
+    var n=$('setEcName').value.trim(),p=$('setEcPhone').value.replace(/\D/g,'');
+    if(n.length<3)return toast('Enter contact name');
+    if(!/^[6-9]\d{9}$/.test(p))return toast('Enter a valid 10-digit number');
+    try{localStorage.setItem('mfn_ec',JSON.stringify({n:n,p:p}))}catch(e){}
+    toast('Emergency contact saved');
+  };
+  function toSupport(subject){
+    navigate('support');
+    try{var f=$('supportForm'),i=f&&f.querySelector('input[type=text],input:not([type])');if(i&&!i.value)i.value=subject}catch(e){}
+  }
+  window.mfReport=function(){toSupport('Unsafe patient / location report')};
+  window.mfDelReq=function(){toSupport('Account deletion request')};
+  window.mfPause=function(){isOnline()?toggleOnline():toast('You are already offline')};
+  window.mfCsv=function(){
+    var d=myVisits.filter(function(v){return v.status==='approved'&&v.completed_at});
+    if(!d.length)return toast('No completed visits to export yet');
+    var q=function(x){return '"'+String(x==null?'':x).replace(/"/g,'""')+'"'};
+    var csv=['Date,Booking,Patient,Amount (INR)'].concat(d.map(function(v){return [q(new Date(v.completed_at).toLocaleDateString('en-IN')),q('NB-'+String(v.id).slice(0,6).toUpperCase()),q(v.patient_name),Number(v.total_amount||0)].join(',')})).join('\n');
+    var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MediFinder-Nurse-Earnings.csv';document.body.appendChild(a);a.click();a.remove();
+  };
+
+  /* ---- hook navigation ---- */
+  titles.settings='Settings';
+  var rp=renderPage;
+  renderPage=function(pg){
+    rp(pg);
+    if(pg==='settings')renderSettings();
+    document.querySelectorAll('#bnav button').forEach(function(b){b.classList.toggle('on',b.dataset.p===pg)});
+  };
+  document.querySelectorAll('#bnav button').forEach(function(b){b.classList.toggle('on',b.dataset.p==='dashboard')});
+})();
+</script>
+<script>
+/* ===== Language + quick dark/light toggle (inline, no extra files) ===== */
+(function(){
+  var PK='mfn_prefs',LI={bn:0,hi:1};
+  var D={
+'Nurse Partner Portal':['নার্স পার্টনার পোর্টাল','नर्स पार्टनर पोर्टल'],'Main':['মূল','मुख्य'],'Dashboard':['ড্যাশবোর্ড','डैशबोर्ड'],
+'Booking Requests':['বুকিং অনুরোধ','बुकिंग अनुरोध'],'My Bookings':['আমার বুকিং','मेरी बुकिंग'],'Schedule':['সময়সূচি','शेड्यूल'],
+"Today's Visits":['আজকের ভিজিট','आज की विज़िट'],'Patients':['রোগী','मरीज़'],'Finance':['অর্থ','वित्त'],'Earnings':['আয়','कमाई'],
+'Bank & Payouts':['ব্যাংক ও পেআউট','बैंक और पेआउट'],'Performance':['পারফরম্যান্স','प्रदर्शन'],'Ratings & Reviews':['রেটিং ও রিভিউ','रेटिंग और समीक्षा'],
+'Account':['অ্যাকাউন্ট','खाता'],'KYC & Verification':['কেওয়াইসি ও যাচাই','केवाईसी और सत्यापन'],'Notifications':['নোটিফিকেশন','सूचनाएं'],
+'Profile':['প্রোফাইল','प्रोफ़ाइल'],'Settings':['সেটিংস','सेटिंग्स'],'Support':['সহায়তা','सहायता'],'Loading…':['লোড হচ্ছে…','लोड हो रहा है…'],
+'● Loading…':['● লোড হচ্ছে…','● लोड हो रहा है…'],'Logout':['লগআউট','लॉग आउट'],'Nurse Dashboard':['নার্স ড্যাশবোর্ড','नर्स डैशबोर्ड'],
+'Manage your patient visits and nursing bookings from one place.':['আপনার রোগীর ভিজিট ও নার্সিং বুকিং এক জায়গা থেকে পরিচালনা করুন।','अपनी मरीज़ विज़िट और नर्सिंग बुकिंग एक ही जगह से संभालें।'],
+'Welcome':['স্বাগতম','स्वागत है'],'New Requests':['নতুন অনুরোধ','नए अनुरोध'],'Upcoming':['আসন্ন','आगामी'],"Today's Earnings":['আজকের আয়','आज की कमाई'],
+'View All →':['সব দেখুন →','सभी देखें →'],'Time':['সময়','समय'],'Patient':['রোগী','मरीज़'],'Service':['সেবা','सेवा'],'Location':['অবস্থান','स्थान'],
+'Status':['অবস্থা','स्थिति'],'Loading visits…':['ভিজিট লোড হচ্ছে…','विज़िट लोड हो रही हैं…'],'Quick Actions':['দ্রুত কাজ','त्वरित कार्य'],
+'Review nearby nurse requests':['কাছের নার্স অনুরোধ দেখুন','पास के नर्स अनुरोध देखें'],'Set Availability':['উপলব্ধতা ঠিক করুন','उपलब्धता सेट करें'],
+'Manage your working hours':['আপনার কাজের সময় ঠিক করুন','अपने काम के घंटे संभालें'],'My Earnings':['আমার আয়','मेरी कमाई'],
+'View payment and settlement':['পেমেন্ট ও সেটলমেন্ট দেখুন','भुगतान और सेटलमेंट देखें'],'KYC Documents':['কেওয়াইসি নথি','केवाईसी दस्तावेज़'],
+'View verification status':['যাচাইয়ের অবস্থা দেখুন','सत्यापन की स्थिति देखें'],'Upcoming Schedule':['আসন্ন সময়সূচি','आगामी शेड्यूल'],
+'New Booking Requests':['নতুন বুকিং অনুরোধ','नए बुकिंग अनुरोध'],
+'Review pending nurse service requests and accept the visits you can handle.':['অপেক্ষমাণ নার্স সেবার অনুরোধ দেখুন এবং যে ভিজিট করতে পারবেন তা গ্রহণ করুন।','लंबित नर्स सेवा अनुरोध देखें और जो विज़िट आप कर सकें उन्हें स्वीकार करें।'],
+'↻ Refresh':['↻ রিফ্রেশ','↻ रीफ़्रेश'],'Pending Requests':['অপেক্ষমাণ অনুরোধ','लंबित अनुरोध'],'Date & Time':['তারিখ ও সময়','तारीख और समय'],
+'Amount':['পরিমাণ','राशि'],'Action':['কাজ','कार्रवाई'],'All visits assigned to you.':['আপনাকে দেওয়া সব ভিজিট।','आपको सौंपी गई सभी विज़िट।'],
+'All status':['সব অবস্থা','सभी स्थिति'],'Approved':['অনুমোদিত','स्वीकृत'],'Pending':['অপেক্ষমাণ','लंबित'],'Completed':['সম্পন্ন','पूर्ण'],
+'Cancelled':['বাতিল','रद्द'],'Accepted':['গৃহীত','स्वीकार किया'],'Booking':['বুকিং','बुकिंग'],'Date':['তারিখ','तारीख'],
+'View your upcoming visits and plan your working hours.':['আপনার আসন্ন ভিজিট দেখুন এবং কাজের সময় পরিকল্পনা করুন।','अपनी आगामी विज़िट देखें और काम के घंटे तय करें।'],
+'Go Online':['অনলাইন হন','ऑनलाइन जाएं'],'Go Offline':['অফলাইন হন','ऑफ़लाइन जाएं'],'Upcoming Visits':['আসন্ন ভিজিট','आगामी विज़िट'],
+'Availability':['উপলব্ধতা','उपलब्धता'],"Today's assigned patient visits and their current status.":['আজকের নির্ধারিত রোগীর ভিজিট ও তাদের বর্তমান অবস্থা।','आज की निर्धारित मरीज़ विज़िट और उनकी वर्तमान स्थिति।'],
+'Patients from your assigned bookings. Only data already returned for your bookings is shown.':['আপনার নির্ধারিত বুকিং থেকে রোগীরা। শুধু আপনার বুকিংয়ের জন্য পাওয়া তথ্য দেখানো হয়।','आपकी निर्धारित बुकिंग के मरीज़। केवल आपकी बुकिंग के लिए मिला डेटा दिखाया जाता है।'],
+'Contact':['যোগাযোগ','संपर्क'],'Visits':['ভিজিট','विज़िट'],'Latest Visit':['সর্বশেষ ভিজিট','पिछली विज़िट'],
+'Only completed visits count as earnings. Withdraw from the Bank & Payouts page after KYC approval.':['শুধু সম্পন্ন ভিজিট আয় হিসেবে গণ্য হয়। কেওয়াইসি অনুমোদনের পর ব্যাংক ও পেআউট পেজ থেকে টাকা তুলুন।','केवल पूर्ण विज़िट ही कमाई मानी जाती हैं। केवाईसी स्वीकृति के बाद बैंक और पेआउट पेज से निकासी करें।'],
+'Booking-wise Earnings':['বুকিং অনুযায়ী আয়','बुकिंग के अनुसार कमाई'],'Gross Amount':['মোট পরিমাণ','कुल राशि'],
+'Patient ratings on your completed visits.':['আপনার সম্পন্ন ভিজিটে রোগীদের রেটিং।','आपकी पूर्ण विज़िट पर मरीज़ों की रेटिंग।'],
+'Average Rating':['গড় রেটিং','औसत रेटिंग'],'Reviews':['রিভিউ','समीक्षाएं'],'Completed Visits':['সম্পন্ন ভিজিট','पूर्ण विज़िट'],
+'Submit identity, qualification and bank details. Admin verifies them before you can receive bookings and payouts.':['পরিচয়, যোগ্যতা ও ব্যাংকের তথ্য জমা দিন। বুকিং ও পেআউট পাওয়ার আগে অ্যাডমিন যাচাই করবেন।','पहचान, योग्यता और बैंक विवरण जमा करें। बुकिंग और पेआउट पाने से पहले एडमिन इन्हें सत्यापित करेगा।'],
+'Your verified settlement account and payout requests.':['আপনার যাচাইকৃত সেটলমেন্ট অ্যাকাউন্ট ও পেআউট অনুরোধ।','आपका सत्यापित सेटलमेंट खाता और पेआउट अनुरोध।'],
+'Settlement Account':['সেটলমেন্ট অ্যাকাউন্ট','सेटलमेंट खाता'],'Request Payout':['পেআউট অনুরোধ','पेआउट का अनुरोध करें'],'Payout History':['পেআউটের ইতিহাস','पेआउट इतिहास'],
+'Paid to':['যাকে দেওয়া হয়েছে','जिसे भुगतान किया गया'],'Reference / Note':['রেফারেন্স / নোট','संदर्भ / नोट'],
+'Booking and portal updates derived from your current records.':['আপনার বর্তমান রেকর্ড থেকে বুকিং ও পোর্টালের আপডেট।','आपके मौजूदा रिकॉर्ड से बुकिंग और पोर्टल अपडेट।'],
+'Mark as read':['পড়া হয়েছে চিহ্নিত করুন','पढ़ा हुआ चिह्नित करें'],'Simple metrics calculated from your current bookings.':['আপনার বর্তমান বুকিং থেকে হিসাব করা সহজ মেট্রিক।','आपकी मौजूदा बुकिंग से निकाले गए सरल मेट्रिक्स।'],
+'Performance Breakdown':['পারফরম্যান্সের বিশ্লেষণ','प्रदर्शन का विवरण'],'Profile & Settings':['প্রোফাইল ও সেটিংস','प्रोफ़ाइल और सेटिंग्स'],
+'Update the nurse fields already supported by the current portal.':['পোর্টালে এখন যে নার্স তথ্যগুলো সমর্থিত সেগুলো আপডেট করুন।','पोर्टल में अभी समर्थित नर्स जानकारी अपडेट करें।'],
+'Name':['নাম','नाम'],'Contact number':['যোগাযোগ নম্বর','संपर्क नंबर'],'Qualification':['যোগ্যতা','योग्यता'],'WhatsApp number':['হোয়াটসঅ্যাপ নম্বর','व्हाट्सऐप नंबर'],
+'Services I offer *':['আমি যে সেবা দিই *','मेरी सेवाएं *'],
+'You only receive booking requests for the categories you tick here. The first nurse to accept a request gets it.':['এখানে যে ক্যাটাগরি টিক দেবেন শুধু সেগুলোর বুকিং অনুরোধ পাবেন। যে নার্স প্রথমে গ্রহণ করবেন তিনিই পাবেন।','आपको केवल उन्हीं श्रेणियों के बुकिंग अनुरोध मिलेंगे जिन पर आप यहां टिक करेंगे। जो नर्स पहले स्वीकार करे, उसे मिलेगा।'],
+'Ayah / Basic Attendant':['আয়া / বেসিক অ্যাটেন্ডেন্ট','आया / बेसिक अटेंडेंट'],'GDA (General Duty Assistant)':['জিডিএ (জেনারেল ডিউটি অ্যাসিস্ট্যান্ট)','जीडीए (जनरल ड्यूटी असिस्टेंट)'],
+'ANM / GNM Skilled Nurse':['এএনএম / জিএনএম দক্ষ নার্স','एएनएम / जीएनएम कुशल नर्स'],'ICU / Critical Care Nurse':['আইসিইউ / ক্রিটিক্যাল কেয়ার নার্স','आईसीयू / क्रिटिकल केयर नर्स'],
+'Per Visit (injection, dressing, catheter)':['প্রতি ভিজিট (ইনজেকশন, ড্রেসিং, ক্যাথেটার)','प्रति विज़िट (इंजेक्शन, ड्रेसिंग, कैथेटर)'],
+'Save Profile':['প্রোফাইল সংরক্ষণ করুন','प्रोफ़ाइल सहेजें'],'Security, preferences, safety and account controls.':['নিরাপত্তা, পছন্দ, সুরক্ষা ও অ্যাকাউন্ট নিয়ন্ত্রণ।','सुरक्षा, पसंद, सेफ़्टी और खाता नियंत्रण।'],
+'🔐 Security & Privacy':['🔐 নিরাপত্তা ও গোপনীয়তা','🔐 सुरक्षा और गोपनीयता'],'New password (min 8 characters)':['নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)','नया पासवर्ड (कम से कम 8 अक्षर)'],
+'Confirm new password':['নতুন পাসওয়ার্ড নিশ্চিত করুন','नए पासवर्ड की पुष्टि करें'],'Change Password':['পাসওয়ার্ড পরিবর্তন করুন','पासवर्ड बदलें'],
+'Logout from all devices':['সব ডিভাইস থেকে লগআউট','सभी डिवाइस से लॉग आउट'],'Two-factor sign-in is not available yet.':['টু-ফ্যাক্টর সাইন-ইন এখনও পাওয়া যায় না।','टू-फ़ैक्टर साइन-इन अभी उपलब्ध नहीं है।'],
+'📱 App Preferences':['📱 অ্যাপের পছন্দ','📱 ऐप पसंद'],'Theme':['থিম','थीम'],'Light':['লাইট','लाइट'],'Dark':['ডার্ক','डार्क'],'System':['সিস্টেম','सिस्टम'],
+'Language':['ভাষা','भाषा'],'Compact mode':['কমপ্যাক্ট মোড','कॉम्पैक्ट मोड'],'Reduce animations':['অ্যানিমেশন কম করুন','एनिमेशन कम करें'],
+'🆘 Emergency & Safety':['🆘 জরুরি ও সুরক্ষা','🆘 आपातकाल और सुरक्षा'],'🚨 SOS — Call 112':['🚨 এসওএস — ১১২ এ কল করুন','🚨 SOS — 112 पर कॉल करें'],
+'📍 Share my live location':['📍 আমার লাইভ লোকেশন পাঠান','📍 मेरी लाइव लोकेशन साझा करें'],'Emergency contact name':['জরুরি যোগাযোগের নাম','आपातकालीन संपर्क का नाम'],
+'Emergency contact number (10 digits)':['জরুরি যোগাযোগের নম্বর (১০ সংখ্যা)','आपातकालीन संपर्क नंबर (10 अंक)'],'Save Contact':['যোগাযোগ সংরক্ষণ করুন','संपर्क सहेजें'],
+'Contact is saved on this device only. Location is shared only when you tap the button.':['যোগাযোগ শুধু এই ডিভাইসে সংরক্ষিত হয়। বোতামে ট্যাপ করলেই কেবল লোকেশন পাঠানো হয়।','संपर्क केवल इसी डिवाइस पर सहेजा जाता है। बटन दबाने पर ही लोकेशन साझा होती है।'],
+'Tell someone before you go to a new address.':['নতুন ঠিকানায় যাওয়ার আগে কাউকে জানান।','नए पते पर जाने से पहले किसी को बताएं।'],
+'Keep your phone charged and location on.':['ফোনে চার্জ রাখুন এবং লোকেশন চালু রাখুন।','फ़ोन चार्ज रखें और लोकेशन चालू रखें।'],
+'Leave immediately if you feel unsafe and call 112.':['অনিরাপদ মনে হলে সঙ্গে সঙ্গে বেরিয়ে আসুন এবং ১১২ এ কল করুন।','असुरक्षित लगे तो तुरंत निकल जाएं और 112 पर कॉल करें।'],
+'⚠️ Report unsafe patient / location':['⚠️ অনিরাপদ রোগী / স্থান জানান','⚠️ असुरक्षित मरीज़ / स्थान की रिपोर्ट करें'],
+'📊 Account & Activity':['📊 অ্যাকাউন্ট ও কার্যকলাপ','📊 खाता और गतिविधि'],'⬇ Download earnings statement':['⬇ আয়ের বিবরণী ডাউনলোড','⬇ कमाई का विवरण डाउनलोड करें'],
+'🗑️ Account Management':['🗑️ অ্যাকাউন্ট ব্যবস্থাপনা','🗑️ खाता प्रबंधन'],'Pause account (go offline)':['অ্যাকাউন্ট বিরতি (অফলাইন হন)','खाता रोकें (ऑफ़लाइन जाएं)'],
+'Request account deletion':['অ্যাকাউন্ট মুছে ফেলার অনুরোধ','खाता हटाने का अनुरोध'],'Get help with bookings, payments, patients or account issues.':['বুকিং, পেমেন্ট, রোগী বা অ্যাকাউন্ট সমস্যায় সাহায্য নিন।','बुकिंग, भुगतान, मरीज़ या खाते की समस्याओं में मदद पाएं।'],
+'Booking Support':['বুকিং সহায়তা','बुकिंग सहायता'],'Need help with a booking? Keep the booking ID ready.':['বুকিং নিয়ে সাহায্য লাগবে? বুকিং আইডি হাতের কাছে রাখুন।','बुकिंग में मदद चाहिए? बुकिंग आईडी तैयार रखें।'],
+'Payment Support':['পেমেন্ট সহায়তা','भुगतान सहायता'],'For settlement questions, provide the relevant booking details.':['সেটলমেন্ট নিয়ে প্রশ্নে সংশ্লিষ্ট বুকিংয়ের তথ্য দিন।','सेटलमेंट संबंधी प्रश्नों के लिए संबंधित बुकिंग विवरण दें।'],
+'Account / KYC':['অ্যাকাউন্ট / কেওয়াইসি','खाता / केवाईसी'],'Contact MediFinder India support for verification issues.':['যাচাই সংক্রান্ত সমস্যায় মেডিফাইন্ডার ইন্ডিয়া সহায়তায় যোগাযোগ করুন।','सत्यापन संबंधी समस्याओं के लिए मेडिफ़ाइंडर इंडिया सहायता से संपर्क करें।'],
+'Support Request':['সহায়তার অনুরোধ','सहायता अनुरोध'],'Category':['ক্যাটাগরি','श्रेणी'],'Payment':['পেমেন্ট','भुगतान'],'KYC':['কেওয়াইসি','केवाईसी'],
+'Subject':['বিষয়','विषय'],'Message':['বার্তা','संदेश'],'Create Support Request':['সহায়তার অনুরোধ পাঠান','सहायता अनुरोध भेजें'],
+'Visit Details':['ভিজিটের বিবরণ','विज़िट का विवरण'],'Close':['বন্ধ করুন','बंद करें'],'Start Visit':['ভিজিট শুরু করুন','विज़िट शुरू करें'],
+'Home':['হোম','होम'],'Requests':['অনুরোধ','अनुरोध'],'More':['আরও','और'],'Online':['অনলাইন','ऑनलाइन'],'Offline':['অফলাইন','ऑफ़लाइन'],
+'Accept Request':['অনুরোধ গ্রহণ করুন','अनुरोध स्वीकार करें'],'Not interested':['আগ্রহী নই','रुचि नहीं'],'Mark Visit Completed':['ভিজিট সম্পন্ন চিহ্নিত করুন','विज़िट पूर्ण चिह्नित करें'],
+'Cancel Visit':['ভিজিট বাতিল করুন','विज़िट रद्द करें'],'🧾 Open Invoice / Verify & Sign':['🧾 ইনভয়েস খুলুন / যাচাই ও সই','🧾 इनवॉइस खोलें / सत्यापित करें और हस्ताक्षर करें'],
+'You are online':['আপনি অনলাইনে আছেন','आप ऑनलाइन हैं'],'You are offline':['আপনি অফলাইনে আছেন','आप ऑफ़लाइन हैं'],'KYC required':['কেওয়াইসি প্রয়োজন','केवाईसी आवश्यक'],
+'Accepting new bookings':['নতুন বুকিং নেওয়া হচ্ছে','नई बुकिंग स्वीकार हो रही है'],'Go online to receive new bookings':['নতুন বুকিং পেতে অনলাইন হন','नई बुकिंग पाने के लिए ऑनलाइन जाएं'],
+'Complete verification to receive bookings':['বুকিং পেতে যাচাই সম্পূর্ণ করুন','बुकिंग पाने के लिए सत्यापन पूरा करें'],'Open KYC':['কেওয়াইসি খুলুন','केवाईसी खोलें'],
+'Your visits at a glance':['এক নজরে আপনার ভিজিট','एक नज़र में आपकी विज़िट'],'No visits scheduled today':['আজ কোনো ভিজিট নির্ধারিত নেই','आज कोई विज़िट निर्धारित नहीं'],
+'Close menu':['মেনু বন্ধ করুন','मेनू बंद करें'],'Open menu':['মেনু খুলুন','मेनू खोलें'],'Search patient/service':['রোগী/সেবা খুঁজুন','मरीज़/सेवा खोजें'],
+'Search patient':['রোগী খুঁজুন','मरीज़ खोजें'],'Full name':['পুরো নাম','पूरा नाम'],'10-digit mobile':['১০ সংখ্যার মোবাইল','10 अंकों का मोबाइल'],'Toggle dark mode':['ডার্ক মোড বদলান','डार्क मोड बदलें'],
+'Complete KYC and wait for admin approval first':['আগে কেওয়াইসি সম্পূর্ণ করুন এবং অ্যাডমিনের অনুমোদনের জন্য অপেক্ষা করুন','पहले केवाईसी पूरा करें और एडमिन की स्वीकृति का इंतज़ार करें'],
+'Complete the previous step first':['আগে আগের ধাপ সম্পূর্ণ করুন','पहले पिछला चरण पूरा करें'],'Could not cancel: ':['বাতিল করা যায়নি: ','रद्द नहीं हो सका: '],
+'Could not change status: ':['অবস্থা পরিবর্তন করা যায়নি: ','स्थिति नहीं बदली जा सकी: '],'Could not complete: ':['সম্পন্ন করা যায়নি: ','पूर्ण नहीं हो सका: '],
+'Could not get your location. Please allow location access.':['আপনার লোকেশন পাওয়া যায়নি। অনুগ্রহ করে লোকেশনের অনুমতি দিন।','आपकी लोकेशन नहीं मिल सकी। कृपया लोकेशन की अनुमति दें।'],
+'Could not open document':['নথি খোলা যায়নি','दस्तावेज़ नहीं खुल सका'],'Could not save: ':['সংরক্ষণ করা যায়নি: ','सहेजा नहीं जा सका: '],'Could not send: ':['পাঠানো যায়নি: ','भेजा नहीं जा सका: '],
+'Emergency contact saved':['জরুরি যোগাযোগ সংরক্ষিত হয়েছে','आपातकालीन संपर्क सहेजा गया'],'Enter a valid 10-digit number':['সঠিক ১০ সংখ্যার নম্বর দিন','सही 10 अंकों का नंबर दर्ज करें'],
+'Enter a valid amount':['সঠিক পরিমাণ দিন','सही राशि दर्ज करें'],'Enter contact name':['যোগাযোগের নাম দিন','संपर्क का नाम दर्ज करें'],
+'File too large (max 5 MB)':['ফাইল অনেক বড় (সর্বোচ্চ ৫ এমবি)','फ़ाइल बहुत बड़ी है (अधिकतम 5 MB)'],'Go online first to accept bookings':['বুকিং নিতে আগে অনলাইন হন','बुकिंग स्वीकार करने के लिए पहले ऑनलाइन जाएं'],
+'KYC approval is required to accept bookings':['বুকিং নিতে কেওয়াইসি অনুমোদন প্রয়োজন','बुकिंग स्वीकार करने के लिए केवाईसी स्वीकृति आवश्यक है'],
+'KYC submitted! Admin will verify your details.':['কেওয়াইসি জমা হয়েছে! অ্যাডমিন আপনার তথ্য যাচাই করবেন।','केवाईसी जमा हो गया! एडमिन आपका विवरण सत्यापित करेगा।'],
+'Location is not supported on this device':['এই ডিভাইসে লোকেশন সমর্থিত নয়','इस डिवाइस पर लोकेशन समर्थित नहीं है'],'Location link copied':['লোকেশন লিংক কপি হয়েছে','लोकेशन लिंक कॉपी हो गया'],
+'No completed visits to export yet':['এক্সপোর্ট করার মতো সম্পন্ন ভিজিট এখনও নেই','निर्यात के लिए अभी कोई पूर्ण विज़िट नहीं है'],'Notifications marked as read':['নোটিফিকেশন পড়া হয়েছে চিহ্নিত','सूचनाएं पढ़ी हुई चिह्नित की गईं'],
+'Only images or PDF allowed':['শুধু ছবি বা পিডিএফ অনুমোদিত','केवल इमेज या PDF की अनुमति है'],'Password changed':['পাসওয়ার্ড বদলানো হয়েছে','पासवर्ड बदल दिया गया'],
+'Password must be at least 8 characters':['পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে','पासवर्ड कम से कम 8 अक्षर का होना चाहिए'],'Passwords do not match':['পাসওয়ার্ড মিলছে না','पासवर्ड मेल नहीं खाते'],
+'Payout requested':['পেআউট অনুরোধ করা হয়েছে','पेआउट का अनुरोध किया गया'],'Profile saved':['প্রোফাইল সংরক্ষিত হয়েছে','प्रोफ़ाइल सहेजी गई'],'Receipt downloaded':['রসিদ ডাউনলোড হয়েছে','रसीद डाउनलोड हो गई'],
+'Request hidden from your list':['অনুরোধটি আপনার তালিকা থেকে লুকানো হয়েছে','अनुरोध आपकी सूची से छिपा दिया गया'],'Support request submitted':['সহায়তার অনুরোধ জমা হয়েছে','सहायता अनुरोध जमा हो गया'],
+'Tick the services you offer in Profile to receive booking requests':['বুকিং অনুরোধ পেতে প্রোফাইলে আপনার সেবাগুলো টিক দিন','बुकिंग अनुरोध पाने के लिए प्रोफ़ाइल में अपनी सेवाओं पर टिक करें'],
+'Visit cancelled':['ভিজিট বাতিল হয়েছে','विज़िट रद्द हो गई'],'You are already offline':['আপনি আগে থেকেই অফলাইনে','आप पहले से ऑफ़लाइन हैं'],
+'You can complete this visit only on or after the visit date':['ভিজিটের তারিখ বা তার পরেই এই ভিজিট সম্পন্ন করা যাবে','यह विज़िट केवल विज़िट की तारीख को या उसके बाद पूर्ण की जा सकती है']
+  };
+  var GREET={'Good morning':['সুপ্রভাত','सुप्रभात'],'Good afternoon':['শুভ অপরাহ্ন','शुभ दोपहर'],'Good evening':['শুভ সন্ধ্যা','शुभ संध्या']};
+  var PFX=Object.keys(D).filter(function(k){return /: $/.test(k)});
+  var ATTRS=['placeholder','title','aria-label'];
+  function prefs(){try{return JSON.parse(localStorage.getItem(PK)||'{}')}catch(e){return{}}}
+  function curLang(){var l=prefs().lang;return LI.hasOwnProperty(l)?l:'en'}
+  function tr(str,lang){
+    var i=LI[lang];if(i===undefined)return str;
+    var m=str.match(/^(\s*)([\s\S]*?)(\s*)$/),lead=m[1],core=m[2].replace(/\s+/g,' '),trail=m[3];
+    if(!core)return str;
+    var hit=D[core];if(hit)return lead+hit[i]+trail;
+    var g=core.match(/^(Good (?:morning|afternoon|evening)), (.+)$/);if(g&&GREET[g[1]])return lead+GREET[g[1]][i]+', '+g[2]+trail;
+    var v=core.match(/^You have (\d+) visits? today$/);if(v)return lead+(i===0?'আজ আপনার '+v[1]+'টি ভিজিট আছে':'आज आपकी '+v[1]+' विज़िट हैं')+trail;
+    for(var k=0;k<PFX.length;k++){if(core.indexOf(PFX[k])===0)return lead+D[PFX[k]][i]+core.slice(PFX[k].length)+trail}
+    return str;
+  }
+  var tn=new WeakMap(),an=new WeakMap();
+  function doText(n,lang){
+    var r=tn.get(n),cur=n.nodeValue;
+    if(r&&cur===r.out){if(lang==='en'){n.nodeValue=r.orig;tn.delete(n);return}var o2=tr(r.orig,lang);if(o2!==r.out){n.nodeValue=o2;r.out=o2}return}
+    if(lang==='en'){return}
+    var out=tr(cur,lang);if(out!==cur){tn.set(n,{orig:cur,out:out});n.nodeValue=out}else if(r)tn.delete(n);
+  }
+  function doAttr(el,lang){
+    ATTRS.forEach(function(a){
+      var v=el.getAttribute(a);if(v===null)return;
+      var m=an.get(el)||{},r=m[a];
+      if(r&&v===r.out){if(lang==='en'){el.setAttribute(a,r.orig);delete m[a];return}var o2=tr(r.orig,lang);if(o2!==r.out){el.setAttribute(a,o2);r.out=o2}return}
+      if(lang==='en')return;
+      var out=tr(v,lang);if(out!==v){m[a]={orig:v,out:out};an.set(el,m);el.setAttribute(a,out)}
+    });
+  }
+  var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,NOSCRIPT:1};
+  function walk(root,lang){
+    if(root.nodeType===3){if(!(root.parentNode&&SKIP[root.parentNode.nodeName]))doText(root,lang);return}
+    if(root.nodeType!==1||SKIP[root.nodeName]||root.closest&&root.closest('.notranslate,[translate=no]'))return;
+    doAttr(root,lang);
+    var c=root.firstChild;while(c){walk(c,lang);c=c.nextSibling}
+  }
+  var obs=null,queue=new Set(),raf=0;
+  function flush(){
+    raf=0;var lang=curLang();if(obs)obs.disconnect();
+    queue.forEach(function(n){if(n.isConnected!==false)walk(n,lang)});queue.clear();
+    if(obs)start();
+  }
+  function start(){obs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:ATTRS})}
+  function onMut(ms){
+    if(curLang()==='en')return;
+    ms.forEach(function(m){
+      if(m.type==='childList')m.addedNodes.forEach(function(n){queue.add(n)});
+      else queue.add(m.target);
+    });
+    if(!raf)raf=requestAnimationFrame(flush);
+  }
+  function applyLang(){
+    var lang=curLang();document.documentElement.lang=lang==='en'?'en':lang;
+    if(obs)obs.disconnect();walk(document.body,lang);if(obs)start();
+    var s=document.getElementById('setLang');if(s)s.value=lang;
+  }
+  window.mfSetLang=function(v){
+    try{var p=prefs();p.lang=LI.hasOwnProperty(v)?v:'en';localStorage.setItem(PK,JSON.stringify(p))}catch(e){}
+    applyLang();
+  };
+  /* ---- quick dark/light toggle (top bar) ---- */
+  function isDark(){return document.documentElement.getAttribute('data-theme')==='dark'}
+  function syncThemeUi(){
+    var b=document.getElementById('themeBtn');if(b)b.textContent=isDark()?'☀️':'🌙';
+    var s=document.getElementById('setTheme');if(s)s.value=prefs().theme||'light';
+    var mt=document.querySelector('meta[name=theme-color]');if(mt)mt.setAttribute('content',isDark()?'#0e1512':'#087f5b');
+  }
+  window.mfToggleTheme=function(){if(window.mfPref)mfPref('theme',isDark()?'light':'dark');syncThemeUi()};
+  new MutationObserver(syncThemeUi).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){if(prefs().theme==='system'&&window.mfPref)mfPref('theme','system')})}catch(e){}
+  function init(){obs=new MutationObserver(onMut);syncThemeUi();applyLang();start()}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
 </body>
 </html>

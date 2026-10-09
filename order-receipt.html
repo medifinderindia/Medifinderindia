@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tax Invoice | MediFinder India</title>
+<title>Invoice | MediFinder India</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="favicon.png">
 <style>
@@ -58,11 +58,40 @@ body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#111;padding:2
 .bottom-box p{font-size:8px;line-height:1.5;color:#333}
 .sign{margin-top:40px;border-top:1px solid #555;text-align:center;padding-top:4px;font-size:8px}
 .footer{text-align:center;padding:10px 0 0;font-size:8px;color:#555}
-.actions{width:min(100%,980px);margin:14px auto 0;display:flex;gap:10px}
-.actions button{flex:1;border:0;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer}
-.print{background:#e02020;color:#fff}.back{background:#333;color:#fff}
+.actions{width:min(100%,980px);margin:14px auto 0;display:flex;gap:10px;position:sticky;bottom:0;padding:12px 0;z-index:5;background:linear-gradient(to top,#111 70%,transparent)}
+.actions button{flex:1;border:0;border-radius:12px;padding:14px 10px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .15s,box-shadow .15s;letter-spacing:.2px}
+.actions button:active{transform:scale(.97)}
+.actions button:disabled{opacity:.7;cursor:wait}
+.print{background:linear-gradient(135deg,#e02020,#b81414);color:#fff;box-shadow:0 8px 20px rgba(224,32,32,.35);flex:1.6!important}.back{background:#2b2b2b;color:#fff}
+.vstrip{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;padding:7px 10px;border-radius:8px;background:linear-gradient(135deg,#eafaf1,#d8f3e4);border:1px solid #a9dfc2;color:#0a6b35;font-size:10px;font-weight:800;letter-spacing:.3px}
+.vstrip i{font-style:normal;display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0a9a4a;color:#fff;font-size:10px}
+.vseal{margin:4px auto 0;width:118px;border:2px solid #0a9a4a;border-radius:10px;padding:5px 4px;text-align:center;color:#0a7d3b;transform:rotate(-6deg);background:#f4fcf7}
+.vseal b{display:block;font-size:10px;letter-spacing:.8px}.vseal span{display:block;font-size:7px;line-height:1.4;color:#2f6b4a}
+.vseal em{display:block;font-style:normal;font-size:7.5px;font-weight:800;letter-spacing:.5px;margin-top:2px}
+.vstrip.pending{background:linear-gradient(135deg,#fff8e8,#fdf0cf);border-color:#ecd28a;color:#8a5a00}
+.vstrip.pending i{background:#d99a00}
+.vseal.pending{border:2px dashed #aaa;color:#777;background:#fafafa}
+.vseal.pending span{color:#888}
+.sigimg{display:block;margin:4px auto -6px;max-width:150px;max-height:48px}
+.vpanel{width:min(100%,980px);margin:14px auto 0;background:#fff;border-radius:14px;padding:16px 18px;color:#111;box-shadow:0 8px 30px #0006}
+.vpanel h3{font-size:15px;margin-bottom:4px}
+.vpanel p{font-size:12px;color:#555;line-height:1.5;margin-bottom:12px}
+.vpanel .vbtns{display:flex;gap:10px;flex-wrap:wrap}
+.vpanel button{border:0;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:800;cursor:pointer;flex:1;min-width:140px}
+.vpanel .vgo{background:linear-gradient(135deg,#0a9a4a,#077a39);color:#fff}
+.vpanel .vsg{background:#2b2b2b;color:#fff}
+.vpanel .vlt{background:#eee;color:#222}
+.vpanel button:disabled{opacity:.6;cursor:wait}
+.vpad{margin-top:12px;display:none}
+.vpad canvas{width:100%;height:170px;border:2px dashed #999;border-radius:10px;background:#fff;touch-action:none;display:block}
+.vpad .vbtns{margin-top:8px}
 .loading{text-align:center;padding:80px;color:#fff}
 .error{text-align:center;padding:80px;color:#e02020;background:#fff}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:10px;line-height:1.45}
+.kv .k{color:#555}
+.note{font-size:9px;color:#444;padding:8px;line-height:1.5}
+.pill{display:inline-block;padding:1px 6px;border-radius:10px;background:#f3f4f6;font-size:9px;font-weight:700}
+.save{color:#0a7d3b;font-weight:700}
 @media(max-width:700px){
  body{padding:0;background:#fff}
  .invoice-wrap{box-shadow:none;width:100%}
@@ -82,7 +111,9 @@ body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#111;padding:2
  .items-wrap{overflow-x:auto}
  .actions{padding:0 10px 10px}
 }
+@media(max-width:700px){.actions{padding:10px;background:linear-gradient(to top,#fff 70%,transparent)}.actions .back{display:none}.actions .back:first-child{display:block;flex:.6}}
 @media print{
+ .vpanel{display:none!important}
  body{padding:0;background:#fff}
  .invoice-wrap{width:100%;box-shadow:none}
  .actions{display:none!important}
@@ -96,16 +127,25 @@ body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#111;padding:2
 
 <div class="actions">
 <button class="back" onclick="history.back()">← Back</button>
-<button class="print" onclick="window.print()">🖨 Print / Save PDF</button>
+<button class="print" id="dlBtn" onclick="downloadPdf()">⬇ Download PDF</button>
+<button class="back" onclick="shareInvoice()">↗ Share</button>
+<button class="back" onclick="window.print()">🖨 Print</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 const params=new URLSearchParams(location.search);
-const orderId=params.get('order_id');
+const type=(params.get('type')||'order').toLowerCase();
+const orderId=params.get('order_id')||(type==='order'?params.get('id')||params.get('ref'):null);
+const bookingId=params.get('id')||params.get('ref');
+const verified=params.get('v')==='1';
 const merchantIdParam=params.get('merchant_id');
+const ROLE={order:'Merchant',nurse:'Nurse',ambulance:'Ambulance Driver'};
+let VS=null;
 
 let db=null;
 try{
@@ -116,185 +156,421 @@ try{
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=v=>'₹'+Number(v||0).toFixed(2);
+const num=v=>{const n=parseFloat(String(v??'').replace(/[^0-9.\-]/g,''));return isFinite(n)?n:0};
 const date=v=>v?new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
 const time=v=>v?new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'';
+const pick=(...a)=>{for(const x of a){if(x!==undefined&&x!==null&&String(x).trim()!=='')return x}return ''};
+const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+const err=m=>{document.getElementById('app').innerHTML='<div class="error">'+m+'</div>'};
+const cap=s=>String(s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 
 async function load(){
- const app=document.getElementById('app');
- if(!orderId){app.innerHTML='<div class="error">Missing order ID. Use ?order_id=ORD-XXXX</div>';return;}
- if(!db){app.innerHTML='<div class="error">Supabase is not configured. Check supabase-constants.js.</div>';return;}
+ if(!db){err('Supabase is not configured. Check supabase-constants.js.');return;}
  try{
-   const {data:order,error}=await db.from('orders').select('*').eq('order_id',orderId).single();
-   if(error||!order){app.innerHTML='<div class="error">Order not found: '+esc(orderId)+'</div>';return;}
-
-   const {data:items}=await db.from('order_items').select('*').eq('order_id',orderId);
-   order.order_items=items||[];
-
-   let merchant=null;
-   const mid=merchantIdParam||order.merchant_id||(order.order_items[0]?.merchant_id);
-   if(mid){
-     const r=await db.from('merchants').select('*').eq('id',mid).single();
-     merchant=r.data||null;
-   }
-   render(order,merchant);
- }catch(e){
-   console.error(e);
-   app.innerHTML='<div class="error">Unable to load this receipt. Please try again.</div>';
- }
+   if(type==='nurse') return await loadNurse();
+   if(type==='lab') return await loadLab();
+   if(type==='ambulance') return await loadAmbulance();
+   return await loadOrder();
+ }catch(e){console.error(e);err('Unable to load this receipt. Please try again.');}
 }
 
-function render(o,m){
+/* ================= MEDICINE ORDER ================= */
+async function getInvoice(t,ref){
+ const r=await db.rpc('get_invoice',{p_type:t,p_ref:String(ref)});
+ if(r.error){console.error(r.error);return null;}
+ return r.data||null;
+}
+async function loadOrder(){
+ if(!orderId){err('Missing order ID. Use ?order_id=ORD-XXXX');return;}
+ const inv=await getInvoice('order',orderId);
+ if(!inv||!inv.order){err('Order not found: '+esc(orderId));return;}
+ const order=inv.order;
+ order.order_items=inv.items||[];
+ // Fallback: old orders whose lines were never saved → rebuild from the order's own item text
+ if(!order.order_items.length&&order.items_text){
+   order.order_items=String(order.items_text).split(',').map(x=>x.trim()).filter(Boolean).map(x=>{
+     const mm=x.match(/^(.*?)\s*[×x]\s*(\d+)$/);
+     return {product_name:mm?mm[1].trim():x,quantity:mm?Number(mm[2]):1,unit_price:0,total_price:0};
+   });
+ }
+ const meds={};
+ (inv.medicines||[]).forEach(m=>{meds['id:'+m.id]=m;meds['nm:'+m.product_name]=m;});
+ order.order_items.forEach(i=>{i._med=meds['id:'+i.medicine_id]||meds['nm:'+i.product_name]||null;});
+ renderOrder(order,inv.merchant||null);
+}
+
+function renderOrder(o,m){
  const items=o.order_items||[];
- const subtotal=items.reduce((s,i)=>s+Number(i.total_price ?? (Number(i.unit_price||0)*Number(i.quantity||1))),0);
- const total=Number(o.total_amount ?? o.total ?? subtotal);
- const shipping=Number(o.shipping_fee||0);
- const delivery=Number(o.delivery_fee||0);
- const platform=Number(o.platform_fee||0);
- const processing=Number(o.processing_fee||0);
- const speed=Number(o.delivery_speed_fee||0);
- const cod=Number(o.cod_fee||0);
- const tax=Number(o.tax||0);
- const discount=Number(o.discount||0);
+ const rows=items.map(i=>{
+   const med=i._med||{};
+   const qty=Number(i.quantity||1), unit=num(pick(i.unit_price,i.price)), line=num(pick(i.total_price,unit*qty));
+   const mrp=num(pick(i.mrp,med.mrp,unit));
+   const gstRaw=pick(i.gst_rate,med.gst_rate);
+   const gst=has(gstRaw)?Number(gstRaw):null;
+   return {
+     name:pick(i.product_name,i.name,med.product_name,med.name,'Item'),
+     sub:pick(med.composition,med.strength),
+     mfr:pick(i.manufacturer,med.manufacturer,med.brand_name),
+     batch:pick(i.batch_number,med.batch_number,med.lot_number),
+     expiry:pick(i.expiry_date,med.expiry_date),
+     hsn:pick(i.hsn_code,med.hsn_code),
+     qty,unit,line,mrp,gst
+   };
+ });
+ const subtotal=rows.reduce((s,r)=>s+r.line,0);
+ const mrpTotal=rows.reduce((s,r)=>s+Math.max(r.mrp,r.unit)*r.qty,0);
+ const savings=Math.max(0,mrpTotal-subtotal);
+ const total=num(pick(o.total_amount,o.final_amount,o.total_bill,o.total,subtotal));
+ const f=k=>num(o[k]);
+ const shipping=f('shipping_fee'),delivery=f('delivery_fee'),platform=f('platform_fee'),processing=f('processing_fee'),speed=f('delivery_speed_fee'),cod=f('cod_fee'),discount=f('discount');
  const invoiceNo='INV-'+String(o.order_id||o.id||'').replace(/^ORD-/,'');
- const payment=(o.payment_method||o.payment_mode||'COD').toUpperCase();
- const status=(o.status||'Pending').toUpperCase();
- const customer=o.customer_name||o.user_name||'Customer';
- const phone=o.customer_phone||o.user_phone||'';
- const address=o.delivery_address||o.customer_address||o.address||'';
- const shopName=m?.shop_name||m?.merchant_name||'MediFinder India Partner Store';
- const shopPhone=m?.phone||'';
- const shopAddress=m?.resolved_address||m?.address||'';
- const shopCity=m?.city||'';
- const shopPin=m?.pincode||'';
- const soldBy=[shopAddress,shopCity,shopPin].filter(Boolean).join(', ');
- const created=o.created_at||new Date().toISOString();
- const qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(location.origin+location.pathname+'?order_id='+encodeURIComponent(o.order_id||o.id||''));
- const rows=items.length?items.map((i,n)=>{
-   const qty=Number(i.quantity||1), unit=Number(i.unit_price||0), line=Number(i.total_price ?? unit*qty);
-   const gst=Number(i.gst_rate||i.tax_rate||0);
-   const hsn=i.hsn_code||i.hsn||'—';
-   return `<tr>
-     <td class="center">${n+1}</td>
-     <td><div class="product">${esc(i.product_name||i.medicine_name||i.product_category||i.dosage_form||'Medicine')}</div>${i.description?'<div>'+esc(i.description)+'</div>':''}</td>
-     <td>${esc(i.manufacturer||i.mfr_name||'—')}</td>
-     <td>${esc(i.batch_no||i.batch||'—')}</td>
-     <td class="center">${esc(i.expiry_date||i.expiry||'—')}</td>
-     <td class="center">${qty}</td>
-     <td class="num">${money(unit)}</td>
-     <td class="num">${gst}%</td>
-     <td class="num">${money(line)}</td>
-   </tr>`;
- }).join('') : `<tr><td colspan="9" class="center">No item details available</td></tr>`;
+ const payment=String(pick(o.payment_mode,o.payment_method,'COD')).replace(/_/g,' ').toUpperCase();
+ const status=String(pick(o.status,'Pending')).toUpperCase();
+ const payStatus=pick(o.payment_status);
+ const customer=pick(o.customer_name,o.user_name,'Customer');
+ const phone=pick(o.customer_phone,o.user_phone);
+ const address=pick(o.delivery_address,o.customer_address,o.address);
+ const shopName=pick(m?.shop_name,m?.merchant_name,o.pharmacy_name,'Partner Pharmacy');
+ const soldBy=[pick(m?.resolved_address,m?.address),m?.city,m?.state,m?.pincode].filter(has).join(', ');
+ const created=pick(o.created_at,new Date().toISOString());
 
+ // GST: item prices are MRP-inclusive → back out tax per rate (CGST+SGST split, intra-state)
+ const groups={};
+ rows.forEach(r=>{
+   const k=r.gst===null?'na':String(r.gst);
+   const g=groups[k]=groups[k]||{rate:r.gst,gross:0};
+   g.gross+=r.line;
+ });
+ const gstKeys=Object.keys(groups).sort((a,b)=>(a==='na')-(b==='na')||Number(a)-Number(b));
+ let totalTax=0;
+ const taxRows=gstKeys.map(k=>{
+   const g=groups[k];
+   if(g.rate===null)return `<tr><td>N/A</td><td>${money(g.gross)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+   const taxable=g.gross/(1+g.rate/100), tax=g.gross-taxable; totalTax+=tax;
+   return `<tr><td>${g.rate}</td><td>${money(taxable)}</td><td>${money(tax/2)}</td><td>${money(tax/2)}</td><td>0.00</td></tr>`;
+ }).join('');
+ const allRated=rows.length>0&&rows.every(r=>r.gst!==null);
+ const gstin=pick(m?.gstin);
+ const docTitle=(allRated&&gstin)?'Tax Invoice (Original for Recipient)':'Invoice / Cash Memo (Original for Recipient)';
+
+ const itemRows=rows.length?rows.map((r,n)=>`<tr>
+   <td class="center">${n+1}</td>
+   <td><div class="product">${esc(r.name)}</div>${r.sub?'<div>'+esc(r.sub)+'</div>':''}</td>
+   <td>${esc(r.mfr||'—')}</td>
+   <td>${esc(r.batch||'—')}</td>
+   <td class="center">${esc(r.expiry?date(r.expiry):'—')}</td>
+   <td class="center">${esc(r.hsn||'—')}</td>
+   <td class="center">${r.qty}</td>
+   <td class="num">${r.mrp>r.unit?'<s>'+money(r.mrp)+'</s><br>':''}${money(r.unit)}</td>
+   <td class="num">${r.gst===null?'—':r.gst+'%'}</td>
+   <td class="num">${money(r.line)}</td></tr>`).join(''):'<tr><td colspan="10" class="center">No item details available</td></tr>';
+
+ const sellerKv=[
+   ['Owner',m?.owner_name],['Phone',m?.phone],['GSTIN',gstin||'Not provided'],['Drug Licence',m?.license_id]
+ ].filter(x=>x[0]==='GSTIN'||has(x[1])).map(x=>`<span class="k">${x[0]}</span><span>${esc(x[1])}</span>`).join('');
+
+ shell({
+   docTitle,
+   leftHead:'Sold By',
+   leftHtml:`<p><b>${esc(shopName)}</b><br>${esc(soldBy||'Partner pharmacy address not available')}</p><div class="kv" style="margin-top:4px">${sellerKv}</div>`,
+   midHead:'Sold To',
+   midHtml:`<p><b>${esc(customer)}</b><br>${phone?'Phone: '+esc(phone)+'<br>':''}${esc(address)}</p>
+     <div class="invoice-meta">
+       <div><span class="label">Payment:</span> <span class="value">${esc(payment)}</span></div>
+       <div><span class="label">Status:</span> <span class="value">${esc(status)}</span></div>
+       ${payStatus?`<div><span class="label">Pay Status:</span> <span class="value">${esc(payStatus)}</span></div>`:''}
+       ${o.payment_utr?`<div><span class="label">UTR:</span> <span class="value">${esc(o.payment_utr)}</span></div>`:''}
+     </div>`,
+   invoiceNo,orderRef:o.order_id||o.id,created,
+   qrQuery:'type=order&ref='+encodeURIComponent(o.id||o.order_id||''),
+   itemsTitle:'Order Items',
+   itemsHtml:`<table class="items"><thead><tr><th style="width:28px">Sr.</th><th>Product Name</th><th>MFR. Name</th><th>Batch No.</th><th class="center">Expiry</th><th class="center">HSN</th><th class="center">Qty</th><th class="num">MRP / Price</th><th class="num">GST</th><th class="num">Total</th></tr></thead><tbody>${itemRows}</tbody></table>`,
+   leftSummary:`<table><thead><tr><th>GST %</th><th>Taxable Amount</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead><tbody>${taxRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
+     <div class="note">${allRated?'Prices are inclusive of GST. Tax shown is the GST contained in the item prices.':'GST rate not recorded by the seller for some items — tax shown only for items with a recorded rate.'}${o.prescription_required?'<br><b>Prescription:</b> '+(o.prescription_verified||o.rx_verified?'verified':'uploaded for this order')+'.':''}</div>`,
+   totalsHtml:`
+     <div class="total-row"><span>Items Total</span><b>${money(subtotal)}</b></div>
+     ${shipping?`<div class="total-row"><span>Shipping &amp; Handling</span><b>${money(shipping)}</b></div>`:''}
+     ${delivery?`<div class="total-row"><span>Delivery Charges</span><b>${money(delivery)}</b></div>`:''}
+     ${platform?`<div class="total-row"><span>Platform Fee</span><b>${money(platform)}</b></div>`:''}
+     ${processing?`<div class="total-row"><span>Processing Charge</span><b>${money(processing)}</b></div>`:''}
+     ${speed?`<div class="total-row"><span>Fast Delivery Fee</span><b>${money(speed)}</b></div>`:''}
+     ${cod?`<div class="total-row"><span>COD Handling Fee</span><b>${money(cod)}</b></div>`:''}
+     ${discount?`<div class="total-row"><span>Discount${o.coupon_code?' ('+esc(o.coupon_code)+')':''}</span><b>-${money(discount)}</b></div>`:''}
+     ${totalTax>0?`<div class="total-row"><span>GST included in items</span><b>${money(totalTax)}</b></div>`:''}
+     ${savings>0?`<div class="total-row save"><span>You saved vs MRP</span><b>${money(savings)}</b></div>`:''}
+     <div class="total-row grand"><span>PAYABLE AMOUNT</span><span>${money(total)}</span></div>`,
+   total,
+   bottom1:`Payment Mode: <b>${esc(payment)}</b><br>Order Status: <b>${esc(status)}</b>${o.delivery_speed?('<br>Delivery Type: '+esc(cap(o.delivery_speed==='manual'?'Standard':o.delivery_speed))):''}${o.courier_name?'<br>Courier: '+esc(o.courier_name):''}${o.courier_tracking?'<br>Tracking: '+esc(o.courier_tracking):''}`,
+   bottom2:'Sold by the pharmacy named above; MediFinder India acts as the marketplace platform. Medicines once delivered are returnable only as per the return policy. For support, use the Help Desk in the MediFinder India app.',
+   signFor:'For '+esc(shopName)
+ });
+}
+
+/* ================= NURSE ================= */
+async function loadNurse(){
+ if(!bookingId){err('Missing booking ID.');return;}
+ const inv=await getInvoice('nurse',bookingId);
+ if(!inv||!inv.booking){err('Nurse booking not found.');return;}
+ const b=inv.booking;
+ const addr=[b.addr_house,b.addr_street,b.addr_landmark&&('Near '+b.addr_landmark),b.addr_city,b.addr_state,b.addr_pincode].filter(has).join(', ');
+ const subtotal=num(b.subtotal), svc=num(b.service_charge), total=num(pick(b.total_amount,subtotal+svc));
+ const pay=String(pick(b.payment_method,'—')).toUpperCase();
+ const ref='NRS-'+String(b.id).slice(0,8).toUpperCase();
+ renderService({
+   docTitle:'Service Invoice — Home Nurse Booking',
+   leftHead:'Service Provided By',
+   leftHtml:`<p><b>${esc(pick(b.nurse_name,'Nurse to be assigned'))}</b>${b.nurse_qualification?'<br>'+esc(b.nurse_qualification):''}${b.nurse_contact?'<br>Phone: '+esc(b.nurse_contact):''}</p><p style="margin-top:4px">Booked via <b>MediFinder India</b></p>`,
+   midHead:'Patient / Booked By',
+   midHtml:`<p><b>${esc(pick(b.patient_name,'Patient'))}</b>${b.patient_age?' ('+esc(b.patient_age)+' yrs'+(b.gender?', '+esc(b.gender):'')+')':''}<br>${b.contact_no?'Phone: '+esc(b.contact_no)+'<br>':''}${esc(addr)}</p>
+     <div class="invoice-meta"><div><span class="label">Payment:</span> <span class="value">${esc(pay)}</span></div><div><span class="label">Pay Status:</span> <span class="value">${esc(pick(b.payment_status,'—'))}</span></div>${(b.utr_number||b.payment_utr)?`<div><span class="label">UTR:</span> <span class="value">${esc(pick(b.utr_number,b.payment_utr))}</span></div>`:''}</div>`,
+   invoiceNo:ref,orderRef:b.id,created:b.created_at,qrQuery:'type=nurse&id='+encodeURIComponent(b.id),
+   itemsTitle:'Service Details',
+   itemsHtml:`<table class="items"><thead><tr><th style="width:28px">Sr.</th><th>Service</th><th>Schedule</th><th class="center">Duration</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody><tr>
+     <td class="center">1</td><td><div class="product">${esc(pick(b.service_label,cap(b.service_type),'Nurse service'))}</div>${b.scope_of_work?'<div>'+esc(b.scope_of_work)+'</div>':''}${b.doctor_name?'<div>Doctor: '+esc(b.doctor_name)+'</div>':''}</td>
+     <td>${esc(date(b.book_date))} ${esc(b.book_time||'')}</td><td class="center">${esc(pick(b.duration,'—'))} ${esc(b.rate_unit||'')}</td>
+     <td class="num">${money(b.rate)}${b.rate_unit?' / '+esc(b.rate_unit):''}</td><td class="num">${money(subtotal)}</td></tr></tbody></table>`,
+   leftSummary:`<div class="note"><b>Booking status:</b> ${esc(cap(b.status))}${b.completed_at?'<br><b>Completed:</b> '+esc(date(b.completed_at))+' '+esc(time(b.completed_at)):''}${b.cancel_reason?'<br><b>Cancel reason:</b> '+esc(b.cancel_reason):''}<br>No separate GST amount was recorded on this booking.</div>`,
+   totalsHtml:`<div class="total-row"><span>Service Amount</span><b>${money(subtotal)}</b></div>${svc?`<div class="total-row"><span>Service Charge</span><b>${money(svc)}</b></div>`:''}<div class="total-row grand"><span>TOTAL</span><span>${money(total)}</span></div>`,
+   total,
+   bottom1:`Payment Mode: <b>${esc(pay)}</b><br>Payment Status: <b>${esc(pick(b.payment_status,'—'))}</b><br>Booking Status: <b>${esc(cap(b.status))}</b>`
+ });
+}
+
+/* ================= LAB TEST ================= */
+async function loadLab(){
+ if(!bookingId){err('Missing booking ID.');return;}
+ const inv=await getInvoice('lab',bookingId);
+ if(!inv||!inv.booking){err('Lab booking not found.');return;}
+ const b=inv.booking, t=inv.test||null;
+ const addr=pick(b.full_address,[pick(b.addr_house,b.house_no),pick(b.addr_street,b.street),pick(b.addr_landmark,b.landmark)&&('Near '+pick(b.addr_landmark,b.landmark)),pick(b.addr_city,b.city),pick(b.addr_state,b.state),pick(b.addr_pincode,b.pincode)].filter(has).join(', '),b.address);
+ const price=num(b.test_price), total=price;
+ const pay=String(pick(b.payment_method,b.payment_mode,'—')).replace(/_/g,' ').toUpperCase();
+ const ref=pick(b.booking_id,'LAB-'+String(b.id).slice(0,8).toUpperCase());
+ const fasting=pick(b.fasting_type,b.fasting);
+ renderService({
+   docTitle:'Service Invoice — Lab Test (Home Sample Collection)',
+   leftHead:'Service Provided By',
+   leftHtml:`<p><b>MediFinder India — Partner Diagnostic Lab</b><br>Home sample collection${t?.sample_type?'<br>Sample: '+esc(t.sample_type):''}</p>`,
+   midHead:'Patient',
+   midHtml:`<p><b>${esc(pick(b.patient_name,'Patient'))}</b>${b.patient_age?' ('+esc(b.patient_age)+' yrs'+(b.patient_gender?', '+esc(b.patient_gender):'')+')':''}<br>${b.patient_phone?'Phone: '+esc(b.patient_phone)+'<br>':''}${esc(addr)}</p>
+     <div class="invoice-meta"><div><span class="label">Payment:</span> <span class="value">${esc(pay)}</span></div><div><span class="label">Pay Status:</span> <span class="value">${esc(pick(b.payment_status,'—'))}</span></div>${b.payment_utr?`<div><span class="label">UTR:</span> <span class="value">${esc(b.payment_utr)}</span></div>`:''}</div>`,
+   invoiceNo:String(ref),orderRef:ref,created:b.created_at,qrQuery:'type=lab&id='+encodeURIComponent(b.id),
+   itemsTitle:'Test Details',
+   itemsHtml:`<table class="items"><thead><tr><th style="width:28px">Sr.</th><th>Test Name</th><th>Collection Slot</th><th>Fasting</th><th>Report</th><th class="num">Amount</th></tr></thead><tbody><tr>
+     <td class="center">1</td><td><div class="product">${esc(pick(b.test_name,t?.test_name,t?.name,'Lab test'))}</div>${t?.test_code?'<div>Code: '+esc(t.test_code)+'</div>':''}</td>
+     <td>${esc(date(pick(b.booking_date,b.book_date)))} ${esc(pick(b.booking_time,b.book_time))}</td>
+     <td>${esc(fasting?cap(fasting):(t?.fasting_required?'Required'+(t.fasting_hours?' ('+t.fasting_hours+' hrs)':''):'Not required'))}</td>
+     <td>${esc(pick(b.report_status,t?.report_time,t?.report_hours&&t.report_hours+' hrs','—'))}</td>
+     <td class="num">${money(price)}</td></tr></tbody></table>`,
+   leftSummary:`<div class="note"><b>Booking status:</b> ${esc(cap(pick(b.booking_status,b.status)))}${b.sample_collected_at?'<br><b>Sample collected:</b> '+esc(date(b.sample_collected_at)):''}${b.cancel_reason?'<br><b>Cancel reason:</b> '+esc(b.cancel_reason):''}<br>No separate GST amount was recorded on this booking.</div>`,
+   totalsHtml:`<div class="total-row"><span>Test Amount</span><b>${money(price)}</b></div><div class="total-row grand"><span>TOTAL</span><span>${money(total)}</span></div>`,
+   total,
+   bottom1:`Payment Mode: <b>${esc(pay)}</b><br>Payment Status: <b>${esc(pick(b.payment_status,'—'))}</b><br>Booking Status: <b>${esc(cap(pick(b.booking_status,b.status)))}</b>`
+ });
+}
+
+/* ================= AMBULANCE ================= */
+async function loadAmbulance(){
+ if(!bookingId){err('Missing booking ID.');return;}
+ const inv=await getInvoice('ambulance',bookingId);
+ if(!inv||!inv.booking){err('Ambulance booking not found.');return;}
+ const b=inv.booking, d=inv.driver||null;
+ const fare=num(pick(b.fare_final,b.fare_estimate)), total=fare;
+ const typeLbl={non_ac:'Non-AC',ac:'AC / Oxygen',icu:'ICU / Advanced'}[b.vehicle_type]||cap(b.vehicle_type);
+ const ref='AMB-'+String(b.id).slice(0,8).toUpperCase();
+ const pay=pick(b.payment_status,'—');
+ renderService({
+   docTitle:'Service Invoice — Ambulance Ride',
+   leftHead:'Service Provided By',
+   leftHtml:`<p><b>${esc(pick(d?.driver_name,'Ambulance driver not assigned'))}</b>${d?.plate_number?'<br>Vehicle: '+esc(typeLbl)+' · '+esc(d.plate_number):''}${d?.phone?'<br>Phone: '+esc(d.phone):''}</p><p style="margin-top:4px">Booked via <b>MediFinder India</b></p>`,
+   midHead:'Patient / Booked By',
+   midHtml:`<p><b>${esc(pick(b.patient_name,'Patient'))}</b><br>${b.contact_phone?'Phone: '+esc(b.contact_phone)+'<br>':''}</p>
+     <div class="kv"><span class="k">Pickup</span><span>${esc(b.pickup_address)}</span><span class="k">Drop</span><span>${esc(b.drop_address)}</span></div>
+     <div class="invoice-meta"><div><span class="label">Pay Status:</span> <span class="value">${esc(cap(pay))}</span></div>${b.payment_utr?`<div><span class="label">UTR:</span> <span class="value">${esc(b.payment_utr)}</span></div>`:''}</div>`,
+   invoiceNo:ref,orderRef:b.id,created:b.created_at,qrQuery:'type=ambulance&id='+encodeURIComponent(b.id),
+   itemsTitle:'Ride Details',
+   itemsHtml:`<table class="items"><thead><tr><th style="width:28px">Sr.</th><th>Service</th><th>Route</th><th class="center">Distance</th><th>Ride Time</th><th class="num">Fare</th></tr></thead><tbody><tr>
+     <td class="center">1</td><td><div class="product">Ambulance — ${esc(typeLbl)}</div></td>
+     <td>${esc(b.pickup_address)} → ${esc(b.drop_address)}</td>
+     <td class="center">${b.distance_km!=null?Number(b.distance_km).toFixed(1)+' km':'—'}</td>
+     <td>${esc(date(pick(b.completed_at,b.created_at)))} ${esc(time(pick(b.completed_at,b.created_at)))}</td>
+     <td class="num">${money(fare)}</td></tr></tbody></table>`,
+   leftSummary:`<div class="note"><b>Ride status:</b> ${esc(cap(b.status))}${b.picked_up_at?'<br><b>Picked up:</b> '+esc(time(b.picked_up_at)):''}${b.completed_at?'<br><b>Completed:</b> '+esc(date(b.completed_at))+' '+esc(time(b.completed_at)):''}${b.cancel_reason?'<br><b>Cancel reason:</b> '+esc(b.cancel_reason):''}${b.fare_final==null?'<br>Fare shown is the estimate; final fare is confirmed at ride completion.':''}<br>No separate GST amount was recorded on this booking.</div>`,
+   totalsHtml:`<div class="total-row"><span>${b.fare_final!=null?'Final Fare':'Estimated Fare'}</span><b>${money(fare)}</b></div><div class="total-row grand"><span>TOTAL</span><span>${money(total)}</span></div>`,
+   total,
+   bottom1:`Payment Status: <b>${esc(cap(pay))}</b><br>Ride Status: <b>${esc(cap(b.status))}</b>`
+ });
+}
+
+function renderService(c){
+ shell({...c,bottom2:c.bottom2||'This is a computer generated service invoice. MediFinder India is the booking platform; the service is delivered by the provider named above. For support, use the Help Desk in the MediFinder India app.',signFor:c.signFor||'For MediFinder India'});
+}
+
+/* ================= SHARED SHELL ================= */
+function shell(c){
+ const qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(location.origin+location.pathname+'?'+c.qrQuery+'&v=1');
+ document.title='Invoice '+c.invoiceNo+' | MediFinder India';
+ const vid=verifyId(c);
+ const canVerify=['order','nurse','ambulance'].includes(type);
+ const qp=new URLSearchParams(c.qrQuery);
+ window.__vref=qp.get('ref')||qp.get('id')||'';
+ window.__vid=vid;
+ window.__invoiceName='MediFinder-Invoice-'+String(c.invoiceNo).replace(/[^A-Za-z0-9_-]/g,'')+'.pdf';
  document.getElementById('app').innerHTML=`
- <div class="invoice-wrap">
- <div class="invoice">
-   <div class="top-title">Tax Invoice / Bill of Supply / Cash Memo &nbsp; (Original for Recipient)</div>
-
+ <div class="invoice-wrap"><div class="invoice">
+   <div class="top-title">${esc(c.docTitle)}</div>
+   <div class="vstrip pending" id="vstrip"><i>!</i><span id="vtext">${canVerify?'AWAITING VERIFICATION BY '+esc(ROLE[type].toUpperCase())+' · ID '+esc(vid):'INVOICE · ID '+esc(vid)+' · ISSUED BY MEDIFINDER INDIA'}</span></div>
    <div class="top-grid">
      <div class="box">
-       <div class="brand"><img src="favicon.png" onerror="this.style.display='none'"><div><b>MEDIFINDER INDIA</b><small>Healthcare & Medicine Delivery Platform</small></div></div>
-       <h3>Sold By</h3>
-       <p><b>${esc(shopName)}</b><br>${esc(soldBy||'Partner pharmacy address not available')}<br>${shopPhone?'Phone: '+esc(shopPhone):''}</p>
+       <div class="brand"><img src="favicon.png" onerror="this.style.display='none'"><div><b>MEDIFINDER INDIA</b><small>SEARCH • CONNECT • CARE</small></div></div>
+       <h3>${c.leftHead}</h3>${c.leftHtml}
      </div>
-
-     <div class="box">
-       <h3>Sold To</h3>
-       <p><b>${esc(customer)}</b><br>${phone?'Phone: '+esc(phone)+'<br>':''}${esc(address)}</p>
-       <div class="invoice-meta">
-         <div><span class="label">Payment:</span> <span class="value">${esc(payment)}</span></div>
-         <div><span class="label">Status:</span> <span class="value">${esc(status)}</span></div>
-       </div>
-     </div>
-
+     <div class="box"><h3>${c.midHead}</h3>${c.midHtml}</div>
      <div class="box">
        <h3>Invoice Details</h3>
-       <p><b>Invoice No.</b><br>${esc(invoiceNo)}</p>
+       <p><b>Invoice No.</b><br>${esc(c.invoiceNo)}</p>
        <div class="invoice-meta">
-         <div><span class="label">Date</span><br><span class="value">${date(created)}</span></div>
-         <div><span class="label">Time</span><br><span class="value">${time(created)}</span></div>
+         <div><span class="label">Date</span><br><span class="value">${date(c.created)}</span></div>
+         <div><span class="label">Time</span><br><span class="value">${time(c.created)}</span></div>
        </div>
-       <p style="margin-top:5px"><b>Order ID</b><br>${esc(o.order_id||o.id||'—')}</p>
-       <img class="qr" src="${qr}" alt="Order QR">
-       <div class="qr-note">For Internal / Verification Purpose</div>
+       <p style="margin-top:5px"><b>Reference</b><br>${esc(c.orderRef||'—')}</p>
+       <img class="qr" src="${qr}" alt="QR">
+       <div class="qr-note">Scan to view full invoice details</div>
      </div>
    </div>
-
-   <div class="section">
-     <div class="section-title">Order Items</div>
-     <div class="items-wrap">
-     <table class="items">
-       <thead><tr>
-         <th style="width:32px">Sr.</th><th>Product Name</th><th>MFR. Name</th><th>Batch No.</th><th>Expiry</th><th class="center">Qty</th><th class="num">MRP/Price</th><th class="num">GST</th><th class="num">Total</th>
-       </tr></thead>
-       <tbody>${rows}</tbody>
-     </table>
-     </div>
-   </div>
-
-   <div class="section summary-grid">
-     <div class="tax-table">
-       <table>
-        <thead><tr><th>GST %</th><th>Taxable Amount</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead>
-        <tbody>
-          <tr><td>0</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
-          <tr><td>5</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
-          <tr><td>12</td><td>${money(tax?subtotal:0)}</td><td>0.00</td><td>0.00</td><td>${money(tax)}</td></tr>
-          <tr><td>18</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
-        </tbody>
-       </table>
-     </div>
-     <div class="totals">
-       <div class="total-row"><span>Gross Amount</span><b>${money(subtotal)}</b></div>
-       ${shipping?`<div class="total-row"><span>Shipping &amp; Handling</span><b>${money(shipping)}</b></div>`:''}
-       ${delivery?`<div class="total-row"><span>Delivery Charges</span><b>${money(delivery)}</b></div>`:''}
-       ${platform?`<div class="total-row"><span>Platform Fee</span><b>${money(platform)}</b></div>`:''}
-       ${processing?`<div class="total-row"><span>Processing Charge</span><b>${money(processing)}</b></div>`:''}
-       ${speed?`<div class="total-row"><span>Fast Delivery Fee</span><b>${money(speed)}</b></div>`:''}
-       ${cod?`<div class="total-row"><span>COD Handling Fee</span><b>${money(cod)}</b></div>`:''}
-       ${tax?`<div class="total-row"><span>Tax / GST</span><b>${money(tax)}</b></div>`:''}
-       ${discount?`<div class="total-row"><span>Discount</span><b>-${money(discount)}</b></div>`:''}
-       <div class="total-row grand"><span>PAYABLE AMOUNT</span><span>${money(total)}</span></div>
-     </div>
-   </div>
-
-   <div class="amount-words"><b>Amount in Words:</b> ${amountWords(total)}</div>
-
+   <div class="section"><div class="section-title">${esc(c.itemsTitle)}</div><div class="items-wrap">${c.itemsHtml}</div></div>
+   <div class="section summary-grid"><div class="tax-table">${c.leftSummary}</div><div class="totals">${c.totalsHtml}</div></div>
+   <div class="amount-words"><b>Amount in Words:</b> ${amountWords(c.total)}</div>
    <div class="bottom-grid">
-     <div class="bottom-box">
-       <h4>Payment & Delivery</h4>
-       <p>Payment Mode: <b>${esc(payment)}</b><br>Order Status: <b>${esc(status)}</b><br>${o.delivery_speed?('Delivery Type: '+esc(o.delivery_speed)):''}</p>
-     </div>
-     <div class="bottom-box">
-       <h4>Terms & Support</h4>
-       <p>This is a computer generated invoice. For order support, please contact MediFinder India through the support section of the website/app.</p>
-     </div>
-     <div class="bottom-box">
-       <h4>Authorised Signatory</h4>
-       <div class="sign">For MediFinder India / Partner Store</div>
-     </div>
+     <div class="bottom-box"><h4>Payment & Status</h4><p>${c.bottom1}</p></div>
+     <div class="bottom-box"><h4>Terms & Support</h4><p>${c.bottom2}</p></div>
+     <div class="bottom-box"><h4>Authorised Signatory</h4>${canVerify?`<div class="vseal pending" id="vseal"><b>NOT VERIFIED YET</b><span>Pending verification by<br>${esc(ROLE[type])}</span><em>${esc(vid)}</em></div>`:''}<img class="sigimg" id="sigimg" alt="" style="display:none"><div class="sign" style="margin-top:14px">${c.signFor}</div></div>
    </div>
-
-   <div class="footer">Thank you for choosing <b>MediFinder India</b> · Your Health, Our Priority</div>
- </div>
- </div>`;
+   <div class="footer">Thank you for choosing <b>MediFinder India</b> · Your Health in Safe Hands</div>
+ </div></div>`;
 }
 
+function verifyId(c){
+ const str=[c.invoiceNo,c.orderRef,Number(c.total||0).toFixed(2),c.created||''].join('|');
+ let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0}
+ return 'MFV-'+h.toString(36).toUpperCase().padStart(7,'0').slice(0,7);
+}
+
+/* ================= VERIFICATION (only the provider can verify) ================= */
+const $=id=>document.getElementById(id);
+async function loadVerification(){
+ VS=null;
+ if(!db||!ROLE[type]||!window.__vref||!$('vstrip'))return;
+ try{
+   const r=await db.rpc('get_invoice_signoff',{p_type:type,p_ref:String(window.__vref)});
+   if(r.error)throw r.error;
+   const d=r.data||{},so=d.signoff||null;
+   VS={verified:!!so,method:so&&so.mode==='signature'?'signature':'verify',signature:so?so.signature_data:null,
+       signer_role:so?so.signer_role:(d.role||null),signer_name:so?so.signer_name:null,verified_at:so?so.signed_at:null,can_verify:!!d.can_sign};
+ }catch(e){console.warn('Verification status unavailable',e);}
+ paintVerification();
+ renderVerifyPanel();
+}
+function paintVerification(){
+ const strip=$('vstrip'),txt=$('vtext'),seal=$('vseal'),sig=$('sigimg');
+ if(!strip||!ROLE[type])return;
+ const vid=window.__vid, scan=verified?' · OPENED VIA QR':'';
+ if(VS&&VS.verified){
+   const role=VS.signer_role||ROLE[type];
+   const who=role+(VS.signer_name?' — '+VS.signer_name:'');
+   const signed=VS.method==='signature';
+   strip.className='vstrip';strip.querySelector('i').textContent='✔';
+   txt.textContent='e-VERIFIED INVOICE · ID '+vid+' · '+(signed?'SIGNED':'VERIFIED')+' BY '+who.toUpperCase()+' · '+date(VS.verified_at)+scan;
+   if(seal){
+     seal.className='vseal';
+     seal.innerHTML='<b>✔ '+(signed?'SIGNED &amp; VERIFIED':'e-VERIFIED')+'</b><span>By '+esc(who)+'<br>'+esc(date(VS.verified_at))+' '+esc(time(VS.verified_at))+'</span><em>'+esc(vid)+'</em>';
+   }
+   if(sig&&signed&&/^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(VS.signature||'')){sig.src=VS.signature;sig.style.display='block';}
+ }else{
+   strip.className='vstrip pending';strip.querySelector('i').textContent='!';
+   txt.textContent='AWAITING VERIFICATION BY '+ROLE[type].toUpperCase()+' · ID '+vid+scan;
+ }
+}
+function renderVerifyPanel(){
+ const old=$('vpanel');if(old)old.remove();
+ if(!VS||VS.verified||!VS.can_verify)return;
+ const role=ROLE[type];
+ const p=document.createElement('div');p.id='vpanel';p.className='vpanel';
+ p.innerHTML=`<h3>You are the ${esc(role)} on this invoice</h3>
+   <p>Only you can verify it. Tap <b>Verify invoice</b> to stamp the e-verified mark, or <b>Sign manually</b> to draw your signature.</p>
+   <div class="vbtns"><button class="vgo" id="vGo">✔ Verify invoice</button><button class="vsg" id="vSg">✍ Sign manually</button></div>
+   <div class="vpad" id="vPad"><canvas id="vCan" width="900" height="260"></canvas>
+     <div class="vbtns"><button class="vlt" id="vClr">Clear</button><button class="vgo" id="vSave">✔ Save signature &amp; verify</button></div></div>`;
+ document.querySelector('.invoice-wrap').after(p);
+ $('vGo').onclick=()=>submitVerify('verify',null);
+ $('vSg').onclick=()=>{$('vPad').style.display='block';$('vSg').style.display='none';setupPad();};
+}
+function setupPad(){
+ const cv=$('vCan'),ctx=cv.getContext('2d');let drawing=false,drawn=false;
+ ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';
+ const pos=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
+ cv.onpointerdown=e=>{e.preventDefault();drawing=true;cv.setPointerCapture(e.pointerId);const q=pos(e);ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(q.x+.1,q.y+.1);ctx.stroke();drawn=true};
+ cv.onpointermove=e=>{if(!drawing)return;e.preventDefault();const q=pos(e);ctx.lineTo(q.x,q.y);ctx.stroke()};
+ const end=()=>{drawing=false};cv.onpointerup=end;cv.onpointercancel=end;
+ $('vClr').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);drawn=false};
+ $('vSave').onclick=()=>{
+   if(!drawn){alert('Please draw your signature first.');return}
+   submitVerify('signature',cv.toDataURL('image/png'));
+ };
+}
+async function submitVerify(method,signature){
+ const btns=[...document.querySelectorAll('#vpanel button')];
+ btns.forEach(b=>b.disabled=true);
+ try{
+   const r=await db.rpc('sign_invoice',{p_type:type,p_ref:String(window.__vref),p_mode:method==='signature'?'signature':'verified',p_signature:signature});
+   if(r.error)throw r.error;
+   await loadVerification();
+ }catch(e){
+   console.error(e);
+   alert('Could not verify: '+(e&&e.message?e.message:'please try again.'));
+   btns.forEach(b=>b.disabled=false);
+ }
+}
+async function shareInvoice(){
+ const url=location.href.split('#')[0].replace(/([?&])download=1&?/,'$1');
+ try{ if(navigator.share){await navigator.share({title:document.title,text:'MediFinder India invoice',url});return} }catch(e){if(e&&e.name==='AbortError')return}
+ try{await navigator.clipboard.writeText(url);alert('Invoice link copied')}catch(e){prompt('Copy invoice link',url)}
+}
 function amountWords(n){
- const num=Math.round(Number(n||0));
- if(num===0)return'Zero only';
+ const v=Number(n||0), rupees=Math.floor(v), paise=Math.round((v-rupees)*100);
+ if(rupees===0&&paise===0)return'Zero only';
  const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
  const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
- function two(x){return x<20?ones[x]:tens[Math.floor(x/10)]+(x%10?' '+ones[x%10]:'')}
- function three(x){return x<100?two(x):ones[Math.floor(x/100)]+' Hundred'+(x%100?' '+two(x%100):'')}
- let x=num,s='';
+ const two=x=>x<20?ones[x]:tens[Math.floor(x/10)]+(x%10?' '+ones[x%10]:'');
+ const three=x=>x<100?two(x):ones[Math.floor(x/100)]+' Hundred'+(x%100?' '+two(x%100):'');
+ let x=rupees,s='';
  if(x>=10000000){s+=three(Math.floor(x/10000000))+' Crore ';x%=10000000}
  if(x>=100000){s+=three(Math.floor(x/100000))+' Lakh ';x%=100000}
  if(x>=1000){s+=three(Math.floor(x/1000))+' Thousand ';x%=1000}
  if(x)s+=three(x);
- return ('Rupees '+s.trim()+' only').replace(/\s+/g,' ');
+ let out='Rupees '+(s.trim()||'Zero');
+ if(paise)out+=' and '+two(paise)+' Paise';
+ return (out+' only').replace(/\s+/g,' ');
 }
-load();
+async function downloadPdf(){
+ const btn=document.getElementById('dlBtn'), el=document.querySelector('.invoice-wrap');
+ if(!el)return;
+ const old=btn.textContent; btn.disabled=true; btn.textContent='Preparing PDF…';
+ try{
+   if(!window.html2canvas||!window.jspdf)throw new Error('pdf libs missing');
+   const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:980});
+   const {jsPDF}=window.jspdf, pdf=new jsPDF('p','mm','a4');
+   const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight(), m=6;
+   const w=pw-m*2, h=canvas.height*w/canvas.width, pageH=ph-m*2;
+   const img=canvas.toDataURL('image/jpeg',0.92);
+   let y=0,first=true;
+   while(y<h-0.5){ if(!first)pdf.addPage(); pdf.addImage(img,'JPEG',m,m-y,w,h); first=false; y+=pageH;
+     if(y<h-0.5){ pdf.setFillColor(255,255,255); } }
+   pdf.save(window.__invoiceName||'MediFinder-Invoice.pdf');
+ }catch(e){ console.error(e); alert('Could not create PDF directly — opening print dialog, choose "Save as PDF".'); window.print(); }
+ btn.disabled=false; btn.textContent=old;
+}
+load().then(async()=>{ await loadVerification(); if(params.get('download')==='1' && document.querySelector('.invoice-wrap')) setTimeout(downloadPdf,900); });
 </script>
 </body>
 </html>

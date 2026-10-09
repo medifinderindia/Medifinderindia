@@ -167,7 +167,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .bottom-nav{
   height:var(--bottomnav-h);flex-shrink:0;
   background:var(--white);border-top:1px solid var(--ink-100);
-  display:grid;grid-template-columns:repeat(5,1fr);
+  display:grid;grid-template-columns:repeat(6,1fr);
   position:sticky;bottom:0;z-index:20;
   padding-bottom:env(safe-area-inset-bottom,0);
   transition:transform .15s ease;
@@ -788,13 +788,34 @@ a.profile-row{text-decoration:none;color:inherit;}
 .drawer-profile-info b{font-size:14px;overflow-wrap:anywhere;}
 .drawer-profile-info small{font-size:12px;color:var(--ink-500);font-weight:600;}
 
-/* ---------- Sheets / dialogs ---------- */
-.sheet-scrim{z-index:70;}
-.modal.sheet{max-width:560px;}
-.modal.sheet.wide{max-width:640px;}
+/* ---------- Sheets -> full pages ---------- */
+.sheet-scrim{z-index:70;display:block;background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal.sheet,.modal.sheet.wide{max-width:680px;width:100%;max-height:none;min-height:100%;margin:0 auto;border-radius:0;box-shadow:none;padding:0 16px calc(28px + env(safe-area-inset-bottom,0));}
+.modal.sheet .modal-head{position:sticky;top:0;z-index:2;background:#fff;justify-content:flex-start;gap:8px;margin:0 -16px 16px;padding:calc(10px + env(safe-area-inset-top,0)) 12px 10px;border-bottom:1px solid var(--ink-100);}
 .modal-head h3{overflow-wrap:anywhere;padding-right:8px;}
 .sheet-body .review-block{margin-bottom:18px;}
-@media (min-width:900px){.sheet-scrim{align-items:center;}.modal.sheet{border-radius:var(--radius-l);}}
+body.sheet-open,body.lightbox-open{overflow:hidden;}
+
+/* ---------- KYC document image + full-screen viewer ---------- */
+.doc-img{display:block;position:relative;width:100%;margin-top:6px;padding:0;border:1px solid var(--ink-200);border-radius:var(--radius-s);background:var(--ink-50);overflow:hidden;cursor:zoom-in;}
+.doc-img img{display:block;width:100%;max-height:260px;object-fit:contain;background:#fff;}
+.doc-img-hint{position:absolute;right:8px;bottom:8px;background:rgba(20,24,31,.72);color:#fff;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;}
+.review-row .doc-img{max-width:150px;margin-top:0;}
+.lightbox{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center;}
+.lightbox-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;touch-action:none;overflow:hidden;}
+.lightbox-stage img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;transform-origin:center;will-change:transform;}
+.lightbox-close{position:absolute;top:calc(12px + env(safe-area-inset-top,0));right:12px;z-index:2;width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.lightbox-close svg{width:22px;height:22px;stroke:#fff;}
+.lightbox-hint{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0));text-align:center;color:rgba(255,255,255,.7);font-size:12px;pointer-events:none;}
+
+/* ---------- FAQ page ---------- */
+.faq-item{border-bottom:1px solid var(--ink-100);}
+.faq-item:last-child{border-bottom:none;}
+.faq-item summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;font-size:13.5px;font-weight:700;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item summary::after{content:'+';font-size:18px;font-weight:500;color:var(--ink-500);flex-shrink:0;}
+.faq-item[open] summary::after{content:'–';}
+.faq-item p{font-size:13px;color:var(--ink-500);padding:0 0 12px;}
 
 /* ---------- Radio cards (delivery choice, language) ---------- */
 .radio-card{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px solid var(--ink-200);border-radius:var(--radius-m);margin-bottom:10px;cursor:pointer;}
@@ -917,3 +938,47 @@ a.rx-viewer{text-decoration:none;}
 .push-card .settings-row{border-bottom:none;}
 .switch:disabled{opacity:.45;cursor:not-allowed;}
 .switch.busy{opacity:.6;pointer-events:none;}
+
+
+/* ===================== DARK THEME ===================== */
+/* MediFinder Merchant — dark theme. Loaded after marchent.css */
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --red-700:#ff8a9b; --red-600:#e8465f; --red-500:#e8465f;
+  --red-100:#3b1a22; --red-50:#2a161c;
+  --ink-900:#eef1f6; --ink-700:#cfd5df; --ink-500:#a3acba; --ink-300:#707a89;
+  --ink-200:#2c3441; --ink-100:#232a36; --ink-50:#1a202a;
+  --white:#141922;
+  --teal-600:#4fc3cd; --teal-100:#12303a;
+  --green-600:#3ccf91; --green-100:#10301f;
+  --amber-600:#f0a53a; --amber-100:#3a2c12;
+  --shadow-card:0 1px 2px rgba(0,0,0,.4),0 1px 12px rgba(0,0,0,.35);
+  --shadow-pop:0 12px 32px rgba(0,0,0,.6);
+}
+html[data-theme="dark"] body{background:#0d1117;color:var(--ink-900)}
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .modal.sheet .modal-head{background:#141922}
+html[data-theme="dark"] .sheet-scrim{background:#0d1117}
+html[data-theme="dark"] .doc-img img{background:#1a202a}
+html[data-theme="dark"] .shop-pin-map{background:#1a202a}
+html[data-theme="dark"] .toast{background:#2c3441;color:#fff}
+html[data-theme="dark"] .toast.error{background:#c22d47}
+html[data-theme="dark"] .rx-viewer{background:#05070a}
+html[data-theme="dark"] .switch::after{background:#fff}
+html[data-theme="dark"] .map-pin{border-color:#141922}
+html[data-theme="dark"] .photo-edit{border-color:#141922}
+html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:#1a202a;color:var(--ink-900);border-color:#2c3441}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#707a89}
+html[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)}
+html[data-theme="dark"] .leaflet-container{background:#1a202a}
+html[data-theme="dark"] .leaflet-bar a,html[data-theme="dark"] .leaflet-popup-content-wrapper,html[data-theme="dark"] .leaflet-popup-tip{background:#141922;color:#eef1f6;border-color:#2c3441}
+/* theme chooser (settings page) */
+.theme-seg{display:inline-flex;border:1px solid var(--ink-200);border-radius:10px;overflow:hidden}
+.theme-seg button{border:0;background:transparent;color:var(--ink-700);font:inherit;font-size:13px;font-weight:600;padding:8px 12px;cursor:pointer}
+.theme-seg button+button{border-left:1px solid var(--ink-200)}
+.theme-seg button.active{background:var(--red-500);color:#fff}
+/* topbar quick toggle */
+.theme-toggle .ico-moon{display:none}
+html[data-theme="dark"] .theme-toggle .ico-sun{display:none}
+html[data-theme="dark"] .theme-toggle .ico-moon{display:inline}
+

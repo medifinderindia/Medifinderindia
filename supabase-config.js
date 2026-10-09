@@ -1,3 +1,147 @@
+/* ---- session guard (idle auto-logout) ---- */
+// ==========================================
+// MediFinder India - Session Guard + Router (all pages)  v2
+//  1. Logged-in person STAYS logged in until Logout (or MF_MAX_IDLE_DAYS idle).
+//  2. Public pages (home.html) never show a logged-in person: they are sent
+//     to THEIR OWN page (role + service_type) instantly, no network needed.
+//  3. ANY sign-out (any page, any script) wipes every cached login trace, so
+//     the next visit is: Splash -> public Home.
+//  4. Back/forward cache can never show a stale logged-in page after logout.
+// Load as the FIRST script in <head>, plain <script>, no defer:
+//   <script src="session-guard.js?v=2"></script>
+// ==========================================
+(function () {
+    'use strict';
+    if (window.__mfSessionGuard) return;
+    window.__mfSessionGuard = true;
+
+    var MF_MAX_IDLE_DAYS = 20;
+    var KEY = 'mf_last_active';
+    var DAY = 86400000;
+    var ADMIN_EMAIL = 'medifinderindia@gmail.com';
+    var EMS_PAGES = { ambulance_driver: 'ambulance-partner.html', nurse: 'nurse-patner.html', phlebotomist: 'blood-patner.html' };
+    var AUTH_KEY_RE = /^sb-.*-auth-token$/;
+    var LOGIN_TRACES = ['selected_role', 'selected_service_type', 'merchantSessionActive', 'userPhone', 'userName', 'admin_auth_in_progress', 'mf_pending_action', KEY];
+
+    var _rm = Storage.prototype.removeItem;     // original, so cleanup never recurses
+
+    function sbKeys() {
+        var out = [];
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k && /^sb-.*-auth-token/.test(k)) out.push(k);
+            }
+        } catch (e) {}
+        return out;
+    }
+    function touch() { try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {} }
+
+    // ---- full local wipe (used by logout, idle logout, and any signOut) ----
+    function wipeLoginTraces() {
+        try { LOGIN_TRACES.forEach(function (k) { _rm.call(localStorage, k); }); } catch (e) {}
+        try { sessionStorage.removeItem('mf_splash_shown'); sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
+    }
+    // Catches EVERY supabase signOut (user.js, marchent.js, rider.js ... any page):
+    // supabase-js removes the "sb-...-auth-token" key when the session ends.
+    Storage.prototype.removeItem = function (k) {
+        var r = _rm.apply(this, arguments);
+        try { if (this === window.localStorage && AUTH_KEY_RE.test(String(k))) wipeLoginTraces(); } catch (e) {}
+        return r;
+    };
+
+    // ---- read the stored session synchronously (no network) ----
+    function readUser() {
+        try {
+            var keys = sbKeys();
+            for (var i = 0; i < keys.length; i++) {
+                var j = JSON.parse(localStorage.getItem(keys[i]) || 'null');
+                if (!j) continue;
+                if (j.currentSession) j = j.currentSession;
+                if (j && (j.access_token || j.user)) return j.user || {};
+            }
+        } catch (e) {}
+        return null;
+    }
+    // role + service_type -> own page. Returns null if it can't be known offline.
+    function routeFor(user) {
+        if (!user) return null;
+        if (user.email === ADMIN_EMAIL && localStorage.getItem('admin_auth_in_progress') !== 'true') return 'admin.html';
+        var role = localStorage.getItem('selected_role') || (user.user_metadata && user.user_metadata.role) || 'user';
+        if (role === 'merchant') return 'marchent.html';
+        if (role === 'delivery') return 'rider.html';
+        if (role === 'service') {
+            var st = localStorage.getItem('selected_service_type') || '';
+            return EMS_PAGES[st] || null;       // unknown service type -> let the splash look it up
+        }
+        return 'user.html';
+    }
+    function tooManyRedirects() {
+        try {
+            var log = JSON.parse(sessionStorage.getItem('mf_guard_log') || '[]'), now = Date.now();
+            log = log.filter(function (t) { return now - t < 6000; }); log.push(now);
+            sessionStorage.setItem('mf_guard_log', JSON.stringify(log));
+            return log.length > 4;
+        } catch (e) { return false; }
+    }
+    function go(path) { if (!tooManyRedirects()) location.replace(path); }
+
+    // ---- public API for every page ----
+    window.mfRouteFromCache = function () { return routeFor(readUser()); };
+    window.mfHasSession = function () { return sbKeys().length > 0; };
+    window.mfLogout = async function (redirectTo) {
+        try {
+            var c = window.supabaseClient;
+            if (c && c.auth) {
+                await Promise.race([c.auth.signOut(), new Promise(function (r) { setTimeout(r, 3500); })]);
+            }
+        } catch (e) {}
+        try { sbKeys().forEach(function (k) { _rm.call(localStorage, k); }); } catch (e) {}   // even if network failed
+        wipeLoginTraces();
+        location.replace(redirectTo || 'home.html');
+    };
+
+    var p = location.pathname.toLowerCase();
+    var isHome = /(^|\/)home\.html$/.test(p);
+    var isPublic = /(^|\/)(home|auth|index)\.html$/.test(p) || /\/$/.test(p);
+
+    try {
+        var keys = sbKeys();
+        var last = Number(localStorage.getItem(KEY) || 0);
+
+        if (keys.length && last && (Date.now() - last) > MF_MAX_IDLE_DAYS * DAY) {
+            // idle too long -> local sign-out
+            keys.forEach(function (k) { _rm.call(localStorage, k); });
+            wipeLoginTraces();
+            try { sessionStorage.setItem('mf_auth_notice', JSON.stringify({ msg: 'You were logged out automatically because you did not use MediFinder India for ' + MF_MAX_IDLE_DAYS + ' days. Please log in again.', type: 'error' })); } catch (e) {}
+            if (!isPublic) { location.replace('home.html'); }
+        } else if (keys.length) {
+            touch();
+            // (2) home.html is PUBLIC ONLY: a logged-in person is sent to their own page.
+            if (isHome) {
+                var dest = routeFor(readUser());
+                go(dest || 'index.html');       // unknown service type -> splash resolves it from the DB
+            }
+        }
+    } catch (e) {}
+
+    // (4) Back/forward cache: never show a stale page after the session changed.
+    window.addEventListener('pageshow', function (ev) {
+        if (!ev.persisted) return;
+        var has = sbKeys().length > 0;
+        if (!isPublic && !has) { go('home.html'); }
+        else if (isHome && has) { go(routeFor(readUser()) || 'index.html'); }
+    });
+
+    // keep "last active" fresh while the site is actually being used
+    var lastWrite = Date.now();
+    function tick() { if (sbKeys().length && Date.now() - lastWrite > 600000) { lastWrite = Date.now(); touch(); } }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && sbKeys().length) { lastWrite = Date.now(); touch(); } });
+    ['pointerdown', 'keydown', 'scroll'].forEach(function (ev) { document.addEventListener(ev, tick, { passive: true, capture: true }); });
+    window.addEventListener('pagehide', function () { if (sbKeys().length) touch(); });
+})();
+
+/* ---- end session guard ---- */
 // Supabase Configuration (URL & key loaded from supabase-constants.js)
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
@@ -78,10 +222,37 @@ function hideAuthCover() {
 // Asks the database (SECURITY DEFINER rpc, see role-lock.sql) which role already owns
 // this email or phone. Returns the role string, or null if free / rpc not installed yet
 // (the DB trigger in role-lock.sql is the hard backstop in that case).
+// Edge Function 'signup-gate': today's signup limit (200) + mailbox already registered?
+async function mfSignupGate(email) {
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const res = await fetch(SUPABASE_URL + '/functions/v1/signup-gate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            body: JSON.stringify({ email: String(email || '').trim() }),
+            signal: ctrl.signal
+        });
+        clearTimeout(t);
+        if (!res.ok) return { allowed: true, reason: 'gate_unreachable' }; // DB trigger still enforces
+        return await res.json();
+    } catch (e) { return { allowed: true, reason: 'gate_unreachable' }; }
+}
+// One real inbox = one account: a.b+x@gmail.com, ab@gmail.com, ab@googlemail.com are the SAME mailbox.
+function mfCanonicalEmail(email) {
+    let e = String(email || '').trim().toLowerCase();
+    const at = e.lastIndexOf('@');
+    if (at < 1) return e;
+    let local = e.slice(0, at), domain = e.slice(at + 1);
+    if (domain === 'googlemail.com') domain = 'gmail.com';
+    if (domain === 'gmail.com') local = local.split('+')[0].replace(/\./g, '');
+    else local = local.split('+')[0];
+    return local + '@' + domain;
+}
 async function getRegisteredRole(email, phone) {
     try {
         const { data, error } = await supabaseClient.rpc('get_registered_role', {
-            p_email: (email || '').trim().toLowerCase(),
+            p_email: mfCanonicalEmail(email),
             p_phone: phone ? formatPhoneToE164(phone) : ''
         });
         if (error) return null;
@@ -158,7 +329,8 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
 
     // Splash should play again on the next entry after a logout.
     if (event === 'SIGNED_OUT') {
-        try { sessionStorage.removeItem('mf_splash_shown'); } catch (e) {}
+        try { sessionStorage.removeItem('mf_splash_shown'); sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
+        ['selected_role','selected_service_type','merchantSessionActive','userPhone','userName','mf_last_active','mf_pending_action'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
         _roleUpdatePromise = null; _roleUpdateUserId = null;
     }
 
@@ -208,6 +380,11 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (isGoogleOAuthCallback) {
             return;
         }
+        // Password login form checks the role itself and redirects itself - stay out of its way
+        // (this race used to push a wrong-role login to user.html before the check finished).
+        if (window._mfLoginInFlight) {
+            return;
+        }
 
         // নতুন sign-in হলেই শুধু role sync/OAuth upsert চালাও — একটা persisted
         // session রিস্টোর হওয়া (INITIAL_SESSION/TOKEN_REFRESHED) মানে নতুন কিছু
@@ -249,7 +426,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
             if (stillOnProtectedPage) {
                 // Double check session before redirecting
                 supabaseClient.auth.getSession().then(({ data: { session: s } }) => {
-                    if (!s) {
+                    if (!s && !(window.mfHasSession && window.mfHasSession())) {
                         localStorage.removeItem('merchantSessionActive');
                         window.location.href = "home.html";
                     }
@@ -316,11 +493,19 @@ function handleOAuthUserRoleUpdate(user) {
 async function _handleOAuthUserRoleUpdateImpl(user) {
     const savedRole = localStorage.getItem('selected_role') || 'user';
 
-    const { data: existingProfile } = await supabaseClient
+    const { data: existingProfile, error: _profErr } = await supabaseClient
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
+
+    // If the profile could not be READ (network / token not ready / RLS) we do NOT know whether
+    // this account already has a role. Never guess -> never write anything.
+    // (This is how an ambulance/partner account could get re-created as "user".)
+    if (_profErr) {
+        console.warn('[MediFinder] profile read failed, skipping role sync:', _profErr.message);
+        return;
+    }
 
     const actualRole = existingProfile?.role;
 
@@ -357,18 +542,19 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
         throw new Error('role_mismatch');
     }
 
-    // First time — set the role once.
-    await supabaseClient.auth.updateUser({ data: { role: savedRole } });
+    // First time — set the role once. Trust the role stored at signup (auth metadata) before localStorage.
+    const newRole = (user.user_metadata && user.user_metadata.role) || savedRole;
+    await supabaseClient.auth.updateUser({ data: { role: newRole } });
     await supabaseClient.from('profiles').upsert({
         id: user.id,
         email: user.email || '',
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-        role: savedRole,
+        role: newRole,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id', ignoreDuplicates: true }); // insert-only: can never overwrite an existing role
 
-    if (savedRole === 'merchant') {
+    if (newRole === 'merchant') {
         await supabaseClient.from('merchants').upsert({
             auth_user_id: user.id,
             merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
@@ -376,17 +562,17 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
             status: 'active'
         }, { onConflict: 'auth_user_id' });
     }
-    if (savedRole === 'delivery') {
+    if (newRole === 'delivery') {
         await supabaseClient.from('riders').upsert({
             auth_user_id: user.id,
             name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
             status: 'offline'
         }, { onConflict: 'auth_user_id' });
     }
-    if (savedRole === 'service') {
+    if (newRole === 'service') {
         const serviceType = getPendingServiceType();
         await upsertServiceProviderProfile(user, serviceType);
-        localStorage.removeItem('selected_service_type');
+        if (serviceType) localStorage.setItem('selected_service_type', serviceType);
     }
 }
 
@@ -408,9 +594,9 @@ async function redirectUserBasedOnRole(user) {
 
     if (role === 'merchant') {
         localStorage.setItem('merchantSessionActive', 'true');
-        window.location.href = 'marchent.html';
+        window.location.replace('marchent.html');
     } else if (role === 'delivery') {
-        window.location.href = 'rider.html';
+        window.location.replace('rider.html');
     } else if (role === 'service') {
         // ✅ SPEED FIX: use the cached service_type first and only hit the
         // network if we genuinely don't have it yet — this extra "select"
@@ -427,9 +613,9 @@ async function redirectUserBasedOnRole(user) {
                 if (profile?.service_type) serviceType = profile.service_type;
             } catch (e) {}
         }
-        window.location.href = getServiceRedirectTarget(serviceType);
+        window.location.replace(getServiceRedirectTarget(serviceType));
     } else {
-        window.location.href = 'user.html';
+        window.location.replace('user.html');
     }
 }
 
@@ -491,6 +677,16 @@ if (signupForm) {
             return;
         }
 
+        const _gate = await mfSignupGate(email);
+        if (_gate && _gate.allowed === false) {
+            showToast(_gate.message || 'Signup is not possible right now.', 'error');
+            if (signupBtn) {
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
+            }
+            return;
+        }
+
         const { data, error } = await withTimeout(supabaseClient.auth.signUp({
             email: email,
             password: password,
@@ -505,7 +701,11 @@ if (signupForm) {
                 setButtonRetryState(signupBtn, '<i class="fas fa-redo"></i> Retry Signup');
                 return;
             }
-            showToast("Signup Failed! Reason: " + error.message, "error");
+            if (/Database error saving new user/i.test(error.message || '')) {
+                showToast("Signup is not possible right now: either this mailbox is already registered, or today's signup limit (200) has been reached. Please log in, or try again tomorrow.", "error");
+            } else {
+                showToast("Signup Failed! Reason: " + error.message, "error");
+            }
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -720,7 +920,14 @@ if (verifySignupOtpBtn) {
                 const user = data.user;
                 if (user) {
                     // 🔒 Never overwrite an existing account's role.
-                    const { data: _ex } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                    const { data: _ex, error: _exErr } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                    if (_exErr) {
+                        await supabaseClient.auth.signOut();
+                        showToast('Could not verify your account. Please try again.', 'error');
+                        verifySignupOtpBtn.disabled = false;
+                        verifySignupOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify & Signup';
+                        return;
+                    }
                     if (_ex && _ex.role && _ex.role !== role) {
                         await supabaseClient.auth.signOut();
                         showToast(`This number is already registered as "${_ex.role}". Please log in with the "${_ex.role}" role.`, 'error');
@@ -775,19 +982,19 @@ if (verifySignupOtpBtn) {
             localStorage.setItem('selected_role', role);
             localStorage.setItem('userPhone', formattedPhone);
             localStorage.setItem('userName', name);
-            localStorage.removeItem('selected_service_type');
+            if (serviceType) localStorage.setItem('selected_service_type', serviceType);
 
             verifySignupOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verified!';
 
             // Redirect based on role
             if (role === 'merchant') {
-                window.location.href = 'marchent.html';
+                window.location.replace('marchent.html');
             } else if (role === 'delivery') {
-                window.location.href = 'rider.html';
+                window.location.replace('rider.html');
             } else if (role === 'service') {
-                window.location.href = getServiceRedirectTarget(serviceType);
+                window.location.replace(getServiceRedirectTarget(serviceType));
             } else {
-                window.location.href = 'user.html';
+                window.location.replace('user.html');
             }
         }
     });
@@ -811,13 +1018,27 @@ if (loginForm) {
             return;
         }
 
-        localStorage.setItem('selected_role', role);
-
         const loginBtn = loginForm.querySelector('button[type="submit"]');
         if (loginBtn) {
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
         }
+
+        // One email = one role. Check BEFORE signing in, so a wrong-role attempt never
+        // creates a session at all (nothing to leak into the next visit).
+        window._mfLoginInFlight = true;
+        setTimeout(() => { window._mfLoginInFlight = false; }, 20000);
+        const _loginOwner = await getRegisteredRole(email, '');
+        if (_loginOwner && _loginOwner !== role) {
+            window._mfLoginInFlight = false;
+            showToast(`This email is registered as "${_loginOwner}". Please select the "${_loginOwner}" role and log in again.`, "error");
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
+            }
+            return;
+        }
+        localStorage.setItem('selected_role', role);
 
         const { data, error } = await withTimeout(supabaseClient.auth.signInWithPassword({
             email: email,
@@ -864,16 +1085,30 @@ if (loginForm) {
             // ✅ FIXED: আগে আসল role চেক করো, তারপর upsert/redirect করো
             const user = data.user;
             try {
-                const { data: existingProfile } = await supabaseClient
+                const { data: existingProfile, error: _profReadErr } = await supabaseClient
                     .from('profiles')
                     .select('role, service_type')
                     .eq('id', user.id)
                     .maybeSingle();
 
+                // Could not read the profile -> do not guess a role and do not write anything.
+                if (_profReadErr) {
+                    window._mfLoginInFlight = false;
+                    await supabaseClient.auth.signOut();
+                    showToast("Could not verify your account. Please check your connection and log in again.", "error");
+                    if (loginBtn) {
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
+                    }
+                    return;
+                }
+
                 const actualRole = existingProfile?.role;
 
                 if (actualRole && actualRole !== role) {
                     // ভুল রোল সিলেক্ট করে লগইন করার চেষ্টা — ব্লক করো
+                    window._mfLoginInFlight = false;
+                    localStorage.removeItem('selected_role');
                     await supabaseClient.auth.signOut();
                     showToast(`This account is registered as "${actualRole}". Please select the "${actualRole}" role and log in again.`, "error");
                     if (loginBtn) {
@@ -891,13 +1126,14 @@ if (loginForm) {
                 // extra sequential round-trip that made service-partner (nurse /
                 // ambulance / phlebotomist) logins feel much slower than
                 // merchant/rider logins, which never had a second dependent write.
-                const profileUpsert = supabaseClient.from('profiles').upsert({
+                // Existing account: leave profiles untouched. New account: insert-only (never overwrites a role).
+                const profileUpsert = actualRole ? Promise.resolve() : supabaseClient.from('profiles').upsert({
                     id: user.id,
                     email: user.email || email,
                     phone: user.phone || '',
                     role: finalRole,
                     updated_at: new Date().toISOString()
-                }, { onConflict: 'id', ignoreDuplicates: false });
+                }, { onConflict: 'id', ignoreDuplicates: true });
 
                 const extraWrites = [];
                 if (!actualRole && finalRole === 'merchant') {
@@ -933,13 +1169,13 @@ if (loginForm) {
                 // Redirect based on the ACTUAL (verified) role
                 setTimeout(() => {
                     if (finalRole === 'merchant') {
-                        window.location.href = 'marchent.html';
+                        window.location.replace('marchent.html');
                     } else if (finalRole === 'delivery') {
-                        window.location.href = 'rider.html';
+                        window.location.replace('rider.html');
                     } else if (finalRole === 'service') {
-                        window.location.href = getServiceRedirectTarget(finalServiceType);
+                        window.location.replace(getServiceRedirectTarget(finalServiceType));
                     } else {
-                        window.location.href = 'user.html';
+                        window.location.replace('user.html');
                     }
                 }, 500);
             } catch (e) {
@@ -1109,11 +1345,19 @@ if (verifyOtpBtn) {
             // ✅ FIXED: OTP Verified — আগে আসল role চেক করো, তারপর upsert/redirect
             const user = data.user;
             try {
-                const { data: existingProfile } = await supabaseClient
+                const { data: existingProfile, error: _profReadErr2 } = await supabaseClient
                     .from('profiles')
                     .select('role, service_type')
                     .eq('id', user.id)
                     .maybeSingle();
+
+                if (_profReadErr2) {
+                    await supabaseClient.auth.signOut();
+                    showToast("Could not verify your account. Please try again.", "error");
+                    verifyOtpBtn.disabled = false;
+                    verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
+                    return;
+                }
 
                 const actualRole = existingProfile?.role;
 
@@ -1128,14 +1372,16 @@ if (verifyOtpBtn) {
                 const finalRole = actualRole || role;
                 const finalServiceType = existingProfile?.service_type || '';
 
-                await supabaseClient.from('profiles').upsert({
-                    id: user.id,
-                    email: user.email || '',
-                    phone: formattedPhone,
-                    full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-                    role: finalRole,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
+                if (!actualRole) {
+                    await supabaseClient.from('profiles').upsert({
+                        id: user.id,
+                        email: user.email || '',
+                        phone: formattedPhone,
+                        full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                        role: finalRole,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id', ignoreDuplicates: true });
+                }
 
                 if (!actualRole && finalRole === 'merchant') {
                     await supabaseClient.from('merchants').upsert({
@@ -1158,18 +1404,19 @@ if (verifyOtpBtn) {
                 }
 
                 localStorage.setItem('selected_role', finalRole);
+                if (finalServiceType) localStorage.setItem('selected_service_type', finalServiceType);
                 localStorage.setItem('userPhone', formattedPhone);
 
                 verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verified!';
 
                 if (finalRole === 'merchant') {
-                    window.location.href = 'marchent.html';
+                    window.location.replace('marchent.html');
                 } else if (finalRole === 'delivery') {
-                    window.location.href = 'rider.html';
+                    window.location.replace('rider.html');
                 } else if (finalRole === 'service') {
-                    window.location.href = getServiceRedirectTarget(finalServiceType);
+                    window.location.replace(getServiceRedirectTarget(finalServiceType));
                 } else {
-                    window.location.href = 'user.html';
+                    window.location.replace('user.html');
                 }
             } catch (profileErr) {
                 showToast("Login error while verifying role. Please try again.", "error");
@@ -1232,6 +1479,13 @@ async function handleGoogleOAuthCallback() {
         // than guessing where to send them.
         try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
         hideAuthCover();
+        // DB lock (mf_block_identity_linking): this email already exists with email+password
+        try {
+            const _qs = decodeURIComponent((window.location.search || '') + '&' + (window.location.hash || '')).toLowerCase();
+            if (_qs.includes('provider_conflict') || _qs.includes('error saving') || _qs.includes('unable to link') || _qs.includes('linking')) {
+                showToast('This email is already registered with email & password. Please log in with your email and password, not Google.', 'error');
+            }
+        } catch (e) {}
         return;
     }
 
@@ -1276,6 +1530,7 @@ async function handleGoogleOAuthCallback() {
     }
     role = role || user.user_metadata?.role || localStorage.getItem('selected_role') || 'user';
     localStorage.setItem('selected_role', role);
+    if (serviceType) localStorage.setItem('selected_service_type', serviceType);
 
     console.log('[MediFinder] Resolved role:', role);
 
@@ -1685,6 +1940,10 @@ window.getRedirectPathForUser = async function (user) {
     }
 
     role = role || localStorage.getItem('selected_role') || 'user';
+    try {
+        localStorage.setItem('selected_role', role);
+        if (serviceType) localStorage.setItem('selected_service_type', serviceType);
+    } catch (e) {}
 
     if (role === 'merchant') return 'marchent.html';
     if (role === 'delivery') return 'rider.html';

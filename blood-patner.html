@@ -26,6 +26,8 @@
     <meta name="twitter:description" content="MediFinder India sample collection partner portal.">
     <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#087f5b">
+<script>try{var __t=localStorage.getItem('mfb_theme')||'light';if(__t==='system')__t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',__t);var __l=localStorage.getItem('mfb_lang');if(__l==='bn'||__l==='hi')document.documentElement.lang=__l}catch(e){}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--primary:#087f5b;--primary2:#0ca678;--dark:#073b2b;--bg:#f5f8f7;--card:#fff;--text:#17211d;--muted:#718078;--line:#e5ece8;--danger:#d94841;--warning:#a86100;--blue:#1864ab;--shadow:0 8px 28px rgba(22,50,40,.07)}
@@ -60,6 +62,320 @@ body{overflow-x:hidden}button,input,select,textarea{font:inherit}button{cursor:p
 .thumb{max-width:120px;max-height:120px;border-radius:10px;object-fit:cover}.sheet{width:min(720px,100%)}
 .earn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:16px}
 @media(max-width:760px){.fgrid{grid-template-columns:1fr}}
+
+/* ===================== PREMIUM KYC ===================== */
+#page-kyc{--kg:linear-gradient(135deg,#087f5b 0%,#0ca678 100%);--ring:0 0 0 4px rgba(12,166,120,.14)}
+#page-kyc .section-head{background:var(--kg);color:#fff;border-radius:20px;padding:22px 24px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(8,127,91,.25)}
+#page-kyc .section-head:before{content:"";position:absolute;right:-50px;top:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.1)}
+#page-kyc .section-head:after{content:"";position:absolute;right:70px;bottom:-80px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.07)}
+#page-kyc .section-head>*{position:relative;z-index:1}
+#page-kyc .section-head h1{font-size:24px;letter-spacing:-.3px;color:#fff}
+#page-kyc .section-head p{color:rgba(255,255,255,.88);font-size:13.5px;max-width:560px;line-height:1.55}
+#kycRoot{max-width:860px;margin:0 auto}
+#kycRoot .form-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px;box-shadow:0 6px 24px rgba(22,50,40,.06);transition:box-shadow .2s,border-color .2s;min-width:0}
+#kycRoot .form-card:focus-within{border-color:#9fdcc6;box-shadow:0 10px 30px rgba(12,166,120,.12)}
+#kycRoot .form-card h3{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:800;color:var(--dark);margin-bottom:18px;padding-bottom:14px;border-bottom:1px dashed #dbe8e2;letter-spacing:-.1px;flex-wrap:wrap}
+.step-no{width:30px;height:30px;border-radius:10px;background:var(--kg);color:#fff;display:inline-grid;place-items:center;font-size:14px;font-weight:800;flex:0 0 30px;box-shadow:0 5px 12px rgba(8,127,91,.3)}
+#kycRoot .fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+#kycRoot .fg{margin-bottom:14px;min-width:0}
+#kycRoot .fg label{display:block;font-size:12px;font-weight:700;color:#4b5d55;margin-bottom:7px;letter-spacing:.2px}
+#kycRoot .fg label b{color:var(--danger)}
+#kycRoot .fg .input,#kycRoot .fg .select{width:100%;height:48px;padding:0 14px;border:1.5px solid #dde8e3;border-radius:12px;background:#f9fbfa;font-size:14.5px;font-weight:500;color:var(--text);transition:all .18s;min-width:0}
+#kycRoot .fg .input::placeholder{color:#a3b0aa;font-weight:400}
+#kycRoot .fg .input:hover,#kycRoot .fg .select:hover{border-color:#b9d9cb}
+#kycRoot .fg .input:focus,#kycRoot .fg .select:focus{border-color:var(--primary2);background:#fff;box-shadow:var(--ring)}
+#kycRoot .fg .select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-color:#f9fbfa}
+#kycRoot .fg .input.err,#kycRoot .fg .select.err{border-color:var(--danger)!important;background:#fff8f7;outline:0;box-shadow:0 0 0 4px rgba(217,72,65,.12)}
+#kycRoot .hint{font-size:12px;color:#6a7b73;line-height:1.6}
+.kyc-note{display:flex;gap:12px;align-items:flex-start;background:linear-gradient(135deg,#f0faf6,#e6f6ef);border:1px solid #c9ebdd;border-radius:16px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#2f5546;line-height:1.55}
+.kyc-note i{font-style:normal;font-size:20px;line-height:1.2;flex:0 0 auto}
+.kyc-note b.req{color:var(--danger)}
+/* upload card */
+.upload{position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px;border:2px dashed #c3dcd0;border-radius:14px;background:#f7fcfa;cursor:pointer;transition:all .2s;min-width:0}
+.upload:hover{border-color:var(--primary2);background:#effaf5;transform:translateY(-1px)}
+.upload input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.upload .u-ico{width:46px;height:46px;border-radius:13px;background:#fff;border:1px solid #cfe6db;display:grid;place-items:center;font-size:21px;flex:0 0 46px;box-shadow:0 3px 10px rgba(8,127,91,.1)}
+.upload .u-txt{min-width:0;flex:1}
+.upload .u-title{font-size:13.5px;font-weight:700;color:var(--dark);display:block}
+.upload .fname{display:block;font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.upload .fname.ok{color:var(--primary);font-weight:700}
+.upload .u-btn{flex:0 0 auto;background:var(--primary);color:#fff;font-size:12px;font-weight:700;padding:8px 14px;border-radius:9px;pointer-events:none}
+.upload.done{border-style:solid;border-color:#7fd1b2;background:#effaf5}
+.upload.done .u-ico{background:var(--kg);border-color:transparent;color:#fff}
+.upload.done .u-btn{background:#e1f3ea;color:var(--primary)}
+.upload:has(input.err){border-color:var(--danger);background:#fff8f7;box-shadow:0 0 0 4px rgba(217,72,65,.1)}
+#kycRoot .fg>.upload{margin-top:0}
+/* banners */
+#kycRoot .kyc-banner{border-radius:16px;padding:15px 18px;font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.04);align-items:flex-start}
+/* preview + read only */
+#kycRoot .detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#kycRoot .field-box{background:#f6faf8;border:1px solid #e6efeb;border-radius:13px;padding:13px 15px;min-width:0;overflow-wrap:anywhere;word-break:break-word}
+#kycRoot .field-box small{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7b8d85;margin-bottom:6px}
+#kycRoot .field-box strong{font-size:14px;color:var(--text);font-weight:700;line-height:1.45;display:block}
+#kycRoot .field-box .thumb{display:block;width:100%;max-width:150px;height:110px;object-fit:cover;border-radius:10px;border:1px solid #dbe8e2;margin-top:2px}
+#kycRoot .toolbar{display:flex;flex-wrap:wrap;gap:10px}
+#kycRoot .action{border:1.5px solid #cfe6db;background:#fff;color:var(--primary);font-size:12.5px;font-weight:700;padding:10px 14px;border-radius:11px;transition:all .18s}
+#kycRoot .action:hover{background:var(--primary);color:#fff;border-color:var(--primary);transform:translateY(-1px)}
+#kycRoot .status{padding:5px 12px;font-size:11.5px}
+#kycRoot .btn{border-radius:13px;font-size:15px;font-weight:800;transition:all .18s;letter-spacing:.2px}
+#kycRoot .btn.primary{background:var(--kg);box-shadow:0 10px 22px rgba(8,127,91,.28)}
+#kycRoot .btn.primary:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(8,127,91,.34)}
+#kycRoot .btn.primary:disabled{opacity:.65;cursor:not-allowed;transform:none}
+#kycRoot .btn.light{background:#eef4f1;color:#355047;border:1px solid #dbe8e2}
+.kyc-actions{display:flex;gap:12px;margin-top:4px}
+@media(max-width:760px){
+ #page-kyc .section-head{padding:18px;border-radius:16px;align-items:flex-start}
+ #page-kyc .section-head h1{font-size:20px}
+ #kycRoot .form-card{padding:16px;border-radius:16px}
+ #kycRoot .fgrid,#kycRoot .detail{grid-template-columns:minmax(0,1fr)}
+ .upload{padding:12px;gap:11px}.upload .u-ico{width:40px;height:40px;flex-basis:40px;font-size:18px}
+ .upload .u-btn{padding:7px 11px}
+ .kyc-actions{flex-direction:column-reverse}
+ #kycRoot .fg .input,#kycRoot .fg .select{font-size:16px}
+}
+
+/* upload preview + tick */
+.upload .u-ico{position:relative;overflow:visible}
+.upload .u-ico img{width:100%;height:100%;object-fit:cover;border-radius:12px;display:block}
+.upload.done .u-ico{background:#fff;border:2px solid #7fd1b2;color:inherit;width:64px;height:64px;flex:0 0 64px;font-size:26px}
+.upload .u-tick{position:absolute;right:-8px;top:-8px;width:24px;height:24px;border-radius:50%;background:#12b886;color:#fff;font-size:14px;font-weight:900;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 3px 8px rgba(8,127,91,.4);line-height:1}
+@media(max-width:760px){.upload.done .u-ico{width:56px;height:56px;flex-basis:56px}}
+
+/* fix: preview image must stay inside the upload card */
+.upload .u-ico img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.upload .u-ico{border-radius:14px}
+.upload.done .u-ico{border-radius:16px}
+/* avatar photo */
+.avatar{overflow:hidden;padding:0}.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+/* premium profile */
+.pf-hero{display:flex;align-items:center;gap:18px;padding:20px;border-radius:20px;background:linear-gradient(135deg,#087f5b,#0ca678);color:#fff;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(8,127,91,.25)}
+.pf-hero:before{content:"";position:absolute;right:-40px;top:-60px;width:190px;height:190px;border-radius:50%;background:rgba(255,255,255,.1)}
+.pf-photo{width:88px;height:88px;border-radius:24px;background:#fff;color:var(--primary);display:grid;place-items:center;font-size:34px;font-weight:900;flex:0 0 88px;overflow:hidden;border:3px solid rgba(255,255,255,.85);box-shadow:0 8px 20px rgba(0,0,0,.18);position:relative;z-index:1}
+.pf-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.pf-id{position:relative;z-index:1;min-width:0}.pf-id h2{font-size:21px;line-height:1.25;overflow-wrap:anywhere}.pf-id p{font-size:13px;opacity:.9;margin-top:4px}
+.pf-badge{display:inline-block;margin-top:9px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.pf-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 6px 24px rgba(22,50,40,.06);min-width:0}
+.pf-card h3{font-size:16px;font-weight:800;color:var(--dark);margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed #dbe8e2}
+.pf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pf-item{background:#f6faf8;border:1px solid #e6efeb;border-radius:13px;padding:12px 14px;min-width:0;overflow-wrap:anywhere}
+.pf-item small{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7b8d85;margin-bottom:5px}
+.pf-item strong{font-size:14px;font-weight:700;color:var(--text);line-height:1.45}
+.pf-item.full{grid-column:1/-1}
+@media(max-width:760px){.pf-grid{grid-template-columns:minmax(0,1fr)}.pf-hero{padding:16px;gap:14px}.pf-photo{width:72px;height:72px;flex-basis:72px;border-radius:20px;font-size:28px}.pf-id h2{font-size:18px}}
+
+/* premium My Tests */
+.tcard{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 6px 24px rgba(22,50,40,.06);transition:box-shadow .2s,border-color .2s}
+.tcard.on{border-color:#bfe8d8}.tcard.off .tc-img{filter:grayscale(.85);opacity:.7}
+.tc-top{display:flex;gap:14px;align-items:flex-start}
+.tc-img{width:76px;height:76px;border-radius:18px;object-fit:cover;background:#e8f7f1;flex:0 0 76px;border:1px solid #dbe8e2}
+.tc-info{min-width:0;flex:1}.tc-name{font-size:16px;font-weight:800;color:var(--dark);line-height:1.3;overflow-wrap:anywhere}
+.tc-price{margin-top:5px;font-size:15px;font-weight:800;color:var(--primary)}.tc-price s{color:#9aa59f;font-weight:500;font-size:13px;margin-left:4px}.tc-price em{font-style:normal;background:#ffe9e7;color:#c92a2a;font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;margin-left:6px}
+.tc-chips{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0 4px}.tc-chips span{background:#f2f7f4;border:1px solid #e3ede8;color:#4b5d55;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:20px}
+.tc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px dashed #dbe8e2;flex-wrap:wrap}
+.sw-wrap{display:flex;align-items:center;gap:11px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.switch{position:relative;width:56px;height:32px;border-radius:32px;background:#cfd8d3;transition:background .25s,box-shadow .25s;flex:0 0 56px;box-shadow:inset 0 2px 5px rgba(0,0,0,.12)}
+.switch i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.25);transition:transform .25s cubic-bezier(.4,1.4,.6,1)}
+.switch.on{background:linear-gradient(135deg,#087f5b,#12b886);box-shadow:0 0 0 4px rgba(18,184,134,.15)}.switch.on i{transform:translateX(24px)}
+.sw-label{font-size:13px;font-weight:700;color:#4b5d55}.sw-label.on{color:var(--primary)}
+.tc-actions{display:flex;gap:8px}.tc-actions .action{padding:9px 16px;font-size:12.5px;font-weight:700;border-radius:11px;border:1.5px solid #cfe6db}
+@media(max-width:430px){.tc-foot{flex-direction:column;align-items:stretch}.tc-actions .action{flex:1}}
+
+/* ===================== PREMIUM POLISH ===================== */
+:root{--p-grad:linear-gradient(135deg,#087f5b,#12b886);--p-ring:0 0 0 4px rgba(18,184,134,.16);--p-shadow2:0 18px 44px rgba(8,60,43,.14)}
+::selection{background:#bff0dc;color:#073b2b}
+html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth}
+body{background:radial-gradient(900px 420px at 100% -10%,rgba(18,184,134,.10),transparent 60%),radial-gradient(700px 380px at -10% 110%,rgba(8,127,91,.07),transparent 60%),var(--bg);letter-spacing:.005em}
+:focus-visible{outline:2px solid #12b886;outline-offset:2px}
+button{transition:transform .15s ease,box-shadow .2s ease,background .2s ease,border-color .2s ease,color .2s ease}
+button:active{transform:scale(.97)}
+.sidebar{background:linear-gradient(180deg,#05352a 0%,#0a5a41 100%);box-shadow:8px 0 30px rgba(5,53,42,.18)}
+.logo{background:linear-gradient(135deg,#fff,#d8f5e9);box-shadow:0 6px 16px rgba(0,0,0,.2)}
+.nav button{position:relative;font-weight:600;letter-spacing:.01em}
+.nav button:hover{background:rgba(255,255,255,.08)}
+.nav button.active{background:linear-gradient(90deg,rgba(255,255,255,.16),rgba(255,255,255,.04));box-shadow:inset 3px 0 0 #3ddc97;color:#fff}
+.partner-mini{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(6px)}
+.topbar{background:rgba(255,255,255,.86);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);box-shadow:0 4px 18px rgba(22,50,40,.05)}
+.top-title{font-weight:800;color:var(--dark);letter-spacing:-.01em}
+.iconbtn{border-radius:12px;box-shadow:0 2px 8px rgba(22,50,40,.05)}.iconbtn:hover{border-color:#a8d8c7;background:#f4fbf8}
+.avatar{background:var(--p-grad);color:#fff;box-shadow:0 4px 12px rgba(8,127,91,.3)}
+.page.active{animation:pFade .35s ease both}
+@keyframes pFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.welcome h1,.section-head h1{font-weight:800;letter-spacing:-.02em;color:var(--dark)}
+.stat{position:relative;overflow:hidden;border-radius:18px;transition:transform .2s,box-shadow .2s}
+.stat:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--p-grad)}
+.stat:hover{transform:translateY(-3px);box-shadow:var(--p-shadow2)}
+.stat-icon{background:linear-gradient(135deg,#e8f7f1,#d3f1e4);border-radius:12px}
+.stat h2{font-weight:800;color:var(--dark);letter-spacing:-.02em}
+.card{border-radius:18px;box-shadow:0 8px 30px rgba(22,50,40,.06)}
+.card-head{background:linear-gradient(180deg,#fcfefd,#f7fbf9)}
+.card-head h3{font-weight:800;color:var(--dark)}
+.link{font-weight:700}.link:hover{text-decoration:underline}
+.table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#7b8d85;background:#f8fbf9}
+.table tbody tr{transition:background .15s}.table tbody tr:hover{background:#f6fbf8}
+.status{letter-spacing:.02em;border:1px solid rgba(0,0,0,.04)}
+.pending{background:#fff3d6;color:#935300}.accepted{background:#dcf5ea;color:#087f5b}.collection{background:#e1edff;color:#1864ab}.ready{background:#ebe5ff;color:#6741d9}.cancelled{background:#ffe3e0;color:#c92a2a}
+.action{border-radius:10px;font-weight:700;padding:8px 12px}.action:hover{background:#effaf5;border-color:#a8d8c7}
+.action.primary{background:var(--p-grad);border-color:transparent;box-shadow:0 6px 14px rgba(8,127,91,.25)}.action.primary:hover{filter:brightness(1.06);background:var(--p-grad)}
+.btn{border-radius:12px;font-weight:700}
+.btn.primary{background:var(--p-grad);box-shadow:0 8px 18px rgba(8,127,91,.28)}.btn.primary:hover{filter:brightness(1.07)}
+.btn.light{background:#eef4f1}.btn.danger{background:#ffe3e0}
+.input,.select,.textarea{border-radius:12px;border:1.5px solid var(--line);transition:border-color .2s,box-shadow .2s}
+.input:focus,.select:focus,.textarea:focus{border-color:#12b886;box-shadow:var(--p-ring)}
+.quick button{border-radius:14px;transition:transform .15s,box-shadow .2s,border-color .2s}.quick button:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(22,50,40,.08)}
+.circle{background:linear-gradient(135deg,#e8f7f1,#d3f1e4)}
+.form-card,.profile-card,.info{border-radius:18px;box-shadow:0 6px 22px rgba(22,50,40,.05)}
+.empty{font-weight:600}
+*{scrollbar-width:thin;scrollbar-color:#b8d6c9 transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#b8d6c9;border-radius:8px}
+
+/* ---- Collection Details modal: scrollable sheet, sticky footer ---- */
+.overlay{background:rgba(7,32,24,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);overflow:hidden;padding:16px}
+.modal{display:flex;flex-direction:column;max-height:calc(100dvh - 32px);margin:0 auto;padding:0;overflow:hidden;border-radius:24px;box-shadow:0 30px 70px rgba(0,0,0,.28);animation:pPop .28s cubic-bezier(.2,.9,.3,1.1) both;position:relative;top:50%;transform:translateY(-50%)}
+@keyframes pPop{from{opacity:0;transform:translateY(-46%) scale(.97)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+.modal-head{margin:0;padding:18px 20px 12px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.modal-head h3{font-size:19px;font-weight:800;color:var(--dark)}
+.modal-head .close{width:36px;height:36px;border-radius:12px;font-size:15px;background:#eef4f1}
+#modalBody{padding:14px 20px;overflow-y:auto;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch}
+.modal-foot{margin:0;padding:12px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:#fff;flex:0 0 auto;gap:10px}
+.modal-foot .btn{flex:1;padding:13px 16px;font-size:14.5px}
+.field-box{background:linear-gradient(180deg,#f9fcfa,#f3f9f6);border:1px solid #e6efeb;border-radius:14px;padding:11px 13px;min-width:0;overflow-wrap:anywhere}
+.field-box small{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7b8d85}
+.field-box strong{font-size:14px;color:var(--text)}
+#modalBody .detail{grid-template-columns:1fr 1fr;gap:9px}
+.cd-card{margin-top:12px;padding:14px;border-radius:16px;background:linear-gradient(135deg,#eafaf3,#f3fcf8);border:1px solid #cdeedd}
+.cd-row{display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed #cfe9dc}.cd-row:last-of-type{border-bottom:0}
+.cd-row>span{width:32px;height:32px;border-radius:10px;background:#fff;display:grid;place-items:center;flex:0 0 32px;box-shadow:0 2px 6px rgba(8,127,91,.12)}
+.cd-row small{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5a8d7b}
+.cd-row strong{font-size:14px;color:#164a39;line-height:1.45;overflow-wrap:anywhere}
+.cd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cd-btn{flex:1 1 150px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;padding:11px 14px;border-radius:12px;background:var(--p-grad);color:#fff;font-weight:800;font-size:13px;box-shadow:0 8px 18px rgba(8,127,91,.25)}
+.cd-btn.alt{background:#fff;color:var(--primary);border:1.5px solid #bfe8d8;box-shadow:none}
+.cd-warn{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff3d6;color:#8a5a00;font-size:12.5px;font-weight:700;border:1px solid #f3dba8}
+.cd-rx{margin-top:12px;padding:14px;border-radius:16px;background:#f5f2ff;border:1px solid #ddd5fb}
+.cd-rx.none{background:#f6f8f7;border-color:#e3ebe7;color:#718078;font-size:13px;font-weight:600}
+.cd-rx-t{font-weight:800;color:#4b3fb8;margin-bottom:10px;font-size:14px}
+.cd-rx img{width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid #ddd5fb;display:block;margin-bottom:10px;background:#fff}
+.cd-rx .cd-btn{background:linear-gradient(135deg,#6741d9,#845ef7);box-shadow:0 8px 18px rgba(103,65,217,.25)}
+@media(max-width:760px){
+  .overlay{padding:0}
+  .modal{position:absolute;left:0;right:0;bottom:0;top:auto;transform:none;width:100%;max-height:92dvh;border-radius:26px 26px 0 0;animation:pSheet .3s cubic-bezier(.2,.9,.3,1) both}
+  @keyframes pSheet{from{transform:translateY(100%)}to{transform:none}}
+  .modal-head:before{content:"";position:absolute;left:50%;top:7px;width:42px;height:4px;border-radius:4px;background:#d5e2dc;transform:translateX(-50%)}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ===================== PREMIUM FORM SHEET (Add / Edit Test) ===================== */
+#formBody{padding:14px 16px 0;overflow-y:auto;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;background:#f6faf8}
+#formBody .form-card{border-radius:20px;padding:18px;margin-bottom:14px;border:1px solid #e3ede8;box-shadow:0 6px 20px rgba(22,50,40,.05);background:#fff}
+#formBody .form-card h3{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;color:var(--dark);padding-bottom:12px;margin-bottom:14px;border-bottom:1px dashed #dbe8e2}
+#formBody .form-card h3:before{content:"";width:6px;height:18px;border-radius:4px;background:var(--p-grad)}
+#formBody .fg label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.01em}
+#formBody .input,#formBody .select,#formBody .textarea{padding:13px 14px;background:#fbfdfc;font-size:14.5px}
+#formBody .select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 14px center}
+#formBody .kyc-banner{border-radius:16px}
+#formBody .hint{font-size:12px}
+#formBody .modal-foot{position:sticky;bottom:0;margin:0 -16px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);z-index:5}
+#formBody .modal-foot .btn{flex:1;padding:14px 16px;font-size:15px}
+.tf-drop{position:relative;display:flex;align-items:center;gap:14px;padding:16px;border:2px dashed #b9dccb;border-radius:18px;background:linear-gradient(135deg,#f4fcf8,#e9f8f0);cursor:pointer;transition:border-color .2s,transform .15s,background .2s;overflow:hidden}
+.tf-drop:hover{border-color:#12b886;transform:translateY(-1px)}
+.tf-drop.has{border-style:solid;border-color:#12b886;background:linear-gradient(135deg,#effaf5,#e3f6ec)}
+.tf-drop:has(.err){border-color:var(--danger);background:#fff5f4}
+.tf-drop-ico{width:54px;height:54px;border-radius:17px;background:var(--p-grad);color:#fff;display:grid;place-items:center;font-size:25px;flex:0 0 54px;box-shadow:0 8px 18px rgba(8,127,91,.28)}
+.tf-drop-t{display:block;min-width:0}
+.tf-drop-t b{display:block;font-size:14.5px;font-weight:800;color:var(--dark)}
+.tf-drop-t span{display:block;font-size:11.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.tf-prev{display:none;width:100%;max-height:210px;object-fit:cover;border-radius:18px;margin-top:12px;border:1px solid #cfe6db;box-shadow:0 10px 26px rgba(22,50,40,.12);background:#fff}
+/* ===== Theme v2: dark mode, language + theme buttons, profile settings, mobile bottom nav ===== */
+.top-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar>div:first-child{min-width:0;flex:1}
+.top-actions{flex:0 0 auto}
+.iconbtn{display:inline-grid;place-items:center;font-size:17px;color:inherit;transition:.18s}
+.mf-lang{position:relative}
+.mf-lang>.iconbtn{width:auto;min-width:40px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.mf-code{font-size:11px;font-weight:800;letter-spacing:.3px}
+.mf-lang-menu{display:none;position:absolute;right:0;top:48px;min-width:160px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(22,50,40,.2);padding:6px;z-index:60}
+.mf-lang-menu.open{display:block}
+.mf-lang-menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;border:0;background:none;padding:10px 12px;border-radius:10px;font-weight:700;font-size:13px;color:inherit;text-align:left}
+.mf-lang-menu button:hover{background:#f4fbf8}
+.mf-lang-menu button.on{background:var(--primary);color:#fff}
+.mf-chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+.mf-chips button{border:1.5px solid #cfe6db;background:#fff;color:var(--text);border-radius:12px;padding:9px 16px;font-weight:700;font-size:13px}
+.mf-chips button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.mf-lbl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-top:2px}
+.mf-in{width:100%;height:46px;border:1.5px solid #dde8e3;border-radius:12px;padding:0 14px;font-size:14px;background:#f9fbfa;color:var(--text);margin:6px 0 10px}
+.mf-in:focus{outline:0;border-color:var(--primary2);box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+.mf-sec-btn{display:block;width:100%;border:0;border-radius:12px;padding:12px;font-weight:800;margin-top:8px;background:#eef4f1;color:#355047}
+.mf-sec-btn.main{background:var(--p-grad,var(--primary));color:#fff}
+.bnav{display:none}
+@media(max-width:760px){
+ .content{padding-bottom:92px}
+ .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;background:#fff;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px rgba(22,50,40,.08)}
+ .bnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:#7b8d85;padding:6px 0;border-radius:10px}
+ .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+ .bnav button.on{color:var(--primary)}
+}
+@media(max-width:430px){.top-actions{gap:7px}.mf-code{display:none}.mf-lang>.iconbtn{min-width:36px;padding:0 8px}.mf-logout-top{display:none}}
+html[data-theme=dark]{--bg:#0e1512;--card:#16221d;--text:#e6efeb;--muted:#93a69d;--line:#24352e;--dark:#e6efeb;color-scheme:dark}
+html[data-theme=dark] body{background:#0e1512;color:#e6efeb}
+html[data-theme=dark] .sidebar{background:linear-gradient(180deg,#0b1a14,#07110d)}
+html[data-theme=dark] .topbar,html[data-theme=dark] .card,html[data-theme=dark] .stat,html[data-theme=dark] .info,html[data-theme=dark] .profile-card,html[data-theme=dark] .pf-card,html[data-theme=dark] .form-card,html[data-theme=dark] #kycRoot .form-card,html[data-theme=dark] #formBody .form-card,html[data-theme=dark] .tcard,html[data-theme=dark] .modal,html[data-theme=dark] .modal-foot,html[data-theme=dark] .bnav,html[data-theme=dark] .date,html[data-theme=dark] .mf-lang-menu,html[data-theme=dark] .iconbtn,html[data-theme=dark] .quick button,html[data-theme=dark] .action,html[data-theme=dark] .cd-btn.alt{background:#16221d!important;color:#e6efeb;border-color:#24352e!important}
+html[data-theme=dark] .card-head{background:#1a2822;border-color:#24352e}
+html[data-theme=dark] #formBody{background:#0e1512}
+html[data-theme=dark] #formBody .modal-foot{background:rgba(22,34,29,.94)!important}
+html[data-theme=dark] .input,html[data-theme=dark] .select,html[data-theme=dark] .textarea,html[data-theme=dark] .mf-in,html[data-theme=dark] #kycRoot .fg .input,html[data-theme=dark] #kycRoot .fg .select,html[data-theme=dark] #formBody .input,html[data-theme=dark] #formBody .select,html[data-theme=dark] #formBody .textarea{background-color:#101a16!important;color:#e6efeb!important;border-color:#2f4a3e!important}
+html[data-theme=dark] #kycRoot .fg .input:focus,html[data-theme=dark] #kycRoot .fg .select:focus{background-color:#13211b!important}
+html[data-theme=dark] ::placeholder{color:#6f8279!important}
+html[data-theme=dark] .table th{background:#1a2822!important;color:#b9cbc2}
+html[data-theme=dark] .table th,html[data-theme=dark] .table td,html[data-theme=dark] .item,html[data-theme=dark] .test-card{border-color:#24352e!important}
+html[data-theme=dark] .table tbody tr:hover{background:#1b2a24}
+html[data-theme=dark] .field-value,html[data-theme=dark] .field-box,html[data-theme=dark] #kycRoot .field-box,html[data-theme=dark] .pf-item,html[data-theme=dark] .tc-chips span{background:#1a2822!important;border-color:#24352e!important;color:#e6efeb}
+html[data-theme=dark] #kycRoot .field-box small,html[data-theme=dark] .field-box small,html[data-theme=dark] .pf-item small{color:#93a69d}
+html[data-theme=dark] .stat-icon,html[data-theme=dark] .circle,html[data-theme=dark] .test-img,html[data-theme=dark] .tc-img{background:#1d3329!important}
+html[data-theme=dark] .avatar{box-shadow:none}
+html[data-theme=dark] .btn.light,html[data-theme=dark] #kycRoot .btn.light,html[data-theme=dark] .close,html[data-theme=dark] .modal-head .close,html[data-theme=dark] .mf-sec-btn{background:#1d2c26!important;color:#cfe0d8!important;border-color:#2f4a3e!important}
+html[data-theme=dark] .mf-sec-btn.main{background:var(--p-grad)!important;color:#fff!important}
+html[data-theme=dark] .btn.danger{background:#3a1a18!important;color:#ff9a92!important}
+html[data-theme=dark] .mf-logout-top{background:#3a1a18;color:#ff8a82}
+html[data-theme=dark] .action:hover,html[data-theme=dark] .iconbtn:hover,html[data-theme=dark] .mf-lang-menu button:hover{background:#1d3329!important;border-color:#2f6b52!important}
+html[data-theme=dark] .mf-lang-menu button.on,html[data-theme=dark] .mf-chips button.on{background:var(--primary)!important;color:#fff!important}
+html[data-theme=dark] .mf-chips button{background:#16221d;border-color:#2f4a3e;color:#e6efeb}
+html[data-theme=dark] .action.primary{background:var(--p-grad)!important;color:#fff!important;border-color:transparent!important}
+html[data-theme=dark] .pending{background:#3a2b10;color:#ffc069}
+html[data-theme=dark] .accepted{background:#12382c;color:#6fe0b6}
+html[data-theme=dark] .collection{background:#10294a;color:#8ec5ff}
+html[data-theme=dark] .ready{background:#2a2250;color:#c0b0ff}
+html[data-theme=dark] .cancelled,html[data-theme=dark] .tc-price em{background:#3a1a18;color:#ff9a92}
+html[data-theme=dark] .kyc-banner.warn,html[data-theme=dark] .cd-warn{background:#33270f;color:#ffd27a;border-color:#5a4416}
+html[data-theme=dark] .kyc-banner.info{background:#10263d;color:#8ec5ff;border-color:#1f4468}
+html[data-theme=dark] .kyc-banner.bad{background:#3a1a18;color:#ff9a92;border-color:#5e2a27}
+html[data-theme=dark] .kyc-banner.ok{background:#12382c;color:#6fe0b6;border-color:#1f5a45}
+html[data-theme=dark] .kyc-note{background:linear-gradient(135deg,#13261e,#102019);border-color:#24463a;color:#bcd6ca}
+html[data-theme=dark] .upload,html[data-theme=dark] .tf-drop{background:#13211b;border-color:#2f6b52}
+html[data-theme=dark] .upload:hover{background:#17291f}
+html[data-theme=dark] .upload.done,html[data-theme=dark] .tf-drop.has{background:#15291f;border-color:#12b886}
+html[data-theme=dark] .upload .u-ico,html[data-theme=dark] .upload.done .u-ico{background:#1d3329;border-color:#2f6b52}
+html[data-theme=dark] .upload .u-btn{background:var(--primary);color:#fff}
+html[data-theme=dark] .upload.done .u-btn{background:#1d3329;color:#6fe0b6}
+html[data-theme=dark] .upload:has(input.err),html[data-theme=dark] .tf-drop:has(.err){background:#2a1816}
+html[data-theme=dark] .cd-card{background:linear-gradient(135deg,#13261e,#102019);border-color:#24463a}
+html[data-theme=dark] .cd-row{border-color:#24463a}
+html[data-theme=dark] .cd-row>span{background:#1d3329}
+html[data-theme=dark] .cd-row strong{color:#d6ebe1}html[data-theme=dark] .cd-row small{color:#8fb7a6}
+html[data-theme=dark] .cd-rx{background:#1d1a33;border-color:#3a3566}
+html[data-theme=dark] .cd-rx.none{background:#16221d;border-color:#24352e;color:#93a69d}
+html[data-theme=dark] .cd-rx-t{color:#b6a9ff}
+html[data-theme=dark] .switch{background:#3a4a43}
+html[data-theme=dark] .tcard.on{border-color:#1f5a45!important}
+html[data-theme=dark] #kycRoot .form-card h3,html[data-theme=dark] #formBody .form-card h3,html[data-theme=dark] .pf-card h3{border-color:#2f4a3e}
+html[data-theme=dark] #kycRoot .fg label,html[data-theme=dark] #formBody .fg label{color:#b9cbc2}
+html[data-theme=dark] #kycRoot .hint{color:#93a69d}
+html[data-theme=dark] .bnav button{color:#93a69d}html[data-theme=dark] .bnav button.on{color:#4ff0a8}
+html[data-theme=dark] .up,html[data-theme=dark] .link,html[data-theme=dark] .tc-price{color:#4ff0a8}
+html[data-theme=dark] [style*="background:#fff"],html[data-theme=dark] [style*="background: #fff"],html[data-theme=dark] [style*="background:white"],html[data-theme=dark] [style*="rgb(255, 255, 255)"]{background:#16221d!important;color:#e6efeb!important}
+html[data-theme=dark] [style*="rgb(232, 247, 241)"]{background:#12382c!important;color:#6fe0b6!important}
+html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="color:#111"],html[data-theme=dark] [style*="color:#000"]{color:#e6efeb!important}
+html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="color: rgb(113, 128, 120)"]{color:#93a69d!important}
 </style>
 </head>
 <body>
@@ -84,7 +400,7 @@ body{overflow-x:hidden}button,input,select,textarea{font:inherit}button{cursor:p
   <div class="partner-mini"><b id="collectorNameMini">Loading…</b><span class="verified" id="collectorStatusMini">● Loading…</span></div><button type="button" class="mf-logout-side" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" onclick="toggleSide()" aria-label="Open menu">☰</button><div class="top-title" id="topTitle">Partner Dashboard</div></div><div class="top-actions"><button class="iconbtn" onclick="navigate('notifications')" aria-label="Notifications">🔔<span class="dot" id="bellDot" style="display:none"></span></button><button type="button" class="mf-logout-top" onclick="logoutPartner()" aria-label="Logout" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button><div class="avatar" id="avatarInitials">--</div></div></header>
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" onclick="toggleSide()" aria-label="Open menu">☰</button><div class="top-title" id="topTitle">Partner Dashboard</div></div><div class="top-actions"><div class="mf-lang notranslate"><button class="iconbtn" id="langBtn" type="button" onclick="mfLangMenu(event)" aria-label="Change language" title="Change language" aria-haspopup="true">🌐<span class="mf-code" id="langCode">EN</span></button><div class="mf-lang-menu" id="langMenu" role="menu"><button type="button" data-l="en" onclick="mfLang('en')">English</button><button type="button" data-l="bn" onclick="mfLang('bn')">বাংলা</button><button type="button" data-l="hi" onclick="mfLang('hi')">हिन्दी</button></div></div><button class="iconbtn" id="themeBtn" type="button" onclick="mfToggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button><button class="iconbtn" onclick="navigate('notifications')" aria-label="Notifications">🔔<span class="dot" id="bellDot" style="display:none"></span></button><button type="button" class="iconbtn" id="pushBtn" onclick="enablePush()" aria-label="Enable push notifications" title="Enable push notifications" style="display:none">📲</button><button type="button" class="mf-logout-top" onclick="logoutPartner()" aria-label="Logout" title="Logout"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button><div class="avatar" id="avatarInitials">--</div></div></header>
 <section class="content">
   <div class="page active" id="page-dashboard">
     <div class="kyc-banner warn" id="kycBanner" style="display:none" onclick="navigate('kyc')"></div>
@@ -107,19 +423,260 @@ body{overflow-x:hidden}button,input,select,textarea{font:inherit}button{cursor:p
   <div class="page" id="page-patients"><div class="section-head"><div><h1>Patients</h1><p>Patients connected to your assigned collection bookings.</p></div><input class="input" id="patientSearch" placeholder="Search patient" oninput="renderPatients()"></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Patient</th><th>Phone</th><th>City</th><th>Bookings</th><th>Latest Status</th><th></th></tr></thead><tbody id="patientsTable"></tbody></table></div></div></div>
   <div class="page" id="page-earnings"><div class="section-head"><div><h1>Earnings & Settlement</h1><p>Earnings from reports you have uploaded. A 8% platform fee is deducted; amounts stay Pending until admin approves and settles them.</p></div></div><div class="earn-grid"><div class="info"><small>Today's earnings (after 8%)</small><strong id="earnToday">₹0</strong></div><div class="info"><small>Completed collections</small><strong id="earnCompleted">0</strong></div><div class="info"><small>Total earnings (after 8%)</small><strong id="earnTotal">₹0</strong></div><div class="info"><small>Pending settlement</small><strong id="earnPending">₹0</strong></div><div class="info"><small>Paid</small><strong id="earnPaid">₹0</strong></div></div><div class="card"><div class="card-head"><h3>Completed Collection Earnings</h3></div><div class="table-wrap"><table class="table"><thead><tr><th>Booking</th><th>Patient</th><th>Test</th><th>Date</th><th>Amount</th><th>Platform fee</th><th>You get</th><th>Status</th></tr></thead><tbody id="earningsTable"></tbody></table></div></div></div>
   <div class="page" id="page-notifications"><div class="section-head"><div><h1>Notifications</h1><p>Updates related to your collection work and account.</p></div></div><div class="card"><div class="activity" id="notificationList"><div class="item"><div class="circle">🔔</div><div><b>No new notifications</b><p>New booking and collection updates will appear here.</p></div></div></div></div></div>
-  <div class="page" id="page-tests"><div class="section-head"><div><h1>My Tests</h1><p>Add the lab tests you offer. Each test is reviewed by admin before users can see it.</p></div><button class="btn primary" onclick="openTestForm()">+ Add Test</button></div><div id="testsRoot"></div></div>
+  <div class="page" id="page-tests"><div class="section-head"><div><h1>My Tests</h1><p>Add the lab tests you offer. Switch a test ON to show it to users, OFF to hide it.</p></div><button class="btn primary" onclick="openTestForm()">+ Add Test</button></div><div id="testsRoot"></div></div>
   <div class="page" id="page-reports"><div class="section-head"><div><h1>Reports</h1><p>Upload the report (PDF or image) once the report time after the booking has passed. Uploads go to admin automatically.</p></div></div><div id="reportsRoot"></div></div>
   <div class="page" id="page-kyc"><div class="section-head"><div><h1>KYC & Documents</h1><p>One-time identity and bank verification. Required before you can publish lab tests.</p></div></div><div id="kycRoot"></div></div>
-  <div class="page" id="page-profile"><div class="section-head"><div><h1>Profile & Settings</h1><p>Your sample collection partner profile and availability.</p></div></div><div class="profile-grid"><div class="profile-card"><h3>Profile</h3><div class="field-row"><div class="field"><label>Name</label><div class="field-value" id="profileName">—</div></div><div class="field"><label>Phone</label><div class="field-value" id="profilePhone">—</div></div></div><div class="field-row"><div class="field"><label>Email</label><div class="field-value" id="profileEmail">—</div></div><div class="field"><label>Collector code</label><div class="field-value" id="profileCode">—</div></div></div></div><div class="profile-card"><h3>Availability</h3><p id="profileAvailability" style="font-size:14px;margin-bottom:14px">Loading…</p><button class="btn primary" onclick="toggleAvailability()">Toggle Online / Offline</button></div></div><button type="button" class="mf-logout-card" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button></div>
+  <div class="page" id="page-profile"><div class="section-head"><div><h1>Profile & Settings</h1><p>Your sample collection partner profile and availability.</p></div></div><div class="pf-hero"><div class="pf-photo" id="profilePhoto">R</div><div class="pf-id"><h2 id="profileHeroName">—</h2><p id="profileHeroCode">—</p><span class="pf-badge" id="profileHeroKyc">KYC —</span></div></div><div class="profile-grid"><div class="pf-card"><h3>Profile</h3><div class="pf-grid"><div class="pf-item"><small>Name</small><strong id="profileName">—</strong></div><div class="pf-item"><small>Collector code</small><strong id="profileCode">—</strong></div><div class="pf-item"><small>Phone</small><strong id="profilePhone">—</strong></div><div class="pf-item"><small>WhatsApp</small><strong id="profileWhatsapp">—</strong></div><div class="pf-item full"><small>Email</small><strong id="profileEmail">—</strong></div><div class="pf-item full"><small>Address</small><strong id="profileAddress">—</strong></div></div></div><div class="pf-card"><h3>Push notifications</h3><p style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:4px">Get an alert on your phone the moment a patient books one of your tests, even when this page is closed.</p><div id="mf-push-switch" style="margin:0 -12px"></div></div><div class="pf-card"><h3>Availability</h3><p id="profileAvailability" style="font-size:14px;margin-bottom:14px">Loading…</p><button class="btn primary" onclick="toggleAvailability()">Toggle Online / Offline</button><div class="pf-card"><h3>Appearance &amp; Language</h3><span class="mf-lbl">Theme</span><div class="mf-chips" id="mfThemeChips"><button type="button" data-t="light" onclick="mfTheme('light')">☀️ Light</button><button type="button" data-t="dark" onclick="mfTheme('dark')">🌙 Dark</button><button type="button" data-t="system" onclick="mfTheme('system')">📱 System</button></div><span class="mf-lbl">Language</span><div class="mf-chips notranslate" id="mfLangChips"><button type="button" data-l="en" onclick="mfLang('en')">English</button><button type="button" data-l="bn" onclick="mfLang('bn')">বাংলা</button><button type="button" data-l="hi" onclick="mfLang('hi')">हिन्दी</button></div></div><div class="pf-card"><h3>Security</h3><label class="mf-lbl" for="mfPw1">New password (min 8)</label><input class="mf-in" id="mfPw1" type="password" autocomplete="new-password"><label class="mf-lbl" for="mfPw2">Confirm password</label><input class="mf-in" id="mfPw2" type="password" autocomplete="new-password"><button type="button" class="mf-sec-btn main" onclick="mfPw()">Change password</button><button type="button" class="mf-sec-btn" onclick="mfLogoutAll()">Logout from all devices</button></div></div></div><button type="button" class="mf-logout-card" onclick="logoutPartner()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</button></div>
   <div class="page" id="page-support"><div class="section-head"><div><h1>Help & Support</h1><p>Get help with collection bookings, payments, patients, or your account.</p></div></div><div class="grid"><div class="card"><div class="card-head"><h3>Common Help</h3></div><div class="activity"><div class="item"><div class="circle">🩸</div><div><b>Collection issue</b><p>For patient unavailable, address, sample, or booking problems.</p></div></div><div class="item"><div class="circle">₹</div><div><b>Payment issue</b><p>For missing or incorrect collection earnings.</p></div></div><div class="item"><div class="circle">📄</div><div><b>KYC/account issue</b><p>For profile verification or account access problems.</p></div></div></div></div><div class="card"><div class="card-head"><h3>Contact Support</h3></div><div style="padding:18px"><select class="select" id="supportCategory" style="width:100%;margin-bottom:10px"><option>Collection issue</option><option>Payment issue</option><option>KYC / account issue</option><option>Test approval</option><option>Other</option></select><textarea class="textarea" id="supportMessage" placeholder="Describe your issue..."></textarea><button class="btn primary" style="margin-top:10px" onclick="submitSupport()">Send Support Request</button></div></div></div></div>
 </section>
 </main>
 </div>
+<nav class="bnav" id="bnav" aria-label="Quick navigation"><button type="button" data-p="dashboard" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button type="button" data-p="new" onclick="navigate('new')"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg><span>Requests</span></button><button type="button" data-p="today" onclick="navigate('today')"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Today</span></button><button type="button" data-p="reports" onclick="navigate('reports')"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span>Reports</span></button><button type="button" onclick="toggleSide()"><svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg><span>More</span></button></nav>
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="modal-head"><h3 id="modalTitle">Booking Details</h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-foot"><button class="btn light" onclick="closeModal()">Close</button><button class="btn primary" id="modalAction">Close</button></div></div></div>
 <div class="overlay" id="formOverlay"><div class="modal sheet"><div class="modal-head"><h3 id="formTitle">Form</h3><button class="close" onclick="closeForm()" aria-label="Close">✕</button></div><div id="formBody"></div></div></div>
 <script src="permission-every.js?v=4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
+<script>
+/* MediFinder India — shared KYC enhancer
+   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
+   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
+   - Date fields -> Year, then Month, then Day (selects)
+   - State text box -> state dropdown
+   - Premium form styling
+*/
+(function () {
+  if (window.__kycEnh) return;
+  window.__kycEnh = true;
+
+  /* ---------------- STYLES ---------------- */
+  var css = `
+  .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
+  .kyc-hint.ok{color:#087f5b}.kyc-hint.bad{color:#d94841}
+  input.kyc-ok,select.kyc-ok{border-color:#0ca678!important;background-color:#f3fcf8!important}
+  input.kyc-bad{border-color:#d94841!important;background-color:#fff8f7!important}
+  .kyc-date{display:grid;grid-template-columns:1.1fr 1.5fr 1fr;gap:8px;width:100%}
+  .kyc-date select,.kyc-sel{width:100%;height:46px;padding:0 34px 0 12px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;color:#17211d;font-size:14px;font-weight:600;font-family:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .18s,box-shadow .18s,background-color .18s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+  .kyc-date select:focus,.kyc-sel:focus{outline:0;border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  .kyc-date select:disabled{opacity:.5;cursor:not-allowed;background-color:#f1f4f3}
+  .kyc-date .step-tag{grid-column:1/-1;font-size:10.5px;color:#7b8d85;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin:-2px 0 0}
+  .kyc-date-sm select{height:36px;font-size:12px;border-radius:9px;padding-right:26px}
+  /* ambulance */
+  #vehicleKycContent .req-card{border:1px solid #e4ece8;border-radius:18px;padding:18px;box-shadow:0 6px 24px rgba(22,50,40,.06);background:#fff}
+  #vehicleKycContent .req-card:focus-within{border-color:#9fdcc6;box-shadow:0 10px 30px rgba(12,166,120,.12)}
+  #vehicleKycContent .vf-field label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;margin-bottom:7px}
+  #vehicleKycContent .vf-field input[type=text],#vehicleKycContent .vf-field select{height:48px;padding:0 14px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #vehicleKycContent .vf-field input[type=text]:focus,#vehicleKycContent .vf-field select:focus{outline:0;border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  #vehicleKycContent .vf-field select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #vehicleKycContent .kyc-nav .btn.primary,#vehicleKycContent .btn.primary{background:linear-gradient(135deg,#087f5b,#0ca678);border:0;color:#fff;border-radius:13px;box-shadow:0 10px 22px rgba(8,127,91,.28);transition:all .18s}
+  #vehicleKycContent .kyc-nav .btn.primary:hover{transform:translateY(-1px)}
+  .inr-wrap{position:relative}.inr-wrap>input{padding-left:34px!important}.inr-wrap:before{content:"₹";position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;color:#087f5b;z-index:1;pointer-events:none}
+  /* nurse */
+  #kycRoot .input,#kycRoot .select{height:48px;border:1.5px solid #dde8e3;border-radius:12px;background-color:#f9fbfa;font-size:14.5px;font-weight:500;transition:all .18s}
+  #kycRoot .input:focus,#kycRoot .select:focus{border-color:#0ca678;background-color:#fff;box-shadow:0 0 0 4px rgba(12,166,120,.14)}
+  #kycRoot .select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23087f5b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+  #kycRoot .field-label{font-size:12px;font-weight:700;color:#4b5d55;letter-spacing:.2px;display:block;margin-bottom:7px}
+  #kycRoot .card{border-radius:18px;box-shadow:0 6px 24px rgba(22,50,40,.06)}
+  #kycRoot .btn.primary{background:linear-gradient(135deg,#087f5b,#0ca678);border:0;color:#fff;border-radius:13px;font-weight:800;box-shadow:0 10px 22px rgba(8,127,91,.28)}
+  @media(max-width:430px){.kyc-date{grid-template-columns:1fr 1.3fr .9fr}}
+  `;
+  var st = document.createElement('style');
+  st.id = 'kycEnhCss';
+  st.textContent = css;
+  document.head.appendChild(st);
+
+  /* ---------------- INPUT RULES ---------------- */
+  var digits = function (v) { return v.replace(/\D/g, ''); };
+  var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+  var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
+
+  var RULES = [
+    { name: 'phone', test: /(phone|mobile|whatsapp|contact_?no|pdwa$|ecphone)/i, fmt: digits, max: 10, exact: 10, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[6-9]\d{9}$/.test(v); } },
+    { name: 'pin', test: /(pincode|pdpin$|pfpin$|_pin$)/i, fmt: digits, max: 6, exact: 6, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^[1-9]\d{5}$/.test(v); } },
+    { name: 'acc', test: /(account_?no2?$|[a-z]acc2?$|^acc2?$)/i, fmt: digits, max: 18, min: 9, inputmode: 'numeric', hint: 'digits', check: function (v) { return /^\d{9,18}$/.test(v); } },
+    { name: 'ifsc', test: /ifsc$/i, fmt: upalnum, max: 11, exact: 11, hint: 'chars', check: function (v) { return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v); } },
+    { name: 'upi', test: /upi(_id)?$/i, fmt: function (v) { return v.toLowerCase().replace(/[^a-z0-9.\-_@]/g, ''); }, max: 50 },
+    { name: 'charge', test: /(per_?km|day_?charge)/i, fmt: digits, max: 5, inputmode: 'numeric' },
+    { name: 'name', test: /(full_?name|holder|pdname|pfname|ecname|bank_?name|ks?bank$|ebbank$)/i, fmt: letters, max: 60 }
+  ];
+
+  var DOC_RULES = { // by selected document type text
+    aadhaar: { fmt: digits, max: 12, label: 'Aadhaar (12 digits)' },
+    pan: { fmt: upalnum, max: 10, label: 'PAN (10 chars)' },
+    driving: { fmt: upalnum, max: 16, label: 'Licence number' },
+    voter: { fmt: upalnum, max: 10, label: 'Voter ID (10 chars)' },
+    passport: { fmt: upalnum, max: 8, label: 'Passport (8 chars)' }
+  };
+  function docRuleFor(input) {
+    var m = /^k_(id|addr)_number$/.exec(input.id || '');
+    if (!m) return null;
+    var sel = document.getElementById('k_' + m[1] + '_type');
+    var t = sel ? String(sel.value).toLowerCase() : '';
+    if (/aadhaar/.test(t)) return DOC_RULES.aadhaar;
+    if (/pan/.test(t)) return DOC_RULES.pan;
+    if (/driving/.test(t)) return DOC_RULES.driving;
+    if (/voter/.test(t)) return DOC_RULES.voter;
+    if (/passport/.test(t)) return DOC_RULES.passport;
+    return { fmt: function (v) { return v.toUpperCase().replace(/[^A-Z0-9\-\/ ]/g, ''); }, max: 20 };
+  }
+
+  function ruleFor(el) {
+    if (!el || el.tagName !== 'INPUT') return null;
+    var id = el.id || '';
+    if (!id) return null;
+    var t = (el.type || '').toLowerCase();
+    if (t !== 'text' && t !== 'tel' && t !== 'number' && t !== '') return null;
+    var dr = docRuleFor(el);
+    if (dr) return dr;
+    for (var i = 0; i < RULES.length; i++) if (RULES[i].test.test(id)) return RULES[i];
+    return null;
+  }
+
+  function hintEl(el) {
+    var h = el.parentNode && el.parentNode.querySelector(':scope > .kyc-hint[data-for="' + el.id + '"]');
+    if (!h) {
+      h = document.createElement('span');
+      h.className = 'kyc-hint';
+      h.setAttribute('data-for', el.id);
+      el.insertAdjacentElement('afterend', h);
+    }
+    return h;
+  }
+
+  function paint(el, r) {
+    var v = el.value, h = null;
+    if (r.exact || r.min) h = hintEl(el);
+    el.classList.remove('kyc-ok', 'kyc-bad');
+    if (!v) { if (h) { h.textContent = ''; h.className = 'kyc-hint'; } return; }
+    var good = r.check ? r.check(v) : (r.exact ? v.length === r.exact : r.min ? v.length >= r.min : true);
+    if (r.exact || r.min) {
+      h.textContent = v.length + '/' + (r.exact || r.max) + (good ? ' ✓' : '');
+      h.className = 'kyc-hint ' + (good ? 'ok' : (v.length >= (r.exact || r.min) ? 'bad' : ''));
+    }
+    if (good) el.classList.add('kyc-ok');
+    else if (r.exact && v.length >= r.exact) el.classList.add('kyc-bad');
+  }
+
+  function prep(el) {
+    var r = ruleFor(el);
+    if (!r) return;
+    if (el.dataset.kycR === '1' && !docRuleFor(el)) return;
+    el.dataset.kycR = '1';
+    if (r.max) el.setAttribute('maxlength', r.max);
+    if (r.inputmode) el.setAttribute('inputmode', r.inputmode);
+    el.setAttribute('autocomplete', el.getAttribute('autocomplete') || 'off');
+    if (el.type === 'number') { try { el.type = 'text'; } catch (e) {} }
+    var v = el.value;
+    if (r.name === 'phone' && v) v = digits(v).slice(-10);
+    else if (v) v = r.fmt(v);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    if (r.name === 'charge' && !el.parentNode.classList.contains('inr-wrap') && !el.parentNode.classList.contains('vf-field') && false) { /* reserved */ }
+    paint(el, r);
+  }
+
+  document.addEventListener('input', function (e) {
+    var el = e.target, r = ruleFor(el);
+    if (!r) return;
+    var v = r.fmt(el.value);
+    if (r.max) v = v.slice(0, r.max);
+    if (v !== el.value) el.value = v;
+    paint(el, r);
+  }, true);
+
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el && /^k_(id|addr)_type$/.test(el.id || '')) { // document type changed -> reset number format
+      var num = document.getElementById(el.id.replace('_type', '_number'));
+      if (num) { num.value = ''; prep(num); }
+    }
+  }, true);
+
+  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dim(y, m) { return new Date(y, m, 0).getDate(); }
+
+  function enhanceDate(inp) {
+    if (inp.dataset.dp) return;
+    inp.dataset.dp = '1';
+    var now = new Date(), y0 = now.getFullYear();
+    var past = /dob|birth/i.test(inp.id) || inp.hasAttribute('max');
+    var years = [];
+    if (past) { for (var y = y0 - 18; y >= y0 - 80; y--) years.push(y); }
+    else { for (var y2 = y0; y2 <= y0 + 30; y2++) years.push(y2); }
+    var cur = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.value || '');
+    var cy = cur ? +cur[1] : 0, cm = cur ? +cur[2] : 0, cd = cur ? +cur[3] : 0;
+    if (cy && years.indexOf(cy) < 0) { years.push(cy); years.sort(function (a, b) { return past ? b - a : a - b; }); }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'kyc-date' + (inp.closest('.doc-row') ? ' kyc-date-sm' : '');
+    var sy = document.createElement('select'), sm = document.createElement('select'), sd = document.createElement('select');
+    sy.setAttribute('aria-label', 'Year'); sm.setAttribute('aria-label', 'Month'); sd.setAttribute('aria-label', 'Day');
+    sy.innerHTML = '<option value="">Year</option>' + years.map(function (y) { return '<option value="' + y + '"' + (y === cy ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+    sm.innerHTML = '<option value="">Month</option>' + MONTHS.map(function (n, i) { return '<option value="' + (i + 1) + '"' + (i + 1 === cm ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+    function fillDays() {
+      var y = +sy.value, m = +sm.value, keep = +sd.value;
+      var n = (y && m) ? dim(y, m) : 31, h = '<option value="">Day</option>';
+      for (var d = 1; d <= n; d++) h += '<option value="' + d + '"' + (d === keep || (!keep && d === cd) ? ' selected' : '') + '>' + d + '</option>';
+      sd.innerHTML = h;
+      if (keep > n) sd.value = '';
+    }
+    function lock() { sm.disabled = !sy.value; sd.disabled = !(sy.value && sm.value); }
+    function sync(fire) {
+      var y = +sy.value, m = +sm.value, d = +sd.value, v = '';
+      if (y && m && d) v = y + '-' + pad(m) + '-' + pad(d);
+      if (v !== inp.value) {
+        inp.value = v;
+        if (fire && v) inp.dispatchEvent(new Event('change', { bubbles: true }));
+        else if (fire) inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    fillDays(); lock();
+    sy.addEventListener('change', function () { if (!sy.value) { sm.value = ''; sd.value = ''; } fillDays(); lock(); sync(true); });
+    sm.addEventListener('change', function () { if (!sm.value) sd.value = ''; fillDays(); lock(); sync(true); });
+    sd.addEventListener('change', function () { sync(true); });
+    wrap.appendChild(sy); wrap.appendChild(sm); wrap.appendChild(sd);
+    try { inp.type = 'hidden'; } catch (e) { inp.style.display = 'none'; }
+    inp.style.display = 'none';
+    inp.insertAdjacentElement('afterend', wrap);
+  }
+
+  /* ---------------- STATE DROPDOWN ---------------- */
+  var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
+  function enhanceState(inp) {
+    if (inp.dataset.st) return;
+    inp.dataset.st = '1';
+    var sel = document.createElement('select');
+    sel.id = inp.id;
+    sel.className = (inp.className + ' kyc-sel select').trim();
+    sel.setAttribute('style', inp.getAttribute('style') || '');
+    var v = (inp.value || '').trim();
+    var list = STATES.slice();
+    if (v && list.map(function (s) { return s.toLowerCase(); }).indexOf(v.toLowerCase()) < 0) list.unshift(v);
+    sel.innerHTML = '<option value="">Select state</option>' + list.map(function (s) {
+      return '<option value="' + s.replace(/"/g, '&quot;') + '"' + (s.toLowerCase() === v.toLowerCase() ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    inp.replaceWith(sel);
+  }
+
+  /* ---------------- SCAN ---------------- */
+  var queued = false;
+  function scan() {
+    queued = false;
+    document.querySelectorAll('input[type=date]:not([data-dp])').forEach(enhanceDate);
+    document.querySelectorAll('input[id$="_state"]:not([data-st]),input#k_state:not([data-st])').forEach(function (i) { if (i.type === 'text' || !i.type) enhanceState(i); });
+    document.querySelectorAll('input[id]').forEach(function (el) {
+      var r = ruleFor(el);
+      if (r && (el.dataset.kycR !== '1' || /^k_(id|addr)_number$/.test(el.id))) prep(el);
+    });
+  }
+  function queue() { if (!queued) { queued = true; requestAnimationFrame(scan); } }
+  new MutationObserver(queue).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.readyState !== 'loading') queue(); else document.addEventListener('DOMContentLoaded', queue);
+})();
+
+</script>
 <script src="prod-utils.js"></script>
 <script>
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -192,7 +749,7 @@ function mfLogoutConfirm(){
     const b=document.getElementById('mfLogoutYes');b.disabled=true;b.textContent='Logging out...';
     try{await mfBeforeLogout()}catch(e){}
     try{await supabaseClient.auth.signOut()}catch(e){console.warn('signOut',e)}
-    try{localStorage.clear();sessionStorage.clear()}catch(e){}
+    try{var __k={};['mfb_theme','mfb_lang'].forEach(function(k){var v=localStorage.getItem(k);if(v!==null)__k[k]=v});localStorage.clear();sessionStorage.clear();for(var k in __k)localStorage.setItem(k,__k[k])}catch(e){}
     window.location.replace('home.html');
   };
 }
@@ -202,7 +759,7 @@ document.addEventListener('click',function(e){
   if(btn){e.preventDefault();navigate(btn.dataset.page);}
 });
 function closeModal(){$('overlay').style.display='none'}
-function showModal(title,body,actionText='Close',action=closeModal){$('modalTitle').textContent=title;$('modalBody').innerHTML=body;const btn=$('modalAction');btn.textContent=actionText;btn.onclick=action;$('overlay').style.display='block'}
+function showModal(title,body,actionText='Close',action=closeModal){$('modalTitle').textContent=title;$('modalBody').innerHTML=body;const btn=$('modalAction');btn.disabled=false;btn.style.opacity='';btn.textContent=actionText;btn.onclick=action;$('overlay').style.display='block'}
 function openForm(title,html){$('formTitle').textContent=title;$('formBody').innerHTML=html;$('formOverlay').style.display='block'}
 function closeForm(){$('formOverlay').style.display='none'}
 async function mfBeforeLogout(){if(collectorRow)await sb.from('sample_collectors').update({online:false,updated_at:new Date().toISOString()}).eq('id',collectorRow.id)}
@@ -253,6 +810,7 @@ async function loadKyc(){const r=await sb.from('collector_kyc').select('*').eq('
 async function loadTests(){const r=await sb.from('lab_tests').select('*').eq('collector_id',collectorRow.id).order('created_at',{ascending:false});if(r.error){fail(r.error,'My tests');return}myTests=r.data||[]}
 async function loadEarnings(){const r=await sb.from('collector_earnings').select('*').eq('collector_id',collectorRow.id).order('created_at',{ascending:false});if(r.error){fail(r.error,'Earnings');return}myEarnings=r.data||[]}
 async function loadNotifications(){const r=await sb.from('notifications').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(30);if(r.error){console.warn('notifications',r.error);return}myNotifs=r.data||[]}
+function newRequests(){const seen=new Set();return [...myBookings.filter(b=>b.status==='Pending'),...openBookings].filter(b=>b&&!seen.has(b.id)&&seen.add(b.id))}
 async function refreshBookings(){
   const [m,o]=await Promise.all([
     sb.from('lab_bookings').select('*').eq('collector_id',collectorRow.id).order('created_at',{ascending:false}).limit(100),
@@ -321,43 +879,96 @@ async function toggleAvailability(){if(!collectorRow)return;const val=!collector
 function statusMeta(s){const m={'Pending':['pending','New Request'],'Confirmed':['accepted','Accepted'],'Sample Collected':['collection','Sample Collected'],'Processing':['collection','Processing'],'Completed':['ready','Completed'],'Cancelled':['cancelled','Cancelled']};const x=m[s]||['pending',s||'Unknown'];return{cls:x[0],label:x[1]}}
 function renderStats(){
   const pending=myBookings.filter(b=>['Confirmed','Sample Collected','Processing'].includes(b.status)),done=myBookings.filter(b=>b.status==='Completed'&&isTodayTs(b.completed_at||b.updated_at)),rev=myEarnings.filter(e=>isTodayTs(e.created_at)).reduce((s,e)=>s+Number(e.net_amount||0),0);
-  $('statNewOrders').textContent=String(openBookings.length).padStart(2,'0');$('statNewOrdersSub').textContent=openBookings.length?openBookings.length+' waiting for you':'No new requests';
+  $('statNewOrders').textContent=String(newRequests().length).padStart(2,'0');$('statNewOrdersSub').textContent=newRequests().length?newRequests().length+' waiting for you':'No new requests';
   $('statPending').textContent=String(pending.length).padStart(2,'0');$('statPendingSub').textContent='Assigned collection jobs';
   $('statCompleted').textContent=String(done.length).padStart(2,'0');$('statCompletedSub').textContent='Completed today';
   $('statRevenue').textContent=fmt(rev);$('statRevenueSub').textContent='After '+COMMISSION+'% platform fee';
 }
 function row(b){const m=statusMeta(b.status);return `<tr><td><b>#${esc(ref(b))}</b><span class="sub">${esc(fmtDate(bDate(b)||b.created_at))} · ${esc(fmtT(bTime(b)))}</span></td><td><span class="patient">${esc(b.patient_name||'Unknown')}</span><span class="sub">${esc(b.addr_city||b.city||'—')}</span></td><td>${esc(b.test_name||'—')}</td><td><span class="status ${m.cls}">${m.label}</span></td><td><button class="action" onclick="openOrder('${esc(b.id)}')">View</button></td></tr>`}
-function renderOrdersTable(){const rows=[...openBookings,...myBookings].slice(0,12),tb=$('ordersTableBody');tb.innerHTML=rows.length?rows.map(row).join(''):'<tr><td colspan="5" class="empty">No collection bookings yet.</td></tr>'}
+function renderOrdersTable(){const rows=[...new Map([...openBookings,...myBookings].map(x=>[x.id,x])).values()].slice(0,12),tb=$('ordersTableBody');tb.innerHTML=rows.length?rows.map(row).join(''):'<tr><td colspan="5" class="empty">No collection bookings yet.</td></tr>'}
 function renderActivity(){const recent=myBookings.filter(b=>b.status!=='Pending').slice(0,5),list=$('activityList');list.innerHTML=recent.length?recent.map(b=>{const m=statusMeta(b.status),when=b.completed_at||b.sample_collected_at||b.updated_at||b.created_at;return `<div class="item"><div class="circle">${b.status==='Completed'?'✓':b.status==='Sample Collected'?'🩸':'📍'}</div><div><b>${esc(b.test_name||'Collection')} — ${m.label}</b><p>${esc(b.patient_name||'')}</p><time>${safeAgo(when)}</time></div></div>`}).join(''):'<div class="item"><div class="circle">ℹ️</div><div><b>No recent activity yet</b></div></div>'}
-function renderNew(){const tb=$('newTable');if(!tb)return;tb.innerHTML=openBookings.length?openBookings.map(b=>`<tr><td><b>#${esc(ref(b))}</b></td><td><span class="patient">${esc(b.patient_name||'Unknown')}</span><span class="sub">${esc(b.city||'—')} ${esc(b.pincode||'')}</span></td><td>${esc(b.test_name||'—')}</td><td>${esc(fmtDate(b.booking_date))} · ${esc(fmtT(b.booking_time))}</td><td>${fmt(amount(b))}</td><td><button class="action primary" onclick="openOrder('${esc(b.id)}')">View / Accept</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No new collection requests for your tests right now.</td></tr>'}
+function renderNew(){const tb=$('newTable');if(!tb)return;tb.innerHTML=newRequests().length?newRequests().map(b=>`<tr><td><b>#${esc(ref(b))}</b></td><td><span class="patient">${esc(b.patient_name||'Unknown')}</span><span class="sub">${esc(b.city||'—')} ${esc(b.pincode||'')}</span></td><td>${esc(b.test_name||'—')}</td><td>${esc(fmtDate(b.booking_date))} · ${esc(fmtT(b.booking_time))}</td><td>${fmt(amount(b))}</td><td><button class="action primary" onclick="openOrder('${esc(b.id)}')">View / Accept</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No new collection requests for your tests right now.</td></tr>'}
 function renderBookingsPage(){const tb=$('bookingsTable');if(!tb)return;const q=($('bookingSearch')?.value||'').toLowerCase(),f=$('bookingFilter')?.value||'all';const list=myBookings.filter(b=>(f==='all'||b.status===f)&&(!q||String(b.patient_name||'').toLowerCase().includes(q)||String(b.test_name||'').toLowerCase().includes(q)));tb.innerHTML=list.length?list.map(b=>{const m=statusMeta(b.status);return `<tr><td><b>#${esc(ref(b))}</b></td><td><span class="patient">${esc(b.patient_name||'Unknown')}</span></td><td>${esc(b.test_name||'—')}</td><td><span class="status ${m.cls}">${m.label}</span></td><td>${fmtDate(bDate(b)||b.created_at)}</td><td><button class="action" onclick="openOrder('${esc(b.id)}')">View</button></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No matching collections.</td></tr>'}
 function renderToday(){const list=myBookings.filter(b=>bDate(b)===todayStr()).sort((a,b)=>String(bTime(a)||'').localeCompare(String(bTime(b)||''))),tb=$('todayTable');$('todayCount').textContent=list.length;$('todayCollected').textContent=list.filter(b=>['Sample Collected','Processing','Completed'].includes(b.status)).length;$('todayPending').textContent=list.filter(b=>['Confirmed','Pending'].includes(b.status)).length;tb.innerHTML=list.length?list.map(b=>{const m=statusMeta(b.status);return `<tr><td>${esc(fmtT(bTime(b)))}</td><td><span class="patient">${esc(b.patient_name||'Unknown')}</span><span class="sub">${esc(b.patient_phone||'')}</span></td><td>${esc(b.test_name||'—')}</td><td>${esc(b.full_address||b.address||b.addr_city||b.city||'—')}</td><td><span class="status ${m.cls}">${m.label}</span></td><td><button class="action" onclick="openOrder('${esc(b.id)}')">Open</button></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No collections scheduled for today.</td></tr>'}
 function renderHistory(){const list=myBookings.filter(b=>['Sample Collected','Processing','Completed','Cancelled'].includes(b.status)),tb=$('historyTable');tb.innerHTML=list.length?list.map(b=>{const m=statusMeta(b.status);return `<tr><td><b>#${esc(ref(b))}</b></td><td>${esc(b.patient_name||'Unknown')}</td><td>${esc(b.test_name||'—')}</td><td>${fmtDate(b.sample_collected_at||b.completed_at||b.updated_at)}</td><td><span class="status ${m.cls}">${m.label}</span></td><td><button class="action" onclick="openOrder('${esc(b.id)}')">View</button></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No collection history yet.</td></tr>'}
 function renderPatients(){const q=($('patientSearch')?.value||'').toLowerCase(),map=new Map();myBookings.forEach(b=>{const key=String(b.patient_phone||b.patient_name||b.id);if(!map.has(key))map.set(key,{...b,count:0});map.get(key).count++});const list=[...map.values()].filter(b=>!q||String(b.patient_name||'').toLowerCase().includes(q)||String(b.patient_phone||'').includes(q)),tb=$('patientsTable');tb.innerHTML=list.length?list.map(b=>`<tr><td><span class="patient">${esc(b.patient_name||'Unknown')}</span></td><td>${esc(b.patient_phone||'—')}</td><td>${esc(b.addr_city||b.city||'—')}</td><td>${b.count}</td><td><span class="status ${statusMeta(b.status).cls}">${statusMeta(b.status).label}</span></td><td><button class="action" onclick="openPatient('${esc(b.id)}')">View</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No patients found.</td></tr>'}
 function openPatient(id){const b=bookingsById[id];if(!b)return;showModal('Patient Details',`<div class="detail"><div class="field-box"><small>Name</small><strong>${esc(b.patient_name||'Unknown')}</strong></div><div class="field-box"><small>Phone</small><strong>${esc(b.patient_phone||'—')}</strong></div><div class="field-box"><small>City</small><strong>${esc(b.addr_city||b.city||'—')}</strong></div><div class="field-box"><small>Booking</small><strong>${esc(b.booking_id||b.id)}</strong></div></div><div style="margin-top:12px;padding:12px;background:#f7faf8;border-radius:10px;font-size:12px;color:#53635c">Patient details are shown only from bookings assigned to this collector.</div>`)}
+function bkAddress(b){
+  const parts=[b.addr_house,b.addr_street,b.addr_landmark?('Near '+b.addr_landmark):'',b.addr_city,b.addr_state,b.addr_pincode?('PIN '+b.addr_pincode):''].filter(Boolean);
+  return parts.length?parts.join(', '):(b.full_address||b.address||'');
+}
+function bkHasGps(b){return b.lat!=null&&b.lng!=null&&b.lat!==''&&b.lng!==''&&!isNaN(parseFloat(b.lat))&&!isNaN(parseFloat(b.lng))}
+function bkMapUrl(b){
+  if(bkHasGps(b))return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(b.lat+','+b.lng);
+  const a=bkAddress(b);return a?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a):'';
+}
+function bkRxHtml(b){
+  const u=b.prescription_url;
+  if(!u)return '<div class="cd-rx none">📄 No prescription uploaded</div>';
+  const isImg=/\.(png|jpe?g|webp|gif|bmp|heic)(\?|$)/i.test(u);
+  return `<div class="cd-rx"><div class="cd-rx-t">💊 Prescription</div>${isImg?`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Prescription" loading="lazy"></a>`:''}<a class="cd-btn" href="${esc(u)}" target="_blank" rel="noopener">📄 View prescription</a></div>`;
+}
 function openOrder(id){
   const b=bookingsById[id];if(!b)return;const m=statusMeta(b.status),mine=b.collector_id&&b.collector_id===collectorRow?.id;
   let body=`<div class="detail"><div class="field-box"><small>Patient</small><strong>${esc(b.patient_name||'Unknown')}</strong></div><div class="field-box"><small>Booking ID</small><strong>${esc(b.booking_id||b.id)}</strong></div><div class="field-box"><small>Test</small><strong>${esc(b.test_name||'—')}</strong></div><div class="field-box"><small>Status</small><strong>${m.label}</strong></div><div class="field-box"><small>Amount</small><strong>${fmt(amount(b))}</strong></div>${mine?`<div class="field-box"><small>Payment</small><strong>${esc(b.payment_status==='Paid'?'Paid Online':b.payment_status||'Pending')}</strong></div>`:`<div class="field-box"><small>Slot</small><strong>${esc(fmtDate(bDate(b)))} · ${esc(fmtT(bTime(b)))}</strong></div>`}</div>`;
-  if(mine)body+=`<div style="margin-top:13px;padding:12px;background:#e8f7f1;border-radius:10px;font-size:12px;color:#24614f">Address: ${esc(b.full_address||b.address||'—')}<br>Phone: ${esc(b.patient_phone||'—')}<br>Slot: ${esc(fmtDate(bDate(b)))} · ${esc(fmtT(bTime(b)))}</div>`;
-  else body+=`<div style="margin-top:13px;padding:12px;background:#fff4df;border-radius:10px;font-size:12px;color:#8a5a00">Accept this collection request to access the patient's phone and full address.</div>`;
+  if(mine){
+    const addr=bkAddress(b),mu=bkMapUrl(b),gps=bkHasGps(b);
+    body+=`<div class="cd-card">
+      <div class="cd-row"><span>📍</span><div><small>Address</small><strong>${addr?esc(addr):'Address not provided'}</strong></div></div>
+      <div class="cd-row"><span>📞</span><div><small>Phone</small><strong>${esc(b.patient_phone||'—')}</strong></div></div>
+      <div class="cd-row"><span>🕒</span><div><small>Slot</small><strong>${esc(fmtDate(bDate(b)))} · ${esc(fmtT(bTime(b)))}</strong></div></div>
+      ${b.payment_utr?`<div class="cd-row"><span>💳</span><div><small>UPI Ref / UTR</small><strong>${esc(b.payment_utr)}</strong></div></div>`:''}
+      <div class="cd-actions">${mu?`<a class="cd-btn" target="_blank" rel="noopener" href="${mu}">🧭 ${gps?'Open live location':'Open address in Maps'}</a>`:''}${b.patient_phone?`<a class="cd-btn alt" href="tel:${esc(b.patient_phone)}">📞 Call patient</a>`:''}</div>
+      ${gps?'':'<div class="hint" style="margin-top:8px">Patient did not share live GPS — use the address above to navigate.</div>'}
+    </div>${b.fasting==='before'?'<div class="cd-warn">⚠️ Fasting required — collect the sample before food.</div>':''}${bkRxHtml(b)}`;
+  }else body+=`<div class="cd-warn">Accept this collection request to see the patient's phone, full address, location and prescription.</div>`;
   if(mine&&['Sample Collected','Processing'].includes(b.status)&&!b.report_url)body+=`<div style="margin-top:10px;padding:12px;background:#e8f1ff;border-radius:10px;font-size:12px;color:#1864ab">Report upload opens: <b>${esc(fmtDT(dueAt(b)))}</b></div>`;
   let action='Close',fn=closeModal;
   if(!mine&&['Pending','Confirmed'].includes(b.status)){action='Accept Collection';fn=()=>acceptBooking(b.id)}
+  else if(mine&&b.status==='Pending'){action='Accept Collection';fn=()=>acceptMine(b.id)}
   else if(mine&&b.status==='Confirmed'){action='Mark Sample Collected';fn=()=>updateBookingStatus(b.id,'Sample Collected')}
   else if(mine&&b.status==='Sample Collected'){action='Mark Processing';fn=()=>updateBookingStatus(b.id,'Processing')}
   else if(mine&&b.status==='Processing'&&!b.report_url){action='Go to Reports';fn=()=>{closeModal();navigate('reports')}}
+  const payBlocked=mine&&b.status==='Pending'&&bkPayPending(b);
+  if(payBlocked){body+=`<div class="cd-warn">⏳ UPI payment verification is pending. The admin must verify the payment before you can accept this collection.</div>`;action='Waiting for payment verification';fn=()=>{}}
   showModal('Collection Details',body,action,fn);
+  if(payBlocked){const bt=$('modalAction');bt.disabled=true;bt.style.opacity='.55'}
+}
+function bkErrText(e){
+  if(!e)return 'Unknown error';
+  const m=e.message||String(e);
+  if(e.code==='PGRST202'||e.code==='42883'||/could not find the function/i.test(m))return 'Server function missing ('+m+')';
+  if(e.code==='42501'||/row-level security|permission denied/i.test(m))return 'Permission denied by database policy';
+  return m+(e.hint?' — '+e.hint:'');
+}
+function bkPayPending(b){return !!b&&!!b.payment_verification_status&&b.payment_verification_status!=='verified'}
+async function bkSetStatus(id,status){
+  // Only the server function may change status (it enforces who/when). No client-side bypass.
+  try{
+    const r=await sb.rpc('collector_set_booking_status',{p_id:id,p_status:status});
+    if(r.error)return{ok:false,err:r.error};
+    if(!r.data)return{ok:false,err:{message:'Status cannot be changed from the current state'}};
+    return{ok:true};
+  }catch(e){return{ok:false,err:e}}
+}
+async function acceptMine(id){
+  const b=bookingsById[id];
+  if(bkPayPending(b)){toast('UPI payment verification is pending — the admin must verify it before you can accept.','warning');return}
+  const {data,error}=await sb.rpc('collector_accept_booking',{p_id:id});
+  if(error){console.error('Accept collection',error);toast('Could not accept: '+bkErrText(error),'error');return}
+  if(!data){toast('This request can\'t be accepted right now (already accepted or not available).','warning');await refreshBookings();renderAll();return}
+  toast('Collection accepted','success');closeModal();await refreshBookings();renderAll();
 }
 async function acceptBooking(id){
   const {data,error}=await sb.rpc('collector_accept_booking',{p_id:id});
-  if(error){fail(error,'Accept collection');return}
+  if(error){console.error('Accept collection',error);toast('Could not accept: '+bkErrText(error),'error');return}
   toast(data?'Collection accepted':'This request is no longer available',data?'success':'warning');
   closeModal();await refreshBookings();renderAll();
 }
 async function updateBookingStatus(id,status){
-  const {data,error}=await sb.rpc('collector_set_booking_status',{p_id:id,p_status:status});
-  if(error){fail(error,'Collection update');return}
-  toast(data?'Collection status updated':'Status could not be updated',data?'success':'warning');
+  const r=await bkSetStatus(id,status);
+  if(!r.ok){console.error('Collection update',r.err);toast('Could not update: '+bkErrText(r.err),'error');return}
+  toast('Collection status updated','success');
   closeModal();await refreshBookings();renderAll();
 }
 
@@ -406,7 +1017,20 @@ function renderNotifications(){
 }
 
 /* ===================== PROFILE / SUPPORT ===================== */
-function renderProfile(){if(!collectorRow)return;$('profileName').textContent=collectorRow.full_name||'—';$('profilePhone').textContent=collectorRow.phone||'—';$('profileEmail').textContent=collectorRow.email||currentUser?.email||'—';$('profileCode').textContent=collectorRow.collector_code||'—';renderAvailabilityBadge()}
+function renderProfile(){if(!collectorRow)return;
+  const k=kycRow||{},set=(id,v)=>{const el=$(id);if(el)el.textContent=v||'—'};
+  const name=k.full_name||collectorRow.full_name||'—',phone=k.mobile_no||collectorRow.phone||'—';
+  const addr=[k.address,k.city,k.state,k.pincode].filter(Boolean).join(', ');
+  set('profileName',name);set('profileHeroName',name);set('profilePhone',phone);set('profileWhatsapp',k.whatsapp_no);set('profileEmail',collectorRow.email||currentUser?.email);set('profileCode',collectorRow.collector_code);set('profileHeroCode','Collector code · '+(collectorRow.collector_code||'—'));set('profileAddress',addr);
+  const st=collectorRow.kyc_status,lab={verified:'✅ KYC Verified',pending:'⏳ KYC Pending',rejected:'❌ KYC Rejected'}[st]||'⚠️ KYC not completed';set('profileHeroKyc',lab);
+  renderAvailabilityBadge();applyKycPhoto();pushState()}
+async function applyKycPhoto(){
+  const p=kycRow&&kycRow.photo_url,init=(((kycRow&&kycRow.full_name)||collectorRow?.full_name||'R').trim()[0]||'R').toUpperCase();
+  const put=u=>{const ph=$('profilePhoto'),av=$('avatarInitials');if(u){const h=`<img src="${esc(u)}" alt="">`;if(ph)ph.innerHTML=h;if(av)av.innerHTML=h}else{if(ph)ph.textContent=init}};
+  if(!p){put(null);return}
+  const c=window.__kp;if(c&&c.path===p&&c.exp>Date.now()){put(c.url);return}
+  try{const r=await sb.storage.from('collector-docs').createSignedUrl(p,3600);const u=r&&r.data&&r.data.signedUrl;if(u){window.__kp={path:p,url:u,exp:Date.now()+3300000};put(u)}else put(null)}catch(e){put(null)}
+}
 async function submitSupport(){
   const msg=$('supportMessage').value.trim(),cat=$('supportCategory').value;
   if(!msg){toast('Please describe your issue','warning');return}
@@ -424,45 +1048,61 @@ const mask=v=>{v=String(v||'');return v.length>4?'•'.repeat(v.length-4)+v.slic
 function kv(name){if(kycState.vals[name]!==undefined)return kycState.vals[name];if(kycRow&&kycRow[KMAP[name]]!=null)return kycRow[KMAP[name]];if(name==='full_name')return collectorRow.full_name||'';if(name==='mobile')return String(collectorRow.phone||'').replace(/\D/g,'').slice(-10);return ''}
 function fIn(id,label,val,extra){return `<div class="fg"><label for="k_${id}">${label} <b>*</b></label><input class="input" id="k_${id}" value="${esc(val)}" ${extra||''}></div>`}
 function fSel(id,label,list,val){return `<div class="fg"><label for="k_${id}">${label} <b>*</b></label><select class="select" id="k_${id}"><option value="">Select…</option>${list.map(x=>`<option ${x===val?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`}
-function fFile(name,label,accept){const f=kycState.files[name],ex=kycRow&&kycRow[FMAP[name]];return `<div class="fg"><label>${label} <b>*</b></label><div class="fileline"><input type="file" id="kf_${name}" accept="${accept}" onchange="kycPick('${name}',this)"><span class="fname ${f||ex?'ok':''}" id="kn_${name}">${f?'✓ '+esc(f.name):(ex?'✓ Already uploaded (choose to replace)':'No file chosen')}</span></div></div>`}
+function uploadIco(name,f,url,done){const base=name==='photo'?'🤳':name==='passbook'?'🏦':'🪪';let inner=base;if(f&&/^image\//.test(f.type))inner=`<img src="${URL.createObjectURL(f)}" alt="">`;else if(url)inner=`<img src="${esc(url)}" alt="">`;else if(f)inner='📄';else if(done)inner='📄';return inner+(done?'<span class="u-tick">✓</span>':'')}
+function fFile(name,label,accept){const f=kycState.files[name],ex=kycRow&&kycRow[FMAP[name]],done=!!(f||ex);return `<div class="fg"><label>${label} <b>*</b></label><div class="upload ${done?'done':''}" id="ku_${name}"><input type="file" id="kf_${name}" accept="${accept}" onchange="kycPick('${name}',this)"><div class="u-ico">${uploadIco(name,f,null,done)}</div><div class="u-txt"><span class="u-title">${done?'Uploaded ✅':'Tap to upload'}</span><span class="fname ${done?'ok':''}" id="kn_${name}">${f?esc(f.name):(ex?'Already uploaded · choose to replace':'JPG, PNG or PDF')}</span></div><span class="u-btn">${done?'Change':'Browse'}</span></div></div>`}
+async function kycHydrate(){for(const n of Object.keys(FMAP)){const p=kycRow&&kycRow[FMAP[n]];if(!p||kycState.files[n]||!/\.(jpe?g|png|webp|gif|heic|avif)$/i.test(p))continue;try{const r=await sb.storage.from('collector-docs').createSignedUrl(p,300);const u=r&&r.data&&r.data.signedUrl;const ico=u&&$('ku_'+n)&&$('ku_'+n).querySelector('.u-ico');if(ico&&!kycState.files[n])ico.innerHTML=uploadIco(n,null,u,true)}catch(e){}}}
 function kycPick(name,input){
   const f=input.files[0];if(!f)return;
   const err=fileOk(f,name==='photo');
   if(err){toast(err,'warning');input.value='';return}
-  kycState.files[name]=f;const n=$('kn_'+name);n.textContent='✓ '+f.name;n.className='fname ok';
+  kycState.files[name]=f;const n=$('kn_'+name);n.textContent=f.name;n.className='fname ok';const u=$('ku_'+name);if(u){u.classList.add('done');u.classList.remove('err');u.querySelector('.u-title').textContent='Uploaded ✅';u.querySelector('.u-btn').textContent='Change';u.querySelector('.u-ico').innerHTML=uploadIco(name,f,null,true)}
 }
-function renderKyc(){
+function renderKyc(force){
   renderKycBanner();
   const root=$('kycRoot');if(!root||!collectorRow)return;
   const st=collectorRow.kyc_status;
-  if(st==='verified'||st==='pending'){root.innerHTML=kycReadOnly(st);return}
-  if(kycState.step==='preview'){root.innerHTML=kycPreviewHTML();return}
-  root.innerHTML=kycFormHTML(st);
+  const mode=(st==='verified'||st==='pending')?'ro-'+st:(kycState.step==='preview'?'preview':'form');
+  /* background refresh (realtime/polling) must NOT wipe a form the user is typing in */
+  if(!force&&root.dataset.mode===mode&&root.dataset.st===String(st)&&(mode==='form'||mode==='preview')&&root.children.length)return;
+  if(mode==='form')collectKyc();
+  root.dataset.mode=mode;root.dataset.st=String(st);
+  if(mode.startsWith('ro-')){root.innerHTML=kycReadOnly(st);return}
+  if(mode==='preview'){root.innerHTML=kycPreviewHTML();return}
+  root.innerHTML=kycFormHTML(st);kycHydrate();
 }
+document.addEventListener('input',e=>{const r=$('kycRoot');if(r&&r.dataset.mode==='form'&&r.contains(e.target)&&e.target.id&&e.target.id.startsWith('k_'))collectKyc()});
+document.addEventListener('change',e=>{const r=$('kycRoot');if(r&&r.dataset.mode==='form'&&r.contains(e.target)&&e.target.id&&e.target.id.startsWith('k_'))collectKyc()});
 function kycFormHTML(st){
   let h='';
   if(st==='rejected')h+=`<div class="kyc-banner bad" style="cursor:default">❌ Your KYC was rejected${collectorRow.kyc_rejection_reason?': '+esc(collectorRow.kyc_rejection_reason):''}. Please correct the details and submit again.</div>`;
-  h+=`<p class="hint" style="margin-bottom:12px">KYC is a one-time process. All fields marked <b style="color:var(--danger)">*</b> are required. After admin verification you cannot edit these details.</p>`;
-  h+=`<div class="form-card"><h3>1. Personal details</h3>${fFile('photo','Your photo (selfie or gallery)','image/*')}<div class="fgrid">${fIn('full_name','Full name',kv('full_name'))}${fIn('mobile','Mobile number',kv('mobile'),'inputmode="numeric" maxlength="10"')}${fIn('whatsapp','WhatsApp number',kv('whatsapp'),'inputmode="numeric" maxlength="10"')}</div></div>`;
-  h+=`<div class="form-card"><h3>2. Address</h3>${fIn('address','Full address (house, street, area)',kv('address'))}<div class="fgrid">${fIn('city','City / Town',kv('city'))}${fIn('state','State',kv('state'))}${fIn('pincode','Pincode',kv('pincode'),'inputmode="numeric" maxlength="6"')}</div></div>`;
-  h+=`<div class="form-card"><h3>3. Identity proof</h3><div class="fgrid">${fSel('id_type','Document type',ID_TYPES,kv('id_type'))}${fIn('id_number','Document number',kv('id_number'))}</div>${fFile('id_file','Upload identity document','image/*,application/pdf')}</div>`;
-  h+=`<div class="form-card"><h3>4. Address proof</h3><div class="fgrid">${fSel('addr_type','Document type',ADDR_TYPES,kv('addr_type'))}${fIn('addr_number','Document number',kv('addr_number'))}</div>${fFile('addr_file','Upload address proof','image/*,application/pdf')}</div>`;
-  h+=`<div class="form-card"><h3>5. Bank details (for settlement)</h3><div class="fgrid">${fIn('bank_holder','Account holder name',kv('bank_holder'))}${fIn('account_no','Account number',kv('account_no'),'inputmode="numeric"')}${fIn('ifsc','IFSC code',kv('ifsc'),'maxlength="11" style="text-transform:uppercase"')}${fIn('upi','UPI ID',kv('upi'),'placeholder="name@bank"')}</div>${fFile('passbook','Bank passbook / cancelled cheque image','image/*,application/pdf')}</div>`;
-  h+=`<button class="btn primary" style="width:100%;padding:13px;font-weight:700" onclick="kycPreview()">Preview details</button>`;
+  h+=`<div class="kyc-note"><i>🔒</i><div>KYC is a one-time process and your documents are stored securely. All fields marked <b class="req">*</b> are required. After admin verification you cannot edit these details.</div></div>`;
+  h+=`<div class="form-card"><h3><span class="step-no">1</span>Personal details</h3>${fFile('photo','Your photo (selfie or gallery)','image/*')}<div class="fgrid">${fIn('full_name','Full name',kv('full_name'))}${fIn('mobile','Mobile number (10 digits)',kv('mobile'),'inputmode="numeric" maxlength="10" placeholder="10-digit mobile"')}${fIn('whatsapp','WhatsApp number (10 digits)',kv('whatsapp'),'inputmode="numeric" maxlength="10" placeholder="10-digit WhatsApp"')}</div></div>`;
+  h+=`<div class="form-card"><h3><span class="step-no">2</span>Address</h3>${fIn('address','Full address (house, street, area)',kv('address'))}<div class="fgrid">${fIn('city','City / Town',kv('city'))}${fIn('state','State',kv('state'))}${fIn('pincode','Pincode (6 digits)',kv('pincode'),'inputmode="numeric" maxlength="6" placeholder="e.g. 700001"')}</div></div>`;
+  h+=`<div class="form-card"><h3><span class="step-no">3</span>Identity proof</h3><div class="fgrid">${fSel('id_type','Document type',ID_TYPES,kv('id_type'))}${fIn('id_number','Document number',kv('id_number'),'placeholder="Select type first"')}</div>${fFile('id_file','Upload identity document','image/*,application/pdf')}</div>`;
+  h+=`<div class="form-card"><h3><span class="step-no">4</span>Address proof</h3><div class="fgrid">${fSel('addr_type','Document type',ADDR_TYPES,kv('addr_type'))}${fIn('addr_number','Document number',kv('addr_number'))}</div>${fFile('addr_file','Upload address proof','image/*,application/pdf')}</div>`;
+  h+=`<div class="form-card"><h3><span class="step-no">5</span>Bank details (for settlement)</h3><div class="fgrid">${fIn('bank_holder','Account holder name',kv('bank_holder'))}${fIn('account_no','Account number (9–18 digits)',kv('account_no'),'inputmode="numeric" maxlength="18" autocomplete="off"')}${fIn('ifsc','IFSC code (11 characters)',kv('ifsc'),'maxlength="11" placeholder="e.g. SBIN0001234" style="text-transform:uppercase"')}${fIn('upi','UPI ID',kv('upi'),'placeholder="name@bank"')}</div>${fFile('passbook','Bank passbook / cancelled cheque image','image/*,application/pdf')}</div>`;
+  h+=`<button class="btn primary" style="width:100%;padding:15px" onclick="kycPreview()">Preview details →</button>`;
   return h;
 }
 function collectKyc(){Object.keys(KMAP).forEach(n=>{const el=$('k_'+n);if(el)kycState.vals[n]=n==='ifsc'?el.value.trim().toUpperCase():el.value.trim()})}
+function docNoBad(tk,nk){
+  const t=String((kycState.vals||{})[tk]||'').toLowerCase(),n=String((kycState.vals||{})[nk]||'').toUpperCase();
+  if(!n)return null;
+  const R=[[/aadhaar/,/^[2-9]\d{11}$/,'Aadhaar number must be 12 digits'],[/pan/,/^[A-Z]{5}\d{4}[A-Z]$/,'PAN must look like ABCDE1234F'],[/driving/,/^[A-Z]{2}[A-Z0-9]{9,14}$/,'Enter a valid driving licence number'],[/voter/,/^[A-Z]{3}\d{7}$/,'Voter ID must look like ABC1234567'],[/passport/,/^[A-Z]\d{7}$/,'Passport must look like A1234567']];
+  for(const [rt,re,msg] of R)if(rt.test(t))return re.test(n)?null:{id:'k_'+nk,msg};
+  return null;
+}
 function validateKyc(v){
   const need=(k,msg)=>!String(v[k]||'').trim()?{id:'k_'+k,msg}:null;
   const fileNeed=(k,msg)=>(!kycState.files[k]&&!(kycRow&&kycRow[FMAP[k]]))?{id:'kf_'+k,msg}:null;
   const checks=[fileNeed('photo','Please add your photo'),need('full_name','Enter your full name'),need('mobile','Enter mobile number'),
-    !/^[0-9]{10}$/.test(v.mobile||'')?{id:'k_mobile',msg:'Mobile number must be 10 digits'}:null,
-    need('whatsapp','Enter WhatsApp number'),!/^[0-9]{10}$/.test(v.whatsapp||'')?{id:'k_whatsapp',msg:'WhatsApp number must be 10 digits'}:null,
+    !/^[6-9][0-9]{9}$/.test(v.mobile||'')?{id:'k_mobile',msg:'Enter a valid 10-digit mobile number'}:null,
+    need('whatsapp','Enter WhatsApp number'),!/^[6-9][0-9]{9}$/.test(v.whatsapp||'')?{id:'k_whatsapp',msg:'Enter a valid 10-digit WhatsApp number'}:null,
     need('address','Enter your address'),need('city','Enter city'),need('state','Enter state'),
-    !/^[0-9]{6}$/.test(v.pincode||'')?{id:'k_pincode',msg:'Pincode must be 6 digits'}:null,
-    need('id_type','Select identity document type'),need('id_number','Enter identity document number'),fileNeed('id_file','Upload identity document'),
-    need('addr_type','Select address proof type'),need('addr_number','Enter address proof number'),fileNeed('addr_file','Upload address proof'),
-    need('bank_holder','Enter account holder name'),!/^[0-9]{6,18}$/.test(v.account_no||'')?{id:'k_account_no',msg:'Enter a valid account number (6–18 digits)'}:null,
+    !/^[1-9][0-9]{5}$/.test(v.pincode||'')?{id:'k_pincode',msg:'Pincode must be exactly 6 digits'}:null,
+    need('id_type','Select identity document type'),need('id_number','Enter identity document number'),docNoBad('id_type','id_number'),fileNeed('id_file','Upload identity document'),
+    need('addr_type','Select address proof type'),need('addr_number','Enter address proof number'),docNoBad('addr_type','addr_number'),fileNeed('addr_file','Upload address proof'),
+    need('bank_holder','Enter account holder name'),!/^[0-9]{9,18}$/.test(v.account_no||'')?{id:'k_account_no',msg:'Account number must be 9–18 digits'}:null,
     !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.ifsc||'')?{id:'k_ifsc',msg:'Enter a valid IFSC code (e.g. SBIN0001234)'}:null,
     !/^[\w.\-]{2,}@[A-Za-z]{2,}$/.test(v.upi||'')?{id:'k_upi',msg:'Enter a valid UPI ID (e.g. name@bank)'}:null,
     fileNeed('passbook','Upload bank passbook image')];
@@ -472,7 +1112,7 @@ function kycPreview(){
   collectKyc();const bad=validateKyc(kycState.vals);
   document.querySelectorAll('.err').forEach(x=>x.classList.remove('err'));
   if(bad){const el=$(bad.id);if(el){el.classList.add('err');el.scrollIntoView({behavior:'smooth',block:'center'})}toast(bad.msg,'warning');return}
-  kycState.step='preview';renderKyc();window.scrollTo({top:0,behavior:'smooth'});
+  kycState.step='preview';renderKyc(true);window.scrollTo({top:0,behavior:'smooth'});
 }
 function kycPreviewHTML(){
   const v=kycState.vals,box=(l,x)=>`<div class="field-box"><small>${l}</small><strong>${esc(x||'—')}</strong></div>`;
@@ -482,9 +1122,9 @@ function kycPreviewHTML(){
   <div class="form-card"><h3>Address</h3><div class="detail">${box('Address',v.address)}${box('City',v.city)}${box('State',v.state)}${box('Pincode',v.pincode)}</div></div>
   <div class="form-card"><h3>Identity &amp; address proof</h3><div class="detail">${box('ID type',v.id_type)}${box('ID number',v.id_number)}${doc('ID document','id_file')}${box('Address proof type',v.addr_type)}${box('Address proof number',v.addr_number)}${doc('Address proof','addr_file')}</div></div>
   <div class="form-card"><h3>Bank</h3><div class="detail">${box('Account holder',v.bank_holder)}${box('Account number',v.account_no)}${box('IFSC',v.ifsc)}${box('UPI ID',v.upi)}${doc('Passbook','passbook')}</div></div>
-  <div style="display:flex;gap:10px"><button class="btn light" style="flex:1;padding:13px" onclick="kycEdit()">← Edit</button><button class="btn primary" style="flex:2;padding:13px;font-weight:700" id="kycSubmitBtn" onclick="kycSubmit()">Confirm &amp; Submit</button></div>`;
+  <div class="kyc-actions"><button class="btn light" style="flex:1;padding:14px" onclick="kycEdit()">← Edit</button><button class="btn primary" style="flex:2;padding:14px" id="kycSubmitBtn" onclick="kycSubmit()">Confirm &amp; Submit</button></div>`;
 }
-function kycEdit(){kycState.step='form';renderKyc();window.scrollTo({top:0,behavior:'smooth'})}
+function kycEdit(){kycState.step='form';renderKyc(true);window.scrollTo({top:0,behavior:'smooth'})}
 async function kycUpload(name){
   const f=kycState.files[name];if(!f)return kycRow[FMAP[name]];
   const path=currentUser.id+'/kyc/'+name+'-'+Date.now()+'.'+extOf(f);
@@ -501,7 +1141,7 @@ async function kycSubmit(){
     if(res.error)throw res.error;
     kycState={step:'form',vals:{},files:{}};
     toast('KYC submitted. It is now pending admin verification.','success');
-    await reloadCollector();await loadKyc();renderAll();window.scrollTo({top:0,behavior:'smooth'});
+    await reloadCollector();await loadKyc();renderAll();renderKyc(true);window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){fail(e,'KYC submit');btn.disabled=false;btn.textContent='Confirm & Submit'}
 }
 function kycReadOnly(st){
@@ -516,15 +1156,43 @@ function kycReadOnly(st){
 
 /* ===================== MY TESTS ===================== */
 function testBadge(t){
-  if(t.approval_status==='rejected')return `<span class="status cancelled">Rejected</span>`;
-  if(t.approval_status==='pending')return `<span class="status pending">Pending approval</span>`;
-  return t.active?`<span class="status accepted">Live</span>`:`<span class="status collection">Inactive</span>`;
+  if(t.approval_status==='rejected')return `<span class="status cancelled">Hidden by admin</span>`;
+    return t.active?`<span class="status accepted">● Live</span>`:`<span class="status collection">○ Off</span>`;
 }
 function renderTests(){
   const root=$('testsRoot');if(!root||!collectorRow)return;
   const lock=!isVerified()?`<div class="kyc-banner warn" onclick="navigate('kyc')">🔒 Complete and get your KYC verified to publish lab tests. Tap here →</div>`:'';
-  const list=myTests.length?myTests.map(t=>`<div class="test-card">${t.bg_image_url?`<img class="test-img" src="${esc(t.bg_image_url)}" alt="">`:'<div class="test-img"></div>'}<div style="flex:1;min-width:0"><b>${esc(t.test_name||t.name)}</b> ${testBadge(t)}<span class="sub">${fmt(t.price)}${Number(t.old_price)>Number(t.price)?` <s>${fmt(t.old_price)}</s>`:''} · ${esc(t.sample_type||'')} · Report ${esc(t.report_time||'')}</span>${t.approval_status==='rejected'&&t.rejection_reason?`<span class="sub" style="color:var(--danger)">Reason: ${esc(t.rejection_reason)}</span>`:''}<div class="toolbar" style="margin-top:8px"><button class="action" onclick="openTestForm('${esc(t.id)}')">Edit</button><button class="action" style="color:var(--danger)" onclick="confirmDeleteTest('${esc(t.id)}')">Delete</button></div></div></div>`).join(''):'<div class="empty">You have not added any test yet. Tap “+ Add Test” to create your first one.</div>';
-  root.innerHTML=lock+`<div class="card">${list}</div>`;
+  const list=myTests.length?myTests.map(t=>{const on=!!t.active,nm=esc(t.test_name||t.name),off=Number(t.off_percent)>0?`<em>${esc(t.off_percent)}% OFF</em>`:'';return `<div class="tcard ${on?'on':'off'}"><div class="tc-top">${t.bg_image_url?`<img class="tc-img" src="${esc(t.bg_image_url)}" alt="">`:'<div class="tc-img"></div>'}<div class="tc-info"><div class="tc-name">${nm}</div><div class="tc-price">${fmt(t.price)}${Number(t.old_price)>Number(t.price)?`<s>${fmt(t.old_price)}</s>`:''}${off}</div><div style="margin-top:7px">${testBadge(t)}</div></div></div><div class="tc-chips">${t.sample_type?`<span>🧪 ${esc(t.sample_type)}</span>`:''}${t.report_time?`<span>⏱ ${esc(t.report_time)}</span>`:''}<span>${t.fasting_required?'🍽 Fasting '+esc(t.fasting_hours||'')+'h':'✅ No fasting'}</span>${(t.items||[]).length?`<span>📋 ${(t.items||[]).length} parameters</span>`:''}${(t.pincodes||[]).length?`<span>📍 ${(t.pincodes||[]).length} pincode${(t.pincodes||[]).length>1?'s':''}</span>`:''}</div>${t.approval_status==='rejected'&&t.rejection_reason?`<span class="sub" style="color:var(--danger)">Reason: ${esc(t.rejection_reason)}</span>`:''}<div class="tc-foot"><div class="sw-wrap" onclick="toggleTest('${esc(t.id)}')"><span class="switch ${on?'on':''}" role="switch" aria-checked="${on}"><i></i></span><span class="sw-label ${on?'on':''}">${on?'Live for users':'Hidden from users'}</span></div><div class="tc-actions"><button class="action" onclick="openTestForm('${esc(t.id)}')">✏️ Edit</button><button class="action" style="color:var(--danger);border-color:#f5c2be" onclick="confirmDeleteTest('${esc(t.id)}')">🗑 Delete</button></div></div></div>`}).join(''):'<div class="empty">You have not added any test yet. Tap “+ Add Test” to create your first one.</div>';
+  root.innerHTML=lock+list;
+}
+async function toggleTest(id){
+  const t=myTests.find(x=>x.id===id);if(!t||t._busy)return;
+  const nv=!t.active;t._busy=true;t.active=nv;renderTests();
+  const {data,error}=await sb.from('lab_tests').update({active:nv}).eq('id',id).select('id,active,approval_status');
+  t._busy=false;
+  if(error||!data||!data.length||data[0].active!==nv){
+    t.active=!nv;renderTests();
+    if(error)fail(error,'Update test');else toast(!data||!data.length?'Could not update this test (no permission)':'Server did not save the change. Please try again','warning');
+    return;
+  }
+  t.approval_status=data[0].approval_status;
+  toast(nv?'Test is now live for users':'Test hidden from users','success');
+}
+function pushState(){
+  const b=$('pushBtn');if(!b)return;
+  let show=false;
+  try{show=('Notification' in window)&&window.MFPush&&!MFPush.isOn()&&Notification.permission!=='denied'}catch(e){}
+  b.style.display=show?'':'none';
+}
+async function enablePush(){
+  if(!window.MFPush){toast('Push is still loading, try again in a moment','warning');return}
+  let r;try{r=await MFPush.enable()}catch(e){r={ok:false,reason:'error'}}
+  try{MFPush.refreshSwitches()}catch(e){}
+  pushState();
+  if(r&&r.ok)toast('Push notifications are ON','success');
+  else if(r&&r.reason==='blocked')toast('Notifications are blocked. Allow them in browser site settings, then try again','warning');
+  else if(r&&r.reason==='not-logged-in')toast('Please log in first','warning');
+  else toast('Could not turn on push ('+((r&&r.reason)||'unknown')+')','warning');
 }
 function splitList(s,re){return String(s||'').split(re).map(x=>x.trim()).filter(Boolean)}
 function openTestForm(id){
@@ -534,9 +1202,9 @@ function openTestForm(id){
   const offer=t&&Number(t.old_price)>Number(t.price)?t.price:'',mrp=t?(Number(t.old_price)>Number(t.price)?t.old_price:t.price):'';
   const hcPaid=t&&Number(t.home_collection_fee)>0;
   openForm(t?'Edit Test':'Add Test',`
-  ${t?'<div class="kyc-banner warn" style="cursor:default">Editing sends this test back for admin approval and takes it offline until approved.</div>':''}
+  ${t?'<div class="kyc-banner info" style="cursor:default">Changes go live for users immediately after you save.</div>':''}
   <div class="form-card"><h3>Basic information</h3>
-   <div class="fg"><label>Test image <b>*</b></label><div class="fileline"><input type="file" id="tf_img" accept="image/*" onchange="pickTestImg(this)"><img id="tf_prev" class="thumb" style="${t&&t.bg_image_url?'':'display:none'}" src="${esc(t&&t.bg_image_url||'')}" alt=""></div></div>
+   <div class="fg"><label>Test image <b>*</b></label><label class="tf-drop ${t&&t.bg_image_url?'has':''}" id="tf_drop"><span class="tf-drop-ico">📷</span><span class="tf-drop-t"><b>${t&&t.bg_image_url?'Change test image':'Tap to upload test image'}</b><span id="tf_dropname">JPG or PNG · shown on your test card</span></span><input type="file" class="tf-file" id="tf_img" accept="image/*" onchange="pickTestImg(this)"></label><img id="tf_prev" class="tf-prev" style="${t&&t.bg_image_url?'display:block':''}" src="${esc(t&&t.bg_image_url||'')}" alt=""></div>
    <div class="fg"><label>Test name <b>*</b></label><input class="input" id="tf_name" maxlength="80" placeholder="e.g. Complete Blood Count (CBC)" value="${esc(t?(t.test_name||t.name):'')}"></div>
    <div class="fg"><label>Short description (1–2 lines) <b>*</b></label><textarea class="textarea" id="tf_desc" maxlength="200" style="min-height:70px" placeholder="What this test is and why it is done">${esc(g('description'))}</textarea></div>
    <div class="fgrid"><div class="fg"><label>Original price (₹) <b>*</b></label><input class="input" id="tf_mrp" type="number" min="1" inputmode="decimal" value="${esc(mrp)}"></div><div class="fg"><label>Offer price (₹) — optional</label><input class="input" id="tf_offer" type="number" min="1" inputmode="decimal" value="${esc(offer)}"></div></div>
@@ -550,10 +1218,10 @@ function openTestForm(id){
   <div class="form-card"><h3>Where is this test available?</h3>
    <div class="fg"><label>Pincodes (comma or space separated) <b>*</b></label><textarea class="textarea" id="tf_pins" style="min-height:70px" placeholder="733140, 733101">${esc((t&&t.pincodes||[]).join(', '))}</textarea></div>
    <div class="fg"><label>Areas / localities (optional)</label><input class="input" id="tf_areas" placeholder="e.g. Raiganj, Kaliaganj" value="${esc((t&&t.areas||[]).join(', '))}"></div></div>
-  <p class="hint" style="margin-bottom:12px">After you submit, the test goes to admin for approval. Once approved it becomes visible to users.</p>
-  <div class="modal-foot"><button class="btn light" onclick="closeForm()">Cancel</button><button class="btn primary" id="tf_save" onclick="saveTest()">${t?'Save &amp; resubmit':'Submit for approval'}</button></div>`);
+  <p class="hint" style="margin-bottom:12px">Once you save, this test is live instantly and visible to users in their panel.</p>
+  <div class="modal-foot"><button class="btn light" onclick="closeForm()">Cancel</button><button class="btn primary" id="tf_save" onclick="saveTest()">${t?'Save changes':'Publish test'}</button></div>`);
 }
-function pickTestImg(input){const f=input.files[0];if(!f)return;const e=fileOk(f,true);if(e){toast(e,'warning');input.value='';return}testImgFile=f;const p=$('tf_prev');p.src=URL.createObjectURL(f);p.style.display='block'}
+function pickTestImg(input){const f=input.files[0];if(!f)return;const e=fileOk(f,true);if(e){toast(e,'warning');input.value='';return}testImgFile=f;const p=$('tf_prev');p.src=URL.createObjectURL(f);p.style.display='block';const d=$('tf_drop');if(d)d.classList.add('has');const n=$('tf_dropname');if(n)n.textContent='✓ '+f.name}
 async function saveTest(){
   const t=testEditId?myTests.find(x=>x.id===testEditId):null;
   const name=$('tf_name').value.trim(),desc=$('tf_desc').value.trim(),mrp=parseFloat($('tf_mrp').value),offerRaw=$('tf_offer').value.trim(),offer=offerRaw?parseFloat(offerRaw):null,paid=$('tf_hc').value==='paid',fee=paid?parseFloat($('tf_hcfee').value):0,hrs=parseInt($('tf_hours').value,10),sample=$('tf_sample').value,fast=$('tf_fast').value==='yes',fh=fast?parseInt($('tf_fasthrs').value,10):0,params=splitList($('tf_params').value,/[\n,]+/),pins=[...new Set(splitList($('tf_pins').value,/[\s,]+/))],areas=splitList($('tf_areas').value,/,/);
@@ -570,7 +1238,7 @@ async function saveTest(){
   if(fast&&!(fh>=1&&fh<=24))return bad('tf_fasthrs','Enter fasting hours (1–24)');
   if(!params.length)return bad('tf_params','Add at least one parameter');
   if(!pins.length||pins.some(p=>!/^[0-9]{6}$/.test(p)))return bad('tf_pins','Enter valid 6-digit pincodes');
-  const btn=$('tf_save');btn.disabled=true;btn.textContent='Submitting…';
+  const btn=$('tf_save');btn.disabled=true;btn.textContent='Publishing…';
   try{
     let img=t&&t.bg_image_url||null;
     if(testImgFile){
@@ -578,18 +1246,229 @@ async function saveTest(){
       const up=await sb.storage.from('products').upload(path,testImgFile,{contentType:testImgFile.type,upsert:false});
       if(up.error)throw up.error;img=sb.storage.from('products').getPublicUrl(path).data.publicUrl;
     }
-    const price=offer!==null?offer:mrp,row={test_name:name,name:name,description:desc,mrp:mrp,offer_price:offer,old_price:mrp,price:price,off_percent:offer!==null?Math.round((mrp-offer)/mrp*100):0,home_collection:true,home_collection_fee:fee,report_hours:hrs,report_time:'Within '+hrs+' hours',sample_type:sample,fasting_required:fast,fasting_hours:fh,fasting:fast?'before':'after',instructions:fast?'Fasting required for '+fh+' hours':'No fasting required',items:params,pincodes:pins,areas:areas,bg_image_url:img};
-    const res=t?await sb.from('lab_tests').update(row).eq('id',t.id):await sb.from('lab_tests').insert([{...row,test_code:'LAB-'+Date.now(),collector_id:collectorRow.id}]);
+    const price=offer!==null?offer:mrp,row={test_name:name,name:name,description:desc,mrp:mrp,offer_price:offer,old_price:mrp,price:price,off_percent:offer!==null?Math.round((mrp-offer)/mrp*100):0,home_collection:true,home_collection_fee:fee,report_hours:hrs,report_time:'Within '+hrs+' hours',sample_type:sample,fasting_required:fast,fasting_hours:fh,fasting:fast?'before':'after',instructions:fast?'Fasting required for '+fh+' hours':'No fasting required',items:params,pincodes:pins,areas:areas,bg_image_url:img,approval_status:'approved'};
+    const res=t?await sb.from('lab_tests').update(row).eq('id',t.id):await sb.from('lab_tests').insert([{...row,active:true,test_code:'LAB-'+Date.now(),collector_id:collectorRow.id}]);
     if(res.error)throw res.error;
-    toast('Test submitted for admin approval','success');closeForm();await loadTests();renderTests();
-  }catch(e){fail(e,'Save test');btn.disabled=false;btn.textContent=t?'Save & resubmit':'Submit for approval'}
+    toast(t?'Test updated and live':'Test published and live for users','success');closeForm();await loadTests();renderTests();
+  }catch(e){fail(e,'Save test');btn.disabled=false;btn.textContent=t?'Save changes':'Publish test'}
 }
 function confirmDeleteTest(id){const t=myTests.find(x=>x.id===id);if(!t)return;showModal('Delete test?',`<p style="font-size:14px">Delete <b>${esc(t.test_name||t.name)}</b>? This cannot be undone.</p>`,'Delete',async()=>{const {error}=await sb.from('lab_tests').delete().eq('id',id);if(error){fail(error,'Delete test');return}toast('Test deleted','success');closeModal();await loadTests();renderTests()})}
 
 document.addEventListener('DOMContentLoaded',init);
+document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>{try{pushState()}catch(e){}},1200)});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)try{pushState()}catch(e){}});
 window.addEventListener('resize',()=>{if(window.innerWidth>760)closeSide()});
 
 </script>
 <script src="push-notifications.js?v=4" defer></script>
+<script>
+/* ===== Language (English / বাংলা / हिन्दी) + dark/light toggle + Profile settings + bottom nav ===== */
+(function(){
+  var LK='mfb_lang',TK='mfb_theme',LI={bn:0,hi:1},NAMES={en:'EN',bn:'বাং',hi:'हिं'};
+  var D={
+'Sample Collection Partner':['স্যাম্পল কালেকশন পার্টনার','सैंपल कलेक्शन पार्टनर'],'Dashboard':['ড্যাশবোর্ড','डैशबोर्ड'],
+'New Collection Requests':['নতুন কালেকশন অনুরোধ','नए कलेक्शन अनुरोध'],'My Collections':['আমার কালেকশন','मेरे कलेक्शन'],'My Tests':['আমার টেস্ট','मेरे टेस्ट'],
+'Reports':['রিপোর্ট','रिपोर्ट'],"Today's Collections":['আজকের কালেকশন','आज के कलेक्शन'],'Collection History':['কালেকশনের ইতিহাস','कलेक्शन इतिहास'],
+'Patients':['রোগী','मरीज़'],'Earnings & Settlement':['আয় ও সেটেলমেন্ট','कमाई और सेटलमेंट'],'Notifications':['নোটিফিকেশন','सूचनाएं'],
+'KYC & Documents':['কেওয়াইসি ও নথি','केवाईसी और दस्तावेज़'],'Profile & Settings':['প্রোফাইল ও সেটিংস','प्रोफ़ाइल और सेटिंग्स'],'Help & Support':['সাহায্য ও সহায়তা','मदद और सहायता'],
+'Loading…':['লোড হচ্ছে…','लोड हो रहा है…'],'● Loading…':['● লোড হচ্ছে…','● लोड हो रहा है…'],'Logout':['লগআউট','लॉग आउट'],'Partner Dashboard':['পার্টনার ড্যাশবোর্ড','पार्टनर डैशबोर्ड'],
+'Open menu':['মেনু খুলুন','मेन्यू खोलें'],'Close menu':['মেনু বন্ধ করুন','मेन्यू बंद करें'],'Enable push notifications':['পুশ নোটিফিকেশন চালু করুন','पुश सूचनाएं चालू करें'],
+'Here’s what’s happening with your sample collections today.':['আজ আপনার স্যাম্পল কালেকশনে কী হচ্ছে তা দেখুন।','आज आपके सैंपल कलेक्शन में क्या हो रहा है देखें।'],
+'New Requests':['নতুন অনুরোধ','नए अनुरोध'],'Collection Pending':['কালেকশন বাকি','कलेक्शन बाकी'],'Completed Today':['আজ সম্পন্ন','आज पूर्ण'],'Today Earnings':['আজকের আয়','आज की कमाई'],
+'Recent Collections':['সাম্প্রতিক কালেকশন','हाल के कलेक्शन'],'View All →':['সব দেখুন →','सभी देखें →'],'Booking':['বুকিং','बुकिंग'],'Patient':['রোগী','मरीज़'],'Test':['টেস্ট','टेस्ट'],
+'Status':['অবস্থা','स्थिति'],'Loading collections…':['কালেকশন লোড হচ্ছে…','कलेक्शन लोड हो रहे हैं…'],'Quick Actions':['দ্রুত কাজ','त्वरित कार्य'],
+'View collection requests':['কালেকশন অনুরোধ দেখুন','कलेक्शन अनुरोध देखें'],"See today's route and visits":['আজকের রুট ও ভিজিট দেখুন','आज का रूट और विज़िट देखें'],
+'Earnings':['আয়','कमाई'],'View collection earnings':['কালেকশনের আয় দেখুন','कलेक्शन की कमाई देखें'],'Profile':['প্রোফাইল','प्रोफ़ाइल'],'Manage your account':['আপনার অ্যাকাউন্ট পরিচালনা করুন','अपना खाता प्रबंधित करें'],
+'Recent Activity':['সাম্প্রতিক কার্যকলাপ','हाल की गतिविधि'],'Loading activity…':['কার্যকলাপ লোড হচ্ছে…','गतिविधि लोड हो रही है…'],
+'Accept sample collection jobs that are waiting for a collector.':['কালেক্টরের অপেক্ষায় থাকা স্যাম্পল কালেকশন কাজ গ্রহণ করুন।','कलेक्टर की प्रतीक्षा में सैंपल कलेक्शन काम स्वीकार करें।'],
+'Schedule':['সময়সূচি','शेड्यूल'],'Amount':['পরিমাণ','राशि'],'Bookings assigned to you and their current collection status.':['আপনাকে দেওয়া বুকিং ও তাদের বর্তমান কালেকশনের অবস্থা।','आपको सौंपी गई बुकिंग और उनकी मौजूदा कलेक्शन स्थिति।'],
+'Search patient/test':['রোগী/টেস্ট খুঁজুন','मरीज़/टेस्ट खोजें'],'Search patient':['রোগী খুঁজুন','मरीज़ खोजें'],'All':['সব','सभी'],'Confirmed':['নিশ্চিত','पुष्ट'],
+'Sample Collected':['স্যাম্পল সংগৃহীত','सैंपल लिया गया'],'Processing':['প্রক্রিয়াধীন','प्रोसेसिंग'],'Completed':['সম্পন্ন','पूर्ण'],'Cancelled':['বাতিল','रद्द'],
+'New Request':['নতুন অনুরোধ','नया अनुरोध'],'Accepted':['গৃহীত','स्वीकृत'],'Date':['তারিখ','तारीख'],'Your assigned collection visits for today.':['আজকের জন্য আপনাকে দেওয়া কালেকশন ভিজিট।','आज के लिए आपको सौंपी गई कलेक्शन विज़िट।'],
+"Today's visits":['আজকের ভিজিট','आज की विज़िट'],'Collected':['সংগৃহীত','लिया गया'],'Pending':['অপেক্ষমাণ','लंबित'],'Time':['সময়','समय'],'Location':['অবস্থান','स्थान'],
+'Completed and past sample collection records.':['সম্পন্ন ও অতীত স্যাম্পল কালেকশনের রেকর্ড।','पूर्ण और पिछले सैंपल कलेक्शन के रिकॉर्ड।'],
+'Patients connected to your assigned collection bookings.':['আপনার কালেকশন বুকিংয়ের সাথে যুক্ত রোগী।','आपकी कलेक्शन बुकिंग से जुड़े मरीज़।'],
+'Phone':['ফোন','फ़ोन'],'City':['শহর','शहर'],'Bookings':['বুকিং','बुकिंग'],'Latest Status':['সর্বশেষ অবস্থা','नवीनतम स्थिति'],
+'Today\'s earnings (after 8%)':['আজকের আয় (৮% এর পর)','आज की कमाई (8% के बाद)'],'Completed collections':['সম্পন্ন কালেকশন','पूर्ण कलेक्शन'],'Total earnings (after 8%)':['মোট আয় (৮% এর পর)','कुल कमाई (8% के बाद)'],
+'Pending settlement':['অপেক্ষমাণ সেটেলমেন্ট','लंबित सेटलमेंट'],'Paid':['পরিশোধিত','भुगतान हुआ'],'Completed Collection Earnings':['সম্পন্ন কালেকশনের আয়','पूर्ण कलेक्शन की कमाई'],
+'Platform fee':['প্ল্যাটফর্ম ফি','प्लेटफ़ॉर्म शुल्क'],'You get':['আপনি পাবেন','आपको मिलेगा'],
+'Updates related to your collection work and account.':['আপনার কালেকশন কাজ ও অ্যাকাউন্ট সংক্রান্ত আপডেট।','आपके कलेक्शन काम और खाते से जुड़े अपडेट।'],
+'No new notifications':['কোনো নতুন নোটিফিকেশন নেই','कोई नई सूचना नहीं'],'New booking and collection updates will appear here.':['নতুন বুকিং ও কালেকশন আপডেট এখানে দেখা যাবে।','नई बुकिंग और कलेक्शन अपडेट यहाँ दिखेंगे।'],
+'Add the lab tests you offer. Switch a test ON to show it to users, OFF to hide it.':['আপনার ল্যাব টেস্ট যোগ করুন। ব্যবহারকারীদের দেখাতে ON, লুকাতে OFF করুন।','अपने लैब टेस्ट जोड़ें। उपयोगकर्ताओं को दिखाने के लिए ON, छिपाने के लिए OFF करें।'],
+'+ Add Test':['+ টেস্ট যোগ করুন','+ टेस्ट जोड़ें'],
+'Upload the report (PDF or image) once the report time after the booking has passed. Uploads go to admin automatically.':['বুকিংয়ের পর রিপোর্টের সময় পার হলে রিপোর্ট (PDF বা ছবি) আপলোড করুন। আপলোড নিজে থেকেই অ্যাডমিনের কাছে যায়।','बुकिंग के बाद रिपोर्ट का समय बीतने पर रिपोर्ट (PDF या फ़ोटो) अपलोड करें। अपलोड अपने आप एडमिन को जाता है।'],
+'One-time identity and bank verification. Required before you can publish lab tests.':['একবারের পরিচয় ও ব্যাংক যাচাই। ল্যাব টেস্ট প্রকাশের আগে প্রয়োজন।','एक बार की पहचान और बैंक सत्यापन। लैब टेस्ट प्रकाशित करने से पहले ज़रूरी।'],
+'Your sample collection partner profile and availability.':['আপনার স্যাম্পল কালেকশন পার্টনার প্রোফাইল ও উপলব্ধতা।','आपकी सैंपल कलेक्शन पार्टनर प्रोफ़ाइल और उपलब्धता।'],
+'Name':['নাম','नाम'],'Collector code':['কালেক্টর কোড','कलेक्टर कोड'],'WhatsApp':['হোয়াটসঅ্যাপ','व्हाट्सऐप'],'Email':['ইমেইল','ईमेल'],'Address':['ঠিকানা','पता'],
+'Push notifications':['পুশ নোটিফিকেশন','पुश सूचनाएं'],'Availability':['উপলব্ধতা','उपलब्धता'],'Toggle Online / Offline':['অনলাইন / অফলাইন পাল্টান','ऑनलाइन / ऑफ़लाइन बदलें'],
+'Get an alert on your phone the moment a patient books one of your tests, even when this page is closed.':['রোগী আপনার কোনো টেস্ট বুক করলেই ফোনে অ্যালার্ট পান, এই পেজ বন্ধ থাকলেও।','मरीज़ के आपका कोई टेस्ट बुक करते ही फ़ोन पर अलर्ट पाएं, यह पेज बंद होने पर भी।'],
+'Get help with collection bookings, payments, patients, or your account.':['কালেকশন বুকিং, পেমেন্ট, রোগী বা অ্যাকাউন্ট নিয়ে সাহায্য নিন।','कलेक्शन बुकिंग, भुगतान, मरीज़ या खाते के लिए मदद लें।'],
+'Common Help':['সাধারণ সাহায্য','सामान्य मदद'],'Collection issue':['কালেকশন সমস্যা','कलेक्शन समस्या'],'Payment issue':['পেমেন্ট সমস্যা','भुगतान समस्या'],
+'For patient unavailable, address, sample, or booking problems.':['রোগী না থাকা, ঠিকানা, স্যাম্পল বা বুকিং সমস্যার জন্য।','मरीज़ के न मिलने, पते, सैंपल या बुकिंग की समस्या के लिए।'],
+'For missing or incorrect collection earnings.':['কালেকশনের আয় না পেলে বা ভুল হলে।','कलेक्शन की कमाई न मिलने या गलत होने पर।'],
+'KYC/account issue':['কেওয়াইসি/অ্যাকাউন্ট সমস্যা','केवाईसी/खाता समस्या'],'For profile verification or account access problems.':['প্রোফাইল যাচাই বা অ্যাকাউন্টে ঢোকার সমস্যার জন্য।','प्रोफ़ाइल सत्यापन या खाते तक पहुँच की समस्या के लिए।'],
+'Contact Support':['সহায়তায় যোগাযোগ','सहायता से संपर्क'],'KYC / account issue':['কেওয়াইসি / অ্যাকাউন্ট সমস্যা','केवाईसी / खाता समस्या'],'Test approval':['টেস্ট অনুমোদন','टेस्ट अनुमोदन'],'Other':['অন্যান্য','अन्य'],
+'Describe your issue...':['আপনার সমস্যা লিখুন...','अपनी समस्या लिखें...'],'Send Support Request':['সহায়তার অনুরোধ পাঠান','सहायता अनुरोध भेजें'],'Booking Details':['বুকিংয়ের বিবরণ','बुकिंग विवरण'],'Close':['বন্ধ করুন','बंद करें'],
+'Appearance & Language':['চেহারা ও ভাষা','दिखावट और भाषा'],'Theme':['থিম','थीम'],'Light':['লাইট','लाइट'],'Dark':['ডার্ক','डार्क'],'System':['সিস্টেম','सिस्टम'],'Language':['ভাষা','भाषा'],
+'Security':['নিরাপত্তা','सुरक्षा'],'New password (min 8)':['নতুন পাসওয়ার্ড (কমপক্ষে ৮)','नया पासवर्ड (कम से कम 8)'],'Confirm password':['পাসওয়ার্ড নিশ্চিত করুন','पासवर्ड की पुष्टि करें'],
+'Change password':['পাসওয়ার্ড বদলান','पासवर्ड बदलें'],'Logout from all devices':['সব ডিভাইস থেকে লগআউট','सभी डिवाइस से लॉग आउट'],'Home':['হোম','होम'],'More':['আরও','और'],'Requests':['অনুরোধ','अनुरोध'],'Today':['আজ','आज'],
+'Password changed':['পাসওয়ার্ড বদলানো হয়েছে','पासवर्ड बदल दिया गया'],'Passwords do not match':['পাসওয়ার্ড মিলছে না','पासवर्ड मेल नहीं खाते'],'Password must be at least 8 characters':['পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে','पासवर्ड कम से कम 8 अक्षरों का होना चाहिए'],
+'Toggle dark mode':['ডার্ক মোড পাল্টান','डार्क मोड बदलें'],'Change language':['ভাষা পাল্টান','भाषा बदलें'],
+'You are now Online':['আপনি এখন অনলাইনে','आप अब ऑनलाइन हैं'],'You are now Offline':['আপনি এখন অফলাইনে','आप अब ऑफ़लाइन हैं'],
+'● Online — Tap to go offline':['● অনলাইন — অফলাইন হতে ট্যাপ করুন','● ऑनलाइन — ऑफ़लाइन होने के लिए टैप करें'],'● Offline — Tap to go online':['● অফলাইন — অনলাইন হতে ট্যাপ করুন','● ऑफ़लाइन — ऑनलाइन होने के लिए टैप करें'],
+'You are currently Online and can receive collection requests.':['আপনি এখন অনলাইনে আছেন, কালেকশন অনুরোধ পাবেন।','आप अभी ऑनलाइन हैं और कलेक्शन अनुरोध पा सकते हैं।'],
+'You are currently Offline and will not be treated as available for new collection requests.':['আপনি এখন অফলাইনে আছেন, নতুন কালেকশন অনুরোধের জন্য উপলব্ধ ধরা হবে না।','आप अभी ऑफ़लाइन हैं और नए कलेक्शन अनुरोधों के लिए उपलब्ध नहीं माने जाएंगे।'],
+'● Verified Collector':['● যাচাইকৃত কালেক্টর','● सत्यापित कलेक्टर'],'● Active Collector':['● সক্রিয় কালেক্টর','● सक्रिय कलेक्टर'],'● Inactive':['● নিষ্ক্রিয়','● निष्क्रिय'],
+'No new requests':['কোনো নতুন অনুরোধ নেই','कोई नया अनुरोध नहीं'],'Assigned collection jobs':['আপনাকে দেওয়া কালেকশন কাজ','आपको सौंपे गए कलेक्शन काम'],'Completed today':['আজ সম্পন্ন','आज पूर्ण'],
+'Collection accepted':['কালেকশন গৃহীত','कलेक्शन स्वीकार किया'],'Collection status updated':['কালেকশনের অবস্থা আপডেট হয়েছে','कलेक्शन स्थिति अपडेट हुई'],'Test deleted':['টেস্ট মুছে ফেলা হয়েছে','टेस्ट हटाया गया'],
+'Please describe your issue':['আপনার সমস্যা লিখুন','अपनी समस्या लिखें'],'Support request sent. Our team will contact you.':['সহায়তার অনুরোধ পাঠানো হয়েছে। আমাদের টিম যোগাযোগ করবে।','सहायता अनुरोध भेजा गया। हमारी टीम संपर्क करेगी।'],
+'Please complete KYC and get it verified first':['আগে কেওয়াইসি সম্পন্ন করে যাচাই করান','पहले केवाईसी पूरा करें और सत्यापित कराएं'],'Please log in first':['আগে লগইন করুন','पहले लॉग इन करें'],
+'This request is no longer available':['এই অনুরোধ আর উপলব্ধ নেই','यह अनुरोध अब उपलब्ध नहीं है'],'Push notifications are ON':['পুশ নোটিফিকেশন চালু আছে','पुश सूचनाएं चालू हैं'],
+'Report uploaded. Sent to admin — earning added as Pending.':['রিপোর্ট আপলোড হয়েছে। অ্যাডমিনের কাছে গেছে — আয় অপেক্ষমাণ হিসেবে যোগ হয়েছে।','रिपोर्ट अपलोड हुई। एडमिन को भेजी गई — कमाई लंबित के रूप में जुड़ी।'],
+'KYC submitted. It is now pending admin verification.':['কেওয়াইসি জমা হয়েছে। এখন অ্যাডমিন যাচাইয়ের অপেক্ষায়।','केवाईसी जमा हुआ। अब एडमिन सत्यापन की प्रतीक्षा में।'],
+'Logout?':['লগআউট?','लॉग आउट?'],'Are you sure you want to logout from this account?':['আপনি কি নিশ্চিত যে এই অ্যাকাউন্ট থেকে লগআউট করবেন?','क्या आप इस खाते से लॉग आउट करना चाहते हैं?'],'Cancel':['বাতিল','रद्द करें'],
+'Upload Report':['রিপোর্ট আপলোড','रिपोर्ट अपलोड करें'],'Uploaded reports':['আপলোড করা রিপোর্ট','अपलोड की गई रिपोर्ट'],'View / Accept':['দেখুন / গ্রহণ করুন','देखें / स्वीकार करें'],'View':['দেখুন','देखें'],'Open':['খুলুন','खोलें'],
+'Edit':['এডিট','संपादित करें'],'Delete':['মুছুন','हटाएं'],'Call patient':['রোগীকে কল করুন','मरीज़ को कॉल करें'],'View prescription':['প্রেসক্রিপশন দেখুন','प्रिस्क्रिप्शन देखें'],'Prescription':['প্রেসক্রিপশন','प्रिस्क्रिप्शन'],
+'No prescription uploaded':['কোনো প্রেসক্রিপশন আপলোড হয়নি','कोई प्रिस्क्रिप्शन अपलोड नहीं हुआ'],'Free Home Collection':['বিনামূল্যে হোম কালেকশন','मुफ़्त होम कलेक्शन'],'Extra charge applies':['অতিরিক্ত চার্জ প্রযোজ্য','अतिरिक्त शुल्क लागू'],
+'No fasting needed':['খালি পেটে থাকার দরকার নেই','खाली पेट की ज़रूरत नहीं'],'Yes, fasting required':['হ্যাঁ, খালি পেটে থাকতে হবে','हाँ, खाली पेट ज़रूरी है'],'Live':['লাইভ','लाइव'],'Off':['বন্ধ','बंद'],
+'Basic information':['মূল তথ্য','बुनियादी जानकारी'],'Documents':['নথি','दस्तावेज़'],'Personal':['ব্যক্তিগত','व्यक्तिगत'],'Identity & address proof':['পরিচয় ও ঠিকানার প্রমাণ','पहचान और पते का प्रमाण'],'Bank':['ব্যাংক','बैंक'],
+'Confirm & Submit':['নিশ্চিত করে জমা দিন','पुष्टि करें और जमा करें'],'Preview details →':['বিবরণ দেখুন →','विवरण देखें →'],'Select…':['বাছুন…','चुनें…'],'Slot':['স্লট','स्लॉट'],'Payment':['পেমেন্ট','भुगतान'],'Booking ID':['বুকিং আইডি','बुकिंग आईडी']
+};
+  var GREET={'Good day':['শুভ দিন','शुभ दिन'],'Good morning':['সুপ্রভাত','सुप्रभात'],'Good afternoon':['শুভ অপরাহ্ন','शुभ दोपहर'],'Good evening':['শুভ সন্ধ্যা','शुभ संध्या']};
+  var ATTRS=['placeholder','title','aria-label'];
+  function lget(){try{return localStorage.getItem(LK)||'en'}catch(e){return'en'}}
+  function curLang(){var l=lget();return LI.hasOwnProperty(l)?l:'en'}
+  function look(core,i){
+    if(D[core])return D[core][i];
+    var m;
+    if((m=core.match(/^(Good (?:day|morning|afternoon|evening)), (.+)$/))&&GREET[m[1]])return GREET[m[1]][i]+', '+m[2];
+    if((m=core.match(/^(\d+) waiting for you$/)))return i===0?m[1]+'টি আপনার অপেক্ষায়':m[1]+' आपकी प्रतीक्षा में';
+    if((m=core.match(/^After (\d+)% platform fee$/)))return i===0?'প্ল্যাটফর্ম ফি '+m[1]+'% এর পর':'प्लेटफ़ॉर्म शुल्क '+m[1]+'% के बाद';
+    if((m=core.match(/^Collector code · (.+)$/)))return (i===0?'কালেক্টর কোড · ':'कलेक्टर कोड · ')+m[1];
+    if(core==='✅ KYC Verified')return i===0?'✅ কেওয়াইসি যাচাইকৃত':'✅ केवाईसी सत्यापित';
+    if(core==='⏳ KYC Pending')return i===0?'⏳ কেওয়াইসি অপেক্ষমাণ':'⏳ केवाईसी लंबित';
+    if(core==='❌ KYC Rejected')return i===0?'❌ কেওয়াইসি প্রত্যাখ্যাত':'❌ केवाईसी अस्वीकृत';
+    if(core==='⚠️ KYC not completed')return i===0?'⚠️ কেওয়াইসি সম্পূর্ণ হয়নি':'⚠️ केवाईसी पूरा नहीं';
+    return null;
+  }
+  function tr(str,lang){
+    var i=LI[lang];if(i===undefined)return str;
+    var m=str.match(/^(\s*)([\s\S]*?)(\s*)$/),lead=m[1],core=m[2].replace(/\s+/g,' '),trail=m[3];
+    if(!core)return str;
+    var hit=look(core,i);if(hit!==null)return lead+hit+trail;
+    var s=core.match(/^([^A-Za-z0-9\u0900-\u09FF"'(]+)([\s\S]+)$/);   /* leading emoji / arrows / ticks */
+    if(s){hit=look(s[2],i);if(hit!==null)return lead+s[1]+hit+trail}
+    var e=core.match(/^([\s\S]+?)(\s*[^A-Za-z0-9\u0900-\u09FF.!?…)]+)$/); /* trailing emoji */
+    if(e){hit=look(e[1],i);if(hit!==null)return lead+hit+e[2]+trail}
+    return str;
+  }
+  var tn=new WeakMap(),an=new WeakMap();
+  function doText(n,lang){
+    var r=tn.get(n),cur=n.nodeValue;
+    if(r&&cur===r.out){if(lang==='en'){n.nodeValue=r.orig;tn.delete(n);return}var o2=tr(r.orig,lang);if(o2!==r.out){n.nodeValue=o2;r.out=o2}return}
+    if(lang==='en')return;
+    var out=tr(cur,lang);if(out!==cur){tn.set(n,{orig:cur,out:out});n.nodeValue=out}else if(r)tn.delete(n);
+  }
+  function doAttr(el,lang){
+    ATTRS.forEach(function(a){
+      var v=el.getAttribute(a);if(v===null)return;
+      var mm=an.get(el)||{},r=mm[a];
+      if(r&&v===r.out){if(lang==='en'){el.setAttribute(a,r.orig);delete mm[a];return}var o2=tr(r.orig,lang);if(o2!==r.out){el.setAttribute(a,o2);r.out=o2}return}
+      if(lang==='en')return;
+      var out=tr(v,lang);if(out!==v){mm[a]={orig:v,out:out};an.set(el,mm);el.setAttribute(a,out)}
+    });
+  }
+  var SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,NOSCRIPT:1};
+  function walk(root,lang){
+    if(root.nodeType===3){if(!(root.parentNode&&SKIP[root.parentNode.nodeName]))doText(root,lang);return}
+    if(root.nodeType!==1||SKIP[root.nodeName]||(root.closest&&root.closest('.notranslate,[translate=no]')))return;
+    doAttr(root,lang);
+    var c=root.firstChild;while(c){walk(c,lang);c=c.nextSibling}
+  }
+  var obs=null,queue=new Set(),raf=0;
+  function start(){obs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:ATTRS})}
+  function flush(){raf=0;var lang=curLang();if(obs)obs.disconnect();queue.forEach(function(n){if(n.isConnected!==false)walk(n,lang)});queue.clear();if(obs)start()}
+  function onMut(ms){
+    if(curLang()==='en')return;
+    ms.forEach(function(m){if(m.type==='childList')m.addedNodes.forEach(function(n){queue.add(n)});else queue.add(m.target)});
+    if(!raf)raf=requestAnimationFrame(flush);
+  }
+  function syncLangUi(){
+    var l=curLang(),c=document.getElementById('langCode');if(c)c.textContent=NAMES[l];
+    document.querySelectorAll('#langMenu button').forEach(function(b){b.classList.toggle('on',b.dataset.l===l)});
+  }
+  function applyLang(){
+    var lang=curLang();document.documentElement.lang=lang;
+    if(obs)obs.disconnect();walk(document.body,lang);if(obs)start();syncLangUi();
+  }
+  window.mfLang=function(v){
+    try{localStorage.setItem(LK,LI.hasOwnProperty(v)?v:'en')}catch(e){}
+    var mn=document.getElementById('langMenu');if(mn)mn.classList.remove('open');
+    applyLang();
+    try{if(typeof renderHub==='function'&&document.getElementById('hubView')&&document.getElementById('hubView').style.display!=='none')renderHub()}catch(e){}
+  };
+  window.mfLangMenu=function(ev){
+    if(ev)ev.stopPropagation();
+    var mn=document.getElementById('langMenu');if(mn)mn.classList.toggle('open');
+  };
+  document.addEventListener('click',function(e){var mn=document.getElementById('langMenu');if(mn&&!e.target.closest('.mf-lang'))mn.classList.remove('open')});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){var mn=document.getElementById('langMenu');if(mn)mn.classList.remove('open')}});
+
+  /* ---- dark / light toggle ---- */
+  function isDark(){return document.documentElement.getAttribute('data-theme')==='dark'}
+  function syncThemeUi(){
+    var b=document.getElementById('themeBtn');if(b)b.textContent=isDark()?'☀️':'🌙';
+    var mt=document.querySelector('meta[name=theme-color]');if(mt)mt.setAttribute('content',isDark()?'#0e1512':'#087f5b');
+  }
+  window.mfToggleTheme=function(){
+    var nv=isDark()?'light':'dark';
+    try{localStorage.setItem(TK,nv)}catch(e){}
+    document.documentElement.setAttribute('data-theme',nv);syncThemeUi();
+    try{if(typeof renderHub==='function'&&document.getElementById('hubView')&&document.getElementById('hubView').style.display!=='none')renderHub()}catch(e){}
+  };
+  new MutationObserver(syncThemeUi).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){
+    var t='light';try{t=localStorage.getItem(TK)||'light'}catch(e){}
+    if(t==='system'){document.documentElement.setAttribute('data-theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}
+  })}catch(e){}
+
+  /* ---- theme chips (Profile) + system option ---- */
+  function themePref(){var t='light';try{t=localStorage.getItem(TK)||'light'}catch(e){}return t}
+  function syncChips(){
+    var t=themePref(),l=curLang();
+    document.querySelectorAll('#mfThemeChips button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});
+    document.querySelectorAll('#mfLangChips button').forEach(function(b){b.classList.toggle('on',b.dataset.l===l)});
+  }
+  window.mfTheme=function(v){
+    try{localStorage.setItem(TK,v)}catch(e){}
+    var r=v==='system'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):v;
+    document.documentElement.setAttribute('data-theme',r);syncThemeUi();syncChips();
+  };
+  var _syncLang=syncLangUi;syncLangUi=function(){_syncLang();syncChips()};
+  var _tt=window.mfToggleTheme;window.mfToggleTheme=function(){_tt();syncChips()};
+  /* ---- security card ---- */
+  window.mfPw=async function(){
+    var a=document.getElementById('mfPw1').value,b=document.getElementById('mfPw2').value;
+    if(a.length<8)return toast('Password must be at least 8 characters','warning');
+    if(a!==b)return toast('Passwords do not match','warning');
+    var r=await sb.auth.updateUser({password:a});
+    if(r.error)return toast(r.error.message||'Could not change password','error');
+    document.getElementById('mfPw1').value='';document.getElementById('mfPw2').value='';toast('Password changed','success');
+  };
+  window.mfLogoutAll=async function(){
+    if(!confirm('Logout from all devices, including this one?'))return;
+    try{if(typeof mfBeforeLogout==='function')await mfBeforeLogout()}catch(e){}
+    try{await sb.auth.signOut({scope:'global'})}catch(e){}
+    location.replace('home.html');
+  };
+  /* ---- mobile bottom nav ---- */
+  function syncBnav(p){document.querySelectorAll('#bnav button[data-p]').forEach(function(b){b.classList.toggle('on',b.dataset.p===p)})}
+  var _nav=window.navigate;
+  if(typeof _nav==='function'){window.navigate=function(p){var r=_nav.apply(this,arguments);if(r!==false)syncBnav(p);return r}}
+  syncBnav('dashboard');
+  function init(){obs=new MutationObserver(onMut);syncThemeUi();applyLang();start()}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
 </body>
 </html>

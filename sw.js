@@ -1,24 +1,14 @@
-﻿// ==========================================
-// MediFinder Production Service Worker v8.0
+// ==========================================
+// MediFinder Production Service Worker v9.0
 // Vercel-ready: skips all cross-origin, no CSP violations
 // ==========================================
 
-const CACHE_VERSION = 'medi-finder-v12';
-const STATIC_CACHE = 'medi-static-v12';
-const DYNAMIC_CACHE = 'medi-dynamic-v12';
-const IMAGE_CACHE = 'medi-images-v12';
+const STATIC_CACHE = 'medi-static-v17';
+const DYNAMIC_CACHE = 'medi-dynamic-v17';
+const IMAGE_CACHE = 'medi-images-v17';
 
-// ✅ FIX: rewritten to match the CURRENT consolidated-SPA file set.
-// The old list below referenced ~40 pre-SPA-consolidation files
-// (userhome.html, marchentorders.html, adminuser.html, delyvary*.html,
-// admindboy.html, etc.) that no longer exist. caches.open().addAll()
-// rejects the WHOLE install if even one URL 404s, so every one of those
-// stale entries was silently failing the entire precache step on every
-// visit (the .catch(err=>{}) below hid it) — meaning offline support has
-// not actually been working at all. If any path below isn't the real one
-// on your server (e.g. marchent.css/admin.css live elsewhere, or
-// manifest.json/favicon.png aren't deployed), adjust it — a single wrong
-// path here will again silently break the whole precache.
+// Each URL is cached on its own (allSettled below), so one missing file never
+// breaks the whole precache. Adjust paths here if a file lives elsewhere.
 const PRECACHE_URLS = [
     '/',
     '/home.html',
@@ -37,11 +27,13 @@ const PRECACHE_URLS = [
     '/prod-utils.js',
     '/permission-every.js',
     '/push-notifications.js',
-    '/user.js',
+    '/offer.js',
+    '/offer.css',
+    '/user.min.js',
     '/marchent.js',
     '/rider.js',
     '/admin.js',
-    '/user.css',
+    '/user.min.css',
     '/rider.css',
     '/merchant-shared.css',
     '/manifest.json',
@@ -78,8 +70,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // ✅ FIX: OAuth / Supabase auth callback URLs — Service Worker কখনো intercept করবে না
-  // Google login, error redirect, token exchange — সব browser নিজে handle করবে
+  // OAuth / Supabase auth callback URLs are never intercepted by the Service Worker
   const isAuthCallback =
       url.searchParams.has('code') ||
       url.searchParams.has('error_description') ||
@@ -89,7 +80,7 @@ self.addEventListener('fetch', (event) => {
       url.hash.includes('refresh_token') ||
       url.hash.includes('error_description') ||
       url.pathname.includes('auth/v1/callback');
-  if (isAuthCallback) return; // browser directly handle করবে, SW bypass
+  if (isAuthCallback) return;
 
   // Skip ALL cross-origin requests entirely
   if (url.origin !== self.location.origin) return;
@@ -138,7 +129,7 @@ async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      // ✅ FIX: query parameter সহ URL cache করবে না (auth error URLs cache হয় না)
+      // URLs with a query string are not cached (keeps auth/error URLs out of the cache)
       const urlObj = new URL(request.url);
       if (!urlObj.search) {
         const cache = await caches.open(cacheName);
@@ -162,22 +153,35 @@ self.addEventListener('push', (event) => {
 
   const url = payload.url || '/';
   const orderId = payload.order_id || null;
+  const offerId = payload.offer_id || null;
+  const isOffer = !!offerId || payload.kind === 'offer' || payload.kind === 'ending';
+  const endsAt = payload.ends_at ? new Date(payload.ends_at).getTime() : null;
 
-  event.waitUntil(self.registration.showNotification(payload.title || 'MediFinder India', {
+  // Offer already over by the time the push arrived (phone was offline) -> do not show a dead offer
+  if (isOffer && endsAt && endsAt <= Date.now()) return;
+
+  // tag: same order / same offer replaces itself; different offers stay as separate notifications
+  const tag = offerId ? ('medifinder-offer-' + offerId + (payload.kind === 'ending' ? '-ending' : ''))
+            : orderId ? ('medifinder-order-' + orderId)
+            : 'medifinder-notification';
+
+  const options = {
     body: payload.body || payload.message || '',
     icon: payload.icon || '/favicon.png',
     badge: payload.badge || '/favicon.png',
-    // same order er notification replace hobe, alada order alada dekhabe
-    tag: orderId ? ('medifinder-order-' + orderId) : 'medifinder-notification',
+    tag: tag,
     renotify: true,
     requireInteraction: true,
     vibrate: [250, 100, 250],
-    data: { url: url, order_id: orderId },
-    actions: [
-      { action: 'open', title: 'Open App' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
-  }));
+    timestamp: Date.now(),
+    data: { url: url, order_id: orderId, offer_id: offerId, ends_at: payload.ends_at || null, kind: payload.kind || null },
+    actions: isOffer
+      ? [ { action: 'shop', title: '🛒 Shop Now' }, { action: 'view', title: 'View Offer' } ]
+      : [ { action: 'open', title: 'Open App' }, { action: 'dismiss', title: 'Dismiss' } ]
+  };
+  if (payload.image) options.image = payload.image; // big banner (Android Chrome / desktop)
+
+  event.waitUntil(self.registration.showNotification(payload.title || 'MediFinder India', options));
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -185,8 +189,19 @@ self.addEventListener('notificationclick', (event) => {
   if (event.action === 'dismiss') return;
 
   const d = event.notification.data;
-  const rel = (d && typeof d === 'object') ? d.url : d; // purano string data-o chalbe
-  const targetUrl = new URL(rel || '/', self.location.origin).href;
+  const data = (d && typeof d === 'object') ? d : { url: d };
+  let rel = data.url || '/';
+
+  // Offer notification: if the offer expired while the notification sat there, tell the page
+  if (data.offer_id) {
+    const expired = data.ends_at && new Date(data.ends_at).getTime() <= Date.now();
+    const u = new URL(rel, self.location.origin);
+    if (expired) u.searchParams.set('offer_ended', '1');
+    else u.searchParams.set('offer', data.offer_id);
+    if (event.action === 'view' && !expired) u.hash = 'mf-offers'; // "View Offer" lands on the offers section
+    rel = u.pathname + u.search + u.hash;
+  }
+  const targetUrl = new URL(rel, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
@@ -201,7 +216,7 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Browser nije subscription renew korle: open page gulo ke janiye dey, push-notifications.js abar save korbe
+// When the browser renews the push subscription, tell open pages so push-notifications.js saves it again
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {

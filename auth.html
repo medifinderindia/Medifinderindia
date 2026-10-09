@@ -37,7 +37,8 @@
 <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<script src="permission-every.js?v=4"></script>
+<script src="session-guard.js?v=2"></script>
+    <script src="permission-every.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <style>
@@ -1274,8 +1275,8 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
 <!-- ===== TOP STRIP (always first — sits above the header on every view) ===== -->
 <div class="top-strip">
     <div class="top-strip-track">
-        <span class="top-strip-item"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
-        <span class="top-strip-item" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 20+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
+        <span class="top-strip-item"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 30+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
+        <span class="top-strip-item" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 30+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
     </div>
 </div>
 
@@ -1312,7 +1313,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
 <!-- ===== HERO ===== -->
 <section class="hero">
     <span class="hero-badge"><span class="dot"></span> India's Trusted Medicine Delivery Platform</span>
-    <h1>Medicine, delivered in <span>20 minutes</span>.<br>Order, Sell, or Deliver — your choice.</h1>
+    <h1>Medicine, delivered in <span>30+ minutes</span>.<br>Order, Sell, or Deliver — your choice.</h1>
     <p class="sub">MediFinder India connects you with verified pharmacies, trusted merchants, and reliable delivery partners — all on one platform. Browse the demo below, then sign up in seconds.</p>
     <div class="hero-ctas">
         <a href="#" onclick="showView('signup');return false;" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Get Started Free</a>
@@ -1320,7 +1321,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
     </div>
     <div class="trust-row">
         <div class="trust-item"><i class="fa-solid fa-shield-halved"></i><span>Licensed Pharmacies</span></div>
-        <div class="trust-item"><i class="fa-solid fa-bolt"></i><span>20 Min Delivery</span></div>
+        <div class="trust-item"><i class="fa-solid fa-bolt"></i><span>30+ Min Delivery</span></div>
         <div class="trust-item"><i class="fa-solid fa-lock"></i><span>Secure Payments</span></div>
         <div class="trust-item"><i class="fa-solid fa-headset"></i><span>24/7 Support</span></div>
     </div>
@@ -1361,7 +1362,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
 
                 <!-- USER PANEL PREVIEW -->
                 <div class="demo-panel active" id="panel-user">
-                    <div class="mock-strip">⚡ DELIVERY IN 20+ MINUTES &nbsp; 🛡️ 100% GENUINE MEDICINES</div>
+                    <div class="mock-strip">⚡ DELIVERY IN 30+ MINUTES &nbsp; 🛡️ 100% GENUINE MEDICINES</div>
                     <div class="mock-user-header">
                         <div class="mlogo"><i class="fa-solid fa-capsules"></i> MEDIFINDER INDIA</div>
                         <div class="micons"><i class="fa-solid fa-bell"></i><i class="fa-solid fa-cart-shopping"></i></div>
@@ -1499,7 +1500,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
 <section class="why-section">
     <div class="why-grid">
         <div class="why-item"><i class="fa-solid fa-certificate"></i><h4>Verified Pharmacies</h4><p>Every merchant on MediFinder India is license-verified before going live.</p></div>
-        <div class="why-item"><i class="fa-solid fa-bolt"></i><h4>20 Minute Delivery</h4><p>Nearby orders reach your doorstep in as little as 20 minutes.</p></div>
+        <div class="why-item"><i class="fa-solid fa-bolt"></i><h4>30+ Minute Delivery</h4><p>Nearby orders reach your doorstep in 30+ minutes.</p></div>
         <div class="why-item"><i class="fa-solid fa-lock"></i><h4>Secure Payments</h4><p>Pay safely with card, UPI, or cash on delivery.</p></div>
         <div class="why-item"><i class="fa-solid fa-headset"></i><h4>24/7 Help Desk</h4><p>Our support team is here for you, any time of day.</p></div>
     </div>
@@ -1952,14 +1953,14 @@ document.getElementById('ftYear').textContent = new Date().getFullYear();
     <div class="auth-container">
         <div class="logo-wrapper">
             <div class="logo-circle">
-                <img src="favicon.png" alt="Medifinder Premium Logo">
+                <img src="favicon.png" alt="MediFinder India Premium Logo">
             </div>
         </div>
 
         <div class="auth-box">
             <a href="#" onclick="exitEmsPartnerMode();window.location.href='home.html';return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
             <h2>Welcome Back</h2>
-            <p class="subtitle">Log in to your Medifinder profile.</p>
+            <p class="subtitle">Log in to your MediFinder India profile.</p>
             <div class="login-security-badge"><i class="fa-solid fa-shield-halved"></i> 256-bit Encrypted • Premium Secure Access</div>
 
             <form id="login-form">
@@ -2055,14 +2056,14 @@ document.getElementById('ftYear').textContent = new Date().getFullYear();
     <div class="auth-container">
         <div class="logo-wrapper">
             <div class="logo-circle">
-                <img src="favicon.png" alt="Medifinder Premium Logo">
+                <img src="favicon.png" alt="MediFinder India Premium Logo">
             </div>
         </div>
 
         <div class="auth-box">
             <a href="#" onclick="exitEmsPartnerMode();window.location.href='home.html';return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
             <h2>Create Account</h2>
-            <p class="subtitle">Join Medifinder to search, connect, and care.</p>
+            <p class="subtitle">Join MediFinder India to search, connect, and care.</p>
 
             <label class="section-label">Register As</label>
             <div class="role-container" id="signup-role-container">
@@ -2101,7 +2102,7 @@ document.getElementById('ftYear').textContent = new Date().getFullYear();
             <div class="policy-wrapper" style="margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; text-align: left;">
                 <input type="checkbox" id="policy-agree-checkbox" style="margin-top: 4px; transform: scale(1.2); cursor: pointer;">
                 <label for="policy-agree-checkbox" style="font-size: 13px; color: var(--text-main); cursor: pointer; line-height: 1.4;">
-                    I agree to the <a id="dynamic-policy-link" href="info.html#terms" target="_blank" style="color: var(--primary-color); font-weight: 600; text-decoration: none;">User Policy</a>, Terms & Conditions, and Privacy Policy.
+                    I agree to the <a id="dynamic-policy-link" href="info.html#terms" target="_blank" rel="noopener noreferrer" style="color: var(--primary-color); font-weight: 600; text-decoration: none;">User Policy</a>, Terms & Conditions, and Privacy Policy.
                 </label>
             </div>
 
@@ -2609,6 +2610,6 @@ function mfShowAuthReason(){
 </script>
 <script src="push-notifications.js?v=4" defer></script>
 <script src="prod-utils.js?v=14"></script>
-<script src="supabase-config.js?v=21"></script>
+<script src="supabase-config.js?v=22"></script>
 </body>
 </html>

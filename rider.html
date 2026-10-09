@@ -32,17 +32,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <link rel="stylesheet" href="rider.css?v=3">
-    <style id="riderLogoutFix">
-        /* Guarantees the Logout button is always visible & tappable above the fixed bottom nav */
-        #tab-profile #mainContentSection { padding-bottom: 130px !important; }
-        #tab-profile #logoutBtn {
-            display: flex !important; align-items: center; justify-content: center; gap: 8px;
-            width: 100%; margin: 18px 0 24px; padding: 14px; border: 0; border-radius: 14px;
-            background: #e02020; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
-            position: relative; z-index: 2; visibility: visible !important; opacity: 1 !important;
-        }
-    </style>
+    <script>try{if(localStorage.getItem("mf_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+    <link rel="stylesheet" href="rider.css?v=11">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -52,6 +43,7 @@
     <script src="supabase-constants.js"></script>
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false"><symbol id="i-house" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v10.5A1.5 1.5 0 0 0 6.5 21H10v-6h4v6h3.5a1.5 1.5 0 0 0 1.5-1.5V9"/></symbol><symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.6"/><circle cx="18" cy="5" r="2.6"/><path d="M8.6 19h7.9a3.5 3.5 0 0 0 0-7H7.5a3.5 3.5 0 0 1 0-7h7.9"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1 1 0 0 1 1 1v1.5"/><rect x="3" y="7.5" width="18" height="12.5" rx="3"/><path d="M16 13.8h2.2"/></symbol><symbol id="i-circle-user" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.4c1.2-2.2 3.3-3.4 5.8-3.4s4.6 1.2 5.8 3.4"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8 2.5 8h-17S6 15.500 6 9z"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0"/></symbol><symbol id="i-map-location-dot" viewBox="0 0 24 24"><path d="M9 4.5 3.5 6.5v13L9 17.500l6 2 5.500-2v-13L15 6.500z"/><path d="M9 4.500v13M15 6.500v13"/></symbol><symbol id="i-location-crosshairs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.800"/><path d="M12 2.500v3M12 18.500v3M2.500 12h3M18.500 12h3"/></symbol><symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9.500 8h5M9.500 12h5"/></symbol><symbol id="i-paper-plane" viewBox="0 0 24 24"><path d="M21 3 3 10.500l7 2.500 2.500 7z"/><path d="m21 3-10.500 10"/></symbol><symbol id="i-arrow-trend-up" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol><symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol><symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.800-2.500h6.400L17 8h3a1 1 0 0 1 1 1v9.500a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.500" r="3.500"/></symbol><symbol id="i-pen-to-square" viewBox="0 0 24 24"><path d="M4 20h4L19.500 8.500a2.800 2.800 0 0 0-4-4L4 16z"/><path d="m13.500 6.500 4 4"/></symbol><symbol id="i-id-badge" viewBox="0 0 24 24"><rect x="4.500" y="3" width="15" height="18" rx="3"/><circle cx="12" cy="10" r="2.500"/><path d="M8 16.500c.7-1.700 2.200-2.500 4-2.500s3.300.8 4 2.500M10 5.500h4"/></symbol><symbol id="i-truck" viewBox="0 0 24 24"><path d="M2.500 6.500h10.500v10H2.500zM13 9.500h4.200l3.300 3.300v3.700H13"/><circle cx="7" cy="17.500" r="1.900"/><circle cx="17" cy="17.500" r="1.900"/></symbol><symbol id="i-id-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.800" cy="11" r="2"/><path d="M5.800 16c.5-1.600 1.700-2.300 3-2.300s2.500.7 3 2.300M14.500 10h3.500M14.500 13.500h3.500"/></symbol><symbol id="i-address-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2.200"/><path d="M5.500 16.200c.6-1.500 1.800-2.200 3.500-2.200s2.900.7 3.500 2.200M15 9.500h3M15 12.500h3M15 15.500h2"/></symbol><symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6z"/><path d="M5.500 10.500v7M9.800 10.500v7M14.200 10.500v7M18.500 10.500v7M3.500 20h17"/></symbol><symbol id="i-language" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.500"/><path d="M2.500 12h19M12 2.500c3.200 3.100 3.200 15.900 0 19M12 2.500c-3.200 3.100-3.200 15.900 0 19"/></symbol><symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13.500" width="4" height="6.500" rx="1.800"/><rect x="17" y="13.500" width="4" height="6.500" rx="1.800"/><path d="M19 20c0 1.600-2 2-5 2"/></symbol><symbol id="i-circle-question" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.500"/><path d="M9.500 9.500a2.600 2.600 0 1 1 3.700 2.300c-.8.400-1.200 1-1.200 1.800M12 17h.01"/></symbol><symbol id="i-triangle-exclamation" viewBox="0 0 24 24"><path d="M12 3.500 2.800 19.500h18.400z"/><path d="M12 10v4M12 16.800h.01"/></symbol><symbol id="i-file-contract" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol><symbol id="i-user-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 4.500-3.200 8.200-8 9-4.800-.8-8-4.500-8-9V6z"/><circle cx="12" cy="10" r="2.200"/><path d="M8.300 16c.6-1.500 1.900-2.300 3.700-2.300s3.100.8 3.700 2.300"/></symbol><symbol id="i-user-xmark" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M2.500 21a7.500 7.500 0 0 1 12.500-5.500M17 9.500l5 5M22 9.500l-5 5"/></symbol><symbol id="i-right-from-bracket" viewBox="0 0 24 24"><path d="M9 21H5.500A2.500 2.500 0 0 1 3 18.500v-13A2.500 2.500 0 0 1 5.500 3H9M16 16.500l4.500-4.500L16 7.500M20.500 12H9"/></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 5l-7 7 7 7"/></symbol><symbol id="i-shield-halved" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 4.500-3.200 8.200-8 9-4.800-.8-8-4.500-8-9V6z"/><path d="m8.800 12 2.300 2.300 4.200-4.600"/></symbol><symbol id="i-store" viewBox="0 0 24 24"><path d="M3.500 9.500 5 4h14l1.500 5.500"/><path d="M3.500 9.500a2.800 2.800 0 0 0 5.500 0 2.800 2.800 0 0 0 6 0 2.800 2.800 0 0 0 5.500 0"/><path d="M5 12.500V20h14v-7.500"/><path d="M10 20v-4.500h4V20"/></symbol><symbol id="i-location-dot" viewBox="0 0 24 24"><path d="M12 21.500s7-6 7-11.500a7 7 0 0 0-14 0c0 5.500 7 11.500 7 11.500z"/><circle cx="12" cy="10" r="2.600"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.500" y="10.500" width="15" height="10" rx="2.500"/><path d="M8 10.500V8a4 4 0 0 1 8 0v2.500"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m4.500 12.500 5 5L19.500 7"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.500"/><path d="M12 7v5.500l3.500 2"/></symbol><symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.500" cy="17" r="3.200"/><circle cx="18.500" cy="17" r="3.200"/><path d="M5.500 17 8.800 11h5.700l3.700 6M8.800 11 7.500 8H5M14.500 11l-1.200-3.500H10.500"/><path d="M9.500 14.500h3.500"/></symbol><symbol id="i-bicycle" viewBox="0 0 24 24"><circle cx="5.500" cy="17.500" r="3.500"/><circle cx="18.500" cy="17.500" r="3.500"/><circle cx="15" cy="5" r="1.100"/><path d="M12 17.500V14l-3-3 4-3 2 3h2"/></symbol><symbol id="i-scooter" viewBox="0 0 24 24"><circle cx="6" cy="17.500" r="2.600"/><circle cx="18" cy="17.500" r="2.600"/><path d="M8.600 17.500h6.800M18 17.500 15.600 6.500H13M15 6.500h3.200M6 17.500l-.8-4.500H3"/></symbol><symbol id="i-ev" viewBox="0 0 24 24"><circle cx="6" cy="17.500" r="2.600"/><circle cx="18" cy="17.500" r="2.600"/><path d="M8.600 17.500h6.800M18 17.500 15.600 6.500H13M6 17.500l-.8-4.500H3"/><path d="m11 11.500 2-3.200v2.600h2.200l-2 3.200V11.500z" fill="currentColor" stroke="none"/></symbol></svg>
 
     <div class="app-container">
 
@@ -63,13 +55,11 @@
         <header class="navbar">
             <div class="header-left">
                 <!-- On Duty / Off Duty switch button (toggles new-order visibility) -->
-                <button id="dutyToggleBtn" style="background: linear-gradient(135deg, #2ed573, #26de81); color:#fff; border:none; padding:8px 14px; border-radius:20px; font-weight:700; font-size:0.78rem; cursor:pointer; box-shadow: 0 3px 10px rgba(46,213,115,0.3);">
-                    <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#2ed573;display:inline-block"></span> On Duty</span>
-                </button>
+                <button id="dutyToggleBtn" class="mf-duty on" type="button"><span class="mf-duty-dot"></span><span class="mf-duty-txt">On Duty</span></button>
             </div>
             <div class="header-right" style="display:flex; align-items:center; gap:10px;">
                 <button class="notification-btn" onclick="toggleNotifications()">
-                    <i class="fa-solid fa-bell"></i>
+                    <svg class="mf-ico" aria-hidden="true"><use href="#i-bell"/></svg>
                     <span class="noti-badge" id="noti-badge" style="display:none;">0</span>
                 </button>
             </div>
@@ -77,7 +67,7 @@
 
         <!-- Notification Dropdown -->
         <div id="notiDropdown" class="notification-dropdown hidden">
-            <div class="dropdown-header"><i class="fa-solid fa-bell"></i> Notifications</div>
+            <div class="dropdown-header"><svg class="mf-ico" aria-hidden="true"><use href="#i-bell"/></svg> Notifications</div>
             <div id="noti-dropdown-body">
                 <p class="noti-item" style="text-align:center;color:#999;padding:20px;">Loading notifications...</p>
             </div>
@@ -85,9 +75,9 @@
 
         <!-- ✅ NEW: KYC not approved yet -> red bar prompting document upload -->
         <div id="homeKycBanner" class="kyc-home-banner hidden" onclick="goToKycFromHome()">
-            <i class="fa-solid fa-triangle-exclamation"></i>
+            <svg class="mf-ico" aria-hidden="true"><use href="#i-triangle-exclamation"/></svg>
             <span class="kyc-home-banner-text">Please upload your documents and earn money</span>
-            <i class="fa-solid fa-chevron-right"></i>
+            <svg class="mf-ico" aria-hidden="true"><use href="#i-chevron-right"/></svg>
         </div>
 
         <!-- Main Content Area -->
@@ -113,7 +103,7 @@
                 <div class="card-header-premium">
                     <div class="title-block">
                         <div class="icon-wrap red-bg">
-                            <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
+                            <svg class="mf-ico" style="color: var(--primary);" aria-hidden="true"><use href="#i-map-location-dot"/></svg>
                         </div>
                         <div>
                             <h3>Live Route Tracking</h3>
@@ -121,16 +111,16 @@
                         </div>
                     </div>
                     <div id="vehiclePillBox" class="vehicle-pill bike-mode">
-                        <i id="vehiclePillIcon" class="fa-solid fa-motorcycle"></i> 
+                        <svg id="vehiclePillIcon" class="mf-ico" aria-hidden="true"><use href="#i-bike"/></svg> 
                         <span id="vehiclePillText" style="text-transform: uppercase;">Bike</span>
                     </div>
                 </div>
 
                 <div class="live-map-wrapper" style="position:relative;">
-                    <div id="zomatoRealMap"></div>
+                    <div id="zomatoRealMap" translate="no" class="notranslate"></div>
                     <!-- ✅ NEW: My Location floating button — ক্লিক করলে GPS permission নিয়ে নিজের অবস্থানে zoom করবে -->
                     <button id="myLocationBtn" class="my-location-btn" onclick="focusMyLocationOnMap()" title="My Location">
-                        <i class="fa-solid fa-location-crosshairs"></i>
+                        <svg class="mf-ico" aria-hidden="true"><use href="#i-location-crosshairs"/></svg>
                     </button>
                 </div>
                 
@@ -152,7 +142,7 @@
 
             <section class="right-queue-area">
                 <div class="queue-header">
-                    <h2><i class="fa-solid fa-box"></i> Active Parcel <span class="counter-q" id="orderCount">0</span></h2>
+                    <h2><svg class="mf-ico" aria-hidden="true"><use href="#i-box"/></svg> Active Parcel <span class="counter-q" id="orderCount">0</span></h2>
                     <p class="queue-hint">Tap on the card or timer to open OTP Verification</p>
                 </div>
 
@@ -172,7 +162,7 @@
             <!-- ✅ NEW: header সরিয়ে দেওয়ার পর, একদম উপরের কোণায় Payout status history খোলার বাটন -->
             <div class="earning-top-bar">
                 <button class="check-payout-btn" onclick="openPayoutHistory()">
-                    <i class="fa-solid fa-receipt"></i> Check Your Payment
+                    <svg class="mf-ico" aria-hidden="true"><use href="#i-receipt"/></svg> Check Your Payment
                 </button>
             </div>
 
@@ -181,7 +171,7 @@
                 <div class="earnings-summary-card">
                     <div class="card-top-info">
                         <p class="label-heading" id="earningsPeriodLabel">Total Earnings — Today</p>
-                        <div class="icon-circle-bg"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="icon-circle-bg"><svg class="mf-ico" aria-hidden="true"><use href="#i-wallet"/></svg></div>
                     </div>
                     <!-- আজকের মোট ইনকাম ডিসপ্লে -->
                     <h1 id="todayTotalEarnings">₹0</h1>
@@ -203,7 +193,7 @@
                         <button class="period-chip" data-period="allTime" onclick="selectEarningsPeriod('allTime')">All Time</button>
                     </div>
                     <button id="payoutRequestBtn" class="action-btn-accent-premium" onclick="handlePayoutRequest()" style="width: 100%; margin-top: 15px; background: #e63946; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s ease;">
-                        <i class="fa-solid fa-paper-plane"></i> Request Today's Payout
+                        <svg class="mf-ico" aria-hidden="true"><use href="#i-paper-plane"/></svg> Request Today's Payout
                     </button>
                     <small style="display:block; margin-top:8px; text-align:center; color:var(--text-muted); font-size:0.72rem;">Only today's earning (not already requested) can be requested for payout.</small>
                 </div>
@@ -212,7 +202,7 @@
                     <div class="graph-header">
                         <span class="trend-title">Profit Analysis</span>
                         <div class="trend-alert-status">
-                            <i class="fa-solid fa-arrow-trend-up"></i> Loading trend...
+                            <svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-trend-up"/></svg> Loading trend...
                         </div>
                     </div>
                     
@@ -274,7 +264,7 @@
                         <img id="avatarDisplayImage" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar Graphic">
                         <img id="vehicleBadgeImg" class="vehicle-badge-img hidden" alt="Vehicle">
                         <label for="avatarFileUpload" class="camera-btn-trigger">
-                            <i class="fa-solid fa-camera"></i>
+                            <svg class="mf-ico" aria-hidden="true"><use href="#i-camera"/></svg>
                         </label>
                         <input type="file" id="avatarFileUpload" accept="image/*" onchange="processAvatarUpdate(event)" style="display:none;">
                     </div>
@@ -283,7 +273,7 @@
                         <h2 id="profileDisplayName" class="tr-text" data-en="Rider" data-bn="রাইডার" data-hi="राइडर">Rider</h2>
                         <p id="profileDisplayUsername">@...</p>
                         <button class="edit-basics-btn" onclick="triggerProfileNameEdit()">
-                            <i class="fa-solid fa-pen-to-square"></i> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
+                            <svg class="mf-ico" aria-hidden="true"><use href="#i-pen-to-square"/></svg> <span class="tr-text" data-en="Change Name" data-bn="নাম পরিবর্তন" data-hi="नाम बदलें">Change Name</span>
                         </button>
                     </div>
 
@@ -318,7 +308,7 @@
 
                         <div class="menu-item-button" onclick="openKycReadonly('rider')">
                             <div class="menu-item-left">
-                                <div class="icon-box" style="background:#e0f2fe; color:#0284c7;"><i class="fa-solid fa-id-badge"></i></div>
+                                <div class="icon-box" style="background:#e0f2fe; color:#0284c7;"><svg class="mf-ico" aria-hidden="true"><use href="#i-id-badge"/></svg></div>
                                 <span class="tr-text" data-en="Rider Details" data-bn="রাইডার তথ্য" data-hi="राइडर विवरण">Rider Details</span>
                             </div>
                             <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
@@ -326,7 +316,7 @@
 
                         <div class="menu-item-button" onclick="openKycReadonly('vehicle')">
                             <div class="menu-item-left">
-                                <div class="icon-box vehicle-icon"><i class="fa-solid fa-truck"></i></div>
+                                <div class="icon-box vehicle-icon"><svg class="mf-ico" aria-hidden="true"><use href="#i-truck"/></svg></div>
                                 <span class="tr-text" data-en="Vehicle Details" data-bn="যানবাহন তথ্য" data-hi="वाहन विवरण">Vehicle Details</span>
                             </div>
                             <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
@@ -334,7 +324,7 @@
 
                         <div class="menu-item-button" onclick="openKycReadonly('license')">
                             <div class="menu-item-left">
-                                <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-id-card"></i></div>
+                                <div class="icon-box license-icon" style="background:#dcfce7; color:#16a34a;"><svg class="mf-ico" aria-hidden="true"><use href="#i-id-card"/></svg></div>
                                 <span class="tr-text" data-en="License &amp; Insurance" data-bn="লাইসেন্স ও বীমা" data-hi="लाइसेंस और बीमा">License &amp; Insurance</span>
                             </div>
                             <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
@@ -342,7 +332,7 @@
 
                         <div class="menu-item-button" onclick="openKycReadonly('identity')">
                             <div class="menu-item-left">
-                                <div class="icon-box" style="background:#f3e8ff; color:#9333ea;"><i class="fa-solid fa-address-card"></i></div>
+                                <div class="icon-box" style="background:#f3e8ff; color:#9333ea;"><svg class="mf-ico" aria-hidden="true"><use href="#i-address-card"/></svg></div>
                                 <span class="tr-text" data-en="Identity" data-bn="পরিচয়পত্র" data-hi="पहचान">Identity</span>
                             </div>
                             <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
@@ -350,7 +340,7 @@
 
                         <div class="menu-item-button" onclick="openKycReadonly('banking')">
                             <div class="menu-item-left">
-                                <div class="icon-box bank-icon"><i class="fa-solid fa-bank"></i></div>
+                                <div class="icon-box bank-icon"><svg class="mf-ico" aria-hidden="true"><use href="#i-bank"/></svg></div>
                                 <span class="tr-text" data-en="Bank &amp; Payment" data-bn="ব্যাংক ও পেমেন্ট" data-hi="बैंक और भुगतान">Bank &amp; Payment</span>
                             </div>
                             <div class="status-indicator-dot" style="font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #dcfce7; color: #16a34a;">Verified</div>
@@ -360,58 +350,74 @@
                     <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
 
                     <!-- ✅ App Language সরানো হলো এখানে — আগে "Financial & Activity" গ্রুপে ছিল, স্পেক অনুযায়ী সেই গ্রুপ থেকে সরিয়ে Bank & Payment কে জায়গা দেওয়া হয়েছে -->
+                    <div class="menu-item-button" onclick="openSubPage('themePage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box language-icon"><svg class="mf-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+                            <span class="tr-text" data-en="Light / Dark Mode" data-bn="থিম (লাইট / ডার্ক)" data-hi="थीम (लाइट / डार्क)">Light / Dark Mode</span>
+                        </div>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+                    </div>
+
                     <div class="menu-item-button" onclick="openSubPage('languagePage')">
                         <div class="menu-item-left">
-                            <div class="icon-box language-icon"><i class="fa-solid fa-language"></i></div>
+                            <div class="icon-box language-icon"><svg class="mf-ico" aria-hidden="true"><use href="#i-language"/></svg></div>
                             <span class="tr-text" data-en="App Language" data-bn="অ্যাপের ভাষা পরিবর্তন" data-hi="ऐप की भाषा">App Language</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
                     <div class="menu-item-button" onclick="openSubPage('supportPage')">
                         <div class="menu-item-left">
-                            <div class="icon-box support-icon"><i class="fa-solid fa-headset"></i></div>
+                            <div class="icon-box support-icon"><svg class="mf-ico" aria-hidden="true"><use href="#i-headset"/></svg></div>
                             <span class="tr-text" data-en="Support Desk / Customer Care" data-bn="সাপোর্ট ডেস্ক / কাস্টমার কেয়ার" data-hi="सहायता डेस्क / ग्राहक सेवा">Support Desk / Customer Care</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+                    </div>
+
+                    <div class="menu-item-button" onclick="openSubPage('faqPage')">
+                        <div class="menu-item-left">
+                            <div class="icon-box" style="background:#eef2ff; color:#4f46e5;"><svg class="mf-ico" aria-hidden="true"><use href="#i-circle-question"/></svg></div>
+                            <span class="tr-text" data-en="FAQ" data-bn="সচরাচর জিজ্ঞাসা (FAQ)" data-hi="अक्सर पूछे जाने वाले प्रश्न (FAQ)">FAQ</span>
+                        </div>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
                     <!-- ✅ NEW: Complaint -->
                     <div class="menu-item-button" onclick="openSubPage('complaintPage')">
                         <div class="menu-item-left">
-                            <div class="icon-box" style="background:#fff7ed; color:#c2410c;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="icon-box" style="background:#fff7ed; color:#c2410c;"><svg class="mf-ico" aria-hidden="true"><use href="#i-triangle-exclamation"/></svg></div>
                             <span class="tr-text" data-en="Complaint" data-bn="অভিযোগ" data-hi="शिकायत">Complaint</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
-                    <div class="menu-item-button" onclick="navigateWithFade('info.html#terms')">
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html#privacy')">
                         <div class="menu-item-left">
-                            <div class="icon-box legal-icon"><i class="fa-solid fa-user-shield"></i></div>
+                            <div class="icon-box legal-icon"><svg class="mf-ico" aria-hidden="true"><use href="#i-user-shield"/></svg></div>
                             <span class="tr-text" data-en="Privacy Policy" data-bn="গোপনীয়তা নীতি" data-hi="गोपनीयता नीति">Privacy Policy</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
-                    <div class="menu-item-button" onclick="navigateWithFade('info.html#terms')">
+                    <div class="menu-item-button" onclick="navigateWithFade('dboyt&amp;c.html#terms')">
                         <div class="menu-item-left">
-                            <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-file-contract"></i></div>
+                            <div class="icon-box history-icon" style="background:#fef3c7; color:#d97706;"><svg class="mf-ico" aria-hidden="true"><use href="#i-file-contract"/></svg></div>
                             <span class="tr-text" data-en="Terms & Conditions" data-bn="নিয়ম ও শর্তাবলী" data-hi="নियम और शर्तें">Terms & Conditions</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
                     <!-- ✅ NEW: Delete Account -->
                     <div class="menu-item-button" onclick="openSubPage('deleteAccountPage')">
                         <div class="menu-item-left">
-                            <div class="icon-box" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-user-xmark"></i></div>
+                            <div class="icon-box" style="background:#fee2e2; color:#dc2626;"><svg class="mf-ico" aria-hidden="true"><use href="#i-user-xmark"/></svg></div>
                             <span class="tr-text" data-en="Delete Account" data-bn="অ্যাকাউন্ট মুছে ফেলুন" data-hi="खाता हटाएं">Delete Account</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right arrow-icon"></i>
+                        <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
                     <button id="logoutBtn" class="logout-action-btn-premium" onclick="processGlobalLogout()">
-                        <i class="fa-solid fa-right-from-bracket"></i> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
+                        <svg class="mf-ico" aria-hidden="true"><use href="#i-right-from-bracket"/></svg> <span class="tr-text" data-en="Logout Account" data-bn="অ্যাকাউন্ট লগআউট করুন" data-hi="खाता लॉगआउट करें">Logout Account</span>
                     </button>
                 </div>
             </div>
@@ -420,10 +426,10 @@
 
         <!-- Single shared bottom navigation (SPA tab switch, no page reloads) -->
         <nav class="bottom-nav">
-            <button type="button" class="nav-item" data-tab="home" onclick="switchRiderTab('home')"><i class="fa-solid fa-house"></i><span>HOME</span></button>
-            <button type="button" class="nav-item" data-tab="delivery" onclick="switchRiderTab('delivery')"><i class="fa-solid fa-route"></i><span>DELIVERY</span></button>
-            <button type="button" class="nav-item" data-tab="earning" onclick="switchRiderTab('earning')"><i class="fa-solid fa-wallet"></i><span>EARNING</span></button>
-            <button type="button" class="nav-item" data-tab="profile" onclick="switchRiderTab('profile')"><i class="fa-solid fa-circle-user"></i><span>PROFILE</span></button>
+            <button type="button" class="nav-item" data-tab="home" onclick="switchRiderTab('home')"><svg class="mf-ico" aria-hidden="true"><use href="#i-house"/></svg><span>Home</span></button>
+            <button type="button" class="nav-item" data-tab="delivery" onclick="switchRiderTab('delivery')"><svg class="mf-ico" aria-hidden="true"><use href="#i-route"/></svg><span>Delivery</span></button>
+            <button type="button" class="nav-item" data-tab="earning" onclick="switchRiderTab('earning')"><svg class="mf-ico" aria-hidden="true"><use href="#i-wallet"/></svg><span>Earning</span></button>
+            <button type="button" class="nav-item" data-tab="profile" onclick="switchRiderTab('profile')"><svg class="mf-ico" aria-hidden="true"><use href="#i-circle-user"/></svg><span>Profile</span></button>
         </nav>
     </div>
 
@@ -437,7 +443,7 @@
             <div class="otp-modal-card">
                 <div id="otpFormContent">
                     <div class="otp-header">
-                        <i class="fa-solid fa-shield-halved"></i>
+                        <svg class="mf-ico" aria-hidden="true"><use href="#i-shield-halved"/></svg>
                         <h3>Parcel Verification</h3>
                         <p>Enter the 6-digit delivery code from customer</p>
                     </div>
@@ -455,7 +461,7 @@
              viewport — only ever shown by showOtpSuccessScreen() after OTP + order
              update + wallet credit have ALL succeeded. -->
         <div id="otpSuccessScreen" class="otp-success-fullscreen hidden">
-            <div class="otp-success-checkmark-circle"><i class="fa-solid fa-check"></i></div>
+            <div class="otp-success-checkmark-circle"><svg class="mf-ico" aria-hidden="true"><use href="#i-check"/></svg></div>
             <div class="otp-success-title">DELIVERY COMPLETED</div>
             <div class="otp-success-subtitle">Verification Successful</div>
             <div class="otp-success-note">Payment added to your earning wallet</div>
@@ -466,7 +472,7 @@
     <div id="payoutHistoryPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('payoutHistoryPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('payoutHistoryPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3>Payment Status</h3>
             </div>
             <div class="sub-page-body" id="payoutHistoryBody">
@@ -481,7 +487,7 @@
         <div id="kycWizardPage" class="kyc-fullscreen hidden">
         <div class="kyc-fs-shell">
             <div class="kyc-fs-header">
-                <button class="kyc-fs-back" onclick="kycWizardBack()"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="kyc-fs-back" onclick="kycWizardBack()"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3 id="kycWizardStepTitle">Rider Details</h3>
                 <span class="kyc-fs-step-count" id="kycStepCount">1/6</span>
             </div>
@@ -533,10 +539,10 @@
                     <div class="input-element-row-premium">
                         <label>Select Vehicle <span class="kyc-required-tag">*Required</span></label>
                         <div class="kyc-vehicle-grid" id="kycVehicleGrid">
-                            <button type="button" class="kyc-vehicle-option" data-vehicle="bicycle" onclick="selectKycVehicle('bicycle')"><i class="fa-solid fa-bicycle"></i><span>Bicycle</span></button>
-                            <button type="button" class="kyc-vehicle-option" data-vehicle="ev" onclick="selectKycVehicle('ev')"><i class="fa-solid fa-charging-station"></i><span>EV</span></button>
-                            <button type="button" class="kyc-vehicle-option" data-vehicle="scooty" onclick="selectKycVehicle('scooty')"><i class="fa-solid fa-motorcycle"></i><span>Scooty</span></button>
-                            <button type="button" class="kyc-vehicle-option" data-vehicle="bike" onclick="selectKycVehicle('bike')"><i class="fa-solid fa-motorcycle"></i><span>Bike</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="bicycle" onclick="selectKycVehicle('bicycle')"><svg class="mf-ico"><use href="#i-bicycle"/></svg><span>Bicycle</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="ev" onclick="selectKycVehicle('ev')"><svg class="mf-ico"><use href="#i-ev"/></svg><span>EV</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="scooty" onclick="selectKycVehicle('scooty')"><svg class="mf-ico"><use href="#i-scooter"/></svg><span>Scooty</span></button>
+                            <button type="button" class="kyc-vehicle-option" data-vehicle="bike" onclick="selectKycVehicle('bike')"><svg class="mf-ico"><use href="#i-bike"/></svg><span>Bike</span></button>
                         </div>
                     </div>
                     <div class="input-element-row-premium">
@@ -616,7 +622,7 @@
                         <div class="kyc-upload-card">
                             <input type="file" id="kycSelfieImg" accept="image/*">
                             <div class="kyc-upload-placeholder">
-                                <i class="fa-solid fa-camera"></i>
+                                <svg class="mf-ico" aria-hidden="true"><use href="#i-camera"/></svg>
                                 <span class="kyc-upload-label">Take / Upload Selfie</span>
                                 <span class="kyc-upload-hint">Take with camera or choose from gallery · face clearly visible</span>
                             </div>
@@ -733,7 +739,7 @@
     <div id="kycReadonlyPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('kycReadonlyPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('kycReadonlyPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3 id="kycReadonlyTitle">Details</h3>
             </div>
             <div class="sub-page-body" id="kycReadonlyBody"></div>
@@ -744,7 +750,7 @@
     <div id="complaintPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('complaintPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('complaintPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3>Complaint</h3>
             </div>
             <div class="sub-page-body">
@@ -777,7 +783,7 @@
     <div id="deleteAccountPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('deleteAccountPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('deleteAccountPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3>Delete Account</h3>
             </div>
             <div class="sub-page-body">
@@ -810,10 +816,25 @@
 
 
     <!-- ✅ NEW: App Language (আগে এই div-ই ছিল না, তাই বাটনে ক্লিক করলে কিছুই হতো না) -->
+    <div id="themePage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('themePage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+                <h3>Appearance</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="mf-theme-opts">
+                    <button type="button" class="mf-theme-opt" data-theme-opt="light"><span>☀️ Light</span><i class="mf-theme-check"></i></button>
+                    <button type="button" class="mf-theme-opt" data-theme-opt="dark"><span>🌙 Dark</span><i class="mf-theme-check"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="languagePage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('languagePage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3>App Language</h3>
             </div>
             <div class="sub-page-body">
@@ -825,43 +846,53 @@
                     <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('sat')">🌾 <span>ᱥᱟᱱᱛᱟᱲᱤ (Santali)</span></button>
                     <button class="menu-item-button" style="justify-content:flex-start; gap:12px;" onclick="setAppLanguage('ur')">🕌 <span>اردو (Urdu)</span></button>
                 </div>
-                <p class="tr-text" style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;"
-                    data-en="English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update."
-                    data-bn="English, বাংলা ও हिंदी পুরোপুরি অনুবাদিত। নেপালি/সাঁওতালি/উর্দু এখন সিলেক্ট করা যাবে ও সেভ থাকবে, কিন্তু পুরো অ্যাপ জুড়ে টেক্সট অনুবাদ পরের আপডেটে যোগ হবে।"
-                    data-hi="अंग्रेज़ी, बंगाली और हिंदी पूरी तरह अनुवादित हैं। नेपाली/संताली/उर्दू अभी चुनी और सेव की जा सकती हैं, पर पूरे ऐप में अनुवाद अगले अपडेट में जोड़ा जाएगा।">
-                    English, Bengali and Hindi are fully translated. Nepali/Santali/Urdu can be selected and saved, but full app-wide translation for those languages will be added in a future update.
-                </p>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:14px;">The whole app changes language, including orders, notifications and forms. Translation is done automatically by Google Translate, so some words may look different from what you expect.</p>
             </div>
         </div>
     </div>
 
-    <!-- ✅ NEW: Support Desk (আগে এই div-ও ছিল না) -->
+    <!-- Support Desk: ONLY Call / WhatsApp / Email (FAQ is its own page now) -->
     <div id="supportPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
-                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="back-overlay-btn" onclick="closeSubPage('supportPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
                 <h3>Support Desk</h3>
             </div>
-            <div class="sub-page-body" style="display:flex; flex-direction:column; gap:12px;">
-                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block;" href="tel:+919593625498">
-                    <i class="fa-solid fa-phone"></i> Call Support 
+            <div class="sub-page-body">
+                <div class="mf-sup-brand">
+                    <img src="icon-192.png" alt="MediFinder India" onerror="this.style.display='none'">
+                    <b>MediFinder India</b>
+                    <span>Delivery Partner Support</span>
+                </div>
+                <a class="mf-sup-btn mf-sup-call" href="tel:+919593625498">
+                    <span class="mf-sup-ico"><i class="fa-solid fa-phone-volume"></i></span>
+                    <span class="mf-sup-txt"><b>Call Support</b><small>Talk to our team directly</small></span>
+                    <svg class="mf-ico mf-sup-arrow" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
-                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#25D366;" href="https://wa.me/919382262825" target="_blank">
-                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Chat 
+                <a class="mf-sup-btn mf-sup-wa" href="https://wa.me/919382262825" target="_blank" rel="noopener">
+                    <span class="mf-sup-ico"><i class="fa-brands fa-whatsapp"></i></span>
+                    <span class="mf-sup-txt"><b>WhatsApp Chat</b><small>Message us anytime</small></span>
+                    <svg class="mf-ico mf-sup-arrow" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
-                <a class="action-btn-accent-premium" style="text-decoration:none; text-align:center; display:block; background:#0284c7;" href="mailto:support@medifinderindia.com">
-                    <i class="fa-solid fa-envelope"></i> Email Support (support@medifinderindia.com)
+                <a class="mf-sup-btn mf-sup-mail" href="mailto:support@medifinderindia.com">
+                    <span class="mf-sup-ico"><svg viewBox="0 0 48 48" width="24" height="24" aria-hidden="true"><path fill="#4caf50" d="M45 16.2l-5 2.75-5 4.75L35 40h7c1.657 0 3-1.343 3-3V16.2z"/><path fill="#1e88e5" d="M3 16.2l3.614 1.71L13 23.7V40H6c-1.657 0-3-1.343-3-3V16.2z"/><polygon fill="#e53935" points="35,11.2 24,19.45 13,11.2 12,17 13,23.7 24,31.95 35,23.7 36,17"/><path fill="#c62828" d="M3 12.298V16.2l10 7.5V11.2L9.876 8.859C9.132 8.301 8.228 8 7.298 8 4.924 8 3 9.924 3 12.298z"/><path fill="#fbc02d" d="M45 12.298V16.2l-10 7.5V11.2l3.124-2.341C38.868 8.301 39.772 8 40.702 8 43.076 8 45 9.924 45 12.298z"/></svg></span>
+                    <span class="mf-sup-txt"><b>Email Support</b><small>support@medifinderindia.com</small></span>
+                    <svg class="mf-ico mf-sup-arrow" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                 </a>
-                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
-                    We're here to help! If you have any questions or need assistance, feel free to reach out to us.
-                </p>
+                <p class="mf-sup-note">We're here to help! If you have any questions or need assistance, feel free to reach out to us.</p>
+            </div>
+        </div>
+    </div>
 
-                <!-- ✅ NEW: FAQ — কীভাবে অর্ডার accept করবেন, payout, ডকুমেন্ট আপলোড ইত্যাদি -->
-                <div style="margin-top:10px;">
-                    <h4 class="tr-text" data-en="Frequently Asked Questions" data-bn="সচরাচর জিজ্ঞাসিত প্রশ্ন" data-hi="अक्सर पूछे जाने वाले प्रश्न"
-                        style="font-size:0.95rem; font-weight:700; color:var(--dark); margin-bottom:10px;">Frequently Asked Questions</h4>
-
-                    <div class="faq-item">
+    <!-- FAQ: separate page -->
+    <div id="faqPage" class="sub-page-overlay hidden">
+        <div class="sub-page-content">
+            <div class="sub-page-header">
+                <button class="back-overlay-btn" onclick="closeSubPage('faqPage')"><svg class="mf-ico" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+                <h3 class="tr-text" data-en="Frequently Asked Questions" data-bn="সচরাচর জিজ্ঞাসিত প্রশ্ন" data-hi="अक्सर पूछे जाने वाले प्रश्न">Frequently Asked Questions</h3>
+            </div>
+            <div class="sub-page-body">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
                         <div class="faq-q tr-text" data-en="How do I accept a delivery order?"
                             data-bn="কীভাবে ডেলিভারি অর্ডার Accept করব?"
                             data-hi="डिलीवरी ऑर्डर कैसे स्वीकार करें?">How do I accept a delivery order?</div>
@@ -871,7 +902,7 @@
                             data-hi="होम पेज से 'On Duty' चालू रखें। नया ऑर्डर आने पर वह अपने आप स्क्रीन पर आएगा — ऑर्डर कार्ड के 'Accept Request' बटन पर टैप करके उसे स्वीकार करें। इसके लिए पहले आपका Driving License वेरिफाई होना ज़रूरी है।">Turn on 'On Duty' from the Home page. New orders will appear automatically — tap 'Accept Request' on any order card to accept it. Your Driving License must be verified first, otherwise the Accept button stays locked.</div>
                     </div>
 
-                    <div class="faq-item">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
                         <div class="faq-q tr-text" data-en="How do I complete a delivery?"
                             data-bn="কীভাবে ডেলিভারি সম্পন্ন করব?"
                             data-hi="डिलीवरी कैसे पूरी करें?">How do I complete a delivery?</div>
@@ -881,7 +912,7 @@
                             data-hi="Delivery टैब में जाकर लाइव मैप फॉलो करें और ग्राहक तक पहुँचें, फिर टाइमर/OTP कार्ड पर टैप करके ग्राहक द्वारा दिया गया 6-अंकों का कोड डालें।">Go to the Delivery tab, follow the live map to the customer, then tap the timer/OTP card and enter the 6-digit code given by the customer to mark it delivered.</div>
                     </div>
 
-                    <div class="faq-item">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
                         <div class="faq-q tr-text" data-en="How do I request a payout?"
                             data-bn="কীভাবে Payout রিকোয়েস্ট করব?"
                             data-hi="Payout का अनुरोध कैसे करें?">How do I request a payout?</div>
@@ -891,7 +922,7 @@
                             data-hi="Earning टैब खोलें और Total Earnings कार्ड में 'Request Payout to Admin' बटन दबाएँ। पहले Profile में अपनी Bank & Payment जानकारी वेरिफाई करा लें, वरना Payout में देरी हो सकती है।">Open the Earning tab and tap 'Request Payout to Admin' on the Total Earnings card. Make sure your Bank & Payment details are verified in Profile first, or the payout may be delayed.</div>
                     </div>
 
-                    <div class="faq-item">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
                         <div class="faq-q tr-text" data-en="How do I complete my KYC (Vehicle, License, Identity, Bank)?"
                             data-bn="কীভাবে আমার KYC (Vehicle, License, Identity, Bank) সম্পন্ন করব?"
                             data-hi="मैं अपना KYC (Vehicle, License, Identity, Bank) कैसे पूरा करूं?">How do I complete my KYC (Vehicle, License, Identity, Bank)?</div>
@@ -901,16 +932,15 @@
                             data-hi="Profile पेज में जाकर 'Verify your account to earn money' पर टैप करें। 5 चरणों (Rider Details, Vehicle, License & Insurance, Identity, Bank) पूरे करके Submit करें। एडमिन के जांचने तक स्टेटस पीले रंग में 'Pending Review' दिखेगा, फिर हरा 'Verified' या कारण सहित लाल 'Rejected'।">Go to Profile and tap 'Verify your account to earn money'. Fill in the 5 steps (Rider Details, Vehicle, License &amp; Insurance, Identity, Bank) and submit. Status will show Pending Review (yellow) until admin checks it, then Verified (green) or Rejected (red) with a reason and a chance to fix and resubmit.</div>
                     </div>
 
-                    <div class="faq-item">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
                         <div class="faq-q tr-text" data-en="A notification won't go away — how do I remove it?"
                             data-bn="একটা Notification যাচ্ছে না — কীভাবে সরাব?"
                             data-hi="एक सूचना नहीं हट रही — कैसे हटाएं?">A notification won't go away — how do I remove it?</div>
                         <div class="faq-a tr-text"
-                            data-en="Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order."
-                            data-bn="হোম পেজের বেল আইকনে ট্যাপ করুন, তারপর যেকোনো Notification-এর পাশের ✕ চিহ্নে চাপলে সেটা চিরতরে সরে যাবে। এছাড়া ১০ দিন পর পুরনো Notification নিজে থেকেই মুছে যায়, আর কোনো অর্ডার অন্য রাইডার Accept করে ফেললে সেই অর্ডারের Notification নিজে থেকেই সরে যায়।"
-                            data-hi="होम पेज पर बेल आइकन खोलें, फिर किसी भी सूचना के ✕ पर टैप करके उसे हमेशा के लिए हटाएं। 10 दिन बाद पुरानी सूचनाएं अपने आप हट जाती हैं, और कोई ऑर्डर दूसरे राइडर द्वारा स्वीकार होते ही उसकी सूचना अपने आप हट जाती है।">Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 10 days, and order notifications disappear automatically once another rider accepts that order.</div>
+                            data-en="Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 20 days, and order notifications disappear automatically once another rider accepts that order."
+                            data-bn="হোম পেজের বেল আইকনে ট্যাপ করুন, তারপর যেকোনো Notification-এর পাশের ✕ চিহ্নে চাপলে সেটা চিরতরে সরে যাবে। এছাড়া ২০ দিন পর পুরনো Notification নিজে থেকেই মুছে যায়, আর কোনো অর্ডার অন্য রাইডার Accept করে ফেললে সেই অর্ডারের Notification নিজে থেকেই সরে যায়।"
+                            data-hi="होम पेज पर बेल आइकन खोलें, फिर किसी भी सूचना के ✕ पर टैप करके उसे हमेशा के लिए हटाएं। 20 दिन बाद पुरानी सूचनाएं अपने आप हट जाती हैं, और कोई ऑर्डर दूसरे राइडर द्वारा स्वीकार होते ही उसकी सूचना अपने आप हट जाती है।">Open the bell icon on Home, then tap the ✕ on any notification to remove it permanently. Notifications also auto-remove after 20 days, and order notifications disappear automatically once another rider accepts that order.</div>
                     </div>
-                </div>
             </div>
         </div>
     </div>
@@ -918,7 +948,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="prod-utils.js?v=1"></script>
-    <script src="rider.js?v=2"></script>
+    <script src="rider.js?v=10"></script>
 <script src="push-notifications.js?v=4" defer></script>
 </body>
 </html>

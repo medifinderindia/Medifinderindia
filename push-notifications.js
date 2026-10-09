@@ -143,7 +143,17 @@
     // "Allow" = real browser prompt (needs a tap on mobile). "Not now" = snooze 3 days.
     const SNOOZE_KEY = 'mf_push_prompt_snooze_until';
     const SEEN_KEY = 'mf_push_prompt_seen_session';
-    function isHomePage() { return /(^|\/)(home|user)\.html$/i.test(location.pathname); }
+    // Prompt only on pages a LOGGED-IN person sees (never on home/auth/index/admin before login).
+    function isHomePage() { return !/(^|\/)(home|auth|index|admin)\.html$/i.test(location.pathname) && !/\/$/.test(location.pathname); }
+    function hasLocalSession() {
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (/^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) return true;
+            }
+        } catch (e) {}
+        return false;
+    }
     function promptSnoozed() {
         try {
             if (sessionStorage.getItem(SEEN_KEY) === '1') return true;
@@ -174,7 +184,7 @@
         wrap.querySelector('#mf-push-yes').onclick = async () => { close(); try { await enable(); } catch (e) {} refreshSwitches(); };
     }
     function maybeShowHomePrompt() {
-        if (!supported || !isHomePage()) return;
+        if (!supported || !isHomePage() || !hasLocalSession()) return;
         if (Notification.permission !== 'default' || promptSnoozed()) return;
         if (document.getElementById('mf-perm-overlay')) return;
         showHomePrompt();

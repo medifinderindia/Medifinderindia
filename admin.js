@@ -1,7 +1,7 @@
 /* =========================================================
    MediFinder India Admin — SPA logic (no external libraries)
-   Data is in-memory mock data; every control mutates STATE/DATA
-   and re-renders, so the whole dashboard is click-through-able.
+   Everything is read live from Supabase; every control writes to
+   the database, then re-renders.
    ========================================================= */
 "use strict";
 
@@ -23,19 +23,13 @@ function showAdminLoginGate(message){
   window.location.replace("home.html");
 }
 
-async function verifyIsAdmin(){
-  if(!supabase) return false;
-  const { data, error } = await supabase.rpc('is_admin');
-  return !error && data === true;
-}
 
 /* ---------------------------------------------------------
    0b. LIVE DATA LOADERS — Orders, Users, Merchants/KYC, Riders,
    Prescriptions, Payouts, Refunds, Products, Coupons, Zones,
    Ads, Tickets, Reviews — all wired to real Supabase tables.
    (Nurses/Labs/Ambulance/Admins/Audit-Log/Notifications live
-   further down in section 0c. Doctors + Home Care remain
-   local-only demo data — no Supabase table for either.)
+   further down in section 0c.)
    --------------------------------------------------------- */
 function fmtDateTime(iso){
   if(!iso) return "—";
@@ -74,6 +68,7 @@ async function loadUsersFromDB(){
     email: u.email || "—",
     orders: orderCounts[u.id] || 0,
     joined: (u.created_at||"").slice(0,10),
+    createdAt: u.created_at,
     status: u.status || "active",
     verified: true, // real identity check happens at signup (OTP/Google) — no separate admin verification step exists
     addr: [u.address, u.city].filter(Boolean).join(", ") || "—",
@@ -105,7 +100,7 @@ async function loadReviewsFromDB(){
     supabase.from('lab_test_reviews').select('*').order('created_at', { ascending:false }).limit(150),
   ]);
   const rows = [];
-  (pr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'product_reviews', type:"Product", subject:medNames[r.medicine_id]||("Medicine #"+r.medicine_id), rating:Math.round(r.rating), comment:r.review_text||"", reported:false }));
+  (pr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'product_reviews', type:"Product", _medId:r.medicine_id, _rating:Number(r.rating||0), subject:medNames[r.medicine_id]||("Medicine #"+r.medicine_id), rating:Math.round(r.rating), comment:r.review_text||"", reported:false }));
   (lr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'lab_test_reviews', type:"Lab Test", subject:r.patient_name||"Lab test", rating:Math.round(r.rating), comment:r.feedback||"", reported:false }));
   DATA.reviews = rows;
 }
@@ -149,6 +144,7 @@ async function loadAdsFromDB(){
       _linkedProductId: linkedId,
       linkedProduct: linkedId ? (productNames[linkedId] || ("Product #"+linkedId)) : "",
       discount: a.first_order_discount_percent || 0,
+      showOn: (a.show_on==='home'||a.show_on==='user') ? a.show_on : 'both',
       imageUrl: a.use_custom_image ? (a.custom_image_url||"") : "",
       end: a.valid_until || "",
       status: !a.is_active ? "Paused" : expired ? "Expired" : "Running",
@@ -175,6 +171,8 @@ async function loadZonesFromDB(){
     suspendReason: z.outage_message || "",
     suspendedAt: z.outage_start || "",
     riders: z.riders || 0,
+    svc30: z.svc_30min !== false, svcNurse: z.svc_nurse !== false, svcLab: z.svc_lab !== false, svcSameDay: z.svc_sameday !== false,
+    _lat: z.lat ?? z.latitude ?? null, _lng: z.lng ?? z.longitude ?? null,
     zoneMerchants: z.merchants || 0,
     status: (z.status==="approved" && z.is_active!==false) ? "active" : "paused",
   }));
@@ -192,12 +190,16 @@ async function loadProductsFromDB(){
     category: m.category || "Medicine",
     brand: m.brand_name || "—",
     price: Number(m.selling_price ?? m.mrp ?? m.unit_price ?? 0),
+    _mrp: Number(m.mrp ?? 0),
+    _img: m.image_url || "",
     stock: m.stock_qty || 0,
     rx: !!m.is_rx,
     merchant: merchantNames[m.merchant_id] || "—",
     _merchantId: m.merchant_id,
     visible: m.is_visible !== false,
     approval: (m.status||"Pending").toLowerCase(),
+    returnable: m.is_returnable === true, returnDays: Number(m.return_window_days||0),
+    exchangeable: m.is_exchangeable === true, exchangeDays: Number(m.exchange_window_days||0),
   }));
   DATA.categories = [...new Set(DATA.products.map(p=>p.category).filter(Boolean))].sort();
   DATA.brands = [...new Set(DATA.products.map(p=>p.brand).filter(b=>b && b!=="—"))].sort();
@@ -252,11 +254,13 @@ async function loadOrdersFromDB(){
     customer: o.customer_name || o.user_name || "Customer",
     merchant: o.pharmacy_name || "—",
     rider: o.rider_id ? (riderNames[o.rider_id] || ("Rider #"+o.rider_id)) : "—",
-    items: Array.isArray(o.items) ? o.items.length : 0,
+    items: orderItemsCount(o),
     total: Number(o.total_amount ?? o.total ?? o.final_amount ?? 0),
     payment: String(o.payment_mode || o.payment_method || "").toLowerCase() === "cod" ? "COD" : "Online",
     status: o.status || "pending",
     date: fmtDateTime(o.created_at),
+    created: o.created_at,
+    _raw: o,
   }));
 }
 
@@ -298,6 +302,7 @@ async function loadRidersFromDB(){
       mapX: mapX != null ? mapX : 50, mapY: mapY != null ? mapY : 50,
       _hasLocation: mapX != null,
       locationUpdatedAt: r.location_updated_at || null,
+      _pin: String(r.pincode || r.pin || r.service_pincode || r.zone_pin || ""),
       zoneDistanceKm: 0,
     };
   });
@@ -438,7 +443,7 @@ async function loadNurseBookingsFromDB(){
   const statusMap = { pending:"new", approved:"assigned", cancelled:"cancelled" };
   DATA.nurseBookings = (data || []).map(b=>({
     id: "NBK-"+String(b.id).slice(0,8),
-    _rawId: b.id,
+    _rawId: b.id, _createdAt: b.created_at,
     customer: b.patient_name || "Customer",
     nurse: b.nurse_name || "Unassigned",
     provider: b.nurse_name || "Unassigned",
@@ -457,6 +462,7 @@ async function loadNurseBookingsFromDB(){
 
 async function loadLabTestsFromDB(){
   if(!supabase) return;
+  const collectorMap = await loadSampleCollectorNameMap();
   const { data, error } = await supabase.from('lab_tests').select('*').order('created_at', { ascending:false });
   if(error){ toast("Could not load lab tests: "+error.message, "danger"); return; }
   DATA.labs = (data || []).map(t=>({
@@ -471,6 +477,8 @@ async function loadLabTestsFromDB(){
     serviceArea: Array.isArray(t.pincodes) && t.pincodes.length ? t.pincodes.join(", ") : "All areas",
     fasting: !!t.fasting_required,
     status: t.active ? "active" : "hidden",
+    _collectorId: t.collector_id || null,
+    publishedBy: t.collector_id ? (collectorMap[t.collector_id] || "Blood collector") : "Admin",
   }));
 }
 
@@ -492,6 +500,7 @@ async function loadLabBookingsFromDB(){
     amount: b.test_price != null ? Number(b.test_price) : null,
     reason: b.cancel_reason || "",
     history: [["Booked", b.created_at], ...(hist[b.id]||[]), ["Collector assigned", b.assigned_at], ["Sample collected", b.sample_collected_at], ["Completed", b.completed_at]],
+    _collectorId: b.collector_id || null, _createdAt: b.created_at,
     provider: b.collector_id ? (collectorMap[b.collector_id] || "Assigned Collector") : "Unassigned",
     date: (b.booking_date || b.book_date) ? `${b.booking_date||b.book_date} ${b.booking_time||b.book_time||""}`.trim() : fmtDateTime(b.created_at),
     payment: /cash/i.test(b.payment_mode||"") ? "COD" : "Online",
@@ -543,7 +552,7 @@ async function loadAmbulanceBookingsFromDB(){
   const statusMap = { searching:"new", accepted:"on-route", arriving:"on-route", picked_up:"on-route", completed:"completed", cancelled:"cancelled" };
   DATA.ambulanceBookings = (data || []).map(b=>({
     id: "ABK-"+String(b.id).slice(0,8),
-    _rawId: b.id,
+    _rawId: b.id, _driverId: b.driver_id || null, _createdAt: b.created_at,
     customer: b.patient_name || "Customer",
     provider: b.driver_id ? (driverMap[b.driver_id] || "Assigned Driver") : "Unassigned",
     phone: b.contact_phone || "—",
@@ -774,10 +783,8 @@ async function bootAdminDashboard(){
 }
 
 /* ---------------------------------------------------------
-   1. MOCK DATA
-   (Orders + Merchants above are now overwritten with real data by
-   loadOrdersFromDB()/loadMerchantsFromDB() before first render —
-   everything else below is still original static mock data)
+   1. DATA STORE
+   Filled live from Supabase by the loaders below.
    --------------------------------------------------------- */
 const DATA = {
   users: [
@@ -830,17 +837,6 @@ const DATA = {
   ads: [
     // Loaded live from Supabase (public.sponsored_products) by loadAdsFromDB() — see bottom of file.
   ],
-  // Doctors + Home Care: intentionally left as local-only demo data — no
-  // Supabase table exists for either and none was requested to be created.
-  doctors: [
-    {id:"DOC-01", name:"Dr. Afsana Karim", spec:"General Physician", fee:600, status:"available", rating:4.7},
-    {id:"DOC-02", name:"Dr. Imran Kabir", spec:"Cardiologist", fee:1200, status:"busy", rating:4.9},
-    {id:"DOC-03", name:"Dr. Sabrina Yasmin", spec:"Pediatrician", fee:800, status:"available", rating:4.6},
-  ],
-  homecare: [
-    {id:"HMC-01", name:"Physiotherapy at Home", provider:"CarePlus", rate:"₹900/session", status:"available"},
-    {id:"HMC-02", name:"Elder Care Attendant", provider:"CarePlus", rate:"₹1500/day", status:"available"},
-  ],
   nurses: [
     // Loaded live from Supabase (public.nurses) by loadNursesFromDB() — see bottom of file.
   ],
@@ -880,8 +876,6 @@ const DATA = {
 };
 let _lastSyncAt = null;
 
-let SEQ = 9200;
-const nextId = (prefix) => `${prefix}-${SEQ++}`;
 
 /* ---------------------------------------------------------
    2. STATE
@@ -973,7 +967,6 @@ const $ = (sel,root=document)=>root.querySelector(sel);
 const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
 const esc = (s)=> String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = (n)=> "₹" + Number(n||0).toLocaleString("en-IN");
-const fmtDate = (s)=> s;
 
 function toast(msg, kind="default"){
   const stack = $("#toastStack");
@@ -1019,7 +1012,7 @@ function renderTable(viewId, columns, rows, opts={}){
     return `<th ${c.sortable!==false ? `data-sort-th="${viewId}" data-key="${c.key}"`:""}>${esc(c.label)}${c.sortable!==false?arrow:""}</th>`;
   }).join("");
   const body = sorted.length ? sorted.map(row=>{
-    return `<tr>${columns.map(c=>`<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join("")}</tr>`;
+    return `<tr${opts.rowClass?` class="${opts.rowClass(row)}"`:""}>${columns.map(c=>`<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join("")}</tr>`;
   }).join("") : `<tr><td colspan="${columns.length}"><div class="empty"><div class="ic">▢</div><h4>Nothing here yet</h4><p>${esc(opts.emptyText||"No records match this view.")}</p></div></td></tr>`;
   return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -1033,25 +1026,48 @@ function toolbarTabs(viewId, tabs){
   return `<div class="tabs">${tabs.map(t=>`<div class="tab ${state.tab===t.key?"active":""}" data-tab="${viewId}" data-key="${t.key}">${esc(t.label)}</div>`).join("")}</div>`;
 }
 
-/* Modal system */
+/* Full-page sheets (replaces the old popups).
+   Every form / detail / confirm screen opens as its own full page with a
+   sticky header (back arrow + title) and a sticky action bar. The phone's
+   Back button and the Esc key close it too. */
+let _pageOpen = false, _confirmResolve = null;
+function askConfirm(title, message, opts){
+  opts = opts || {};
+  return new Promise((resolve)=>{
+    _confirmResolve = resolve;
+    openModal(title, `<div class="fp-confirm"><div class="fp-confirm-ic ${opts.danger?"danger":""}">${opts.danger?"!":"?"}</div><p>${esc(message)}</p></div>`,
+      `<button class="btn" id="cfNo">Cancel</button><button class="btn ${opts.danger?"danger":"primary"}" id="cfYes">${esc(opts.ok||"Confirm")}</button>`);
+    $("#cfNo").addEventListener("click", ()=> closeModal());
+    $("#cfYes").addEventListener("click", ()=>{ _confirmResolve = null; resolve(true); closeModal(); });
+  });
+}
 function openModal(title, bodyHtml, footHtml){
   const root = $("#modalRoot");
   root.innerHTML = `
-    <div class="modal-overlay" id="modalOverlay">
-      <div class="modal">
-        <div class="modal-head"><h3>${esc(title)}</h3><button class="modal-close" data-close-modal>✕</button></div>
-        <div class="modal-body">${bodyHtml}</div>
-        ${footHtml ? `<div class="modal-foot">${footHtml}</div>` : ""}
-      </div>
-    </div>`;
-  requestAnimationFrame(()=> $("#modalOverlay").classList.add("open"));
+    <section class="fp" id="fpPage" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <header class="fp-head">
+        <button class="fp-back" data-close-modal aria-label="Back">‹</button>
+        <h2 class="fp-title">${esc(title)}</h2>
+      </header>
+      <div class="fp-scroll"><div class="fp-body">${bodyHtml}</div></div>
+      ${footHtml ? `<footer class="fp-foot"><div class="fp-foot-in">${footHtml}</div></footer>` : ""}
+    </section>`;
+  document.body.classList.add("fp-open");
+  requestAnimationFrame(()=>{ const p = $("#fpPage"); if(p) p.classList.add("open"); });
+  if(!_pageOpen){ _pageOpen = true; try{ history.pushState({fp:1}, ""); }catch(e){} }
 }
-function closeModal(){
-  const ov = $("#modalOverlay");
-  if(!ov) return;
-  ov.classList.remove("open");
-  setTimeout(()=>{ $("#modalRoot").innerHTML=""; }, 120);
+function closeModal(fromHistory){
+  const p = $("#fpPage");
+  if(!p) return;
+  const wasOpen = _pageOpen; _pageOpen = false;
+  if(_confirmResolve){ const r = _confirmResolve; _confirmResolve = null; r(false); }
+  p.classList.remove("open");
+  document.body.classList.remove("fp-open");
+  setTimeout(()=>{ const r = $("#modalRoot"); if(r && !_pageOpen) r.innerHTML = ""; }, 160);
+  if(wasOpen && fromHistory !== true){ try{ if(history.state && history.state.fp) history.back(); }catch(e){} }
 }
+window.addEventListener("popstate", ()=>{ if(_pageOpen) closeModal(true); });
+document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && _pageOpen) closeModal(); });
 
 /* Simple SVG bar chart */
 function svgBarChart(values, labels, opts={}){
@@ -1082,89 +1098,6 @@ const QUICK_ACTIONS = [
   {ic:"◐", label:"Open complaints", nav:"support"},
   {ic:"🆘", label:"Emergency control", nav:"emergency"},
 ];
-VIEWS.dashboard = () => {
-  const todayOrders = DATA.orders.filter(o=>o.date.startsWith(todayStr()));
-  const revenue = DATA.orders.filter(o=>o.status!=="cancelled"&&o.status!=="failed").reduce((s,o)=>s+o.total,0);
-  const pending = DATA.orders.filter(o=>o.status==="pending").length;
-  const liveRiders = DATA.riders.filter(r=>r.online).length;
-  const activeZones = DATA.zones.filter(z=>z.status==="active").length;
-  const alerts = [
-    ...DATA.systemHealth.filter(h=>h.status==="degraded"||h.status==="down").map(h=>({ic:"❤",text:`${h.name} is ${h.status}`,sub:h.meta})),
-    ...DATA.merchants.filter(m=>m.status==="pending").map(m=>({ic:"⌂",text:`${m.name} awaiting KYC approval`,sub:m.city})),
-    ...DATA.riders.filter(r=>r.status==="pending").map(r=>({ic:"➔",text:`${r.name} awaiting rider KYC approval`,sub:r.zone})),
-    ...DATA.tickets.filter(t=>t.priority==="high"&&t.status!=="closed").map(t=>({ic:"◐",text:`High priority: ${t.subject}`,sub:`${t.from} · ${t.name}`})),
-  ].slice(0,6);
-  const recentRegistrations = [
-    ...DATA.users.slice(0,3).map(u=>({who:u.name, role:"Customer", when:u.joined})),
-    ...DATA.merchants.filter(m=>m.status==="pending").map(m=>({who:m.name, role:"Merchant", when:"—"})),
-    ...DATA.riders.filter(r=>r.status==="pending").map(r=>({who:r.name, role:"Rider", when:"—"})),
-  ].slice(0,6);
-  return `
-  <div class="view-head"><h1>Business Overview</h1><p>Live snapshot of orders, revenue and platform activity across MediFinder India.</p></div>
-  <div class="stat-grid">
-    <div class="stat-card"><div class="lbl">Total Users</div><div class="val">${DATA.users.length*187}</div><div class="delta up">▲ 4.2% this week</div></div>
-    <div class="stat-card"><div class="lbl">Total Merchants</div><div class="val">${DATA.merchants.length}</div><div class="delta up">▲ 2 pending review</div></div>
-    <div class="stat-card"><div class="lbl">Total Riders</div><div class="val">${DATA.riders.length*64}</div><div class="delta up">${liveRiders*41} online now</div></div>
-    <div class="stat-card"><div class="lbl">Today's Orders</div><div class="val">${todayOrders.length*38}</div><div class="delta up">▲ 8.1% vs yesterday</div></div>
-    <div class="stat-card"><div class="lbl">Pending Orders</div><div class="val">${pending}</div><div class="delta down">Needs attention</div></div>
-    <div class="stat-card"><div class="lbl">Today's Revenue</div><div class="val">${money(revenue)}</div><div class="delta up">▲ 6.4% vs yesterday</div></div>
-    <div class="stat-card"><div class="lbl">Platform Earnings</div><div class="val">${money(Math.round(revenue*0.12))}</div></div>
-    <div class="stat-card"><div class="lbl">Active Service Zones</div><div class="val">${activeZones}</div></div>
-    <div class="stat-card"><div class="lbl">Last-Hour Orders</div><div class="val">${DATA.orders.slice(0,3).length}</div></div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Quick actions</h3></div>
-    <div class="card-body">
-      <div class="quick-actions-grid">
-        ${QUICK_ACTIONS.map(a=>`<div class="qa-btn" data-nav="${a.nav}"><span class="qa-ic">${a.ic}</span>${esc(a.label)}</div>`).join("")}
-      </div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Orders — last 7 days</h3><span class="sub">All zones combined</span>
-      <div class="live-pill" style="margin-left:auto"><span class="blip"></span>${liveRiders} riders live</div>
-    </div>
-    <div class="card-body">
-      ${svgBarChart(DATA.weekOrders, DATA.weekLabels)}
-      <div class="legend"><span><span class="sw" style="background:var(--brand)"></span>Orders placed</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Recent activity</h3><span class="sub">New order / status-change feed</span>
-      <button class="btn sm" style="margin-left:auto" data-act="simulate-order">+ Simulate new order</button>
-    </div>
-    <div class="card-body">
-      ${DATA.activityFeed.slice(0,8).map(a=>`<div class="alert-item"><span class="al-ic">${a.ic}</span><div><div>${esc(a.text)}</div><div class="al-sub">${esc(a.sub||"")}</div></div></div>`).join("")}
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Live alerts</h3></div>
-    <div class="card-body">
-      ${alerts.length ? alerts.map(a=>`<div class="alert-item"><span class="al-ic">${a.ic}</span><div><div>${esc(a.text)}</div><div class="al-sub">${esc(a.sub)}</div></div></div>`).join("") : `<div class="empty"><div class="ic">▢</div><h4>All clear</h4><p>No active alerts right now.</p></div>`}
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Recent orders</h3><span class="sub">Newest first</span></div>
-    <div class="card-body pad0">
-      ${renderTable("dash-orders",[
-        {key:"id",label:"Order",render:r=>`<span class="id-cell">${r.id}</span>`},
-        {key:"customer",label:"Customer"},
-        {key:"merchant",label:"Pharmacy"},
-        {key:"total",label:"Total",render:r=>money(r.total)},
-        {key:"status",label:"Status",render:r=>statusBadge(r.status)},
-        {key:"date",label:"Placed"},
-      ], DATA.orders.slice(0,6))}
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Recent registrations</h3></div>
-    <div class="card-body pad0">
-      ${renderTable("dash-regs",[
-        {key:"who",label:"Name"},{key:"role",label:"Role",render:r=>badge(r.role,"blue")},{key:"when",label:"Joined"},
-      ], recentRegistrations)}
-    </div>
-  </div>`;
-};
 
 /* ---- Orders ---- */
 const ORDER_TABS = [{key:"all",label:"All Orders"},{key:"pending",label:"Pending"},{key:"active",label:"Active"},{key:"delivered",label:"Delivered"},{key:"cancelled",label:"Cancelled"}];
@@ -1257,7 +1190,7 @@ VIEWS.merchants = () => {
       {key:"joined",label:"Joined"},
       {key:"orders",label:"Orders"},
       {key:"earnings",label:"Earnings",render:r=>money(r.earnings)},
-      {key:"commission",label:"Commission",render:r=>r.commission+"%"},
+      {key:"commission",label:"Commission",render:r=>commissionLabel(r.commission)},
       {key:"rating",label:"Rating",render:r=>r.rating?`★ ${r.rating}`:"—"},
       {key:"license",label:"Licence",render:r=>statusBadge(r.license)},
       {key:"status",label:"Status",render:r=>statusBadge(r.status)},
@@ -1270,28 +1203,6 @@ VIEWS.merchants = () => {
     ], rows, {emptyText:"No merchants in this filter."})}
   </div></div>`;
 };
-const KYC_TABS = [{key:"pending",label:"Pending"},{key:"verified",label:"Verified"},{key:"rejected",label:"Rejected"}];
-function viewMerchantKyc(){
-  const state = vs("merchantkyc",{tab:"pending"});
-  const map = {pending:"pending", verified:"active", rejected:"suspended"};
-  const rows = DATA.merchants.filter(m=>m.status===map[state.tab]);
-  return `
-  <div class="view-head"><h1>Merchant KYC</h1><p>Verify drug licence &amp; owner details, or reject with a reason (merchant is notified automatically).</p></div>
-  ${toolbarTabs("merchants", MERCHANT_TABS)}
-  ${toolbarTabs("merchantkyc", KYC_TABS)}
-  <div class="card"><div class="card-body pad0" id="tablewrap-merchantkyc">
-    ${renderTable("merchantkyc",[
-      {key:"name",label:"Pharmacy",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.owner)}</div>`},
-      {key:"license",label:"Licence Status",render:r=>statusBadge(r.license)},
-      {key:"pincode",label:"Pincode"},
-      {key:"kycReason",label:"Reject Reason",render:r=>r.kycReason?esc(r.kycReason):"—"},
-      {key:"_actions",label:"",sortable:false,render:r=>state.tab==="pending" ? `<div class="actions-cell">
-          <button class="btn sm primary" data-act="merchant-approve" data-id="${r.id}">Verify</button>
-          <button class="btn sm danger" data-act="merchant-reject" data-id="${r.id}">Reject</button>
-        </div>` : `<button class="btn sm" data-act="merchant-notify" data-id="${r.id}">Notify</button>`},
-    ], rows, {emptyText:"Nothing in this KYC filter."})}
-  </div></div>`;
-}
 
 /* ---- Riders ---- */
 const RIDER_TABS=[{key:"all",label:"All Riders"},{key:"live",label:"Live Riders"}];
@@ -1384,6 +1295,7 @@ VIEWS.products = () => {
       {key:"price",label:"Price",render:r=>money(r.price)},
       {key:"stock",label:"Stock",render:r=>r.stock===0?badge("Out of stock","red"):r.stock},
       {key:"rx",label:"Rx",render:r=>r.rx?badge("Required","gold"):badge("OTC","gray")},
+      {key:"returnable",label:"Return / Exchange",sortable:false,render:r=>`${r.returnable?badge("Return "+(r.returnDays||"")+(r.returnDays?"d":""),"green"):badge("No return","gray")} ${r.exchangeable?badge("Exchange","blue"):""}`},
       {key:"approval",label:"Approval",render:r=>statusBadge(r.approval)},
       {key:"visible",label:"Visible",render:r=>`<label class="toggle"><input type="checkbox" ${r.visible?"checked":""} data-act="product-visible" data-id="${r.id}"><span class="track"></span></label>`},
       {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell"><button class="btn sm" data-act="product-edit" data-id="${r.id}">Edit</button></div>`},
@@ -1529,6 +1441,7 @@ VIEWS.sponsored = () => `
     ${renderTable("sponsored",[
       {key:"name",label:"Banner",render:r=>`${esc(r.name)}<div class="cell-sub">${esc(r.subtitle||"")}</div>`},
       {key:"linkedProduct",label:"Linked product",render:r=>r.linkedProduct?`${esc(r.linkedProduct)}${r.discount?` · ${r.discount}% off`:""}`:"—"},
+      {key:"showOn",label:"Shows on",render:r=>badge(r.showOn==='home'?"Home page":r.showOn==='user'?"User page":"Home + User", r.showOn==='both'?"green":"blue")},
       {key:"imageUrl",label:"Image",render:r=>r.imageUrl?(adIsVideoUrl(r.imageUrl)?`<video src="${esc(r.imageUrl)}" muted playsinline preload="metadata" style="width:44px;height:44px;object-fit:cover;border-radius:6px"></video>`:`<img src="${esc(r.imageUrl)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px">`):"—"},
       {key:"end",label:"Valid until",render:r=>r.end||"No expiry"},
       {key:"status",label:"Status",render:r=>statusBadge(r.status)},
@@ -1555,6 +1468,14 @@ function adFormModal(existing){
     <div class="field-row">
       <div class="field"><label>Tag</label><input id="adTag" value="${existing?esc(existing.tag||""):""}" placeholder="e.g. LIMITED TIME"></div>
       <div class="field"><label>Valid until</label><input type="date" id="adEnd" value="${existing?esc(existing.end||""):""}"></div>
+    </div>
+    <div class="field"><label>Show this banner on</label>
+      <select id="adShowOn">
+        <option value="home" ${existing&&existing.showOn==="home"?"selected":""}>Home page only</option>
+        <option value="user" ${existing&&existing.showOn==="user"?"selected":""}>User page only</option>
+        <option value="both" ${!existing||existing.showOn==="both"||!existing.showOn?"selected":""}>Both (Home + User page)</option>
+      </select>
+      <div class="hint">Home page = public page (before login). User page = the logged-in customer app. Only the place you choose will show this banner.</div>
     </div>
     <div class="field"><label>Link to a real product (optional)</label>
       <div class="row-flex">
@@ -1604,28 +1525,6 @@ function adFormModal(existing){
 }
 
 /* ---- Delivery Zones ---- */
-VIEWS.delivery = () => `
-  <div class="view-head"><h1>Service Zones</h1><p>PIN/district-wise zones — base fee, per-km rate, express charge and rider/merchant coverage.</p></div>
-  <div class="stat-grid">
-    <div class="stat-card"><div class="lbl">Active Zones</div><div class="val">${DATA.zones.filter(z=>z.status==='active').length}</div></div>
-    <div class="stat-card"><div class="lbl">Paused / Suspended</div><div class="val">${DATA.zones.filter(z=>z.status!=='active').length}</div></div>
-    <div class="stat-card"><div class="lbl">Total Zones</div><div class="val">${DATA.zones.length}</div></div>
-  </div>
-  <div class="view-toolbar"><button class="btn primary" data-act="zone-add">+ Add zone</button></div>
-  <div class="card"><div class="card-body pad0" id="tablewrap-delivery">
-    ${renderTable("delivery",[
-      {key:"name",label:"Zone",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.ps)} · ${esc(r.state)}</div>`},
-      {key:"pincode",label:"Pincode"},
-      {key:"district",label:"District"},
-      {key:"baseFee",label:"Base Fee",render:r=>money(r.baseFee)},
-      {key:"perKm",label:"Per KM",render:r=>money(r.perKm)},
-      {key:"express",label:"Express Fee",render:r=>money(r.express)},
-      {key:"riders",label:"Riders",render:r=>DATA.riders.filter(x=>x.zone===r.name).length},
-      {key:"merchants",label:"Merchants",render:r=>DATA.merchants.filter(x=>String(x.pincode)===String(r.pin)).length},
-      {key:"orders",label:"Orders",render:r=>DATA.orders.filter(o=>DATA.merchants.find(m=>m.name===o.merchant)?.pincode===r.pin).length},
-      {key:"status",label:"Status",render:r=>`<label class="toggle"><input type="checkbox" ${r.status==='active'?"checked":""} data-act="zone-toggle" data-id="${esc(r.id)}"><span class="track"></span></label>${r.status!=='active'&&r.suspendReason?`<div class="cell-sub">Reason: ${esc(r.suspendReason)}</div>`:""}`},
-    ], DATA.zones)}
-  </div></div>`;
 
 /* ---- Delivery Analytics ---- */
 VIEWS.deliveryanalytics = () => {
@@ -1660,57 +1559,6 @@ function fleetStatusOf(r){
   return "idle";
 }
 const FLEET_LABEL = {"active-order":"Active — With Order", idle:"Idle", "zone-suspended":"Zone Suspended", offline:"Offline"};
-VIEWS.fleet = () => {
-  const state = vs("fleet",{zoneFilter:"all"});
-  let visible = DATA.riders.filter(r=>r.online || fleetStatusOf(r)==="zone-suspended");
-  if(state.zoneFilter==="approved") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status==="active");
-  if(state.zoneFilter==="suspended") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status!=="active");
-  const counts = {"active-order":0, idle:0, "zone-suspended":0};
-  visible.forEach(r=>{ const s=fleetStatusOf(r); if(counts[s]!==undefined) counts[s]++; });
-  return `
-  <div class="view-head"><h1>Live Fleet Tracking</h1><p>Real-time rider positions, matched to their service zone — active, idle, on-route or zone-suspended.</p></div>
-  <div class="stat-grid">
-    <div class="stat-card"><div class="lbl">Online Riders</div><div class="val">${visible.length}</div></div>
-    <div class="stat-card"><div class="lbl">Active With Order</div><div class="val">${counts["active-order"]}</div></div>
-    <div class="stat-card"><div class="lbl">Idle</div><div class="val">${counts.idle}</div></div>
-    <div class="stat-card"><div class="lbl">Zone Suspended</div><div class="val">${counts["zone-suspended"]}</div></div>
-  </div>
-  <div class="view-toolbar">
-    <select data-act="fleet-zone-filter">
-      <option value="all" ${state.zoneFilter==="all"?"selected":""}>All zones</option>
-      <option value="approved" ${state.zoneFilter==="approved"?"selected":""}>Approved zones only</option>
-      <option value="suspended" ${state.zoneFilter==="suspended"?"selected":""}>Suspended zones only</option>
-    </select>
-    <button class="btn" style="margin-left:auto" data-act="fleet-refresh">↻ Refresh map</button>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Fleet map</h3><span class="sub">Live GPS positions — updated from each rider's device</span></div>
-    <div class="card-body">
-      <div class="fleet-legend">
-        <span><i style="background:var(--brand)"></i>Active — With Order</span>
-        <span><i style="background:var(--gold)"></i>Idle</span>
-        <span><i style="background:var(--blue)"></i>On Route</span>
-        <span><i style="background:var(--danger)"></i>Zone Suspended</span>
-      </div>
-      <div id="fleetLeafletMap" style="height:380px;border-radius:10px;overflow:hidden"></div>
-      ${visible.filter(r=>!r._hasLocation).length ? `<div class="hint" style="margin-top:8px">${visible.filter(r=>!r._hasLocation).length} online rider(s) have no GPS fix yet and aren't plotted.</div>` : ""}
-    </div>
-  </div>
-  <div class="card"><div class="card-head"><h3>Fleet list</h3></div><div class="card-body">
-    <div class="fleet-side-list">
-      ${visible.map(r=>{
-        const s = fleetStatusOf(r);
-        const dotColor = s==="active-order"?"var(--brand)":s==="idle"?"var(--gold)":s==="zone-suspended"?"var(--danger)":"var(--blue)";
-        return `<div class="fleet-row">
-          <span class="dot-status" style="background:${dotColor}"></span>
-          <div class="avatar">${initials(r.name)}</div>
-          <div style="flex:1"><div class="cell-strong">${esc(r.name)} <span class="cell-sub">${esc(r.id)}</span></div><div class="cell-sub">${esc(r.zone)} (${r.zoneDistanceKm} km) · ${esc(r.vehicle)}</div></div>
-          ${statusBadge(r.status)}
-        </div>`;
-      }).join("") || `<div class="empty"><div class="ic">▢</div><h4>No riders online</h4><p>Riders will appear here once they go online.</p></div>`}
-    </div>
-  </div></div>`;
-};
 /* ---- System Health ---- */
 const HEALTH_TONE = {operational:"green", degraded:"gold", down:"red"};
 VIEWS.syshealth = () => `
@@ -1727,42 +1575,9 @@ VIEWS.syshealth = () => `
   </div></div>`;
 
 /* ---- Emergency Control ---- */
-VIEWS.emergency = () => { const e = STATE.emergency; return `
-  <div class="view-head"><h1>Emergency Control Center</h1><p>Platform-wide kill switches — use only when necessary, every toggle is logged.</p></div>
-  <div class="emergency-panel">
-    <div class="emergency-row">
-      <div><div class="er-title">Pause new orders</div><div class="er-sub">Customers can browse but not place new orders</div></div>
-      <label class="toggle"><input type="checkbox" ${e.pauseOrders?"checked":""} data-act="emg-toggle" data-key="pauseOrders"><span class="track"></span></label>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Pause delivery dispatch</div><div class="er-sub">Existing orders held, no new rider assignment</div></div>
-      <label class="toggle"><input type="checkbox" ${e.pauseDelivery?"checked":""} data-act="emg-toggle" data-key="pauseDelivery"><span class="track"></span></label>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Suspend a specific zone</div><div class="er-sub">Blocks new orders in that zone only</div></div>
-      <select data-act="emg-select" data-key="suspendedZone"><option value="">— None —</option>${DATA.zones.map(z=>`<option value="${esc(z.name)}" ${e.suspendedZone===z.name?"selected":""}>${esc(z.name)}</option>`).join("")}</select>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Suspend a specific pharmacy</div><div class="er-sub">Removes it from search + stops new orders</div></div>
-      <select data-act="emg-select" data-key="suspendedMerchant"><option value="">— None —</option>${DATA.merchants.map(m=>`<option value="${esc(m.name)}" ${e.suspendedMerchant===m.name?"selected":""}>${esc(m.name)}</option>`).join("")}</select>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Suspend a specific rider</div><div class="er-sub">Rider is taken offline immediately</div></div>
-      <select data-act="emg-select" data-key="suspendedRider"><option value="">— None —</option>${DATA.riders.map(r=>`<option value="${esc(r.name)}" ${e.suspendedRider===r.name?"selected":""}>${esc(r.name)}</option>`).join("")}</select>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Payment maintenance mode</div><div class="er-sub">Falls back to Cash on Delivery only</div></div>
-      <label class="toggle"><input type="checkbox" ${e.paymentMaintenance?"checked":""} data-act="emg-toggle" data-key="paymentMaintenance"><span class="track"></span></label>
-    </div>
-    <div class="emergency-row">
-      <div><div class="er-title">Platform maintenance mode</div><div class="er-sub">Shows a maintenance screen to all users</div></div>
-      <label class="toggle"><input type="checkbox" ${e.platformMaintenance?"checked":""} data-act="emg-toggle" data-key="platformMaintenance"><span class="track"></span></label>
-    </div>
-  </div>`;
-};
 
 /* ---- Healthcare Services ---- */
-const HC_TABS=[{key:"labs",label:"Lab Tests"},{key:"lab-bookings",label:"Lab Bookings"},{key:"nurses",label:"Nurse Directory"},{key:"nurse-bookings",label:"Nursing Bookings"},{key:"ambulance",label:"Ambulance"},{key:"ambulance-drivers",label:"Ambulance Drivers"},{key:"ambulance-bookings",label:"Ambulance Bookings"},{key:"ambulance-fleet",label:"Ambulance Fleet Map"},{key:"doctors",label:"Doctors"},{key:"homecare",label:"Home Care"}];
+const HC_TABS=[{key:"labs",label:"Lab Tests"},{key:"lab-bookings",label:"Lab Bookings"},{key:"nurses",label:"Nurse Directory"},{key:"nurse-bookings",label:"Nursing Bookings"},{key:"ambulance",label:"Ambulance"},{key:"ambulance-drivers",label:"Ambulance Drivers"},{key:"ambulance-bookings",label:"Ambulance Bookings"},{key:"ambulance-fleet",label:"Ambulance Fleet Map"}];
 function bookingActions(r, prefix){
   if(r.status==="cancelled"||r.status==="completed") return "";
   return `<div class="actions-cell">
@@ -1785,11 +1600,7 @@ function ambulanceFleetMap(){
 VIEWS.healthcare = () => {
   const state = vs("healthcare",{tab:"labs"});
   let table, addBtn = true;
-  if(state.tab==="doctors") table = renderTable("healthcare",[
-    {key:"name",label:"Doctor"},{key:"spec",label:"Specialization"},{key:"fee",label:"Fee",render:r=>money(r.fee)},
-    {key:"rating",label:"Rating",render:r=>`★ ${r.rating}`},{key:"status",label:"Availability",render:r=>statusBadge(r.status)},
-  ], DATA.doctors);
-  else if(state.tab==="nurses") table = renderTable("healthcare",[
+  if(state.tab==="nurses") table = renderTable("healthcare",[
     {key:"name",label:"Nurse",render:r=>`<div class="row-flex"><div class="avatar">${r.photo||initials(r.name)}</div><div><div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.qualification)}</div></div></div>`},
     {key:"type",label:"Service"},{key:"degree",label:"Degree / Certificate"},
     {key:"whatsapp",label:"WhatsApp"},{key:"serviceArea",label:"Service Area (Pincode)"},
@@ -1801,16 +1612,16 @@ VIEWS.healthcare = () => {
     {key:"status",label:"Status",render:r=>statusBadge(r.status)},
     {key:"_actions",label:"",sortable:false,render:r=>bookingActions(r,"nbk")},
   ], DATA.nurseBookings, {emptyText:"No nursing bookings yet."}); }
-  else if(state.tab==="labs") table = renderTable("healthcare",[
+  else if(state.tab==="labs"){ addBtn=false; table = renderTable("healthcare",[
     {key:"name",label:"Lab Partner",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.test)}</div>`},
     {key:"includedTests",label:"Included Tests"},
     {key:"price",label:"Price",render:r=>`${money(r.price)} <span class="cell-sub" style="text-decoration:line-through">${money(r.oldPrice)}</span> <span class="badge green">${r.discount}% off</span>`},
     {key:"serviceArea",label:"Service Area"},
     {key:"fasting",label:"Fasting",render:r=>r.fasting?badge("Required","gold"):badge("Not required","gray")},
     {key:"sample",label:"Sample"},
-    {key:"status",label:"Status",render:r=>statusBadge(r.status)},
-    {key:"_actions",label:"",sortable:false,render:r=>`<button class="btn sm ${r.status==='active'?'danger':'primary'}" data-act="lab-toggle-visibility" data-id="${r.id}">${r.status==='active'?'Hide':'Activate'}</button>`},
-  ], DATA.labs);
+    {key:"publishedBy",label:"Published by",render:r=>`<div class="cell-strong">${esc(r.publishedBy)}</div>`},
+    {key:"status",label:"On user page",render:r=>r.status==="active"?badge("Live","green"):badge("Off (set by partner)","gray")},
+  ], DATA.labs, {emptyText:"No lab tests published by blood collectors yet."}); }
   else if(state.tab==="lab-bookings"){ addBtn=false; table = renderTable("healthcare",[
     {key:"id",label:"Booking"},{key:"customer",label:"Customer"},{key:"test",label:"Test"},{key:"provider",label:"Lab"},
     {key:"date",label:"Date"},{key:"payment",label:"Payment",render:r=>badge(r.payment,r.payment==="COD"?"gold":"blue")},
@@ -1831,9 +1642,6 @@ VIEWS.healthcare = () => {
     {key:"_actions",label:"",sortable:false,render:r=>bookingActions(r,"abk")},
   ], DATA.ambulanceBookings, {emptyText:"No ambulance bookings yet."}); }
   else if(state.tab==="ambulance-fleet"){ addBtn=false; }
-  else table = renderTable("healthcare",[
-    {key:"name",label:"Service"},{key:"provider",label:"Provider"},{key:"rate",label:"Rate"},{key:"status",label:"Status",render:r=>statusBadge(r.status)},
-  ], DATA.homecare);
   return `
   <div class="view-head"><h1>Lab, Nursing &amp; Ambulance</h1><p>Catalogues, directories and live bookings for lab tests, home nursing and ambulance services.</p></div>
   ${toolbarTabs("healthcare", HC_TABS)}
@@ -1866,46 +1674,8 @@ VIEWS.reviews = () => `
   </div></div>`;
 
 /* ---- Notifications ---- */
-VIEWS.notifications = () => `
-  <div class="view-head"><h1>Notifications</h1><p>Send push notifications to users, merchants or riders.</p></div>
-  <div class="card"><div class="card-head"><h3>Compose notification</h3></div>
-    <div class="card-body">
-      <div class="field-row">
-        <div class="field"><label>Audience</label><select id="ntfAudience"><option>All Users</option><option>Merchants</option><option>Riders</option></select></div>
-        <div class="field"><label>Schedule</label><select id="ntfSchedule"><option>Send now</option><option>Schedule later</option></select></div>
-      </div>
-      <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
-      <div class="field"><label>Message</label><textarea id="ntfBody" placeholder="Write the notification body..."></textarea></div>
-      <button class="btn primary" data-act="ntf-send">Send notification</button>
-    </div>
-  </div>
-  <div class="card"><div class="card-head"><h3>Sent history</h3></div><div class="card-body pad0" id="tablewrap-notifications">
-    ${renderTable("notifications",[
-      {key:"title",label:"Title"},{key:"audience",label:"Audience",render:r=>badge(r.audience,"blue")},
-      {key:"sentAt",label:"Sent"},{key:"opens",label:"Open rate"},
-    ], DATA.notificationsHistory)}
-  </div></div>`;
 
 /* ---- Reports ---- */
-VIEWS.reports = () => {
-  const catCounts = DATA.categories.map(c=>DATA.products.filter(p=>p.category===c).length);
-  const topPharmacy = [...DATA.merchants].sort((a,b)=>b.orders-a.orders);
-  return `
-  <div class="view-head"><h1>Reports & Analytics</h1><p>Sales, growth and performance trends across the platform.</p></div>
-  <div class="card"><div class="card-head"><h3>Orders — last 7 days</h3></div><div class="card-body">${svgBarChart(DATA.weekOrders, DATA.weekLabels)}</div></div>
-  <div class="card"><div class="card-head"><h3>Products by category</h3></div><div class="card-body">${svgBarChart(catCounts, DATA.categories)}</div></div>
-  <div class="card"><div class="card-head"><h3>Top pharmacies by orders</h3></div><div class="card-body pad0">
-    ${renderTable("reports-top",[
-      {key:"name",label:"Pharmacy"},{key:"orders",label:"Orders"},{key:"earnings",label:"Earnings",render:r=>money(r.earnings)},{key:"rating",label:"Rating",render:r=>r.rating?`★ ${r.rating}`:"—"},
-    ], topPharmacy)}
-  </div></div>
-  <div class="stat-grid">
-    <div class="stat-card"><div class="lbl">Cancellation Rate</div><div class="val">${((DATA.orders.filter(o=>o.status==="cancelled").length/DATA.orders.length)*100).toFixed(1)}%</div></div>
-    <div class="stat-card"><div class="lbl">Avg. Delivery Time</div><div class="val">34 min</div></div>
-    <div class="stat-card"><div class="lbl">User Growth (MoM)</div><div class="val">+9.8%</div></div>
-    <div class="stat-card"><div class="lbl">Merchant Growth (MoM)</div><div class="val">+3</div></div>
-  </div>`;
-};
 
 /* ---- Admin & Permissions ---- */
 const PERM_MODULES = ["Orders","Finance","Merchants","Riders","Settings"];
@@ -1962,15 +1732,6 @@ VIEWS.settings = () => { const s = STATE.settings; return `
    6. ACTIONS (event delegation targets)
    --------------------------------------------------------- */
 const Actions = {
-  "simulate-order": ()=>{
-    const merchant = DATA.merchants[Math.floor(Math.random()*DATA.merchants.length)];
-    const customer = DATA.users[Math.floor(Math.random()*DATA.users.length)];
-    const total = 150 + Math.floor(Math.random()*900);
-    const order = {id:nextId("ORD"), customer:customer.name, merchant:merchant.name, total, status:"pending", payment:Math.random()>0.5?"COD":"Online", date:"2026-09-22 now"};
-    DATA.orders.unshift(order);
-    DATA.activityFeed.unshift({ic:"▤", text:`New order ${order.id} placed`, sub:`${merchant.name} · ${money(total)}`});
-    render(); toast(`New order ${order.id} received — dashboard updated`);
-  },
   "user-toggle": async (el)=>{ const u=DATA.users.find(x=>x.id===el.dataset.id); if(!u) return;
     const next = u.status==="active" ? "blocked" : "active";
     const { error } = await supabase.from('profiles').update({ status:next }).eq('id', u.id);
@@ -2134,27 +1895,11 @@ const Actions = {
     if(error){ toast("Failed: "+error.message,"danger"); return; }
     closeModal(); await loadProductsFromDB(); render(); toast("Product added");
   },
-  "product-edit": (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
-    openModal(`Edit ${p.name}`, `
-      <div class="field-row"><div class="field"><label>Price (₹)</label><input id="epPrice" type="number" value="${p.price}"></div><div class="field"><label>Stock</label><input id="epStock" type="number" value="${p.stock}"></div></div>`,
-      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="product-edit-save" data-id="${p.id}">Save</button>`);
-  },
-  "product-edit-save": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
-    const price=+$("#epPrice").value||p.price, stock=+$("#epStock").value||0;
-    const { error } = await supabase.from('medicines').update({ selling_price:price, mrp:price, stock_qty:stock }).eq('id', p.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    p.price=price; p.stock=stock; closeModal(); render(); toast("Product updated");
-  },
   "product-visible": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
     const next = !p.visible;
     const { error } = await supabase.from('medicines').update({ is_visible:next }).eq('id', p.id);
     if(error){ toast("Failed: "+error.message,"danger"); return; }
     p.visible=next; toast(p.visible?"Product visible to customers":"Product hidden");
-  },
-  "product-approve": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
-    const { error } = await supabase.from('medicines').update({ status:'Approved', admin_approved:true, is_visible:true }).eq('id', p.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    p.approval="approved"; p.visible=true; render(); toast("Medicine approved & live");
   },
   "product-reject": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
     const { error } = await supabase.from('medicines').update({ status:'Rejected', admin_approved:false, is_visible:false }).eq('id', p.id);
@@ -2244,10 +1989,18 @@ const Actions = {
       first_order_discount_percent: (()=>{ const v = Number($("#adDiscount").value); return (v>0 && v<=100) ? v : null; })(),
       valid_until: $("#adEnd").value || null,
       use_custom_image: useCustomImage, custom_image_url: customImageUrl,
+      show_on: ($("#adShowOn") ? $("#adShowOn").value : "both"),
     };
-    const { error } = editId
-      ? await supabase.from('sponsored_products').update(payload).eq('id', editId)
-      : await supabase.from('sponsored_products').insert({ ...payload, is_active:true });
+    const saveAd = (p)=> editId
+      ? supabase.from('sponsored_products').update(p).eq('id', editId)
+      : supabase.from('sponsored_products').insert({ ...p, is_active:true });
+    let { error } = await saveAd(payload);
+    if(error && /show_on/i.test(error.message||"")){
+      // column not created yet: save the banner anyway, but tell the admin the placement was NOT stored
+      const { show_on, ...rest } = payload;
+      ({ error } = await saveAd(rest));
+      if(!error) toast("Saved, but 'Shows on' needs the SQL from sponsored_show_on.sql run in Supabase first. Until then the banner shows on both pages.","danger");
+    }
     if(error){ toast("Failed: "+error.message,"danger"); return; }
     closeModal(); await loadAdsFromDB(); render(); toast(editId?"Sponsored banner updated":"Sponsored banner created");
   },
@@ -2267,47 +2020,19 @@ const Actions = {
     DATA.ads = DATA.ads.filter(a=>a.id!==id); render(); toast("Banner deleted","danger");
   },
 
-  "zone-add": ()=> promptAdd("New delivery zone", "Zone name", async (v)=>{
-    const { error } = await supabase.from('service_zones').insert({ name:v, base_fee:30, per_km_fee:8, express_fee:20, is_active:true });
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    await loadZonesFromDB(); render(); toast("Zone added");
-  }),
-  "zone-toggle": async (el)=>{ const z=DATA.zones.find(x=>x.name===el.dataset.name); if(!z) return;
-    const next = z.status==="active" ? "paused" : "active";
-    const { error } = await supabase.from('service_zones').update({ is_active: next==="active" }).eq('id', z.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    z.status = next; toast(`${z.name} ${z.status}`);
-  },
 
   "hc-add": (el)=>{ const kind=el.dataset.kind;
-    // NOTE: "doctors" and "homecare" are intentionally left as local-only demo
-    // data — no real Supabase table exists for them and none was requested.
-    const map = {doctors:["Doctor name","spec"], nurses:["Nurse name","type"], labs:["Lab / partner name","test"], ambulance:["Provider name","type"], homecare:["Service name","provider"]};
+    const map = {nurses:["Nurse name","type"], labs:["Lab / partner name","test"], ambulance:["Provider name","type"]};
     promptAdd(`Add to ${kind}`, map[kind][0], async (v)=>{
-      if(kind==="doctors") DATA.doctors.push({id:nextId("DOC"),name:v,spec:"General Physician",fee:500,status:"available",rating:4.5});
-      if(kind==="homecare") DATA.homecare.push({id:nextId("HMC"),name:v,provider:"CarePlus",rate:"₹900/session",status:"available"});
       if(kind==="nurses"){
         const { error } = await supabase.from('nurses').insert({ name:v });
         if(error){ toast("Failed to add nurse: "+error.message,"danger"); return; }
         await loadNursesFromDB(); await logAdminAction(`Added nurse ${v}`); render(); toast("Nurse added"); return;
       }
-      if(kind==="labs"){
-        const testCode = "LAB-"+Date.now();
-        const { error } = await supabase.from('lab_tests').insert({ test_code:testCode, test_name:v, name:v, active:true });
-        if(error){ toast("Failed to add lab test: "+error.message,"danger"); return; }
-        await loadLabTestsFromDB(); await logAdminAction(`Added lab test ${v}`); render(); toast("Lab test added"); return;
-      }
       if(kind==="ambulance"){ toast("Ambulance units are added by drivers signing up via the Ambulance Partner app, not from here.","danger"); return; }
       render(); toast("Added");
     });
   },
-  "lab-toggle-visibility": async (el)=>{ const l=DATA.labs.find(x=>x.id===el.dataset.id); if(!l) return;
-    const next = l.status==="active" ? "hidden" : "active";
-    const { error } = await supabase.from('lab_tests').update({ active: next==="active" }).eq('id', l.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    l.status = next; render(); toast(l.status==="active"?"Lab test activated":"Lab test hidden");
-  },
-
   "lbk-accept": async (el)=>{ const b=DATA.labBookings.find(x=>x.id===el.dataset.id); if(!b) return;
     const { error } = await supabase.from('lab_bookings').update({ status:"Confirmed" }).eq('id', b._rawId);
     if(error){ toast("Failed: "+error.message,"danger"); return; }
@@ -2349,7 +2074,6 @@ const Actions = {
   },
 
   "fleet-zone-filter": (el)=>{ vs("fleet",{zoneFilter:"all"}).zoneFilter = el.value; render(); },
-  "fleet-refresh": ()=>{ loadRidersFromDB().then(render); toast("Fleet map refreshed"); },
   "analytics-refresh": ()=>{ STATE.lastAnalyticsRefresh = "just now"; render(); toast("Delivery analytics refreshed"); },
 
   "health-check": async ()=>{ await computeSystemHealthLive(); render(); toast("Diagnostic complete"); },
@@ -2403,13 +2127,6 @@ const Actions = {
     closeModal(); render(); toast("Admin added");
   },
 
-  "settings-save": ()=>{
-    const s=STATE.settings;
-    s.platformName=$("#setName").value; s.commission=+$("#setCommission").value; s.codFee=+$("#setCod").value;
-    s.processingFee=+$("#setProcessing").value; s.tax=+$("#setTax").value;
-    s.cancellationPolicy=$("#setCancel").value; s.refundPolicy=$("#setRefund").value;
-    toast("Settings saved");
-  },
 };
 
 function setStatus(arr,id,status){ const item=arr.find(x=>x.id===id); if(item) item.status=status; render(); }
@@ -2453,16 +2170,6 @@ async function safeSelect(table, cols="*", limit=500){
   return data || [];
 }
 function doc(label, ref, bucket){ return ref ? {label, ref:String(ref), bucket} : null; }
-function jsonDocs(obj, bucket, prefix){
-  const out = [];
-  if(!obj || typeof obj!=="object") return out;
-  Object.entries(obj).forEach(([k,v])=>{
-    const label = (prefix?prefix+" · ":"") + k.replace(/_/g," ");
-    if(typeof v==="string" && v) out.push(doc(label, v, bucket));
-    else if(v && typeof v==="object"){ const ref = v.url || v.path; if(typeof ref==="string" && ref) out.push(doc(label, ref, bucket)); else out.push(...jsonDocs(v, bucket, label)); }
-  });
-  return out.filter(Boolean);
-}
 
 async function loadPartnerExtras(){
   const R = DATA.raw;
@@ -2470,7 +2177,7 @@ async function loadPartnerExtras(){
   R.riderKyc = await safeSelect("rider_kyc_application");
   R.nurseKyc = await safeSelect("nurse_kyc");
   R.collectorKyc = await safeSelect("collector_kyc");
-  R.collectors = await safeSelect("sample_collectors", "id, full_name, phone, auth_user_id, kyc_status");
+  R.collectors = await safeSelect("sample_collectors", "*");
   const nurseByUid = {}; DATA.nurses.forEach(n=>{ if(n.authUserId) nurseByUid[n.authUserId] = n.name; });
   R.nurseKyc.forEach(k=>{ if(k.full_name) nurseByUid[k.user_id] = k.full_name; });
   const colName = {}; R.collectors.forEach(c=>{ colName[c.id] = c.full_name || ("Collector #"+String(c.id).slice(0,6)); });
@@ -2556,7 +2263,7 @@ function kycAllRows(){
       docs:[doc("Photo",k.photo_url,"collector-docs"),doc("ID proof",k.id_proof_url,"collector-docs"),doc("Address proof",k.address_proof_url,"collector-docs"),doc("Passbook",k.passbook_url,"collector-docs")].filter(Boolean)}); });
   R.ambulance.forEach(d=>{ const st = normKyc(d.kyc_status); if(!st) return;
     out.push({kind:"ambulance", id:d.id, name:d.driver_name||"Driver", phone:d.phone, info:`${dash(d.vehicle_type)} · ${dash(d.plate_number)}`, status:st, reason:d.kyc_rejection_reason||"", submitted:(d.kyc_submitted_at||"").slice(0,10),
-      details:[["Driver",d.driver_name],["Phone",dash(d.phone)],["Vehicle",`${dash(d.vehicle_type)} · ${dash(d.plate_number)} · ${dash(d.category)}`],["Address",`${dash(d.address)} ${dash(d.pincode)}`],["Emergency contact",`${dash(d.emergency_contact_name)} ${dash(d.emergency_contact_phone)}`],["Bank",`${dash(d.bank_account_holder)} · ${dash(d.bank_name)} · ${mask(d.bank_account_number)} · ${dash(d.bank_ifsc_code)}`],["UPI",dash(d.bank_upi_id)],["Bank verified",d.bank_verified?"Yes":"No"]],
+      details:[["Driver",d.driver_name],["Phone",dash(d.phone)],["WhatsApp",dash(d.whatsapp_number)],["Aadhaar no.",dash((d.kyc_documents||{}).aadhaar?.number)],["PAN no.",dash((d.kyc_documents||{}).pan?.number)],["Licence no.",dash((d.kyc_documents||{}).license?.number)],["Vehicle",`${dash(d.vehicle_type)} · ${dash(d.plate_number)} · ${dash(d.category)}`],["Address",`${dash(d.address)} ${dash(d.pincode)}`],["Emergency contact",`${dash(d.emergency_contact_name)} ${dash(d.emergency_contact_phone)}`],["Bank",`${dash(d.bank_account_holder)} · ${dash(d.bank_name)} · ${mask(d.bank_account_number)} · ${dash(d.bank_ifsc_code)}`],["UPI",dash(d.bank_upi_id)],["Bank verified",d.bank_verified?"Yes":"No"]],
       docs:[doc("Driver photo",d.photo_url,"ambulance-kyc"),doc("Vehicle photo",d.vehicle_photo_url,"ambulance-kyc"),doc("Plate photo",d.plate_photo_url,"ambulance-kyc"),...jsonDocs(d.kyc_documents,"ambulance-kyc","KYC"),...jsonDocs(d.vehicle_documents,"ambulance-kyc","Vehicle")].filter(Boolean)}); });
   return out;
 }
@@ -2698,7 +2405,6 @@ VIEWS.payment = () => {
   </div></div>`;
 };
 function payFind(kind,id){ return DATA.payQueue.find(r=>r.kind===kind && String(r.rawId)===String(id)); }
-const payHasPending = (kind,rawId)=> { const r = payFind(kind,rawId); return !!r && r.status!=="verified"; };
 Object.assign(Actions, {
   "pay-verify": (el)=>{
     const r = payFind(el.dataset.kind, el.dataset.id); if(!r) return;
@@ -2773,31 +2479,6 @@ function ntfTargets(t){
   if(t==="ambulance") return DATA.ambulanceDrivers.map(d=>({id:d.id,label:`${d.name} · ${d.phone}`}));
   return [];
 }
-VIEWS.notifications = () => {
-  const t = vs("notifications",{tab:"user-all"}).tab;
-  let target = "";
-  if(t==="user-one") target = `<div class="field"><label>Select user</label><select id="ntfTarget">${DATA.users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.phone)}</option>`).join("")}</select></div>`;
-  else if(t!=="user-all") target = `<div class="field"><label>Send to</label><select id="ntfTarget"><option value="all">All ${esc(NTF_AUDIENCE[t].toLowerCase())}</option>${ntfTargets(t).map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join("")}</select></div>`;
-  else target = `<div class="field"><label>Send to</label><input value="All users" disabled></div>`;
-  return `
-  <div class="view-head"><h1>Create Notification</h1><p>${esc(NTF_AUDIENCE[t])} · delivered in-app (stored in the app's own notification table).</p></div>
-  <div class="card"><div class="card-body">
-    ${target}
-    <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
-    <div class="field"><label>Message</label><textarea id="ntfBody" placeholder="Write the notification body..."></textarea></div>
-    <div class="field-row">
-      <div class="field"><label>Image URL (optional)</label><input id="ntfImage" placeholder="https://..."></div>
-      <div class="field"><label>Deep link (optional)</label><input id="ntfLink" placeholder="e.g. orders"></div>
-    </div>
-    <button class="btn primary" data-act="ntf-send">Send notification</button>
-  </div></div>
-  <div class="card"><div class="card-head"><h3>Notification history</h3></div><div class="card-body pad0" id="tablewrap-notifications">
-    ${renderTable("notifications",[
-      {key:"title",label:"Title"},{key:"audience",label:"Audience",render:r=>badge(r.audience,"blue")},
-      {key:"sentAt",label:"Sent"},
-    ], DATA.notificationsHistory, {emptyText:"No notifications sent yet."})}
-  </div></div>`;
-};
 
 function detailRow(label, val){ return `<div style="padding:7px 0;border-bottom:1px solid var(--line,#eee);display:flex;justify-content:space-between;gap:12px"><span class="hint">${esc(label)}</span><span class="cell-strong" style="text-align:right;word-break:break-word">${val}</span></div>`; }
 async function mustUpdate(q, what){
@@ -2852,48 +2533,8 @@ function hydrateKycDocs(){
 
 Object.assign(Actions, {
   "logout": async ()=>{ try{ await supabase.auth.signOut(); }catch(e){} location.reload(); },
-  "doc-open": async (el)=>{
-    const { bucket, ref } = el.dataset;
-    if(isUrl(ref)){ window.open(ref, "_blank", "noopener"); return; }
-    const w = window.open("", "_blank");
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(ref, 3600);
-    if(error || !data){ if(w) w.close(); toast("Could not open document: "+(error?error.message:"not found"),"danger"); return; }
-    if(w) w.location.href = data.signedUrl; else window.open(data.signedUrl, "_blank");
-  },
 
   /* ----- ZONES (service_zones: pin / dist / ps / muni / state / status / outage_message) ----- */
-  "zone-add": ()=> openModal("New delivery zone", `
-    <div class="field-row">
-      <div class="field"><label>Pincode *</label><input id="zPin" inputmode="numeric" maxlength="6" placeholder="733124"></div>
-      <div class="field"><label>District *</label><input id="zDist" placeholder="Dakshin Dinajpur"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>Police station</label><input id="zPs" placeholder="Gangarampur"></div>
-      <div class="field"><label>Municipality / Block</label><input id="zMuni" placeholder="Gangarampur"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>State *</label><input id="zState" value="West Bengal"></div>
-      <div class="field"><label>Zone name (optional)</label><input id="zName" placeholder="defaults to municipality"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="30"></div>
-      <div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="8"></div>
-      <div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="20"></div>
-    </div>`,
-    `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-save">Save zone</button>`),
-  "zone-save": async ()=>{
-    const pin=$("#zPin").value.trim(), dist=$("#zDist").value.trim(), state=$("#zState").value.trim();
-    const ps=$("#zPs").value.trim(), muni=$("#zMuni").value.trim();
-    if(!pin||!dist||!state){ toast("Pincode, district and state are required","danger"); return; }
-    if(!/^\d{6}$/.test(pin)){ toast("Pincode must be exactly 6 digits","danger"); return; }
-    if(DATA.zones.some(z=>String(z.pin)===pin)){ toast("A zone for this pincode already exists","danger"); return; }
-    const name = $("#zName").value.trim() || muni || ps || dist;
-    const row = { name, pin, pincode:pin, dist, ps:ps||null, muni:muni||null, state, status:"approved", is_active:true, outage_message:"",
-      base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
-    const { error } = await supabase.from("service_zones").insert(row);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    closeModal(); await loadZonesFromDB(); await logAdminAction(`Added zone ${pin} (${dist})`); render(); toast("Zone added — customers in this pincode can now order");
-  },
   "zone-toggle": async (el)=>{
     const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
     if(z.status==="active"){
@@ -2944,7 +2585,7 @@ Object.assign(Actions, {
     let q;
     if(kind==="nurse") q = supabase.from("nurse_kyc").update({status:"approved", rejection_reason:null}).eq("user_id", id);
     if(kind==="lab") q = supabase.from("collector_kyc").update({status:"verified", rejection_reason:null, reviewed_at:new Date().toISOString()}).eq("id", id);
-    if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"verified", is_verified:true, kyc_rejection_reason:null}).eq("id", id);
+    if(kind==="ambulance"){ const drv=(R.ambulance||[]).find(x=>String(x.id)===String(id)); q = supabase.from("ambulance_drivers").update({kyc_status:"verified", is_verified:true, bank_verified:!!(drv&&drv.bank_submitted_at), kyc_rejection_reason:null}).eq("id", id); }
     const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Approve failed: "+r.msg,"danger"); return; }
     await logAdminAction(`Approved ${kind} KYC ${id}`); await refreshLiveData(); closeModal(); toast("KYC approved — partner notified");
   },
@@ -2961,7 +2602,7 @@ Object.assign(Actions, {
     let q;
     if(kind==="nurse") q = supabase.from("nurse_kyc").update({status:"rejected", rejection_reason:reason}).eq("user_id", id);
     if(kind==="lab") q = supabase.from("collector_kyc").update({status:"rejected", rejection_reason:reason, reviewed_at:new Date().toISOString()}).eq("id", id);
-    if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"rejected", is_verified:false, kyc_rejection_reason:reason}).eq("id", id);
+    if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"rejected", is_verified:false, bank_verified:false, kyc_rejection_reason:reason}).eq("id", id);
     const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Reject failed: "+r.msg,"danger"); return; }
     await logAdminAction(`Rejected ${kind} KYC ${id} — ${reason}`); await refreshLiveData(); closeModal(); toast("KYC rejected","danger");
   },
@@ -3182,7 +2823,7 @@ document.addEventListener("click", (e)=>{
   }
 
   const closeEl = e.target.closest("[data-close-modal]");
-  if(closeEl || e.target.id==="modalOverlay"){ closeModal(); return; }
+  if(closeEl){ closeModal(); return; }
 
   const actEl = e.target.closest("[data-act]");
   if(actEl && Actions[actEl.dataset.act]){ Actions[actEl.dataset.act](actEl); return; }
@@ -3263,12 +2904,1394 @@ document.addEventListener("click", (e)=>{
   if(!e.target.closest("#globalSearchWrap")){ const box=$("#globalSearchResults"); if(box) box.classList.remove("open"); }
 });
 
+/* =========================================================
+   10. ADMIN UPGRADE v2
+   Real dashboard numbers, partner pages, commission, persisted
+   emergency control, fast parallel loading, full-page sheets,
+   Leaflet/OpenStreetMap maps, company report + receipts.
+   ========================================================= */
+const R = DATA.raw; // used by the KYC approve action for ambulance drivers
+const _p2 = n=>String(n).padStart(2,"0");
+function localDayStr(d){ d = d || new Date(); return `${d.getFullYear()}-${_p2(d.getMonth()+1)}-${_p2(d.getDate())}`; }
+function tsDay(ts){ if(!ts) return ""; const d = new Date(ts); return isNaN(d) ? "" : localDayStr(d); }
+function dayStart(offset){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(offset||0)); return d; }
+function orderItemsCount(o){
+  let it = o.items;
+  if(typeof it === "string"){ try{ it = JSON.parse(it); }catch(e){ it = null; } }
+  if(Array.isArray(it)) return it.length;
+  return Number(o.item_count ?? o.items_count ?? o.total_items ?? 0) || 0;
+}
+const orderTotalOf = (o)=> Number(o.total_amount ?? o.total ?? o.final_amount ?? 0);
+const DEAD_ORDER = ["cancelled","failed","refunded","rejected"];
+function trend(cur, prev, suffix){
+  if(!prev) return `<div class="delta">${cur ? "▲ new " : ""}${suffix}</div>`;
+  const p = ((cur-prev)/prev)*100, up = p >= 0;
+  return `<div class="delta ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(p).toFixed(1)}% ${suffix}</div>`;
+}
+
+DATA.counts = {}; DATA.recent = {today:[], yesterday:[]}; DATA.commissionRules = [];
+DATA.me = { name:"Admin", email:"", role:"Admin", lastLogin:"—", twofa:false };
+Object.assign(STATE.emergency, { pauseNurse:false, pauseAmbulance:false, pauseLab:false });
+const MAIN_ADMIN_EMAIL = "medifinderindia@gmail.com";
+
+/* ---------- Commission rules ---------- */
+const COMM_TYPES = {merchant:"Merchant / Pharmacy", rider:"Rider", nurse:"Nurse", lab:"Lab / Blood Collector", ambulance:"Ambulance"};
+function commissionFor(type, partnerId, amount){
+  const rules = DATA.commissionRules.filter(r=>r.active && r.type===type);
+  let r = rules.find(x=>x.partnerId!=null && x.partnerId!=="" && String(x.partnerId)===String(partnerId));
+  let source = "specific";
+  if(!r){ r = rules.find(x=>x.partnerId==null || x.partnerId===""); source = "default"; }
+  if(!r){
+    if(type==="merchant") r = {rateType:"percent", rate:Number(STATE.settings.commission)||0}, source = "platform setting";
+    else r = {rateType:"percent", rate:0}, source = "not set";
+  }
+  const amt = r.rateType==="flat" ? r.rate : (Number(amount)||0) * r.rate / 100;
+  return { rate:r.rate, rateType:r.rateType, amount:amt, source };
+}
+const commissionText = (c)=> c.rateType==="flat" ? `₹${c.rate} flat` : `${c.rate}%`;
+function commissionLabel(v){ if(v==null || v==="") return "Not set"; return /[%₹a-z]/i.test(String(v)) ? esc(v) : esc(v)+"%"; }
+
+async function loadCommissionRules(){
+  if(!supabase) return;
+  const { data, error } = await supabase.from("commission_rules").select("*").order("created_at",{ascending:false});
+  if(error){ DATA.commissionError = error.message; DATA.commissionRules = []; return; }
+  DATA.commissionError = "";
+  DATA.commissionRules = (data||[]).map(r=>({ id:r.id, type:r.partner_type, partnerId:r.partner_id, partnerName:r.partner_name||"", rateType:r.rate_type==="flat"?"flat":"percent", rate:Number(r.rate||0), note:r.note||"", active:r.is_active!==false }));
+}
+
+/* ---------- Persisted platform controls (emergency flags + settings) ---------- */
+async function loadPlatformControls(){
+  if(!supabase) return;
+  const { data, error } = await supabase.from("platform_controls").select("*");
+  if(error){ DATA.controlsError = error.message; return; }
+  DATA.controlsError = "";
+  (data||[]).forEach(r=>{
+    if(r.key==="emergency") Object.assign(STATE.emergency, r.value||{});
+    if(r.key==="settings") Object.assign(STATE.settings, r.value||{});
+  });
+}
+async function savePlatformControl(key, value){
+  const { data:{ user } = {} } = await supabase.auth.getUser();
+  const { error } = await supabase.from("platform_controls").upsert({ key, value, updated_at:new Date().toISOString(), updated_by:user?.email||null }, { onConflict:"key" });
+  return error;
+}
+const SQL_HINT = " — run medifinder_admin_v2.sql in the Supabase SQL editor first";
+
+/* ---------- Real dashboard counts ---------- */
+async function loadCounts(){
+  if(!supabase) return;
+  const cnt = async (q)=>{ try{ const r = await q; return r.count || 0; }catch(e){ return 0; } };
+  const prof = ()=> supabase.from("profiles").select("id",{count:"exact",head:true}).or("role.eq.user,role.is.null");
+  const d7 = dayStart(-7).toISOString(), d14 = dayStart(-14).toISOString();
+  const [users, users7, usersPrev7] = await Promise.all([ cnt(prof()), cnt(prof().gte("created_at",d7)), cnt(prof().gte("created_at",d14).lt("created_at",d7)) ]);
+  Object.assign(DATA.counts, { users, users7, usersPrev7 });
+  const { data } = await supabase.from("orders").select("*").gte("created_at", dayStart(-1).toISOString()).order("created_at",{ascending:false}).limit(3000);
+  const t0 = dayStart(0).getTime(), today = [], yest = [];
+  (data||[]).forEach(o=>{
+    const row = { created:o.created_at, total:orderTotalOf(o), status:String(o.status||"pending"), merchantId:o.merchant_id };
+    (new Date(o.created_at).getTime() >= t0 ? today : yest).push(row);
+  });
+  DATA.recent = { today, yesterday:yest };
+}
+async function loadMe(){
+  if(!supabase) return;
+  try{
+    const { data:{ user } = {} } = await supabase.auth.getUser(); if(!user) return;
+    const email = user.email || "";
+    const a = DATA.admins.find(x=>(x.email||"").toLowerCase()===email.toLowerCase());
+    DATA.me = {
+      email,
+      name: (a && a.name && a.name!==a.email) ? a.name : (user.user_metadata?.full_name || user.user_metadata?.name || (email ? email.split("@")[0] : "Admin")),
+      role: a ? a.role : (email.toLowerCase()===MAIN_ADMIN_EMAIL ? "Super Admin" : "Admin"),
+      lastLogin: a ? a.lastLogin : "—", twofa: a ? a.twofa : false,
+    };
+  }catch(e){}
+}
+function updateAdminChip(){
+  const chip = document.querySelector(".admin-chip"); if(!chip) return;
+  const av = chip.querySelector(".admin-avatar"), nm = chip.querySelector(".admin-meta strong"), em = chip.querySelector(".admin-meta span");
+  if(av) av.textContent = (String(DATA.me.name||"A").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("") || "A").toUpperCase();
+  if(nm) nm.textContent = DATA.me.name;
+  if(em) em.textContent = DATA.me.email || DATA.me.role;
+}
+
+/* ---------- Fill every "—" with real data where it exists ---------- */
+function postProcessData(){
+  const mById = {}; DATA.merchants.forEach(m=>{ mById[String(m.id)] = m; });
+  DATA.orders.forEach(o=>{
+    if((!o.merchant || o.merchant==="—") && o._merchantId!=null){ const m = mById[String(o._merchantId)]; o.merchant = m ? m.name : ("Shop #"+o._merchantId); }
+    if(!o.merchant || o.merchant==="—") o.merchant = "Not assigned yet";
+    if(o.rider==="—") o.rider = "Not assigned";
+  });
+  // merchant rating = average of reviews on that merchant's medicines
+  const medMerchant = {}; DATA.products.forEach(p=>{ medMerchant[String(p.id)] = String(p._merchantId); });
+  const sums = {};
+  DATA.reviews.forEach(r=>{ if(r._medId==null || !r._rating) return; const mid = medMerchant[String(r._medId)]; if(!mid) return; (sums[mid] = sums[mid] || []).push(r._rating); });
+  DATA.merchants.forEach(m=>{
+    const c = commissionFor("merchant", m.id, 100); m.commission = commissionText(c);
+    const arr = sums[String(m.id)]; m.rating = arr && arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : null;
+  });
+  const zByPin = {}; DATA.zones.forEach(z=>{ zByPin[String(z.pin)] = z; });
+  const kycByRider = {}; (DATA.raw.riderKyc||[]).forEach(k=>{ kycByRider[k.rider_id] = k; });
+  DATA.riders.forEach(r=>{
+    let pin = r._pin;
+    if(!pin){ const k = kycByRider[r.id]; const mm = k && String(k.address||"").match(/\b\d{6}\b/); pin = mm ? mm[0] : ""; r._pin = pin; }
+    const z = pin && zByPin[pin];
+    r.zone = z ? z.name : (pin ? "PIN "+pin : "Zone not set");
+  });
+  const nk = {}; (DATA.raw.nurseKyc||[]).forEach(k=>{ nk[k.user_id] = k; });
+  DATA.nurses.forEach(n=>{
+    const k = nk[n.authUserId]; const st = k ? normKyc(k.status) : null;
+    n.degree = (k && k.qualification) || (n.qualification && n.qualification!=="—" ? n.qualification : "Not set");
+    n.serviceArea = (k && ([k.city,k.pincode].filter(Boolean).join(" "))) || "Not set";
+    n.rate = (k && k.day_charge!=null) ? money(k.day_charge)+"/day" : "Not set";
+    const svc = [...new Set(DATA.nurseBookings.filter(b=>b.nurse===n.name).map(b=>b.type).filter(x=>x && x!=="—"))];
+    n.type = svc.length ? svc.join(", ") : "No bookings yet";
+    n.status = st==="rejected" ? "suspended" : st==="pending" ? "pending" : "active";
+  });
+  DATA.users.forEach(u=>{ if(u.addr==="—") u.addr = "No address saved"; });
+}
+
+/* ---------- Fast, parallel loading (was ~30 sequential requests) ---------- */
+let _refreshing = null;
+refreshLiveData = function(){
+  if(_refreshing) return _refreshing;
+  const S = (f)=> Promise.resolve().then(f).catch(e=>console.warn("[admin] load failed", e));
+  _refreshing = (async ()=>{
+    await Promise.all([
+      S(loadOrdersFromDB), S(loadRidersFromDB), S(loadNursesFromDB), S(loadAmbulanceDriversFromDB), S(loadZonesFromDB),
+      S(loadLabTestsFromDB), S(loadLabBookingsFromDB), S(loadNurseBookingsFromDB), S(loadAmbulanceBookingsFromDB),
+      S(loadRiderPayoutsFromDB), S(loadRefundsFromDB), S(loadAdminsFromDB), S(loadAuditLogFromDB), S(loadNotificationBroadcastsFromDB),
+      S(loadCounts), S(loadPlatformControls), S(loadCommissionRules),
+    ]);
+    await Promise.all([ S(loadUsersFromDB), S(loadMerchantsFromDB), S(()=>loadTransactionsFromDB()), S(loadMe) ]);
+    computeWeeklyOrdersFromDB(); deriveActivityFeed(); render(); // first useful paint
+    await Promise.all([ S(loadPrescriptionsFromDB), S(loadMerchantPayoutsFromDB), S(loadProductsFromDB), S(loadTicketsFromDB), S(loadCouponsFromDB), S(loadPaymentQueue) ]);
+    await Promise.all([ S(loadReviewsFromDB), S(loadAdsFromDB), S(loadPartnerExtras), S(computeSystemHealthLive) ]);
+    _lastSyncAt = new Date().toISOString();
+    render();
+  })().finally(()=>{ _refreshing = null; });
+  return _refreshing;
+};
+computeWeeklyOrdersFromDB = function(){
+  const days = [], labels = [], names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  for(let i=6;i>=0;i--){ const d = dayStart(-i); days.push(localDayStr(d)); labels.push(names[d.getDay()]); }
+  DATA.weekOrders = days.map(ds => DATA.orders.filter(o => tsDay(o.created) === ds).length);
+  DATA.weekLabels = labels;
+};
+const _subscribeBase = subscribeLiveData;
+subscribeLiveData = function(){
+  _subscribeBase();
+  if(!supabase) return;
+  const reload = (fn)=>()=>{ fn().then(render); };
+  supabase.channel("admin-orders-counts").on("postgres_changes",{event:"*",schema:"public",table:"orders"},reload(loadCounts)).subscribe();
+  supabase.channel("admin-commission-live").on("postgres_changes",{event:"*",schema:"public",table:"commission_rules"},reload(loadCommissionRules)).subscribe();
+  supabase.channel("admin-controls-live").on("postgres_changes",{event:"*",schema:"public",table:"platform_controls"},reload(loadPlatformControls)).subscribe();
+};
+
+/* ---------- NAV: Lab / Nurse / Ambulance partner + Commission ---------- */
+(function(){
+  const ops = NAV.find(g=>g.group==="Operations");
+  const idx = ops.items.findIndex(i=>i.id==="riders");
+  const partnerTabs = [{key:"all",label:"All"},{key:"pending",label:"Pending KYC"},{key:"suspended",label:"Suspended"},{key:"map",label:"Live Map"}];
+  const add = [
+    {id:"labpartners", icon:"🧪", label:"Lab Partner", children:partnerTabs.filter(t=>t.key!=="map")},
+    {id:"nursepartners", icon:"✚", label:"Nurse Partner", children:partnerTabs.filter(t=>t.key!=="map")},
+    {id:"ambulancepartners", icon:"🚑", label:"Ambulance Partner", children:partnerTabs},
+  ];
+  ops.items.splice(idx+1, 0, ...add);
+  NAV_FLAT.push(...add);
+  const money_g = NAV.find(g=>g.group==="Money");
+  const comm = {id:"commission", icon:"％", label:"Commission", children:Object.entries(COMM_TYPES).map(([k,v])=>({key:k,label:v}))};
+  money_g.items.splice(money_g.items.findIndex(i=>i.id==="payout")+1, 0, comm); NAV_FLAT.push(comm);
+  const rep = navItem("reports");
+  rep.children = [{key:"overview",label:"Overview"},{key:"download",label:"Company Report"},{key:"receipt",label:"Receipt / Invoice"}];
+})();
+
+/* ---------- Dashboard (every number is real) ---------- */
+VIEWS.dashboard = () => {
+  const T = DATA.recent.today, Y = DATA.recent.yesterday, live = o=>!DEAD_ORDER.includes(o.status);
+  const ordersToday = T.length, ordersYest = Y.length;
+  const revToday = T.filter(live).reduce((s,o)=>s+o.total,0), revYest = Y.filter(live).reduce((s,o)=>s+o.total,0);
+  const earnToday = T.filter(o=>o.status==="delivered").reduce((s,o)=>s+commissionFor("merchant",o.merchantId,o.total).amount,0);
+  const lastHour = T.filter(o=>Date.now()-new Date(o.created).getTime() <= 3600e3).length;
+  const pending = DATA.orders.filter(o=>o.status==="pending").length;
+  const liveRiders = DATA.riders.filter(r=>r.online).length;
+  const activeZones = DATA.zones.filter(z=>z.status==="active").length;
+  const pendingMerchants = DATA.merchants.filter(m=>m.status==="pending").length;
+  const today = localDayStr();
+  const bookToday = (arr)=> arr.filter(b=>tsDay(b._createdAt)===today).length;
+  const kycPending = kycAllRows().filter(r=>r.status==="pending").length;
+  const c = DATA.counts, totalUsers = c.users ?? DATA.users.length;
+  const mNew = DATA.merchants.filter(m=>m.joined && m.joined >= localDayStr(dayStart(-7))).length;
+  const alerts = [
+    ...DATA.systemHealth.filter(h=>h.status==="degraded"||h.status==="down").map(h=>({ic:"❤",text:`${h.name} is ${h.status}`,sub:h.meta})),
+    ...DATA.merchants.filter(m=>m.status==="pending").map(m=>({ic:"⌂",text:`${m.name} awaiting KYC approval`,sub:m.city})),
+    ...DATA.riders.filter(r=>r.status==="pending").map(r=>({ic:"➔",text:`${r.name} awaiting rider KYC approval`,sub:r.zone})),
+    ...DATA.tickets.filter(t=>t.priority==="high"&&t.status!=="closed").map(t=>({ic:"◐",text:`High priority: ${t.subject}`,sub:`${t.from} · ${t.name}`})),
+  ].slice(0,6);
+  const recentRegistrations = [
+    ...DATA.users.slice(0,3).map(u=>({who:u.name, role:"Customer", when:u.joined})),
+    ...DATA.merchants.filter(m=>m.status==="pending").map(m=>({who:m.name, role:"Merchant", when:m.joined||"Recently"})),
+    ...DATA.riders.filter(r=>r.status==="pending").map(r=>({who:r.name, role:"Rider", when:"Recently"})),
+  ].slice(0,6);
+  const card = (l,v,sub)=>`<div class="stat-card"><div class="lbl">${l}</div><div class="val">${v}</div>${sub||""}</div>`;
+  return `
+  <div class="view-head"><h1>Business Overview</h1><p>Live snapshot of orders, revenue and platform activity across MediFinder India.</p></div>
+  <div class="stat-grid">
+    ${card("Total Users", totalUsers, trend(c.users7||0, c.usersPrev7||0, "new this week vs last week"))}
+    ${card("Total Merchants", DATA.merchants.length, `<div class="delta ${pendingMerchants?"down":"up"}">${pendingMerchants} pending review · ${mNew} new this week</div>`)}
+    ${card("Total Riders", DATA.riders.length, `<div class="delta up">${liveRiders} online now</div>`)}
+    ${card("Today's Orders", ordersToday, trend(ordersToday, ordersYest, "vs yesterday"))}
+    ${card("Pending Orders", pending, `<div class="delta ${pending?"down":"up"}">${pending?"Needs attention":"All clear"}</div>`)}
+    ${card("Today's Revenue", money(revToday), trend(revToday, revYest, "vs yesterday"))}
+    ${card("Platform Earnings", money(Math.round(earnToday)), `<div class="delta">Today · commission on delivered orders</div>`)}
+    ${card("Active Service Zones", activeZones, `<div class="delta">${DATA.zones.length} total</div>`)}
+    ${card("Last-Hour Orders", lastHour)}
+    ${card("Pending KYC", kycPending, `<div class="delta ${kycPending?"down":"up"}">${kycPending?"Needs review":"All clear"}</div>`)}
+    ${card("Lab Bookings Today", bookToday(DATA.labBookings))}
+    ${card("Nurse Bookings Today", bookToday(DATA.nurseBookings))}
+    ${card("Ambulance Rides Today", bookToday(DATA.ambulanceBookings))}
+    ${card("Open Complaints", DATA.tickets.filter(t=>t.status==="open").length)}
+  </div>
+  <div class="card"><div class="card-head"><h3>Quick actions</h3></div><div class="card-body"><div class="quick-actions-grid">
+    ${QUICK_ACTIONS.map(a=>`<div class="qa-btn" data-nav="${a.nav}"><span class="qa-ic">${a.ic}</span>${esc(a.label)}</div>`).join("")}
+  </div></div></div>
+  <div class="card">
+    <div class="card-head"><h3>Orders — last 7 days</h3><span class="sub">All zones combined</span>
+      <div class="live-pill" style="margin-left:auto"><span class="blip"></span>${liveRiders} riders live</div></div>
+    <div class="card-body">${svgBarChart(DATA.weekOrders, DATA.weekLabels)}
+      <div class="legend"><span><span class="sw" style="background:var(--brand)"></span>Orders placed</span></div></div>
+  </div>
+  <div class="card"><div class="card-head"><h3>Recent activity</h3><span class="sub">New order / status-change feed</span></div><div class="card-body">
+    ${DATA.activityFeed.slice(0,8).map(a=>`<div class="alert-item"><span class="al-ic">${a.ic}</span><div><div>${esc(a.text)}</div><div class="al-sub">${esc(a.sub||"")}</div></div></div>`).join("") || `<div class="empty"><h4>No orders yet</h4></div>`}
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Live alerts</h3></div><div class="card-body">
+    ${alerts.length ? alerts.map(a=>`<div class="alert-item"><span class="al-ic">${a.ic}</span><div><div>${esc(a.text)}</div><div class="al-sub">${esc(a.sub)}</div></div></div>`).join("") : `<div class="empty"><div class="ic">▢</div><h4>All clear</h4><p>No active alerts right now.</p></div>`}
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Recent orders</h3><span class="sub">Newest first</span></div><div class="card-body pad0">
+    ${renderTable("dash-orders",[
+      {key:"id",label:"Order",render:r=>`<span class="id-cell">${esc(r.id)}</span>`},
+      {key:"customer",label:"Customer"},{key:"merchant",label:"Pharmacy"},
+      {key:"total",label:"Total",render:r=>money(r.total)},
+      {key:"status",label:"Status",render:r=>statusBadge(r.status)},{key:"date",label:"Placed"},
+    ], DATA.orders.slice(0,6))}
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Recent registrations</h3></div><div class="card-body pad0">
+    ${renderTable("dash-regs",[{key:"who",label:"Name"},{key:"role",label:"Role",render:r=>badge(r.role,"blue")},{key:"when",label:"Joined"}], recentRegistrations)}
+  </div></div>`;
+};
+
+/* ---------- Notification bell (the red dot now works) ---------- */
+function pendingAlertItems(){
+  const kyc = kycAllRows().filter(r=>r.status==="pending");
+  const kn = (k)=> kyc.filter(r=>r.kind===k).length;
+  const bk = (arr)=> arr.filter(b=>b.status==="new").length;
+  return [
+    {ic:"▤", text:"Pending orders", n:DATA.orders.filter(o=>o.status==="pending").length, nav:"orders", tab:"pending"},
+    {ic:"▭", text:"Payments to verify", n:(DATA.payQueue||[]).filter(r=>r.status==="pending").length, nav:"payment"},
+    {ic:"✔", text:"Merchant KYC pending", n:kn("merchant"), nav:"kyc", tab:"merchant"},
+    {ic:"✔", text:"Rider KYC pending", n:kn("rider"), nav:"kyc", tab:"rider"},
+    {ic:"✔", text:"Nurse KYC pending", n:kn("nurse"), nav:"kyc", tab:"nurse"},
+    {ic:"✔", text:"Lab KYC pending", n:kn("lab"), nav:"kyc", tab:"lab"},
+    {ic:"✔", text:"Ambulance KYC pending", n:kn("ambulance"), nav:"kyc", tab:"ambulance"},
+    {ic:"⬡", text:"Medicines awaiting approval", n:DATA.products.filter(p=>p.approval==="pending").length, nav:"products", tab:"pending"},
+    {ic:"▦", text:"Prescriptions pending", n:DATA.prescriptions.filter(p=>p.status==="pending").length, nav:"prescriptions"},
+    {ic:"✚", text:"New lab bookings", n:bk(DATA.labBookings), nav:"booking", tab:"lab"},
+    {ic:"✚", text:"New nurse bookings", n:bk(DATA.nurseBookings), nav:"booking", tab:"nurse"},
+    {ic:"🚑", text:"New ambulance requests", n:bk(DATA.ambulanceBookings), nav:"booking", tab:"ambulance"},
+    {ic:"◐", text:"Open complaints", n:DATA.tickets.filter(t=>t.status==="open").length, nav:"support"},
+    {ic:"⇪", text:"Payouts waiting", n:["merchant","rider","nurse","collector","ambulance"].reduce((s,k)=>s+((DATA.payouts[k]||[]).filter(p=>p.status==="pending").length),0), nav:"payout"},
+  ].filter(x=>x.n>0);
+}
+function updateBell(){
+  const btn = document.querySelector(".topbar-actions .icon-btn"); if(!btn) return;
+  btn.id = "bellBtn";
+  const items = pendingAlertItems(), total = items.reduce((s,x)=>s+x.n,0);
+  const dot = btn.querySelector(".dot");
+  if(dot){ dot.style.display = total ? "block" : "none"; dot.textContent = ""; }
+  btn.title = total ? `${total} item(s) need attention` : "Nothing needs attention";
+  const panel = document.getElementById("bellPanel");
+  if(panel && panel.classList.contains("open")) panel.innerHTML = bellPanelHtml(items, total);
+}
+function bellPanelHtml(items, total){
+  return `<div class="bell-head"><strong>Needs attention</strong><span>${total} item${total===1?"":"s"}</span></div>` +
+    (items.length ? items.map(x=>`<div class="bell-row" data-bell-nav="${x.nav}" data-bell-tab="${x.tab||""}"><span class="bell-ic">${x.ic}</span><span class="bell-txt">${esc(x.text)}</span><span class="bell-n">${x.n}</span></div>`).join("") : `<div class="bell-empty">✔ All clear — nothing is waiting.</div>`);
+}
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest("#bellBtn");
+  let panel = document.getElementById("bellPanel");
+  if(btn){
+    if(!panel){ panel = document.createElement("div"); panel.id = "bellPanel"; panel.className = "bell-panel"; document.body.appendChild(panel); }
+    const items = pendingAlertItems(); panel.innerHTML = bellPanelHtml(items, items.reduce((s,x)=>s+x.n,0));
+    panel.classList.toggle("open"); return;
+  }
+  const row = e.target.closest("[data-bell-nav]");
+  if(row){ setView(row.dataset.bellNav, row.dataset.bellTab || undefined); if(panel) panel.classList.remove("open"); return; }
+  if(panel && !e.target.closest("#bellPanel")) panel.classList.remove("open");
+});
+
+/* ---------- Settings: show the signed-in admin, save for real ---------- */
+const _settingsBase = VIEWS.settings;
+VIEWS.settings = () => `
+  <div class="card"><div class="card-head"><h3>Signed-in admin</h3></div><div class="card-body">
+    <div class="row-flex"><div class="avatar" style="width:46px;height:46px;font-size:15px">${initials(DATA.me.name)}</div>
+      <div><div class="cell-strong" style="font-size:15px">${esc(DATA.me.name)}</div><div class="cell-sub">${esc(DATA.me.email||"—")}</div></div>
+      <div style="margin-left:auto">${badge(DATA.me.role,"blue")}</div></div>
+    <div style="margin-top:10px">${detailRow("Last login", esc(DATA.me.lastLogin||"—"))}${detailRow("Two-factor", DATA.me.twofa?badge("Enabled","green"):badge("Not enabled","gold"))}</div>
+  </div></div>` + _settingsBase();
+Actions["settings-save"] = async ()=>{
+  const s = STATE.settings;
+  const next = { platformName:$("#setName").value, commission:+$("#setCommission").value, codFee:+$("#setCod").value, processingFee:+$("#setProcessing").value, tax:+$("#setTax").value, cancellationPolicy:$("#setCancel").value, refundPolicy:$("#setRefund").value };
+  const err = await savePlatformControl("settings", next);
+  if(err){ toast("Could not save: "+err.message+SQL_HINT,"danger"); return; }
+  Object.assign(s, next); await logAdminAction("Updated platform settings"); render(); toast("Settings saved");
+};
+
+/* ---------- Partner pages (Lab / Nurse / Ambulance) ---------- */
+function partnerRows(kind){
+  const Rw = DATA.raw;
+  if(kind==="lab"){
+    const kycBy = {}; Rw.collectorKyc.forEach(k=>{ kycBy[k.collector_id] = k; });
+    return Rw.collectors.map(c=>{
+      const k = kycBy[c.id] || {}; const st = normKyc(k.status) || normKyc(c.kyc_status) || "pending";
+      const books = DATA.labBookings.filter(b=>String(b._collectorId)===String(c.id));
+      const name = c.full_name || k.full_name || "Collector";
+      return { kind, id:c.id, kycId:k.id || c.id, name, phone:c.phone || k.mobile_no || "Not set", place:[k.city,k.pincode].filter(Boolean).join(" ") || "Not set", status:st,
+        a:`${DATA.labs.filter(t=>String(t._collectorId)===String(c.id)).length} tests`, b:`${books.length} bookings · ${books.filter(x=>x.status==="completed").length} done`,
+        earn:(DATA.payouts.collector||[]).filter(p=>p.recipient===name).reduce((s,p)=>s+(p.net||0),0), online:null };
+    });
+  }
+  if(kind==="nurse"){
+    const nk = {}; Rw.nurseKyc.forEach(k=>{ nk[k.user_id] = k; });
+    const seen = new Set(), rows = [];
+    DATA.nurses.forEach(n=>{ const k = nk[n.authUserId] || {}; if(n.authUserId) seen.add(n.authUserId);
+      const st = normKyc(k.status) || "verified"; const books = DATA.nurseBookings.filter(b=>b.nurse===n.name);
+      rows.push({ kind, id:n.id, kycId:n.authUserId, name:n.name, phone:n.whatsapp, place:n.serviceArea, status:st, a:n.degree, b:`${books.length} bookings · ${books.filter(x=>x.status==="completed").length} done`,
+        earn:(DATA.payouts.nurse||[]).filter(p=>p.recipient===n.name).reduce((s,p)=>s+(p.net||0),0), online:null }); });
+    Rw.nurseKyc.forEach(k=>{ if(seen.has(k.user_id)) return; const st = normKyc(k.status); if(!st) return;
+      rows.push({ kind, id:k.user_id, kycId:k.user_id, name:k.full_name||"Nurse", phone:k.contact_no||"Not set", place:[k.city,k.pincode].filter(Boolean).join(" ")||"Not set", status:st, a:k.qualification||"Not set", b:"0 bookings", earn:0, online:null }); });
+    return rows;
+  }
+  return Rw.ambulance.map(d=>{
+    const rides = DATA.ambulanceBookings.filter(b=>String(b._driverId)===String(d.id));
+    const st = normKyc(d.kyc_status) || (d.is_verified ? "verified" : "pending");
+    return { kind, id:d.id, kycId:d.id, name:d.driver_name||"Driver", phone:d.phone||"Not set", place:d.pincode||"Not set", status:st,
+      a:`${({non_ac:"Non-AC",ac:"AC",icu:"ICU"})[d.vehicle_type]||d.vehicle_type||"Vehicle"} · ${d.plate_number||"No plate"}`, b:`${rides.length} rides · ${rides.filter(x=>x.status==="completed").length} done`,
+      earn:(DATA.payouts.ambulance||[]).filter(p=>p.recipient===(d.driver_name||"Driver")).reduce((s,p)=>s+(p.net||0),0),
+      online: d.is_on_ride ? "on ride" : (d.is_online ? "online" : "offline"), rating:d.rating, lat:d.current_lat, lng:d.current_lon };
+  });
+}
+const PARTNER_META = {
+  lab:{title:"Lab Partner", sub:"Blood collectors & labs — KYC, tests published, bookings and earnings.", a:"Tests", b:"Bookings"},
+  nurse:{title:"Nurse Partner", sub:"Home-nursing partners — KYC, qualification, bookings and earnings.", a:"Qualification", b:"Bookings"},
+  ambulance:{title:"Ambulance Partner", sub:"Ambulance drivers — KYC, vehicle, live status, rides and earnings.", a:"Vehicle", b:"Rides"},
+};
+function partnerView(kind){
+  const id = kind+"partners", tab = vs(id,{tab:"all"}).tab, meta = PARTNER_META[kind];
+  const all = partnerRows(kind);
+  let rows = all; if(tab==="pending") rows = all.filter(r=>r.status==="pending"); if(tab==="suspended") rows = all.filter(r=>r.status==="rejected");
+  const q = (vs(id,{search:""}).search||"").toLowerCase();
+  if(q) rows = rows.filter(r=>(r.name+r.phone+r.place).toLowerCase().includes(q));
+  const stat = (l,v)=>`<div class="stat-card"><div class="lbl">${l}</div><div class="val">${v}</div></div>`;
+  const stats = `<div class="stat-grid">${stat("Total partners",all.length)}${stat("Active",all.filter(r=>r.status==="verified").length)}${stat("Pending KYC",all.filter(r=>r.status==="pending").length)}${stat("Suspended",all.filter(r=>r.status==="rejected").length)}${kind==="ambulance"?stat("Online now",all.filter(r=>r.online==="online"||r.online==="on ride").length):""}</div>`;
+  let body;
+  if(tab==="map" && kind==="ambulance"){
+    body = `<div class="card"><div class="card-head"><h3>Live ambulance map</h3><span class="sub">OpenStreetMap · live GPS from each driver</span></div><div class="card-body"><div id="ambLeafletMap" class="leaflet-box"></div></div></div>`;
+  } else {
+    body = `<div class="view-toolbar">${toolbarSearch(id,"Search name, phone or area")}</div><div class="card"><div class="card-body pad0">` + renderTable(id+"-t",[
+      {key:"name",label:"Partner",render:r=>`<div class="row-flex"><div class="avatar">${initials(r.name)}</div><div><div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.phone)}</div></div></div>`},
+      {key:"place",label:"Area"},{key:"a",label:meta.a},{key:"b",label:meta.b},
+      {key:"earn",label:"Earnings",render:r=>money(r.earn)},
+      ...(kind==="ambulance"?[{key:"online",label:"Live",render:r=>r.online==="online"?badge("Online","green"):r.online==="on ride"?badge("On ride","gold"):badge("Offline","gray")}]:[]),
+      {key:"status",label:"KYC / Status",render:r=>badge(r.status==="verified"?"Active":r.status==="rejected"?"Suspended":"Pending", r.status==="verified"?"green":r.status==="rejected"?"red":"gold")},
+      {key:"_a",label:"",sortable:false,render:r=>`<div class="actions-cell">
+        <button class="btn sm" data-act="kyc-detail" data-kind="${kind}" data-id="${esc(r.kycId)}">KYC</button>
+        ${r.status==="verified" ? `<button class="btn sm danger" data-act="partner-suspend" data-kind="${kind}" data-id="${esc(r.kycId)}">Suspend</button>` : r.status==="rejected" ? `<button class="btn sm primary" data-act="partner-activate" data-kind="${kind}" data-id="${esc(r.kycId)}">Activate</button>` : ""}</div>`},
+    ], rows, {emptyText:"No partners in this view."}) + `</div></div>`;
+  }
+  return `<div class="view-head"><h1>${meta.title}</h1><p>${meta.sub}</p></div>${stats}${body}`;
+}
+VIEWS.labpartners = ()=>partnerView("lab");
+VIEWS.nursepartners = ()=>partnerView("nurse");
+VIEWS.ambulancepartners = ()=>partnerView("ambulance");
+
+async function partnerSetStatus(kind, id, suspend){
+  const why = "Suspended by admin", now = new Date().toISOString(); let qs = [];
+  if(kind==="nurse") qs.push(supabase.from("nurse_kyc").update(suspend?{status:"rejected", rejection_reason:why}:{status:"approved", rejection_reason:null}).eq("user_id", id));
+  if(kind==="lab"){
+    qs.push(supabase.from("collector_kyc").update(suspend?{status:"rejected", rejection_reason:why, reviewed_at:now}:{status:"verified", rejection_reason:null, reviewed_at:now}).eq("id", id));
+    const k = DATA.raw.collectorKyc.find(x=>String(x.id)===String(id));
+    qs.push(supabase.from("sample_collectors").update({kyc_status: suspend?"rejected":"verified"}).eq("id", k ? k.collector_id : id));
+  }
+  if(kind==="ambulance") qs.push(supabase.from("ambulance_drivers").update(suspend?{kyc_status:"rejected", is_verified:false, is_online:false, kyc_rejection_reason:why}:{kyc_status:"verified", is_verified:true, kyc_rejection_reason:null}).eq("id", id));
+  const res = await Promise.all(qs.map(q=>mustUpdate(q, "Partner")));
+  const bad = res.find((r,i)=>!r.ok && !(kind==="lab" && i===1));
+  if(bad){ toast("Failed: "+bad.msg,"danger"); return; }
+  await logAdminAction(`${suspend?"Suspended":"Activated"} ${kind} partner ${id}`);
+  await Promise.all([loadNursesFromDB(), loadAmbulanceDriversFromDB(), loadPartnerExtras()]);
+  render(); toast(`Partner ${suspend?"suspended":"activated"}`, suspend?"danger":"default");
+}
+Actions["partner-suspend"] = (el)=> partnerSetStatus(el.dataset.kind, el.dataset.id, true);
+Actions["partner-activate"] = (el)=> partnerSetStatus(el.dataset.kind, el.dataset.id, false);
+
+/* ---------- Medicine: return / exchange before approve, edit = price + pause only ---------- */
+function returnFields(p){
+  const rd = Number(p.returnDays) > 0 ? p.returnDays : "", ed = Number(p.exchangeDays) > 0 ? p.exchangeDays : "";
+  return `<div class="hint" style="margin:2px 0 8px">The days you write here are exactly what customers get — counted from the <b>moment the order is delivered</b>, to the minute.  Optional — leave both unchecked and the product simply has no return / exchange. Works for Rx medicines too.</div>
+    <div class="field" style="margin-top:6px"><label class="chk"><input type="checkbox" id="rpReturn" ${p.returnable?"checked":""}> Customer can <b>return</b> this product</label></div>
+    <div class="field"><label>Return window (days after delivery)</label><input id="rpReturnDays" type="number" min="1" max="365" step="1" placeholder="e.g. 7" value="${rd}"></div>
+    <div class="field"><label class="chk"><input type="checkbox" id="rpExch" ${p.exchangeable?"checked":""}> Customer can <b>exchange</b> this product</label></div>
+    <div class="field"><label>Exchange window (days after delivery)</label><input id="rpExchDays" type="number" min="1" max="365" step="1" placeholder="e.g. 3" value="${ed}"></div>`;
+}
+function readReturnFields(){
+  const ret = $("#rpReturn").checked, ex = $("#rpExch").checked;
+  const rd = parseInt($("#rpReturnDays").value, 10), ed = parseInt($("#rpExchDays").value, 10);
+  if(ret && !(rd >= 1 && rd <= 365)){ toast("Enter how many days the customer can return (1–365)", "danger"); return null; }
+  if(ex && !(ed >= 1 && ed <= 365)){ toast("Enter how many days the customer can exchange (1–365)", "danger"); return null; }
+  return { is_returnable:ret, return_window_days: ret ? rd : 0, is_exchangeable:ex, exchange_window_days: ex ? ed : 0 };
+}
+async function updateMedicine(id, fields){
+  let { error } = await supabase.from("medicines").update(fields).eq("id", id);
+  if(error && /is_returnable|return_window|is_exchangeable|exchange_window|schema cache|column/i.test(error.message)){
+    const base = {...fields}; delete base.is_returnable; delete base.return_window_days; delete base.is_exchangeable; delete base.exchange_window_days;
+    const r2 = await supabase.from("medicines").update(base).eq("id", id);
+    return { error:r2.error, partial:!r2.error };
+  }
+  return { error, partial:false };
+}
+function applyReturnToLocal(p, f){ p.returnable = f.is_returnable; p.returnDays = f.return_window_days; p.exchangeable = f.is_exchangeable; p.exchangeDays = f.exchange_window_days; }
+Actions["product-approve"] = (el)=>{ const p = DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
+  openModal(`Approve — ${p.name}`, `<div class="hint">Decide the return / exchange rule <b>before</b> this product goes live. It is shown to customers inside MediFinder India.</div>${returnFields(p)}`,
+    `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="product-approve-confirm" data-id="${p.id}">Approve &amp; go live</button>`);
+};
+Actions["product-approve-confirm"] = async (el)=>{ const p = DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
+  const f = readReturnFields(); if(!f) return;
+  const { error, partial } = await updateMedicine(p.id, { status:"Approved", admin_approved:true, is_visible:true, ...f });
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  p.approval = "approved"; p.visible = true; if(!partial) applyReturnToLocal(p, f);
+  await logAdminAction(`Approved medicine ${p.name}`); closeModal(); render();
+  toast(partial ? "Approved, but return/exchange was not saved"+SQL_HINT : "Medicine approved & live", partial?"danger":"default");
+};
+Actions["product-edit"] = (el)=>{ const p = DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
+  openModal(`Edit ${p.name}`, `
+    <div class="field-row"><div class="field"><label>Price (₹)</label><input id="epPrice" type="number" step="0.01" min="0" value="${p.price}"></div>
+    <div class="field"><label>Stock (set by the merchant)</label><input type="number" value="${p.stock}" disabled></div></div>
+    <div class="field"><label class="chk"><input type="checkbox" id="epPaused" ${p.visible?"":"checked"}> <b>Pause</b> this medicine (hidden from customers)</label></div>
+    <div class="hint" style="margin:8px 0 2px;font-weight:600">Return / exchange</div>${returnFields(p)}`,
+    `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="product-edit-save" data-id="${p.id}">Save</button>`);
+};
+Actions["product-edit-save"] = async (el)=>{ const p = DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
+  const raw = $("#epPrice").value; const price = Number(raw);
+  if(raw==="" || !(price>=0)){ toast("Enter a valid price","danger"); return; }
+  const f = readReturnFields(); if(!f) return; const fields = { selling_price:price, is_visible:!$("#epPaused").checked, ...f };
+  if(price > (p._mrp||0)) fields.mrp = price;
+  const { error, partial } = await updateMedicine(p.id, fields);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  p.price = price; p.visible = fields.is_visible; if(fields.mrp) p._mrp = fields.mrp; if(!partial) applyReturnToLocal(p, f);
+  await logAdminAction(`Edited medicine ${p.name} (price ${price}${p.visible?"":", paused"})`); closeModal(); render();
+  toast(partial ? "Saved, but return/exchange was not saved"+SQL_HINT : (p.visible ? "Medicine updated" : "Medicine updated & paused"), partial?"danger":"default");
+};
+
+/* ---------- KYC documents: full-page viewer, never a new tab ---------- */
+kycLightbox = function(url, label, pdf){
+  document.getElementById("kycLightbox")?.remove();
+  const box = document.createElement("div"); box.id = "kycLightbox"; box.className = "doc-full";
+  box.innerHTML = `<div class="doc-full-head"><strong>${esc(label)}</strong><button class="doc-full-close" id="kycLightboxClose">✕ Close</button></div>
+    <div class="doc-full-body">${pdf ? `<iframe src="${esc(url)}" title="${esc(label)}"></iframe>` : `<img src="${esc(url)}" alt="${esc(label)}">`}</div>
+    ${pdf ? "" : `<div class="doc-full-hint">Tap the image to zoom</div>`}`;
+  box.addEventListener("click", (e)=>{
+    if(e.target.id==="kycLightboxClose"){ box.remove(); return; }
+    if(e.target.tagName==="IMG") e.target.classList.toggle("zoomed");
+  });
+  document.body.appendChild(box);
+};
+Actions["doc-open"] = async (el)=>{
+  const { bucket, ref, label } = el.dataset;
+  try{ const url = await kycDocUrl(bucket, ref); kycLightbox(url, label || "Document", kycIsPdf(ref)); }
+  catch(err){ toast("Could not open document: "+err.message,"danger"); }
+};
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") document.getElementById("kycLightbox")?.remove(); });
+
+/* ---------- Notification: pick the target by ID (name resolves automatically) ---------- */
+const shortId = (id)=> String(id).length>12 ? String(id).slice(0,8)+"…" : String(id);
+function ntfEntities(t){
+  if(t==="user-one") return DATA.users.map(u=>({id:String(u.id), label:u.name, sub:`${u.phone} · ${u.email}`, ids:[String(u.id)]}));
+  if(t==="merchant") return DATA.merchants.map(m=>({id:String(m.id), label:m.name, sub:`${m.owner} · ${m.phone}`, ids:[String(m.id)]}));
+  if(t==="rider") return DATA.riders.map(r=>({id:String(r.id), label:r.name, sub:String(r.phone), ids:[String(r.id)]}));
+  if(t==="lab") return DATA.raw.collectors.filter(c=>c.auth_user_id).map(c=>({id:String(c.auth_user_id), label:c.full_name||c.phone||"Collector", sub:String(c.phone||""), ids:[String(c.auth_user_id),String(c.id)]}));
+  if(t==="nurse") return DATA.nurses.filter(n=>n.authUserId).map(n=>({id:String(n.authUserId), label:n.name, sub:String(n.whatsapp), ids:[String(n.authUserId),String(n.id)]}));
+  if(t==="ambulance") return DATA.ambulanceDrivers.map(d=>({id:String(d.id), label:d.name, sub:String(d.phone), ids:[String(d.id)]}));
+  return [];
+}
+function ntfMatch(t, q){
+  q = q.trim().toLowerCase(); if(!q) return [];
+  const list = ntfEntities(t);
+  const exact = list.filter(e=>e.ids.some(i=>i.toLowerCase()===q)); if(exact.length) return exact;
+  const digits = q.replace(/\D/g,"");
+  return list.filter(e=> e.ids.some(i=>q.length>=3 && i.toLowerCase().startsWith(q)) || e.label.toLowerCase().includes(q) || (digits.length>=4 && e.sub.replace(/\D/g,"").includes(digits))).slice(0,8);
+}
+VIEWS.notifications = () => {
+  const t = vs("notifications",{tab:"user-all"}).tab;
+  let target;
+  if(t==="user-all") target = `<div class="field"><label>Send to</label><input value="All users" disabled></div><input type="hidden" id="ntfTarget" value="all">`;
+  else {
+    const one = t==="user-one", lbl = one ? "user" : NTF_AUDIENCE[t].toLowerCase().replace(/s$/,"");
+    target = `<div class="field"><label>Send to</label>
+      <div class="ntf-modes"><label class="chk"><input type="radio" id="ntfModeAll" name="ntfMode" value="all" ${one?"disabled":"checked"}> All ${esc(NTF_AUDIENCE[t].toLowerCase())}</label>
+      <label class="chk"><input type="radio" id="ntfModeOne" name="ntfMode" value="one" ${one?"checked":""}> One ${esc(lbl)} — enter ID</label></div>
+      <input id="ntfTargetInput" autocomplete="off" placeholder="Type the ${esc(lbl)} ID (name or phone also works)" ${one?"":"disabled"}>
+      <div id="ntfResolve" class="ntf-resolve"></div><div id="ntfSuggest"></div>
+      <input type="hidden" id="ntfTarget" value="${one?"":"all"}"></div>`;
+  }
+  return `
+  <div class="view-head"><h1>Create Notification</h1><p>${esc(NTF_AUDIENCE[t])} · delivered in-app (stored in the app's own notification table).</p></div>
+  <div class="card"><div class="card-body">
+    ${target}
+    <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
+    <div class="field"><label>Message</label><textarea id="ntfBody" placeholder="Write the notification body..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Image URL (optional)</label><input id="ntfImage" placeholder="https://..."></div>
+      <div class="field"><label>Deep link (optional)</label><input id="ntfLink" placeholder="e.g. orders"></div>
+    </div>
+    <button class="btn primary" data-act="ntf-send">Send notification</button>
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Notification history</h3></div><div class="card-body pad0" id="tablewrap-notifications">
+    ${renderTable("notifications",[{key:"title",label:"Title"},{key:"audience",label:"Audience",render:r=>badge(r.audience,"blue")},{key:"sentAt",label:"Sent"}], DATA.notificationsHistory, {emptyText:"No notifications sent yet."})}
+  </div></div>`;
+};
+function ntfResolveNow(){
+  const inp = $("#ntfTargetInput"); if(!inp) return;
+  const t = vs("notifications",{}).tab, m = ntfMatch(t, inp.value), hid = $("#ntfTarget"), res = $("#ntfResolve"), sug = $("#ntfSuggest");
+  sug.innerHTML = "";
+  if(!inp.value.trim()){ hid.value = ""; res.innerHTML = ""; return; }
+  if(m.length===1){ hid.value = m[0].id; res.innerHTML = `<span class="ntf-ok">✔ ${esc(m[0].label)}</span> <span class="cell-sub">${esc(m[0].sub)}</span>`; return; }
+  hid.value = "";
+  if(!m.length){ res.innerHTML = `<span class="ntf-bad">No one found with this ID</span>`; return; }
+  res.innerHTML = `<span class="cell-sub">${m.length} matches — tap one</span>`;
+  sug.innerHTML = m.map(e=>`<div class="ntf-pick" data-ntf-pick="${esc(e.id)}"><b>${esc(e.label)}</b><span>${esc(shortId(e.id))} · ${esc(e.sub)}</span></div>`).join("");
+}
+document.addEventListener("input", (e)=>{ if(e.target.id==="ntfTargetInput") ntfResolveNow(); });
+document.addEventListener("change", (e)=>{
+  if(e.target.name==="ntfMode"){
+    const inp = $("#ntfTargetInput"), hid = $("#ntfTarget"); if(!inp) return;
+    if(e.target.value==="all"){ inp.disabled = true; inp.value = ""; hid.value = "all"; $("#ntfResolve").innerHTML = ""; $("#ntfSuggest").innerHTML = ""; }
+    else { inp.disabled = false; hid.value = ""; inp.focus(); ntfResolveNow(); }
+  }
+});
+document.addEventListener("click", (e)=>{
+  const pick = e.target.closest("[data-ntf-pick]"); if(!pick) return;
+  const inp = $("#ntfTargetInput"); if(inp){ inp.value = pick.dataset.ntfPick; ntfResolveNow(); }
+});
+const _ntfSendBase = Actions["ntf-send"];
+Actions["ntf-send"] = async (el)=>{
+  const t = vs("notifications",{tab:"user-all"}).tab;
+  if(t!=="user-all"){
+    const mode = (document.querySelector('input[name="ntfMode"]:checked')||{}).value, v = ($("#ntfTarget")||{}).value;
+    if(mode==="one" && !v){ toast("Enter a valid ID first — the name must show in green","danger"); return; }
+  }
+  return _ntfSendBase(el);
+};
+
+/* ---------- Zones: services on/off + green / yellow / red ---------- */
+const ZONE_SVCS = [{key:"svc30",col:"svc_30min",label:"30-min delivery"},{key:"svcSameDay",col:"svc_sameday",label:"Same-day delivery"},{key:"svcNurse",col:"svc_nurse",label:"Nurse service"},{key:"svcLab",col:"svc_lab",label:"Lab service"}];
+function zoneHealth(z){
+  if(z.status!=="active") return { key:"red", label:"Suspended" };
+  const off = ZONE_SVCS.filter(s=>!z[s.key]).map(s=>s.label);
+  if(off.length) return { key:"yellow", label:`Reduced service · ${off.length} off` };
+  return { key:"green", label:"Fully live" };
+}
+VIEWS.delivery = () => {
+  const cnt = {green:0,yellow:0,red:0}; DATA.zones.forEach(z=>cnt[zoneHealth(z).key]++);
+  const mPin = {}; DATA.merchants.forEach(m=>{ mPin[String(m.id)] = String(m.pincode); });
+  const cards = DATA.zones.map(z=>{
+    const h = zoneHealth(z);
+    const riders = DATA.riders.filter(r=>String(r._pin)===String(z.pin) || r.zone===z.name).length;
+    const merchants = DATA.merchants.filter(m=>String(m.pincode)===String(z.pin)).length;
+    const orders = DATA.orders.filter(o=>mPin[String(o._merchantId)]===String(z.pin)).length;
+    return `<div class="zone-card ${h.key}">
+      <div class="zone-top"><div><div class="zone-name">${esc(z.name)}</div><div class="cell-sub">PIN ${esc(z.pin)} · ${esc(z.district)}${z.ps&&z.ps!=="—"?" · "+esc(z.ps):""} · ${esc(z.state)}</div></div><span class="zone-pill ${h.key}">${esc(h.label)}</span></div>
+      ${z.status!=="active" && z.suspendReason ? `<div class="zone-reason">Reason: ${esc(z.suspendReason)}</div>` : ""}
+      <div class="zone-stats">
+        <div><span>Base fee</span><b>${money(z.baseFee)}</b></div><div><span>Per km</span><b>${money(z.perKm)}</b></div><div><span>Express</span><b>${money(z.express)}</b></div>
+        <div><span>Riders</span><b>${riders}</b></div><div><span>Merchants</span><b>${merchants}</b></div><div><span>Orders</span><b>${orders}</b></div>
+      </div>
+      <div class="zone-svcs">${ZONE_SVCS.map(s=>`<div class="svc-toggle"><span>${s.label}</span><label class="toggle"><input type="checkbox" ${z[s.key]?"checked":""} data-act="zone-svc" data-id="${esc(z.id)}" data-key="${s.key}"><span class="track"></span></label></div>`).join("")}</div>
+      <div class="zone-foot"><button class="btn sm" data-act="zone-edit" data-id="${esc(z.id)}">Edit fees</button>
+        <div class="zone-master"><span>${z.status==="active"?"Zone live":"Zone suspended"}</span><label class="toggle"><input type="checkbox" ${z.status==="active"?"checked":""} data-act="zone-toggle" data-id="${esc(z.id)}"><span class="track"></span></label></div></div>
+    </div>`;
+  }).join("");
+  return `
+  <div class="view-head"><h1>Service Zones</h1><p>PIN/district-wise zones — fees, services on/off and live coverage. <b style="color:#1f9d55">Green</b> = fully live · <b style="color:#b8860b">Yellow</b> = reduced service · <b style="color:#d93025">Red</b> = suspended.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Fully live</div><div class="val" style="color:#1f9d55">${cnt.green}</div></div>
+    <div class="stat-card"><div class="lbl">Reduced service</div><div class="val" style="color:#b8860b">${cnt.yellow}</div></div>
+    <div class="stat-card"><div class="lbl">Suspended</div><div class="val" style="color:#d93025">${cnt.red}</div></div>
+    <div class="stat-card"><div class="lbl">Total zones</div><div class="val">${DATA.zones.length}</div></div>
+  </div>
+  <div class="view-toolbar"><button class="btn primary" data-act="zone-add">+ Add zone</button></div>
+  <div class="card"><div class="card-head"><h3>Coverage map</h3><span class="sub">OpenStreetMap · circle colour = zone health</span></div><div class="card-body"><div id="zoneLeafletMap" class="leaflet-box short"></div></div></div>
+  <div class="zone-grid">${cards || `<div class="empty"><div class="ic">▢</div><h4>No zones yet</h4><p>Add a pincode zone to start taking orders.</p></div>`}</div>`;
+};
+function zoneSvcChecks(z){
+  return `<div class="field-row" style="flex-wrap:wrap">${ZONE_SVCS.map(s=>`<label class="chk" style="min-width:46%"><input type="checkbox" id="zs_${s.key}" ${(z?z[s.key]:true)?"checked":""}> ${s.label}</label>`).join("")}</div>`;
+}
+Actions["zone-add"] = ()=> openModal("New delivery zone", `
+  <div class="field-row"><div class="field"><label>Pincode *</label><input id="zPin" inputmode="numeric" maxlength="6" placeholder="733124"></div><div class="field"><label>District *</label><input id="zDist" placeholder="Dakshin Dinajpur"></div></div>
+  <div class="field-row"><div class="field"><label>Police station</label><input id="zPs" placeholder="Gangarampur"></div><div class="field"><label>Municipality / Block</label><input id="zMuni" placeholder="Gangarampur"></div></div>
+  <div class="field-row"><div class="field"><label>State *</label><input id="zState" value="West Bengal"></div><div class="field"><label>Zone name (optional)</label><input id="zName" placeholder="defaults to municipality"></div></div>
+  <div class="field-row"><div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="30"></div><div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="8"></div><div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="20"></div></div>
+  <div class="hint" style="font-weight:600;margin:6px 0">Services in this zone</div>${zoneSvcChecks(null)}`,
+  `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-save">Save zone</button>`);
+Actions["zone-save"] = async ()=>{
+  const pin=$("#zPin").value.trim(), dist=$("#zDist").value.trim(), state=$("#zState").value.trim(), ps=$("#zPs").value.trim(), muni=$("#zMuni").value.trim();
+  if(!pin||!dist||!state){ toast("Pincode, district and state are required","danger"); return; }
+  if(!/^\d{6}$/.test(pin)){ toast("Pincode must be exactly 6 digits","danger"); return; }
+  if(DATA.zones.some(z=>String(z.pin)===pin)){ toast("A zone for this pincode already exists","danger"); return; }
+  const name = $("#zName").value.trim() || muni || ps || dist;
+  const base = { name, pin, pincode:pin, dist, ps:ps||null, muni:muni||null, state, status:"approved", is_active:true, outage_message:"", base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
+  let { error } = await supabase.from("service_zones").insert({ ...base, ...readZoneSvcs() }); let warn = false;
+  if(error && /svc_|schema cache|column/i.test(error.message)){ const r2 = await supabase.from("service_zones").insert(base); error = r2.error; warn = !r2.error; }
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  closeModal(); await loadZonesFromDB(); await logAdminAction(`Added zone ${pin} (${dist})`); render();
+  toast(warn ? "Zone added, but service switches were not saved"+SQL_HINT : "Zone added — customers in this pincode can now order", warn?"danger":"default");
+};
+Actions["zone-edit"] = (el)=>{ const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
+  openModal(`Edit zone — ${z.name} (${z.pin})`, `
+    <div class="field-row"><div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="${z.baseFee}"></div><div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="${z.perKm}"></div><div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="${z.express}"></div></div>
+    <div class="hint" style="font-weight:600;margin:6px 0">Services in this zone</div>${zoneSvcChecks(z)}`,
+    `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-edit-save" data-id="${esc(z.id)}">Save</button>`);
+};
+Actions["zone-edit-save"] = async (el)=>{ const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
+  const fees = { base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
+  let r = await mustUpdate(supabase.from("service_zones").update({ ...fees, ...readZoneSvcs() }).eq("id", z.id), "Zone"); let warn = false;
+  if(!r.ok && /svc_|schema cache|column/i.test(r.msg)){ r = await mustUpdate(supabase.from("service_zones").update(fees).eq("id", z.id), "Zone"); warn = r.ok; }
+  if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+  await logAdminAction(`Edited zone ${z.pin}`); closeModal(); await loadZonesFromDB(); render();
+  toast(warn ? "Fees saved, service switches were not"+SQL_HINT : "Zone updated", warn?"danger":"default");
+};
+Actions["zone-svc"] = async (el)=>{
+  const z = DATA.zones.find(x=>String(x.id)===el.dataset.id), s = ZONE_SVCS.find(x=>x.key===el.dataset.key); if(!z||!s) return;
+  const next = el.checked;
+  const r = await mustUpdate(supabase.from("service_zones").update({ [s.col]:next }).eq("id", z.id), "Zone");
+  if(!r.ok){ toast("Failed: "+r.msg+(/svc_|column/i.test(r.msg)?SQL_HINT:""),"danger"); render(); return; }
+  z[s.key] = next; await logAdminAction(`${next?"Enabled":"Disabled"} ${s.label} in zone ${z.pin}`); render();
+  toast(`${s.label} ${next?"ON":"OFF"} — ${z.name}`, next?"default":"danger");
+};
+
+/* ---------- Maps: Leaflet + OpenStreetMap, stable, never on top of the menu ---------- */
+let _zoneMap = null, _ambMap = null, _zoneMapToken = 0, _leafletRetry = 0;
+const _mapView = {};
+function destroyMaps(){
+  _zoneMapToken++;
+  for(const m of [_fleetMapInstance, _ridersMiniMapInstance, _zoneMap, _ambMap]){ try{ m && m.remove(); }catch(e){} }
+  _fleetMapInstance = _ridersMiniMapInstance = _zoneMap = _ambMap = null;
+}
+function makeMap(el, key){
+  const m = L.map(el, { attributionControl:true });
+  const v = _mapView[key]; m.setView(v ? v.c : [22.97,78.65], v ? v.z : 5);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap contributors" }).addTo(m);
+  m.on("moveend", ()=>{ const c = m.getCenter(); _mapView[key] = { c:[c.lat,c.lng], z:m.getZoom() }; });
+  [60,400,1200].forEach(ms=>setTimeout(()=>{ try{ m.invalidateSize(); }catch(e){} }, ms));
+  return m;
+}
+function fitFirst(m, key, pts){
+  if(_mapView[key] || !pts.length) return;
+  if(pts.length>1) m.fitBounds(pts,{padding:[30,30]}); else m.setView(pts[0], 14);
+}
+renderRidersLiveMiniMap = function(){
+  const el = document.getElementById("ridersLiveMiniMap"); if(!el || typeof L==="undefined") return;
+  _ridersMiniMapInstance = makeMap(el, "riders"); const pts = [];
+  DATA.riders.filter(r=>r.online && r._hasLocation).forEach(r=>{
+    L.circleMarker([r.lat,r.lon],{radius:7,color:"#e02020",fillColor:"#e02020",fillOpacity:.85,weight:2}).addTo(_ridersMiniMapInstance).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.vehicle)} · ${esc(r.phone)}`);
+    pts.push([r.lat,r.lon]);
+  });
+  fitFirst(_ridersMiniMapInstance, "riders", pts);
+};
+const AMB_COLOR = { available:"#7c3aed", busy:"#e02020", offline:"#6b7280" };
+function ambMarker(d, map){
+  const st = d.is_on_ride ? "busy" : d.is_online ? "available" : "offline";
+  const icon = L.divIcon({ html:`<div class="amb-pin" style="background:${AMB_COLOR[st]}">🚑</div>`, className:"amb-wrap", iconSize:[30,30], iconAnchor:[15,15] });
+  return L.marker([d.current_lat, d.current_lon], { icon }).addTo(map).bindPopup(`<b>${esc(d.driver_name||"Driver")}</b><br>${esc(({non_ac:"Non-AC",ac:"AC",icu:"ICU"})[d.vehicle_type]||d.vehicle_type||"")} · ${esc(d.phone||"")}<br>${st==="busy"?"On a ride":st==="available"?"Available":"Offline"}`);
+}
+renderFleetLeafletMap = function(){
+  const el = document.getElementById("fleetLeafletMap"); if(!el || typeof L==="undefined") return;
+  const state = vs("fleet",{zoneFilter:"all"}), type = state.typeFilter || "all";
+  _fleetMapInstance = makeMap(el, "fleet"); const pts = [];
+  if(type!=="ambulances"){
+    let visible = DATA.riders.filter(r=>r.online || fleetStatusOf(r)==="zone-suspended");
+    if(state.zoneFilter==="approved") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status==="active");
+    if(state.zoneFilter==="suspended") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status!=="active");
+    visible.filter(r=>r._hasLocation).forEach(r=>{
+      const s = fleetStatusOf(r), color = FLEET_MAP_COLOR[s] || "#666";
+      L.circleMarker([r.lat,r.lon],{radius:8,color,fillColor:color,fillOpacity:.85,weight:2}).addTo(_fleetMapInstance).bindPopup(`<b>${esc(r.name)}</b><br>${esc(FLEET_LABEL[s]||s)} · ${esc(r.zone)}<br>${esc(r.phone)}`);
+      pts.push([r.lat,r.lon]);
+    });
+  }
+  if(type!=="riders") DATA.raw.ambulance.filter(d=>d.current_lat!=null && d.current_lon!=null && (d.is_online||d.is_on_ride)).forEach(d=>{ ambMarker(d,_fleetMapInstance); pts.push([d.current_lat,d.current_lon]); });
+  fitFirst(_fleetMapInstance, "fleet", pts);
+};
+function initAmbMap(){
+  const el = document.getElementById("ambLeafletMap"); if(!el || typeof L==="undefined") return;
+  _ambMap = makeMap(el, "amb"); const pts = [];
+  DATA.raw.ambulance.filter(d=>d.current_lat!=null && d.current_lon!=null).forEach(d=>{ ambMarker(d,_ambMap); pts.push([d.current_lat,d.current_lon]); });
+  fitFirst(_ambMap, "amb", pts);
+  if(!pts.length) el.insertAdjacentHTML("afterend", `<div class="hint" style="margin-top:8px">No ambulance driver is sharing a live location right now.</div>`);
+}
+ambulanceFleetMap = function(){ return `<div class="fleet-legend"><span><i style="background:#7c3aed"></i>Available</span><span><i style="background:#e02020"></i>On ride</span><span><i style="background:#6b7280"></i>Offline</span></div><div id="ambLeafletMap" class="leaflet-box"></div>`; };
+const GEO_KEY = "mf_pin_geo_v1";
+const geoCache = ()=>{ try{ return JSON.parse(localStorage.getItem(GEO_KEY)||"{}"); }catch(e){ return {}; } };
+async function geocodePin(pin){
+  const c = geoCache();
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&postalcode=${encodeURIComponent(pin)}`, { headers:{ "Accept":"application/json" } });
+    const j = await r.json(); c[pin] = (j && j[0]) ? [+j[0].lat, +j[0].lon] : false;
+    try{ localStorage.setItem(GEO_KEY, JSON.stringify(c)); }catch(e){}
+    return c[pin] || null;
+  }catch(e){ return null; }
+}
+async function initZoneMap(){
+  const el = document.getElementById("zoneLeafletMap"); if(!el || typeof L==="undefined") return;
+  const hadView = !!_mapView.zones, token = ++_zoneMapToken, map = _zoneMap = makeMap(el, "zones");
+  const colors = { green:"#1f9d55", yellow:"#d4a017", red:"#d93025" }, pts = [];
+  for(const z of DATA.zones){
+    if(token!==_zoneMapToken) return;
+    let ll = (z._lat!=null && z._lng!=null) ? [Number(z._lat),Number(z._lng)] : null;
+    if(!ll){
+      const cached = geoCache()[z.pin];
+      if(cached===undefined){ ll = await geocodePin(z.pin); await new Promise(r=>setTimeout(r,1100)); if(token!==_zoneMapToken) return; }
+      else ll = cached || null;
+    }
+    if(!ll) continue;
+    const h = zoneHealth(z);
+    L.circle(ll,{radius:3500,color:colors[h.key],fillColor:colors[h.key],fillOpacity:.3,weight:2}).addTo(map).bindPopup(`<b>${esc(z.name)}</b><br>PIN ${esc(z.pin)}<br>${esc(h.label)}`);
+    pts.push(ll);
+  }
+  if(token===_zoneMapToken && !hadView) fitFirst(map, "zones", pts);
+}
+
+VIEWS.fleet = () => {
+  const state = vs("fleet",{zoneFilter:"all"}); const type = state.typeFilter || "all";
+  let visible = DATA.riders.filter(r=>r.online || fleetStatusOf(r)==="zone-suspended");
+  if(state.zoneFilter==="approved") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status==="active");
+  if(state.zoneFilter==="suspended") visible = visible.filter(r=>(DATA.zones.find(z=>z.name===r.zone)||{}).status!=="active");
+  const counts = {"active-order":0, idle:0, "zone-suspended":0};
+  visible.forEach(r=>{ const s=fleetStatusOf(r); if(counts[s]!==undefined) counts[s]++; });
+  const amb = DATA.raw.ambulance.filter(d=>d.is_online||d.is_on_ride);
+  return `
+  <div class="view-head"><h1>Live Fleet Tracking</h1><p>Real-time rider and ambulance positions on OpenStreetMap.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Online Riders</div><div class="val">${visible.length}</div></div>
+    <div class="stat-card"><div class="lbl">Active With Order</div><div class="val">${counts["active-order"]}</div></div>
+    <div class="stat-card"><div class="lbl">Idle</div><div class="val">${counts.idle}</div></div>
+    <div class="stat-card"><div class="lbl">Zone Suspended</div><div class="val">${counts["zone-suspended"]}</div></div>
+    <div class="stat-card"><div class="lbl">Ambulances Online</div><div class="val">${amb.length}</div></div>
+  </div>
+  <div class="view-toolbar">
+    <select data-act="fleet-zone-filter"><option value="all" ${state.zoneFilter==="all"?"selected":""}>All zones</option><option value="approved" ${state.zoneFilter==="approved"?"selected":""}>Approved zones only</option><option value="suspended" ${state.zoneFilter==="suspended"?"selected":""}>Suspended zones only</option></select>
+    <select data-act="fleet-type-filter"><option value="all" ${type==="all"?"selected":""}>Riders + Ambulances</option><option value="riders" ${type==="riders"?"selected":""}>Riders only</option><option value="ambulances" ${type==="ambulances"?"selected":""}>Ambulances only</option></select>
+    <button class="btn" style="margin-left:auto" data-act="fleet-refresh">↻ Refresh map</button>
+  </div>
+  <div class="card"><div class="card-head"><h3>Fleet map</h3><span class="sub">Live GPS positions</span></div><div class="card-body">
+    <div class="fleet-legend"><span><i style="background:#e02020"></i>Rider with order</span><span><i style="background:#d4a017"></i>Rider idle</span><span><i style="background:#c0392b"></i>Zone suspended</span><span><i style="background:#7c3aed"></i>Ambulance</span></div>
+    <div id="fleetLeafletMap" class="leaflet-box"></div>
+    ${visible.filter(r=>!r._hasLocation).length ? `<div class="hint" style="margin-top:8px">${visible.filter(r=>!r._hasLocation).length} online rider(s) have no GPS fix yet and aren't plotted.</div>` : ""}
+  </div></div>
+  <div class="card"><div class="card-head"><h3>Fleet list</h3></div><div class="card-body"><div class="fleet-side-list">
+    ${visible.map(r=>{ const s = fleetStatusOf(r); const dot = s==="active-order"?"var(--brand)":s==="idle"?"var(--gold)":s==="zone-suspended"?"var(--danger)":"var(--blue)";
+      return `<div class="fleet-row"><span class="dot-status" style="background:${dot}"></span><div class="avatar">${initials(r.name)}</div><div style="flex:1"><div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.zone)} · ${esc(r.vehicle)} · ${esc(FLEET_LABEL[s]||s)}</div></div>${statusBadge(r.status)}</div>`; }).join("") || `<div class="empty"><div class="ic">▢</div><h4>No riders online</h4><p>Riders will appear here once they go online.</p></div>`}
+  </div></div></div>`;
+};
+Actions["fleet-type-filter"] = (el)=>{ vs("fleet",{zoneFilter:"all"}).typeFilter = el.value; delete _mapView.fleet; render(); };
+Actions["fleet-refresh"] = ()=>{ delete _mapView.fleet; delete _mapView.riders; loadRidersFromDB().then(render); toast("Fleet map refreshed"); };
+
+/* Rider GPS pings no longer hammer the server (max one reload every 3 s) */
+const _loadRidersBase = loadRidersFromDB; let _rl = null, _rlAgain = false;
+loadRidersFromDB = function(){
+  if(_rl){ _rlAgain = true; return _rl; }
+  _rl = _loadRidersBase().finally(()=>{ setTimeout(()=>{ _rl = null; if(_rlAgain){ _rlAgain = false; loadRidersFromDB().then(render); } }, 3000); });
+  return _rl;
+};
+
+/* ---------- Emergency control: real, saved, with 3 new service switches ---------- */
+const EMG_FLAGS = [
+  {key:"pauseOrders", t:"Pause new orders", s:"Customers can browse but not place new orders"},
+  {key:"pauseDelivery", t:"Pause delivery dispatch", s:"Existing orders held, no new rider assignment"},
+  {key:"pauseNurse", t:"Pause nurse service", s:"Customers cannot book a nurse until you resume"},
+  {key:"pauseAmbulance", t:"Pause ambulance booking", s:"New ambulance requests are blocked"},
+  {key:"pauseLab", t:"Pause lab booking", s:"New lab test bookings are blocked"},
+  {key:"paymentMaintenance", t:"Payment maintenance mode", s:"Falls back to Cash on Delivery only"},
+  {key:"platformMaintenance", t:"Platform maintenance mode", s:"Shows a maintenance screen to all users"},
+];
+VIEWS.emergency = () => {
+  const e = STATE.emergency, on = EMG_FLAGS.filter(f=>e[f.key]).length;
+  const zOk = DATA.zones.filter(z=>z.status==="active"), zOff = DATA.zones.filter(z=>z.status!=="active");
+  const mOk = DATA.merchants.filter(m=>m.status==="active"), mOff = DATA.merchants.filter(m=>m.status==="suspended" && m.kycStatusRaw!=="rejected");
+  const rOk = DATA.riders.filter(r=>r.status==="active"), rOff = DATA.riders.filter(r=>r.status==="suspended" && /suspended by admin/i.test(r.kycReason||""));
+  const picker = (id, title, sub, list, kind, nameOf, valOf)=>`
+    <div class="emergency-row emg-stack"><div><div class="er-title">${title}</div><div class="er-sub">${sub}</div></div>
+      <div class="emg-pick"><select id="${id}"><option value="">— Choose —</option>${list.map(x=>`<option value="${esc(valOf(x))}">${esc(nameOf(x))}</option>`).join("")}</select>
+      <button class="btn sm danger" data-act="emg-suspend" data-kind="${kind}">Suspend</button></div></div>`;
+  const chips = (list, kind, nameOf, idOf)=> list.length ? `<div class="emg-chips">${list.map(x=>`<span class="emg-chip"><b>${esc(nameOf(x))}</b> suspended <button class="btn sm" data-act="emg-restore" data-kind="${kind}" data-id="${esc(idOf(x))}">Restore</button></span>`).join("")}</div>` : "";
+  return `
+  <div class="view-head"><h1>Emergency Control Center</h1><p>Platform-wide kill switches — saved instantly and logged. ${on ? `<b style="color:#d93025">${on} switch${on>1?"es":""} ON right now.</b>` : "Everything is running normally."}</p></div>
+  ${DATA.controlsError ? `<div class="notice-bad">Switches cannot be saved yet: ${esc(DATA.controlsError)}${SQL_HINT}</div>` : ""}
+  <div class="emergency-panel">
+    ${EMG_FLAGS.map(f=>`<div class="emergency-row"><div><div class="er-title">${f.t}</div><div class="er-sub">${f.s}</div></div>
+      <label class="toggle"><input type="checkbox" ${e[f.key]?"checked":""} data-act="emg-flag" data-key="${f.key}"><span class="track"></span></label></div>`).join("")}
+    ${picker("emgZone","Suspend a specific zone","Blocks new orders in that zone only (zone turns red)",zOk,"zone",z=>`${z.name} (${z.pin})`,z=>z.id)}
+    ${chips(zOff,"zone",z=>`${z.name} (${z.pin})`,z=>z.id)}
+    ${picker("emgMerchant","Suspend a specific pharmacy","Removes it from search + stops new orders",mOk,"merchant",m=>m.name,m=>m.id)}
+    ${chips(mOff,"merchant",m=>m.name,m=>m.id)}
+    ${picker("emgRider","Suspend a specific rider","Rider is taken offline immediately",rOk,"rider",r=>`${r.name} · ${r.phone}`,r=>r.id)}
+    ${chips(rOff,"rider",r=>r.name,r=>r.id)}
+  </div>`;
+};
+Actions["emg-flag"] = async (el)=>{
+  const key = el.dataset.key, f = EMG_FLAGS.find(x=>x.key===key); if(!f) return; const next = el.checked;
+  if(next && !(await askConfirm(`Turn ON “${f.t}”?`, "This affects live customers immediately.", {danger:true, ok:"Turn on"}))){ render(); return; }
+  const prev = !!STATE.emergency[key]; STATE.emergency[key] = next;
+  const flags = {}; EMG_FLAGS.forEach(x=>{ flags[x.key] = !!STATE.emergency[x.key]; });
+  const err = await savePlatformControl("emergency", flags);
+  if(err){ STATE.emergency[key] = prev; toast("Could not save: "+err.message+SQL_HINT,"danger"); render(); return; }
+  await logAdminAction(`${next?"Enabled":"Disabled"} emergency switch: ${f.t}`); render();
+  toast(`${f.t}: ${next?"ON":"OFF"}`, next?"danger":"default");
+};
+Actions["emg-suspend"] = async (el)=>{
+  const kind = el.dataset.kind, sel = $(kind==="zone"?"#emgZone":kind==="merchant"?"#emgMerchant":"#emgRider"), id = sel && sel.value;
+  if(!id){ toast("Choose one first","danger"); return; }
+  const label = sel.options[sel.selectedIndex].textContent;
+  if(!(await askConfirm("Suspend now?", `Suspend ${label} now?`, {danger:true, ok:"Suspend"}))) return;
+  const now = new Date().toISOString(); let r;
+  if(kind==="zone") r = await mustUpdate(supabase.from("service_zones").update({status:"suspended", is_active:false, outage_message:"Emergency suspension by admin", outage_start:now}).eq("id", id), "Zone");
+  if(kind==="merchant") r = await mustUpdate(supabase.from("merchants").update({status:"suspended"}).eq("id", Number(id)), "Pharmacy");
+  if(kind==="rider"){
+    r = await mustUpdate(supabase.from("rider_kyc_application").upsert({rider_id:Number(id), status:"rejected", rejection_reason:"Suspended by admin (emergency)", reviewed_at:now},{onConflict:"rider_id"}), "Rider");
+    if(r.ok) await supabase.from("riders").update({duty_status:"offline"}).eq("id", Number(id));
+  }
+  if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+  await logAdminAction(`Emergency suspended ${kind}: ${label}`);
+  await Promise.all([loadZonesFromDB(), loadMerchantsFromDB(), loadRidersFromDB()]); render(); toast(`${label} suspended`,"danger");
+};
+Actions["emg-restore"] = async (el)=>{
+  const kind = el.dataset.kind, id = el.dataset.id; let r, label = id;
+  if(kind==="zone"){ const z = DATA.zones.find(x=>String(x.id)===id); label = z ? z.name : id; r = await mustUpdate(supabase.from("service_zones").update({status:"approved", is_active:true, outage_message:"", outage_start:null}).eq("id", id), "Zone"); }
+  if(kind==="merchant"){ const m = DATA.merchants.find(x=>String(x.id)===id); label = m ? m.name : id; r = await mustUpdate(supabase.from("merchants").update({status:"active"}).eq("id", Number(id)), "Pharmacy"); }
+  if(kind==="rider"){ const x = DATA.riders.find(y=>String(y.id)===id); label = x ? x.name : id; r = await mustUpdate(supabase.from("rider_kyc_application").upsert({rider_id:Number(id), status:"approved", rejection_reason:"", reviewed_at:new Date().toISOString()},{onConflict:"rider_id"}), "Rider"); }
+  if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+  await logAdminAction(`Restored ${kind}: ${label}`);
+  await Promise.all([loadZonesFromDB(), loadMerchantsFromDB(), loadRidersFromDB()]); render(); toast(`${label} restored`);
+};
+
+/* ---------- Commission: who pays how much ---------- */
+VIEWS.commission = () => {
+  const type = vs("commission",{tab:"merchant"}).tab, rules = DATA.commissionRules.filter(r=>r.type===type);
+  const def = commissionFor(type, "__none__", 100);
+  return `
+  <div class="view-head"><h1>Commission — ${esc(COMM_TYPES[type])}</h1><p>Decide how much MediFinder India keeps. A rule for one partner overrides the default for everyone.</p></div>
+  ${DATA.commissionError ? `<div class="notice-bad">Commission rules cannot load: ${esc(DATA.commissionError)}${SQL_HINT}</div>` : ""}
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Default for all ${esc(COMM_TYPES[type])}</div><div class="val">${esc(commissionText(def))}</div><div class="delta">${esc(def.source)}</div></div>
+    <div class="stat-card"><div class="lbl">Partner-specific rules</div><div class="val">${rules.filter(r=>r.partnerId!=null && r.partnerId!=="").length}</div></div>
+  </div>
+  <div class="view-toolbar"><button class="btn primary" data-act="comm-add" data-type="${type}">+ Add commission rule</button></div>
+  <div class="card"><div class="card-body pad0">${renderTable("commission-"+type,[
+    {key:"partnerName",label:"Applies to",render:r=>r.partnerId!=null&&r.partnerId!=="" ? `<div class="cell-strong">${esc(r.partnerName||r.partnerId)}</div><div class="cell-sub">Only this partner</div>` : `<div class="cell-strong">All ${esc(COMM_TYPES[type])}</div><div class="cell-sub">Default rule</div>`},
+    {key:"rate",label:"Commission",render:r=>`<b>${esc(commissionText(r))}</b>`},
+    {key:"ex",label:"On ₹1,000",sortable:false,render:r=>money(r.rateType==="flat"?r.rate:r.rate*10)},
+    {key:"note",label:"Note",render:r=>esc(r.note||"")},
+    {key:"active",label:"Active",sortable:false,render:r=>`<label class="toggle"><input type="checkbox" ${r.active?"checked":""} data-act="comm-toggle" data-id="${esc(r.id)}"><span class="track"></span></label>`},
+    {key:"_a",label:"",sortable:false,render:r=>`<div class="actions-cell"><button class="btn sm" data-act="comm-edit" data-id="${esc(r.id)}">Edit</button><button class="btn sm danger" data-act="comm-del" data-id="${esc(r.id)}">Delete</button></div>`},
+  ], rules, {emptyText:"No rule yet — the fallback above applies. Add one."})}</div></div>`;
+};
+function commPartnerOptions(type, selected){
+  let list = [];
+  if(type==="merchant") list = DATA.merchants.map(m=>({id:m.id,name:m.name}));
+  if(type==="rider") list = DATA.riders.map(r=>({id:r.id,name:`${r.name} · ${r.phone}`}));
+  if(type==="nurse") list = partnerRows("nurse").map(p=>({id:p.id,name:p.name}));
+  if(type==="lab") list = partnerRows("lab").map(p=>({id:p.id,name:p.name}));
+  if(type==="ambulance") list = partnerRows("ambulance").map(p=>({id:p.id,name:p.name}));
+  return `<option value="">All ${esc(COMM_TYPES[type])} (default)</option>` + list.map(x=>`<option value="${esc(x.id)}" ${String(selected)===String(x.id)?"selected":""}>${esc(x.name)}</option>`).join("");
+}
+function commForm(type, r){
+  return `<div class="field"><label>Applies to</label><select id="cmPartner" ${r?"disabled":""}>${commPartnerOptions(type, r&&r.partnerId)}</select></div>
+    <div class="field-row"><div class="field"><label>Type</label><select id="cmType"><option value="percent" ${r&&r.rateType==="flat"?"":"selected"}>Percent (%) of each order / job</option><option value="flat" ${r&&r.rateType==="flat"?"selected":""}>Flat amount (₹) per order / job</option></select></div>
+    <div class="field"><label>Value</label><input id="cmValue" type="number" step="0.01" min="0" value="${r?r.rate:""}" placeholder="e.g. 12"></div></div>
+    <div class="field"><label>Note (optional)</label><input id="cmNote" value="${esc(r?r.note:"")}" placeholder="e.g. Festival offer for new pharmacies"></div>`;
+}
+function readCommForm(){
+  const rateType = $("#cmType").value, rate = Number($("#cmValue").value);
+  if($("#cmValue").value==="" || !(rate>=0)){ toast("Enter a valid value","danger"); return null; }
+  if(rateType==="percent" && rate>100){ toast("Percent cannot be more than 100","danger"); return null; }
+  return { rate_type:rateType, rate, note:$("#cmNote").value.trim()||null };
+}
+Actions["comm-add"] = (el)=>{ const type = el.dataset.type;
+  openModal(`Add commission rule — ${COMM_TYPES[type]}`, commForm(type, null), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="comm-save" data-type="${type}">Save rule</button>`); };
+Actions["comm-save"] = async (el)=>{
+  const type = el.dataset.type, f = readCommForm(); if(!f) return;
+  const pid = $("#cmPartner").value || null, pname = pid ? $("#cmPartner").options[$("#cmPartner").selectedIndex].textContent : null;
+  const existing = DATA.commissionRules.find(r=>r.type===type && String(r.partnerId||"")===String(pid||""));
+  const { error } = existing
+    ? await supabase.from("commission_rules").update({ ...f, is_active:true, updated_at:new Date().toISOString() }).eq("id", existing.id)
+    : await supabase.from("commission_rules").insert({ partner_type:type, partner_id:pid, partner_name:pname, is_active:true, ...f });
+  if(error){ toast("Failed: "+error.message+SQL_HINT,"danger"); return; }
+  await logAdminAction(`Commission ${type} ${pname||"default"} → ${f.rate_type==="flat"?"₹"+f.rate:f.rate+"%"}`);
+  closeModal(); await loadCommissionRules(); render(); toast(existing ? "Existing rule updated" : "Commission rule added");
+};
+Actions["comm-edit"] = (el)=>{ const r = DATA.commissionRules.find(x=>String(x.id)===el.dataset.id); if(!r) return;
+  openModal("Edit commission rule", commForm(r.type, r), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="comm-edit-save" data-id="${esc(r.id)}">Save</button>`); };
+Actions["comm-edit-save"] = async (el)=>{ const r = DATA.commissionRules.find(x=>String(x.id)===el.dataset.id); if(!r) return;
+  const f = readCommForm(); if(!f) return;
+  const { error } = await supabase.from("commission_rules").update({ ...f, updated_at:new Date().toISOString() }).eq("id", r.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction(`Edited commission rule ${r.partnerName||r.type+" default"}`); closeModal(); await loadCommissionRules(); render(); toast("Commission updated");
+};
+Actions["comm-toggle"] = async (el)=>{ const r = DATA.commissionRules.find(x=>String(x.id)===el.dataset.id); if(!r) return;
+  const { error } = await supabase.from("commission_rules").update({ is_active:el.checked }).eq("id", r.id);
+  if(error){ toast("Failed: "+error.message,"danger"); render(); return; }
+  r.active = el.checked; await logAdminAction(`${r.active?"Enabled":"Disabled"} commission rule ${r.partnerName||r.type+" default"}`); render(); toast(r.active?"Rule active":"Rule off");
+};
+Actions["comm-del"] = async (el)=>{ const r = DATA.commissionRules.find(x=>String(x.id)===el.dataset.id); if(!r) return;
+  if(!(await askConfirm("Delete rule", "Delete this commission rule?", {danger:true, ok:"Delete"}))) return;
+  const { error } = await supabase.from("commission_rules").delete().eq("id", r.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction(`Deleted commission rule ${r.partnerName||r.type+" default"}`); await loadCommissionRules(); render(); toast("Rule deleted","danger");
+};
+
+/* ---------- Reports: overview (real) · one-click company report · receipts ---------- */
+function reportOverview(){
+  const total = DATA.orders.length, dead = DATA.orders.filter(o=>["cancelled","failed","rejected"].includes(o.status)).length;
+  const durs = DATA.orders.filter(o=>o.status==="delivered").map(o=>{ const r = o._raw||{}, end = r.delivered_at || r.completed_at || r.delivery_completed_at; if(!end||!o.created) return null; const m = (new Date(end)-new Date(o.created))/60000; return m>0 && m<1440 ? m : null; }).filter(x=>x!=null);
+  const avg = durs.length ? Math.round(durs.reduce((a,b)=>a+b,0)/durs.length)+" min" : "Not tracked yet";
+  const c = DATA.counts, mNew = DATA.merchants.filter(m=>m.joined && m.joined >= localDayStr(dayStart(-30))).length;
+  const catCounts = DATA.categories.map(x=>DATA.products.filter(p=>p.category===x).length);
+  const earn = DATA.merchants.map(m=>{ const del = DATA.orders.filter(o=>String(o._merchantId)===String(m.id) && o.status==="delivered"); const gross = del.reduce((s,o)=>s+o.total,0);
+    return { name:m.name, orders:m.orders, earnings:m.earnings, rating:m.rating, commission:m.commission, platform:del.reduce((s,o)=>s+commissionFor("merchant",m.id,o.total).amount,0) }; }).sort((a,b)=>b.orders-a.orders);
+  return `
+  <div class="view-head"><h1>Reports & Analytics</h1><p>Sales, growth and performance — calculated from live data.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Cancellation Rate</div><div class="val">${total ? ((dead/total)*100).toFixed(1) : "0.0"}%</div></div>
+    <div class="stat-card"><div class="lbl">Avg. Delivery Time</div><div class="val">${avg}</div></div>
+    <div class="stat-card"><div class="lbl">User Growth (WoW)</div><div class="val">${(c.usersPrev7 ? (((c.users7-c.usersPrev7)/c.usersPrev7)*100).toFixed(1)+"%" : (c.users7||0)+" new")}</div></div>
+    <div class="stat-card"><div class="lbl">New Merchants (30 days)</div><div class="val">+${mNew}</div></div>
+  </div>
+  <div class="card"><div class="card-head"><h3>Orders — last 7 days</h3></div><div class="card-body">${svgBarChart(DATA.weekOrders, DATA.weekLabels)}</div></div>
+  ${DATA.categories.length ? `<div class="card"><div class="card-head"><h3>Products by category</h3></div><div class="card-body">${svgBarChart(catCounts, DATA.categories)}</div></div>` : ""}
+  <div class="card"><div class="card-head"><h3>Top pharmacies by orders</h3></div><div class="card-body pad0">${renderTable("reports-top",[
+    {key:"name",label:"Pharmacy"},{key:"orders",label:"Orders"},{key:"earnings",label:"Delivered value",render:r=>money(r.earnings)},
+    {key:"commission",label:"Commission",render:r=>commissionLabel(r.commission)},{key:"platform",label:"Platform earned",render:r=>money(Math.round(r.platform))},
+    {key:"rating",label:"Rating",render:r=>r.rating?`★ ${r.rating}`:"No reviews yet"},
+  ], earn)}</div></div>`;
+}
+VIEWS.reports = () => { const tab = vs("reports",{tab:"overview"}).tab; return tab==="download" ? reportDownloadView() : tab==="receipt" ? receiptView() : reportOverview(); };
+
+const REPORT_SHEETS = [
+  ["Orders","orders"],["Users","profiles"],["Merchants","merchants"],["Riders","riders"],["Medicines","medicines"],["Prescriptions","prescription_orders"],
+  ["Lab Bookings","lab_bookings"],["Nurse Bookings","nurse_bookings"],["Ambulance Bookings","ambulance_bookings"],
+  ["Merchant Payouts","merchant_payouts"],["Rider Payouts","admin_payout_requests"],["Nurse Payouts","nurse_payouts"],["Collector Earnings","collector_earnings"],
+  ["Refunds & Cancelled","cancelled_orders"],["Zones","service_zones"],["Coupons","coupons"],
+  ["Complaints","complaints"],["Merchant Complaints","merchant_complaints"],["Rider Complaints","rider_complaints"],
+  ["Nurses","nurses"],["Lab Collectors","sample_collectors"],["Ambulance Drivers","ambulance_drivers"],["Commission Rules","commission_rules"],["Audit Log","admin_audit_log"],
+];
+const SENSITIVE_COL = /pass|token|secret|otp|aadhaar|aadhar|pan_?(no|number)|account_?n|bank_account|ifsc|fcm|api_?key|signature|upi_?id|license_?no|id_?no|proof_?number|bank_holder/i;
+async function fetchAllRows(table){
+  const out = [], page = 1000;
+  for(let off=0; off<30000; off+=page){
+    let { data, error } = await supabase.from(table).select("*").order("created_at",{ascending:false}).range(off, off+page-1);
+    if(error){ const r2 = await supabase.from(table).select("*").range(off, off+page-1); data = r2.data; error = r2.error; }
+    if(error) return { rows:out, error:error.message };
+    out.push(...(data||[])); if(!data || data.length<page) break;
+  }
+  return { rows:out };
+}
+function cleanRows(rows, from, to){
+  return rows.filter(r=>{ const d = tsDay(r.created_at || r.requested_at || r.sent_at || r.joined_at); if(!d) return true; return (!from || d>=from) && (!to || d<=to); })
+    .map(r=>{ const o = {}; Object.keys(r).forEach(k=>{ if(SENSITIVE_COL.test(k)) return; let v = r[k]; if(v!==null && typeof v==="object") v = JSON.stringify(v); if(typeof v==="string" && v.length>32000) v = v.slice(0,32000); o[k] = v; }); return o; });
+}
+function loadSheetJS(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((res,rej)=>{ const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = ()=>res(window.XLSX); s.onerror = ()=>rej(new Error("Excel library could not load")); document.head.appendChild(s); });
+}
+function downloadBlob(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+function toCsv(rows){ if(!rows.length) return ""; const cols = [...new Set(rows.flatMap(r=>Object.keys(r)))]; const q = v=>{ v = v==null ? "" : String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }; return [cols.join(","), ...rows.map(r=>cols.map(c=>q(r[c])).join(","))].join("\n"); }
+function reportDownloadView(){
+  return `
+  <div class="view-head"><h1>Company Report</h1><p>One tap downloads everything an emergency agency, auditor or company partner may ask for — orders, users, partners, bookings, payouts, refunds, zones, complaints and the admin audit log.</p></div>
+  <div class="card"><div class="card-body">
+    <div class="field-row"><div class="field"><label>From date (optional)</label><input id="repFrom" type="date"></div><div class="field"><label>To date (optional)</label><input id="repTo" type="date"></div></div>
+    <div class="hint" style="margin-bottom:12px">Leave both empty for all data. Passwords, tokens, Aadhaar/PAN, bank and UPI details are never included.</div>
+    <button class="btn primary" data-act="report-download" style="width:100%;padding:14px;font-size:15px">⬇ Download complete report (Excel)</button>
+    <div id="repProgress" class="hint" style="margin-top:12px"></div>
+  </div></div>`;
+}
+Actions["report-download"] = async ()=>{
+  const from = ($("#repFrom")||{}).value || "", to = ($("#repTo")||{}).value || "", prog = (t)=>{ const el = $("#repProgress"); if(el) el.textContent = t; };
+  let done = 0; const sheets = [], issues = [];
+  prog(`Collecting data… 0/${REPORT_SHEETS.length}`);
+  const results = await Promise.all(REPORT_SHEETS.map(async ([name, table])=>{
+    const r = await fetchAllRows(table); done++; prog(`Collecting data… ${done}/${REPORT_SHEETS.length}`);
+    if(r.error) issues.push(`${name}: ${r.error}`);
+    return { name, table, rows:cleanRows(r.rows, from, to) };
+  }));
+  const by = Object.fromEntries(results.map(r=>[r.table, r.rows]));
+  const orders = by.orders || [], live = orders.filter(o=>!DEAD_ORDER.includes(String(o.status||"")));
+  const sum = (a,f)=>a.reduce((s,x)=>s+(Number(f(x))||0),0);
+  const summary = [
+    ["Report", "MediFinder India — Company Report"], ["Generated at", fmtDateTime(new Date().toISOString())], ["Generated by", `${DATA.me.name} (${DATA.me.email})`], ["Period", (from||"start")+" to "+(to||"today")],
+    ["Orders", orders.length], ["Orders delivered", orders.filter(o=>o.status==="delivered").length], ["Orders cancelled / failed", orders.length-live.length],
+    ["Gross order value (excluding cancelled)", sum(live, orderTotalOf)], ["Cash on delivery orders", orders.filter(o=>/cod/i.test(String(o.payment_mode||o.payment_method||""))).length],
+    ["Customers", by.profiles.length], ["Pharmacies", by.merchants.length], ["Riders", by.riders.length], ["Nurses", by.nurses.length], ["Lab collectors", by.sample_collectors.length], ["Ambulance drivers", by.ambulance_drivers.length],
+    ["Lab bookings", by.lab_bookings.length], ["Nurse bookings", by.nurse_bookings.length], ["Ambulance bookings", by.ambulance_bookings.length],
+    ["Service zones", by.service_zones.length], ["Complaints (all)", by.complaints.length+by.merchant_complaints.length+by.rider_complaints.length],
+    ...(issues.length ? [["Tables that could not be read", issues.join(" | ")]] : []),
+  ].map(([k,v])=>({ Item:k, Value:v }));
+  sheets.push({ name:"Summary", rows:summary }, ...results.map(r=>({ name:r.name, rows:r.rows })));
+  prog("Building file…");
+  const stamp = localDayStr();
+  try{
+    const X = await loadSheetJS(), wb = X.utils.book_new();
+    sheets.forEach(s=>X.utils.book_append_sheet(wb, X.utils.json_to_sheet(s.rows.length ? s.rows : [{ Note:"No data" }]), s.name.slice(0,31)));
+    X.writeFile(wb, `MediFinder-India-Company-Report-${stamp}.xlsx`);
+    prog(`✔ Downloaded MediFinder-India-Company-Report-${stamp}.xlsx (${sheets.length} sheets)`);
+  }catch(err){
+    const csv = sheets.map(s=>`### ${s.name}\n${toCsv(s.rows)}`).join("\n\n");
+    downloadBlob(new Blob(["\ufeff"+csv], { type:"text/csv;charset=utf-8" }), `MediFinder-India-Company-Report-${stamp}.csv`);
+    prog("✔ Excel library was blocked, so a single CSV with every sheet was downloaded instead.");
+  }
+  await logAdminAction(`Downloaded company report (${from||"all"}–${to||"all"})`);
+  toast("Report downloaded");
+};
+
+/* ----- Receipt / invoice lookup ----- */
+STATE.rc = { q:"", results:[], searched:false };
+function receiptView(){
+  const rc = STATE.rc;
+  return `
+  <div class="view-head"><h1>Receipt / Invoice</h1><p>Type an order, booking or invoice number — the receipt opens instantly and can be downloaded.</p></div>
+  <div class="card"><div class="card-body">
+    <div class="field"><label>Order no. / Booking no. / Invoice no.</label><input id="rcQuery" value="${esc(rc.q)}" placeholder="e.g. ORD-12345, LBK-…, NBK-…, ABK-…"></div>
+    <button class="btn primary" data-act="receipt-search">Find receipt</button>
+  </div></div>
+  ${rc.searched ? `<div class="card"><div class="card-head"><h3>${rc.results.length} result${rc.results.length===1?"":"s"}</h3></div><div class="card-body pad0">${renderTable("receipt-res",[
+    {key:"title",label:"Number",render:r=>`<div class="cell-strong">${esc(r.title)}</div><div class="cell-sub">${esc(r.label)}</div>`},
+    {key:"sub",label:"Customer"},{key:"amount",label:"Amount",render:r=>r.amount!=null?money(r.amount):"—"},{key:"date",label:"Date"},
+    {key:"status",label:"Status",render:r=>statusBadge(r.status)},
+    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm primary" data-act="receipt-open" data-kind="${r.kind}" data-id="${esc(r.id)}">Open receipt</button>`},
+  ], rc.results, {emptyText:"No order or booking found with this number."})}</div></div>` : ""}`;
+}
+function receiptLocalMatches(q){
+  q = q.trim().toLowerCase(); const out = [];
+  const hit = (keys)=>keys.filter(x=>x!=null&&x!=="").map(x=>String(x).toLowerCase()).some(k=>k===q || k.includes(q));
+  DATA.orders.forEach(o=>{ const r = o._raw||{}; if(hit([o.id, r.order_id, r.id, r.invoice_no, r.invoice_number, r.invoice_id])) out.push({ kind:"order", label:"Medicine order", id:String(o.id), title:String(o.id), sub:`${o.customer} · ${o.merchant}`, amount:o.total, date:o.date, status:o.status }); });
+  [[DATA.labBookings,"lab","Lab booking"],[DATA.nurseBookings,"nurse","Nurse booking"],[DATA.ambulanceBookings,"ambulance","Ambulance booking"]].forEach(([arr,kind,label])=>{
+    arr.forEach(b=>{ if(hit([b.id, b._rawId])) out.push({ kind, label, id:String(b.id), title:String(b.id), sub:b.customer, amount:b.amount, date:b.date, status:b.status }); }); });
+  return out.slice(0,25);
+}
+Actions["receipt-search"] = async ()=>{
+  const q = ($("#rcQuery").value||"").trim(); if(!q){ toast("Enter a number first","danger"); return; }
+  let results = receiptLocalMatches(q);
+  if(!results.length){
+    for(const col of ["order_id","invoice_no","invoice_number"]){
+      const { data, error } = await supabase.from("orders").select("*").eq(col, q).limit(5);
+      if(!error && data && data.length){
+        data.forEach(r=>{ const o = { id:r.order_id||r.id, _raw:r, customer:r.customer_name||r.user_name||"Customer", merchant:r.pharmacy_name||"—", total:orderTotalOf(r), payment:/cod/i.test(String(r.payment_mode||r.payment_method||""))?"COD":"Online", status:r.status||"pending", date:fmtDateTime(r.created_at), created:r.created_at };
+          STATE.rc.extra = (STATE.rc.extra||[]).filter(x=>x.id!==o.id).concat(o);
+          results.push({ kind:"order", label:"Medicine order", id:String(o.id), title:String(o.id), sub:`${o.customer}`, amount:o.total, date:o.date, status:o.status }); });
+        break;
+      }
+    }
+  }
+  STATE.rc.q = q; STATE.rc.results = results; STATE.rc.searched = true; render();
+};
+document.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && e.target.id==="rcQuery"){ e.preventDefault(); Actions["receipt-search"](); } });
+const _amt = (v)=> (v!=null && v!=="" && isFinite(Number(v))) ? Number(v) : null;
+function buildReceipt(kind, id){
+  const rows = [], lines = []; let no = id, title = "Receipt", total = null, status = "", date = "", who = "", phone = "", addr = "", pay = "", extra = [];
+  if(kind==="order"){
+    const o = DATA.orders.find(x=>String(x.id)===String(id)) || (STATE.rc.extra||[]).find(x=>String(x.id)===String(id)); if(!o) return null;
+    const r = o._raw || {}; title = "Medicine Order Receipt";
+    no = r.invoice_no || r.invoice_number || o.id; who = o.customer; phone = r.customer_phone || r.user_phone || ""; date = o.date; status = o.status;
+    const a = r.delivery_address || r.address || r.customer_address || ""; addr = typeof a==="object" && a ? Object.values(a).filter(Boolean).join(", ") : String(a||"");
+    pay = `${o.payment}${r.payment_utr?" · UTR "+r.payment_utr:""}${r.payment_verification_status?" · "+r.payment_verification_status:""}`;
+    let items = r.items; if(typeof items==="string"){ try{ items = JSON.parse(items); }catch(e){ items = []; } }
+    (Array.isArray(items)?items:[]).forEach(it=>{ const q = Number(it.qty ?? it.quantity ?? 1) || 1, p = Number(it.price ?? it.selling_price ?? it.unit_price ?? it.mrp ?? 0) || 0; lines.push({ name:it.name||it.product_name||it.medicine_name||it.title||"Item", qty:q, price:p, amt:q*p }); });
+    const sub = _amt(r.subtotal ?? r.items_total) ?? lines.reduce((s,l)=>s+l.amt,0);
+    rows.push(["Pharmacy", o.merchant], ["Rider", o.rider]);
+    const fee = [["Items subtotal", sub],["Delivery fee", _amt(r.delivery_fee ?? r.delivery_charge)],["Handling / platform fee", _amt(r.platform_fee ?? r.handling_fee)],["COD fee", _amt(r.cod_fee)],["Tax", _amt(r.tax ?? r.gst)],["Discount", _amt(r.discount ?? r.discount_amount ?? r.coupon_discount)]];
+    fee.forEach(([k,v])=>{ if(v) extra.push([k, (k==="Discount"?"− ":"")+money(v)]); });
+    total = orderTotalOf(r) || o.total;
+  } else {
+    const meta = BK_META[kind], b = meta && meta.rows().find(x=>String(x.id)===String(id)); if(!b) return null;
+    title = `${meta.title} Booking Receipt`; no = b.id; who = b.customer; phone = b.phone; date = b.date; status = b.status; addr = b.location; total = b.amount; pay = b.payment;
+    const pq = (DATA.payQueue||[]).find(p=>p.kind===kind && String(p.rawId)===String(b._rawId)); if(pq) pay += ` · UTR ${pq.utr||"—"} · ${pq.status}`;
+    rows.push(["Service", b.service], [meta.provider, b.provider||"Unassigned"]);
+  }
+  return { kind, no, title, total, status, date, who, phone, addr, pay, rows, lines, extra };
+}
+function receiptHtml(r){
+  const e = esc, m = money;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(r.title)} ${e(r.no)}</title><style>
+  body{font-family:Arial,Helvetica,sans-serif;color:#142421;margin:0;padding:22px;font-size:14px}.box{max-width:640px;margin:0 auto;border:1px solid #d8e2df;border-radius:10px;padding:22px}
+  h1{margin:0;font-size:20px;color:#0d5c4f}.sub{color:#5b6f6a;font-size:12px}.top{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #0d5c4f;padding-bottom:12px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:7px 4px;border-bottom:1px solid #e6ecea;text-align:left;vertical-align:top}th{font-size:12px;color:#5b6f6a}.r{text-align:right}
+  .kv td:first-child{color:#5b6f6a;width:38%}.total td{font-weight:700;font-size:16px;border-top:2px solid #142421;border-bottom:none}.foot{margin-top:18px;color:#5b6f6a;font-size:11.5px;text-align:center}
+  @media print{body{padding:0}.box{border:none}}</style></head><body><div class="box">
+  <div class="top"><div><h1>MediFinder India</h1><div class="sub">${e(r.title)}</div></div><div style="text-align:right"><b>${e(r.no)}</b><div class="sub">${e(r.date)}</div><div class="sub">Status: ${e(String(r.status).replace(/_/g," "))}</div></div></div>
+  <table class="kv"><tr><td>Customer</td><td>${e(r.who||"—")}</td></tr>${r.phone?`<tr><td>Phone</td><td>${e(r.phone)}</td></tr>`:""}${r.addr?`<tr><td>Address</td><td>${e(r.addr)}</td></tr>`:""}${r.rows.map(([k,v])=>`<tr><td>${e(k)}</td><td>${e(v||"—")}</td></tr>`).join("")}<tr><td>Payment</td><td>${e(r.pay||"—")}</td></tr></table>
+  ${r.lines.length?`<table><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>${r.lines.map(l=>`<tr><td>${e(l.name)}</td><td class="r">${l.qty}</td><td class="r">${m(l.price)}</td><td class="r">${m(l.amt)}</td></tr>`).join("")}</table>`:""}
+  <table>${r.extra.map(([k,v])=>`<tr><td>${e(k)}</td><td class="r">${e(v)}</td></tr>`).join("")}<tr class="total"><td>Total</td><td class="r">${r.total!=null?m(r.total):"—"}</td></tr></table>
+  <div class="foot">Computer-generated receipt · MediFinder India · medifinderindia.com</div></div></body></html>`;
+}
+Actions["receipt-open"] = (el)=>{
+  const r = buildReceipt(el.dataset.kind, el.dataset.id); if(!r){ toast("Receipt data not found","danger"); return; }
+  const html = receiptHtml(r); document.getElementById("kycLightbox")?.remove();
+  const box = document.createElement("div"); box.id = "kycLightbox"; box.className = "doc-full light";
+  box.innerHTML = `<div class="doc-full-head"><strong>${esc(r.title)} · ${esc(r.no)}</strong>
+    <span class="doc-full-actions"><button class="btn sm primary" id="rcPdf">⬇ Download PDF</button><button class="btn sm" id="rcHtml">Save HTML</button><button class="doc-full-close" id="kycLightboxClose">✕ Close</button></span></div>
+    <div class="doc-full-body"><iframe id="rcFrame" title="Receipt"></iframe></div>`;
+  document.body.appendChild(box);
+  const fr = box.querySelector("#rcFrame"); fr.srcdoc = html;
+  box.addEventListener("click", (e)=>{
+    if(e.target.id==="kycLightboxClose") box.remove();
+    if(e.target.id==="rcPdf"){ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(err){ toast("Use your browser's Print → Save as PDF","danger"); } }
+    if(e.target.id==="rcHtml") downloadBlob(new Blob([html],{type:"text/html"}), `receipt-${String(r.no).replace(/[^\w-]+/g,"_")}.html`);
+  });
+  logAdminAction(`Opened receipt ${r.no}`);
+};
+
+/* ---------- Offers / Campaigns (Flipkart-style: banner + countdown + scheduled push) ---------- */
+(function(){
+  const g = NAV.find(gr=>gr.items.some(i=>i.id==="notifications"));
+  const it = {id:"campaigns", icon:"📢", label:"Offers / Campaigns", children:[{key:"live",label:"Live"},{key:"scheduled",label:"Scheduled"},{key:"ended",label:"Ended"},{key:"all",label:"All"}]};
+  g.items.splice(g.items.findIndex(i=>i.id==="notifications")+1, 0, it); NAV_FLAT.push(it);
+})();
+DATA.campaigns = []; DATA._campLoaded = false;
+async function loadCampaigns(){
+  if(!supabase) return;
+  const { data, error } = await supabase.from("campaigns").select("*").order("start_at",{ascending:false}).limit(200);
+  DATA.campaignsError = error ? error.message : "";
+  DATA.campaigns = data || []; DATA._campLoaded = true;
+}
+function campStatus(c){
+  const t = Date.now(), s = new Date(c.start_at).getTime(), e = new Date(c.end_at).getTime();
+  if(c.ended_early || t >= e) return "ended";
+  return t < s ? "scheduled" : "live";
+}
+const campFmt = (x)=> new Date(x).toLocaleString("en-IN",{dateStyle:"medium", timeStyle:"short"});
+function toLocalInput(d){ return `${d.getFullYear()}-${_p2(d.getMonth()+1)}-${_p2(d.getDate())}T${_p2(d.getHours())}:${_p2(d.getMinutes())}`; }
+VIEWS.campaigns = () => {
+  if(!DATA._campLoaded){ DATA._campLoaded = true; loadCampaigns().then(render); }
+  const tab = vs("campaigns",{tab:"live"}).tab, all = DATA.campaigns;
+  const cnt = (s)=> all.filter(c=>campStatus(c)===s).length;
+  const rows = tab==="all" ? all : all.filter(c=>campStatus(c)===tab);
+  const pushTxt = (c)=> !c.send_push ? "Push off" : c.pushed_at ? "Push sent "+campFmt(c.pushed_at) : "Push at "+campFmt(c.push_at||c.start_at);
+  const card = (c)=>{ const st = campStatus(c);
+    return `<div class="card" style="margin-bottom:12px"><div class="card-body">
+      <div class="row-flex" style="align-items:flex-start;gap:12px">
+        ${c.image_url ? `<img src="${esc(c.image_url)}" alt="" style="width:92px;height:64px;object-fit:cover;border-radius:8px;flex:none">` : `<div style="width:92px;height:64px;border-radius:8px;flex:none;background:linear-gradient(135deg,#e02020,#ffb347)"></div>`}
+        <div style="flex:1;min-width:0"><div class="cell-strong">${esc(c.title)}</div>
+          <div class="cell-sub">${esc(c.discount_text||"")}</div>
+          <div class="cell-sub">${campFmt(c.start_at)} → ${campFmt(c.end_at)}</div>
+          <div class="cell-sub">${pushTxt(c)}${c.send_push && c.send_ending_push ? " · ending-soon reminder on" : ""}${c.show_countdown?" · countdown":""}${c.show_homepage?" · homepage":""}</div></div>
+        ${badge(st==="live"?"Live":st==="scheduled"?"Scheduled":"Ended", st==="live"?"green":st==="scheduled"?"gold":"gray")}</div>
+      ${st!=="ended" ? `<div class="actions-cell" style="margin-top:10px;flex-wrap:wrap">
+        <button class="btn sm" data-act="camp-edit" data-id="${esc(c.id)}">Edit</button>
+        ${c.send_push ? `<button class="btn sm primary" data-act="camp-push" data-id="${esc(c.id)}">Send push now</button>` : ""}
+        <button class="btn sm danger" data-act="camp-end" data-id="${esc(c.id)}">End now</button></div>`
+        : `<div class="actions-cell" style="margin-top:10px"><button class="btn sm danger" data-act="camp-del" data-id="${esc(c.id)}">Delete</button></div>`}
+    </div></div>`; };
+  return `
+  <div class="view-head"><h1>Offers / Campaigns</h1><p>Publish an offer once — it appears on the customer home page with a server-time countdown and a push notification goes out automatically.</p></div>
+  ${DATA.campaignsError ? `<div class="notice-bad">Campaigns cannot load: ${esc(DATA.campaignsError)} — run medifinder_campaigns.sql first</div>` : ""}
+  <div class="stat-grid"><div class="stat-card"><div class="lbl">Live now</div><div class="val" style="color:#1f9d55">${cnt("live")}</div></div>
+    <div class="stat-card"><div class="lbl">Scheduled</div><div class="val">${cnt("scheduled")}</div></div>
+    <div class="stat-card"><div class="lbl">Ended</div><div class="val">${cnt("ended")}</div></div></div>
+  <div class="view-toolbar"><button class="btn primary" data-act="camp-new">+ Create offer</button></div>
+  ${rows.map(card).join("") || `<div class="empty"><div class="ic">📢</div><h4>No offers here</h4><p>Tap “Create offer” to publish one.</p></div>`}`;
+};
+function campForm(c){
+  const now = new Date(), s = c ? new Date(c.start_at) : now, e = c ? new Date(c.end_at) : new Date(now.getTime()+24*3600e3);
+  const ck = (id,label,v)=>`<label class="chk"><input type="checkbox" id="${id}" ${v?"checked":""}> ${label}</label>`;
+  return `
+  <div class="field"><label>Offer title *</label><input id="cmpTitle" value="${esc(c?c.title:"")}" placeholder="MEGA HEALTH SALE"></div>
+  <div class="field"><label>Discount text</label><input id="cmpDisc" value="${esc(c?c.discount_text||"":"")}" placeholder="Up to 60% OFF"></div>
+  <div class="field"><label>Description</label><textarea id="cmpDesc" placeholder="Top medicines & healthcare products at special prices">${esc(c?c.description||"":"")}</textarea></div>
+  <div class="field"><label>Banner image</label><input id="cmpFile" type="file" accept="image/*"><input id="cmpImg" value="${esc(c?c.image_url||"":"")}" placeholder="…or paste an image URL" style="margin-top:6px"></div>
+  <details class="field" style="border:1px dashed var(--line);border-radius:10px;padding:10px 12px"><summary style="cursor:pointer;font-weight:600">🛍 Build a 3-product deals banner (like Flipkart)</summary>
+    <div class="hint" style="margin:8px 0">Pick up to 3 medicines and write the offer for each — the banner image is made for you.</div>
+    ${[1,2,3].map(n=>`<div class="field-row"><div class="field"><select id="cmpP${n}"><option value="">— Medicine ${n} —</option>${DATA.products.filter(p=>p.approval==="approved"&&p.visible&&p._img).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div><div class="field"><input id="cmpD${n}" placeholder="Up to 30% Off"></div></div>`).join("")}
+    <button class="btn sm primary" type="button" data-act="camp-compose">Create banner image</button>
+    <img id="cmpPreview" alt="" style="display:none;width:100%;margin-top:10px;border-radius:10px;border:1px solid var(--line)">
+  </details>
+  <div class="field-row"><div class="field"><label>Starts *</label><input id="cmpStart" type="datetime-local" value="${toLocalInput(s)}"></div>
+  <div class="field"><label>Ends *</label><input id="cmpEnd" type="datetime-local" value="${toLocalInput(e)}"></div></div>
+  <div class="field"><label>Shop Now opens (page)</label><input id="cmpUrl" value="${esc(c?c.target_url||"":"/user.html")}" placeholder="/user.html"></div>
+  <div class="hint" style="font-weight:600;margin:6px 0">Push notification text (optional — defaults to title & description)</div>
+  <div class="field"><label>Notification title</label><input id="cmpNTitle" value="${esc(c?c.notification_title||"":"")}" placeholder="🔥 Epic Health Deals!"></div>
+  <div class="field"><label>Notification message</label><input id="cmpNBody" value="${esc(c?c.notification_body||"":"")}" placeholder="Grab top medicines & healthcare products at special prices."></div>
+  ${ck("cmpPush","Send push notification when it starts",c?c.send_push:true)}
+  ${ck("cmpEnding","Also send “Ending soon” push 1 hour before it ends",c?c.send_ending_push:true)}
+  ${ck("cmpHome","Show on home page",c?c.show_homepage:true)}
+  ${ck("cmpCount","Show countdown",c?c.show_countdown:true)}`;
+}
+async function readCampForm(){
+  const title = $("#cmpTitle").value.trim(), s = new Date($("#cmpStart").value), e = new Date($("#cmpEnd").value);
+  if(!title){ toast("Offer title is required","danger"); return null; }
+  if(isNaN(s) || isNaN(e)){ toast("Set start and end date/time","danger"); return null; }
+  if(e <= s){ toast("End must be after start","danger"); return null; }
+  if(e.getTime() <= Date.now()){ toast("End time is already in the past","danger"); return null; }
+  let image = $("#cmpImg").value.trim() || null; const f = $("#cmpFile").files && $("#cmpFile").files[0];
+  if(f){
+    if(f.size > 4*1024*1024){ toast("Banner must be under 4 MB","danger"); return null; }
+    const path = `banners/${Date.now()}-${f.name.replace(/[^\w.-]+/g,"_")}`;
+    const up = await supabase.storage.from("campaign-banners").upload(path, f, { upsert:false, contentType:f.type });
+    if(up.error){ toast("Banner upload failed: "+up.error.message,"danger"); return null; }
+    image = supabase.storage.from("campaign-banners").getPublicUrl(path).data.publicUrl;
+  }
+  return { title, description:$("#cmpDesc").value.trim()||null, discount_text:$("#cmpDisc").value.trim()||null, image_url:image,
+    start_at:s.toISOString(), end_at:e.toISOString(), target_url:$("#cmpUrl").value.trim()||"/user.html",
+    notification_title:$("#cmpNTitle").value.trim()||null, notification_body:$("#cmpNBody").value.trim()||null,
+    send_push:$("#cmpPush").checked, send_ending_push:$("#cmpEnding").checked, show_homepage:$("#cmpHome").checked, show_countdown:$("#cmpCount").checked };
+}
+function loadImg(url){ return new Promise(res=>{ const i = new Image(); i.crossOrigin = "anonymous"; i.onload = ()=>res(i); i.onerror = ()=>res(null); i.src = url; }); }
+function fitText(ctx, text, maxW){ let t = String(text); while(ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0,-2); return t === String(text) ? t : t.trim()+"…"; }
+Actions["camp-compose"] = async ()=>{
+  const picks = [1,2,3].map(n=>({ id:$("#cmpP"+n).value, disc:$("#cmpD"+n).value.trim() })).filter(x=>x.id).map(x=>({ ...x, p:DATA.products.find(p=>String(p.id)===x.id) })).filter(x=>x.p);
+  if(!picks.length){ toast("Choose at least one medicine","danger"); return; }
+  const W = 1200, H = 600, m = 36, gap = 24, cw = (W - 2*m - gap*(picks.length>2?2:picks.length-1)) / Math.min(3,picks.length), ch = H - 2*m, lab = 150;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,W,H);
+  const imgs = await Promise.all(picks.map(x=>loadImg(x.p._img)));
+  picks.forEach((x,i)=>{
+    const cx = m + i*(cw+gap), cy = m;
+    ctx.save(); ctx.beginPath(); ctx.roundRect(cx,cy,cw,ch,22); ctx.clip();
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(cx,cy,cw,ch-lab);
+    const im = imgs[i];
+    if(im){ const box = cw-40, bh = ch-lab-40, r = Math.min(box/im.width, bh/im.height), w = im.width*r, h = im.height*r; ctx.drawImage(im, cx+(cw-w)/2, cy+20+(bh-h)/2, w, h); }
+    else { ctx.fillStyle = "#e8e8e8"; ctx.font = "90px sans-serif"; ctx.textAlign = "center"; ctx.fillText("💊", cx+cw/2, cy+(ch-lab)/2+30); }
+    ctx.fillStyle = "#fff3b0"; ctx.fillRect(cx, cy+ch-lab, cw, lab);
+    ctx.fillStyle = "#1a1a1a"; ctx.textAlign = "center"; ctx.font = "600 30px Arial, sans-serif";
+    ctx.fillText(fitText(ctx, x.p.name, cw-30), cx+cw/2, cy+ch-lab+54);
+    ctx.font = "800 36px Arial, sans-serif"; ctx.fillText(x.disc || "Special price", cx+cw/2, cy+ch-lab+110);
+    ctx.restore(); ctx.strokeStyle = "#e3e3e3"; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(cx,cy,cw,ch,22); ctx.stroke();
+  });
+  let blob; try{ blob = await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("empty")), "image/jpeg", 0.9)); }
+  catch(e){ toast("Could not build the image (product photo blocked) — upload a banner instead","danger"); return; }
+  const path = `banners/deals-${Date.now()}.jpg`;
+  const up = await supabase.storage.from("campaign-banners").upload(path, blob, { contentType:"image/jpeg" });
+  if(up.error){ toast("Upload failed: "+up.error.message,"danger"); return; }
+  const url = supabase.storage.from("campaign-banners").getPublicUrl(path).data.publicUrl;
+  $("#cmpImg").value = url; const pv = $("#cmpPreview"); pv.src = url; pv.style.display = "block";
+  toast("Banner created — it will be used for this offer");
+};
+Actions["camp-new"] = ()=> openModal("Create offer", campForm(null), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="camp-save">Publish offer</button>`);
+Actions["camp-save"] = async ()=>{
+  const f = await readCampForm(); if(!f) return;
+  const { error } = await supabase.from("campaigns").insert({ ...f, is_published:true, created_by:DATA.me.email||null });
+  if(error){ toast("Failed: "+error.message+(/campaigns/.test(error.message)?" — run medifinder_campaigns.sql":""),"danger"); return; }
+  await logAdminAction(`Published offer “${f.title}”`); closeModal(); await loadCampaigns(); render();
+  toast(f.send_push ? "Offer published — push goes out at start time" : "Offer published");
+};
+Actions["camp-edit"] = (el)=>{ const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c) return;
+  openModal("Edit offer", campForm(c), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="camp-edit-save" data-id="${esc(c.id)}">Save</button>`); };
+Actions["camp-edit-save"] = async (el)=>{
+  const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c) return;
+  const f = await readCampForm(); if(!f) return;
+  const { error } = await supabase.from("campaigns").update(f).eq("id", c.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction(`Edited offer “${f.title}”`); closeModal(); await loadCampaigns(); render(); toast("Offer updated");
+};
+Actions["camp-end"] = async (el)=>{
+  const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c || !(await askConfirm("End offer now?", `“${c.title}” will disappear from the home page immediately.`, {danger:true, ok:"End offer"}))) return;
+  const { error } = await supabase.from("campaigns").update({ ended_early:true }).eq("id", c.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction(`Ended offer “${c.title}”`); await loadCampaigns(); render(); toast("Offer ended","danger");
+};
+Actions["camp-del"] = async (el)=>{
+  const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c || !(await askConfirm("Delete offer", `Delete “${c.title}” permanently?`, {danger:true, ok:"Delete"}))) return;
+  const { error } = await supabase.from("campaigns").delete().eq("id", c.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction(`Deleted offer “${c.title}”`); await loadCampaigns(); render(); toast("Offer deleted","danger");
+};
+Actions["camp-push"] = async (el)=>{
+  const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c) return;
+  if(!(await askConfirm("Send to all customers?", `“${c.notification_title||c.title}” will be pushed to every customer now.`, {ok:"Send now"}))) return;
+  const { data, error } = await supabase.functions.invoke("send-campaign-push", { body:{ campaign_id:c.id } });
+  if(error || (data && data.error)){ toast("Push failed: "+((data&&data.error)||error.message)+" — is the Edge Function deployed?","danger"); return; }
+  await logAdminAction(`Sent push for offer “${c.title}” (${data.sent} devices)`); await loadCampaigns(); render();
+  toast(`Push sent to ${data.sent} device${data.sent===1?"":"s"}`);
+};
+
+/* ---------- Render wrapper: keeps typed text, rebuilds maps, updates bell ---------- */
+function snapshotForm(){
+  const c = document.getElementById("content"); if(!c) return null;
+  const snap = { vals:{}, scroll:c.scrollTop };
+  c.querySelectorAll("input[id],textarea[id],select[id]").forEach(el=>{ snap.vals[el.id] = (el.type==="checkbox"||el.type==="radio") ? {c:el.checked} : {v:el.value}; });
+  const a = document.activeElement; if(a && a.id && c.contains(a)) snap.focus = { id:a.id, s:a.selectionStart, e:a.selectionEnd };
+  return snap;
+}
+function restoreForm(snap){
+  if(!snap) return; const c = document.getElementById("content"); if(!c) return;
+  Object.entries(snap.vals).forEach(([id,st])=>{ const el = document.getElementById(id); if(!el || !c.contains(el)) return;
+    if("c" in st) el.checked = st.c; else if(el.value!==st.v && !el.disabled && !(el.tagName==="SELECT" && ![...el.options].some(o=>o.value===st.v))) el.value = st.v; });
+  const one = document.getElementById("ntfModeOne");
+  if(one && one.checked){ const i = document.getElementById("ntfTargetInput"); if(i){ i.disabled = false; ntfResolveNow(); } }
+  c.scrollTop = snap.scroll;
+  if(snap.focus){ const f = document.getElementById(snap.focus.id); if(f){ f.focus(); try{ f.setSelectionRange(snap.focus.s, snap.focus.e); }catch(e){} } }
+}
+const _renderBase = render;
+render = function(){
+  const snap = snapshotForm();
+  destroyMaps();
+  try{ postProcessData(); }catch(e){ console.warn("[admin] postProcess", e); }
+  _renderBase();
+  try{ restoreForm(snap); }catch(e){}
+  try{ afterRender(); }catch(e){ console.warn("[admin] afterRender", e); }
+};
+function afterRender(){
+  updateBell(); updateAdminChip();
+  const needMap = ["fleetLeafletMap","zoneLeafletMap","ambLeafletMap","ridersLiveMiniMap"].some(id=>document.getElementById(id));
+  if(needMap && typeof L==="undefined"){ if(_leafletRetry++ < 15) setTimeout(()=>render(), 400); return; }
+  _leafletRetry = 0;
+  if(document.getElementById("zoneLeafletMap")) initZoneMap();
+  if(document.getElementById("ambLeafletMap")) initAmbMap();
+}
+document.addEventListener("change", (e)=>{
+  const t = e.target, a = t && t.dataset && t.dataset.act;
+  if(["zone-svc","emg-flag","comm-toggle","fleet-type-filter"].includes(a)) Actions[a](t);
+});
+
+/* ---------- Double-tap protection: one tap = one request, button shows busy ---------- */
+const CHANGE_ONLY = new Set(["product-visible","zone-toggle","emg-toggle","emg-select","fleet-zone-filter","fleet-type-filter","zone-svc","emg-flag","comm-toggle"]);
+const _busy = new Map();
+function guardAction(name, fn){
+  return function(el){
+    const ev = window.event;
+    if(CHANGE_ONLY.has(name) && ev && ev.type==="click" && el && (el.tagName==="INPUT" || el.tagName==="SELECT")) return;
+    const ds = (el && el.dataset) || {}, key = name+":"+(ds.id||ds.key||ds.kind||ds.to||"");
+    if(_busy.has(key)) return;
+    let r;
+    try{ r = fn.apply(this, arguments); }catch(err){ console.error(err); toast("Something went wrong: "+err.message,"danger"); return; }
+    if(r && typeof r.then==="function"){
+      _busy.set(key, true);
+      const btn = el && el.closest ? el.closest("button") : null;
+      if(btn){ btn.disabled = true; btn.classList.add("is-busy"); }
+      let finished = false;
+      const done = ()=>{ if(finished) return; finished = true; _busy.delete(key); if(btn){ btn.disabled = false; btn.classList.remove("is-busy"); } };
+      const timer = setTimeout(done, 25000);
+      r.then(()=>{ clearTimeout(timer); done(); }, (err)=>{ clearTimeout(timer); done(); console.error(err); toast("Failed: "+((err&&err.message)||err),"danger"); });
+    }
+    return r;
+  };
+}
+Object.keys(Actions).forEach(k=>{ Actions[k] = guardAction(k, Actions[k]); });
+
 /* ---------------------------------------------------------
    9. INIT
    --------------------------------------------------------- */
 async function init(){
-  render(); // paint the static-mock dashboard immediately so the UI isn't blank while auth/data load
-  if(!supabase){ return; } // supabase-js/constants not loaded on this page — stays fully mock
+  render(); // paint the shell immediately so the UI isn't blank while auth/data load
+  if(!supabase){ return; } // supabase-js/constants not loaded on this page
   const { data:{ session } } = await supabase.auth.getSession();
   if(session){
     // Home page-er 3-step admin login-er por session ekhane already ache — abar login chaibe na.

@@ -56,6 +56,11 @@ const MedUtils = {
 
   // --- TOAST NOTIFICATION SYSTEM (premium style) ---
   toast(message, type = 'info', duration = 1000) {
+    // Location-denied toast must only appear when the visitor just tapped something
+    // (GPS / map / pincode button) - never automatically on page load.
+    if (/location (access )?(was )?denied|allow location permission/i.test(String(message))) {
+      if (!window.__mfLastGesture || Date.now() - window.__mfLastGesture > 4000) return;
+    }
     const existing = document.querySelector('.mf-toast');
     if (existing) existing.remove();
 
@@ -305,4 +310,9 @@ document.addEventListener('DOMContentLoaded', () => {
   MedUtils.initLazyLoad();
   MedUtils.initNetworkListener();
   MedUtils.registerSW();
+});
+
+// remember the last real user tap/key so auto-fired toasts can be told apart
+['pointerdown','keydown','touchstart'].forEach(function (ev) {
+  document.addEventListener(ev, function () { window.__mfLastGesture = Date.now(); }, true);
 });
