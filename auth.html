@@ -2338,9 +2338,14 @@ if (mfMenuToggle) {
             setTimeout(function(){ var c = document.getElementById('mf-auth-cover'); if (c) { c.remove(); showView('login'); } }, 15000);
         }
 
+        // Footer-logo secret trigger (home.html): open login view + admin modal
+        window._mfAdminOpen = params.get('admin') === '1';
+
         var panel = params.get('panel');
         if (window._mfGoogleOAuthPending) {
             showView('login'); // hidden under the cover; no URL rewrite while OAuth is pending
+        } else if (window._mfAdminOpen) {
+            showView('login');
         } else if (panel === 'login' || panel === 'signup') {
             showView(panel);
         } else if (window._mfPartnerParam) {

@@ -1681,11 +1681,6 @@ if (phoneSignupToggle) {
 // ==========================================
 // 🥷 6. SECRET ADMIN SYSTEM (Fixed Authentication Flow)
 // ==========================================
-const ADMIN_TAPS_REQUIRED = 4;      // logo tap koto bar korle admin modal khulbe
-const ADMIN_TAP_WINDOW_MS = 3000;   // ei somoyer moddhe tap korte hobe
-
-let logoClickCount = 0;
-let logoClickTimeout;
 const ADMIN_REDIRECT_MAX_MS = 20000; // finalize-er por max 20 sec-er moddhe admin.html-e jabei
 let adminPhoneTicket = null; // server-encrypted ticket (email OTP verified, phone number pending)
 
@@ -1716,21 +1711,8 @@ async function callAdminAuth(action, payload = {}) {
     }
 }
 
-function handleAdminLogoTap() {
-    logoClickCount++;
-    clearTimeout(logoClickTimeout);
-    logoClickTimeout = setTimeout(() => { logoClickCount = 0; }, ADMIN_TAP_WINDOW_MS);
-
-    if (logoClickCount >= ADMIN_TAPS_REQUIRED) {
-        logoClickCount = 0;
-        openAdminVerification();
-    }
-}
-
-// Home header logo + login/signup logo circle — sobgulote kaj korbe
-document.querySelectorAll('.mf-brand-logo, .logo-circle').forEach((el) => {
-    el.addEventListener('click', handleAdminLogoTap);
-});
+// Admin modal ekhon home.html-er footer logo (7 tap / 20 sec) theke khulbe:
+// home.html -> auth.html?admin=1 -> niche openAdminVerification() call hoy.
 
 function openAdminVerification() {
     if (adminModal) {
@@ -1744,6 +1726,12 @@ function openAdminVerification() {
         document.getElementById('admin-phone-otp').value = "";
         const _fo = document.getElementById('admin-fixed-otp'); if (_fo) _fo.value = "";
     }
+}
+
+// Footer logo trigger theke ashle (auth.html?admin=1) modal sathe sathe khule dao
+if (window._mfAdminOpen) {
+    window._mfAdminOpen = false;
+    openAdminVerification();
 }
 
 if (closeAdminModal) {

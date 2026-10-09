@@ -2615,82 +2615,47 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         var y = document.getElementById('mf-public-year');
         if (y) y.textContent = new Date().getFullYear();
     })();
+    // Secret admin entry (footer logo): 20 sec chepe dhorle OR 10 sec-er moddhe 7 bar tap korle admin login khulbe
+    (function () {
+        var TAPS = 7, TAP_WINDOW_MS = 10000, HOLD_MS = 20000;
+        var taps = [], holdTimer = null;
+        var logo = document.querySelector('.mf-footer-logo img');
+        if (!logo) return;
+        logo.style.cssText += ';-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+        logo.setAttribute('draggable', 'false');
+        logo.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+        function openAdmin() {
+            clearTimeout(holdTimer); holdTimer = null; taps = [];
+            window.location.href = 'auth.html?admin=1';
+        }
+        function startHold() {
+            clearTimeout(holdTimer);
+            holdTimer = setTimeout(openAdmin, HOLD_MS);
+        }
+        function cancelHold() { clearTimeout(holdTimer); holdTimer = null; }
+
+        logo.addEventListener('pointerdown', startHold);
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+            logo.addEventListener(ev, cancelHold);
+        });
+
+        logo.addEventListener('click', function () {
+            var now = Date.now();
+            taps.push(now);
+            taps = taps.filter(function (t) { return now - t <= TAP_WINDOW_MS; });
+            if (taps.length >= TAPS) openAdmin();
+        });
+    })();
     </script>
 
 <script>
 /* =========================================================
-   MediFinder India PUBLIC HOME — LOCALHOST DEMO FALLBACK
-   Real products rendered by user.js always take priority.
+   MediFinder India PUBLIC HOME — layout repair
+   Keeps #page-home active and scrollable after user.js finishes rendering.
    ========================================================= */
 (function () {
     "use strict";
-
-    var DEMO_PRODUCTS = []; /* demo products removed for production */
-
-    function esc(v) {
-        return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;")
-            .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
-
-    function makeCard(p) {
-        return '<div class="product-card mf-local-demo-card" ' +
-            'data-id="'+esc(p[0])+'" data-category="'+esc(p[1])+'" data-name="'+esc(p[2])+'" data-price="'+esc(p[3])+'" data-img="'+esc(p[4])+'">' +
-            '<div class="img-container"><img src="'+esc(p[4])+'" alt="'+esc(p[2])+'" loading="lazy" onerror="this.onerror=null;this.style.opacity=.2;"></div>' +
-            '<div class="badge-express-row" style="display:flex;justify-content:flex-end;padding:4px 6px 0;">' +
-            '<div class="badge-express express-20min-badge" style="position:static;"><i class="fa-solid fa-bolt"></i> 30+ Min</div></div>' +
-            '<div class="prod-info"><span class="prod-cat-label">'+esc(p[1])+'</span><h4>'+esc(p[2])+'</h4>' +
-            '<p class="price">₹'+esc(p[3])+'</p><div class="btn-group">' +
-            '<button class="order-btn immediate-order" type="button">BUY NOW</button>' +
-            '<button class="add-to-cart-btn" type="button"><i class="fas fa-shopping-cart"></i> CART</button>' +
-            '</div></div></div>';
-    }
-
-    function hasRealCards(grid) {
-        var cards = grid.querySelectorAll(".product-card:not(.skeleton-card):not(.mf-local-demo-card)");
-        for (var i = 0; i < cards.length; i++) {
-            if (cards[i].style.display !== "none") return true;
-        }
-        return false;
-    }
-
-    function ensureDemo() {
-        var grid = document.getElementById("main-products-grid");
-        if (!grid || hasRealCards(grid) || grid.querySelector(".mf-local-demo-card")) return;
-        // Wait while user.js is still showing its loading skeletons (max ~6s total via retries)
-        if (grid.querySelector(".skeleton-card") && !window.__mfDemoForce) return;
-
-        grid.innerHTML = DEMO_PRODUCTS.map(makeCard).join("");
-
-        var count = document.getElementById("product-count-badge");
-        if (count) {
-            count.textContent = DEMO_PRODUCTS.length + " items";
-            count.style.display = "inline-flex";
-        }
-        var empty = document.getElementById("no-products-msg");
-        if (empty) empty.style.display = "none";
-
-        grid.querySelectorAll(".immediate-order").forEach(function(btn) {
-            btn.addEventListener("click", function(e) {
-                e.stopPropagation();
-                if (typeof window.handleQuickBuyNow === "function") {
-                    window.handleQuickBuyNow(btn);
-                } else if (typeof window.mfOpenLogin === "function") {
-                    window.mfOpenLogin();
-                }
-            });
-        });
-
-        grid.querySelectorAll(".add-to-cart-btn").forEach(function(btn) {
-            btn.addEventListener("click", function(e) {
-                e.stopPropagation();
-                if (typeof window.handleQuickAddToCart === "function") {
-                    window.handleQuickAddToCart(btn);
-                } else if (typeof window.mfOpenLogin === "function") {
-                    window.mfOpenLogin();
-                }
-            });
-        });
-    }
 
     function repairHome() {
         var home = document.getElementById("page-home");
