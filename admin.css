@@ -599,7 +599,7 @@ body.fp-open{ overflow:hidden; }
   background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-1);
 }
 .fp-foot{
-  flex-shrink:0; background:rgba(255,255,255,.92); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  flex-shrink:0; background:rgba(255,255,255,.98);
   border-top:1px solid var(--line); padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));
 }
 .fp-foot-in{ max-width:780px; margin:0 auto; display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
@@ -625,7 +625,7 @@ body.fp-open{ overflow:hidden; }
 .brand-mark{ background:var(--grad-gold); box-shadow:0 4px 12px rgba(169,120,46,.45); }
 .nav-item{ transition:background .15s, color .15s, transform .15s; }
 .nav-item.active{ background:var(--grad-gold); box-shadow:0 6px 16px rgba(169,120,46,.32); }
-.topbar{ background:rgba(255,255,255,.88); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); position:relative; z-index:5; }
+.topbar{ background:rgba(255,255,255,.98); position:relative; z-index:5; }
 .topbar-search input{ border-radius:12px; transition:box-shadow .15s, border-color .15s; }
 .icon-btn{ border-radius:11px; transition:background .15s, box-shadow .15s; }
 .icon-btn:hover{ box-shadow:var(--shadow-1); }
@@ -660,7 +660,7 @@ tbody tr{ transition:background .12s; }
 .avatar, .admin-avatar{ border-radius:10px; }
 .empty .ic{ font-size:36px; opacity:.8; }
 
-.toast{ border-radius:13px; padding:13px 18px; backdrop-filter:blur(8px); box-shadow:var(--shadow-2); }
+.toast{ border-radius:13px; padding:13px 18px; box-shadow:var(--shadow-2); }
 .bell-panel, .global-search-results{ border-radius:16px; box-shadow:var(--shadow-2); }
 .bottom-nav{ box-shadow:0 -6px 22px rgba(18,33,31,.07); }
 .bottom-nav .bn-item{ transition:color .15s; }
@@ -669,3 +669,98 @@ tbody tr{ transition:background .12s; }
 .upload-box:hover{ background:var(--brand-light); }
 @media (prefers-reduced-motion:reduce){ *{ animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 
+
+
+/* ================= v3: mobile overflow fixes (nothing may be cut off / pushed sideways) ================= */
+.app-shell, .main-col, .content{ min-width:0; max-width:100%; }
+.content{ overflow-x:hidden; }
+@media (max-width:980px){ .app-shell, .app-shell.collapsed{ grid-template-columns:minmax(0,1fr); } }
+.card, .card-body, .stat-card, .view-head, .view-toolbar, .zone-card, .health-card{ min-width:0; max-width:100%; }
+.card{ overflow:hidden; }
+.card-body.pad0, .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+table{ min-width:520px; }
+tbody td, .cell-strong, .cell-sub, .view-head p, .alert-item, .bell-txt, .gsr-sub, .hint{ overflow-wrap:anywhere; }
+.roles-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.roles-scroll .roles-grid{ min-width:600px; }
+.topbar, .topbar-search, .topbar-actions{ min-width:0; }
+.topbar-search{ flex:1 1 auto; }
+.live-pill{ white-space:nowrap; flex-shrink:0; }
+.live-pill.warn{ background:var(--warning-light); color:var(--warning); }
+.live-pill.off{ background:var(--danger-light); color:var(--danger); }
+.live-pill.warn .blip, .live-pill.off .blip{ background:currentColor; }
+.toast{ max-width:calc(100vw - 40px); overflow-wrap:anywhere; }
+.field input, .field select, .field textarea{ max-width:100%; }
+pre, code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+#themeBtn{ font-size:16px; }
+@media (max-width:560px){ .icon-btn{ flex-shrink:0; } .topbar{ gap:8px; } }
+
+/* ================= v3: dark mode ================= */
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0B1412; --surface:#121E1B; --surface-alt:#182623;
+  --ink:#E7F1EE; --ink-soft:#A5B8B3; --ink-faint:#7B908B;
+  --line:#25362F; --line-strong:#32483F;
+  --brand:#3FB8A4; --brand-dark:#0A3F38; --brand-light:#163A34; --brand-contrast:#FFFFFF;
+  --gold:#D3A24F; --gold-light:#3A2E17;
+  --blue:#7BB0D6; --blue-light:#17303F;
+  --success:#4FBF7D; --success-light:#14301F;
+  --warning:#E3B551; --warning-light:#3A2D10;
+  --danger:#EA8672; --danger-light:#3A1B16;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.25);
+  --shadow-2:0 10px 30px rgba(0,0,0,.55);
+}
+html[data-theme="dark"] body{ background:var(--bg); color:var(--ink); }
+html[data-theme="dark"] .topbar{ background:rgba(18,30,27,.98); }
+html[data-theme="dark"] .card, html[data-theme="dark"] .stat-card, html[data-theme="dark"] .bottom-nav,
+html[data-theme="dark"] .bell-panel, html[data-theme="dark"] .global-search-results, html[data-theme="dark"] .zone-card,
+html[data-theme="dark"] .health-card, html[data-theme="dark"] .fp-body{ background:var(--surface); color:var(--ink); }
+html[data-theme="dark"] .card-head{ background:linear-gradient(180deg,var(--surface),var(--surface-alt)); }
+html[data-theme="dark"] thead th{ background:var(--surface-alt); color:var(--ink-soft); }
+html[data-theme="dark"] .fp{ background:var(--bg); }
+html[data-theme="dark"] .fp-foot{ background:rgba(18,30,27,.94); }
+html[data-theme="dark"] .field input, html[data-theme="dark"] .field select, html[data-theme="dark"] .field textarea,
+html[data-theme="dark"] .topbar-search input, html[data-theme="dark"] .icon-btn, html[data-theme="dark"] .btn:not(.primary):not(.gold):not(.danger){
+  background:var(--surface-alt); color:var(--ink); border-color:var(--line-strong); }
+html[data-theme="dark"] .btn.danger:hover{ background:#4A2019; }
+html[data-theme="dark"] .zone-stats div{ background:rgba(255,255,255,.06); }
+html[data-theme="dark"] .zone-reason{ color:#FFA89A; }
+html[data-theme="dark"] .emg-chip, html[data-theme="dark"] .notice-bad{ background:#3A1B16; border-color:#6B2B22; color:#FFB4A8; }
+html[data-theme="dark"] .leaflet-container{ background:var(--surface-alt); }
+html[data-theme="dark"] .leaflet-tile-pane{ filter:brightness(.78) contrast(1.05) saturate(.9); }
+html[data-theme="dark"] ::selection{ background:#1F5148; }
+
+/* =========================================================
+   Admin gate - invite setup / expired link / session ended
+   ========================================================= */
+.gate-overlay{
+  position:fixed; inset:0; z-index:9000; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  background:var(--bg); display:flex; align-items:flex-start; justify-content:center;
+  padding:max(18px, env(safe-area-inset-top, 0px)) 14px max(18px, env(safe-area-inset-bottom, 0px));
+}
+.gate-card{
+  width:100%; max-width:440px; margin:auto 0; background:var(--surface);
+  border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); padding:22px 20px 20px;
+}
+.gate-brand{ display:flex; align-items:center; gap:11px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.gate-brand strong{ display:block; font-size:15px; color:var(--ink); }
+.gate-brand span{ display:block; font-size:12px; color:var(--ink-soft); }
+.gate-card h2{ margin:0 0 6px; font-size:20px; color:var(--ink); }
+.gate-sub{ margin:0 0 16px; font-size:13.5px; line-height:1.55; color:var(--ink-soft); word-break:break-word; }
+.gate-card .field input{ width:100%; }
+.gate-btn{ width:100%; justify-content:center; margin-top:8px; padding:11px 14px; }
+.gate-err{ min-height:18px; margin:2px 0 4px; font-size:12.5px; line-height:1.4; color:var(--danger); }
+.pw-rules{ list-style:none; margin:-4px 0 14px; padding:10px 12px; border-radius:var(--radius-md); background:var(--surface-alt); display:grid; gap:4px; }
+.pw-rules li{ font-size:12px; color:var(--ink-soft); }
+.pw-rules li.ok{ color:var(--success); font-weight:600; }
+
+
+/* ---- speed: instant taps, no hover lag on phones ---- */
+html{ -webkit-tap-highlight-color:transparent; }
+a, button, .btn, .icon-btn, .tab, .nav-item, .nav-child, .bn-item, .qa-btn, .toggle, .gsr-item, .admin-chip,
+[data-act], [data-nav], [data-nav-child], [data-tab], [data-sort-th], [data-close-modal]{ touch-action:manipulation; }
+.btn:active, .tab:active, .nav-item:active, .bn-item:active, .qa-btn:active{ transition-duration:.04s; }
+.btn.is-busy{ opacity:.55; pointer-events:none; }
+@media (hover:none){
+  .card, .stat-card, .btn, tbody tr{ transition:none; }
+  .stat-card:hover{ transform:none; }
+}

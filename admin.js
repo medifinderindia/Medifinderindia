@@ -72,36 +72,44 @@ async function loadUsersFromDB(){
     status: u.status || "active",
     verified: true, // real identity check happens at signup (OTP/Google) — no separate admin verification step exists
     addr: [u.address, u.city].filter(Boolean).join(", ") || "—",
+    pin: String(u.pincode || ""),
   }));
 }
 
+function normTicketStatus(v){ v = String(v||"open").toLowerCase().replace(/[\s-]+/g,"_"); if(["closed","resolved","done","solved"].includes(v)) return "closed"; if(["in_progress","replied","processing","pending"].includes(v)) return "in_progress"; return "open"; }
 async function loadTicketsFromDB(){
   if(!supabase) return;
   const merchantNames = {}; DATA.merchants.forEach(m=>{ merchantNames[m.id] = m.name; });
   const riderNames = await loadRiderNameMap();
   const [c, mc, rc] = await Promise.all([
-    supabase.from('complaints').select('*').order('created_at', { ascending:false }).limit(100),
-    supabase.from('merchant_complaints').select('*').order('created_at', { ascending:false }).limit(100),
-    supabase.from('rider_complaints').select('*').order('created_at', { ascending:false }).limit(100),
+    supabase.from('complaints').select('*').order('created_at', { ascending:false }).limit(200),
+    supabase.from('merchant_complaints').select('*').order('created_at', { ascending:false }).limit(200),
+    supabase.from('rider_complaints').select('*').order('created_at', { ascending:false }).limit(200),
   ]);
+  const mk = (t, table, from, name)=>({ id:t.id, _table:table, from, name, subject:t.subject||t.category||t.reason||"(no subject)", category:t.category||t.reason||"", message:t.message||"", priority:String(t.priority||"medium").toLowerCase(), status:normTicketStatus(t.status), reply:t.admin_reply||"", repliedAt:t.replied_at||"", _userId:t.user_id||null, _created:t.created_at||"", date:fmtDateTime(t.created_at), token:t.token||"" });
   const rows = [];
-  (c.data||[]).forEach(t=>rows.push({ id:t.id, _table:'complaints', from:"Customer", name:t.user_email||"Customer", subject:t.subject, priority:"medium", status:t.status==='closed'?'closed':(t.status==='open'?'open':'pending'), date:fmtDateTime(t.created_at) }));
-  (mc.data||[]).forEach(t=>rows.push({ id:t.id, _table:'merchant_complaints', from:"Merchant", name:merchantNames[t.merchant_id]||("Shop #"+t.merchant_id), subject:t.subject, priority:t.priority||"medium", status:t.status==='closed'?'closed':(t.status==='open'?'open':'pending'), date:fmtDateTime(t.created_at) }));
-  (rc.data||[]).forEach(t=>rows.push({ id:t.id, _table:'rider_complaints', from:"Rider", name:riderNames[t.rider_id]||("Rider #"+t.rider_id), subject:t.subject, priority:"medium", status:t.status==='closed'?'closed':(t.status==='open'?'open':'pending'), date:fmtDateTime(t.created_at) }));
-  rows.sort((a,b)=> b.date.localeCompare(a.date));
+  (c.data||[]).forEach(t=>rows.push(mk(t,'complaints',"Customer", t.user_email||"Customer")));
+  (mc.data||[]).forEach(t=>rows.push(mk(t,'merchant_complaints',"Merchant", merchantNames[t.merchant_id]||("Shop #"+t.merchant_id))));
+  (rc.data||[]).forEach(t=>rows.push(mk(t,'rider_complaints',"Rider", riderNames[t.rider_id]||("Rider #"+t.rider_id))));
+  rows.forEach(r=>{ r.key = r._table+":"+r.id; });
+  rows.sort((x,y)=> String(y._created).localeCompare(String(x._created)));
   DATA.tickets = rows;
 }
 
 async function loadReviewsFromDB(){
   if(!supabase) return;
   const medNames = {}; DATA.products.forEach(p=>{ medNames[p.id] = p.name; });
-  const [pr, lr] = await Promise.all([
-    supabase.from('product_reviews').select('*').order('created_at', { ascending:false }).limit(150),
-    supabase.from('lab_test_reviews').select('*').order('created_at', { ascending:false }).limit(150),
+  const [pr, lr, of] = await Promise.all([
+    supabase.from('product_reviews').select('*').order('created_at', { ascending:false }).limit(300),
+    supabase.from('lab_test_reviews').select('*').order('created_at', { ascending:false }).limit(300),
+    supabase.from('order_feedback').select('*').order('created_at', { ascending:false }).limit(300),
   ]);
-  const rows = [];
-  (pr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'product_reviews', type:"Product", _medId:r.medicine_id, _rating:Number(r.rating||0), subject:medNames[r.medicine_id]||("Medicine #"+r.medicine_id), rating:Math.round(r.rating), comment:r.review_text||"", reported:false }));
-  (lr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'lab_test_reviews', type:"Lab Test", subject:r.patient_name||"Lab test", rating:Math.round(r.rating), comment:r.feedback||"", reported:false }));
+  const rows = [], rt = (v)=> Math.max(0, Math.min(5, Math.round(Number(v)||0)));
+  (pr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'product_reviews', type:"Product", _medId:r.medicine_id, _rating:Number(r.rating||0), subject:medNames[r.medicine_id]||("Medicine #"+r.medicine_id), by:r.user_name||"Customer", rating:rt(r.rating), comment:r.review_text||"", reported:!!r.reported, canFlag:true, date:fmtDateTime(r.created_at), _created:r.created_at||"" }));
+  (lr.data||[]).forEach(r=>rows.push({ id:r.id, _table:'lab_test_reviews', type:"Lab Test", subject:r.patient_name||"Lab test", by:r.patient_name||"Patient", rating:rt(r.rating), comment:r.feedback||"", reported:!!r.reported, canFlag:true, date:fmtDateTime(r.created_at), _created:r.created_at||"" }));
+  (of.data||[]).forEach(r=>rows.push({ id:r.id, _table:'order_feedback', type:"Order", subject:"Order "+String(r.order_id||"").slice(0,12), by:"Customer", rating:rt(r.rating), comment:r.comment||"", reported:false, canFlag:false, date:fmtDateTime(r.created_at), _created:r.created_at||"" }));
+  rows.forEach(r=>{ r.key = r._table+":"+r.id; });
+  rows.sort((x,y)=> String(y._created).localeCompare(String(x._created)));
   DATA.reviews = rows;
 }
 
@@ -172,7 +180,7 @@ async function loadZonesFromDB(){
     suspendedAt: z.outage_start || "",
     riders: z.riders || 0,
     svc30: z.svc_30min !== false, svcNurse: z.svc_nurse !== false, svcLab: z.svc_lab !== false, svcSameDay: z.svc_sameday !== false,
-    _lat: z.lat ?? z.latitude ?? null, _lng: z.lng ?? z.longitude ?? null,
+    _lat: z.center_lat ?? z.lat ?? z.latitude ?? null, _lng: z.center_lng ?? z.lng ?? z.longitude ?? null, radiusKm: Number(z.radius_km)||0,
     zoneMerchants: z.merchants || 0,
     status: (z.status==="approved" && z.is_active!==false) ? "active" : "paused",
   }));
@@ -200,6 +208,7 @@ async function loadProductsFromDB(){
     approval: (m.status||"Pending").toLowerCase(),
     returnable: m.is_returnable === true, returnDays: Number(m.return_window_days||0),
     exchangeable: m.is_exchangeable === true, exchangeDays: Number(m.exchange_window_days||0),
+    _expiry: (m.expiry_date||"").slice(0,10), _minStock: Number(m.min_stock_alert)||10, generic: m.generic_name || "", pack: m.pack_size || "",
   }));
   DATA.categories = [...new Set(DATA.products.map(p=>p.category).filter(Boolean))].sort();
   DATA.brands = [...new Set(DATA.products.map(p=>p.brand).filter(b=>b && b!=="—"))].sort();
@@ -244,7 +253,7 @@ async function loadMerchantsFromDB(){
 
 async function loadOrdersFromDB(){
   if(!supabase) return;
-  const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending:false }).limit(300);
+  const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending:false }).limit(1000);
   if(error){ toast("Could not load orders: "+error.message, "danger"); return; }
   const riderNames = await loadRiderNameMap();
   DATA.orders = (data || []).map(o=>({
@@ -318,6 +327,7 @@ async function loadPrescriptionsFromDB(){
     id: r.id,
     customer: r.user_name || "Customer",
     uploadedAt: fmtDateTime(r.created_at),
+    _created: r.created_at, _acceptedAt: r.accepted_at,
     items: Array.isArray(r.medicines) && r.medicines.length ? r.medicines.map(x=>x.name||x).join(", ") : "(pharmacy to read from image)",
     status: r.status || "pending",
     reviewer: r.accepted_by ? (merchantNames[r.accepted_by] || ("Pharmacy #"+r.accepted_by)) : "—",
@@ -348,7 +358,7 @@ async function loadMerchantPayoutsFromDB(){
   DATA.merchants.forEach(m=>{ merchantNames[String(m.id)] = m.name; });
   DATA.merchantPayouts = (data || []).map(p=>({
     id: p.id,
-    merchant: merchantNames[p.shop_id] || ("Shop #"+p.shop_id),
+    merchant: merchantNames[String(p.merchant_id ?? p.shop_id)] || ("Shop #"+(p.merchant_id ?? p.shop_id)),
     period: (p.created_at||"").slice(0,10),
     amount: Number(p.amount||0),
     status: normPayStatus(p.status),
@@ -376,6 +386,12 @@ async function loadRiderPayoutsFromDB(){
   });
 }
 
+async function loadLegacyRiderPayouts(){
+  if(!supabase) return;
+  const { data } = await supabase.from('rider_payouts').select('*').order('created_at', { ascending:false }).limit(200);
+  const names = await loadRiderNameMap();
+  DATA.riderPayouts = (DATA.riderPayouts||[]).filter(x=>!String(x.id).startsWith("rp-")).concat((data||[]).map(p=>({ id:"rp-"+p.id, rider:names[p.rider_id]||p.name||("Rider #"+p.rider_id), period:(p.created_at||"").slice(0,10), amount:Number(p.amount||0), status: p.paid ? "paid" : normPayStatus(p.status), requestedAt:(p.created_at||"").slice(0,16).replace("T"," "), paidAt:(p.paid_at||"").slice(0,16).replace("T"," ") })));
+}
 async function loadRefundsFromDB(){
   if(!supabase) return;
   const { data, error } = await supabase.from('cancelled_orders').select('*').order('created_at', { ascending:false }).limit(200);
@@ -438,7 +454,7 @@ async function loadNursesFromDB(){
 
 async function loadNurseBookingsFromDB(){
   if(!supabase) return;
-  const { data, error } = await supabase.from('nurse_bookings').select('*').order('created_at', { ascending:false }).limit(200);
+  const { data, error } = await supabase.from('nurse_bookings').select('*').order('created_at', { ascending:false }).limit(1000);
   if(error){ toast("Could not load nurse bookings: "+error.message, "danger"); return; }
   const statusMap = { pending:"new", approved:"assigned", cancelled:"cancelled" };
   DATA.nurseBookings = (data || []).map(b=>({
@@ -485,13 +501,13 @@ async function loadLabTestsFromDB(){
 async function loadLabBookingsFromDB(){
   if(!supabase) return;
   const collectorMap = await loadSampleCollectorNameMap();
-  const { data, error } = await supabase.from('lab_bookings').select('*').order('created_at', { ascending:false }).limit(200);
+  const { data, error } = await supabase.from('lab_bookings').select('*').order('created_at', { ascending:false }).limit(1000);
   if(error){ toast("Could not load lab bookings: "+error.message, "danger"); return; }
   const hist = {}; (await safeSelect("booking_status_history", "booking_id, new_status, created_at", 1000)).forEach(h=>{ (hist[h.booking_id] = hist[h.booking_id] || []).push([h.new_status, h.created_at]); });
   const statusMap = { Pending:"new", Confirmed:"accepted", "Sample Collected":"accepted", Processing:"accepted", Completed:"completed", Cancelled:"cancelled" };
   DATA.labBookings = (data || []).map(b=>({
     id: b.booking_id || ("LBK-"+String(b.id).slice(0,8)),
-    _rawId: b.id,
+    _rawId: b.id, _createdAt: b.created_at,
     customer: b.patient_name || "Customer",
     test: b.test_name || "—",
     service: b.test_name || "—",
@@ -547,7 +563,7 @@ async function loadAmbulanceDriversFromDB(){
 async function loadAmbulanceBookingsFromDB(){
   if(!supabase) return;
   const driverMap = await loadAmbulanceDriverNameMap();
-  const { data, error } = await supabase.from('ambulance_bookings').select('*').order('created_at', { ascending:false }).limit(200);
+  const { data, error } = await supabase.from('ambulance_bookings').select('*').order('created_at', { ascending:false }).limit(1000);
   if(error){ toast("Could not load ambulance bookings: "+error.message, "danger"); return; }
   const statusMap = { searching:"new", accepted:"on-route", arriving:"on-route", picked_up:"on-route", completed:"completed", cancelled:"cancelled" };
   DATA.ambulanceBookings = (data || []).map(b=>({
@@ -579,6 +595,7 @@ async function loadAdminsFromDB(){
     email: a.email,
     lastLogin: a.last_login ? fmtDateTime(a.last_login) : "—",
     twofa: !!a.twofa_enabled,
+    status: a.status || "invited",
   }));
 }
 
@@ -593,11 +610,18 @@ async function loadAuditLogFromDB(){
   }));
 }
 
-async function logAdminAction(action){
+let _adminEmailCache = null;
+function logAdminAction(action){
+  // fire-and-forget: the audit row is saved in the background so buttons never wait for it
   DATA.auditLog.unshift({ who: "Admin", action, when: "just now" });
-  if(!supabase) return;
-  const { data:{ user } = {} } = await supabase.auth.getUser();
-  await supabase.from('admin_audit_log').insert({ admin_email: user?.email || 'medifinderindia@gmail.com', action });
+  if(!supabase) return Promise.resolve();
+  (async ()=>{
+    try{
+      if(!_adminEmailCache){ const { data:{ user } = {} } = await supabase.auth.getUser(); _adminEmailCache = user?.email || 'medifinderindia@gmail.com'; }
+      await supabase.from('admin_audit_log').insert({ admin_email: _adminEmailCache, action });
+    }catch(e){ console.warn("[admin] audit log not saved", e); }
+  })();
+  return Promise.resolve();
 }
 
 async function loadNotificationBroadcastsFromDB(){
@@ -865,6 +889,9 @@ const DATA = {
   systemHealth: [
     // Computed live (real latency/connectivity checks) by computeSystemHealthLive() — see bottom of file.
   ],
+  errorLogs: [
+    // Loaded live from Supabase (public.system_error_logs) by loadErrorLogsFromDB() — Shiprocket / NimbusPost / courier errors.
+  ],
   auditLog: [
     // Loaded live from Supabase (public.admin_audit_log) by loadAuditLogFromDB() — see bottom of file.
   ],
@@ -951,11 +978,12 @@ const NAV = [
   ]},
   {group:"System", items:[
     {id:"system", icon:"⚙", label:"System",
-      children:[{key:"security",label:"Security & Audit"},{key:"health",label:"System Health"},{key:"emergency",label:"Emergency Control"},{key:"settings",label:"Settings"}]},
+      count:()=>(DATA.errorLogs||[]).filter(e=>!e.resolved).length,
+      children:[{key:"security",label:"Security & Audit"},{key:"health",label:"System Health"},{key:"errors",label:"Error Logs"},{key:"emergency",label:"Emergency Control"},{key:"settings",label:"Settings"}]},
     {id:"logout", icon:"⏻", label:"Logout"},
   ]},
 ];
-const HIDDEN_NAV = [{id:"settings",label:"Settings"},{id:"adminroles",label:"Security & Audit"},{id:"syshealth",label:"System Health"},{id:"emergency",label:"Emergency Control"}];
+const HIDDEN_NAV = [{id:"settings",label:"Settings"},{id:"adminroles",label:"Security & Audit"},{id:"syshealth",label:"System Health"},{id:"errorlogs",label:"Error Logs"},{id:"emergency",label:"Emergency Control"}];
 const BOTTOM_NAV = ["dashboard","orders","users","support"];
 const NAV_FLAT = NAV.flatMap(g=>g.items);
 function navItem(id){ return NAV_FLAT.find(i=>i.id===id) || HIDDEN_NAV.find(i=>i.id===id); }
@@ -1241,9 +1269,30 @@ VIEWS.riders = () => {
 };
 
 /* ---- Products ---- */
-const PRODUCT_TABS=[{key:"products",label:"Products"},{key:"pending",label:"Pending Approval"},{key:"categories",label:"Categories"},{key:"brands",label:"Brands"}];
+const PRODUCT_TABS=[{key:"products",label:"Products"},{key:"pending",label:"Pending Approval"},{key:"stock",label:"Low stock / Expiry"},{key:"categories",label:"Categories"},{key:"brands",label:"Brands"}];
+function expiryBadge(d){
+  if(!d) return "—"; const days = Math.floor((new Date(d) - new Date(localDayStr()))/86400000);
+  if(isNaN(days)) return esc(d); if(days < 0) return badge("Expired · "+d,"red"); if(days <= 60) return badge(d+" · "+days+"d","gold"); return esc(d);
+}
+function stockWatchView(){
+  const low = DATA.products.filter(p=>p.approval==="approved" && p.stock<=p._minStock);
+  const exp = DATA.products.filter(p=>{ if(!p._expiry) return false; const d = Math.floor((new Date(p._expiry) - new Date(localDayStr()))/86400000); return !isNaN(d) && d <= 60; });
+  const cols = [
+    {key:"name",label:"Product",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div>`},{key:"merchant",label:"Merchant"},
+    {key:"stock",label:"Stock",render:r=>r.stock===0?badge("Out of stock","red"):r.stock<=r._minStock?badge("Low · "+r.stock,"gold"):r.stock},
+    {key:"_expiry",label:"Expiry",render:r=>expiryBadge(r._expiry)},
+    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm" data-act="product-edit" data-id="${r.id}">Edit</button>`},
+  ];
+  return `
+  <div class="view-head"><h1>Product / Medicine Management</h1><p>Medicines that are out of stock, running low, expired or expiring within 60 days — straight from merchant inventory.</p></div>
+  ${toolbarTabs("products", PRODUCT_TABS)}
+  <div class="stat-grid"><div class="stat-card"><div class="lbl">Out of stock</div><div class="val" style="color:#d93025">${low.filter(p=>p.stock===0).length}</div></div><div class="stat-card"><div class="lbl">Low stock</div><div class="val">${low.filter(p=>p.stock>0).length}</div></div><div class="stat-card"><div class="lbl">Expired / expiring ≤60d</div><div class="val" style="color:#b8860b">${exp.length}</div></div></div>
+  <div class="card"><div class="card-head"><h3>Low / out of stock</h3></div><div class="card-body pad0">${renderTable("products-low", cols, low, {emptyText:"Nothing is running low."})}</div></div>
+  <div class="card"><div class="card-head"><h3>Expired / expiring soon</h3></div><div class="card-body pad0">${renderTable("products-exp", cols, exp, {emptyText:"No medicine is close to expiry."})}</div></div>`;
+}
 VIEWS.products = () => {
   const state = vs("products",{tab:"products", search:""});
+  if(state.tab==="stock") return stockWatchView();
   if(state.tab==="categories"){
     return `
     <div class="view-head"><h1>Product / Medicine Management</h1><p>Organize the catalogue by category, brand and prescription requirement.</p></div>
@@ -1293,7 +1342,8 @@ VIEWS.products = () => {
       {key:"category",label:"Category"},
       {key:"brand",label:"Brand"},
       {key:"price",label:"Price",render:r=>money(r.price)},
-      {key:"stock",label:"Stock",render:r=>r.stock===0?badge("Out of stock","red"):r.stock},
+      {key:"stock",label:"Stock",render:r=>r.stock===0?badge("Out of stock","red"):(r.stock<=r._minStock?badge("Low · "+r.stock,"gold"):r.stock)},
+      {key:"_expiry",label:"Expiry",render:r=>expiryBadge(r._expiry)},
       {key:"rx",label:"Rx",render:r=>r.rx?badge("Required","gold"):badge("OTC","gray")},
       {key:"returnable",label:"Return / Exchange",sortable:false,render:r=>`${r.returnable?badge("Return "+(r.returnDays||"")+(r.returnDays?"d":""),"green"):badge("No return","gray")} ${r.exchangeable?badge("Exchange","blue"):""}`},
       {key:"approval",label:"Approval",render:r=>statusBadge(r.approval)},
@@ -1527,27 +1577,49 @@ function adFormModal(existing){
 /* ---- Delivery Zones ---- */
 
 /* ---- Delivery Analytics ---- */
+function deliveryMinutes(list){
+  return list.map(o=>{ const r = o._raw||{}, end = r.delivered_at; if(!end || !o.created) return null; const m = (new Date(end)-new Date(o.created))/60000; return m>0 && m<1440 ? m : null; }).filter(x=>x!=null);
+}
+const avgMin = (a)=> a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length)+" min" : "No data yet";
 VIEWS.deliveryanalytics = () => {
-  const today = DATA.orders.filter(o=>o.date.startsWith(todayStr()));
-  const lastHour = DATA.orders.slice(0,4);
-  const avgDeliveryMin = 34;
+  const today = localDayStr(), now = Date.now();
+  const tOrders = DATA.orders.filter(o=>tsDay(o.created)===today), tDelivered = tOrders.filter(o=>o.status==="delivered");
+  const lastHour = DATA.orders.filter(o=>o.created && now - new Date(o.created) <= 3600000);
+  const delivered = DATA.orders.filter(o=>o.status==="delivered");
+  const tLive = tOrders.filter(o=>!DEAD_ORDER.includes(o.status));
+  const feeToday = tLive.reduce((a,o)=>{ const r=o._raw||{}; return a + (Number(r.delivery_fee ?? r.delivery_charge ?? r.shipping_fee)||0); },0);
+  const riderRows = (DATA.payouts && DATA.payouts.rider) || [];
+  const riderDue = riderRows.filter(p=>p.status==="pending"||p.status==="processing").reduce((a,p)=>a+p.net,0);
+  const riderPaidToday = riderRows.filter(p=>p.status==="paid" && tsDay(p.paidAt)===today).reduce((a,p)=>a+p.net,0);
+  const buckets = [0,0,0,0,0,0,0,0]; tOrders.forEach(o=>{ const h = new Date(o.created).getHours(); buckets[Math.floor(h/3)]++; });
+  const zoneRows = DATA.zones.map(z=>({ name:z.name, pin:z.pin, ...zoneStats(z), health:zoneHealth(z).label }));
+  const ratings = DATA.reviews.filter(r=>r.type==="Order" && r.rating>0), avgR = ratings.length ? (ratings.reduce((a,r)=>a+r.rating,0)/ratings.length).toFixed(1)+" ★" : "No ratings yet";
   return `
-  <div class="view-head"><h1>Delivery Analytics</h1><p>Live operational metrics across riders, merchants, orders and zones.</p></div>
-  <div class="view-toolbar"><button class="btn" data-act="analytics-refresh">↻ Refresh now</button><span class="cell-sub" style="margin-left:8px">Last updated: ${STATE.lastAnalyticsRefresh||"just now"}</span></div>
+  <div class="view-head"><h1>Delivery Analytics</h1><p>Live operational numbers — every figure is calculated from your real orders, riders and zones.</p></div>
+  <div class="view-toolbar"><button class="btn" data-act="analytics-refresh">↻ Refresh now</button><span class="cell-sub" style="margin-left:8px">Last updated: ${esc(STATE.lastAnalyticsRefresh||"when this page opened")}</span></div>
   <div class="stat-grid">
-    <div class="stat-card"><div class="lbl">Active Riders</div><div class="val">${DATA.riders.filter(r=>r.online).length}</div></div>
-    <div class="stat-card"><div class="lbl">Active Merchants</div><div class="val">${DATA.merchants.filter(m=>m.status==="active").length}</div></div>
-    <div class="stat-card"><div class="lbl">Today's Orders</div><div class="val">${today.length}</div></div>
-    <div class="stat-card"><div class="lbl">Today's Delivered</div><div class="val">${today.filter(o=>o.status==="delivered").length}</div></div>
-    <div class="stat-card"><div class="lbl">Rider Earnings (Today)</div><div class="val">${money(DATA.riderPayouts.reduce((s,p)=>s+p.amount,0))}</div></div>
-    <div class="stat-card"><div class="lbl">Last 1-Hour Orders</div><div class="val">${lastHour.length}</div></div>
-    <div class="stat-card"><div class="lbl">Active Zones</div><div class="val">${DATA.zones.filter(z=>z.status==="active").length}</div></div>
-    <div class="stat-card"><div class="lbl">Total Zones</div><div class="val">${DATA.zones.length}</div></div>
-    <div class="stat-card"><div class="lbl">Avg. Delivery Time</div><div class="val">${avgDeliveryMin} min</div></div>
+    <div class="stat-card"><div class="lbl">Riders online</div><div class="val">${DATA.riders.filter(r=>r.online).length}</div></div>
+    <div class="stat-card"><div class="lbl">Riders on delivery</div><div class="val">${DATA.riders.filter(r=>r.online && r.hasOrder).length}</div></div>
+    <div class="stat-card"><div class="lbl">Active merchants</div><div class="val">${DATA.merchants.filter(m=>m.status==="active").length}</div></div>
+    <div class="stat-card"><div class="lbl">Today's orders</div><div class="val">${tOrders.length}</div></div>
+    <div class="stat-card"><div class="lbl">Today's delivered</div><div class="val">${tDelivered.length}</div></div>
+    <div class="stat-card"><div class="lbl">Today's order value</div><div class="val">${money(tLive.reduce((a,o)=>a+o.total,0))}</div></div>
+    <div class="stat-card"><div class="lbl">Delivery fees today</div><div class="val">${money(feeToday)}</div></div>
+    <div class="stat-card"><div class="lbl">Orders in last hour</div><div class="val">${lastHour.length}</div></div>
+    <div class="stat-card"><div class="lbl">Waiting for acceptance</div><div class="val">${DATA.orders.filter(o=>o.status==="pending").length}</div></div>
+    <div class="stat-card"><div class="lbl">Avg. delivery time (all)</div><div class="val">${avgMin(deliveryMinutes(delivered))}</div></div>
+    <div class="stat-card"><div class="lbl">Avg. delivery time (today)</div><div class="val">${avgMin(deliveryMinutes(tDelivered))}</div></div>
+    <div class="stat-card"><div class="lbl">Delivery rating</div><div class="val">${avgR}</div></div>
+    <div class="stat-card"><div class="lbl">Rider payouts due</div><div class="val">${money(riderDue)}</div></div>
+    <div class="stat-card"><div class="lbl">Rider payouts paid today</div><div class="val">${money(riderPaidToday)}</div></div>
+    <div class="stat-card"><div class="lbl">Active / total zones</div><div class="val">${DATA.zones.filter(z=>z.status==="active").length} / ${DATA.zones.length}</div></div>
   </div>
-  <div class="card"><div class="card-head"><h3>Orders — last 7 days</h3></div><div class="card-body">
-    ${svgBarChart(DATA.weekOrders, DATA.weekLabels)}
-  </div></div>`;
+  <div class="card"><div class="card-head"><h3>Today's orders by time of day</h3></div><div class="card-body">${svgBarChart(buckets, ["0-3","3-6","6-9","9-12","12-15","15-18","18-21","21-24"])}</div></div>
+  <div class="card"><div class="card-head"><h3>Orders — last 7 days</h3></div><div class="card-body">${svgBarChart(DATA.weekOrders, DATA.weekLabels)}</div></div>
+  <div class="card"><div class="card-head"><h3>Zone performance</h3></div><div class="card-body pad0">${renderTable("da-zones",[
+    {key:"name",label:"Zone",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">PIN ${esc(r.pin)}</div>`},{key:"health",label:"Status"},
+    {key:"ridersOnline",label:"Riders online"},{key:"merchants",label:"Merchants"},{key:"orders",label:"Orders"},{key:"delivered",label:"Delivered"},{key:"pending",label:"In progress"},{key:"revenue",label:"Revenue",render:r=>money(r.revenue)},
+  ], zoneRows, {emptyText:"No zones yet — add one in Zone."})}</div></div>`;
 };
 
 /* ---- Live Fleet Tracking ---- */
@@ -1681,20 +1753,22 @@ VIEWS.reviews = () => `
 const PERM_MODULES = ["Orders","Finance","Merchants","Riders","Settings"];
 VIEWS.adminroles = () => `
   <div class="view-head"><h1>Security &amp; Audit</h1><p>Role-based access, admin accounts, 2FA and the full audit trail of admin actions.</p></div>
-  <div class="view-toolbar"><button class="btn primary" data-act="admin-add">+ Invite admin</button></div>
+  ${isSuperAdmin() ? `<div class="view-toolbar"><button class="btn primary" data-act="admin-add">+ Invite admin</button></div>` : ""}
   <div class="card"><div class="card-head"><h3>Admin accounts</h3></div><div class="card-body pad0" id="tablewrap-adminroles">
     ${renderTable("adminroles",[
       {key:"name",label:"Admin"},{key:"role",label:"Role",render:r=>badge(r.role,"blue")},{key:"email",label:"Email"},
       {key:"lastLogin",label:"Last login"},
+      {key:"status",label:"Status",render:r=>adminStatusBadge(r)},
       {key:"twofa",label:"2FA",render:r=>r.twofa?badge("Enabled","green"):badge("Disabled","gold")},
+      {key:"_a",label:"",sortable:false,render:r=>adminRowActions(r)},
     ], DATA.admins)}
   </div></div>
   <div class="card"><div class="card-head"><h3>Role permissions</h3><span class="sub">Super Admin has full access by default</span></div>
     <div class="card-body">
-      <div class="roles-grid">
+      <div class="roles-scroll"><div class="roles-grid">
         <div class="rh">Module</div><div class="rh">Super</div><div class="rh">Operations</div><div class="rh">Finance</div><div class="rh">Support</div><div class="rh">Read-only</div>
         ${PERM_MODULES.map(m=>`<div class="rl">${m}</div><div class="rc">✔</div><div class="rc">${m==="Finance"?"—":"✔"}</div><div class="rc">${m==="Finance"||m==="Orders"?"✔":"—"}</div><div class="rc">${m==="Orders"?"View":"—"}</div><div class="rc">View</div>`).join("")}
-      </div>
+      </div></div>
     </div>
   </div>
   <div class="card"><div class="card-head"><h3>Audit log</h3></div><div class="card-body pad0">
@@ -1733,10 +1807,10 @@ VIEWS.settings = () => { const s = STATE.settings; return `
    --------------------------------------------------------- */
 const Actions = {
   "user-toggle": async (el)=>{ const u=DATA.users.find(x=>x.id===el.dataset.id); if(!u) return;
-    const next = u.status==="active" ? "blocked" : "active";
-    const { error } = await supabase.from('profiles').update({ status:next }).eq('id', u.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
+    const prev = u.status, next = u.status==="active" ? "blocked" : "active";
     u.status = next; render(); toast(`${u.name} ${next==="active"?"unblocked":"blocked"}`);
+    const { error } = await supabase.from('profiles').update({ status:next }).eq('id', u.id);
+    if(error){ u.status = prev; render(); toast("Failed: "+error.message,"danger"); }
   },
   "user-history": (el)=>{ const u=DATA.users.find(x=>x.id===el.dataset.id); if(!u) return;
     openModal(`${u.name} — order history`, `
@@ -1769,11 +1843,14 @@ const Actions = {
   },
 
   "merchant-approve": async (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
+    const prev = { status:m.status, license:m.license, kycReason:m.kycReason };
+    m.status="active"; m.license="verified"; m.kycReason=""; render(); toast("Merchant approved / KYC verified");   // instant
     const { error } = await supabase.rpc('approve_merchant_license', { merchant_id_input: m.id });
-    if(error){ toast("Approve failed: "+error.message,"danger"); return; }
-    await supabase.from('merchants').update({ kyc_status:'approved', kyc_rejection_reason:'' }).eq('id', m.id);
-    await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Shop verified', message:'Your shop & drug licence have been verified. You are now live on MediFinder India.', type:'success', category:'kyc' });
-    m.status="active"; m.license="verified"; m.kycReason=""; render(); toast("Merchant approved / KYC verified");
+    if(error){ Object.assign(m, prev); render(); toast("Approve failed: "+error.message,"danger"); return; }
+    Promise.all([
+      supabase.from('merchants').update({ kyc_status:'approved', kyc_rejection_reason:'' }).eq('id', m.id),
+      supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Shop verified', message:'Your shop & drug licence have been verified. You are now live on MediFinder India.', type:'success', category:'kyc' })
+    ]).catch(e=>console.warn("[admin] merchant approve follow-up", e));
   },
   "merchant-reject": (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
     openModal(`Reject — ${m.name}`, `
@@ -1792,14 +1869,15 @@ const Actions = {
     closeModal(); render(); toast("Merchant rejected & notified","danger");
   },
   "merchant-suspend": async (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
+    const prev = m.status; setStatus(DATA.merchants,Number(el.dataset.id),"suspended"); toast("Merchant suspended","danger");
     const { error } = await supabase.from('merchants').update({ status:'suspended' }).eq('id', m.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    setStatus(DATA.merchants,Number(el.dataset.id),"suspended"); toast("Merchant suspended","danger");
+    if(error){ m.status = prev; render(); toast("Failed: "+error.message,"danger"); }
   },
   "merchant-activate": async (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
-    const { error } = await supabase.from('merchants').update({ status:'active', license_status:'verified' }).eq('id', m.id);
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
+    const prev = { status:m.status, license:m.license };
     m.status="active"; m.license="verified"; render(); toast("Merchant activated");
+    const { error } = await supabase.from('merchants').update({ status:'active', license_status:'verified' }).eq('id', m.id);
+    if(error){ Object.assign(m, prev); render(); toast("Failed: "+error.message,"danger"); }
   },
   "merchant-notify": (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
     openModal(`Notify — ${m.name}`, `
@@ -1813,10 +1891,10 @@ const Actions = {
     closeModal(); render(); toast(`Notification sent to ${m.name}`);
   },
 
-  "rider-approve": async (el)=>{ const rid=Number(el.dataset.id);
-    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'approved', rejection_reason:'', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
-    if(error){ toast("Approve failed: "+error.message,"danger"); return; }
+  "rider-approve": async (el)=>{ const rid=Number(el.dataset.id); const r0=DATA.riders.find(x=>x.id===rid); const prev=r0&&r0.status;
     setStatus(DATA.riders,rid,"active"); toast("Rider KYC approved");
+    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'approved', rejection_reason:'', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
+    if(error){ if(r0) r0.status=prev; render(); toast("Approve failed: "+error.message,"danger"); }
   },
   "rider-reject": (el)=>{ const r=DATA.riders.find(x=>x.id===Number(el.dataset.id)); if(!r) return;
     openModal(`Reject KYC — ${r.name}`, `
@@ -1830,15 +1908,15 @@ const Actions = {
     if(error){ toast("Reject failed: "+error.message,"danger"); return; }
     r.status="suspended"; r.kycReason=reason; closeModal(); render(); toast("Rider application rejected","danger");
   },
-  "rider-suspend": async (el)=>{ const rid=Number(el.dataset.id);
-    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'rejected', rejection_reason:'Suspended by admin', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
-    if(error){ toast("Suspend failed: "+error.message,"danger"); return; }
+  "rider-suspend": async (el)=>{ const rid=Number(el.dataset.id); const r0=DATA.riders.find(x=>x.id===rid); const prev=r0&&r0.status;
     setStatus(DATA.riders,rid,"suspended"); toast("Rider suspended","danger");
+    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'rejected', rejection_reason:'Suspended by admin', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
+    if(error){ if(r0) r0.status=prev; render(); toast("Suspend failed: "+error.message,"danger"); }
   },
-  "rider-activate": async (el)=>{ const rid=Number(el.dataset.id);
-    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'approved', rejection_reason:'', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
-    if(error){ toast("Activate failed: "+error.message,"danger"); return; }
+  "rider-activate": async (el)=>{ const rid=Number(el.dataset.id); const r0=DATA.riders.find(x=>x.id===rid); const prev=r0&&r0.status;
     setStatus(DATA.riders,rid,"active"); toast("Rider activated");
+    const { error } = await supabase.from('rider_kyc_application').upsert({ rider_id:rid, status:'approved', rejection_reason:'', reviewed_at:new Date().toISOString() }, { onConflict:'rider_id' });
+    if(error){ if(r0) r0.status=prev; render(); toast("Activate failed: "+error.message,"danger"); }
   },
 
   "order-view": (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id);
@@ -1857,44 +1935,7 @@ const Actions = {
         ${idx>=0 ? timeline.map((s,i)=>`<div class="row-flex" style="padding:5px 0"><span style="color:${i<=idx?'var(--brand)':'var(--ink-faint)'}">${i<=idx?"●":"○"}</span><span style="margin-left:8px; ${i<=idx?'font-weight:600':''}">${s.replace(/_/g," ")}</span></div>`).join("") : `<div class="cell-sub">Status: ${o.status}</div>`}
       </div>`, `<button class="btn" data-close-modal>Close</button>`);
   },
-  "order-assign": async (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id);
-    const available = await loadOnDutyRidersLite();
-    if(!available.length){ toast("No on-duty rider available right now","danger"); return; }
-    openModal(`Assign rider — ${o.id}`, `
-      <div class="field"><label>Choose rider</label><select id="assignRider">${available.map(r=>`<option value="${r.id}">${esc(r.name)} · ${esc(r.phone||"")}</option>`).join("")}</select></div>`,
-      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="order-assign-save" data-id="${o.id}">Assign</button>`);
-  },
-  "order-assign-save": async (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id); if(!o) return;
-    const riderId = $("#assignRider").value; const riderOpt = $("#assignRider").selectedOptions[0];
-    const { error } = await supabase.from('orders').update({ rider_id: Number(riderId) }).eq('order_id', o.id);
-    if(error){ toast("Failed to assign rider: "+error.message,"danger"); return; }
-    o.rider = riderOpt ? riderOpt.textContent.split(" · ")[0] : o.rider;
-    closeModal(); render(); toast("Rider assigned");
-  },
-
-  "product-add": ()=> openModal("Add product", `
-      <div class="field"><label>Product name</label><input id="pName"></div>
-      <div class="field-row">
-        <div class="field"><label>Category</label><input id="pCat" list="pCatList" placeholder="e.g. Pain Relief"><datalist id="pCatList">${DATA.categories.map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>
-        <div class="field"><label>Brand</label><input id="pBrand" list="pBrandList" placeholder="e.g. Square"><datalist id="pBrandList">${DATA.brands.map(b=>`<option value="${esc(b)}">`).join("")}</datalist></div>
-      </div>
-      <div class="field"><label>Merchant (shop)</label><select id="pMerchant">${DATA.merchants.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div>
-      <div class="field-row">
-        <div class="field"><label>Price (₹)</label><input id="pPrice" type="number"></div>
-        <div class="field"><label>Stock</label><input id="pStock" type="number"></div>
-      </div>
-      <div class="field"><label><input type="checkbox" id="pRx" style="width:auto; margin-right:6px">Prescription required</label></div>`,
-      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="product-save">Add product</button>`),
-  "product-save": async ()=>{ const name=$("#pName").value.trim(); if(!name){ toast("Product name required","danger"); return; }
-    const merchantId = Number($("#pMerchant").value);
-    const { error } = await supabase.from('medicines').insert({
-      product_name:name, name, category:$("#pCat").value||"Medicine", brand_name:$("#pBrand").value||null,
-      merchant_id: merchantId, selling_price:+$("#pPrice").value||0, mrp:+$("#pPrice").value||0,
-      stock_qty:+$("#pStock").value||0, is_rx:$("#pRx").checked, status:"Approved", admin_approved:true, is_visible:true,
-    });
-    if(error){ toast("Failed: "+error.message,"danger"); return; }
-    closeModal(); await loadProductsFromDB(); render(); toast("Product added");
-  },
+  // Rider assignment happens automatically in the apps, and medicines are added by merchants - admin only reviews / approves.
   "product-visible": async (el)=>{ const p=DATA.products.find(x=>x.id===Number(el.dataset.id)); if(!p) return;
     const next = !p.visible;
     const { error } = await supabase.from('medicines').update({ is_visible:next }).eq('id', p.id);
@@ -2113,19 +2154,42 @@ const Actions = {
     $("#ntfTitle").value=""; $("#ntfBody").value=""; render(); toast("Notification sent");
   },
 
-  "admin-add": ()=> openModal("Invite admin", `
-      <div class="field"><label>Name</label><input id="aName"></div>
-      <div class="field"><label>Email</label><input id="aEmail"></div>
+  "admin-add": ()=>{
+    if(!isSuperAdmin()){ toast("Only the Super Admin can invite admins","danger"); return; }
+    openModal("Invite admin", `
+      <div class="field"><label>Name</label><input id="aName" autocomplete="off"></div>
+      <div class="field"><label>Gmail / email</label><input id="aEmail" type="email" inputmode="email" autocomplete="off" placeholder="name@gmail.com">
+        <div class="hint">A secure setup link is emailed to this address. When they open it they must create a strong password, a phone number and a 6-digit code. All three are needed at every login.</div></div>
       <div class="field"><label>Role</label><select id="aRole"><option>Operations Admin</option><option>Finance Admin</option><option>Support Admin</option><option>Read-only Admin</option></select></div>`,
-      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="admin-save">Send invite</button>`),
-  "admin-save": async ()=>{ const name=$("#aName").value.trim(); if(!name){ toast("Name required","danger"); return; }
-    const email = $("#aEmail").value.trim();
-    if(!email){ toast("Email required","danger"); return; }
+      `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="admin-save">Send invite</button>`);
+  },
+  "admin-save": async ()=>{
+    if(!isSuperAdmin()){ toast("Only the Super Admin can invite admins","danger"); return; }
+    const name=$("#aName").value.trim(); if(!name){ toast("Name required","danger"); return; }
+    const email=$("#aEmail").value.trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("Enter a valid email address","danger"); return; }
+    if(DATA.admins.some(a=>String(a.email||"").toLowerCase()===email)){ toast("This email is already an admin - use Resend link","danger"); return; }
     const { error } = await supabase.from('admins').insert({ name, role:$("#aRole").value, email });
     if(error){ toast("Failed to add admin: "+error.message,"danger"); return; }
-    await loadAdminsFromDB(); await logAdminAction(`Added admin ${name} (${email})`);
-    closeModal(); render(); toast("Admin added");
+    const mail = await sendAdminLoginLink(email);
+    await loadAdminsFromDB(); await logAdminAction(`Invited admin ${name} (${email})`);
+    closeModal(); render();
+    if(mail.error) toast("Admin saved, but the email could not be sent: "+mail.error.message+" - use Resend link","danger");
+    else toast("Invite sent - login link emailed to "+email);
   },
+  "admin-resend": async (el)=>{
+    if(!isSuperAdmin()){ toast("Only the Super Admin can send invites","danger"); return; }
+    const a=DATA.admins.find(x=>String(x.id)===String(el.dataset.id)); if(!a) return;
+    if(isOwnerEmail(a.email)){ toast("The owner admin is protected","danger"); return; }
+    const r=await sendAdminLoginLink(a.email);
+    if(r.error){ toast("Could not send: "+r.error.message,"danger"); return; }
+    await logAdminAction(`Resent login link to ${a.email}`); toast("Login link sent to "+a.email);
+  },
+  "admin-suspend":  (el)=> adminManage(el.dataset.id, "suspended"),
+  "admin-block":    (el)=> adminManage(el.dataset.id, "blocked"),
+  "admin-activate": (el)=> adminManage(el.dataset.id, "active"),
+  "admin-reset":    (el)=> adminManage(el.dataset.id, "reset"),
+  "admin-delete":   (el)=> adminManage(el.dataset.id, "delete"),
 
 };
 
@@ -2162,7 +2226,7 @@ function normPayStatus(v){
   if(["on_hold","hold","held"].includes(v)) return "on_hold";
   return "pending";
 }
-STATUS_TONE.on_hold = "gray"; STATUS_TONE.verified = "green";
+STATUS_TONE.on_hold = "gray"; STATUS_TONE.verified = "green"; STATUS_TONE.in_progress = "blue"; STATUS_TONE.urgent = "red"; STATUS_TONE.low = "gray";
 async function safeSelect(table, cols="*", limit=500){
   if(!supabase) return [];
   const { data, error } = await supabase.from(table).select(cols).limit(limit);
@@ -2170,6 +2234,20 @@ async function safeSelect(table, cols="*", limit=500){
   return data || [];
 }
 function doc(label, ref, bucket){ return ref ? {label, ref:String(ref), bucket} : null; }
+/* JSON-column documents (ambulance_drivers.kyc_documents / vehicle_documents):
+   { aadhaar:{url,path,mime,status,...}, pan:{...}, ... } -> one viewer entry per file.
+   Prefers the stored public url, falls back to the storage path. */
+function jsonDocs(obj, bucket, prefix){
+  if(typeof obj === "string"){ try{ obj = JSON.parse(obj); }catch(e){ obj = null; } }
+  if(!obj || typeof obj !== "object") return [];
+  return Object.entries(obj).map(([k, v])=>{
+    if(!v) return null;
+    const ref = typeof v === "string" ? v : (v.url || v.path || v.file || v.src);
+    if(!ref) return null;
+    const nice = String(k).replace(/_/g," ").replace(/\b\w/g, c=>c.toUpperCase());
+    return doc((prefix ? prefix+" · " : "") + nice, ref, bucket);
+  }).filter(Boolean);
+}
 
 async function loadPartnerExtras(){
   const R = DATA.raw;
@@ -2191,8 +2269,9 @@ async function loadPartnerExtras(){
   const mName = {}; DATA.merchants.forEach(m=>{ mName[String(m.id)] = m.name; });
   DATA.payouts.merchant = (await safeSelect("merchant_payouts")).map(p=>base({
     kind:"merchant", id:p.id, recipient: mName[String(p.merchant_id ?? p.shop_id)] || ("Shop #"+(p.shop_id ?? p.merchant_id)),
-    period:(p.created_at||"").slice(0,10), gross:Number(p.amount||0), net:Number(p.amount||0),
-    ref: p.order_id ? "Order "+String(p.order_id).slice(0,8) : "", bank: bankLine(p.upi_id, p.bank_account, p.ifsc),
+    period:(p.created_at||"").slice(0,10), gross:Number(p.amount||0), commission:Math.round(commissionFor("merchant", p.merchant_id ?? p.shop_id, Number(p.amount||0)).amount*100)/100,
+    net:Math.max(0, Number(p.amount||0) - Math.round(commissionFor("merchant", p.merchant_id ?? p.shop_id, Number(p.amount||0)).amount*100)/100),
+    ref: [p.order_id ? "Order "+String(p.order_id).slice(0,12) : "", p.payment_mode||""].filter(Boolean).join(" · "), bank: bankLine(p.upi_id, p.bank_account, p.ifsc),
     requestedAt:p.created_at, paidAt:p.paid_at || p.settled_at, txn:p.txn_ref, note:p.admin_note, status:normPayStatus(p.status),
   }));
   /* rider */
@@ -2201,8 +2280,14 @@ async function loadPartnerExtras(){
     kind:"rider", id:p.id, recipient: riderNames[p.rider_id] || ("Rider #"+p.rider_id),
     period:(p.requested_at||p.created_at||"").slice(0,10), net:Number(p.total_payout_amount ?? p.amount ?? 0), gross:Number(p.total_payout_amount ?? p.amount ?? 0),
     ref: p.active_duty_hours!=null ? `${p.active_duty_hours} duty hrs` : "", bank: bankLine(p.upi_id, p.bank_account, p.ifsc),
-    requestedAt:p.requested_at || p.created_at, paidAt:p.processed_at, txn:p.txn_ref, note:p.notes, status:normPayStatus(p.request_status || p.status),
+    requestedAt:p.requested_at || p.created_at, paidAt:p.processed_at, txn:p.txn_ref, note:p.notes, status:normPayStatus(p.request_status || p.status), _src:"admin_payout_requests",
   }));
+  DATA.payouts.rider = DATA.payouts.rider.concat((await safeSelect("rider_payouts")).map(p=>base({
+    kind:"rider", id:"rp-"+p.id, _src:"rider_payouts", _rawId:p.id, recipient: riderNames[p.rider_id] || p.name || ("Rider #"+p.rider_id),
+    period:(p.created_at||"").slice(0,10), net:Number(p.amount||0), gross:Number(p.amount||0), ref: p.hours!=null ? `${p.hours} duty hrs` : "",
+    bank: p.upi_id ? `UPI · ${p.upi_id}` : p.bank_account ? `Bank · ${mask(p.bank_account)}${p.ifsc?" · "+p.ifsc:""}` : (p.destination||"—"),
+    requestedAt:p.created_at, paidAt:p.paid_at, txn:null, note:null, status: p.paid ? "paid" : normPayStatus(p.status),
+  })));
   /* nurse */
   DATA.payouts.nurse = (await safeSelect("nurse_payouts")).map(p=>base({
     kind:"nurse", id:p.id, recipient: nurseByUid[p.user_id] || ("Nurse "+String(p.user_id).slice(0,6)),
@@ -2230,7 +2315,14 @@ async function loadPartnerExtras(){
 }
 
 /* ---------- KYC ---------- */
+let _kycCache = null, _kycCacheAt = 0;
 function kycAllRows(){
+  // building every partner's KYC row (with documents) is heavy and runs several times per render -> reuse for the same render
+  if(_kycCache && Date.now() - _kycCacheAt < 1000) return _kycCache;
+  _kycCache = kycAllRowsRaw(); _kycCacheAt = Date.now();
+  return _kycCache;
+}
+function kycAllRowsRaw(){
   const R = DATA.raw, out = [];
   const mk = {}; R.merchantKyc.forEach(k=>{ mk[k.merchant_id] = k; });
   DATA.merchants.forEach(m=>{
@@ -2267,15 +2359,19 @@ function kycAllRows(){
       docs:[doc("Driver photo",d.photo_url,"ambulance-kyc"),doc("Vehicle photo",d.vehicle_photo_url,"ambulance-kyc"),doc("Plate photo",d.plate_photo_url,"ambulance-kyc"),...jsonDocs(d.kyc_documents,"ambulance-kyc","KYC"),...jsonDocs(d.vehicle_documents,"ambulance-kyc","Vehicle")].filter(Boolean)}); });
   return out;
 }
-const KYC_STATUS_TABS = [{key:"verified",label:"Verified"},{key:"pending",label:"Pending"},{key:"rejected",label:"Reject"}];
+const KYC_STATUS_TABS = [{key:"all",label:"All"},{key:"pending",label:"Pending"},{key:"verified",label:"Verified"},{key:"rejected",label:"Reject"}];
 const KYC_TITLE = {merchant:"Merchant", rider:"Rider", nurse:"Nurse", lab:"Lab / Blood Collector", ambulance:"Ambulance"};
 VIEWS.kyc = () => {
-  const st = vs("kyc",{tab:"merchant"}); const sub = vs("kycstatus",{tab:"pending"});
-  const all = kycAllRows().filter(r=>r.kind===st.tab);
-  const rows = all.filter(r=>r.status===sub.tab);
-  const tabs = KYC_STATUS_TABS.map(t=>({...t, label:`${t.label} (${all.filter(r=>r.status===t.key).length})`}));
+  const st = vs("kyc",{tab:"merchant"}); const sub = vs("kycstatus",{tab:"all"});
+  const every = kycAllRows();
+  const all = every.filter(r=>r.kind===st.tab);
+  const rows = sub.tab==="all" ? all : all.filter(r=>r.status===sub.tab);
+  const tabs = KYC_STATUS_TABS.map(t=>({...t, label:`${t.label} (${t.key==="all" ? all.length : all.filter(r=>r.status===t.key).length})`}));
+  const typeTabs = Object.keys(KYC_TITLE).map(k=>{ const mine = every.filter(r=>r.kind===k); const pend = mine.filter(r=>r.status==="pending").length;
+    return {key:k, label:`${KYC_TITLE[k].split(" /")[0]} (${mine.length}${pend?` · ${pend} new`:""})`}; });
   return `
   <div class="view-head"><h1>${KYC_TITLE[st.tab]} KYC</h1><p>Applicant details → documents → approve / reject → KYC history.</p></div>
+  ${toolbarTabs("kyc", typeTabs)}
   ${toolbarTabs("kycstatus", tabs)}
   <div class="card"><div class="card-body pad0" id="tablewrap-kyc">
   ${renderTable("kyc",[
@@ -2301,6 +2397,7 @@ VIEWS.booking = () => {
   if(sub.tab!=="all") rows = rows.filter(r=> sub.tab==="accepted" ? ["accepted","assigned","on-route"].includes(r.status) : r.status===sub.tab);
   return `
   <div class="view-head"><h1>${meta.title} Bookings</h1><p>Pending → booking details → accept / reject (${meta.provider.toLowerCase()}) → status history.</p></div>
+  ${toolbarTabs("booking", Object.keys(BK_META).map(k=>{ const list = BK_META[k].rows(); const n = list.filter(r=>r.status==="new").length; return {key:k, label:`${BK_META[k].title} (${list.length}${n?` · ${n} new`:""})`}; }))}
   ${toolbarTabs("bookingstatus", BK_STATUS_TABS)}
   <div class="card"><div class="card-body pad0" id="tablewrap-booking">
   ${renderTable("booking",[
@@ -2465,7 +2562,7 @@ function subscribePaymentLive(){
 /* ---------- SYSTEM ---------- */
 VIEWS.system = () => {
   const t = vs("system",{tab:"security"}).tab;
-  const map = {security:"adminroles", health:"syshealth", emergency:"emergency", settings:"settings"};
+  const map = {security:"adminroles", health:"syshealth", errors:"errorlogs", emergency:"emergency", settings:"settings"};
   return (VIEWS[map[t]] || VIEWS.adminroles)();
 };
 
@@ -2587,7 +2684,7 @@ Object.assign(Actions, {
     if(kind==="lab") q = supabase.from("collector_kyc").update({status:"verified", rejection_reason:null, reviewed_at:new Date().toISOString()}).eq("id", id);
     if(kind==="ambulance"){ const drv=(R.ambulance||[]).find(x=>String(x.id)===String(id)); q = supabase.from("ambulance_drivers").update({kyc_status:"verified", is_verified:true, bank_verified:!!(drv&&drv.bank_submitted_at), kyc_rejection_reason:null}).eq("id", id); }
     const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Approve failed: "+r.msg,"danger"); return; }
-    await logAdminAction(`Approved ${kind} KYC ${id}`); await refreshLiveData(); closeModal(); toast("KYC approved — partner notified");
+    logAdminAction(`Approved ${kind} KYC ${id}`); closeModal(); toast("KYC approved — partner notified"); refreshLiveData().then(render).catch(()=>{});
   },
   "kyc-reject": (el)=>{
     const { kind, id } = el.dataset;
@@ -2604,7 +2701,7 @@ Object.assign(Actions, {
     if(kind==="lab") q = supabase.from("collector_kyc").update({status:"rejected", rejection_reason:reason, reviewed_at:new Date().toISOString()}).eq("id", id);
     if(kind==="ambulance") q = supabase.from("ambulance_drivers").update({kyc_status:"rejected", is_verified:false, bank_verified:false, kyc_rejection_reason:reason}).eq("id", id);
     const r = await mustUpdate(q, "KYC"); if(!r.ok){ toast("Reject failed: "+r.msg,"danger"); return; }
-    await logAdminAction(`Rejected ${kind} KYC ${id} — ${reason}`); await refreshLiveData(); closeModal(); toast("KYC rejected","danger");
+    logAdminAction(`Rejected ${kind} KYC ${id} — ${reason}`); closeModal(); toast("KYC rejected","danger"); refreshLiveData().then(render).catch(()=>{});
   },
 
   /* ----- BOOKING ----- */
@@ -2663,7 +2760,9 @@ Object.assign(Actions, {
     if((to==="failed"||to==="on_hold") && !note){ toast("Enter a reason first","danger"); return; }
     const now = new Date().toISOString(); const paid = to==="paid"; let q;
     if(kind==="merchant") q = supabase.from("merchant_payouts").update({status:({processing:"Processing",paid:"Paid",failed:"Failed",on_hold:"On Hold"})[to], ...(paid?{paid_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
-    if(kind==="rider") q = supabase.from("admin_payout_requests").update({request_status:({processing:"processing",paid:"completed",failed:"failed",on_hold:"on_hold"})[to], ...(paid?{processed_at:now, txn_ref:note}:{notes:note||null})}).eq("id", id);
+    const _row = kind==="rider" ? payoutRows("rider").find(x=>String(x.id)===String(id)) : null;
+    if(kind==="rider" && _row && _row._src==="rider_payouts") q = supabase.from("rider_payouts").update({ status:to, paid:paid, ...(paid?{paid_at:now}:{}) }).eq("id", _row._rawId);
+    else if(kind==="rider") q = supabase.from("admin_payout_requests").update({request_status:({processing:"processing",paid:"completed",failed:"failed",on_hold:"on_hold"})[to], ...(paid?{processed_at:now, txn_ref:note}:{notes:note||null})}).eq("id", id);
     if(kind==="nurse") q = supabase.from("nurse_payouts").update({status:to, ...(paid?{processed_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
     if(kind==="collector") q = supabase.from("collector_earnings").update({status:to, ...(paid?{settled_at:now, txn_ref:note}:{admin_note:note||null})}).eq("id", id);
     if(kind==="ambulance") q = supabase.from("ambulance_bookings").update({settlement_status:({processing:"processing",paid:"settled",failed:"failed",on_hold:"on_hold"})[to], ...(paid?{settled_at:now, settlement_txn_ref:note}:{settlement_note:note||null})}).eq("id", id);
@@ -2708,13 +2807,13 @@ Object.assign(Actions, {
    7. RENDER / ROUTER
    --------------------------------------------------------- */
 function renderSidebar(){
-  const html = NAV.map(g=>`
+  const html = NAV.map(g=>({...g, items:g.items.filter(i=>navAllowed(i.id))})).filter(g=>g.items.length).map(g=>`
     <div class="nav-group">
       ${g.group ? `<div class="nav-group-title">${esc(g.group)}</div>` : ""}
       ${g.items.map(item=>`
         <div class="nav-item ${STATE.view===item.id?"active":""}" data-nav="${item.id}">
           <span class="ic">${item.icon}</span><span class="lbl">${esc(item.label)}</span>
-          ${item.count && item.count()>0 ? `<span class="count">${item.count()}</span>` : ""}
+          ${(()=>{ const n = item.count ? item.count() : 0; return n>0 ? `<span class="count">${n}</span>` : ""; })()}
         </div>
         ${item.children && STATE.view===item.id ? `<div class="nav-children">
           ${item.children.map(c=>`<div class="nav-child ${vs(item.id,{tab:item.children[0].key}).tab===c.key?"active":""}" data-nav-child="${item.id}" data-key="${c.key}">${esc(c.label)}</div>`).join("")}
@@ -2724,7 +2823,7 @@ function renderSidebar(){
   $("#sidebarScroll").innerHTML = html;
 }
 function renderBottomNav(){
-  $("#bottomNav").innerHTML = BOTTOM_NAV.map(id=>{
+  $("#bottomNav").innerHTML = BOTTOM_NAV.filter(id=>navAllowed(id)).map(id=>{
     const item = navItem(id);
     return `<div class="bn-item ${STATE.view===id?"active":""}" data-nav="${id}"><span class="ic">${item.icon}</span>${item.label}</div>`;
   }).join("") + `<div class="bn-item" data-open-drawer><span class="ic">☰</span>More</div>`;
@@ -2775,16 +2874,26 @@ function renderFleetLeafletMap(){
 }
 
 function render(){
+  _kycCache = null;
   const item = navItem(STATE.view);
   $("#topbarTitle").textContent = item ? item.label : "Dashboard";
-  $("#content").innerHTML = (VIEWS[STATE.view] || VIEWS.dashboard)();
-  renderSidebar();
-  renderBottomNav();
+  // One broken view/helper must never blank the whole console (that is what left
+  // every card at 0): show the error inside the page and keep the menu working.
+  let html;
+  try{ html = (VIEWS[STATE.view] || VIEWS.dashboard)(); }
+  catch(err){
+    console.error("[admin] view failed:", STATE.view, err);
+    html = `<div class="card"><div class="card-body"><h3>This page could not be drawn</h3><p class="hint">${esc(err && err.message || err)}</p><button class="btn" data-nav="dashboard">Back to dashboard</button></div></div>`;
+  }
+  $("#content").innerHTML = html;
+  try{ renderSidebar(); }catch(err){ console.error("[admin] sidebar failed:", err); }
+  try{ renderBottomNav(); }catch(err){ console.error("[admin] bottom nav failed:", err); }
   if(STATE.view === "riders" && vs("riders",{tab:"all"}).tab === "live") renderRidersLiveMiniMap();
   if(STATE.view === "fleet") renderFleetLeafletMap();
 }
 
 function setView(id, childKey){
+  if(!navAllowed(id)){ toast("Your role does not have access to this page","danger"); return; }
   STATE.view = id;
   const item = navItem(id);
   if(item && item.children){ vs(id, {tab:item.children[0].key}).tab = childKey || vs(id,{}).tab || item.children[0].key; }
@@ -2798,6 +2907,17 @@ function setView(id, childKey){
 /* ---------------------------------------------------------
    8. EVENT WIRING (delegation)
    --------------------------------------------------------- */
+function runAction(el){
+  if(el._busy) return;                       // ignore double taps while the first one is still running
+  let r;
+  try{ r = Actions[el.dataset.act](el); }
+  catch(err){ console.error("[admin] action failed:", el.dataset.act, err); toast("Something went wrong: "+(err && err.message || err),"danger"); return; }
+  if(r && typeof r.then === "function"){
+    el._busy = true; el.classList.add("is-busy");
+    const done = ()=>{ el._busy = false; el.classList.remove("is-busy"); };
+    r.then(done, (err)=>{ done(); console.error("[admin] action failed:", el.dataset.act, err); toast("Something went wrong: "+(err && err.message || err),"danger"); });
+  }
+}
 document.addEventListener("click", (e)=>{
   const navEl = e.target.closest("[data-nav]");
   if(navEl){ if(navEl.dataset.nav==="logout"){ Actions["logout"](); return; } setView(navEl.dataset.nav); return; }
@@ -2826,7 +2946,11 @@ document.addEventListener("click", (e)=>{
   if(closeEl){ closeModal(); return; }
 
   const actEl = e.target.closest("[data-act]");
-  if(actEl && Actions[actEl.dataset.act]){ Actions[actEl.dataset.act](actEl); return; }
+  if(actEl && Actions[actEl.dataset.act]){
+    // toggles/selects are handled by the "change" listener below - running them on click too fired every action twice
+    if(/^(product-visible|zone-toggle|emg-toggle|emg-select|fleet-zone-filter)$/.test(actEl.dataset.act) && actEl.matches("input,select")) return;
+    runAction(actEl); return;
+  }
 
   if(e.target.closest("[data-act='product-visible']")) return; // handled by change listener
 
@@ -2853,10 +2977,13 @@ document.addEventListener("input", (e)=>{
     const wrap = document.getElementById("tablewrap-"+viewId);
     // Re-render only the current view body to keep focus on inputs elsewhere is not critical here since
     // search input itself would lose focus on full re-render; so re-render whole view but restore focus.
-    const caret = t.selectionStart;
-    render();
-    const again = document.querySelector(`[data-live-search="${viewId}"]`);
-    if(again){ again.focus(); again.setSelectionRange(caret, caret); }
+    clearTimeout(window._liveSearchT);
+    window._liveSearchT = setTimeout(()=>{
+      const caret = t.selectionStart;
+      render();
+      const again = document.querySelector(`[data-live-search="${viewId}"]`);
+      if(again){ again.focus(); try{ again.setSelectionRange(caret, caret); }catch(_e){} }
+    }, 150);
   }
 });
 
@@ -3036,7 +3163,8 @@ function postProcessData(){
   DATA.riders.forEach(r=>{
     let pin = r._pin;
     if(!pin){ const k = kycByRider[r.id]; const mm = k && String(k.address||"").match(/\b\d{6}\b/); pin = mm ? mm[0] : ""; r._pin = pin; }
-    const z = pin && zByPin[pin];
+    let z = pin && zByPin[pin];
+    if(!z && r._hasLocation){ z = zoneOfPoint(r.lat, r.lon) || null; }
     r.zone = z ? z.name : (pin ? "PIN "+pin : "Zone not set");
   });
   const nk = {}; (DATA.raw.nurseKyc||[]).forEach(k=>{ nk[k.user_id] = k; });
@@ -3061,8 +3189,8 @@ refreshLiveData = function(){
     await Promise.all([
       S(loadOrdersFromDB), S(loadRidersFromDB), S(loadNursesFromDB), S(loadAmbulanceDriversFromDB), S(loadZonesFromDB),
       S(loadLabTestsFromDB), S(loadLabBookingsFromDB), S(loadNurseBookingsFromDB), S(loadAmbulanceBookingsFromDB),
-      S(loadRiderPayoutsFromDB), S(loadRefundsFromDB), S(loadAdminsFromDB), S(loadAuditLogFromDB), S(loadNotificationBroadcastsFromDB),
-      S(loadCounts), S(loadPlatformControls), S(loadCommissionRules),
+      S(loadRiderPayoutsFromDB), S(loadLegacyRiderPayouts), S(loadRefundsFromDB), S(loadAdminsFromDB), S(loadAuditLogFromDB), S(loadNotificationBroadcastsFromDB),
+      S(loadCounts), S(loadPlatformControls), S(loadCommissionRules), S(loadErrorLogsFromDB),
     ]);
     await Promise.all([ S(loadUsersFromDB), S(loadMerchantsFromDB), S(()=>loadTransactionsFromDB()), S(loadMe) ]);
     computeWeeklyOrdersFromDB(); deriveActivityFeed(); render(); // first useful paint
@@ -3085,6 +3213,9 @@ subscribeLiveData = function(){
   if(!supabase) return;
   const reload = (fn)=>()=>{ fn().then(render); };
   supabase.channel("admin-orders-counts").on("postgres_changes",{event:"*",schema:"public",table:"orders"},reload(loadCounts)).subscribe();
+  supabase.channel("admin-errors-live").on("postgres_changes",{event:"*",schema:"public",table:"system_error_logs"},(payload)=>{
+    loadErrorLogsFromDB().then(()=>{ render(); if(payload.eventType==="INSERT" && payload.new){ toast("New error: "+explainError(payload.new.message,payload.new.source).title,"danger"); } });
+  }).subscribe();
   supabase.channel("admin-commission-live").on("postgres_changes",{event:"*",schema:"public",table:"commission_rules"},reload(loadCommissionRules)).subscribe();
   supabase.channel("admin-controls-live").on("postgres_changes",{event:"*",schema:"public",table:"platform_controls"},reload(loadPlatformControls)).subscribe();
 };
@@ -3124,7 +3255,9 @@ VIEWS.dashboard = () => {
   const kycPending = kycAllRows().filter(r=>r.status==="pending").length;
   const c = DATA.counts, totalUsers = c.users ?? DATA.users.length;
   const mNew = DATA.merchants.filter(m=>m.joined && m.joined >= localDayStr(dayStart(-7))).length;
+  const openErrs = (DATA.errorLogs||[]).filter(e=>!e.resolved);
   const alerts = [
+    ...(openErrs.length ? [{ic:"⚠",text:`${openErrs.length} open error${openErrs.length>1?"s":""} (Shiprocket / NimbusPost / courier)`,sub:explainError(openErrs[0].message,openErrs[0].source).title+" — open System → Error Logs"}] : []),
     ...DATA.systemHealth.filter(h=>h.status==="degraded"||h.status==="down").map(h=>({ic:"❤",text:`${h.name} is ${h.status}`,sub:h.meta})),
     ...DATA.merchants.filter(m=>m.status==="pending").map(m=>({ic:"⌂",text:`${m.name} awaiting KYC approval`,sub:m.city})),
     ...DATA.riders.filter(r=>r.status==="pending").map(r=>({ic:"➔",text:`${r.name} awaiting rider KYC approval`,sub:r.zone})),
@@ -3446,6 +3579,7 @@ VIEWS.notifications = () => {
   }
   return `
   <div class="view-head"><h1>Create Notification</h1><p>${esc(NTF_AUDIENCE[t])} · delivered in-app (stored in the app's own notification table).</p></div>
+  ${toolbarTabs("notifications", [{key:"user-all",label:"User · All"},{key:"user-one",label:"User · One"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab"},{key:"nurse",label:"Nurse"},{key:"ambulance",label:"Ambulance"}])}
   <div class="card"><div class="card-body">
     ${target}
     <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
@@ -3495,6 +3629,7 @@ Actions["ntf-send"] = async (el)=>{
 
 /* ---------- Zones: services on/off + green / yellow / red ---------- */
 const ZONE_SVCS = [{key:"svc30",col:"svc_30min",label:"30-min delivery"},{key:"svcSameDay",col:"svc_sameday",label:"Same-day delivery"},{key:"svcNurse",col:"svc_nurse",label:"Nurse service"},{key:"svcLab",col:"svc_lab",label:"Lab service"}];
+function readZoneSvcs(){ const o = {}; ZONE_SVCS.forEach(x=>{ const el = document.getElementById("zs_"+x.key); o[x.col] = el ? !!el.checked : true; }); return o; }
 function zoneHealth(z){
   if(z.status!=="active") return { key:"red", label:"Suspended" };
   const off = ZONE_SVCS.filter(s=>!z[s.key]).map(s=>s.label);
@@ -3506,18 +3641,18 @@ VIEWS.delivery = () => {
   const mPin = {}; DATA.merchants.forEach(m=>{ mPin[String(m.id)] = String(m.pincode); });
   const cards = DATA.zones.map(z=>{
     const h = zoneHealth(z);
-    const riders = DATA.riders.filter(r=>String(r._pin)===String(z.pin) || r.zone===z.name).length;
-    const merchants = DATA.merchants.filter(m=>String(m.pincode)===String(z.pin)).length;
-    const orders = DATA.orders.filter(o=>mPin[String(o._merchantId)]===String(z.pin)).length;
+    const zs = zoneStats(z), riders = zs.riders, merchants = zs.merchants, orders = zs.orders;
     return `<div class="zone-card ${h.key}">
       <div class="zone-top"><div><div class="zone-name">${esc(z.name)}</div><div class="cell-sub">PIN ${esc(z.pin)} · ${esc(z.district)}${z.ps&&z.ps!=="—"?" · "+esc(z.ps):""} · ${esc(z.state)}</div></div><span class="zone-pill ${h.key}">${esc(h.label)}</span></div>
       ${z.status!=="active" && z.suspendReason ? `<div class="zone-reason">Reason: ${esc(z.suspendReason)}</div>` : ""}
       <div class="zone-stats">
         <div><span>Base fee</span><b>${money(z.baseFee)}</b></div><div><span>Per km</span><b>${money(z.perKm)}</b></div><div><span>Express</span><b>${money(z.express)}</b></div>
-        <div><span>Riders</span><b>${riders}</b></div><div><span>Merchants</span><b>${merchants}</b></div><div><span>Orders</span><b>${orders}</b></div>
+        <div><span>Riders (online)</span><b>${riders} (${zs.ridersOnline})</b></div><div><span>Merchants</span><b>${merchants}</b></div><div><span>Customers</span><b>${zs.users}</b></div>
+        <div><span>Orders</span><b>${orders}</b></div><div><span>Delivered</span><b>${zs.delivered}</b></div><div><span>Revenue</span><b>${money(zs.revenue)}</b></div>
       </div>
+      <div class="cell-sub" style="margin-bottom:8px">Coverage radius ${z.radiusKm||"—"} km${zoneCenter(z)?"":" · map location not set yet"}</div>
       <div class="zone-svcs">${ZONE_SVCS.map(s=>`<div class="svc-toggle"><span>${s.label}</span><label class="toggle"><input type="checkbox" ${z[s.key]?"checked":""} data-act="zone-svc" data-id="${esc(z.id)}" data-key="${s.key}"><span class="track"></span></label></div>`).join("")}</div>
-      <div class="zone-foot"><button class="btn sm" data-act="zone-edit" data-id="${esc(z.id)}">Edit fees</button>
+      <div class="zone-foot"><button class="btn sm" data-act="zone-edit" data-id="${esc(z.id)}">Edit</button>
         <div class="zone-master"><span>${z.status==="active"?"Zone live":"Zone suspended"}</span><label class="toggle"><input type="checkbox" ${z.status==="active"?"checked":""} data-act="zone-toggle" data-id="${esc(z.id)}"><span class="track"></span></label></div></div>
     </div>`;
   }).join("");
@@ -3530,7 +3665,7 @@ VIEWS.delivery = () => {
     <div class="stat-card"><div class="lbl">Total zones</div><div class="val">${DATA.zones.length}</div></div>
   </div>
   <div class="view-toolbar"><button class="btn primary" data-act="zone-add">+ Add zone</button></div>
-  <div class="card"><div class="card-head"><h3>Coverage map</h3><span class="sub">OpenStreetMap · circle colour = zone health</span></div><div class="card-body"><div id="zoneLeafletMap" class="leaflet-box short"></div></div></div>
+  <div class="card"><div class="card-head"><h3>Coverage map</h3><span class="sub">OpenStreetMap · circle = zone (colour = health) · 🏪 pharmacy · 🏍 online rider</span></div><div class="card-body"><div id="zoneLeafletMap" class="leaflet-box short"></div></div></div>
   <div class="zone-grid">${cards || `<div class="empty"><div class="ic">▢</div><h4>No zones yet</h4><p>Add a pincode zone to start taking orders.</p></div>`}</div>`;
 };
 function zoneSvcChecks(z){
@@ -3541,29 +3676,37 @@ Actions["zone-add"] = ()=> openModal("New delivery zone", `
   <div class="field-row"><div class="field"><label>Police station</label><input id="zPs" placeholder="Gangarampur"></div><div class="field"><label>Municipality / Block</label><input id="zMuni" placeholder="Gangarampur"></div></div>
   <div class="field-row"><div class="field"><label>State *</label><input id="zState" value="West Bengal"></div><div class="field"><label>Zone name (optional)</label><input id="zName" placeholder="defaults to municipality"></div></div>
   <div class="field-row"><div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="30"></div><div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="8"></div><div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="20"></div></div>
+  <div class="field-row"><div class="field"><label>Coverage radius (km)</label><input id="zRad" type="number" value="5" min="1" max="100"></div><div class="field"><label>Map centre (auto from pincode)</label><input id="zLatLng" placeholder="lat, lng — leave empty to auto-find"></div></div>
   <div class="hint" style="font-weight:600;margin:6px 0">Services in this zone</div>${zoneSvcChecks(null)}`,
   `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-save">Save zone</button>`);
+function parseLatLng(v){ const m = String(v||"").match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/); if(!m) return null; const a=+m[1], b=+m[2]; return (Math.abs(a)<=90 && Math.abs(b)<=180) ? [a,b] : null; }
 Actions["zone-save"] = async ()=>{
   const pin=$("#zPin").value.trim(), dist=$("#zDist").value.trim(), state=$("#zState").value.trim(), ps=$("#zPs").value.trim(), muni=$("#zMuni").value.trim();
   if(!pin||!dist||!state){ toast("Pincode, district and state are required","danger"); return; }
   if(!/^\d{6}$/.test(pin)){ toast("Pincode must be exactly 6 digits","danger"); return; }
   if(DATA.zones.some(z=>String(z.pin)===pin)){ toast("A zone for this pincode already exists","danger"); return; }
   const name = $("#zName").value.trim() || muni || ps || dist;
-  const base = { name, pin, pincode:pin, dist, ps:ps||null, muni:muni||null, state, status:"approved", is_active:true, outage_message:"", base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
+  const base = { name, pin, pincode:pin, dist, ps:ps||null, muni:muni||null, state, status:"approved", is_active:true, outage_message:"", base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0, radius_km:Number($("#zRad").value)||5 };
+  const ll0 = parseLatLng($("#zLatLng").value); if(ll0){ base.center_lat = ll0[0]; base.center_lng = ll0[1]; }
   let { error } = await supabase.from("service_zones").insert({ ...base, ...readZoneSvcs() }); let warn = false;
   if(error && /svc_|schema cache|column/i.test(error.message)){ const r2 = await supabase.from("service_zones").insert(base); error = r2.error; warn = !r2.error; }
   if(error){ toast("Failed: "+error.message,"danger"); return; }
-  closeModal(); await loadZonesFromDB(); await logAdminAction(`Added zone ${pin} (${dist})`); render();
+  closeModal();
+  if(!ll0){ const g = await geocodePin(pin); if(g) await supabase.from("service_zones").update({ center_lat:g[0], center_lng:g[1] }).eq("pin", pin); }
+  await loadZonesFromDB(); await logAdminAction(`Added zone ${pin} (${dist})`); render();
   toast(warn ? "Zone added, but service switches were not saved"+SQL_HINT : "Zone added — customers in this pincode can now order", warn?"danger":"default");
 };
 Actions["zone-edit"] = (el)=>{ const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
   openModal(`Edit zone — ${z.name} (${z.pin})`, `
     <div class="field-row"><div class="field"><label>Base fee (₹)</label><input id="zBase" type="number" value="${z.baseFee}"></div><div class="field"><label>Per KM (₹)</label><input id="zKm" type="number" value="${z.perKm}"></div><div class="field"><label>Express fee (₹)</label><input id="zExp" type="number" value="${z.express}"></div></div>
+    <div class="field-row"><div class="field"><label>Coverage radius (km)</label><input id="zRad" type="number" value="${z.radiusKm||5}" min="1" max="100"></div><div class="field"><label>Map centre (lat, lng)</label><input id="zLatLng" value="${(zoneCenter(z)||[]).map(v=>(+v).toFixed(5)).join(", ")}" placeholder="auto from pincode"></div></div>
     <div class="hint" style="font-weight:600;margin:6px 0">Services in this zone</div>${zoneSvcChecks(z)}`,
     `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="zone-edit-save" data-id="${esc(z.id)}">Save</button>`);
 };
 Actions["zone-edit-save"] = async (el)=>{ const z = DATA.zones.find(x=>String(x.id)===el.dataset.id); if(!z) return;
-  const fees = { base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0 };
+  const fees = { base_fee:Number($("#zBase").value)||0, per_km_fee:Number($("#zKm").value)||0, express_fee:Number($("#zExp").value)||0, radius_km:Number($("#zRad").value)||5 };
+  let ll = parseLatLng($("#zLatLng").value); if(!ll) ll = zoneCenter(z) || await geocodePin(z.pin);
+  if(ll){ fees.center_lat = ll[0]; fees.center_lng = ll[1]; }
   let r = await mustUpdate(supabase.from("service_zones").update({ ...fees, ...readZoneSvcs() }).eq("id", z.id), "Zone"); let warn = false;
   if(!r.ok && /svc_|schema cache|column/i.test(r.msg)){ r = await mustUpdate(supabase.from("service_zones").update(fees).eq("id", z.id), "Zone"); warn = r.ok; }
   if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
@@ -3639,6 +3782,27 @@ function initAmbMap(){
   if(!pts.length) el.insertAdjacentHTML("afterend", `<div class="hint" style="margin-top:8px">No ambulance driver is sharing a live location right now.</div>`);
 }
 ambulanceFleetMap = function(){ return `<div class="fleet-legend"><span><i style="background:#7c3aed"></i>Available</span><span><i style="background:#e02020"></i>On ride</span><span><i style="background:#6b7280"></i>Offline</span></div><div id="ambLeafletMap" class="leaflet-box"></div>`; };
+function distKm(a,b,c,d){ const R=6371, rad=x=>x*Math.PI/180, dLat=rad(c-a), dLon=rad(d-b); const h=Math.sin(dLat/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function zoneCenter(z){
+  if(z._lat!=null && z._lng!=null && isFinite(+z._lat) && isFinite(+z._lng)) return [+z._lat,+z._lng];
+  try{ const c = JSON.parse(localStorage.getItem("mf_pin_geo_v1")||"{}")[z.pin]; return Array.isArray(c) ? c : null; }catch(e){ return null; }
+}
+function zoneOfPoint(lat, lon){
+  let best = null, bd = Infinity;
+  DATA.zones.forEach(z=>{ const c = zoneCenter(z); if(!c) return; const d = distKm(lat,lon,c[0],c[1]); if(d <= (z.radiusKm||8) && d < bd){ best = z; bd = d; } });
+  return best;
+}
+function zoneStats(z){
+  const pin = String(z.pin), mine = DATA.merchants.filter(m=>String(m.pincode)===pin), ids = new Set(mine.map(m=>String(m.id)));
+  const ords = DATA.orders.filter(o=>ids.has(String(o._merchantId))), live = ords.filter(o=>!DEAD_ORDER.includes(o.status));
+  return {
+    riders: DATA.riders.filter(r=>r.zone===z.name || String(r._pin)===pin).length,
+    ridersOnline: DATA.riders.filter(r=>r.online && (r.zone===z.name || String(r._pin)===pin)).length,
+    merchants: mine.length, users: DATA.users.filter(u=>String(u.pin)===pin).length,
+    orders: ords.length, delivered: ords.filter(o=>o.status==="delivered").length,
+    revenue: live.reduce((a,o)=>a+(o.total||0),0), pending: ords.filter(o=>["pending","accepted","picked_up","shipped","broadcasted"].includes(o.status)).length,
+  };
+}
 const GEO_KEY = "mf_pin_geo_v1";
 const geoCache = ()=>{ try{ return JSON.parse(localStorage.getItem(GEO_KEY)||"{}"); }catch(e){ return {}; } };
 async function geocodePin(pin){
@@ -3654,17 +3818,25 @@ async function initZoneMap(){
   const el = document.getElementById("zoneLeafletMap"); if(!el || typeof L==="undefined") return;
   const hadView = !!_mapView.zones, token = ++_zoneMapToken, map = _zoneMap = makeMap(el, "zones");
   const colors = { green:"#1f9d55", yellow:"#d4a017", red:"#d93025" }, pts = [];
+  const pin = (emoji, bg)=> L.divIcon({ html:`<div style="background:${bg};color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${emoji}</div>`, className:"", iconSize:[24,24], iconAnchor:[12,12] });
+  DATA.merchants.filter(m=>m.lat!=null && m.lng!=null && isFinite(+m.lat) && isFinite(+m.lng)).forEach(m=>{
+    L.marker([+m.lat,+m.lng],{ icon:pin("🏪", m.status==="active"?"#0d5c4f":"#6b7280") }).addTo(map).bindPopup(`<b>${esc(m.name)}</b><br>PIN ${esc(m.pincode)} · ${esc(m.status)}<br>${m.orders} orders · ${money(m.earnings)} delivered`); pts.push([+m.lat,+m.lng]);
+  });
+  DATA.riders.filter(r=>r.online && r._hasLocation).forEach(r=>{
+    L.marker([r.lat,r.lon],{ icon:pin("🏍", r.hasOrder?"#e02020":"#7c3aed") }).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.zone)} · ${r.hasOrder?"On delivery":"Idle"}<br>${esc(r.phone)}`); pts.push([r.lat,r.lon]);
+  });
   for(const z of DATA.zones){
     if(token!==_zoneMapToken) return;
-    let ll = (z._lat!=null && z._lng!=null) ? [Number(z._lat),Number(z._lng)] : null;
+    let ll = zoneCenter(z);
     if(!ll){
-      const cached = geoCache()[z.pin];
+      const cached = (()=>{ try{ return JSON.parse(localStorage.getItem(GEO_KEY)||"{}")[z.pin]; }catch(e){ return undefined; } })();
       if(cached===undefined){ ll = await geocodePin(z.pin); await new Promise(r=>setTimeout(r,1100)); if(token!==_zoneMapToken) return; }
-      else ll = cached || null;
+      if(ll){ z._lat = ll[0]; z._lng = ll[1]; supabase.from("service_zones").update({ center_lat:ll[0], center_lng:ll[1] }).eq("id", z.id).then(()=>{}, ()=>{}); }
     }
     if(!ll) continue;
-    const h = zoneHealth(z);
-    L.circle(ll,{radius:3500,color:colors[h.key],fillColor:colors[h.key],fillOpacity:.3,weight:2}).addTo(map).bindPopup(`<b>${esc(z.name)}</b><br>PIN ${esc(z.pin)}<br>${esc(h.label)}`);
+    const h = zoneHealth(z), st = zoneStats(z);
+    L.circle(ll,{radius:(z.radiusKm||5)*1000,color:colors[h.key],fillColor:colors[h.key],fillOpacity:.18,weight:2}).addTo(map)
+      .bindPopup(`<b>${esc(z.name)}</b> · PIN ${esc(z.pin)}<br>${esc(h.label)} · radius ${z.radiusKm||5} km<br>Riders ${st.riders} (${st.ridersOnline} online) · Merchants ${st.merchants}<br>Orders ${st.orders} · Delivered ${st.delivered} · ${money(st.revenue)}`);
     pts.push(ll);
   }
   if(token===_zoneMapToken && !hadView) fitFirst(map, "zones", pts);
@@ -3883,16 +4055,55 @@ function reportOverview(){
     {key:"rating",label:"Rating",render:r=>r.rating?`★ ${r.rating}`:"No reviews yet"},
   ], earn)}</div></div>`;
 }
-VIEWS.reports = () => { const tab = vs("reports",{tab:"overview"}).tab; return tab==="download" ? reportDownloadView() : tab==="receipt" ? receiptView() : reportOverview(); };
+VIEWS.reports = () => {
+  const tab = vs("reports",{tab:"overview"}).tab;
+  const bar = `<div class="view-toolbar" style="gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="invoice-open">🧾 Invoice</button>${tab!=="download"?`<button class="btn" data-act="report-goto" data-tab="download">⬇ Download reports</button>`:`<button class="btn" data-act="report-goto" data-tab="overview">← Analysis</button>`}</div>`;
+  return bar + (tab==="download" ? reportDownloadView() : tab==="receipt" ? receiptView() : reportOverview() + reportOverviewExtra());
+};
+async function loadTopMeds(){
+  try{
+    const ok = new Set(DATA.orders.filter(o=>!DEAD_ORDER.includes(o.status)).map(o=>String(o.id)));
+    const { rows } = await fetchAllRows("order_items"); const agg = {};
+    rows.forEach(i=>{ if(!ok.has(String(i.order_id))) return; const name = i.product_name || i.name || ("Medicine #"+i.medicine_id), k = String(i.medicine_id||name), q = Number(i.quantity)||1, amt = Number(i.total_price ?? i.total ?? (Number(i.unit_price ?? i.price)||0)*q)||0;
+      const a = agg[k] || (agg[k] = { name, qty:0, revenue:0, orders:0 }); a.qty += q; a.revenue += amt; a.orders++; });
+    STATE.topMeds = Object.values(agg).sort((x,y)=>y.qty-x.qty).slice(0,10);
+  }catch(e){ STATE.topMeds = []; }
+}
+function reportOverviewExtra(){
+  if(!STATE.topMeds && !STATE._topMedsLoading){ STATE._topMedsLoading = true; loadTopMeds().then(()=>{ STATE._topMedsLoading = false; if(STATE.view==="reports") render(); }); }
+  const live = DATA.orders.filter(o=>!DEAD_ORDER.includes(o.status)), del = DATA.orders.filter(o=>o.status==="delivered");
+  const gmv = live.reduce((a,o)=>a+o.total,0), earned = del.reduce((a,o)=>a+commissionFor("merchant", o._merchantId, o.total).amount,0);
+  const byStatus = {}; DATA.orders.forEach(o=>{ const x = byStatus[o.status] || (byStatus[o.status] = { status:o.status, count:0, value:0 }); x.count++; x.value += o.total; });
+  const sumAmt = (a)=>a.reduce((x,b)=>x+(b.amount||0),0);
+  return `
+  <div class="stat-grid" style="margin-top:14px">
+    <div class="stat-card"><div class="lbl">Order value (excl. cancelled)</div><div class="val">${money(gmv)}</div></div>
+    <div class="stat-card"><div class="lbl">Delivered value</div><div class="val">${money(del.reduce((a,o)=>a+o.total,0))}</div></div>
+    <div class="stat-card"><div class="lbl">Platform commission earned</div><div class="val">${money(Math.round(earned))}</div><div class="delta">on delivered orders, from Commission rules</div></div>
+    <div class="stat-card"><div class="lbl">Average order value</div><div class="val">${money(live.length?Math.round(gmv/live.length):0)}</div></div>
+    <div class="stat-card"><div class="lbl">Online vs COD</div><div class="val">${DATA.orders.filter(o=>o.payment==="Online").length} / ${DATA.orders.filter(o=>o.payment==="COD").length}</div></div>
+    <div class="stat-card"><div class="lbl">Lab · Nurse · Ambulance revenue</div><div class="val" style="font-size:16px">${money(sumAmt(DATA.labBookings.filter(b=>b.status!=="cancelled")))} · ${money(sumAmt(DATA.nurseBookings.filter(b=>b.status!=="cancelled")))} · ${money(sumAmt(DATA.ambulanceBookings.filter(b=>b.status!=="cancelled")))}</div></div>
+  </div>
+  <div class="card"><div class="card-head"><h3>Orders by status</h3></div><div class="card-body pad0">${renderTable("rep-status",[{key:"status",label:"Status",render:r=>statusBadge(r.status)},{key:"count",label:"Orders"},{key:"value",label:"Value",render:r=>money(r.value)}], Object.values(byStatus))}</div></div>
+  <div class="card"><div class="card-head"><h3>Top medicines (by quantity sold)</h3></div><div class="card-body pad0">${STATE.topMeds ? renderTable("rep-topmeds",[{key:"name",label:"Medicine"},{key:"qty",label:"Qty sold"},{key:"orders",label:"Orders"},{key:"revenue",label:"Revenue",render:r=>money(r.revenue)}], STATE.topMeds, {emptyText:"No sold items yet."}) : `<div class="hint" style="padding:16px">Loading…</div>`}</div></div>`;
+}
 
-const REPORT_SHEETS = [
-  ["Orders","orders"],["Users","profiles"],["Merchants","merchants"],["Riders","riders"],["Medicines","medicines"],["Prescriptions","prescription_orders"],
-  ["Lab Bookings","lab_bookings"],["Nurse Bookings","nurse_bookings"],["Ambulance Bookings","ambulance_bookings"],
-  ["Merchant Payouts","merchant_payouts"],["Rider Payouts","admin_payout_requests"],["Nurse Payouts","nurse_payouts"],["Collector Earnings","collector_earnings"],
-  ["Refunds & Cancelled","cancelled_orders"],["Zones","service_zones"],["Coupons","coupons"],
-  ["Complaints","complaints"],["Merchant Complaints","merchant_complaints"],["Rider Complaints","rider_complaints"],
-  ["Nurses","nurses"],["Lab Collectors","sample_collectors"],["Ambulance Drivers","ambulance_drivers"],["Commission Rules","commission_rules"],["Audit Log","admin_audit_log"],
+
+const REPORT_GROUPS = [
+  {t:"Sales & orders", items:[["Orders","orders"],["Order Items","order_items"],["Prescriptions","prescription_orders"],["Refunds & Cancelled","cancelled_orders"],["Coupons","coupons"],["Sponsored Banners","sponsored_products"]]},
+  {t:"People & partners", items:[["Users","profiles"],["Merchants","merchants"],["Riders","riders"],["Nurses","nurses"],["Lab Collectors","sample_collectors"],["Ambulance Drivers","ambulance_drivers"]]},
+  {t:"Healthcare & emergency", items:[["Ambulance Bookings","ambulance_bookings"],["Nurse Bookings","nurse_bookings"],["Lab Bookings","lab_bookings"],["Lab Tests","lab_tests"],["Zones","service_zones"]]},
+  {t:"Money", items:[["Merchant Payouts","merchant_payouts"],["Rider Payout Requests","admin_payout_requests"],["Rider Payouts (legacy)","rider_payouts"],["Nurse Payouts","nurse_payouts"],["Collector Earnings","collector_earnings"],["Commission Rules","commission_rules"]]},
+  {t:"Quality", items:[["Customer Complaints","complaints"],["Merchant Complaints","merchant_complaints"],["Rider Complaints","rider_complaints"],["Product Reviews","product_reviews"],["Lab Reviews","lab_test_reviews"],["Order Feedback","order_feedback"]]},
+  {t:"Audit", items:[["Admin Audit Log","admin_audit_log"]]},
 ];
+const REPORT_SHEETS = REPORT_GROUPS.flatMap(g=>g.items);
+const REPORT_PRESETS = {
+  everything:{ label:"Complete-Company-Report", tables:REPORT_SHEETS.map(x=>x[1]) },
+  emergency:{ label:"Emergency-Agency-Report", tables:["ambulance_bookings","ambulance_drivers","nurse_bookings","nurses","lab_bookings","sample_collectors","service_zones","orders","complaints"] },
+  finance:{ label:"Finance-Report", tables:["orders","order_items","cancelled_orders","merchant_payouts","admin_payout_requests","rider_payouts","nurse_payouts","collector_earnings","commission_rules"] },
+  sales:{ label:"Sales-Report", tables:["orders","order_items","prescription_orders","cancelled_orders","coupons","product_reviews","order_feedback"] },
+};
 const SENSITIVE_COL = /pass|token|secret|otp|aadhaar|aadhar|pan_?(no|number)|account_?n|bank_account|ifsc|fcm|api_?key|signature|upi_?id|license_?no|id_?no|proof_?number|bank_holder/i;
 async function fetchAllRows(table){
   const out = [], page = 1000;
@@ -3916,51 +4127,71 @@ function downloadBlob(blob, name){ const a = document.createElement("a"); a.href
 function toCsv(rows){ if(!rows.length) return ""; const cols = [...new Set(rows.flatMap(r=>Object.keys(r)))]; const q = v=>{ v = v==null ? "" : String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }; return [cols.join(","), ...rows.map(r=>cols.map(c=>q(r[c])).join(","))].join("\n"); }
 function reportDownloadView(){
   return `
-  <div class="view-head"><h1>Company Report</h1><p>One tap downloads everything an emergency agency, auditor or company partner may ask for — orders, users, partners, bookings, payouts, refunds, zones, complaints and the admin audit log.</p></div>
+  <div class="view-head"><h1>Reports — download everything</h1><p>Pick what you need — or use a ready pack — and download real data as Excel or CSV. Passwords, tokens, Aadhaar/PAN, bank and UPI details are never included.</p></div>
   <div class="card"><div class="card-body">
-    <div class="field-row"><div class="field"><label>From date (optional)</label><input id="repFrom" type="date"></div><div class="field"><label>To date (optional)</label><input id="repTo" type="date"></div></div>
-    <div class="hint" style="margin-bottom:12px">Leave both empty for all data. Passwords, tokens, Aadhaar/PAN, bank and UPI details are never included.</div>
-    <button class="btn primary" data-act="report-download" style="width:100%;padding:14px;font-size:15px">⬇ Download complete report (Excel)</button>
+    <div class="field-row"><div class="field"><label>From date (optional)</label><input id="repFrom" type="date"></div><div class="field"><label>To date (optional)</label><input id="repTo" type="date"></div>
+      <div class="field"><label>Format</label><select id="repFmt"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></div></div>
+    <div class="hint" style="margin-bottom:12px">Leave dates empty for all data. The date range applies to when each record was created.</div>
+    <div class="row-flex" style="gap:8px;flex-wrap:wrap">
+      <button class="btn primary" data-act="report-preset" data-preset="everything">⬇ Complete company report</button>
+      <button class="btn" data-act="report-preset" data-preset="emergency">🚑 Emergency / agency pack</button>
+      <button class="btn" data-act="report-preset" data-preset="finance">₹ Finance pack</button>
+      <button class="btn" data-act="report-preset" data-preset="sales">▤ Sales pack</button>
+    </div>
     <div id="repProgress" class="hint" style="margin-top:12px"></div>
-  </div></div>`;
+  </div></div>
+  ${REPORT_GROUPS.map((g,gi)=>`<div class="card"><div class="card-head"><h3>${esc(g.t)}</h3><button class="btn sm" data-act="report-group-toggle" data-g="${gi}">Select all</button></div><div class="card-body">
+    <div class="field-row" style="flex-wrap:wrap">${g.items.map(([n,t])=>`<label class="chk" style="min-width:46%;display:flex;gap:8px;align-items:center;justify-content:space-between"><span><input type="checkbox" class="rep-chk" data-g="${gi}" value="${t}"> ${esc(n)}</span><button class="btn sm" data-act="report-one" data-table="${t}" title="Download only ${esc(n)}">⬇</button></label>`).join("")}</div>
+  </div></div>`).join("")}
+  <div class="view-toolbar" style="position:sticky;bottom:8px"><button class="btn primary" data-act="report-download" style="padding:12px 18px">⬇ Download selected</button></div>`;
 }
-Actions["report-download"] = async ()=>{
-  const from = ($("#repFrom")||{}).value || "", to = ($("#repTo")||{}).value || "", prog = (t)=>{ const el = $("#repProgress"); if(el) el.textContent = t; };
-  let done = 0; const sheets = [], issues = [];
-  prog(`Collecting data… 0/${REPORT_SHEETS.length}`);
-  const results = await Promise.all(REPORT_SHEETS.map(async ([name, table])=>{
-    const r = await fetchAllRows(table); done++; prog(`Collecting data… ${done}/${REPORT_SHEETS.length}`);
-    if(r.error) issues.push(`${name}: ${r.error}`);
-    return { name, table, rows:cleanRows(r.rows, from, to) };
+const _repProg = (t)=>{ const el = $("#repProgress"); if(el) el.textContent = t; };
+function reportRowsInRange(arr, getTs, from, to){ return arr.filter(x=>{ const d = tsDay(getTs(x)); if(!d) return true; return (!from || d>=from) && (!to || d<=to); }); }
+async function runReport(tables, label){
+  tables = [...new Set(tables)]; if(!tables.length){ toast("Select at least one report","danger"); return; }
+  const from = ($("#repFrom")||{}).value || "", to = ($("#repTo")||{}).value || "", fmt = ($("#repFmt")||{}).value || "xlsx";
+  const names = Object.fromEntries(REPORT_SHEETS.map(([n,t])=>[t,n])); let done = 0; const issues = [];
+  _repProg(`Collecting data… 0/${tables.length}`);
+  const results = await Promise.all(tables.map(async t=>{
+    const r = await fetchAllRows(t); done++; _repProg(`Collecting data… ${done}/${tables.length}`);
+    if(r.error) issues.push(`${names[t]||t}: ${r.error}`);
+    return { name:names[t]||t, table:t, rows:cleanRows(r.rows, from, to) };
   }));
-  const by = Object.fromEntries(results.map(r=>[r.table, r.rows]));
-  const orders = by.orders || [], live = orders.filter(o=>!DEAD_ORDER.includes(String(o.status||"")));
-  const sum = (a,f)=>a.reduce((s,x)=>s+(Number(f(x))||0),0);
-  const summary = [
-    ["Report", "MediFinder India — Company Report"], ["Generated at", fmtDateTime(new Date().toISOString())], ["Generated by", `${DATA.me.name} (${DATA.me.email})`], ["Period", (from||"start")+" to "+(to||"today")],
-    ["Orders", orders.length], ["Orders delivered", orders.filter(o=>o.status==="delivered").length], ["Orders cancelled / failed", orders.length-live.length],
-    ["Gross order value (excluding cancelled)", sum(live, orderTotalOf)], ["Cash on delivery orders", orders.filter(o=>/cod/i.test(String(o.payment_mode||o.payment_method||""))).length],
-    ["Customers", by.profiles.length], ["Pharmacies", by.merchants.length], ["Riders", by.riders.length], ["Nurses", by.nurses.length], ["Lab collectors", by.sample_collectors.length], ["Ambulance drivers", by.ambulance_drivers.length],
-    ["Lab bookings", by.lab_bookings.length], ["Nurse bookings", by.nurse_bookings.length], ["Ambulance bookings", by.ambulance_bookings.length],
-    ["Service zones", by.service_zones.length], ["Complaints (all)", by.complaints.length+by.merchant_complaints.length+by.rider_complaints.length],
-    ...(issues.length ? [["Tables that could not be read", issues.join(" | ")]] : []),
-  ].map(([k,v])=>({ Item:k, Value:v }));
-  sheets.push({ name:"Summary", rows:summary }, ...results.map(r=>({ name:r.name, rows:r.rows })));
-  prog("Building file…");
-  const stamp = localDayStr();
+  const by = Object.fromEntries(results.map(r=>[r.table, r.rows])), has = t=>Array.isArray(by[t]);
+  const sum = (a,f)=>a.reduce((x,y)=>x+(Number(f(y))||0),0);
+  const summary = [["Report","MediFinder India — "+label.replace(/-/g," ")],["Generated at",fmtDateTime(new Date().toISOString())],["Generated by",`${DATA.me.name} (${DATA.me.email})`],["Period",(from||"start")+" to "+(to||"today")]];
+  if(has("orders")){ const o = by.orders, live = o.filter(x=>!DEAD_ORDER.includes(String(x.status||"")));
+    summary.push(["Orders",o.length],["Orders delivered",o.filter(x=>x.status==="delivered").length],["Orders cancelled / failed",o.length-live.length],["Gross order value (excluding cancelled)",sum(live,orderTotalOf)],["Cash on delivery orders",o.filter(x=>/cod/i.test(String(x.payment_mode||x.payment_method||""))).length]); }
+  [["profiles","Customers"],["merchants","Pharmacies"],["riders","Riders"],["nurses","Nurses"],["sample_collectors","Lab collectors"],["ambulance_drivers","Ambulance drivers"],["lab_bookings","Lab bookings"],["nurse_bookings","Nurse bookings"],["ambulance_bookings","Ambulance bookings"],["service_zones","Service zones"],["prescription_orders","Prescription requests"],["product_reviews","Product reviews"]].forEach(([t,l])=>{ if(has(t)) summary.push([l, by[t].length]); });
+  if(has("ambulance_bookings")) summary.push(["Ambulance trips completed", by.ambulance_bookings.filter(x=>x.status==="completed").length]);
+  if(["complaints","merchant_complaints","rider_complaints"].some(has)) summary.push(["Complaints (all)", ["complaints","merchant_complaints","rider_complaints"].reduce((a,t)=>a+(has(t)?by[t].length:0),0)]);
+  if(issues.length) summary.push(["Tables that could not be read", issues.join(" | ")]);
+  const sheets = [{ name:"Summary", rows:summary.map(([k,v])=>({ Item:k, Value:v })) }];
+  /* readable sheets (names instead of IDs) — what an agency / auditor actually reads */
+  if(has("orders")) sheets.push({ name:"Orders (readable)", rows:reportRowsInRange(DATA.orders, o=>o.created, from, to).map(o=>{ const r=o._raw||{}; return { "Order No":o.id, "Date":o.date, "Customer":o.customer, "Phone":r.customer_phone||r.user_phone||"", "Pharmacy":o.merchant, "Rider":o.rider, "Items":o.items, "Total (₹)":o.total, "Payment":o.payment, "Status":o.status }; }) });
+  if(has("ambulance_bookings")) sheets.push({ name:"Ambulance (readable)", rows:reportRowsInRange(DATA.ambulanceBookings, b=>b._createdAt, from, to).map(b=>({ "Booking No":b.id, "Requested":b.date, "Patient":b.customer, "Phone":b.phone, "Vehicle":b.service, "Pickup → Drop":b.location, "Driver":b.provider, "Fare (₹)":b.amount, "Payment":b.payment, "Status":b.status })) });
+  if(has("nurse_bookings")) sheets.push({ name:"Nurse (readable)", rows:reportRowsInRange(DATA.nurseBookings, b=>b._createdAt, from, to).map(b=>({ "Booking No":b.id, "Date":b.date, "Patient":b.customer, "Phone":b.phone, "Service":b.service, "Nurse":b.provider, "Address":b.location, "Amount (₹)":b.amount, "Payment":b.payment, "Status":b.status })) });
+  if(has("lab_bookings")) sheets.push({ name:"Lab (readable)", rows:reportRowsInRange(DATA.labBookings, b=>b._createdAt, from, to).map(b=>({ "Booking No":b.id, "Patient":b.customer, "Phone":b.phone, "Test":b.test, "Address":b.location, "Amount (₹)":b.amount, "Status":b.status })) });
+  results.forEach(r=>sheets.push({ name:r.name, rows:r.rows }));
+  _repProg("Building file…"); const stamp = localDayStr(), base = `MediFinder-India-${label}-${stamp}`;
   try{
-    const X = await loadSheetJS(), wb = X.utils.book_new();
-    sheets.forEach(s=>X.utils.book_append_sheet(wb, X.utils.json_to_sheet(s.rows.length ? s.rows : [{ Note:"No data" }]), s.name.slice(0,31)));
-    X.writeFile(wb, `MediFinder-India-Company-Report-${stamp}.xlsx`);
-    prog(`✔ Downloaded MediFinder-India-Company-Report-${stamp}.xlsx (${sheets.length} sheets)`);
+    if(fmt==="csv") throw new Error("csv");
+    const X = await loadSheetJS(), wb = X.utils.book_new(), used = new Set();
+    sheets.forEach(sh=>{ let nm = sh.name.replace(/[\\\/\?\*\[\]:]/g,"").slice(0,31), k = 2; while(used.has(nm)) nm = nm.slice(0,28)+" "+(k++); used.add(nm); X.utils.book_append_sheet(wb, X.utils.json_to_sheet(sh.rows.length ? sh.rows : [{ Note:"No data" }]), nm); });
+    X.writeFile(wb, base+".xlsx"); _repProg(`✔ Downloaded ${base}.xlsx (${sheets.length} sheets)`);
   }catch(err){
-    const csv = sheets.map(s=>`### ${s.name}\n${toCsv(s.rows)}`).join("\n\n");
-    downloadBlob(new Blob(["\ufeff"+csv], { type:"text/csv;charset=utf-8" }), `MediFinder-India-Company-Report-${stamp}.csv`);
-    prog("✔ Excel library was blocked, so a single CSV with every sheet was downloaded instead.");
+    const data = sheets.filter(x=>x.name!=="Summary" || sheets.length===1);
+    const csv = data.length===1 ? toCsv(data[0].rows) : sheets.map(x=>`### ${x.name}\n${toCsv(x.rows)}`).join("\n\n");
+    downloadBlob(new Blob(["\ufeff"+csv], { type:"text/csv;charset=utf-8" }), base+".csv");
+    _repProg(err.message==="csv" ? `✔ Downloaded ${base}.csv` : "✔ Excel library was blocked, so one CSV with every sheet was downloaded instead.");
   }
-  await logAdminAction(`Downloaded company report (${from||"all"}–${to||"all"})`);
-  toast("Report downloaded");
-};
+  await logAdminAction(`Downloaded report ${label} (${from||"all"}–${to||"all"})`); toast("Report downloaded");
+}
+Actions["report-download"] = ()=>{ const t = $$(".rep-chk:checked").map(x=>x.value); if(!t.length){ toast("Tick at least one report, or use a pack","danger"); return; } return runReport(t, t.length===1 ? (REPORT_SHEETS.find(x=>x[1]===t[0])||[t[0]])[0].replace(/[^\w]+/g,"-") : "Custom-Report"); };
+Actions["report-preset"] = (el)=>{ const p = REPORT_PRESETS[el.dataset.preset]; if(p) return runReport(p.tables, p.label); };
+Actions["report-one"] = (el)=>{ const row = REPORT_SHEETS.find(x=>x[1]===el.dataset.table); return runReport([el.dataset.table], (row?row[0]:el.dataset.table).replace(/[^\w]+/g,"-")); };
+Actions["report-group-toggle"] = (el)=>{ const boxes = $$(`.rep-chk[data-g="${el.dataset.g}"]`), all = boxes.every(b=>b.checked); boxes.forEach(b=>b.checked = !all); el.textContent = all ? "Select all" : "Clear"; };
+Actions["report-goto"] = (el)=>{ vs("reports",{tab:"overview"}).tab = el.dataset.tab; render(); };
 
 /* ----- Receipt / invoice lookup ----- */
 STATE.rc = { q:"", results:[], searched:false };
@@ -3976,7 +4207,7 @@ function receiptView(){
     {key:"title",label:"Number",render:r=>`<div class="cell-strong">${esc(r.title)}</div><div class="cell-sub">${esc(r.label)}</div>`},
     {key:"sub",label:"Customer"},{key:"amount",label:"Amount",render:r=>r.amount!=null?money(r.amount):"—"},{key:"date",label:"Date"},
     {key:"status",label:"Status",render:r=>statusBadge(r.status)},
-    {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm primary" data-act="receipt-open" data-kind="${r.kind}" data-id="${esc(r.id)}">Open receipt</button>`},
+    {key:"_a",label:"",sortable:false,render:r=>`<div class="actions-cell"><button class="btn sm primary" data-act="invoice-dl" data-kind="${r.kind}" data-id="${esc(r.id)}">⬇ Download</button><button class="btn sm" data-act="receipt-open" data-kind="${r.kind}" data-id="${esc(r.id)}">View</button></div>`},
   ], rc.results, {emptyText:"No order or booking found with this number."})}</div></div>` : ""}`;
 }
 function receiptLocalMatches(q){
@@ -4036,7 +4267,7 @@ function receiptHtml(r){
   table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:7px 4px;border-bottom:1px solid #e6ecea;text-align:left;vertical-align:top}th{font-size:12px;color:#5b6f6a}.r{text-align:right}
   .kv td:first-child{color:#5b6f6a;width:38%}.total td{font-weight:700;font-size:16px;border-top:2px solid #142421;border-bottom:none}.foot{margin-top:18px;color:#5b6f6a;font-size:11.5px;text-align:center}
   @media print{body{padding:0}.box{border:none}}</style></head><body><div class="box">
-  <div class="top"><div><h1>MediFinder India</h1><div class="sub">${e(r.title)}</div></div><div style="text-align:right"><b>${e(r.no)}</b><div class="sub">${e(r.date)}</div><div class="sub">Status: ${e(String(r.status).replace(/_/g," "))}</div></div></div>
+  <div class="top"><div><h1>MediFinder India</h1><div class="sub">${e(r.title)}</div></div><div style="text-align:right"><div class="sub">Invoice / Booking no.</div><b>${e(r.no)}</b><div class="sub">${e(r.date)}</div><div class="sub">Status: ${e(String(r.status).replace(/_/g," "))}</div></div></div>
   <table class="kv"><tr><td>Customer</td><td>${e(r.who||"—")}</td></tr>${r.phone?`<tr><td>Phone</td><td>${e(r.phone)}</td></tr>`:""}${r.addr?`<tr><td>Address</td><td>${e(r.addr)}</td></tr>`:""}${r.rows.map(([k,v])=>`<tr><td>${e(k)}</td><td>${e(v||"—")}</td></tr>`).join("")}<tr><td>Payment</td><td>${e(r.pay||"—")}</td></tr></table>
   ${r.lines.length?`<table><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>${r.lines.map(l=>`<tr><td>${e(l.name)}</td><td class="r">${l.qty}</td><td class="r">${m(l.price)}</td><td class="r">${m(l.amt)}</td></tr>`).join("")}</table>`:""}
   <table>${r.extra.map(([k,v])=>`<tr><td>${e(k)}</td><td class="r">${e(v)}</td></tr>`).join("")}<tr class="total"><td>Total</td><td class="r">${r.total!=null?m(r.total):"—"}</td></tr></table>
@@ -4053,11 +4284,208 @@ Actions["receipt-open"] = (el)=>{
   const fr = box.querySelector("#rcFrame"); fr.srcdoc = html;
   box.addEventListener("click", (e)=>{
     if(e.target.id==="kycLightboxClose") box.remove();
-    if(e.target.id==="rcPdf"){ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(err){ toast("Use your browser's Print → Save as PDF","danger"); } }
+    if(e.target.id==="rcPdf"){ invoicePdf(html, `Invoice-${String(r.no).replace(/[^\w-]+/g,"_")}.pdf`).catch(()=>{ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(err){ toast("Use your browser's Print → Save as PDF","danger"); } }); }
     if(e.target.id==="rcHtml") downloadBlob(new Blob([html],{type:"text/html"}), `receipt-${String(r.no).replace(/[^\w-]+/g,"_")}.html`);
   });
   logAdminAction(`Opened receipt ${r.no}`);
 };
+
+/* ---------- Complaints (real reply saved) + Reviews (real moderation) ---------- */
+const TICKET_TABS = [{key:"open",label:"Open"},{key:"in_progress",label:"In progress"},{key:"closed",label:"Closed"},{key:"all",label:"All"}];
+VIEWS.support = () => {
+  const st = vs("support",{tab:"open", search:""}); const q = (st.search||"").toLowerCase();
+  let rows = st.tab==="all" ? DATA.tickets : DATA.tickets.filter(t=>t.status===st.tab);
+  if(q) rows = rows.filter(t=>(t.name+t.subject+t.message+t.from+t.category).toLowerCase().includes(q));
+  const cnt = k=>DATA.tickets.filter(t=>t.status===k).length;
+  return `
+  <div class="view-head"><h1>Complaints & Support</h1><p>Customer, merchant and rider complaints in one queue. Your reply is saved on the complaint and the customer is notified.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Open</div><div class="val" style="color:#d93025">${cnt("open")}</div></div>
+    <div class="stat-card"><div class="lbl">In progress</div><div class="val">${cnt("in_progress")}</div></div>
+    <div class="stat-card"><div class="lbl">Closed</div><div class="val" style="color:#1f9d55">${cnt("closed")}</div></div>
+    <div class="stat-card"><div class="lbl">High priority open</div><div class="val">${DATA.tickets.filter(t=>t.status!=="closed" && ["high","urgent"].includes(t.priority)).length}</div></div>
+  </div>
+  ${toolbarTabs("support", TICKET_TABS)}
+  <div class="view-toolbar">${toolbarSearch("support","Search name, subject or message")}</div>
+  <div class="card"><div class="card-body pad0" id="tablewrap-support">
+    ${renderTable("support",[
+      {key:"id",label:"Ticket",render:r=>esc(String(r.id).slice(0,8))},{key:"from",label:"From"},{key:"name",label:"Name"},
+      {key:"subject",label:"Subject",render:r=>`<div class="cell-strong">${esc(r.subject)}</div><div class="cell-sub">${esc(String(r.message).slice(0,70))}${r.message.length>70?"…":""}</div>`},
+      {key:"priority",label:"Priority",render:r=>statusBadge(r.priority)},{key:"status",label:"Status",render:r=>statusBadge(r.status)},{key:"date",label:"Opened"},
+      {key:"_actions",label:"",sortable:false,render:r=>`<button class="btn sm ${r.status==="closed"?"":"primary"}" data-act="ticket-reply" data-key="${esc(r.key)}">${r.status==="closed"?"View":"Reply"}</button>`},
+    ], rows, {emptyText:"No complaints in this filter."})}
+  </div></div>`;
+};
+Actions["ticket-reply"] = (el)=>{ const t = DATA.tickets.find(x=>x.key===el.dataset.key); if(!t) return;
+  openModal(`Complaint — ${t.subject}`, `
+    <div style="padding:2px 0 8px">${statusBadge(t.status)} ${statusBadge(t.priority)} <span class="hint">${esc(t.from)} · ${esc(t.name)} · ${esc(t.date)}</span></div>
+    ${t.category?detailRow("Category", esc(t.category)):""}${t.token?detailRow("Token", esc(t.token)):""}
+    <div class="field"><label>Complaint</label><div style="background:var(--bg-soft,#f4f7f6);border-radius:8px;padding:10px;white-space:pre-wrap">${esc(t.message||"(no message)")}</div></div>
+    ${t.repliedAt?`<div class="hint" style="margin-bottom:6px">Last reply sent ${esc(fmtDateTime(t.repliedAt))}</div>`:""}
+    <div class="field"><label>Your reply</label><textarea id="tReply" rows="5" placeholder="Type your reply...">${esc(t.reply)}</textarea></div>
+    <div class="field"><label>Priority</label><select id="tPrio">${["low","medium","high","urgent"].map(p=>`<option ${p===t.priority?"selected":""}>${p}</option>`).join("")}</select></div>`,
+    `<button class="btn" data-close-modal>Close</button>${t.status==="closed"?`<button class="btn" data-act="ticket-save" data-mode="reopen" data-key="${esc(t.key)}">Reopen</button>`:`<button class="btn" data-act="ticket-save" data-mode="reply" data-key="${esc(t.key)}">Save reply</button><button class="btn primary" data-act="ticket-save" data-mode="close" data-key="${esc(t.key)}">Reply & close</button>`}`);
+};
+Actions["ticket-save"] = async (el)=>{
+  const t = DATA.tickets.find(x=>x.key===el.dataset.key); if(!t) return; const mode = el.dataset.mode;
+  const reply = (($("#tReply")||{}).value||"").trim(), prio = ($("#tPrio")||{}).value || t.priority, now = new Date().toISOString();
+  if(mode!=="reopen" && !reply){ toast("Write a reply first","danger"); return; }
+  const upd = { priority:prio, updated_at:now };
+  if(mode==="reopen") upd.status = "open"; else { upd.admin_reply = reply; upd.replied_at = now; upd.status = mode==="close" ? "closed" : "in_progress"; }
+  const r = await mustUpdate(supabase.from(t._table).update(upd).eq("id", t.id), "Complaint"); if(!r.ok){ toast("Failed: "+r.msg,"danger"); return; }
+  if(mode!=="reopen" && t._userId) supabase.from("notifications").insert({ user_id:t._userId, type:"complaint_reply", title:"Reply to your complaint", message:reply.slice(0,300) }).then(()=>{}, ()=>{});
+  await logAdminAction(`Complaint ${t.key} → ${upd.status}`); await loadTicketsFromDB(); closeModal(); render(); toast(mode==="close"?"Replied and closed":mode==="reopen"?"Complaint reopened":"Reply saved");
+};
+Actions["ticket-close"] = Actions["ticket-save"];
+
+const REVIEW_TABS = [{key:"all",label:"All"},{key:"reported",label:"Reported"},{key:"Product",label:"Product"},{key:"Lab Test",label:"Lab test"},{key:"Order",label:"Order / delivery"}];
+VIEWS.reviews = () => {
+  const st = vs("reviews",{tab:"all"});
+  let rows = st.tab==="all" ? DATA.reviews : st.tab==="reported" ? DATA.reviews.filter(r=>r.reported) : DATA.reviews.filter(r=>r.type===st.tab);
+  const rated = DATA.reviews.filter(r=>r.rating>0), avg = rated.length ? (rated.reduce((a,r)=>a+r.rating,0)/rated.length).toFixed(1) : "—";
+  return `
+  <div class="view-head"><h1>Reviews & Ratings</h1><p>Real customer feedback for medicines, lab tests and orders. Keep reported reviews that are genuine, delete abusive ones.</p></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="lbl">Total reviews</div><div class="val">${DATA.reviews.length}</div></div>
+    <div class="stat-card"><div class="lbl">Average rating</div><div class="val">${avg}${avg==="—"?"":" ★"}</div></div>
+    <div class="stat-card"><div class="lbl">Reported</div><div class="val" style="color:#d93025">${DATA.reviews.filter(r=>r.reported).length}</div></div>
+    <div class="stat-card"><div class="lbl">1–2 star</div><div class="val">${DATA.reviews.filter(r=>r.rating>0 && r.rating<=2).length}</div></div>
+  </div>
+  ${toolbarTabs("reviews", REVIEW_TABS)}
+  <div class="card"><div class="card-body pad0" id="tablewrap-reviews">
+    ${renderTable("reviews",[
+      {key:"date",label:"Date"},{key:"type",label:"Type",render:r=>badge(r.type,"blue")},{key:"subject",label:"About"},{key:"by",label:"By"},
+      {key:"rating",label:"Rating",render:r=>"★".repeat(r.rating)+"☆".repeat(5-r.rating)},
+      {key:"comment",label:"Comment"},
+      {key:"reported",label:"Reported",render:r=>r.reported?badge("Reported","red"):badge("Clean","green")},
+      {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell">${r.reported?`<button class="btn sm" data-act="review-clear" data-key="${esc(r.key)}">Keep</button>`:""}<button class="btn sm danger" data-act="review-del" data-key="${esc(r.key)}">Delete</button></div>`},
+    ], rows, {emptyText:"No reviews in this filter."})}
+  </div></div>`;
+};
+Actions["review-clear"] = async (el)=>{ const r = DATA.reviews.find(x=>x.key===el.dataset.key); if(!r) return;
+  const q = await mustUpdate(supabase.from(r._table).update({ reported:false }).eq("id", r.id), "Review"); if(!q.ok){ toast("Failed: "+q.msg,"danger"); return; }
+  r.reported = false; await logAdminAction(`Kept reported review ${r.key}`); render(); toast("Review kept — report cleared");
+};
+Actions["review-del"] = async (el)=>{ const r = DATA.reviews.find(x=>x.key===el.dataset.key); if(!r) return;
+  if(!(await askConfirm("Delete this review?", "It will be removed for everyone and cannot be restored.", {danger:true, ok:"Delete"}))) return;
+  const { error } = await supabase.from(r._table).delete().eq("id", r.id); if(error){ toast("Failed: "+error.message,"danger"); return; }
+  DATA.reviews = DATA.reviews.filter(x=>x!==r); await logAdminAction(`Deleted review ${r.key}`); render(); toast("Review deleted","danger");
+};
+Actions["review-hide"] = Actions["review-del"];
+
+Actions["analytics-refresh"] = async ()=>{ try{ await refreshLiveData(); }catch(e){} STATE.lastAnalyticsRefresh = new Date().toLocaleTimeString(); render(); toast("Delivery analytics refreshed"); };
+/* ---------- Emergency: live watch (all numbers real, refreshes every 30 s) ---------- */
+function minsAgo(iso){ if(!iso) return null; const m = (Date.now()-new Date(iso))/60000; return isNaN(m) ? null : Math.max(0, Math.round(m)); }
+function emergencyWatchHtml(){
+  const drivers = DATA.raw.ambulance || [];
+  const free = drivers.filter(d=>d.is_online && !d.is_on_ride).length, onRide = drivers.filter(d=>d.is_on_ride).length;
+  const waiting = DATA.ambulanceBookings.filter(b=>b.status==="new").map(b=>({ ...b, wait:minsAgo(b._createdAt) }));
+  const rides = DATA.ambulanceBookings.filter(b=>b.status==="on-route");
+  const stuckOrders = DATA.orders.filter(o=>o.status==="pending" && (minsAgo(o.created)||0) >= 30);
+  const rxWait = DATA.prescriptions.filter(p=>p.status==="pending" && (minsAgo(p._created)||0) >= 30);
+  const payWait = DATA.payQueue.filter(p=>p.status==="pending");
+  const urgent = DATA.tickets.filter(t=>t.status!=="closed" && ["high","urgent"].includes(t.priority));
+  const nurseWait = DATA.nurseBookings.filter(b=>b.status==="new" && (minsAgo(b._createdAt)||0) >= 60);
+  const labWait = DATA.labBookings.filter(b=>b.status==="new" && (minsAgo(b._createdAt)||0) >= 60);
+  const card = (label, val, sub, bad, view, tab)=>`<div class="stat-card" data-act="emg-goto" data-view="${view}" data-tab="${tab||""}" style="cursor:pointer;${bad&&val?"border-color:#d93025":""}"><div class="lbl">${label}</div><div class="val" style="${bad&&val?"color:#d93025":""}">${val}</div><div class="delta">${sub}</div></div>`;
+  const noDrv = waiting.length && !free;
+  return `
+  <div class="card"><div class="card-head"><h3>Live emergency watch</h3><span class="sub">real data · refreshes every 30 s · tap a card to open it</span></div><div class="card-body">
+    ${noDrv ? `<div class="notice-bad" style="margin-bottom:10px"><b>${waiting.length} ambulance request${waiting.length>1?"s are":" is"} waiting and no driver is free right now.</b></div>` : ""}
+    <div class="stat-grid">
+      ${card("Ambulance requests waiting", waiting.length, waiting.length ? "oldest "+Math.max(...waiting.map(w=>w.wait||0))+" min" : "none waiting", true, "booking", "ambulance")}
+      ${card("Drivers free / on ride", free+" / "+onRide, drivers.filter(d=>!d.is_online&&!d.is_on_ride).length+" offline", false, "ambulancepartners", "map")}
+      ${card("Ambulance trips live", rides.length, "accepted / on the way", false, "booking", "ambulance")}
+      ${card("Orders pending 30+ min", stuckOrders.length, "no pharmacy accepted yet", true, "orders", "pending")}
+      ${card("Prescriptions waiting 30+ min", rxWait.length, "no pharmacy accepted", true, "prescriptions", "")}
+      ${card("Payments to verify", payWait.length, payWait.length ? "oldest "+Math.max(...payWait.map(p=>minsAgo(p.at)||0))+" min" : "all clear", true, "payment", "")}
+      ${card("Nurse / lab waiting 1h+", nurseWait.length+" / "+labWait.length, "not yet accepted", true, "booking", nurseWait.length?"nurse":"lab")}
+      ${card("High-priority complaints", urgent.length, "open or in progress", true, "support", "open")}
+      ${card("Riders online", DATA.riders.filter(r=>r.online).length, DATA.riders.filter(r=>r.online&&r.hasOrder).length+" on delivery", false, "riders", "live")}
+    </div>
+    ${waiting.length ? `<div class="hint" style="font-weight:600;margin:12px 0 6px">Waiting ambulance requests</div>${renderTable("emg-amb",[
+      {key:"id",label:"Booking"},{key:"customer",label:"Patient"},{key:"phone",label:"Phone",render:r=>r.phone&&r.phone!=="—"?`<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>`:"—"},{key:"service",label:"Vehicle"},{key:"location",label:"Pickup → Drop"},
+      {key:"wait",label:"Waiting",render:r=>r.wait==null?"—":badge(r.wait+" min", r.wait>=3?"red":"gold")},
+    ], waiting, {emptyText:""})}` : ""}
+    <div class="row-flex" style="gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" data-act="report-preset" data-preset="emergency">🚑 Download emergency report</button></div>
+    <div id="repProgress" class="hint" style="margin-top:8px"></div>
+    <input type="hidden" id="repFrom"><input type="hidden" id="repTo"><input type="hidden" id="repFmt" value="xlsx">
+  </div></div>`;
+}
+Actions["emg-goto"] = (el)=> setView(el.dataset.view, el.dataset.tab || undefined);
+const _emgBase = VIEWS.emergency;
+VIEWS.emergency = () => { const html = _emgBase(), i = html.indexOf("</p></div>"); return i<0 ? html + emergencyWatchHtml() : html.slice(0,i+10) + emergencyWatchHtml() + html.slice(i+10); };
+setInterval(()=>{
+  if(STATE.view!=="system" || vs("system",{tab:"security"}).tab!=="emergency" || document.hidden || _pageOpen) return;
+  Promise.all([loadAmbulanceBookingsFromDB(), loadAmbulanceDriversFromDB(), loadOrdersFromDB(), loadPrescriptionsFromDB(), loadPaymentQueue()]).then(()=>{ if(STATE.view==="system" && !_pageOpen && !document.activeElement?.matches?.("select,input,textarea")) render(); }).catch(()=>{});
+}, 30000);
+
+/* ---------- Invoice: type any invoice / order / booking number → download ---------- */
+function orderFromRow(r){
+  const rider = r.rider_id ? ((DATA.riders.find(x=>String(x.id)===String(r.rider_id))||{}).name || ("Rider #"+r.rider_id)) : "Not assigned";
+  return { id:r.order_id||r.id, _raw:r, _merchantId:r.merchant_id, customer:r.customer_name||r.user_name||"Customer", merchant:r.pharmacy_name||((DATA.merchants.find(m=>String(m.id)===String(r.merchant_id))||{}).name)||"—", rider, total:orderTotalOf(r), payment:/cod/i.test(String(r.payment_mode||r.payment_method||""))?"COD":"Online", status:r.status||"pending", date:fmtDateTime(r.created_at), created:r.created_at };
+}
+async function findInvoices(q){
+  q = String(q||"").trim(); const key = q.replace(/\s+/g,"").toLowerCase();
+  let results = receiptLocalMatches(q);
+  const exact = results.filter(r=>String(r.title).toLowerCase()===key); if(exact.length) results = exact;
+  if(results.length || !supabase) return results;
+  const tries = [["order_id", q.replace(/\s+/g,"")]]; if(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(q)) tries.push(["id", q]);
+  for(const [col,val] of tries){
+    const { data, error } = await supabase.from("orders").select("*").eq(col, val).limit(5);
+    if(!error && data && data.length){ data.forEach(r=>{ const o = orderFromRow(r); STATE.rc.extra = (STATE.rc.extra||[]).filter(x=>String(x.id)!==String(o.id)).concat(o); results.push({ kind:"order", label:"Medicine order", id:String(o.id), title:String(o.id), sub:o.customer, amount:o.total, date:o.date, status:o.status }); }); break; }
+  }
+  return results;
+}
+async function buildReceiptFull(kind, id){
+  const r = buildReceipt(kind, id); if(!r) return null;
+  if(kind==="order" && !r.lines.length && supabase){
+    const o = DATA.orders.find(x=>String(x.id)===String(id)) || (STATE.rc.extra||[]).find(x=>String(x.id)===String(id)), raw = (o&&o._raw)||{};
+    const { data } = await supabase.from("order_items").select("*").eq("order_id", String(raw.order_id||raw.id||id));
+    (data||[]).forEach(i=>{ const q = Number(i.quantity)||1, p = Number(i.unit_price ?? i.price)||0; r.lines.push({ name:i.product_name||i.name||"Item", qty:q, price:p, amt:Number(i.total_price ?? i.total)||q*p }); });
+    if(r.lines.length && !r.extra.length){ const sub = r.lines.reduce((a,l)=>a+l.amt,0); r.extra.push(["Items subtotal", money(sub)]); }
+  }
+  return r;
+}
+function loadScriptOnce(src, test){ return new Promise((res,rej)=>{ if(test()) return res(); const sc = document.createElement("script"); sc.src = src; sc.onload = ()=>res(); sc.onerror = ()=>rej(new Error("Could not load "+src)); document.head.appendChild(sc); }); }
+async function invoicePdf(html, filename){
+  await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", ()=>window.html2canvas);
+  await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", ()=>window.jspdf);
+  const fr = document.createElement("iframe"); fr.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff"; document.body.appendChild(fr);
+  try{
+    await new Promise(res=>{ fr.onload = res; fr.srcdoc = html; }); await new Promise(r=>setTimeout(r,200));
+    const body = fr.contentDocument.body; fr.style.height = Math.max(1123, body.scrollHeight+40)+"px";
+    const canvas = await window.html2canvas(body, { scale:2, backgroundColor:"#ffffff", useCORS:true, windowWidth:794 });
+    const pdf = new window.jspdf.jsPDF({ unit:"pt", format:"a4" }), pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+    const imgH = canvas.height * (pw / canvas.width), img = canvas.toDataURL("image/jpeg", .95);
+    for(let pos=0; pos < imgH - 1; pos += ph){ if(pos) pdf.addPage(); pdf.addImage(img, "JPEG", 0, -pos, pw, imgH); }
+    pdf.save(filename);
+  } finally { fr.remove(); }
+}
+async function deliverInvoice(r){
+  const html = receiptHtml(r), safe = String(r.no).replace(/[^\w-]+/g,"_");
+  try{ await invoicePdf(html, `Invoice-${safe}.pdf`); toast("Invoice downloaded (PDF)"); }
+  catch(err){ downloadBlob(new Blob([html],{type:"text/html"}), `Invoice-${safe}.html`); toast("PDF tool was blocked — saved as an HTML invoice instead (open it and print to PDF)","danger"); }
+  logAdminAction(`Downloaded invoice ${r.no}`);
+}
+Actions["invoice-open"] = ()=>{
+  openModal("Download invoice", `<div class="field"><label>Invoice no. / Order no. / Booking no.</label><input id="invQ" autocomplete="off" placeholder="e.g. ORD-12345 · LBK-… · NBK-… · ABK-…"></div>
+    <div class="hint">Works for medicine orders, lab, nurse and ambulance bookings. The invoice downloads as a PDF.</div><div id="invResults" style="margin-top:12px"></div>`,
+    `<button class="btn" data-close-modal>Close</button><button class="btn primary" data-act="invoice-download">⬇ Download invoice</button>`);
+  setTimeout(()=>{ const i = $("#invQ"); if(i) i.focus(); }, 120);
+};
+document.addEventListener("keydown", (e)=>{ if(e.key==="Enter" && e.target.id==="invQ"){ e.preventDefault(); Actions["invoice-download"](); } });
+Actions["invoice-download"] = async ()=>{
+  const q = (($("#invQ")||{}).value||"").trim(), box = $("#invResults"); if(!q){ toast("Enter an invoice, order or booking number","danger"); return; }
+  if(box) box.innerHTML = `<div class="hint">Searching…</div>`;
+  const res = await findInvoices(q);
+  if(!res.length){ if(box) box.innerHTML = `<div class="notice-bad">No order or booking found for “${esc(q)}”. Check the number and try again.</div>`; return; }
+  if(res.length===1){ const r = await buildReceiptFull(res[0].kind, res[0].id); if(!r){ toast("Invoice data not found","danger"); return; } if(box) box.innerHTML = `<div class="hint">Preparing ${esc(r.no)}…</div>`; await deliverInvoice(r); if(box) box.innerHTML = `<div class="hint">✔ ${esc(r.no)} downloaded.</div>`; return; }
+  STATE._invRes = res;
+  if(box) box.innerHTML = `<div class="hint" style="margin-bottom:6px">${res.length} matches — choose one:</div>` + res.slice(0,15).map((r,i)=>`<div class="row-flex" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line,#eee)"><div><div class="cell-strong">${esc(r.title)}</div><div class="cell-sub">${esc(r.label)} · ${esc(r.sub||"")} · ${r.amount!=null?money(r.amount):"—"}</div></div><button class="btn sm primary" data-act="invoice-pick" data-i="${i}">⬇ Download</button></div>`).join("");
+};
+Actions["invoice-pick"] = async (el)=>{ const x = (STATE._invRes||[])[Number(el.dataset.i)]; if(!x) return; const r = await buildReceiptFull(x.kind, x.id); if(!r){ toast("Invoice data not found","danger"); return; } await deliverInvoice(r); };
+Actions["invoice-dl"] = async (el)=>{ const r = await buildReceiptFull(el.dataset.kind, el.dataset.id); if(!r){ toast("Invoice data not found","danger"); return; } await deliverInvoice(r); };
 
 /* ---------- Offers / Campaigns (Flipkart-style: banner + countdown + scheduled push) ---------- */
 (function(){
@@ -4249,7 +4677,7 @@ render = function(){
   try{ afterRender(); }catch(e){ console.warn("[admin] afterRender", e); }
 };
 function afterRender(){
-  updateBell(); updateAdminChip();
+  updateBell(); updateAdminChip(); updateLivePill(); syncThemeUI();
   const needMap = ["fleetLeafletMap","zoneLeafletMap","ambLeafletMap","ridersLiveMiniMap"].some(id=>document.getElementById(id));
   if(needMap && typeof L==="undefined"){ if(_leafletRetry++ < 15) setTimeout(()=>render(), 400); return; }
   _leafletRetry = 0;
@@ -4286,30 +4714,434 @@ function guardAction(name, fn){
 }
 Object.keys(Actions).forEach(k=>{ Actions[k] = guardAction(k, Actions[k]); });
 
+/* =========================================================
+   10b. v3 - role access, dark/light theme, live channel count, admin invite
+   ========================================================= */
+
+/* ---------- Role access (UI level). Edit ROLE_RULES to change what each role can open / do. ----------
+   Super Admin (and the built-in owner login) = everything. An unknown role name = read-only (fail closed). */
+const ROLE_RULES = {
+  "Operations Admin": { deny:["finance","payout","payment","adminroles"], denyActs:/^(pay-|payout-|refund-|ledger-|comm-)/ },
+  "Finance Admin":    { allow:["dashboard","orders","finance","payout","payment","reports"], allowActs:/^(pay-|payout-|refund-|ledger-|comm-|report-|invoice-|receipt-)/ },
+  "Support Admin":    { allow:["dashboard","orders","support","reviews"], allowActs:/^(ticket-|review-)/ },
+  "Read-only Admin":  { readOnly:true, deny:["adminroles"] },
+};
+const READ_SAFE = /^(logout|doc-open|fleet-|analytics-|report-|receipt-|invoice-|ledger-export|emg-goto|health-check|theme-)|-(view|detail|history)$/;
+function roleRule(){
+  const r = (DATA.me && DATA.me.role) || "Admin";
+  if(r==="Admin" || r==="Super Admin") return null;
+  return ROLE_RULES[r] || { readOnly:true, deny:["adminroles"] };
+}
+function isSuperAdmin(){
+  const em = String((DATA.me && DATA.me.email) || "").toLowerCase();
+  return em===MAIN_ADMIN_EMAIL || roleRule()===null;
+}
+function navAllowed(id){
+  const r = roleRule(); if(!r || id==="logout") return true;
+  if(r.allow) return r.allow.includes(id);
+  return !(r.deny||[]).includes(id);
+}
+function actionAllowed(act){
+  const r = roleRule(); if(!r) return true;
+  if(READ_SAFE.test(act)) return true;
+  if(r.readOnly || /^admin-/.test(act)) return false;
+  if(r.allowActs) return r.allowActs.test(act);
+  if(r.denyActs) return !r.denyActs.test(act);
+  return true;
+}
+/* every Actions[...] goes through the role check (click, change and programmatic calls) */
+Object.keys(Actions).forEach(k=>{
+  const f = Actions[k]; if(typeof f!=="function") return;
+  Actions[k] = function(...args){
+    if(!actionAllowed(k)){ toast("Your role ("+((DATA.me&&DATA.me.role)||"Admin")+") cannot do this","danger"); try{ render(); }catch(e){} return; }
+    return f.apply(this,args);
+  };
+});
+
+/* ---------- Dark / light theme ---------- */
+const THEME_KEY = "mf_admin_theme";
+function currentTheme(){ return document.documentElement.getAttribute("data-theme") || "light"; }
+function themePref(){ try{ const v = localStorage.getItem(THEME_KEY); return (v==="dark"||v==="light") ? v : "auto"; }catch(e){ return "auto"; } }
+function resolveTheme(pref){ return (pref==="dark"||pref==="light") ? pref : ((window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light"); }
+function syncThemeUI(){
+  const t = currentTheme(), b = document.getElementById("themeBtn");
+  if(b){ b.textContent = t==="dark" ? "☀" : "☾"; b.title = t==="dark" ? "Switch to light mode" : "Switch to dark mode"; }
+  const m = document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark" ? "#0B1412" : "#F3F7F6");
+}
+function setTheme(pref){
+  try{ if(pref==="auto") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, pref); }catch(e){}
+  document.documentElement.setAttribute("data-theme", resolveTheme(pref)); syncThemeUI();
+}
+Actions["theme-set"] = (el)=>{ setTheme(el.dataset.theme); render(); };
+document.addEventListener("click", (e)=>{ if(e.target.closest("#themeBtn")) setTheme(currentTheme()==="dark" ? "light" : "dark"); });
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{ if(themePref()==="auto") setTheme("auto"); }); }catch(e){}
+function appearanceCard(){
+  const p = themePref(), b = (k,l)=>`<button class="btn sm ${p===k?"primary":""}" data-act="theme-set" data-theme="${k}">${l}</button>`;
+  return `<div class="card"><div class="card-head"><h3>Appearance</h3><span class="sub">Saved on this device</span></div>
+    <div class="card-body"><div class="row-flex" style="flex-wrap:wrap">${b("light","☀ Light")}${b("dark","☾ Dark")}${b("auto","◐ Match device")}</div></div></div>`;
+}
+const _settingsBeforeTheme = VIEWS.settings;
+VIEWS.settings = () => appearanceCard() + _settingsBeforeTheme();
+
+/* ---------- Live pill: how many realtime channels are really connected ---------- */
+function updateLivePill(){
+  const pill = document.getElementById("livePill"), lab = document.getElementById("liveLabel");
+  if(!pill || !lab || !supabase) return;
+  let ch = []; try{ ch = supabase.getChannels(); }catch(e){}
+  const total = ch.length, up = ch.filter(c=>c.state==="joined").length;
+  lab.textContent = total ? `Live · ${up}/${total}` : "Live";
+  pill.classList.toggle("warn", total>0 && up>0 && up<total);
+  pill.classList.toggle("off", total>0 && up===0);
+  pill.title = total ? `${up} of ${total} realtime channels connected` : "Connecting…";
+}
+setInterval(updateLivePill, 3000);
+
+/* ---------- Admin invite: emails a setup link to the invited address ---------- */
+function adminLoginUrl(){ return new URL("admin.html", window.location.href).href; }
+async function sendAdminLoginLink(email){
+  try{ return await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo: adminLoginUrl(), shouldCreateUser:true } }); }
+  catch(e){ return { error:e }; }
+}
+/* stamps "Last login" (and links the auth user) for the signed-in admin */
+async function markAdminLogin(session){
+  try{
+    const email = String((session && session.user && session.user.email) || "").toLowerCase(); if(!email) return;
+    await supabase.from('admins').update({ last_login:new Date().toISOString(), auth_user_id:session.user.id }).eq('email', email);
+  }catch(e){}
+}
+
+/* ---------- Admin accounts: status badge, row buttons, manage actions ---------- */
+function isOwnerEmail(e){ return String(e||"").trim().toLowerCase()===MAIN_ADMIN_EMAIL; }
+
+function adminStatusBadge(r){
+  if(isOwnerEmail(r.email)) return badge("Owner · protected","blue");
+  const s = r.status || "invited";
+  if(s==="active")    return badge("Active","green");
+  if(s==="suspended") return badge("Suspended","gold");
+  if(s==="blocked")   return badge("Blocked","red");
+  return badge("Invited · setup pending","gray");
+}
+
+function adminRowActions(r){
+  if(!isSuperAdmin()) return "";
+  if(isOwnerEmail(r.email)) return `<span class="cell-sub">Cannot be changed</span>`;
+  const me = String((DATA.me && DATA.me.email) || "").toLowerCase();
+  if(String(r.email||"").toLowerCase()===me) return `<span class="cell-sub">You</span>`;
+  if(r.role==="Super Admin" && !isOwnerEmail(me)) return "";
+  const b = (act,label,cls)=>`<button class="btn sm ${cls||""}" data-act="${act}" data-id="${esc(r.id)}">${label}</button>`;
+  const s = r.status || "invited", out = [];
+  if(s==="invited")   out.push(b("admin-resend","Resend link"));
+  if(s==="active")    out.push(b("admin-suspend","Suspend"), b("admin-block","Block","danger"), b("admin-reset","Reset access"));
+  if(s==="suspended") out.push(b("admin-activate","Unsuspend"), b("admin-block","Block","danger"));
+  if(s==="blocked")   out.push(b("admin-activate","Unblock"));
+  out.push(b("admin-delete","Delete","danger"));
+  return `<div class="row-flex" style="flex-wrap:wrap;gap:6px">${out.join("")}</div>`;
+}
+
+/* Every change goes through the database functions admin_set_status / admin_delete /
+   admin_reset_access. They re-check on the server that the caller is a Super Admin and
+   that the target is NOT medifinderindia@gmail.com, so this UI check is only a first guard. */
+async function adminManage(id, what){
+  if(!isSuperAdmin()){ toast("Only the Super Admin can manage admins","danger"); return; }
+  const a = DATA.admins.find(x=>String(x.id)===String(id)); if(!a) return;
+  if(isOwnerEmail(a.email)){ toast("The owner admin ("+MAIN_ADMIN_EMAIL+") is protected and cannot be changed","danger"); return; }
+  const who = `${a.name} (${a.email})`;
+  const T = {
+    suspended:{ title:"Suspend admin?",  msg:`${who} will be signed out now and cannot log in until you unsuspend.`, ok:"Suspend", danger:true,  log:"Suspended admin", done:"Admin suspended" },
+    blocked:  { title:"Block admin?",    msg:`${who} will be signed out now and blocked from logging in.`,           ok:"Block",   danger:true,  log:"Blocked admin",   done:"Admin blocked" },
+    active:   { title:"Restore access?", msg:`${who} will be able to log in again.`,                                   ok:"Restore", danger:false, log:"Restored admin",  done:"Admin restored" },
+    reset:    { title:"Reset access?",   msg:`${who} will be signed out, their password/phone/6-digit code setup is cleared, and a new setup link is emailed.`, ok:"Reset & email link", danger:true, log:"Reset access for admin", done:"Access reset - new setup link emailed" },
+    delete:   { title:"Delete admin?",   msg:`${who} will be removed permanently and can no longer log in.`,           ok:"Delete",  danger:true,  log:"Deleted admin",   done:"Admin deleted" },
+  }[what];
+  if(!T) return;
+  if(!(await askConfirm(T.title, T.msg, { danger:T.danger, ok:T.ok }))) return;
+
+  let res;
+  if(what==="delete")      res = await supabase.rpc('admin_delete',       { p_admin_id:a.id });
+  else if(what==="reset")  res = await supabase.rpc('admin_reset_access', { p_admin_id:a.id });
+  else                     res = await supabase.rpc('admin_set_status',   { p_admin_id:a.id, p_status:what });
+  if(res.error){ toast(res.error.message || "Could not update this admin","danger"); return; }
+
+  let note = T.done;
+  if(what==="reset"){
+    const mail = await sendAdminLoginLink(a.email);
+    if(mail.error) note = "Access reset, but the email could not be sent: "+mail.error.message+" - use Resend link";
+  }
+  if(what==="active" && res.data && res.data.status==="invited") note = "Restored - setup still pending, use Resend link";
+  await loadAdminsFromDB();
+  await logAdminAction(`${T.log} ${who}`);
+  render(); toast(note);
+}
+
+/* ---------- Full-screen gate (invite setup, expired link, suspended, session ended) ---------- */
+function gateShow(inner){
+  let root = document.getElementById("adminGate");
+  if(!root){ root = document.createElement("div"); root.id = "adminGate"; root.className = "gate-overlay"; document.body.appendChild(root); }
+  root.innerHTML = `<div class="gate-card"><div class="gate-brand"><div class="brand-mark">M</div><div><strong>MediFinder India</strong><span>Admin Console</span></div></div>${inner}</div>`;
+  return root;
+}
+function gateMessage(title, text, btnLabel, onBtn){
+  gateShow(`<h2>${esc(title)}</h2><p class="gate-sub">${esc(text)}</p><button class="btn primary gate-btn" id="gateOk">${esc(btnLabel)}</button>`);
+  document.getElementById("gateOk").addEventListener("click", onBtn);
+}
+const goAdminLogin = ()=>{ window.location.replace("auth.html?admin=1"); };
+const goHome = ()=>{ window.location.replace("home.html"); };
+
+/* the email link carries "#error=access_denied&error_code=otp_expired..." when it is old / already used */
+function readAuthLinkError(){
+  try{
+    const q = new URLSearchParams((window.location.hash||"").replace(/^#/,"") || window.location.search);
+    const code = q.get("error_code") || q.get("error");
+    return code ? (q.get("error_description") || code) : "";
+  }catch(e){ return ""; }
+}
+
+/* ---------- Password / phone / 6-digit code rules (same rules the database enforces, plus password strength) ---------- */
+const COMMON_PW = /(password|passw0rd|admin|qwerty|letmein|welcome|medifinder|iloveyou|12345|abcde)/i;
+function pwRules(pw, email){
+  const local = String(email||"").split("@")[0].toLowerCase();
+  return [
+    { t:"At least 10 characters",              ok: pw.length>=10 },
+    { t:"One uppercase letter (A-Z)",          ok: /[A-Z]/.test(pw) },
+    { t:"One lowercase letter (a-z)",          ok: /[a-z]/.test(pw) },
+    { t:"One number (0-9)",                    ok: /[0-9]/.test(pw) },
+    { t:"One symbol (! @ # $ % ...)",          ok: /[^A-Za-z0-9]/.test(pw) },
+    { t:"Not a common word, not your email name", ok: pw.length>0 && !COMMON_PW.test(pw) && !(local.length>=4 && pw.toLowerCase().includes(local)) },
+  ];
+}
+function pinProblem(pin){
+  if(!/^\d{6}$/.test(pin)) return "The code must be exactly 6 digits";
+  if(/^(\d)\1{5}$/.test(pin)) return "Choose a code that is not all the same digit";
+  const d = pin.split("").map(Number);
+  const asc  = d.every((x,i)=> i===0 || x===(d[i-1]+1)%10);
+  const desc = d.every((x,i)=> i===0 || x===(d[i-1]+9)%10);
+  if(asc || desc) return "Choose a code that is not a simple sequence (123456, 654321 ...)";
+  if(["123123","112233","121212"].includes(pin)) return "Choose a less predictable code";
+  return "";
+}
+function phoneOk(v){
+  const n = String(v||"").replace(/\D/g,"");
+  return /^[6-9]\d{9}$/.test(n) || /^0[6-9]\d{9}$/.test(n) || /^91[6-9]\d{9}$/.test(n);
+}
+
+/* ---------- First-time setup: opened from the emailed invite link ---------- */
+function showAdminSetup(email, name){
+  gateShow(`
+    <h2>Welcome${name ? ", "+esc(name) : ""}</h2>
+    <p class="gate-sub">Signed in as <b>${esc(email)}</b>. Create your sign-in details. You will need <b>all three</b> every time you log in.</p>
+    <div class="field"><label>1. Create password</label><input id="gsPass" type="password" autocomplete="new-password"></div>
+    <ul class="pw-rules" id="gsRules"></ul>
+    <div class="field"><label>Confirm password</label><input id="gsPass2" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>2. Phone number</label><input id="gsPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="10-digit mobile number"></div>
+    <div class="field"><label>3. Create a 6-digit code</label><input id="gsPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6 digits"></div>
+    <div class="field"><label>Confirm 6-digit code</label><input id="gsPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6 digits"></div>
+    <div class="gate-err" id="gsErr" role="alert"></div>
+    <button class="btn primary gate-btn" id="gsSave">Save and continue</button>
+    <button class="btn gate-btn" id="gsCancel">Cancel and sign out</button>`);
+  const $g = (id)=>document.getElementById(id);
+  const drawRules = ()=>{ $g("gsRules").innerHTML = pwRules($g("gsPass").value, email).map(r=>`<li class="${r.ok?"ok":""}">${r.ok?"✔":"○"} ${esc(r.t)}</li>`).join(""); };
+  drawRules(); $g("gsPass").addEventListener("input", drawRules);
+  $g("gsPin").addEventListener("input", ()=>{ $g("gsPin").value = $g("gsPin").value.replace(/\D/g,"").slice(0,6); });
+  $g("gsPin2").addEventListener("input", ()=>{ $g("gsPin2").value = $g("gsPin2").value.replace(/\D/g,"").slice(0,6); });
+  $g("gsCancel").addEventListener("click", async ()=>{ try{ await supabase.auth.signOut(); }catch(e){} goHome(); });
+  $g("gsSave").addEventListener("click", async ()=>{
+    const err = (m)=>{ $g("gsErr").textContent = m || ""; };
+    const pass=$g("gsPass").value, pass2=$g("gsPass2").value, phone=$g("gsPhone").value.trim(), pin=$g("gsPin").value, pin2=$g("gsPin2").value;
+    const bad = pwRules(pass, email).find(r=>!r.ok);
+    if(bad){ err("Password is too weak - "+bad.t.toLowerCase()); return; }
+    if(pass!==pass2){ err("The two passwords do not match"); return; }
+    if(!phoneOk(phone)){ err("Enter a valid 10-digit Indian mobile number"); return; }
+    const pp = pinProblem(pin); if(pp){ err(pp); return; }
+    if(pin!==pin2){ err("The two 6-digit codes do not match"); return; }
+    err(""); const btn=$g("gsSave"); btn.disabled=true; btn.textContent="Saving...";
+    try{
+      /* password first: if the next step fails the person can simply press Save again */
+      const up = await supabase.auth.updateUser({ password: pass });
+      if(up.error) throw up.error;
+      const r = await supabase.rpc('admin_setup_security', { p_phone: phone, p_pin: pin });
+      if(r.error) throw r.error;
+      try{ localStorage.removeItem('admin_auth_in_progress'); }catch(e){}
+      window.location.replace(adminLoginUrl());     // reload: now verified, dashboard opens
+    }catch(e){
+      err((e && e.message) || "Could not save. Please try again.");
+      btn.disabled=false; btn.textContent="Save and continue";
+    }
+  });
+}
+
+/* ---------- Ends the session within a minute if the admin is suspended / blocked / deleted, or the 12 h verification runs out ---------- */
+let _adminWatch = null;
+function startAdminSessionWatch(){
+  if(_adminWatch || !supabase) return;
+  _adminWatch = setInterval(async ()=>{
+    try{
+      const { data, error } = await supabase.rpc('is_admin');
+      if(error || data===true) return;
+      clearInterval(_adminWatch); _adminWatch = null;
+      try{ await supabase.auth.signOut(); }catch(e){}
+      gateMessage("Signed out", "Your admin access has ended: the 12-hour session expired, or your account was suspended, blocked or removed. Log in again to continue.", "Admin login", goAdminLogin);
+    }catch(e){}
+  }, 60000);
+}
+
 /* ---------------------------------------------------------
    9. INIT
    --------------------------------------------------------- */
 async function init(){
   render(); // paint the shell immediately so the UI isn't blank while auth/data load
   if(!supabase){ return; } // supabase-js/constants not loaded on this page
+  const linkError = readAuthLinkError();
   const { data:{ session } } = await supabase.auth.getSession();
-  if(session){
-    // Home page-er 3-step admin login-er por session ekhane already ache — abar login chaibe na.
-    const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
-    if(!rpcError && isAdmin === true){
-      localStorage.removeItem('admin_auth_in_progress');
-      bootAdminDashboard();
+
+  if(!session){
+    if(linkError){
+      gateMessage("This link is no longer valid", "The email link has expired or was already used. Ask the owner to send you a new invite link.", "Back to home", goHome);
       return;
     }
-    if(rpcError){
-      // Network/transient error: session sign-out korbo na, shudhu retry message dekhabo
-      showAdminLoginGate("Could not verify admin access. Check your connection and retry.");
-      return;
-    }
+    showAdminLoginGate();
+    return;
+  }
+
+  // Already verified (the owner login, or an invited admin who finished password + phone + 6-digit code)?
+  const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
+  if(rpcError){
+    // Network/transient error: don't sign out, just offer a retry
+    gateMessage("Could not verify admin access", "Check your connection and try again.", "Retry", ()=>window.location.reload());
+    return;
+  }
+  if(isAdmin === true){
+    try{ localStorage.removeItem('admin_auth_in_progress'); }catch(e){}
+    markAdminLogin(session);
+    bootAdminDashboard();
+    startAdminSessionWatch();
+    return;
+  }
+
+  // Signed in, but not verified as an admin yet: decide what this person needs next
+  const { data: st, error: stError } = await supabase.rpc('admin_my_status');
+  if(stError){
+    gateMessage("Could not verify admin access", "Check your connection and try again.", "Retry", ()=>window.location.reload());
+    return;
+  }
+  if(!st || !st.invited){
     await supabase.auth.signOut();
     showAdminLoginGate("This account is not an admin account.");
     return;
   }
-  showAdminLoginGate();
+  if(st.status==="suspended" || st.status==="blocked"){
+    await supabase.auth.signOut();
+    gateMessage(st.status==="blocked" ? "Admin account blocked" : "Admin account suspended", "You cannot use the admin panel right now. Please contact the owner.", "Back to home", goHome);
+    return;
+  }
+  if(st.status==="invited" || !st.has_security){
+    showAdminSetup(session.user.email, st.name);   // first time: create password, phone, 6-digit code
+    return;
+  }
+  // Active admin, but this session has not passed password + phone + 6-digit code: full login needed every time
+  await supabase.auth.signOut();
+  gateMessage("Please log in", "For security, sign in with your email, password, phone number and 6-digit code.", "Go to admin login", goAdminLogin);
 }
+/* =========================================================
+   ERROR LOGS  (System -> Error Logs)
+   Every Shiprocket / NimbusPost / courier failure is written by the
+   `courier` edge function into public.system_error_logs.
+   ========================================================= */
+async function loadErrorLogsFromDB(){
+  if(!supabase) return;
+  const { data, error } = await supabase.from('system_error_logs').select('*').order('created_at', { ascending:false }).limit(300);
+  if(error){ console.warn("[admin] error logs not loaded:", error.message); return; }
+  DATA.errorLogs = data || [];
+}
+const ERR_RULES = [
+  [/INSUFFICIENT_BALANCE|Insufficient wallet/i, "NimbusPost wallet has no balance", "Recharge the NimbusPost wallet (NimbusPost panel → Wallet → Recharge). Each order needs about ₹90–135."],
+  [/KYC verification is mandated/i, "Shiprocket KYC is not complete", "Complete KYC in Shiprocket panel → Settings → KYC. Shiprocket will not issue an AWB until then."],
+  [/addpickup|do not have permission|Unauthorized/i, "Shiprocket login has no permission to add a pickup address", "In Shiprocket → Settings → API create an API user, then put its email/password in Supabase secrets SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD."],
+  [/ORDER_NUMBER_DUPLICATE|already exists on channel/i, "Order ID already exists on NimbusPost", "The system retries with a new ID automatically. If it still fails, delete the old draft order in the NimbusPost panel."],
+  [/SKU cannot be repeated/i, "Two items in the order share the same SKU", "Check the order items. Lines of the same medicine are merged automatically."],
+  [/no warehouse for pincode/i, "No NimbusPost pickup warehouse for this shop's pincode", "Merchant → Settings → NimbusPost pickup setup, or add the shop as a warehouse in the NimbusPost panel."],
+  [/key\/secret not set/i, "NimbusPost API key is missing", "Add NIMBUS_API_KEY and NIMBUS_API_SECRET in Supabase → Edge Functions → Secrets."],
+  [/Shiprocket login failed|credentials are missing/i, "Shiprocket login failed", "Check SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD in Supabase secrets (use an API user)."],
+  [/Pincode missing/i, "Pincode is missing", "The customer address or the shop address has no 6-digit pincode. Add it and try again."],
+  [/not a valid 10-digit/i, "Customer phone number is not valid", "A courier needs a 10-digit mobile number. Fix the phone on the order."],
+  [/Merchant profile incomplete/i, "Merchant profile is incomplete for pickup", "Ask the merchant to complete phone, address, city, state and pincode in Settings."],
+  [/No courier is serviceable|not serviceable/i, "No courier delivers on this route", "Check both pincodes. Use MediFinder India delivery for this order instead."],
+  [/Order must be accepted/i, "Order was not accepted before dispatch", "Accept the order first, then dispatch."],
+  [/label/i, "Shipping label is not available", "Open the order again after a few minutes, or download the label from the courier panel."],
+  [/ProxiedDomainError/i, "NimbusPost rejected the request", "Read the details below for the exact reason."],
+];
+function explainError(message, source){
+  const m = String(message||"");
+  for(const [re,title,fix] of ERR_RULES){ if(re.test(m)) return { title, fix }; }
+  return { title: (source==="shiprocket" ? "Shiprocket" : source==="nimbuspost" ? "NimbusPost" : "Courier")+" error", fix:"Open Details to see the full message from the courier." };
+}
+const ERR_SRC = { shiprocket:["Shiprocket","blue"], nimbuspost:["NimbusPost","gold"], courier:["Courier","gray"] };
+VIEWS.errorlogs = () => {
+  const st = vs("errorlogs", {tab:"open", src:"all"});
+  const all = DATA.errorLogs || [];
+  const bySrc = all.filter(e=> st.src==="all" || e.source===st.src);
+  const rows = bySrc.filter(e=> st.tab==="all" ? true : st.tab==="resolved" ? !!e.resolved : !e.resolved);
+  const openN = all.filter(e=>!e.resolved).length, resN = all.filter(e=>e.resolved).length;
+  const srcChip = (k,l)=>`<button class="btn sm ${st.src===k?"primary":""}" data-act="errlog-src" data-src="${k}">${l}</button>`;
+  return `
+  <div class="view-head"><h1>Error Logs</h1><p>Every Shiprocket, NimbusPost and courier error — what went wrong and how to fix it.</p></div>
+  <div class="view-toolbar" style="gap:8px;flex-wrap:wrap">
+    ${toolbarTabs("errorlogs",[{key:"open",label:`Open (${openN})`},{key:"resolved",label:`Resolved (${resN})`},{key:"all",label:"All"}])}
+    <span style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
+      ${srcChip("all","All")}${srcChip("shiprocket","Shiprocket")}${srcChip("nimbuspost","NimbusPost")}${srcChip("courier","Other")}
+    </span>
+  </div>
+  <div class="view-toolbar" style="gap:8px;flex-wrap:wrap">
+    <button class="btn" data-act="errlog-refresh">↻ Refresh</button>
+    ${openN ? `<button class="btn" data-act="errlog-resolve-all">✓ Mark all resolved</button>` : ""}
+    ${resN ? `<button class="btn danger" data-act="errlog-clear">Delete resolved</button>` : ""}
+  </div>
+  <div class="card"><div class="card-body pad0">
+  ${renderTable("errorlogs-t",[
+    {key:"created_at",label:"When",render:r=>`<div>${esc(fmtDateTime(r.created_at))}</div>`},
+    {key:"source",label:"From",render:r=>{ const s=ERR_SRC[r.source]||[r.source||"Other","gray"]; return badge(s[0], s[1]); }},
+    {key:"message",label:"Problem",sortable:false,render:r=>{ const x=explainError(r.message,r.source); return `<div style="font-weight:600">${esc(x.title)}</div><div class="cell-sub" style="max-width:420px;white-space:normal">${esc(String(r.message).slice(0,140))}${String(r.message).length>140?"…":""}</div>`; }},
+    {key:"order_id",label:"Order",render:r=>`<span class="cell-mono">${esc(r.order_id||"—")}</span>`},
+    {key:"_fix",label:"How to fix",sortable:false,render:r=>`<div style="max-width:320px;white-space:normal">${esc(explainError(r.message,r.source).fix)}</div>`},
+    {key:"_a",label:"",sortable:false,render:r=>`<div class="actions-cell"><button class="btn sm" data-act="errlog-detail" data-id="${r.id}">Details</button>${r.resolved?"":`<button class="btn sm primary" data-act="errlog-resolve" data-id="${r.id}">Resolved</button>`}</div>`},
+  ], rows, {emptyText: st.tab==="open" ? "No open errors. Everything is working." : "No errors in this view."})}
+  </div></div>`;
+};
+Actions["errlog-src"] = (el)=>{ vs("errorlogs",{tab:"open",src:"all"}).src = el.dataset.src; render(); };
+Actions["errlog-refresh"] = async ()=>{ await loadErrorLogsFromDB(); render(); toast("Error logs refreshed"); };
+Actions["errlog-detail"] = (el)=>{
+  const r = (DATA.errorLogs||[]).find(x=>String(x.id)===String(el.dataset.id)); if(!r) return;
+  const x = explainError(r.message, r.source), s = ERR_SRC[r.source]||[r.source||"Other","gray"];
+  openModal("Error details", `
+    ${detailRow("Problem", `<b>${esc(x.title)}</b>`)}
+    ${detailRow("How to fix", esc(x.fix))}
+    ${detailRow("From", badge(s[0], s[1]))}
+    ${detailRow("Order", esc(r.order_id||"—"))}
+    ${detailRow("Action", esc(r.action||"—"))}
+    ${detailRow("When", esc(fmtDateTime(r.created_at)))}
+    ${detailRow("Status", r.resolved ? "Resolved" : "Open")}
+    <div class="hint" style="font-weight:600;margin:14px 0 6px">Full message from the courier</div>
+    <pre style="white-space:pre-wrap;word-break:break-word;background:var(--surface-alt);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12px;margin:0">${esc(r.message)}</pre>`,
+    `<button class="btn" data-close-modal>Close</button>${r.resolved?"":`<button class="btn primary" data-act="errlog-resolve" data-id="${r.id}" data-close="1">Mark resolved</button>`}`);
+};
+Actions["errlog-resolve"] = async (el)=>{
+  const r = (DATA.errorLogs||[]).find(x=>String(x.id)===String(el.dataset.id)); if(!r) return;
+  r.resolved = true; if(el.dataset.close) closeModal(); render(); toast("Marked as resolved");
+  const { error } = await supabase.from('system_error_logs').update({ resolved:true, resolved_at:new Date().toISOString() }).eq('id', r.id);
+  if(error){ r.resolved = false; render(); toast("Failed: "+error.message,"danger"); }
+};
+Actions["errlog-resolve-all"] = async ()=>{
+  const open = (DATA.errorLogs||[]).filter(e=>!e.resolved); if(!open.length) return;
+  open.forEach(e=>{ e.resolved = true; }); render(); toast("All errors marked resolved");
+  const { error } = await supabase.from('system_error_logs').update({ resolved:true, resolved_at:new Date().toISOString() }).in('id', open.map(e=>e.id));
+  if(error){ open.forEach(e=>{ e.resolved = false; }); render(); toast("Failed: "+error.message,"danger"); }
+};
+Actions["errlog-clear"] = async ()=>{
+  const done = (DATA.errorLogs||[]).filter(e=>e.resolved); if(!done.length) return;
+  if(!(await askConfirm("Delete resolved errors?", `${done.length} resolved error${done.length>1?"s":""} will be removed for good.`, {danger:true, ok:"Delete"}))) return;
+  const ids = done.map(e=>e.id); DATA.errorLogs = DATA.errorLogs.filter(e=>!e.resolved); render(); toast("Resolved errors deleted");
+  const { error } = await supabase.from('system_error_logs').delete().in('id', ids);
+  if(error){ await loadErrorLogsFromDB(); render(); toast("Failed: "+error.message,"danger"); }
+};
+
+
 init();

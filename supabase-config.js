@@ -1683,6 +1683,11 @@ if (phoneSignupToggle) {
 // ==========================================
 const ADMIN_REDIRECT_MAX_MS = 20000; // finalize-er por max 20 sec-er moddhe admin.html-e jabei
 let adminPhoneTicket = null; // server-encrypted ticket (email OTP verified, phone number pending)
+// 'owner'   = main admin: secret password -> email OTP -> phone + code (admin-auth edge function)
+// 'invited' = invited admin: own email + password -> own phone + own 6-digit code (database checks)
+const ADMIN_OWNER_EMAIL = 'medifinderindia@gmail.com';
+let adminLoginMode = 'owner';
+let adminInvitedSignedIn = false; // true while an invited admin has passed the password step but not the phone/code step
 
 const adminModal = document.getElementById('admin-modal');
 const closeAdminModal = document.getElementById('close-admin-modal');
@@ -1717,15 +1722,26 @@ async function callAdminAuth(action, payload = {}) {
 function openAdminVerification() {
     if (adminModal) {
         adminModal.style.display = 'flex';
+        adminLoginMode = 'owner';
         document.getElementById('admin-step-1').classList.remove('hidden-section');
+        document.getElementById('admin-step-1b').classList.add('hidden-section');
         document.getElementById('admin-step-2').classList.add('hidden-section');
         document.getElementById('admin-step-3').classList.add('hidden-section');
 
         document.getElementById('admin-password').value = "";
+        document.getElementById('admin-invited-email').value = "";
+        document.getElementById('admin-invited-password').value = "";
         document.getElementById('admin-email-otp').value = "";
         document.getElementById('admin-phone-otp').value = "";
         const _fo = document.getElementById('admin-fixed-otp'); if (_fo) _fo.value = "";
     }
+}
+
+// Drops a half-finished invited-admin login (password passed, phone/code not) so no unverified session is left behind
+async function abandonInvitedAdminLogin() {
+    if (!adminInvitedSignedIn) return;
+    adminInvitedSignedIn = false;
+    try { await supabaseClient.auth.signOut(); } catch (e) { /* ignore */ }
 }
 
 // Footer logo trigger theke ashle (auth.html?admin=1) modal sathe sathe khule dao
@@ -1738,6 +1754,7 @@ if (closeAdminModal) {
     closeAdminModal.addEventListener('click', () => {
         if (adminModal) adminModal.style.display = 'none';
         localStorage.removeItem('admin_auth_in_progress');
+        abandonInvitedAdminLogin();
     });
 }
 
@@ -1768,6 +1785,82 @@ if (adminBtnStep1) {
             document.getElementById('admin-step-1').classList.add('hidden-section');
             document.getElementById('admin-step-2').classList.remove('hidden-section');
         }
+    });
+}
+
+// Switch between the owner password step and the invited-admin email + password step
+function showAdminStep1(mode) {
+    adminLoginMode = mode;
+    document.getElementById('admin-step-1').classList.toggle('hidden-section', mode !== 'owner');
+    document.getElementById('admin-step-1b').classList.toggle('hidden-section', mode !== 'invited');
+}
+const adminSwitchInvited = document.getElementById('admin-switch-invited');
+if (adminSwitchInvited) adminSwitchInvited.addEventListener('click', (e) => { e.preventDefault(); showAdminStep1('invited'); });
+const adminSwitchOwner = document.getElementById('admin-switch-owner');
+if (adminSwitchOwner) adminSwitchOwner.addEventListener('click', (e) => { e.preventDefault(); showAdminStep1('owner'); });
+
+// Invited admin, step 1: own email + own password (set when they opened the invite link)
+const adminBtnStep1b = document.getElementById('admin-btn-step-1b');
+if (adminBtnStep1b) {
+    adminBtnStep1b.addEventListener('click', async () => {
+        const email = document.getElementById('admin-invited-email').value.trim().toLowerCase();
+        const password = document.getElementById('admin-invited-password').value;
+        if (!email || !password) {
+            showToast("Please enter your admin email and password.", "error");
+            return;
+        }
+        if (email === ADMIN_OWNER_EMAIL) {
+            showToast("Owner login: use the secure admin password option instead.", "error");
+            return;
+        }
+
+        adminBtnStep1b.disabled = true;
+        // Keeps the normal customer/merchant sign-in handlers out of the way (same flag the owner flow uses)
+        localStorage.setItem('admin_auth_in_progress', 'true');
+
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            localStorage.removeItem('admin_auth_in_progress');
+            adminBtnStep1b.disabled = false;
+            document.getElementById('admin-invited-password').value = "";
+            showToast("Access Denied: incorrect email or password.", "error");
+            return;
+        }
+        adminInvitedSignedIn = true;
+
+        // Is this really an active admin (not suspended / blocked / still waiting for the invite setup)?
+        const { data: st, error: stErr } = await supabaseClient.rpc('admin_my_status');
+        adminBtnStep1b.disabled = false;
+        let problem = '';
+        if (stErr) problem = "Could not verify admin access. Please try again.";
+        else if (!st || !st.invited) problem = "Access Denied: this is not an admin account.";
+        else if (st.status === 'suspended') problem = "This admin account is suspended. Contact the owner.";
+        else if (st.status === 'blocked') problem = "This admin account is blocked. Contact the owner.";
+        else if (st.status !== 'active' || !st.has_security) problem = "Finish your setup first: open the invite link we emailed you.";
+        if (problem) {
+            localStorage.removeItem('admin_auth_in_progress');
+            await abandonInvitedAdminLogin();
+            document.getElementById('admin-invited-password').value = "";
+            showToast(problem, "error");
+            return;
+        }
+
+        document.getElementById('admin-invited-password').value = "";
+        // Same phone + 6-digit screen as the owner, but checked against what THIS admin created
+        const desc = document.querySelector('#admin-step-3 .step-desc');
+        if (desc) desc.textContent = "Step 2: Enter your Phone Number & 6-Digit Code";
+        const phoneInput = document.getElementById('admin-phone-otp');
+        if (phoneInput) {
+            phoneInput.value = "";
+            phoneInput.placeholder = "Your phone number";
+            phoneInput.type = "tel";
+            phoneInput.inputMode = "tel";
+        }
+        const codeInput = document.getElementById('admin-fixed-otp');
+        if (codeInput) { codeInput.value = ""; codeInput.type = "password"; codeInput.placeholder = "Your 6-digit code"; }
+        document.getElementById('admin-step-1b').classList.add('hidden-section');
+        document.getElementById('admin-step-3').classList.remove('hidden-section');
+        showToast("Password verified. Now enter your phone number and 6-digit code.", "info");
     });
 }
 
@@ -1828,6 +1921,8 @@ if (adminBtnStep2) {
             const otpInput = document.getElementById('admin-fixed-otp');
             if (otpInput) otpInput.value = "";
             const phoneInput = document.getElementById('admin-phone-otp');
+            const _codeBack = document.getElementById('admin-fixed-otp');
+            if (_codeBack) { _codeBack.type = "text"; _codeBack.placeholder = "Enter 6-Digit OTP"; }
             if (phoneInput) {
                 phoneInput.value = "";
                 phoneInput.placeholder = "Admin phone number";
@@ -1860,6 +1955,31 @@ if (adminBtnStep3) {
             showToast("Verification Failed: Please enter the OTP!", "error");
             return;
         }
+        // Invited admin: the database checks the phone + 6-digit code this admin created (5 wrong tries = 15 min lock)
+        if (adminLoginMode === 'invited') {
+            adminBtnStep3.disabled = true;
+            const { data: vr, error: vErr } = await supabaseClient.rpc('admin_verify_login', { p_phone: phoneNumber, p_pin: enteredOtp });
+            adminBtnStep3.disabled = false;
+            if (vErr || !vr || vr.ok !== true) {
+                const msg = (vErr && vErr.message) || (vr && vr.error) || "Verification failed";
+                showToast("Verification Failed: " + msg, "error");
+                document.getElementById('admin-fixed-otp').value = "";
+                // Account no longer allowed (suspended, blocked, removed) or session problem -> end this login
+                if (/suspended|blocked|not an admin|finish setup|sign in again/i.test(msg)) {
+                    if (adminModal) adminModal.style.display = 'none';
+                    localStorage.removeItem('admin_auth_in_progress');
+                    await abandonInvitedAdminLogin();
+                }
+                return;
+            }
+            adminInvitedSignedIn = false;
+            localStorage.setItem('admin_auth_in_progress', 'true'); // admin.js clears it on load
+            showToast("Verification Complete! Welcome Admin.", "success");
+            if (adminModal) adminModal.style.display = 'none';
+            window.location.href = "admin.html";
+            return;
+        }
+
         if (!adminPhoneTicket) {
             showToast("Session expired. Please start again.", "error");
             openAdminVerification();
