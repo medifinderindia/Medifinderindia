@@ -1,3 +1,4 @@
+console.log("marchent.js v15 loaded");
 /* ===== Light / Dark theme manager (saved in localStorage 'mf_theme') ===== */
 (function () {
   'use strict';
@@ -251,15 +252,25 @@
     return row;
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl);
+    if (!m) throw new Error('Invalid image data');
+    const mime = m[1] || 'image/jpeg';
+    const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
   // New photos are data: URLs held in the browser; upload them to storage and return public URLs (existing http URLs are kept).
   async function uploadProductImages(merchantId, images) {
     return Promise.all((images || []).map(async (src, i) => {
       if (!src || !src.startsWith('data:')) return src || '';
-      const blob = await (await fetch(src)).blob();
+      const blob = dataUrlToBlob(src);   // no fetch(): data: URLs can be blocked by CSP / mobile webviews
       const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' })[blob.type] || 'jpg';
       const path = `${merchantId}/${Date.now()}-${i + 1}.${ext}`;
       const { error } = await sb.storage.from(PRODUCT_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
-      if (error) throw error;
+      if (error) { error.message = 'Image upload failed: ' + error.message; throw error; }
       return sb.storage.from(PRODUCT_BUCKET).getPublicUrl(path).data.publicUrl;
     }));
   }
@@ -2650,8 +2661,9 @@
       P.dirty = false;
       rerenderProduct();
     } catch (err) {
-      console.error(err);
-      showToast('Could not save the product. Please try again.', 'error');
+      console.error('PRODUCT SAVE ERROR:', err && err.message, err && err.details, err && err.hint, err && err.code, err);
+      const why = err && err.message ? String(err.message).slice(0, 140) : '';
+      showToast('Could not save the product' + (why ? ': ' + why : '. Please try again.'), 'error');
       btns.forEach(b => b.disabled = false);
     }
   }
