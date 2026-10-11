@@ -247,6 +247,18 @@ async function loadMerchantsFromDB(){
       status: m.status || "pending",
       kycReason: m.kyc_rejection_reason || "",
       kycStatusRaw: m.kyc_status || "",
+      /* KYC extras — merchant app saves these on public.merchants (not merchant_kyc) */
+      licenseId: m.license_id || "", licenseImg: m.license_img || "", licenseExpiry: m.license_expiry || "",
+      idType: m.id_proof_type || "", idNumber: m.id_proof_number || "", idImg: m.id_proof_img || "",
+      gstin: m.gstin || "", gstImg: m.gst_img || "",
+      tradeNo: m.trade_license_no || "", tradeImg: m.trade_license_img || "",
+      fssaiNo: m.fssai_no || "", fssaiImg: m.fssai_img || "",
+      bizType: m.business_proof_type || "", bizImg: m.business_proof_img || "",
+      pharmacistNo: m.pharmacist_reg_no || "", pharmacistImg: m.pharmacist_img || "",
+      extraNo: m.extra_permit_no || "", extraImg: m.extra_permit_img || "",
+      bankNo: m.bank_no || "", ifsc: m.ifsc_code || "", upi: m.upi_id || "", bankImg: m.bank_image || "",
+      category: m.business_category || "", submittedAt: m.kyc_submitted_at || "",
+      district: m.district || "", state: m.state || "", about: m.about_shop || "", brandInfo: m.brand_info || "", bankHolder: m.bank_account_holder || "", signature: m.signature_url || "", invoiceImg: m.invoice_img || "",
     };
   });
 }
@@ -1032,6 +1044,13 @@ function sortRows(rows, key, dir){
   });
 }
 
+
+/* Small medicine photo + name (used in every Product column) */
+function medCell(r){
+  const ph = '<span class=med-thumb-ph>⬡</span>';
+  const img = r._img ? `<img class="med-thumb" src="${esc(r._img)}" alt="" loading="lazy" onerror="this.outerHTML='${ph}'">` : ph;
+  return `<div class="med-cell">${img}<div class="med-txt"><div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div></div></div>`;
+}
 function renderTable(viewId, columns, rows, opts={}){
   const state = vs(viewId, {sortKey:null, sortDir:"asc"});
   const sorted = sortRows(rows, state.sortKey, state.sortDir);
@@ -1278,7 +1297,7 @@ function stockWatchView(){
   const low = DATA.products.filter(p=>p.approval==="approved" && p.stock<=p._minStock);
   const exp = DATA.products.filter(p=>{ if(!p._expiry) return false; const d = Math.floor((new Date(p._expiry) - new Date(localDayStr()))/86400000); return !isNaN(d) && d <= 60; });
   const cols = [
-    {key:"name",label:"Product",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div>`},{key:"merchant",label:"Merchant"},
+    {key:"name",label:"Product",render:r=>medCell(r)},{key:"merchant",label:"Merchant"},
     {key:"stock",label:"Stock",render:r=>r.stock===0?badge("Out of stock","red"):r.stock<=r._minStock?badge("Low · "+r.stock,"gold"):r.stock},
     {key:"_expiry",label:"Expiry",render:r=>expiryBadge(r._expiry)},
     {key:"_a",label:"",sortable:false,render:r=>`<button class="btn sm" data-act="product-edit" data-id="${r.id}">Edit</button>`},
@@ -1320,7 +1339,7 @@ VIEWS.products = () => {
     ${toolbarTabs("products", PRODUCT_TABS)}
     <div class="card"><div class="card-body pad0" id="tablewrap-products-pending">
       ${renderTable("products-pending",[
-        {key:"name",label:"Product",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div>`},
+        {key:"name",label:"Product",render:r=>medCell(r)},
         {key:"merchant",label:"Merchant"},{key:"category",label:"Category"},{key:"price",label:"MRP / Price",render:r=>money(r.price)},
         {key:"rx",label:"Rx",render:r=>r.rx?badge("Required","gold"):badge("OTC","gray")},
         {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell">
@@ -1338,7 +1357,7 @@ VIEWS.products = () => {
   <div class="view-toolbar">${toolbarSearch("products","Search product, category or brand")}</div>
   <div class="card"><div class="card-body pad0" id="tablewrap-products">
     ${renderTable("products",[
-      {key:"name",label:"Product",render:r=>`<div class="cell-strong">${esc(r.name)}</div><div class="cell-sub">${esc(r.id)}</div>`},
+      {key:"name",label:"Product",render:r=>medCell(r)},
       {key:"category",label:"Category"},
       {key:"brand",label:"Brand"},
       {key:"price",label:"Price",render:r=>money(r.price)},
@@ -2332,9 +2351,9 @@ function kycAllRowsRaw(){
     else if(m.license==="rejected" || m.kycStatusRaw==="rejected") st = "rejected";
     else if(m.kycStatusRaw==="pending_review" || k.status==="pending") st = "pending";
     if(!st) return;
-    out.push({kind:"merchant", id:m.id, name:m.name, phone:m.phone, info:`${m.owner} · ${m.city} ${m.pincode}`, status:st, reason:m.kycReason||k.rejection_reason||"", submitted:(k.created_at||"").slice(0,10),
-      details:[["Pharmacy",m.name],["Owner",m.owner],["Phone",m.phone],["Email",m.email],["Address",`${m.address}, ${m.city} ${m.pincode}`],["Shop GPS pin",(m.lat!=null&&m.lng!=null)?`${m.lat}, ${m.lng}  (https://www.google.com/maps?q=${m.lat},${m.lng})`:"Not pinned yet"],["Licence no.",dash(k.license_no)],["Aadhaar",dash(k.aadhaar_number)],["PAN",dash(k.pan_number)]],
-      docs:[doc("Drug licence",k.license_img,"license_docs"),doc("Aadhaar",k.aadhaar_img,"license_docs"),doc("PAN",k.pan_img,"license_docs")].filter(Boolean)});
+    out.push({kind:"merchant", id:m.id, name:m.name, phone:m.phone, info:`${m.owner} · ${m.city} ${m.pincode}`, status:st, reason:m.kycReason||k.rejection_reason||"", submitted:(k.created_at||m.submittedAt||"").slice(0,10),
+      details:[["Pharmacy",m.name],["Owner",m.owner],["Phone",m.phone],["Email",m.email],["Address",`${m.address}, ${m.city} ${m.pincode}`],["Shop GPS pin",(m.lat!=null&&m.lng!=null)?`${m.lat}, ${m.lng}  (https://www.google.com/maps?q=${m.lat},${m.lng})`:"Not pinned yet"],["Licence no.",dash(k.license_no||m.licenseId)],["Aadhaar",dash(k.aadhaar_number||(m.idType==="Aadhaar"?m.idNumber:""))],["PAN",dash(k.pan_number||(m.idType==="PAN"?m.idNumber:""))],["Category",dash(m.category)],["About shop",dash(m.about)],["District / State",`${dash(m.district)} · ${dash(m.state)}`],["Brand info",dash(m.brandInfo)],["Account holder",dash(m.bankHolder)],["Licence expiry",dash(m.licenseExpiry)],["ID proof",m.idType?`${m.idType} · ${dash(m.idNumber)}`:"—"],["GSTIN",dash(m.gstin)],["Trade licence no.",dash(m.tradeNo)],["FSSAI no.",dash(m.fssaiNo)],["Pharmacist reg. no.",dash(m.pharmacistNo)],["Other permit no.",dash(m.extraNo)],["Business proof",dash(m.bizType)],["UPI",dash(m.upi)],["Account",`${mask(m.bankNo)} · ${dash(m.ifsc)}`]],
+      docs:(()=>{ const seen=new Set(), out2=[]; const add=(d)=>{ if(d && !seen.has(d.ref)){ seen.add(d.ref); out2.push(d); } }; add(doc((k.license_img && k.license_img===m.licenseImg) ? "Drug licence" : (k.license_img && k.license_img===m.fssaiImg) ? "FSSAI certificate" : (k.license_img && k.license_img===m.bizImg) ? "Business proof" : "Drug licence",k.license_img,"license_docs")); add(doc("Aadhaar",k.aadhaar_img,"license_docs")); add(doc("PAN",k.pan_img,"license_docs")); add(doc("Drug licence",m.licenseImg,"license_docs")); add(doc((m.idType||"ID")+" (ID proof)",m.idImg,"license_docs")); add(doc("Business proof",m.bizImg,"license_docs")); add(doc("GST certificate",m.gstImg,"license_docs")); add(doc("Trade licence",m.tradeImg,"license_docs")); add(doc("FSSAI certificate",m.fssaiImg,"license_docs")); add(doc("Pharmacist proof",m.pharmacistImg,"license_docs")); add(doc("Other permit",m.extraImg,"license_docs")); add(doc("Bank document",m.bankImg,"license_docs")); add(doc("Invoice",m.invoiceImg,"license_docs")); add(doc("Signature",m.signature,"avatars")); return out2; })()});
   });
   const rk = {}; R.riderKyc.forEach(k=>{ rk[k.rider_id] = k; });
   DATA.riders.forEach(r=>{
@@ -5143,5 +5162,13 @@ Actions["errlog-clear"] = async ()=>{
   if(error){ await loadErrorLogsFromDB(); render(); toast("Failed: "+error.message,"danger"); }
 };
 
+
+/* Long table text stays on one line (cut with …) — tap a cut cell to read it fully */
+document.addEventListener("click",(e)=>{
+  const td = e.target.closest && e.target.closest("td");
+  if(!td || e.target.closest("button,a,input,select,textarea,label,[data-act]")) return;
+  if(td.classList.contains("td-open")) td.classList.remove("td-open");
+  else if(td.scrollWidth > td.clientWidth + 1) td.classList.add("td-open");
+});
 
 init();

@@ -667,8 +667,20 @@
         const kycImg = hasLic ? licenseImg : (cat.fssai ? fssaiImg : bizImg);
         const { data: ex } = await sb.from('merchant_kyc').select('id').eq('merchant_id', mid).eq('kyc_type', 'license').limit(1);
         const kycRow = { license_no: kycNo, license_img: kycImg, status: 'pending', rejection_reason: '' };
-        if (ex && ex.length) await sb.from('merchant_kyc').update(kycRow).eq('id', ex[0].id);
-        else await sb.from('merchant_kyc').insert(Object.assign({ merchant_id: mid, kyc_type: 'license', verified: false }, kycRow));
+        // also mirror the identity the merchant filled in (Aadhaar / PAN) so the admin KYC screen shows it
+        const idT = String((d.identity && d.identity.idType) || ''), idN = String((d.identity && d.identity.idNumber) || '').trim();
+        const idImg = docs.identity || (d.identity && d.identity.doc) || '';
+        const kycRowFull = Object.assign({}, kycRow);
+        if (idT === 'Aadhaar') { kycRowFull.aadhaar_number = idN; kycRowFull.aadhaar_img = idImg; }
+        if (idT === 'PAN') { kycRowFull.pan_number = idN; kycRowFull.pan_img = idImg; }
+        const writeKyc = async (row) => {
+          const r = (ex && ex.length)
+            ? await sb.from('merchant_kyc').update(row).eq('id', ex[0].id)
+            : await sb.from('merchant_kyc').insert(Object.assign({ merchant_id: mid, kyc_type: 'license', verified: false }, row));
+          if (r && r.error) throw r.error;
+        };
+        try { await writeKyc(kycRowFull); }
+        catch (e1) { console.warn('merchant_kyc full sync failed, retrying basic', e1); await writeKyc(kycRow); }
       } catch (e) { console.warn('merchant_kyc sync failed', e); }
       if (files && files.signature) {
         try { await DB.uploadSignature(files.signature); }
@@ -4629,4 +4641,51 @@
   }
 
   document.addEventListener('DOMContentLoaded', init);
+})();
+
+
+/* ============================================================
+   KYC file picker preview — after a file is chosen show a small
+   thumbnail with name + size. Green = OK (with a Change button),
+   Red = wrong type / too big (input is cleared so it can be re-picked).
+   Additive: works on every <input type="file"> inside a label.field.
+   ============================================================ */
+(function () {
+  var MB = 1024 * 1024;
+  function fmt(n) { return n >= MB ? (n / MB).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function rule(inp) {
+    var sig = inp.name === 'sig' || inp.name === 'signature';
+    return sig ? { max: 2 * MB, types: /^image\/(png|jpe?g|webp)$/i, label: 'PNG, JPG or WebP', pdf: false }
+               : { max: 8 * MB, types: /^image\//i, label: 'an image or PDF', pdf: true };
+  }
+  function box(inp) {
+    var b = inp.parentNode.querySelector('.kycf');
+    if (!b) { b = document.createElement('div'); b.className = 'kycf'; inp.insertAdjacentElement('afterend', b); }
+    return b;
+  }
+  function esc2(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function show(inp) {
+    var f = inp.files && inp.files[0], b = box(inp);
+    if (b._url) { URL.revokeObjectURL(b._url); b._url = null; }
+    if (!f) { b.remove(); inp.classList.remove('kycf-hide'); return; }
+    var r = rule(inp), isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name), err = '';
+    if (!(r.types.test(f.type) || (r.pdf && isPdf))) err = 'Wrong file type — choose ' + r.label;
+    else if (f.size > r.max) err = 'File too large (' + fmt(f.size) + ') — max ' + fmt(r.max);
+    var thumb;
+    if (!err && !isPdf) { b._url = URL.createObjectURL(f); thumb = '<img class="kycf-img" src="' + b._url + '" alt="">'; }
+    else thumb = '<span class="kycf-img kycf-ph">' + (isPdf ? 'PDF' : '!') + '</span>';
+    b.className = 'kycf ' + (err ? 'kycf-bad' : 'kycf-ok');
+    b.innerHTML = thumb + '<div class="kycf-txt"><div class="kycf-name">' + esc2(f.name) + '</div><div class="kycf-sub">' +
+      (err ? esc2(err) : '✓ ' + fmt(f.size) + ' · ready') + '</div></div>' +
+      '<button type="button" class="kycf-btn">' + (err ? 'Choose again' : 'Change') + '</button>';
+    b.querySelector('.kycf-btn').onclick = function (e) { e.preventDefault(); e.stopPropagation(); inp.click(); };
+    if (err) { inp.value = ''; inp.classList.remove('kycf-hide'); }   // clear -> required check will flag it
+    else inp.classList.add('kycf-hide');
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || t.type !== 'file' || t.hidden || t.hasAttribute('data-img-input') || t.id === 'avatarInput') return;
+    if (!t.closest('label.field')) return;
+    show(t);
+  }, true);
 })();
