@@ -502,8 +502,48 @@ function renderVerifyPanel(){
    <div class="vpad" id="vPad"><canvas id="vCan" width="900" height="260"></canvas>
      <div class="vbtns"><button class="vlt" id="vClr">Clear</button><button class="vgo" id="vSave">✔ Save signature &amp; verify</button></div></div>`;
  document.querySelector('.invoice-wrap').after(p);
+ offerSavedSignature();
  $('vGo').onclick=()=>submitVerify('verify',null);
  $('vSg').onclick=()=>{$('vPad').style.display='block';$('vSg').style.display='none';setupPad();};
+}
+/* Merchant's optional uploaded signature (Profile > Receipt Signature): one tap signs the invoice with it */
+async function getSavedSignature(){
+ if(!db||type!=='order')return '';
+ try{
+   const s=await db.auth.getSession(),u=s&&s.data&&s.data.session?s.data.session.user:null;
+   if(!u)return '';
+   const f=['auth_user_id.eq.'+u.id];if(u.email)f.push('email.eq."'+u.email+'"');
+   const r=await db.from('merchants').select('signature_url').or(f.join(',')).order('id',{ascending:true}).limit(1);
+   return (r.data&&r.data[0]&&r.data[0].signature_url)||'';
+ }catch(e){console.warn('Saved signature unavailable',e);return ''}
+}
+function signatureToPng(url){
+ return new Promise((res,rej)=>{
+   const im=new Image();im.crossOrigin='anonymous';
+   im.onload=()=>{
+     try{
+       const maxW=900,maxH=260,k=Math.min(maxW/im.naturalWidth,maxH/im.naturalHeight,1);
+       const w=Math.max(1,Math.round(im.naturalWidth*k)),h=Math.max(1,Math.round(im.naturalHeight*k));
+       const c=document.createElement('canvas');c.width=w;c.height=h;
+       c.getContext('2d').drawImage(im,0,0,w,h);
+       res(c.toDataURL('image/png'));
+     }catch(e){rej(e)}
+   };
+   im.onerror=()=>rej(new Error('image load failed'));
+   im.src=url;
+ });
+}
+async function offerSavedSignature(){
+ const url=await getSavedSignature();
+ const box=document.querySelector('#vpanel > .vbtns');
+ if(!url||!box||$('vSaved'))return;
+ const b=document.createElement('button');b.id='vSaved';b.className='vgo';b.type='button';b.textContent='🖼 Sign with my saved signature';
+ box.insertBefore(b,$('vSg'));
+ b.onclick=async()=>{
+   if(!confirm('Sign and verify this invoice with your saved signature?'))return;
+   try{ submitVerify('signature',await signatureToPng(url)); }
+   catch(e){console.error(e);alert('Could not use the saved signature. Please use "Sign manually" instead.')}
+ };
 }
 function setupPad(){
  const cv=$('vCan'),ctx=cv.getContext('2d');let drawing=false,drawn=false;

@@ -181,7 +181,8 @@
   /* ---------- medicines row  <->  UI product ----------
      status  : 'Draft' | 'Pending' (admin_approved=false) | 'Approved'/'Active' (admin_approved=true) | 'Inactive' | 'Rejected'
      public storefront only shows status Approved/Active (existing RLS policy meds_sel).            */
-  const DB_TYPE = { medicine: 'Medicine', instrument: 'Instrument' };
+  const DB_TYPE = { medicine: 'Medicine', instrument: 'Instrument', general: 'General', personal_care: 'Personal Care', grocery: 'Grocery' };
+  const typeFromDb = (t) => { const x = String(t || '').toLowerCase(); return /instrument/.test(x) ? 'instrument' : /personal/.test(x) ? 'personal_care' : /general/.test(x) ? 'general' : /grocery/.test(x) ? 'grocery' : 'medicine'; };
   function rowToProduct(r) {
     const raw = String(r.status || '').toLowerCase();
     let status, active = true;
@@ -190,7 +191,7 @@
     else if (raw === 'inactive') { status = 'approved'; active = false; }
     else if (raw === 'approved' || raw === 'active' || r.admin_approved) status = 'approved';
     else status = 'pending';
-    const type = /instrument/i.test(r.product_type || '') ? 'instrument' : 'medicine';
+    const type = typeFromDb(r.product_type);
     const price = r.selling_price != null ? Number(r.selling_price) : Number(r.unit_price || 0);
     const mrp = r.mrp != null ? Number(r.mrp) : price;
     const images = [r.image_url, r.image_url_2, r.image_url_3, r.image_url_4].map(x => x || '');
@@ -206,7 +207,7 @@
       dosageForm: r.dosage_form || '', strength: r.strength || '', packSize: r.pack_size || '', composition: r.composition || '',
       rxRequired: !!r.is_rx || r.prescription_req === 'Yes',
       batchNo: r.batch_number || '', lotNo: r.lot_number || '', mfd: r.mfd_date || '', expiry: r.expiry_date || '',
-      storage: type === 'medicine' ? (r.storage_condition || '') : '',
+      storage: type !== 'instrument' ? (r.storage_condition || '') : '',
       modelNumber: r.model_number || '', color: r.item_color || '', deviceType: r.device_type || '', display: r.display_spec || '',
       battery: r.battery_info || '', range: r.measurement_range || '', warranty: r.warranty_period || 'No Warranty',
       care: type === 'instrument' ? (r.storage_condition || '') : '',
@@ -234,6 +235,11 @@
     if (isMed) Object.assign(row, {
       dosage_form: p.dosageForm || '', strength: p.strength || '', pack_size: p.packSize || null, composition: p.composition || '',
       prescription_req: p.rxRequired ? 'Yes' : 'No', is_rx: !!p.rxRequired,
+      batch_number: p.batchNo || '', lot_number: p.lotNo || null,
+      mfd_date: p.mfd || null, expiry_date: p.expiry || null, storage_condition: p.storage || ''
+    });
+    else if (p.type !== 'instrument') Object.assign(row, {      // general / personal care / grocery
+      pack_size: p.packSize || null, prescription_req: 'No', is_rx: false,
       batch_number: p.batchNo || '', lot_number: p.lotNo || null,
       mfd_date: p.mfd || null, expiry_date: p.expiry || null, storage_condition: p.storage || ''
     });
@@ -333,6 +339,7 @@
       ownerName: r.owner_name || '',
       category: r.business_category || '',
       about: r.about_shop || '',
+      signature: r.signature_url || '',
       photo: r.avatar_url || r.merchant_avatar || '',
       phone: r.phone || '',
       email: r.email || email || '',
@@ -343,6 +350,15 @@
         lat, lng
       },
       license: { number: r.license_id || '', expiry: r.license_expiry || '', doc: r.license_img || '', status: r.license_status || 'unverified' },
+      docs: {
+        business: { type: r.business_proof_type || '', doc: r.business_proof_img || '' },
+        gst: { number: r.gstin || '', doc: r.gst_img || '' },
+        trade: { number: r.trade_license_no || '', doc: r.trade_license_img || '' },
+        fssai: { number: r.fssai_no || '', expiry: r.fssai_expiry || '', doc: r.fssai_img || '' },
+        pharmacist: { number: r.pharmacist_reg_no || '', doc: r.pharmacist_img || '' },
+        invoice: { brand: r.brand_info || '', doc: r.invoice_img || '' },
+        extra: { number: r.extra_permit_no || '', doc: r.extra_permit_img || '' }
+      },
       identity: { idType: r.id_proof_type || 'Aadhaar', idNumber: r.id_proof_number || '', doc: r.id_proof_img || '', status: normalizeKyc(r) },
       bank: { accountHolder: r.bank_account_holder || r.owner_name || '', accountNumber: r.bank_no || '', ifsc: r.ifsc_code || '', upi: r.upi_id || '', doc: r.bank_image || '', status: r.bank_status || 'unverified' },
       codEnabled: r.cod_available !== false,
@@ -547,6 +563,21 @@
      ============================================================ */
   const DB = {
     /* ---- merchant / profile / KYC ---- */
+    /* Permanent account deletion: the delete_my_merchant_account() SQL function (see delete_merchant_account.sql)
+       removes the merchant's data and the login itself. It refuses while any order is still active. */
+    deleteAccount: async () => {
+      await requireMerchantId();
+      const { error } = await sb.rpc('delete_my_merchant_account');
+      if (error) {
+        const msg = String(error.message || '');
+        if (/ACTIVE_ORDERS/i.test(msg)) throw appError('ACTIVE_ORDERS', 'You still have active orders. Finish or cancel them first, then delete your account.');
+        if (/ADMIN_ACCOUNT/i.test(msg)) throw appError('ADMIN_ACCOUNT', 'This login is an admin account and cannot be deleted from the merchant panel.');
+        if (/foreign key|violates/i.test(msg)) throw appError('LINKED', 'This login is linked to other MediFinder data, so it could not be deleted automatically. Please contact support.');
+        if (/does not exist|could not find the function|PGRST202/i.test(msg + ' ' + (error.code || ''))) throw appError('NOT_SETUP', 'Account deletion is not set up yet. Please contact support.');
+        throw error;
+      }
+      return true;
+    },
     getMerchant: async () => {
       const r = await loadMerchantRow(true);
       let verifiedOn = null;
@@ -575,6 +606,19 @@
       const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
       return DB.updateMerchant({ avatar_url: url });
     },
+    /* Optional signature image printed on order receipts. Public bucket (receipts are public); PNG/JPG/WebP, max 2 MB. */
+    uploadSignature: async (file) => {
+      if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) throw new Error('Please choose a PNG, JPG or WebP image');
+      if (file.size > 2 * 1024 * 1024) throw new Error('Signature image must be under 2 MB');
+      const mid = await requireMerchantId();
+      const ext = file.type.includes('png') ? 'png' : file.type.includes('webp') ? 'webp' : 'jpg';
+      const path = `merchant-${mid}/signature-${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+      return DB.updateMerchant({ signature_url: url });
+    },
+    removeSignature: async () => DB.updateMerchant({ signature_url: null }),
     changePassword: async (password) => {
       const { error } = await sb.auth.updateUser({ password });
       if (error) throw error;
@@ -583,16 +627,29 @@
       const mid = await requireMerchantId();
       const cur = await loadMerchantRow(true);
       const docs = {};
-      for (const kind of ['license', 'identity', 'bank']) {
+      for (const kind of ['license', 'business', 'gst', 'trade', 'fssai', 'pharmacist', 'invoice', 'extra', 'identity', 'bank']) {
         if (files && files[kind]) docs[kind] = await uploadKycDoc(kind, files[kind]);
       }
       const gps = String(d.address.gps || '').split(',').map(x => parseFloat(x));
-      const licenseImg = docs.license || d.license.doc || '';
+      const cat = catInfo(d.category), dd = d.docs || {};
+      const hasLic = cat.drug && String(d.license.number || '').trim() !== '';
+      const licenseImg = hasLic ? (docs.license || d.license.doc || '') : '';
+      const bizImg = docs.business || (dd.business && dd.business.doc) || '';
+      const gstImg = docs.gst || (dd.gst && dd.gst.doc) || '';
+      const tradeImg = docs.trade || (dd.trade && dd.trade.doc) || '';
+      const fssaiImg = cat.fssai ? (docs.fssai || (dd.fssai && dd.fssai.doc) || '') : '';
       const patch = {
         shop_name: d.shopName, merchant_name: d.shopName, owner_name: d.ownerName, business_category: d.category, about_shop: d.about || '',
         address: d.address.fullAddress, resolved_address: d.address.fullAddress, city: d.address.city, district: d.address.district,
         state: d.address.state, pincode: d.address.pincode,
-        license_id: d.license.number, license_img: licenseImg, license_expiry: d.license.expiry || null,
+        license_id: hasLic ? d.license.number.trim() : '', license_img: licenseImg, license_expiry: hasLic ? (d.license.expiry || null) : null,
+        pharmacist_reg_no: cat.pharmacist ? ((dd.pharmacist && dd.pharmacist.number) || null) : null, pharmacist_img: cat.pharmacist ? (docs.pharmacist || (dd.pharmacist && dd.pharmacist.doc) || '') : '',
+        brand_info: cat.invoice ? ((dd.invoice && dd.invoice.brand) || null) : null, invoice_img: cat.invoice ? (docs.invoice || (dd.invoice && dd.invoice.doc) || '') : '',
+        extra_permit_no: cat.extra ? ((dd.extra && dd.extra.number) || null) : null, extra_permit_img: cat.extra ? (docs.extra || (dd.extra && dd.extra.doc) || '') : '',
+        business_proof_type: (dd.business && dd.business.type) || null, business_proof_img: bizImg,
+        gstin: (dd.gst && dd.gst.number ? String(dd.gst.number).toUpperCase() : null), gst_img: gstImg,
+        trade_license_no: (dd.trade && dd.trade.number) || null, trade_license_img: tradeImg,
+        fssai_no: cat.fssai ? ((dd.fssai && dd.fssai.number) || null) : null, fssai_expiry: cat.fssai ? ((dd.fssai && dd.fssai.expiry) || null) : null, fssai_img: fssaiImg,
         id_proof_type: d.identity.idType, id_proof_number: d.identity.idNumber, id_proof_img: docs.identity || d.identity.doc || '',
         bank_no: d.bank.accountNumber, ifsc_code: String(d.bank.ifsc || '').toUpperCase(), upi_id: d.bank.upi || '', bank_image: docs.bank || d.bank.doc || '',
         bank_account_holder: d.ownerName,
@@ -605,11 +662,18 @@
       if (error) throw error;
       // keep the admin review queue (merchant_kyc) in step
       try {
+        // admin queue row: the Drug Licence when the category needs one, otherwise the main business document
+        const kycNo = hasLic ? d.license.number : (cat.fssai ? (dd.fssai.number || '') : ((dd.gst && dd.gst.number) || (dd.trade && dd.trade.number) || ''));
+        const kycImg = hasLic ? licenseImg : (cat.fssai ? fssaiImg : bizImg);
         const { data: ex } = await sb.from('merchant_kyc').select('id').eq('merchant_id', mid).eq('kyc_type', 'license').limit(1);
-        const kycRow = { license_no: d.license.number, license_img: licenseImg, status: 'pending', rejection_reason: '' };
+        const kycRow = { license_no: kycNo, license_img: kycImg, status: 'pending', rejection_reason: '' };
         if (ex && ex.length) await sb.from('merchant_kyc').update(kycRow).eq('id', ex[0].id);
         else await sb.from('merchant_kyc').insert(Object.assign({ merchant_id: mid, kyc_type: 'license', verified: false }, kycRow));
       } catch (e) { console.warn('merchant_kyc sync failed', e); }
+      if (files && files.signature) {
+        try { await DB.uploadSignature(files.signature); }
+        catch (e) { console.warn('signature upload failed (optional)', e); }
+      }
       merchantRowCache = null;
       return DB.getMerchant();
     },
@@ -1179,7 +1243,6 @@
   const KYC_REQUIRED = {
     store: ['shopName', 'ownerName', 'category', 'about'],
     address: ['fullAddress', 'city', 'district', 'state', 'pincode', 'gps'],
-    license: ['number', 'expiry', 'doc'],
     identity: ['idType', 'idNumber', 'doc'],
     bank: ['accountNumber', 'ifsc', 'doc']
   };
@@ -1188,8 +1251,63 @@
     if (!obj) return false;
     return req.every(f => obj[f] !== undefined && obj[f] !== null && String(obj[f]).trim() !== '');
   }
+  /* Business categories → which documents KYC asks for.
+     (Supabase table merchant_business_categories enforces the same rules server-side.) */
+  const BUSINESS_CATEGORIES = [
+    { label: 'General Store / Daily Essentials', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: '', types: ['general'],
+      hint: 'Daily essentials, tissue, detergent and general household products. Needs owner ID, shop address proof, bank details and trade licence (if applicable).' },
+    { label: 'Personal Care & Hygiene', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: 'Additional permission for your product type (if applicable)', types: ['personal_care'],
+      hint: 'Soap, shampoo, handwash, toothpaste, toothbrush, sanitary pads and diapers. Needs KYC and shop proof. Some product types may need extra permission.' },
+    { label: 'Retail Pharmacy / Medical Store', drug: true, drugReq: true, fssai: false, pharmacist: true, invoice: false, extra: '', types: ['medicine'],
+      hint: 'Tablets, capsules, syrups, insulin and other approved medicines. Needs Drug Licence, pharmacist proof and KYC. You cannot sell medicines until the licence is verified.' },
+    { label: 'Medical Consumables & Devices', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: true, extra: 'Approval for regulated medical device (if your product needs one)', types: ['instrument'],
+      hint: 'Bandages, gauze, medical gloves, masks, thermometers, BP monitors and nebulizers. Needs KYC, product invoice and brand / manufacturer details.' },
+    { label: 'Wholesale / Distributor', drug: true, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: '', types: ['general', 'personal_care', 'instrument', 'medicine'],
+      hint: 'Approved General, Personal Care and Medical products, only the types you are permitted to supply. Needs KYC, business proof, bank details and GST / trade licence (if applicable). A Drug Licence is required only to distribute medicines.' },
+    { label: 'Grocery & Packaged Food', drug: false, drugReq: false, fssai: true, pharmacist: false, invoice: false, extra: '', types: ['grocery'],
+      hint: 'Biscuits, packaged food, oats and approved packaged drinks. Needs KYC, shop proof and FSSAI registration / licence.' }
+  ];
+  const BUSINESS_PROOF_TYPES = ['Shop address proof', 'Shop Establishment Certificate', 'Shop photo with signboard', 'Rent agreement / property document', 'Utility bill of the shop'];
+  const LEGACY_CATEGORY = { 'Retail Pharmacy': 2, 'Medical Store': 2, 'Wholesale Pharmacy': 4, 'Health & Wellness': 3 };
+  function catInfo(label) {
+    const c = BUSINESS_CATEGORIES.find(x => x.label === label);
+    if (c) return c;
+    if (label in LEGACY_CATEGORY) return BUSINESS_CATEGORIES[LEGACY_CATEGORY[label]];
+    // empty / unknown category: strict, nothing can be listed until a category is chosen in KYC
+    return { label: label || '', drug: true, drugReq: true, fssai: false, pharmacist: false, invoice: false, extra: '', types: [], hint: '' };
+  }
+  const hasAll = (o, f) => !!o && f.every(k => o[k] !== undefined && o[k] !== null && String(o[k]).trim() !== '');
+  /* Documents section: business proof for everyone; Drug Licence / pharmacist / FSSAI / invoice by category */
+  function docsComplete(d) {
+    const c = catInfo(d.category), docs = d.docs || {};
+    if (!d.category || !BUSINESS_CATEGORIES.some(x => x.label === d.category)) return false;
+    if (!hasAll(docs.business, ['type', 'doc'])) return false;
+    if (c.drugReq && !hasAll(d.license, ['number', 'expiry', 'doc'])) return false;
+    if (c.drug && !c.drugReq && String((d.license || {}).number || '').trim() && !hasAll(d.license, ['expiry', 'doc'])) return false;
+    if (c.pharmacist && !hasAll(docs.pharmacist, ['number', 'doc'])) return false;
+    if (c.fssai && !hasAll(docs.fssai, ['number', 'expiry', 'doc'])) return false;
+    if (c.invoice && !hasAll(docs.invoice, ['brand', 'doc'])) return false;
+    return true;
+  }
+  function stepComplete(key, d) {
+    if (key === 'store') return sectionComplete('store', d);
+    if (key === 'license') return docsComplete(d);
+    return sectionComplete(key, d[key]);
+  }
+  /* Prescription medicines: only with a verified Drug Licence (same rule as the database) */
+  function canSellRx(m) {
+    if (!m || !m.license || !String(m.license.number || '').trim()) return false;
+    if (String(m.license.status || '').toLowerCase() !== 'verified') return false;
+    return !m.license.expiry || String(m.license.expiry).slice(0, 10) >= new Date().toISOString().slice(0, 10);
+  }
+  /* Product types this merchant's account type may list (same rule as the database) */
+  function allowedProductTypes(m) {
+    if (!m) return [];
+    const c = catInfo(m.category);
+    return c.types.filter(t => t !== 'medicine' || c.drugReq || (c.drug && String((m.license || {}).number || '').trim()));
+  }
   function kycPercent(merchant) {
-    const parts = [sectionComplete('store', merchant), sectionComplete('address', merchant.address), sectionComplete('license', merchant.license), sectionComplete('identity', merchant.identity), sectionComplete('bank', merchant.bank)];
+    const parts = [sectionComplete('store', merchant), sectionComplete('address', merchant.address), docsComplete(merchant), sectionComplete('identity', merchant.identity), sectionComplete('bank', merchant.bank)];
     return parts.filter(Boolean).length * 20;
   }
 
@@ -1512,7 +1630,14 @@
       </div>`).join('');
     const os = week ? week.orderStatus : { completed: 0, cancelled: 0, pending: 0, preparing: 0 };
 
+    const notVerifiedBanner = (m && m.kyc.status !== 'verified') ? `
+    <div class="card" style="border-left:4px solid var(--amber-500,#f59e0b);margin-bottom:14px">
+      <b>Your products are hidden from customers</b>
+      <p class="cell-muted" style="font-size:13px;margin:4px 0 10px">${m.kyc.status === 'pending_review' ? 'Our team is verifying your documents. Your products appear on the home page once you are verified.' : 'Complete KYC and get verified. Until then your products do not appear on the home page.'}</p>
+      ${m.kyc.status === 'pending_review' ? '' : '<button class="btn btn-primary btn-sm" data-route="profile">Complete KYC</button>'}
+    </div>` : '';
     return `
+    ${notVerifiedBanner}
     <div class="page-head">
       <div><h1>Dashboard</h1><p class="page-sub">Welcome back${m && m.ownerName ? ', ' + esc(m.ownerName.split(' ')[0]) : ''}</p></div>
       <div class="page-head-actions">
@@ -2152,12 +2277,25 @@
      Draft    → status 'draft'
      ============================================================ */
   const PRODUCT_CATEGORIES = {
-    medicine: ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Cream', 'Ointment', 'Gel', 'Drops', 'Powder', 'Sachet', 'Inhaler', 'Spray', 'Lotion', 'Soap', 'Other'],
-    instrument: ['Diagnostic Equipment', 'BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Nebulizer', 'Weighing Scale', 'Stethoscope', 'Surgical Instrument', 'Walking Stick / Crutches', 'First Aid & Dressing', 'Syringe & Needle', 'Hearing Aid', 'Other Medical Equipment']
+    medicine: ['Tablet', 'Capsule', 'Syrup', 'Insulin', 'Injection', 'Cream', 'Ointment', 'Gel', 'Drops', 'Powder', 'Sachet', 'Inhaler', 'Spray', 'Lotion', 'Soap', 'Other'],
+    general: ['Tissue & Paper', 'Detergent & Laundry', 'Cleaning Supplies', 'Household Items', 'Other Daily Essentials'],
+    personal_care: ['Soap & Body Wash', 'Shampoo & Hair Care', 'Handwash', 'Toothpaste', 'Toothbrush & Oral Care', 'Sanitary Pads', 'Diapers', 'Other Personal Care'],
+    grocery: ['Biscuits', 'Packaged Food', 'Oats & Cereals', 'Packaged Drinks', 'Other Grocery'],
+    instrument: ['Bandage & Gauze', 'Medical Gloves', 'Mask', 'Diagnostic Equipment', 'BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Nebulizer', 'Weighing Scale', 'Stethoscope', 'Surgical Instrument', 'Walking Stick / Crutches', 'First Aid & Dressing', 'Syringe & Needle', 'Hearing Aid', 'Other Medical Equipment']
   };
   const PRODUCT_UNITS = {
     medicine: ['Strip', 'Bottle', 'Tube', 'Box', 'Vial', 'Sachet', 'Pcs'],
-    instrument: ['Piece', 'Set', 'Pair', 'Box', 'Unit']
+    instrument: ['Piece', 'Set', 'Pair', 'Box', 'Unit'],
+    general: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet'],
+    personal_care: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet'],
+    grocery: ['Pcs', 'Pack', 'Bottle', 'Box', 'Sachet']
+  };
+  const PRODUCT_TYPE_CARDS = {
+    medicine: { ico: 'pill', title: 'Medicines', sub: 'Tablets, capsules, syrups, insulin and other approved medicines' },
+    instrument: { ico: 'steth', title: 'Medical Supplies & Devices', sub: 'Bandages, gauze, gloves, masks, thermometers, BP monitors, nebulizers' },
+    general: { ico: 'store', title: 'Daily Essentials', sub: 'Tissue, detergent and general household products' },
+    personal_care: { ico: 'tag', title: 'Personal Care & Hygiene', sub: 'Soap, shampoo, handwash, toothpaste, toothbrush, sanitary pads, diapers' },
+    grocery: { ico: 'box', title: 'Grocery & Packaged Food', sub: 'Biscuits, packaged food, oats, approved packaged drinks' }
   };
   const WARRANTY_OPTIONS = ['No Warranty', '3 Months', '6 Months', '1 Year', '2 Years', '5 Years'];
   const PRODUCT_STEPS = [
@@ -2227,17 +2365,17 @@
 
   /* ---------- step bodies ---------- */
   function productStepHtml(step, d, editing) {
+    const allowedTypes = allowedProductTypes(state.merchant);
+    if (!d.type && allowedTypes.length === 1 && !editing) d.type = allowedTypes[0];
+    if (d.type && !editing && allowedTypes.length && !allowedTypes.includes(d.type)) d.type = allowedTypes[0];
     const isMed = d.type === 'medicine';
     switch (PRODUCT_STEPS[step].key) {
       case 'type':
-        return `<div class="type-grid">
-          <button type="button" class="type-card${d.type === 'medicine' ? ' sel' : ''}" data-ptype="medicine">
-            <span class="type-card-ico">${icon('pill')}</span><b>Medicine</b><span>Tablets, syrups, injections, creams and more</span>
-          </button>
-          <button type="button" class="type-card${d.type === 'instrument' ? ' sel' : ''}" data-ptype="instrument">
-            <span class="type-card-ico">${icon('steth')}</span><b>Medical Instrument</b><span>BP monitors, glucometers, nebulizers and more</span>
-          </button>
-        </div>`;
+        if (!allowedTypes.length) return `<p class="cell-muted">Choose your business category in KYC first. Your account type decides which products you can list.</p><button type="button" class="btn btn-primary" data-route="kyc-wizard">Go to KYC</button>`;
+        return `<p class="cell-muted" style="font-size:12.5px;margin-bottom:10px">Your account type (${esc(state.merchant.category)}) can list these products only.</p><div class="type-grid">${allowedTypes.map(t => `
+          <button type="button" class="type-card${d.type === t ? ' sel' : ''}" data-ptype="${t}">
+            <span class="type-card-ico">${icon(PRODUCT_TYPE_CARDS[t].ico)}</span><b>${PRODUCT_TYPE_CARDS[t].title}</b><span>${PRODUCT_TYPE_CARDS[t].sub}</span>
+          </button>`).join('')}</div>`;
       case 'basic':
         return `
           ${pField('name', 'Product name*', d.name, { req: true })}
@@ -2261,6 +2399,10 @@
           <div class="form-row two">
             ${pField('packSize', 'Pack size', d.packSize, { ph: 'e.g. 10 tablets' })}
             ${pSelect('unitType', 'Unit type', PRODUCT_UNITS.medicine, d.unitType)}
+          </div>` : d.type !== 'instrument' ? `
+          <div class="form-row two">
+            ${pField('packSize', 'Pack size', d.packSize, { ph: 'e.g. 500 ml / 6 pcs' })}
+            ${pSelect('unitType', 'Unit type', PRODUCT_UNITS[d.type] || PRODUCT_UNITS.general, d.unitType)}
           </div>` : `
           <div class="form-row two">
             ${pField('modelNumber', 'Model number*', d.modelNumber, { req: true })}
@@ -2289,12 +2431,17 @@
       case 'safety':
         return isMed ? `
           ${pField('composition', 'Composition / Salt', d.composition)}
-          <div class="field"><span>Prescription required?</span>
+          ${canSellRx(state.merchant) ? `<div class="field"><span>Prescription required?</span>
             <div class="seg" role="radiogroup">
               <label><input type="radio" name="rxRequired" value="yes"${d.rxRequired ? ' checked' : ''}><span>Yes</span></label>
               <label><input type="radio" name="rxRequired" value="no"${d.rxRequired ? '' : ' checked'}><span>No</span></label>
             </div>
-          </div>
+          </div>` : `<div class="field"><span>Prescription required?</span>
+            <div class="seg" role="radiogroup">
+              <label><input type="radio" name="rxRequired" value="no" checked><span>No — OTC only</span></label>
+            </div>
+            <span class="field-hint">Prescription medicines unlock after your Drug Licence is verified. Until then only OTC medicines can be listed.</span>
+          </div>`}
           <div class="form-row two">
             ${pField('batchNo', 'Batch number', d.batchNo)}
             ${pField('lotNo', 'Lot number', d.lotNo)}
@@ -2303,7 +2450,16 @@
             ${pField('mfd', 'MFD', d.mfd, { type: 'date' })}
             ${pField('expiry', 'Expiry*', d.expiry, { type: 'date', hint: '(needed to publish)' })}
           </div>
-          ${pArea('storage', 'Storage instructions', d.storage, 'e.g. Store below 25 °C, away from sunlight')}` : `
+          ${pArea('storage', 'Storage instructions', d.storage, 'e.g. Store below 25 °C, away from sunlight')}` : d.type !== 'instrument' ? `
+          <div class="form-row two">
+            ${pField('batchNo', 'Batch number', d.batchNo)}
+            ${pField('lotNo', 'Lot number', d.lotNo)}
+          </div>
+          <div class="form-row two">
+            ${pField('mfd', 'MFD', d.mfd, { type: 'date' })}
+            ${pField('expiry', 'Expiry' + (d.type === 'grocery' ? '*' : ''), d.expiry, { type: 'date', hint: d.type === 'grocery' ? '(needed to publish)' : '(if the product has one)' })}
+          </div>
+          ${pArea('storage', 'Storage / usage instructions', d.storage)}` : `
           ${pSelect('warranty', 'Warranty period', WARRANTY_OPTIONS, d.warranty)}
           ${pArea('care', 'Care / usage instructions', d.care)}`;
       case 'review': return productReviewHtml(d, editing);
@@ -2334,7 +2490,11 @@
       { label: 'Images (main photo)', ok: !!d.images[0], step: 1 },
       d.type === 'medicine'
         ? { label: 'Medicine details (valid expiry date)', ok: !!d.expiry && d.expiry >= todayISO(), step: 4 }
-        : { label: 'Instrument details (model number)', ok: !!d.modelNumber.trim(), step: 2 }
+        : d.type === 'instrument'
+          ? { label: 'Item details (model number)', ok: !!d.modelNumber.trim(), step: 2 }
+          : d.type === 'grocery'
+            ? { label: 'Grocery details (valid expiry date)', ok: !!d.expiry && d.expiry >= todayISO(), step: 4 }
+            : { label: 'Product type', ok: !!d.type, step: 0 }
     ];
   }
 
@@ -2351,7 +2511,7 @@
           <div class="pv-sub">${[d.generic, d.brand].filter(Boolean).map(esc).join(' · ') || '—'}</div>
           <div class="pv-tags">
             <span class="pill pill-gray">${esc(d.category) || 'No category'}</span>
-            <span class="pill pill-teal">${d.type === 'medicine' ? 'Medicine' : 'Instrument'}</span>
+            <span class="pill pill-teal">${esc((PRODUCT_TYPE_CARDS[d.type] || PRODUCT_TYPE_CARDS.medicine).title)}</span>
             ${d.type === 'medicine' ? (d.rxRequired ? '<span class="pill pill-red">Prescription required</span>' : '<span class="pill pill-gray">No prescription</span>') : ''}
           </div>
           <div class="pv-price"><b>${d.price !== '' ? rupee(d.price) : '—'}</b>${d.mrp !== '' && disc > 0 ? ` <s>${rupee(d.mrp)}</s> <span class="pill pill-green">${disc}% off</span>` : (d.mrp !== '' ? ` <span class="cell-muted">MRP ${rupee(d.mrp)}</span>` : '')}</div>
@@ -2375,8 +2535,8 @@
     if (P.done) return renderProductDone();
     const step = P.step, d = P.draft, editing = !!P.editingId;
     const s = PRODUCT_STEPS[step];
-    const desc = s.key === 'details' ? (d.type === 'medicine' ? 'Form, strength and pack information.' : 'Model and technical specifications.')
-      : s.key === 'safety' ? (d.type === 'medicine' ? 'Composition, prescription rules, batch and expiry.' : 'Warranty and care instructions.')
+    const desc = s.key === 'details' ? (d.type === 'medicine' ? 'Form, strength and pack information.' : d.type === 'instrument' ? 'Model and technical specifications.' : 'Pack size and unit.')
+      : s.key === 'safety' ? (d.type === 'medicine' ? 'Composition, prescription rules, batch and expiry.' : d.type === 'instrument' ? 'Warranty and care instructions.' : 'Batch, expiry and storage.')
       : s.desc;
     const last = step === PRODUCT_STEPS.length - 1;
     const firstStep = editing ? 1 : 0;
@@ -2388,7 +2548,7 @@
     <div class="wizard-head pw-head"><div class="wizard-steps">${PRODUCT_STEPS.map((x, i) => `<div class="wizard-step-dot${i < step ? ' done' : i === step ? ' current' : ''}" title="${x.title}"></div>`).join('')}</div></div>
     <div class="card pw-card" id="pwBody">
       <h2>${s.title}</h2><p class="wizard-desc">${desc}</p>
-      ${editing && step === 1 ? `<p class="pw-lock">${icon('lock')}<span>${d.type === 'medicine' ? 'Medicine' : 'Medical instrument'} · product type can’t be changed after creation</span></p>` : ''}
+      ${editing && step === 1 ? `<p class="pw-lock">${icon('lock')}<span>${esc((PRODUCT_TYPE_CARDS[d.type] || PRODUCT_TYPE_CARDS.medicine).title)} · product type can’t be changed after creation</span></p>` : ''}
       <form id="pwForm" novalidate>${productStepHtml(step, d, editing)}</form>
     </div>
     <div class="pw-actions" id="pwActions">
@@ -3643,6 +3803,7 @@
     <div class="card panel">
       <div class="panel-head"><h3>Security</h3></div>
       <button class="btn btn-outline" id="changePwBtn" style="width:100%;justify-content:flex-start">${icon('lock')}<span>Change password</span></button>
+      <button class="btn btn-outline" id="deleteAccBtn" style="width:100%;justify-content:flex-start;margin-top:8px;color:var(--red-600)">${icon('trash')}<span>Delete account</span></button>
     </div>
     <div class="card panel">
       <button class="btn btn-danger" id="logoutBtn" style="width:100%">${icon('logout')}<span>Logout</span></button>
@@ -3652,6 +3813,37 @@
   const languageSelect = (cur) => `<select id="langSelect" class="filter-chip" style="height:36px">${['English', 'Bengali', 'Hindi'].map(l => `<option${cur === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   function settingsSwitch(key, label, val) {
     return `<div class="settings-row"><div class="settings-row-label">${label}</div><button class="switch${val ? ' on' : ''}" data-setting="${key}" aria-label="${label}"></button></div>`;
+  }
+  function openDeleteAccountSheet() {
+    openSheet('Delete account', `<form id="delAccForm">
+      <div class="card" style="border:1px solid #f3c1c7;background:#fff5f6;margin-bottom:12px">
+        <b style="color:var(--red-600)">This is permanent.</b>
+        <p class="cell-muted" style="font-size:13px;margin:6px 0 0">Your merchant account, shop profile, KYC documents, products, coupons and promotions will be deleted, and your login will stop working. We cannot bring any of it back.</p>
+      </div>
+      <p class="cell-muted" style="font-size:12.5px;margin:0 0 10px">You cannot delete your account while you have active orders. Finish or cancel them first.</p>
+      <label class="field"><span>Type DELETE to confirm</span><input type="text" name="confirm" autocomplete="off" autocapitalize="characters" required></label>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Keep my account</button><button class="btn btn-danger" id="delAccBtn" disabled>Delete forever</button></div></form>`, {
+      onOpen: (sh) => {
+        const form = sh.el.querySelector('#delAccForm');
+        const btn = sh.el.querySelector('#delAccBtn');
+        form.confirm.addEventListener('input', () => { btn.disabled = form.confirm.value.trim() !== 'DELETE'; });
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (form.confirm.value.trim() !== 'DELETE') return;
+          btn.disabled = true; btn.textContent = 'Deleting…';
+          try {
+            await DB.deleteAccount();
+            sh.close();
+            showToast('Account deleted');
+            await doSignOut();
+          } catch (err) {
+            console.error(err);
+            btn.disabled = false; btn.textContent = 'Delete forever';
+            showToast(err.message || 'Could not delete the account', 'error');
+          }
+        });
+      }
+    });
   }
   async function confirmLogout() {
     const ok = await confirmDialog('Log out?', 'You will need to sign in again to access your merchant dashboard.');
@@ -3710,6 +3902,7 @@
     document.getElementById('langSelect')?.addEventListener('change', async (e) => { await DB.saveSettings({ language: e.target.value }); showToast('Language updated'); });
     document.getElementById('logoutBtn')?.addEventListener('click', confirmLogout);
     document.getElementById('changePwBtn')?.addEventListener('click', openPasswordSheet);
+    document.getElementById('deleteAccBtn')?.addEventListener('click', openDeleteAccountSheet);
     document.getElementById('nimbusWhBtn')?.addEventListener('click', openNimbusWarehouseSheet);
   };
 
@@ -3758,7 +3951,7 @@
       </div>`;
     }
 
-    const businessRows = [['store', 'store', 'Store Information'], ['address', 'pin', 'Business Address'], ['license', 'doc2', 'Drug License'], ['identity', 'user', 'Identity'], ['bank', 'bank', 'Bank & Payment']].map(([key, ic, label]) => `
+    const businessRows = [['store', 'store', 'Store Information'], ['address', 'pin', 'Business Address'], ['license', 'doc2', 'Documents'], ['identity', 'user', 'Identity'], ['bank', 'bank', 'Bank & Payment']].map(([key, ic, label]) => `
       <div class="profile-row card${locked ? ' locked' : ''}" ${locked ? '' : `data-route="kyc-detail" data-param="${key}"`}>
         <div class="profile-row-icon">${icon(ic)}</div>
         <span class="profile-row-label">${label}</span>
@@ -3786,6 +3979,7 @@
     <div class="profile-list">
       <div class="profile-row card" data-profile-action="personal">${icon('user')}<span class="profile-row-label">Personal Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="contact">${icon('phone')}<span class="profile-row-label">Contact Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="signature">${icon('edit')}<span class="profile-row-label">Receipt Signature</span><span class="cell-muted" style="font-size:12.5px">${m.signature ? 'Added' : 'Optional'}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="language">${icon('globe')}<span class="profile-row-label">Language</span><span class="cell-muted" style="font-size:12.5px">${esc(loadSettings().language)}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>
 
@@ -3799,6 +3993,7 @@
       <a class="profile-row card" href="${esc(TERMS_URL)}">${icon('doc2')}<span class="profile-row-label">Terms &amp; Conditions</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
       <a class="profile-row card" href="${esc(PRIVACY_URL)}">${icon('lock')}<span class="profile-row-label">Privacy Policy</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
       <div class="profile-row card" data-profile-action="logout">${icon('logout')}<span class="profile-row-label">Logout</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="delete-account" style="color:var(--red-600)">${icon('trash')}<span class="profile-row-label">Delete Account</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>`;
   };
 
@@ -3829,6 +4024,42 @@
       })
     });
   }
+  function openSignatureSheet() {
+    const m = state.merchant;
+    openSheet('Receipt signature', `<form id="sigForm">
+      <p class="cell-muted" style="font-size:13px;margin:0 0 10px">Optional. Your signature is printed on the order receipts you issue. Sign on white paper and upload a clear PNG, JPG or WebP photo (max 2 MB).</p>
+      <div id="sigPreviewBox" style="border:1px dashed #cfd5dd;border-radius:12px;padding:12px;background:#fff;text-align:center;margin-bottom:12px;min-height:80px">
+        ${m.signature ? `<img id="sigPreview" src="${esc(m.signature)}" alt="Your signature" style="max-width:100%;max-height:120px;object-fit:contain">` : `<span class="cell-muted" id="sigEmpty" style="font-size:13px;line-height:80px">No signature added</span>`}
+      </div>
+      <label class="field"><span>${m.signature ? 'Replace signature' : 'Signature image'}</span><input type="file" name="sig" accept="image/png,image/jpeg,image/webp"></label>
+      <div class="modal-actions">
+        ${m.signature ? '<button type="button" class="btn btn-ghost" id="sigRemove">Remove</button>' : '<button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button>'}
+        <button class="btn btn-primary" id="sigSave">Save</button>
+      </div></form>`, {
+      onOpen: (sh) => {
+        const form = sh.el.querySelector('#sigForm');
+        form.sig.addEventListener('change', () => {
+          const f = form.sig.files && form.sig.files[0]; if (!f) return;
+          const box = sh.el.querySelector('#sigPreviewBox');
+          box.innerHTML = ''; const im = document.createElement('img'); im.alt = 'Signature preview';
+          im.style.cssText = 'max-width:100%;max-height:120px;object-fit:contain'; im.src = URL.createObjectURL(f); box.appendChild(im);
+        });
+        sh.el.querySelector('#sigRemove')?.addEventListener('click', async () => {
+          const ok = await confirmDialog('Remove signature?', 'New receipts will be issued without a signature.'); if (!ok) return;
+          try { state.merchant = await DB.removeSignature(); sh.close(); showToast('Signature removed'); render(true); }
+          catch (err) { console.error(err); showToast('Could not remove the signature', 'error'); }
+        });
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const f = form.sig.files && form.sig.files[0];
+          if (!f) { showToast('Choose a signature image first', 'error'); return; }
+          const btn = sh.el.querySelector('#sigSave'); btn.disabled = true; btn.textContent = 'Saving…';
+          try { state.merchant = await DB.uploadSignature(f); sh.close(); showToast('Signature saved'); render(true); }
+          catch (err) { console.error(err); btn.disabled = false; btn.textContent = 'Save'; showToast(err.message || 'Could not save the signature', 'error'); }
+        });
+      }
+    });
+  }
   function openLanguageSheet() {
     const cur = loadSettings().language;
     openSheet('Language', `<div>${['English', 'Bengali', 'Hindi'].map(l => `<label class="radio-card"><input type="radio" name="lang" value="${l}"${l === cur ? ' checked' : ''}><span class="radio-card-body"><b>${l}</b></span></label>`).join('')}</div>`, {
@@ -3841,9 +4072,11 @@
       if (a === 'personal') openPersonalSheet();
       else if (a === 'contact') openContactSheet();
       else if (a === 'language') openLanguageSheet();
+      else if (a === 'signature') openSignatureSheet();
       else if (a === 'notifications') openNotificationsSheet();
       else if (a === 'support') openSupportSheet();
       else if (a === 'logout') confirmLogout();
+      else if (a === 'delete-account') openDeleteAccountSheet();
     }));
     document.getElementById('avatarInput')?.addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -3853,7 +4086,7 @@
   };
 
   /* ---------- KYC read-only detail (verified merchant) ---------- */
-  const KYC_SECTION_LABEL = { store: 'Store Information', address: 'Business Address', license: 'Drug License', identity: 'Identity', bank: 'Bank & Payment' };
+  const KYC_SECTION_LABEL = { store: 'Store Information', address: 'Business Address', license: 'Documents', identity: 'Identity', bank: 'Bank & Payment' };
   const isPdfUrl = (u) => /\.pdf(\?|#|$)/i.test(u || '');
   const docView = (v) => !v ? `<div class="doc-preview">${icon('file')}<span>Not uploaded</span></div>`
     : isPdfUrl(v) ? `<a class="doc-preview" href="${esc(v)}" target="_blank" rel="noopener">${icon('file')}<span>Open PDF document</span></a>`
@@ -3926,8 +4159,19 @@
   function kycSectionFields(m, section) {
     if (section === 'store') return [['Shop name', m.shopName || '—'], ['Owner name', m.ownerName || '—'], ['Business category', m.category || '—'], ['About shop', m.about || '—']];
     if (section === 'address') return [['Full address', m.address.fullAddress || '—'], ['City', m.address.city || '—'], ['District', m.address.district || '—'], ['State', m.address.state || '—'], ['Pincode', m.address.pincode || '—'], ['GPS location', m.address.gps || '—']];
-    if (section === 'license') return [['License number', m.license.number || '—'], ['Expiry date', m.license.expiry ? fmtDate(m.license.expiry) : '—'], ['License document', m.license.doc, true]];
-    if (section === 'identity') return [['ID type', m.identity.idType], ['ID number', m.identity.idNumber || '—'], ['ID document', m.identity.doc, true]];
+    if (section === 'license') {
+      const c = catInfo(m.category), dc = m.docs || { business: {}, gst: {}, trade: {}, fssai: {} };
+      const rows = [['Business proof type', dc.business.type || '—'], ['Business proof document', dc.business.doc, true]];
+      if (c.drug && m.license.number) rows.push(['Drug licence number', m.license.number || '—'], ['Drug licence expiry', m.license.expiry ? fmtDate(m.license.expiry) : '—'], ['Drug licence document', m.license.doc, true]);
+      if (c.pharmacist) rows.push(['Pharmacist registration no.', (dc.pharmacist || {}).number || '—'], ['Pharmacist proof', (dc.pharmacist || {}).doc, true]);
+      if (c.invoice) rows.push(['Brand / manufacturer', (dc.invoice || {}).brand || '—'], ['Product invoice', (dc.invoice || {}).doc, true]);
+      if (c.extra && ((dc.extra || {}).number || (dc.extra || {}).doc)) rows.push(['Additional permission no.', (dc.extra || {}).number || '—'], ['Additional permission document', (dc.extra || {}).doc, true]);
+      if (c.fssai) rows.push(['FSSAI number', dc.fssai.number || '—'], ['FSSAI expiry', dc.fssai.expiry ? fmtDate(dc.fssai.expiry) : '—'], ['FSSAI document', dc.fssai.doc, true]);
+      if (dc.gst.number || dc.gst.doc) rows.push(['GSTIN', dc.gst.number || '—'], ['GST certificate', dc.gst.doc, true]);
+      if (dc.trade.number || dc.trade.doc) rows.push(['Trade licence number', dc.trade.number || '—'], ['Trade licence document', dc.trade.doc, true]);
+      return rows;
+    }
+    if (section === 'identity') return [['ID type', m.identity.idType], ['ID number', m.identity.idNumber || '—'], ['ID document', m.identity.doc, true]].concat(m.signature ? [['Signature', m.signature, true]] : []);
     if (section === 'bank') return [['Account holder', m.bank.accountHolder || '—'], ['Account number', m.bank.accountNumber || '—'], ['IFSC', m.bank.ifsc || '—'], ['UPI', m.bank.upi || '—'], ['Bank document', m.bank.doc, true]];
     return [];
   }
@@ -3951,7 +4195,7 @@
   const WIZARD_STEPS = [
     { key: 'store', title: 'Store Information', desc: 'Tell customers who you are.' },
     { key: 'address', title: 'Shop Address', desc: 'Where customers can find and reach you.' },
-    { key: 'license', title: 'Drug License', desc: 'Required to sell prescription medicines.' },
+    { key: 'license', title: 'Documents', desc: 'Documents needed for your business category.' },
     { key: 'identity', title: 'Identity', desc: 'A valid government ID for verification.' },
     { key: 'bank', title: 'Bank & Payment', desc: 'Where your payouts will be sent.' },
     { key: 'review', title: 'Review & Submit', desc: 'Check everything before submitting.' }
@@ -3961,10 +4205,10 @@
     if (!state.wizard.draft) {
       state.wizard.draft = {
         shopName: m.shopName || '', ownerName: m.ownerName || '', category: m.category || '', about: m.about || '',
-        address: { ...m.address }, license: { ...m.license }, identity: { ...m.identity }, bank: { ...m.bank }
+        address: { ...m.address }, license: { ...m.license }, docs: JSON.parse(JSON.stringify(m.docs || { business: {}, gst: {}, trade: {}, fssai: {}, pharmacist: {}, invoice: {}, extra: {} })), identity: { ...m.identity }, bank: { ...m.bank }, signature: m.signature || ''
       };
       state.wizard.files = {};
-      const idx = WIZARD_STEPS.findIndex(s => s.key !== 'review' && !sectionComplete(s.key, s.key === 'store' ? state.wizard.draft : state.wizard.draft[s.key]));
+      const idx = WIZARD_STEPS.findIndex(s => s.key !== 'review' && !stepComplete(s.key, state.wizard.draft));
       state.wizard.step = idx === -1 ? WIZARD_STEPS.length - 1 : idx;
     }
   }
@@ -3999,7 +4243,8 @@
         <label class="field"><span>Owner name*</span><input type="text" name="ownerName" value="${esc(d.ownerName)}" required></label>
       </div>
       <label class="field"><span>Business category*</span>
-        <select name="category" required><option value="">Select…</option>${['Retail Pharmacy', 'Medical Store', 'Wholesale Pharmacy', 'Health & Wellness'].map(c => `<option${d.category === c ? ' selected' : ''}>${c}</option>`).join('')}</select>
+        <select name="category" required><option value="">Select…</option>${BUSINESS_CATEGORIES.map(c => c.label).concat(d.category && !BUSINESS_CATEGORIES.some(c => c.label === d.category) ? [d.category] : []).map(c => `<option${d.category === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        <span class="field-hint">The documents you upload next depend on this category.</span>
       </label>
       <label class="field"><span>About shop*</span><textarea name="about" rows="2" required minlength="10">${esc(d.about)}</textarea></label>`;
     else if (s.key === 'address') inner = `
@@ -4023,16 +4268,55 @@
         <div class="pin-coord" id="pinCoordText">Tap on the map or use GPS to drop the pin</div>
         <a class="link-a" id="pinOpenGmaps" href="#" target="_blank" rel="noopener" style="display:none;font-size:13px">Open this pin in Google Maps</a>
       </div>`;
-    else if (s.key === 'license') inner = `
-      <label class="field"><span>Drug license number*</span><input type="text" name="number" value="${esc(d.license.number)}" required></label>
-      <label class="field"><span>License expiry date*</span><input type="date" name="expiry" required value="${d.license.expiry ? String(d.license.expiry).slice(0, 10) : ''}"></label>
-      <label class="field"><span>Drug license document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.license.doc || state.wizard.files.license ? '' : ' required'}>${fileHint(d.license.doc, 'license')}</label>`;
+    else if (s.key === 'license') {
+      const c = catInfo(d.category), dc = d.docs || (d.docs = { business: {}, gst: {}, trade: {}, fssai: {}, pharmacist: {}, invoice: {}, extra: {} });
+      const up = (label, name, kind, doc, req) => `<label class="field"><span>${label}${req ? '*' : ' <span class="field-hint">(optional)</span>'}</span><input type="file" name="${name}" accept="image/*,.pdf"${req && !(doc || state.wizard.files[kind]) ? ' required' : ''}>${fileHint(doc, kind)}</label>`;
+      if (!d.category) inner = `<p class="cell-muted">Choose your business category in the first step to see the documents you need.</p>`;
+      else inner = `
+        <div class="rejection-note" style="background:var(--ink-50,#f4f6f8);border-color:var(--ink-200,#dde1e6);color:var(--ink-700,#333)"><strong>${esc(d.category)}</strong><br>${esc(c.hint || '')}<br><span style="font-size:12px">Identity (KYC) and bank details come in the next steps.</span></div>
+        <h4 style="margin:14px 0 8px">Business proof</h4>
+        <label class="field"><span>Proof type*</span><select name="bizType" required><option value="">Select…</option>${BUSINESS_PROOF_TYPES.map(t => `<option${dc.business.type === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+        ${up('Business proof document', 'docBusiness', 'business', dc.business.doc, true)}
+        ${c.drug ? `
+        <h4 style="margin:14px 0 8px">Drug Licence ${c.drugReq ? '' : '<span class="field-hint">(only if you distribute medicines)</span>'}</h4>
+        <label class="field"><span>Drug licence number${c.drugReq ? '*' : ''}</span><input type="text" name="number" value="${esc(d.license.number)}"${c.drugReq ? ' required' : ''}></label>
+        <label class="field"><span>Licence expiry date${c.drugReq ? '*' : ''}</span><input type="date" name="expiry"${c.drugReq ? ' required' : ''} value="${d.license.expiry ? String(d.license.expiry).slice(0, 10) : ''}"></label>
+        ${up('Drug licence document', 'docLicense', 'license', d.license.doc, c.drugReq)}
+        ${c.drugReq ? '' : '<p class="cell-muted" style="font-size:12.5px">Without a verified Drug Licence you cannot list medicines.</p>'}` : `
+        <p class="cell-muted" style="font-size:12.5px;margin:12px 0">This account type cannot list medicines. You can list only products of your own category.</p>`}
+        ${c.pharmacist ? `
+        <h4 style="margin:14px 0 8px">Pharmacist proof</h4>
+        <label class="field"><span>Pharmacist registration number*</span><input type="text" name="pharmNo" value="${esc((dc.pharmacist || {}).number || '')}" required></label>
+        ${up('Pharmacist registration certificate / ID', 'docPharm', 'pharmacist', (dc.pharmacist || {}).doc, true)}` : ''}
+        ${c.invoice ? `
+        <h4 style="margin:14px 0 8px">Products &amp; brand</h4>
+        <label class="field"><span>Brand / manufacturer details*</span><input type="text" name="brandInfo" value="${esc((dc.invoice || {}).brand || '')}" required placeholder="e.g. brands you sell, manufacturer names"></label>
+        ${up('Product purchase invoice', 'docInvoice', 'invoice', (dc.invoice || {}).doc, true)}` : ''}
+        ${c.extra ? `
+        <h4 style="margin:14px 0 8px">Additional approval <span class="field-hint">(if applicable)</span></h4>
+        <p class="cell-muted" style="font-size:12.5px;margin:0 0 6px">${esc(c.extra)}</p>
+        <label class="field"><span>Approval / permission number <span class="field-hint">(optional)</span></span><input type="text" name="extraNo" value="${esc((dc.extra || {}).number || '')}"></label>
+        ${up('Approval document', 'docExtra', 'extra', (dc.extra || {}).doc, false)}` : ''}
+        ${c.fssai ? `
+        <h4 style="margin:14px 0 8px">FSSAI</h4>
+        <label class="field"><span>FSSAI registration / licence number*</span><input type="text" name="fssaiNo" value="${esc(dc.fssai.number || '')}" required inputmode="numeric" pattern="[0-9]{14}" maxlength="14" title="14 digits"></label>
+        <label class="field"><span>FSSAI expiry date*</span><input type="date" name="fssaiExpiry" required value="${dc.fssai.expiry ? String(dc.fssai.expiry).slice(0, 10) : ''}"></label>
+        ${up('FSSAI certificate', 'docFssai', 'fssai', dc.fssai.doc, true)}` : ''}
+        <h4 style="margin:14px 0 8px">GST &amp; Trade Licence <span class="field-hint">(if applicable)</span></h4>
+        <label class="field"><span>GSTIN <span class="field-hint">(optional)</span></span><input type="text" name="gstin" value="${esc(dc.gst.number || '')}" maxlength="15" style="text-transform:uppercase" pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][1-9A-Za-z]Z[0-9A-Za-z]" title="15-character GSTIN"></label>
+        ${up('GST certificate', 'docGst', 'gst', dc.gst.doc, false)}
+        <label class="field"><span>Trade licence number <span class="field-hint">(optional)</span></span><input type="text" name="tradeNo" value="${esc(dc.trade.number || '')}"></label>
+        ${up('Trade licence document', 'docTrade', 'trade', dc.trade.doc, false)}`;
+    }
     else if (s.key === 'identity') inner = `
       <label class="field"><span>ID type*</span>
         <select name="idType" required>${['Aadhaar', 'PAN', 'Voter ID', 'Passport'].map(t => `<option${d.identity.idType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>
       </label>
       <label class="field"><span>ID number*</span><input type="text" name="idNumber" value="${esc(d.identity.idNumber)}" required></label>
-      <label class="field"><span>ID document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.identity.doc || state.wizard.files.identity ? '' : ' required'}>${fileHint(d.identity.doc, 'identity')}</label>`;
+      <label class="field"><span>ID document*</span><input type="file" name="doc" accept="image/*,.pdf"${d.identity.doc || state.wizard.files.identity ? '' : ' required'}>${fileHint(d.identity.doc, 'identity')}</label>
+      <label class="field"><span>Signature image <span class="field-hint">(optional)</span></span><input type="file" name="signature" accept="image/png,image/jpeg,image/webp">
+        <span class="field-hint">${state.wizard.files.signature ? 'Selected: ' + esc(state.wizard.files.signature.name) : d.signature ? 'Already added — choose a file only to replace it.' : 'Printed on your order receipts. Sign on white paper, take a clear photo and upload it. You can add or change it later from Profile.'}</span>
+      </label>`;
     else if (s.key === 'bank') inner = `
       <p class="cell-muted" style="font-size:12.5px;margin-bottom:12px">Account holder: <b>${esc(d.ownerName || 'owner name')}</b> — must match your bank passbook.</p>
       <div class="form-row two">
@@ -4065,11 +4349,19 @@
         <div class="review-row"><span>Address</span><span>${esc(d.address.fullAddress)}, ${esc(d.address.city)}</span></div>
         <div class="review-row"><span>State / Pincode</span><span>${esc(d.address.state)} - ${esc(d.address.pincode)}</span></div>
       </div>
-      <div class="review-block"><h4>Drug License</h4>
-        <div class="review-row"><span>License number</span><span>${esc(d.license.number)}</span></div>${docRow('Document', 'license', d.license.doc)}
+      <div class="review-block"><h4>Documents</h4>
+        <div class="review-row"><span>Business proof</span><span>${esc((d.docs.business || {}).type || '')}</span></div>${docRow('Proof document', 'business', (d.docs.business || {}).doc)}
+        ${catInfo(d.category).drug && d.license.number ? `<div class="review-row"><span>Drug licence no.</span><span>${esc(d.license.number)}</span></div>${docRow('Drug licence document', 'license', d.license.doc)}` : ''}
+        ${catInfo(d.category).pharmacist ? `<div class="review-row"><span>Pharmacist reg. no.</span><span>${esc((d.docs.pharmacist || {}).number || '')}</span></div>${docRow('Pharmacist proof', 'pharmacist', (d.docs.pharmacist || {}).doc)}` : ''}
+        ${catInfo(d.category).invoice ? `<div class="review-row"><span>Brand / manufacturer</span><span>${esc((d.docs.invoice || {}).brand || '')}</span></div>${docRow('Product invoice', 'invoice', (d.docs.invoice || {}).doc)}` : ''}
+        ${catInfo(d.category).fssai ? `<div class="review-row"><span>FSSAI no.</span><span>${esc((d.docs.fssai || {}).number || '')}</span></div>${docRow('FSSAI certificate', 'fssai', (d.docs.fssai || {}).doc)}` : ''}
+        ${(d.docs.gst || {}).number || (d.docs.gst || {}).doc ? `<div class="review-row"><span>GSTIN</span><span>${esc((d.docs.gst || {}).number || '')}</span></div>` : ''}
+        ${(d.docs.trade || {}).number || (d.docs.trade || {}).doc ? `<div class="review-row"><span>Trade licence</span><span>${esc((d.docs.trade || {}).number || '')}</span></div>` : ''}
+        <div class="review-row"><span>You can list</span><span>${esc(catInfo(d.category).types.map(t => PRODUCT_TYPE_CARDS[t].title).join(', '))}</span></div>
       </div>
       <div class="review-block"><h4>Identity</h4>
         <div class="review-row"><span>${esc(d.identity.idType)}</span><span>${esc(d.identity.idNumber)}</span></div>${docRow('Document', 'identity', d.identity.doc)}
+        <div class="review-row"><span>Signature (optional)</span><span>${state.wizard.files.signature ? '📄 ' + esc(state.wizard.files.signature.name) : d.signature ? '📄 Uploaded' : 'Not added'}</span></div>
       </div>
       <div class="review-block"><h4>Bank &amp; Payment</h4>
         <div class="review-row"><span>Account / IFSC</span><span>${esc(d.bank.accountNumber)} / ${esc(d.bank.ifsc)}</span></div>${docRow('Document', 'bank', d.bank.doc)}
@@ -4092,15 +4384,49 @@
     if (s === 'store') { d.shopName = fd.get('shopName').trim(); d.ownerName = fd.get('ownerName').trim(); d.category = fd.get('category'); d.about = fd.get('about'); }
     else if (s === 'address') { d.address = { ...d.address, fullAddress: fd.get('fullAddress').trim(), city: fd.get('city').trim(), district: fd.get('district').trim(), state: fd.get('state').trim(), pincode: fd.get('pincode').trim(), gps: fd.get('gps').trim() }; }
     else if (s === 'license') {
-      d.license = { ...d.license, number: fd.get('number').trim(), expiry: fd.get('expiry') };
-      if (file) { state.wizard.files.license = file; d.license.doc = d.license.doc || 'pending-upload'; }
-      if (!state.wizard.files.license && !d.license.doc) { showToast('Upload your drug license document', 'error'); return false; }
+      const c = catInfo(d.category);
+      const f = (n) => { const x = fd.get(n); return x && x.size ? x : null; };
+      const keep = (kind, cur, file) => { if (file) { state.wizard.files[kind] = file; return cur || 'pending-upload'; } return cur; };
+      d.docs = d.docs || { business: {}, gst: {}, trade: {}, fssai: {}, pharmacist: {}, invoice: {}, extra: {} };
+      d.docs.business = { type: fd.get('bizType') || '', doc: keep('business', (d.docs.business || {}).doc, f('docBusiness')) };
+      if (!state.wizard.files.business && !d.docs.business.doc) { showToast('Upload your business proof document', 'error'); return false; }
+      if (c.drug) {
+        d.license = { ...d.license, number: (fd.get('number') || '').trim(), expiry: fd.get('expiry') || '' };
+        d.license.doc = keep('license', d.license.doc, f('docLicense'));
+        if (c.drugReq || d.license.number) {
+          if (!d.license.number) { showToast('Enter your drug licence number', 'error'); return false; }
+          if (!d.license.expiry) { showToast('Enter the drug licence expiry date', 'error'); return false; }
+          if (!state.wizard.files.license && !d.license.doc) { showToast('Upload your drug licence document', 'error'); return false; }
+        }
+      }
+      if (c.pharmacist) {
+        d.docs.pharmacist = { number: (fd.get('pharmNo') || '').trim(), doc: keep('pharmacist', (d.docs.pharmacist || {}).doc, f('docPharm')) };
+        if (!state.wizard.files.pharmacist && !d.docs.pharmacist.doc) { showToast('Upload your pharmacist proof', 'error'); return false; }
+      }
+      if (c.invoice) {
+        d.docs.invoice = { brand: (fd.get('brandInfo') || '').trim(), doc: keep('invoice', (d.docs.invoice || {}).doc, f('docInvoice')) };
+        if (!state.wizard.files.invoice && !d.docs.invoice.doc) { showToast('Upload a product purchase invoice', 'error'); return false; }
+      }
+      if (c.extra) d.docs.extra = { number: (fd.get('extraNo') || '').trim(), doc: keep('extra', (d.docs.extra || {}).doc, f('docExtra')) };
+      if (c.fssai) {
+        d.docs.fssai = { number: (fd.get('fssaiNo') || '').trim(), expiry: fd.get('fssaiExpiry') || '', doc: keep('fssai', (d.docs.fssai || {}).doc, f('docFssai')) };
+        if (!state.wizard.files.fssai && !d.docs.fssai.doc) { showToast('Upload your FSSAI certificate', 'error'); return false; }
+      }
+      const gstin = (fd.get('gstin') || '').trim().toUpperCase();
+      d.docs.gst = { number: gstin, doc: keep('gst', (d.docs.gst || {}).doc, f('docGst')) };
+      d.docs.trade = { number: (fd.get('tradeNo') || '').trim(), doc: keep('trade', (d.docs.trade || {}).doc, f('docTrade')) };
     } else if (s === 'identity') {
       d.identity = { ...d.identity, idType: fd.get('idType'), idNumber: fd.get('idNumber').trim() };
       const idErr = validateIdNumber(d.identity.idType, d.identity.idNumber);
       if (idErr) { showToast(idErr, 'error'); return false; }
       if (file) { state.wizard.files.identity = file; d.identity.doc = d.identity.doc || 'pending-upload'; }
       if (!state.wizard.files.identity && !d.identity.doc) { showToast('Upload your ID document', 'error'); return false; }
+      const sig = fd.get('signature');
+      if (sig && sig.size) {
+        if (!/^image\/(png|jpe?g|webp)$/i.test(sig.type)) { showToast('Signature must be a PNG, JPG or WebP image', 'error'); return false; }
+        if (sig.size > 2 * 1024 * 1024) { showToast('Signature image must be under 2 MB', 'error'); return false; }
+        state.wizard.files.signature = sig; d.signature = d.signature || 'pending-upload';
+      }
     } else if (s === 'bank') {
       d.bank = { ...d.bank, accountNumber: fd.get('accountNumber').trim(), ifsc: fd.get('ifsc').trim().toUpperCase(), upi: fd.get('upi').trim() };
       if (file) { state.wizard.files.bank = file; d.bank.doc = d.bank.doc || 'pending-upload'; }
@@ -4194,7 +4520,7 @@
     });
     document.getElementById('wizardSubmit')?.addEventListener('click', async (e) => {
       const d = state.wizard.draft, btn = e.currentTarget;
-      const missing = WIZARD_STEPS.findIndex(s => s.key !== 'review' && !sectionComplete(s.key, s.key === 'store' ? d : d[s.key]));
+      const missing = WIZARD_STEPS.findIndex(s => s.key !== 'review' && !stepComplete(s.key, d));
       if (missing !== -1) { showToast(`Complete "${WIZARD_STEPS[missing].title}" first`, 'error'); state.wizard.step = missing; redraw(); return; }
       btn.disabled = true; btn.textContent = 'Submitting…';
       try {
@@ -4212,7 +4538,17 @@
       const fd = new FormData(form), d = state.wizard.draft, s = WIZARD_STEPS[state.wizard.step].key;
       if (s === 'store') { d.shopName = fd.get('shopName') || ''; d.ownerName = fd.get('ownerName') || ''; d.category = fd.get('category') || ''; d.about = fd.get('about') || ''; }
       else if (s === 'address') d.address = { ...d.address, fullAddress: fd.get('fullAddress') || '', city: fd.get('city') || '', district: fd.get('district') || '', state: fd.get('state') || '', pincode: fd.get('pincode') || '', gps: fd.get('gps') || '' };
-      else if (s === 'license') d.license = { ...d.license, number: fd.get('number') || '', expiry: fd.get('expiry') || '' };
+      else if (s === 'license') {
+        if (fd.get('number') !== null) d.license = { ...d.license, number: fd.get('number') || '', expiry: fd.get('expiry') || '' };
+        d.docs = d.docs || { business: {}, gst: {}, trade: {}, fssai: {} };
+        d.docs.business = { ...d.docs.business, type: fd.get('bizType') || d.docs.business.type || '' };
+        d.docs.gst = { ...d.docs.gst, number: (fd.get('gstin') || '').toUpperCase() };
+        d.docs.trade = { ...d.docs.trade, number: fd.get('tradeNo') || '' };
+        if (fd.get('pharmNo') !== null) d.docs.pharmacist = { ...d.docs.pharmacist, number: fd.get('pharmNo') || '' };
+        if (fd.get('brandInfo') !== null) d.docs.invoice = { ...d.docs.invoice, brand: fd.get('brandInfo') || '' };
+        if (fd.get('extraNo') !== null) d.docs.extra = { ...d.docs.extra, number: fd.get('extraNo') || '' };
+        if (fd.get('fssaiNo') !== null) d.docs.fssai = { ...d.docs.fssai, number: fd.get('fssaiNo') || '', expiry: fd.get('fssaiExpiry') || '' };
+      }
       else if (s === 'identity') d.identity = { ...d.identity, idType: fd.get('idType') || d.identity.idType, idNumber: fd.get('idNumber') || '' };
       else if (s === 'bank') d.bank = { ...d.bank, accountNumber: fd.get('accountNumber') || '', ifsc: fd.get('ifsc') || '', upi: fd.get('upi') || '' };
     } catch (e) { /* ignore */ }

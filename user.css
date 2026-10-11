@@ -5879,7 +5879,7 @@ header {
 }
 .categories-grid-scroll::-webkit-scrollbar { display: none; }
 .category-item {
-    flex: 0 0 auto; width: 64px; display: flex; flex-direction: column; align-items: center;
+    flex: 0 0 auto; width: 72px; display: flex; flex-direction: column; align-items: center;
     gap: 6px; padding: 8px 4px 7px; border-radius: 16px; cursor: pointer;
     background: #f7f8fa; border: 1px solid #eef0f4; scroll-snap-align: start;
     transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
@@ -5892,7 +5892,7 @@ header {
 }
 .cat-icon-wrapper img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .category-item span {
-    font-size: 0.68rem; font-weight: 700; color: #5b6472; line-height: 1.1; white-space: nowrap; letter-spacing: .1px;
+    font-size: 0.66rem; font-weight: 700; color: #5b6472; line-height: 1.15; white-space: normal; text-align: center; min-height: 2.3em; display: flex; align-items: center; justify-content: center; letter-spacing: .1px;
 }
 .category-item.active {
     background: linear-gradient(160deg, #fff5f5, #ffe8e8); border-color: #ffb9b9;
@@ -5906,6 +5906,11 @@ header {
 .cat-icon-wrapper.cat-insulin { background: linear-gradient(135deg, #3bbccb, #1897a6); }
 .cat-icon-wrapper.cat-baby { background: linear-gradient(135deg, #d4628f, #ad3b68); }
 .cat-icon-wrapper.cat-food { background: linear-gradient(135deg, #4fae85, #2e7d5b); }
+.cat-icon-wrapper.cat-medicine { background: linear-gradient(135deg, #5b8def, #2f5fd0); }
+.cat-icon-wrapper.cat-supplies { background: linear-gradient(135deg, #2ec4b6, #168f85); }
+.cat-icon-wrapper.cat-personal { background: linear-gradient(135deg, #f78fb3, #d6457a); }
+.cat-icon-wrapper.cat-general { background: linear-gradient(135deg, #f7b733, #e08a00); }
+.cat-icon-wrapper.cat-grocery { background: linear-gradient(135deg, #6ccf72, #2f9e44); }
 .cat-icon-wrapper.cat-others { background: linear-gradient(135deg, #8a7565, #5d4a3d); }
 /* Docked under the search bar while scrolling: slimmer, title tucked away.
    Only padding changes — never transform/scale (that shrank the box and
@@ -7624,3 +7629,56 @@ html[data-theme="dark"] picture {
 .slide.media-slide img.sponsored-media { object-fit: cover !important; }
 .slide.sp-fit::after { background-size: cover !important; }
 .slider-container { transition: height .3s ease; }
+
+
+/* ==========================================================================
+   DESKTOP FIXES (Oct 2026) — same stylesheet serves phone and desktop
+   1) Top red ticker keeps running on wide screens (it used to sit still, spread across the bar)
+   2) Sponsored banner is never cut on desktop: centred, capped width, whole poster visible
+   ========================================================================== */
+.top-bar { display: block !important; overflow: hidden !important; white-space: nowrap !important; text-align: left !important; }
+.top-bar .top-bar-scroll {
+    display: inline-block !important; width: max-content !important; max-width: none !important;
+    justify-content: flex-start !important; gap: 0 !important;
+    animation: scrollBanner 32s linear infinite !important;
+    will-change: transform;
+}
+.top-bar .top-bar-scroll span { display: inline-block !important; flex: none !important; margin-right: 80px !important; }
+@media (min-width: 1100px) {
+    .top-bar .top-bar-scroll { animation-duration: 45s !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .top-bar { text-align: center !important; white-space: normal !important; }
+    .top-bar .top-bar-scroll { animation: none !important; width: auto !important; }
+    .top-bar .top-bar-scroll span { margin: 0 14px !important; }
+}
+
+@media (min-width: 768px) {
+    .auto-slider-section { max-width: 1180px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+    .slider-container { max-height: 420px; }
+}
+/* when the poster is wider/taller than the allowed card, show all of it instead of trimming the edges */
+.slider-container.mf-sp-clamped .slide.media-slide img.sponsored-media { object-fit: contain !important; }
+.slider-container.mf-sp-clamped .slide.media-slide { background: #eef1f5; }
+
+
+/* ==========================================================================
+   SPONSORED BANNER ON DESKTOP — image and video both stay whole
+   - image: the card keeps the poster's shape; if it has to be narrower/shorter than the card,
+            the poster sits in the middle on a soft blurred copy of itself (no grey bars)
+   - video: card takes the video's shape; any leftover space is dark, never cropped
+   ========================================================================== */
+@media (min-width: 768px) {
+    .slider-container.mf-sp-clamped .slide.media-slide:not(.sp-video)::before {
+        content: ''; display: block !important; position: absolute; inset: -28px; z-index: 0;
+        background: var(--sp-img) center / cover no-repeat;
+        filter: blur(26px) saturate(1.15); transform: scale(1.05);
+    }
+    .slider-container.mf-sp-clamped .slide.media-slide:not(.sp-video)::after {
+        content: ''; position: absolute; inset: 0; z-index: 0; background: rgba(255,255,255,.18); pointer-events: none;
+    }
+    .slide.media-slide.sp-video { background: #0f1115; }
+    .slider-container.mf-sp-clamped .slide.media-slide.sp-video video.sponsored-media { object-fit: contain !important; }
+    .slide.media-slide .sponsored-media { z-index: 1; }
+    .slide.media-slide .sponsored-badge { z-index: 3; }
+}

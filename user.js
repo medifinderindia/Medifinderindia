@@ -1851,6 +1851,23 @@ async function setupHomePageModules() {
         }, 2600);
     })();
 
+    // Shop-by-category: maps each card's merchant product type (medicines.product_type)
+    // to the category chips: medicine / supplies / personal / general / grocery.
+    // 'baby' keeps using the keyword-based key; legacy keys (tablet, capsule...) still work.
+    function mfCardGroup(card) {
+        const t = String(card.getAttribute('data-product-type') || '').toLowerCase();
+        if (t.includes('instrument')) return 'supplies';
+        if (t.includes('personal')) return 'personal';
+        if (t.includes('general')) return 'general';
+        if (t.includes('grocery')) return 'grocery';
+        return 'medicine';
+    }
+    function mfCardMatchesCategory(card, target) {
+        if (target === 'baby') return card.getAttribute('data-category') === 'baby';
+        if (['medicine','supplies','personal','general','grocery'].includes(target)) return mfCardGroup(card) === target;
+        return card.getAttribute('data-category') === target;
+    }
+
     const categoryItems = document.querySelectorAll('.category-item');
     if (categoryItems.length > 0) {
         categoryItems.forEach(item => {
@@ -1863,11 +1880,13 @@ async function setupHomePageModules() {
                 const catCountBadge = document.getElementById('product-count-badge');
                 if (catCountBadge) catCountBadge.style.display = 'none';
                 const targetCategory = item.getAttribute('data-category');
+                const catHeading = document.getElementById('products-section-heading');
+                if (catHeading) catHeading.textContent = targetCategory === 'all' ? 'Available Products' : (item.getAttribute('title') || 'Products').split(' — ')[0];
                 const productCards = productsGrid.querySelectorAll('.product-card');
                 let visibleCount = 0;
                 productCards.forEach(card => {
                     card.style.order = '';
-                    if (targetCategory === 'all' || card.getAttribute('data-category') === targetCategory) {
+                    if (targetCategory === 'all' || mfCardMatchesCategory(card, targetCategory)) {
                         card.style.display = 'block'; visibleCount++;
                     } else {
                         card.style.display = 'none';
@@ -13354,6 +13373,7 @@ function mfFitSponsoredSlide() {
     // Learn every banner's shape up-front (not only the visible one) so the
     // card is already the right height when a slide comes into view - this is
     // what used to leave blurred side bars right after login / refresh.
+    const desktop = window.innerWidth >= 768;
     slides.forEach(s => {
         const im = s.querySelector('img.sponsored-media');
         if (im && im.naturalWidth > 0) s.dataset.ratio = String(im.naturalHeight / im.naturalWidth);
@@ -13361,13 +13381,28 @@ function mfFitSponsoredSlide() {
             im.dataset.mfFitBound = '1';
             im.addEventListener('load', () => { try { mfFitSponsoredSlide(); } catch (e) {} });
         }
+        // Video banners: on desktop the card also takes the video's own shape, so nothing is cut off
+        const vd = s.querySelector('video.sponsored-media');
+        if (vd) {
+            s.classList.add('sp-video');
+            if (vd.videoWidth > 0) { if (desktop) s.dataset.ratio = String(vd.videoHeight / vd.videoWidth); else delete s.dataset.ratio; }
+            else if (!vd.dataset.mfFitBound) {
+                vd.dataset.mfFitBound = '1';
+                vd.addEventListener('loadedmetadata', () => { try { mfFitSponsoredSlide(); } catch (e) {} });
+            }
+        }
     });
     const act = cont.querySelector('.slide.active-slide');
     const ratio = act ? parseFloat(act.dataset.ratio) : NaN;
+    cont.classList.toggle('mf-sp-video', !!(act && act.classList.contains('sp-video')));
     if (ratio > 0) {
         const h = Math.round(cont.clientWidth * ratio);
-        cont.style.height = Math.min(360, Math.max(150, h)) + 'px';
-    } else cont.style.height = '';
+        const maxH = desktop ? 420 : 360;   // desktop cards may be a bit taller
+        const finalH = Math.min(maxH, Math.max(150, h));
+        cont.style.height = finalH + 'px';
+        // card had to be shortened/lengthened -> show the whole poster/video (contain) rather than cutting its edges
+        cont.classList.toggle('mf-sp-clamped', Math.abs(finalH - h) > 2);
+    } else { cont.style.height = ''; cont.classList.remove('mf-sp-clamped'); }
 }
 window.addEventListener('resize', function () { try { mfFitSponsoredSlide(); } catch (e) {} });
 
