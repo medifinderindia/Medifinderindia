@@ -544,8 +544,10 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
 
     // First time — set the role once. Trust the role stored at signup (auth metadata) before localStorage.
     const newRole = (user.user_metadata && user.user_metadata.role) || savedRole;
-    await supabaseClient.auth.updateUser({ data: { role: newRole } });
-    await supabaseClient.from('profiles').upsert({
+    const { error: _updErr } = await supabaseClient.auth.updateUser({ data: { role: newRole } });
+    if (_updErr) console.warn('[MediFinder] updateUser(role) failed:', _updErr.message);
+
+    const { error: _profInsErr } = await supabaseClient.from('profiles').upsert({
         id: user.id,
         email: user.email || '',
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
@@ -554,20 +556,33 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
         updated_at: new Date().toISOString()
     }, { onConflict: 'id', ignoreDuplicates: true }); // insert-only: can never overwrite an existing role
 
+    // ✅ FIX: this error used to be ignored. A failed insert (e.g. profiles_email_key duplicate
+    // from a leftover profile) left the account with NO profile, and the app silently fell back
+    // to the "user" role / User page. Now we stop, tell the visitor, and sign out cleanly.
+    if (_profInsErr) {
+        console.error('[MediFinder] profile create failed:', _profInsErr.message);
+        setAuthNotice('Could not create your account profile. Please try again, or contact support if this keeps happening.', 'error');
+        localStorage.removeItem('selected_role');
+        await supabaseClient.auth.signOut();
+        throw new Error('profile_create_failed');
+    }
+
     if (newRole === 'merchant') {
-        await supabaseClient.from('merchants').upsert({
+        const { error: _mErr } = await supabaseClient.from('merchants').upsert({
             auth_user_id: user.id,
             merchant_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Merchant',
             email: user.email || '',
             status: 'active'
         }, { onConflict: 'auth_user_id' });
+        if (_mErr) console.error('[MediFinder] merchants row create failed:', _mErr.message);
     }
     if (newRole === 'delivery') {
-        await supabaseClient.from('riders').upsert({
+        const { error: _rErr } = await supabaseClient.from('riders').upsert({
             auth_user_id: user.id,
             name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Rider',
             status: 'offline'
         }, { onConflict: 'auth_user_id' });
+        if (_rErr) console.error('[MediFinder] riders row create failed:', _rErr.message);
     }
     if (newRole === 'service') {
         const serviceType = getPendingServiceType();
