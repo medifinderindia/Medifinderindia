@@ -340,7 +340,8 @@
       category: r.business_category || '',
       about: r.about_shop || '',
       signature: r.signature_url || '',
-      photo: r.avatar_url || r.merchant_avatar || '',
+      // own profile photo first; if none, fall back to the shop photo uploaded in KYC (Shop photo with signboard)
+      photo: r.avatar_url || r.merchant_avatar || ((r.business_proof_type === 'Shop photo with signboard' && r.business_proof_img && !/\.pdf(\?|#|$)/i.test(r.business_proof_img)) ? r.business_proof_img : ''),
       phone: r.phone || '',
       email: r.email || email || '',
       address: {
@@ -4500,7 +4501,13 @@
 
   AFTER['kyc-wizard'] = () => wireWizardButtons();
   function wireWizardButtons() {
-    const redraw = () => { document.getElementById('wizardBody').innerHTML = renderWizardStepBody(state.wizard.step, state.wizard.draft); wireWizardButtons(); window.scrollTo(0, 0); };
+    const redraw = () => {
+      document.getElementById('wizardBody').innerHTML = renderWizardStepBody(state.wizard.step, state.wizard.draft); wireWizardButtons(); window.scrollTo(0, 0);
+      // keep the red step bar + "n / 6" in sync with the current step
+      const st = state.wizard.step, dots = document.querySelector('.wizard-head .wizard-steps'), lbl = document.querySelector('.wizard-head .wizard-step-label');
+      if (dots) dots.innerHTML = WIZARD_STEPS.map((x, i) => `<div class="wizard-step-dot${i < st ? ' done' : i === st ? ' current' : ''}"></div>`).join('');
+      if (lbl) lbl.textContent = `${st + 1} / ${WIZARD_STEPS.length}`;
+    };
     document.getElementById('wizardBack')?.addEventListener('click', () => {
       if (state.wizard.step === 0) return;
       saveStepIntoDraftSilently();
