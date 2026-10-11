@@ -485,13 +485,30 @@ let _roleUpdateUserId = null;
 function handleOAuthUserRoleUpdate(user) {
     if (!_roleUpdatePromise || _roleUpdateUserId !== user.id) {
         _roleUpdateUserId = user.id;
-        _roleUpdatePromise = _handleOAuthUserRoleUpdateImpl(user);
+        _roleUpdatePromise = _handleOAuthUserRoleUpdateImpl(user).finally(function () {
+            // one-shot hint, consumed (see loginWithGoogle)
+            try { sessionStorage.removeItem('mf_oauth_role'); localStorage.removeItem('mf_oauth_role'); } catch (e) {}
+        });
     }
     return _roleUpdatePromise;
 }
 
 async function _handleOAuthUserRoleUpdateImpl(user) {
-    const savedRole = localStorage.getItem('selected_role') || 'user';
+    // ✅ FIX: 'selected_role' can be wiped while Google is open (the session guard at the top of
+    // this file clears it whenever an sb-*-auth-token key is removed, e.g. a stale session of a
+    // deleted user). Then the code fell back to 'user' and a Merchant signup became a User.
+    // 'mf_oauth_role' is a separate one-shot key that the wipe does not touch.
+    let _roleHint = '';
+    try { _roleHint = sessionStorage.getItem('mf_oauth_role') || localStorage.getItem('mf_oauth_role') || ''; } catch (e) {}
+    const savedRole = _roleHint || localStorage.getItem('selected_role') || 'user';
+    console.log('[MediFinder] OAuth role resolve -> hint:', _roleHint || '(none)', '| selected_role:', localStorage.getItem('selected_role'), '| using:', savedRole);
+
+    // Only a FRESH Google sign-in is checked against the role the visitor picked.
+    // supabase-js also fires SIGNED_IN when a tab regains focus / session is re-validated;
+    // comparing against a stale localStorage 'selected_role' then signed people out
+    // ("have to login again and again"). For an already-logged-in user we just trust the DB role.
+    let _fresh = window._mfGoogleOAuthPending === true;
+    try { _fresh = _fresh || sessionStorage.getItem('mf_oauth_pending') === '1'; } catch (e) {}
 
     const { data: existingProfile, error: _profErr } = await supabaseClient
         .from('profiles')
@@ -503,18 +520,19 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
     // this account already has a role. Never guess -> never write anything.
     // (This is how an ambulance/partner account could get re-created as "user".)
     if (_profErr) {
-        console.warn('[MediFinder] profile read failed, skipping role sync:', _profErr.message);
-        return;
+        console.warn('[MediFinder] profile read failed:', _profErr.message);
+        if (_fresh) {
+            // ✅ STRICT: a brand-new Google login whose role cannot be verified is NOT let in
+            // (before, it fell through to the page of whatever role was picked).
+            setAuthNotice('Could not verify your account. Please check your connection and log in again.', 'error');
+            localStorage.removeItem('selected_role');
+            await supabaseClient.auth.signOut();
+            throw new Error('profile_read_failed');
+        }
+        return; // already-signed-in session on a flaky network: leave it alone
     }
 
     const actualRole = existingProfile?.role;
-
-    // Only a FRESH Google sign-in is checked against the role the visitor picked.
-    // supabase-js also fires SIGNED_IN when a tab regains focus / session is re-validated;
-    // comparing against a stale localStorage 'selected_role' then signed people out
-    // ("have to login again and again"). For an already-logged-in user we just trust the DB role.
-    let _fresh = window._mfGoogleOAuthPending === true;
-    try { _fresh = _fresh || sessionStorage.getItem('mf_oauth_pending') === '1'; } catch (e) {}
 
     if (actualRole && !_fresh) {
         localStorage.setItem('selected_role', actualRole);
@@ -1444,6 +1462,8 @@ if (verifyOtpBtn) {
 
 async function loginWithGoogle(roleValue) {
     localStorage.setItem('selected_role', roleValue);
+    try { sessionStorage.setItem('mf_oauth_role', roleValue); localStorage.setItem('mf_oauth_role', roleValue); } catch (e) {}
+    console.log('[MediFinder] Google login clicked, role =', roleValue);
     // Marks "a Google round-trip is in flight" so ANY page we land on afterwards
     // (auth.html OR the splash, if Supabase falls back to the Site URL) resolves
     // role + mismatch BEFORE showing anything.
@@ -1566,6 +1586,19 @@ async function handleGoogleOAuthCallback() {
 if (window._mfGoogleOAuthPending === true) {
     handleGoogleOAuthCallback();
 }
+
+// ✅ FIX: Login tab and Signup tab have SEPARATE role radios (both default to "User").
+// Picking Merchant on one tab and pressing Google on the other sent "user". Keep them in sync.
+['login-role', 'signup-role'].forEach(function (name) {
+    const other = name === 'login-role' ? 'signup-role' : 'login-role';
+    document.querySelectorAll('input[name="' + name + '"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            if (!radio.checked) return;
+            const twin = document.querySelector('input[name="' + other + '"][value="' + radio.value + '"]');
+            if (twin && !twin.checked) twin.checked = true;
+        });
+    });
+});
 
 const googleBtn = document.getElementById('google-btn');
 if (googleBtn) {
