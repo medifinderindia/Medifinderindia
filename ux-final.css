@@ -1,0 +1,37 @@
+/* ux-final.css — final polish: skeleton, smooth scrolling lists, bottom nav, offline bar.
+   Loaded LAST so it wins over the older duplicate .bottom-nav rules in user.css. */
+
+/* ---- smoother scrolling: off-screen product cards are not laid out/painted ---- */
+.product-card{content-visibility:auto;contain-intrinsic-size:auto 290px}
+.product-card img{background:#f3f4f6}
+.main-content-scrollable{-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+
+/* ---- bottom navigation (definitive) ---- */
+.bottom-nav{contain:layout style}
+.bottom-nav .nav-item{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;touch-action:manipulation;outline:none}
+.bottom-nav .nav-item:focus-visible{box-shadow:0 0 0 2px #e02020 inset}
+.bottom-nav .nav-item .nav-icon{transition:background .2s ease,transform .22s cubic-bezier(.3,1.4,.5,1)}
+.bottom-nav .nav-item.active .nav-icon{transform:translateY(-1px) scale(1.06)}
+.bottom-nav .nav-item:active .nav-icon{transform:scale(.88)}
+.bottom-nav .nav-item span:not(.nav-icon):not(.nav-badge){font-size:.64rem;font-weight:700;letter-spacing:.2px;line-height:1.1}
+.bottom-nav .nav-item.active span:not(.nav-icon):not(.nav-badge){font-weight:800}
+.bottom-nav .nav-item .nav-badge{font-size:.6rem;font-weight:800;line-height:16px;text-align:center;letter-spacing:0;animation:mfBadgePop .25s cubic-bezier(.3,1.6,.5,1)}
+@keyframes mfBadgePop{from{transform:scale(.4)}to{transform:scale(1)}}
+
+/* ---- offline bar ---- */
+#mf-offline-bar{position:fixed;left:0;right:0;top:0;z-index:99998;transform:translateY(-110%);transition:transform .25s ease;background:#2f3542;color:#fff;font:600 .75rem/1.2 system-ui,sans-serif;text-align:center;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;pointer-events:none}
+#mf-offline-bar.show{transform:none}
+
+/* ---- respect "reduce motion" (spinners keep spinning so people still see progress) ---- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .is-busy::after,.mf-boot-loader-ring{animation-duration:.9s!important;animation-iteration-count:infinite!important}
+}
+
+/* ---- product page: "What you get in this order" ---- */
+.pd-pack-box{margin:12px 0;padding:12px 14px;border:1px solid #ffe0e0;background:#fff8f8;border-radius:14px;display:flex;flex-direction:column;gap:8px}
+.pd-pack-head{font-size:.78rem;font-weight:800;color:#e02020;display:flex;align-items:center;gap:6px}
+.pd-pack-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:.85rem;color:#4b5563}
+.pd-pack-row b{color:#1f2937;font-weight:700;text-align:right;min-width:0;overflow-wrap:anywhere}
+.pd-pack-total{padding-top:8px;border-top:1px dashed #f3c4c4}
+.pd-pack-total b{color:#e02020}

@@ -1,15 +1,4 @@
 /* ---- session guard (idle auto-logout) ---- */
-// ==========================================
-// MediFinder India - Session Guard + Router (all pages)  v2
-//  1. Logged-in person STAYS logged in until Logout (or MF_MAX_IDLE_DAYS idle).
-//  2. Public pages (home.html) never show a logged-in person: they are sent
-//     to THEIR OWN page (role + service_type) instantly, no network needed.
-//  3. ANY sign-out (any page, any script) wipes every cached login trace, so
-//     the next visit is: Splash -> public Home.
-//  4. Back/forward cache can never show a stale logged-in page after logout.
-// Load as the FIRST script in <head>, plain <script>, no defer:
-//   <script src="session-guard.js?v=2"></script>
-// ==========================================
 (function () {
     'use strict';
     if (window.__mfSessionGuard) return;
@@ -147,13 +136,6 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:
 
 let otpInterval;
 
-// ==========================================
-// ⏱️ 20-SECOND TIMEOUT + RETRY HELPER
-// ==========================================
-// Wraps any Supabase auth call (login / signup) so that if the network is
-// slow or the request just hangs, the user sees a clear "timed out, please
-// retry" message within 20s instead of a spinner that never ends. Used by
-// the login and signup submit handlers below.
 function withTimeout(promise, ms = 20000) {
     return Promise.race([
         promise,
@@ -183,11 +165,6 @@ function formatPhoneToE164(phone) {
     return formatted;
 }
 
-// ==========================================
-// 🔒 ONE EMAIL / ONE PHONE = ONE ROLE (strict) + clean OAuth landing helpers
-// ==========================================
-// A toast shown right before a redirect/reload is lost. So we park the message in
-// sessionStorage and show it once on the next page load (auth.html).
 function setAuthNotice(msg, type) {
     try { sessionStorage.setItem('mf_auth_notice', JSON.stringify({ msg: msg, type: type || 'error' })); } catch (e) {}
 }
@@ -219,10 +196,6 @@ function hideAuthCover() {
     if (c) c.remove();
 }
 
-// Asks the database (SECURITY DEFINER rpc, see role-lock.sql) which role already owns
-// this email or phone. Returns the role string, or null if free / rpc not installed yet
-// (the DB trigger in role-lock.sql is the hard backstop in that case).
-// Edge Function 'signup-gate': today's signup limit (200) + mailbox already registered?
 async function mfSignupGate(email) {
     try {
         const ctrl = new AbortController();
@@ -260,9 +233,6 @@ async function getRegisteredRole(email, phone) {
     } catch (e) { return null; }
 }
 
-// ==========================================
-// ডায়নামিক রোল পলিসি লিংক চেঞ্জার লজিক
-// ==========================================
 const roleRadioButtons = document.querySelectorAll('input[name="signup-role"]');
 const dynamicPolicyLink = document.getElementById('dynamic-policy-link');
 
@@ -299,32 +269,11 @@ function checkPolicyAgreement() {
     return true;
 }
 
-// ==========================================
-// ১. সেশন চেক ও রিডাইরেকশন লজিক (Fixed for Localhost & Netlify)
-// ==========================================
-// ✅ Fixed: একটাই onAuthStateChange, async করা হয়েছে, else if সঠিক জায়গায়
 supabaseClient.auth.onAuthStateChange(async (event, session) => {
     const path = window.location.pathname.toLowerCase();
-    // ✅ PUBLIC-HOME ARCHITECTURE: home.html is now the real public landing/shopping
-    // page (it does not load this file at all) and auth.html is the login/signup page.
-    //   isAuthPage   -> auth.html: a signed-in user is sent on to their role dashboard.
-    //   isPublicPage -> auth.html / home.html / index.html (splash): a signed-out
-    //                   visitor must NEVER be bounced away from these.
-    // Every other page that loads this file is a protected page and sends a
-    // signed-out visitor back to the public home.
     const isAuthPage = path.includes("auth.html");
     const isPublicPage = isAuthPage || path.includes("home.html") || /\/(index\.html)?$/.test(path);
 
-    // ✅ GOOGLE OAUTH FIX: when we've just returned from Google (?oauth=google),
-    // handleGoogleOAuthCallback() below owns role-resolution + redirect exclusively
-    // for that leg. Without this guard, this listener's own SIGNED_IN handling could
-    // fire at the same time (a real race — sometimes before, sometimes after the
-    // callback's getSession() resolves) and either double-run the role upsert or
-    // send the user to two different places. This listener still handles every other
-    // sign-in path (email, phone OTP, admin, session restore) exactly as before.
-    // Reads window._mfGoogleOAuthPending (set by auth.html's inline script before
-    // its own showView() call strips ?oauth=google from the URL) instead of
-    // re-parsing window.location.search, which would already be too late here.
     const isGoogleOAuthCallback = window._mfGoogleOAuthPending === true;
 
     // Splash should play again on the next entry after a logout.
@@ -334,8 +283,6 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         _roleUpdatePromise = null; _roleUpdateUserId = null;
     }
 
-    // ✅ FIXED: PASSWORD_RECOVERY নিজে একটা আলাদা event — আগে এটা "SIGNED_IN" এর
-    // ভেতরে বসানো থাকায় কখনোই রান হতো না। এখন আলাদা করে হ্যান্ডেল করা হচ্ছে।
     if (event === "PASSWORD_RECOVERY" && session) {
         const newPassword = await new Promise(resolve => {
             const m = document.createElement('div');
@@ -366,33 +313,16 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         return;
     }
 
-    // ✅ FIXED: আগে শুধু event === 'SIGNED_IN' হলে রিডাইরেক্ট হতো। কিন্তু ব্রাউজার/অ্যাপ
-    // রিফ্রেশ করলে বা সরাসরি Login.html/signup.html ওপেন করলে Supabase একবার
-    // 'INITIAL_SESSION' event পাঠায় (persisted session সহ) — সেটা আগে ইগনোর হতো,
-    // ফলে আগে থেকে লগইন থাকা ইউজারও Login পেজেই আটকে থাকতো, মনে হতো বারবার
-    // লগইন করতে হচ্ছে। এখন INITIAL_SESSION কেও ধরা হচ্ছে যাতে সাথে সাথে home এ যায়।
     const isSignInLikeEvent = event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
 
     if (session && isSignInLikeEvent) {
-        // ✅ GOOGLE OAUTH FIX: bail out here — handleGoogleOAuthCallback() (defined
-        // below, near loginWithGoogle) is already running and will call
-        // handleOAuthUserRoleUpdate() + redirect itself. See isGoogleOAuthCallback above.
         if (isGoogleOAuthCallback) {
             return;
         }
-        // Password login form checks the role itself and redirects itself - stay out of its way
-        // (this race used to push a wrong-role login to user.html before the check finished).
         if (window._mfLoginInFlight) {
             return;
         }
 
-        // নতুন sign-in হলেই শুধু role sync/OAuth upsert চালাও — একটা persisted
-        // session রিস্টোর হওয়া (INITIAL_SESSION/TOKEN_REFRESHED) মানে নতুন কিছু
-        // করার দরকার নেই, শুধু সঠিক পেজে পাঠিয়ে দিলেই যথেষ্ট।
-        // ✅ ADMIN LOGIN FIX: admin flow-er setSession() ei callback cholar somoy auth lock
-        // dhore rakhe. Ekhane await kore onno supabase call (profiles query) korle DEADLOCK hoy —
-        // setSession() kokhono resolve hoy na, tai admin.html-e jawa hoy na. Ar role mismatch hole
-        // admin session signOut-o hoye jayte pare. Tai admin hole ekhane kono DB call korbo na.
         if (localStorage.getItem('admin_auth_in_progress') === 'true') {
             return;
         }
@@ -436,13 +366,6 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-// ==========================================
-// 🩺 SERVICE PROVIDER (Nurse / Ambulance Driver / Phlebotomist) HELPERS
-// ==========================================
-// Service type is chosen once at signup (see auth.html's signup-service-type
-// select). It's stashed in localStorage so it survives a Google OAuth
-// redirect round-trip, where the signup form/DOM is gone by the time we
-// come back.
 function getPendingServiceType() {
     if (window.getMediFinderServiceProfile) {
         const t = window.getMediFinderServiceProfile().service_type;
@@ -462,7 +385,6 @@ const EMS_PARTNER_PAGES = {
 };
 function getServiceRedirectTarget(serviceType) {
     const t = serviceType || getPendingServiceType() || localStorage.getItem('selected_service_type') || '';
-    // Unknown/missing service type -> the customer app (service.html no longer exists; user.html is also this file's default target)
     return EMS_PARTNER_PAGES[t] || 'user.html';
 }
 
@@ -476,10 +398,6 @@ async function upsertServiceProviderProfile(user, serviceType) {
     }).eq('id', user.id);
 }
 
-// ✅ ONE shared promise per signed-in user. Before, a second caller (splash / listener /
-// OAuth callback) hit `if (_roleUpdateInProgress) return;` and was treated as "role OK"
-// while the real mismatch check was still running — so a wrong-role Google login could
-// slip through to the other role's page. Now every caller awaits the SAME result.
 let _roleUpdatePromise = null;
 let _roleUpdateUserId = null;
 function handleOAuthUserRoleUpdate(user) {
@@ -494,19 +412,11 @@ function handleOAuthUserRoleUpdate(user) {
 }
 
 async function _handleOAuthUserRoleUpdateImpl(user) {
-    // ✅ FIX: 'selected_role' can be wiped while Google is open (the session guard at the top of
-    // this file clears it whenever an sb-*-auth-token key is removed, e.g. a stale session of a
-    // deleted user). Then the code fell back to 'user' and a Merchant signup became a User.
-    // 'mf_oauth_role' is a separate one-shot key that the wipe does not touch.
     let _roleHint = '';
     try { _roleHint = sessionStorage.getItem('mf_oauth_role') || localStorage.getItem('mf_oauth_role') || ''; } catch (e) {}
     const savedRole = _roleHint || localStorage.getItem('selected_role') || 'user';
     console.log('[MediFinder] OAuth role resolve -> hint:', _roleHint || '(none)', '| selected_role:', localStorage.getItem('selected_role'), '| using:', savedRole);
 
-    // Only a FRESH Google sign-in is checked against the role the visitor picked.
-    // supabase-js also fires SIGNED_IN when a tab regains focus / session is re-validated;
-    // comparing against a stale localStorage 'selected_role' then signed people out
-    // ("have to login again and again"). For an already-logged-in user we just trust the DB role.
     let _fresh = window._mfGoogleOAuthPending === true;
     try { _fresh = _fresh || sessionStorage.getItem('mf_oauth_pending') === '1'; } catch (e) {}
 
@@ -522,8 +432,6 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
     if (_profErr) {
         console.warn('[MediFinder] profile read failed:', _profErr.message);
         if (_fresh) {
-            // ✅ STRICT: a brand-new Google login whose role cannot be verified is NOT let in
-            // (before, it fell through to the page of whatever role was picked).
             setAuthNotice('Could not verify your account. Please check your connection and log in again.', 'error');
             localStorage.removeItem('selected_role');
             await supabaseClient.auth.signOut();
@@ -574,9 +482,6 @@ async function _handleOAuthUserRoleUpdateImpl(user) {
         updated_at: new Date().toISOString()
     }, { onConflict: 'id', ignoreDuplicates: true }); // insert-only: can never overwrite an existing role
 
-    // ✅ FIX: this error used to be ignored. A failed insert (e.g. profiles_email_key duplicate
-    // from a leftover profile) left the account with NO profile, and the app silently fell back
-    // to the "user" role / User page. Now we stop, tell the visitor, and sign out cleanly.
     if (_profInsErr) {
         console.error('[MediFinder] profile create failed:', _profInsErr.message);
         setAuthNotice('Could not create your account profile. Please try again, or contact support if this keeps happening.', 'error');
@@ -631,10 +536,6 @@ async function redirectUserBasedOnRole(user) {
     } else if (role === 'delivery') {
         window.location.replace('rider.html');
     } else if (role === 'service') {
-        // ✅ SPEED FIX: use the cached service_type first and only hit the
-        // network if we genuinely don't have it yet — this extra "select"
-        // on every single redirect was the main reason nurse/blood/ambulance
-        // partner accounts felt slow compared to merchant/rider.
         let serviceType = localStorage.getItem('selected_service_type') || '';
         if (!serviceType) {
             try {
@@ -652,9 +553,6 @@ async function redirectUserBasedOnRole(user) {
     }
 }
 
-// ==========================================
-// ২. SIGN UP FUNCTIONALITIES & OTP TIMER
-// ==========================================
 const signupForm = document.getElementById('signup-form');
 if (signupForm) {
     signupForm.addEventListener('submit', async (e) => {
@@ -684,7 +582,6 @@ if (signupForm) {
         localStorage.setItem('selected_role', role);
         if (serviceType) localStorage.setItem('selected_service_type', serviceType);
 
-        // ✅ Admin email দিয়ে signup block করো
         const BLOCKED_ADMIN_EMAIL = "medifinderindia@gmail.com";
         if (email === BLOCKED_ADMIN_EMAIL) {
             showToast("Signup Failed: This email is not allowed for registration.", "error");
@@ -697,7 +594,6 @@ if (signupForm) {
             signupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
         }
 
-        // 🔒 One email / one phone = one role. Stop BEFORE creating anything.
         const _owner = await getRegisteredRole(email, phone);
         if (_owner) {
             showToast(_owner === role
@@ -754,11 +650,6 @@ if (signupForm) {
         } else {
             // ডাটাবেস ইনসার্ট লজিক এখানে শুরু হবে
             if (data && data.user) {
-                // ✅ SPEED FIX: profile upsert + role-specific table write don't
-                // depend on each other — run them in parallel instead of one
-                // after another. Service-role (nurse/blood/ambulance) signups
-                // previously waited for profiles → THEN the service update,
-                // doubling the wait versus merchant/delivery.
                 const writes = [
                     supabaseClient.from('profiles').upsert({
                         id: data.user.id,
@@ -796,8 +687,6 @@ if (signupForm) {
 
             showToast("Signup Successful!", "success");
 
-            // ✅ FIX: আগে এখানে কোনো redirect ছিল না, তাই signup এর পর
-            // ইউজার সাইনআপ পেজেই আটকে থাকতো / লগইন পেজে ফেরত যেতে হতো।
             if (data.session) {
                 // Email confirmation off (or auto-confirmed) — session is live, send them straight in
                 setTimeout(() => redirectUserBasedOnRole(data.user), 700);
@@ -952,7 +841,6 @@ if (verifySignupOtpBtn) {
             try {
                 const user = data.user;
                 if (user) {
-                    // 🔒 Never overwrite an existing account's role.
                     const { data: _ex, error: _exErr } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
                     if (_exErr) {
                         await supabaseClient.auth.signOut();
@@ -1033,9 +921,6 @@ if (verifySignupOtpBtn) {
     });
 }
 
-// ==========================================
-// ৩. LOGIN & FORGOT PASSWORD FUNCTIONALITIES
-// ==========================================
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -1079,16 +964,11 @@ if (loginForm) {
         }));
 
         if (error) {
-            // ✅ Request just timed out (slow/failed network) — never seen for
-            // user/merchant/rider before, but was silently hanging for the
-            // service-partner roles under load. Show a clear red retry state
-            // instead of leaving the button stuck on "Logging in...".
             if (error.message === '__TIMEOUT__') {
                 showToast("Login is taking too long. Please check your connection and tap Retry.", "error");
                 setButtonRetryState(loginBtn, '<i class="fas fa-redo"></i> Retry Login');
                 return;
             }
-            // ✅ FIXED: email ভুল নাকি password ভুল সেটা আলাদা করে দেখানো হচ্ছে (red popup)
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
                 showToast("Please enter a valid email id!", "error");
@@ -1115,7 +995,6 @@ if (loginForm) {
                 loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login Now';
             }
         } else {
-            // ✅ FIXED: আগে আসল role চেক করো, তারপর upsert/redirect করো
             const user = data.user;
             try {
                 const { data: existingProfile, error: _profReadErr } = await supabaseClient
@@ -1154,12 +1033,6 @@ if (loginForm) {
                 const finalRole = actualRole || role;
                 const finalServiceType = existingProfile?.service_type || '';
 
-                // ✅ SPEED FIX: these two writes don't depend on each other, so run
-                // them together instead of one-after-another. This is exactly the
-                // extra sequential round-trip that made service-partner (nurse /
-                // ambulance / phlebotomist) logins feel much slower than
-                // merchant/rider logins, which never had a second dependent write.
-                // Existing account: leave profiles untouched. New account: insert-only (never overwrites a role).
                 const profileUpsert = actualRole ? Promise.resolve() : supabaseClient.from('profiles').upsert({
                     id: user.id,
                     email: user.email || email,
@@ -1190,13 +1063,8 @@ if (loginForm) {
                 await Promise.all([profileUpsert, ...extraWrites]);
 
                 localStorage.setItem('selected_role', finalRole);
-                // ✅ Cache service_type immediately so the redirect below (and the
-                // dashboard page it lands on) never has to re-fetch it — this was
-                // the extra round-trip that specifically slowed down nurse/blood/
-                // ambulance-partner logins compared to merchant/rider.
                 if (finalServiceType) localStorage.setItem('selected_service_type', finalServiceType);
 
-                // ✅ Green success popup, exactly like a wrong password shows red.
                 showToast("Login successful! Redirecting...", "success");
 
                 // Redirect based on the ACTUAL (verified) role
@@ -1282,7 +1150,6 @@ if (sendOtpBtn) {
         sendOtpBtn.disabled = true;
         sendOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-        // 🔒 Login must only work for an existing number under the SAME role.
         const _loginOwner = await getRegisteredRole('', formattedPhone);
         const _pickedRole = roleChecked.value;
         if (_loginOwner && _loginOwner !== _pickedRole) {
@@ -1375,7 +1242,6 @@ if (verifyOtpBtn) {
             verifyOtpBtn.disabled = false;
             verifyOtpBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify OTP';
         } else {
-            // ✅ FIXED: OTP Verified — আগে আসল role চেক করো, তারপর upsert/redirect
             const user = data.user;
             try {
                 const { data: existingProfile, error: _profReadErr2 } = await supabaseClient
@@ -1469,11 +1335,6 @@ async function loginWithGoogle(roleValue) {
     // role + mismatch BEFORE showing anything.
     try { sessionStorage.setItem('mf_oauth_pending', '1'); } catch (e) {}
 
-    // ✅ GOOGLE OAUTH FIX: redirectTo now carries ?oauth=google so that, once Google
-    // sends the browser back here, handleGoogleOAuthCallback() below can reliably
-    // detect "we just came back from Google" and take over the redirect — instead of
-    // silently depending on onAuthStateChange timing, which is what left users stuck
-    // on auth.html.
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -1483,16 +1344,6 @@ async function loginWithGoogle(roleValue) {
     if (error) showToast("Google Auth Error: " + error.message, "error");
 }
 
-// ==========================================
-// ✅ GOOGLE OAUTH CALLBACK — reliable fallback redirect
-// ==========================================
-// Runs only when window._mfGoogleOAuthPending is true (i.e. we've just landed
-// back on auth.html after Google finished authenticating — see auth.html's
-// inline script, which captures this before it rewrites the URL and erases
-// the original ?oauth=google param). Independently calls getSession() and
-// drives the redirect itself, so the dashboard redirect no longer depends on
-// exactly when/whether onAuthStateChange's SIGNED_IN event fires relative to
-// this script running.
 async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Google OAuth callback detected');
     showAuthCover();
@@ -1587,8 +1438,6 @@ if (window._mfGoogleOAuthPending === true) {
     handleGoogleOAuthCallback();
 }
 
-// ✅ FIX: Login tab and Signup tab have SEPARATE role radios (both default to "User").
-// Picking Merchant on one tab and pressing Google on the other sent "user". Keep them in sync.
 ['login-role', 'signup-role'].forEach(function (name) {
     const other = name === 'login-role' ? 'signup-role' : 'login-role';
     document.querySelectorAll('input[name="' + name + '"]').forEach(function (radio) {
@@ -1664,18 +1513,6 @@ if (loginResendOtp) {
     });
 }
 
-// ==========================================
-// 🎟️ REFERRAL CODE VERIFICATION (was missing — button had no handler at all)
-// ==========================================
-// Expects a Postgres function `verify_referral_code(p_code text)` in Supabase
-// that returns true/false (or a row) for a valid, unused code. Create it once
-// in the SQL editor, e.g.:
-//   create or replace function verify_referral_code(p_code text)
-//   returns boolean language sql as $$
-//     select exists(select 1 from referral_codes where code = p_code and used = false)
-//   $$;
-// If your table/function name differs, just change 'verify_referral_code'
-// and the p_code param name below to match.
 const verifyReferralBtn = document.getElementById('verify-referral-btn');
 const referralInput = document.getElementById('referral-code');
 const referralMsg = document.getElementById('referral-msg');
@@ -1726,9 +1563,6 @@ if (phoneSignupToggle) {
     });
 }
 
-// ==========================================
-// 🥷 6. SECRET ADMIN SYSTEM (Fixed Authentication Flow)
-// ==========================================
 const ADMIN_REDIRECT_MAX_MS = 20000; // finalize-er por max 20 sec-er moddhe admin.html-e jabei
 let adminPhoneTicket = null; // server-encrypted ticket (email OTP verified, phone number pending)
 // 'owner'   = main admin: secret password -> email OTP -> phone + code (admin-auth edge function)
@@ -1914,8 +1748,6 @@ if (adminBtnStep1b) {
 
 // Session pawar por: client-e set kore admin.html-e pathai
 async function finishAdminLogin(session) {
-    // ✅ ADMIN LOGIN FIX: flag age set, ar 20s fallback redirect setSession-er AGEI arm kora hocche —
-    // agey fallback setSession-er pore chilo, tai setSession hang korle fallback kokhono arm-i hoto na.
     localStorage.setItem('admin_auth_in_progress', 'true'); // admin.js load hole clear kore dey
     const fallbackRedirect = setTimeout(() => window.location.replace("admin.html"), ADMIN_REDIRECT_MAX_MS);
 
@@ -2012,7 +1844,6 @@ if (adminBtnStep3) {
                 const msg = (vErr && vErr.message) || (vr && vr.error) || "Verification failed";
                 showToast("Verification Failed: " + msg, "error");
                 document.getElementById('admin-fixed-otp').value = "";
-                // Account no longer allowed (suspended, blocked, removed) or session problem -> end this login
                 if (/suspended|blocked|not an admin|finish setup|sign in again/i.test(msg)) {
                     if (adminModal) adminModal.style.display = 'none';
                     localStorage.removeItem('admin_auth_in_progress');
@@ -2047,13 +1878,6 @@ if (adminBtnStep3) {
     });
 }
 
-// ==========================================
-// 🚀 7. SPLASH SCREEN SUPPORT (Extension — additive only)
-// ==========================================
-// Nothing above this block is modified. This simply exposes the already-
-// created client plus a single-source-of-truth role → destination resolver
-// so splash.js can decide where to send an already-logged-in user without
-// duplicating (and risking drifting from) the role logic above.
 window.supabaseClient = supabaseClient;
 
 window.getRedirectPathForUser = async function (user) {

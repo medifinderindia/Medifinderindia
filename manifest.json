@@ -2,7 +2,7 @@
   "name": "MediFinder India - Medicine Delivery",
   "short_name": "MediFinder",
   "description": "Order medicines, healthcare products & essentials with fast delivery",
-  "start_url": "/index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#e02020",

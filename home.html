@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="session-guard.js?v=2"></script>
-    <script src="permission-every.js?v=4"></script>
+    <script src="session-guard.js?v=b85e8247"></script>
+    <script src="permission-every.js?v=ce3004a5"></script>
     <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://medifinderindia.com/#org","name":"MediFinder India","url":"https://medifinderindia.com/","logo":"https://medifinderindia.com/favicon.png","image":"https://medifinderindia.com/og-image.png","description":"MediFinder India is a technology-driven healthcare and fast-delivery platform connecting customers with participating pharmacies, healthcare service providers and delivery partners.","foundingDate":"2026","founder":{"@id":"https://medifinderindia.com/#rejoyan-sarkar"},"email":"support@medifinderindia.com","telephone":"+919593625498","address":{"@type":"PostalAddress","streetAddress":"Banihari, Janchi, Gangarampur","addressLocality":"Dakshin Dinajpur","addressRegion":"West Bengal","postalCode":"733140","addressCountry":"IN"},"areaServed":{"@type":"AdministrativeArea","name":"West Bengal, India"},"contactPoint":{"@type":"ContactPoint","telephone":"+919593625498","email":"support@medifinderindia.com","contactType":"customer support","areaServed":"IN","availableLanguage":["English","Bengali","Hindi"]},"sameAs":["https://www.facebook.com/profile.php?id=61590844315430","https://www.youtube.com/@medifinderindia","https://www.instagram.com/medifinderindia.com_/","https://wa.me/919382262825"],"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"Person","@id":"https://medifinderindia.com/#rejoyan-sarkar","name":"Rejoyan Sarkar","url":"https://medifinderindia.com/info.html#founder","jobTitle":"Founder","worksFor":{"@id":"https://medifinderindia.com/#org"}},{"@type":"WebSite","@id":"https://medifinderindia.com/#website","url":"https://medifinderindia.com/","name":"MediFinder India","publisher":{"@id":"https://medifinderindia.com/#org"},"about":{"@id":"https://medifinderindia.com/#org"},"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"ItemList","name":"MediFinder India main pages","itemListElement":[{"@type":"SiteNavigationElement","position":1,"name":"About Us","url":"https://medifinderindia.com/info.html#about"},{"@type":"SiteNavigationElement","position":2,"name":"Contact Us","url":"https://medifinderindia.com/info.html#contact"}]}]}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,12 +42,9 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="user.css?v=7">
+    <link rel="stylesheet" href="user.min.css?v=cd20a64a">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
-    <!-- ✅ Needed for the merged-in Ambulance page's payment flow (ride fare
-         + driver commission-due payments via Razorpay). -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style id="mf-public-extra-css">
         /* ===== Public Home additions (home.html only) ===== */
         .mf-guest-login-btn{display:inline-flex;align-items:center;gap:7px;border:0;background:#e02020;color:#fff;font-weight:800;font-size:12px;padding:9px 14px;border-radius:999px;cursor:pointer;margin-right:10px;white-space:nowrap;font-family:inherit}
@@ -175,11 +172,10 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 .mf-faq-list details[open] summary{color:#e02020}
 .mf-faq-actions{max-width:900px;margin:14px auto 0;display:flex;flex-direction:column;align-items:center;gap:4px}
 </style>
+<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+<script src="btn-loading.js?v=3e075ab0"></script>
 </head>
 <body>
-    <!-- Full-page boot loader — shown until window 'load' fires (see
-         mfHideBootLoader() in user.js). Was already wired up in JS but the
-         markup itself was missing, so it never actually appeared. -->
     <div id="mf-boot-loader">
         <div class="mf-boot-loader-ring-wrap">
             <div class="mf-boot-loader-ring"></div>
@@ -187,7 +183,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </div>
     </div>
 
-    <!-- ============ HOME ============ -->
     <div id="page-home" class="app-page active" data-page="home">
 
     <!-- Toast Notification Container -->
@@ -338,50 +333,46 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         <section class="categories-section">
             <h3 class="section-title"><i class="fa-solid fa-grid-2" style="color:var(--primary-color);"></i> Shop by Category</h3>
             <div class="categories-grid-scroll">
-                <div class="category-item active" data-category="all">
+                <div class="category-item active" data-category="all" title="All Items">
                     <div class="cat-icon-wrapper cat-all"><i class="fa-solid fa-border-all"></i></div>
                     <span>All Items</span>
                 </div>
-                <div class="category-item" data-category="tablet">
-                    <div class="cat-icon-wrapper cat-tablet"><i class="fa-solid fa-tablets"></i></div>
-                    <span>Tablet</span>
+                <div class="category-item" data-category="medicine" title="Medicines — tablets, capsules, syrups, insulin">
+                    <div class="cat-icon-wrapper cat-medicine"><i class="fa-solid fa-pills"></i></div>
+                    <span>Medicines</span>
                 </div>
-                <div class="category-item" data-category="capsule">
-                    <div class="cat-icon-wrapper cat-capsule"><i class="fa-solid fa-capsules"></i></div>
-                    <span>Capsule</span>
+                <div class="category-item" data-category="supplies" title="Medical Supplies &amp; Devices">
+                    <div class="cat-icon-wrapper cat-supplies"><i class="fa-solid fa-kit-medical"></i></div>
+                    <span>Medical Supplies</span>
                 </div>
-                <div class="category-item" data-category="syrup">
-                    <div class="cat-icon-wrapper cat-syrup"><i class="fa-solid fa-prescription-bottle"></i></div>
-                    <span>Syrup</span>
+                <div class="category-item" data-category="personal" title="Personal Care &amp; Hygiene">
+                    <div class="cat-icon-wrapper cat-personal"><i class="fa-solid fa-pump-soap"></i></div>
+                    <span>Personal Care</span>
                 </div>
-                <div class="category-item" data-category="insulin">
-                    <div class="cat-icon-wrapper cat-insulin"><i class="fa-solid fa-syringe"></i></div>
-                    <span>Insulin</span>
+                <div class="category-item" data-category="general" title="Daily Essentials">
+                    <div class="cat-icon-wrapper cat-general"><i class="fa-solid fa-basket-shopping"></i></div>
+                    <span>Daily Essentials</span>
                 </div>
-                <div class="category-item" data-category="baby">
+                <div class="category-item" data-category="grocery" title="Grocery &amp; Packaged Food">
+                    <div class="cat-icon-wrapper cat-grocery"><i class="fa-solid fa-cookie-bite"></i></div>
+                    <span>Grocery &amp; Food</span>
+                </div>
+                <div class="category-item" data-category="baby" title="Baby care &amp; diapers">
                     <div class="cat-icon-wrapper cat-baby"><i class="fa-solid fa-baby"></i></div>
                     <span>Baby</span>
-                </div>
-                <div class="category-item" data-category="food">
-                    <div class="cat-icon-wrapper cat-food"><i class="fa-solid fa-apple-whole"></i></div>
-                    <span>Food</span>
-                </div>
-                <div class="category-item" data-category="others">
-                    <div class="cat-icon-wrapper cat-others"><i class="fa-solid fa-ellipsis"></i></div>
-                    <span>Others</span>
                 </div>
             </div>
         </section>
 
         <section class="products-showcase-section" id="mf-products">
             <div class="section-header-row">
-                <h3 class="section-title" id="products-section-heading">Available Medicine</h3>
+                <h3 class="section-title" id="products-section-heading">Available Products</h3>
                 <span class="product-count-badge" id="product-count-badge" style="display:none;">0 items</span>
             </div>
             
             <div id="no-products-msg" style="display: none; text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem;">
                 <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #ccc; margin-bottom: 8px; display: block;"></i>
-                No matching medicines found.
+                No matching products found.
             </div>
 
             <div class="products-grid" id="main-products-grid">
@@ -396,7 +387,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
             <i class="fa-solid fa-arrow-up"></i>
         </div>
 
-    <!-- ============ HEALTHCARE SERVICES (public, opens the existing in-page views) ============ -->
     <section class="mf-services-section" id="mf-services">
         <div class="mf-public-section-head compact">
             <span class="mf-public-kicker"><i class="fa-solid fa-heart-pulse"></i> Healthcare Services</span>
@@ -450,7 +440,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </div>
     </section>
 
-    <!-- ============ PUBLIC TRUST / PARTNER / FOOTER ============ -->
     <section class="mf-public-partner-section" id="mf-partners">
         <div class="mf-public-section-head">
             <span class="mf-public-kicker"><i class="fa-solid fa-handshake"></i> Partner With MediFinder India</span>
@@ -711,7 +700,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 
     </div>
 
-    <!-- ============ PRODUCT DETAIL (in-app page, replaces old product-detail.html navigation) ============ -->
     <div id="page-product-detail" class="app-page" data-page="product-detail">
         <header class="pd-page-header">
             <button class="pd-back-btn" id="pd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
@@ -850,7 +838,7 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 
                         <div class="pd-accordion-item" id="pd-instrument-info-item" style="display:none;">
                             <button type="button" class="pd-accordion-head">
-                                <span><i class="fa-solid fa-stethoscope" style="color:var(--primary-color);"></i> Device Information</span>
+                                <span><i class="fa-solid fa-stethoscope" style="color:var(--primary-color);"></i> Medical Device Details</span>
                                 <i class="fa-solid fa-chevron-down"></i>
                             </button>
                             <div class="pd-accordion-body">
@@ -863,6 +851,28 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
                                     <div class="detail-item"><span class="detail-label">Measurement Range</span><span class="detail-value" id="pd-inst-range">—</span></div>
                                     <div class="detail-item"><span class="detail-label">Model Number</span><span class="detail-value" id="pd-inst-model">—</span></div>
                                     <div class="detail-item"><span class="detail-label">Warranty</span><span class="detail-value" id="pd-inst-warranty">—</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pd-accordion-item" id="pd-general-info-item" style="display:none;">
+                            <button type="button" class="pd-accordion-head">
+                                <span><i class="fa-solid fa-box-open" style="color:var(--primary-color);"></i> <span id="pd-gen-title">Product Details</span></span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="pd-accordion-body">
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="detail-label">Product Type</span><span class="detail-value" id="pd-gen-type">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Category</span><span class="detail-value" id="pd-gen-category">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Sub Category</span><span class="detail-value" id="pd-gen-subcategory">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Pack Size</span><span class="detail-value" id="pd-gen-pack">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Unit Type</span><span class="detail-value" id="pd-gen-unit">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Brand / Manufacturer</span><span class="detail-value" id="pd-gen-brand">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Batch Number</span><span class="detail-value" id="pd-gen-batch">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Lot Number</span><span class="detail-value" id="pd-gen-lot">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Manufacturing Date (MFG)</span><span class="detail-value" id="pd-gen-mfd">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Expiry Date</span><span class="detail-value" id="pd-gen-expiry">&mdash;</span></div>
+                                    <div class="detail-item"><span class="detail-label">Storage / Usage</span><span class="detail-value" id="pd-gen-storage">&mdash;</span></div>
                                 </div>
                             </div>
                         </div>
@@ -957,12 +967,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </div>
     </div>
 
-    <!-- ============ SHOP DETAIL (in-app page — replaces the old, separate
-         shop-details.html file, which never actually opened from any real
-         deployment path. Tapping "VIEW" on a shop, selecting a shop from
-         search suggestions, or "Visit Shop" on a product's detail page now
-         all route here via navigateToShopDetail(), the same in-app SPA
-         pattern already used for Product Detail. ============ -->
     <div id="page-shop-detail" class="app-page" data-page="shop-detail">
         <header class="pd-page-header sd-page-header">
             <button class="pd-back-btn" id="sd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
@@ -1067,8 +1071,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </main>
     </div>
 
-    <!-- ============ SHOPS / MAP ============ -->
-    <!-- ============ NOTIFICATION (full page) ============ -->
     <div id="page-notification" class="app-page" data-page="notification">
         <header class="notification-page-header">
             <h2><i class="fa-solid fa-bell"></i> Notifications</h2>
@@ -1120,7 +1122,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 
     </div>
 
-    <!-- ============ ORDERS ============ -->
     <div id="page-order" class="app-page" data-page="order">
         <div class="order-screen premium-orders-screen">
             <div class="orders-title-row">
@@ -1161,7 +1162,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </div>
     </div>
 
-    <!-- ============ CART ============ -->
     <div id="page-cart" class="app-page" data-page="cart">
 
     <main class="cart-screen">
@@ -1242,13 +1242,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
                     <button class="save-address-btn" id="save-address-btn"><i class="fa-solid fa-bookmark"></i> Save Address</button>
                     <p id="addr-status-msg"></p>
                 </div>
-                <!-- ✅ Item 3: removed the second/duplicate address display
-                     (the old single "saved-address-box" card) that used to
-                     render here alongside cart-address-list above — showing
-                     the same saved address twice in two different card
-                     styles. cart-address-list is now the one and only
-                     address system on this page; "Write address manually"
-                     below still opens the form to add or edit an address. -->
                 <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #e02020;background:#fff8f8;color:#e02020;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
             </div>
 
@@ -1478,7 +1471,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
     </div>
     </div>
 
-    <!-- ============ PROFILE ============ -->
     <div id="page-profile" class="app-page" data-page="profile">
 
     <main class="profile-screen">
@@ -1514,9 +1506,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
                 <i class="fa-solid fa-chevron-right" style="color:#ff4d4d;"></i>
             </div>
 
-            <!-- MY ORDERS (merged in from the old hamburger menu, which is
-                 no longer reachable since the app switched to the 5-icon
-                 bottom nav) -->
             <div class="menu-card-item" id="my-orders-trigger">
                 <div class="menu-icon" style="background:#e8f4fd;color:#1c82aa;"><i class="fa-solid fa-box"></i></div>
                 <div class="menu-text">
@@ -1609,10 +1598,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
                 </div>
             </div>
 
-            <!-- Added so Privacy Policy / Cancellation & Refund actually have
-                 somewhere to link from — user.js already had onclick logic
-                 for these two ids ready and waiting, it just had no matching
-                 HTML element to attach to, so the links never rendered. -->
             <div class="menu-card-item" id="privacy-trigger">
                 <div class="menu-icon" style="background:#e6f7ff;color:#0b7fab;"><i class="fa-solid fa-user-shield"></i></div>
                 <div class="menu-text">
@@ -1657,15 +1642,12 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
                 <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
             </div>
 
-            <!-- ✅ Item 5: "Help Desk" menu item removed per request (FAQ +
-                 Customer Care Desk below already cover diagnostics/support). -->
-
             <div class="menu-card-item contact-hub-item">
                 <div class="menu-icon" style="background:#e7f5ff;color:#1c7ed6;"><i class="fa-solid fa-headset"></i></div>
                 <div class="menu-text">
                     <h3 id="lang-care-title">Customer Care Desk</h3>
                     <div class="contact-actions-grid">
-                        <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                        <a href="tel:+919593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
                         <a href="mailto:medifinderindia@gmail.com?subject=MediFinder%20India%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
                         <a href="mailto:support@medifinderindia.com?subject=MediFinder%20India%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> support@medifinderindia.com</a>
                     </div>
@@ -1844,7 +1826,7 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
             </div>
             <div class="modal-scrollable-inner" style="padding:16px;">
                 <div class="contact-actions-grid" style="margin-bottom:16px;">
-                    <a href="tel:9593625498" class="care-anchor-btn faq-call-btn"><i class="fa-solid fa-phone"></i> Call Support <span>9593625498</span></a>
+                    <a href="tel:+919593625498" class="care-anchor-btn faq-call-btn"><i class="fa-solid fa-phone"></i> Call Support <span>9593625498</span></a>
                 </div>
                 <div class="faq-accordion">
                     <details class="faq-item" open>
@@ -1893,7 +1875,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
     </div> 
 
 
-    <!-- ============ Merged from manubar.html: Lab Test / Nurse Booking / Ambulance / Tablet Coin ============ -->
 <div id="page-lab-test" class="app-page pg-lab">
 <main class="main-content-scrollable">
 
@@ -2282,7 +2263,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 <main class="main-content-scrollable">
 
 
-<!-- ================= TOP STRIP (auto-slide) ================= -->
 <div class="top-strip">
   <div class="top-strip-track" id="ab_topStripTrack">
     <span class="active">100% Verified Drivers &amp; Vehicles — GPS Tracked</span>
@@ -2291,16 +2271,14 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </div>
 
-<!-- ================= HEADER (title + Back to Home, locked) ================= -->
 <header class="site-header">
   <h1 class="page-title">Ambulance Booking</h1>
   <a href="#" class="back-home-btn" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
 </header>
 
-<!-- ================= HEADER ACTIONS (sits below the locked header) ================= -->
 <div class="header-actions-row">
   <div class="header-actions">
-    <a href="tel:9593625498" class="emergency-call-btn"><i class="fa-solid fa-phone"></i> Call to Book: 9593625498</a>
+    <a href="tel:+919593625498" class="emergency-call-btn"><i class="fa-solid fa-phone"></i> Call to Book: 9593625498</a>
     <button id="ab_historyFab" class="history-fab" title="My Bookings"><i class="fa-solid fa-calendar-check"></i><span class="dot"></span></button>
   </div>
   <div class="cat-strip" id="ab_catStrip">
@@ -2331,7 +2309,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </div>
 
-<!-- ================= SEARCH PANEL (Uber style) ================= -->
 <section class="search-panel-wrap">
   <div class="search-panel">
     <div class="search-row">
@@ -2350,7 +2327,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </section>
 
-<!-- ================= TYPE FILTER ================= -->
 <div class="type-filter">
   <div class="type-chip active" data-type="all"><i class="fa-solid fa-layer-group"></i>All</div>
   <div class="type-chip" data-type="non_ac"><i class="fa-solid fa-truck-medical"></i>Non-AC</div>
@@ -2358,7 +2334,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   <div class="type-chip" data-type="icu"><i class="fa-solid fa-kit-medical"></i>ICU</div>
 </div>
 
-<!-- ================= RESULTS ================= -->
 <section class="results-section">
   <div class="results-head">
     <h2 style="font-size:16px;">Available Ambulances</h2>
@@ -2372,7 +2347,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </section>
 
-<!-- ================= BOOKING MODAL ================= -->
 </main>
 <div id="ab_bookingModal" class="modal-overlay hidden">
   <div class="modal-card">
@@ -2399,7 +2373,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </div>
 
-<!-- ================= LIVE TRACKING MODAL ================= -->
 <div id="ab_trackModal" class="modal-overlay hidden">
   <div class="modal-card">
     <button class="modal-close" data-close="trackModal">✕</button>
@@ -2425,7 +2398,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
   </div>
 </div>
 
-<!-- ================= HISTORY DRAWER ================= -->
 <div id="ab_drawerOverlay" class="drawer-overlay"></div>
 <aside id="ab_historyDrawer" class="history-drawer">
   <h3>My Bookings</h3>
@@ -2549,7 +2521,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 
 </div>
 
-    <!-- ============ SHARED: premium bottom navigation ============ -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Primary navigation">
         <button type="button" class="nav-item active" data-page="home" onclick="navigateTo('home')">
             <span class="nav-icon"><i class="fas fa-home"></i></span>
@@ -2571,27 +2542,12 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
             <span class="nav-icon"><i class="fas fa-user"></i></span>
             <span id="lang-nav-profile">PROFILE</span>
         </button>
-        <!-- ✅ Hamburger menu removed per explicit request — every item it
-             held (My Profile, My Orders, Track Shop, Pill Reminder, My
-             Prescriptions, Offers & Coupons, Customer Support, Logout) is
-             already reachable from the Profile tab in the bottom nav, so
-             nothing is lost by dropping this second, redundant menu. The
-             #hamburger-btn / #hamburger-overlay markup and its close button
-             are gone entirely — not just hidden with CSS — so there's no
-             leftover invisible button sitting in the layout. -->
     </nav>
-<script src="push-notifications.js?v=4" defer></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script src="prod-utils.js?v=13"></script>
-    <script src="user.js?v=8"></script>
+    <script src="prod-utils.js?v=3321430c"></script>
+    <script src="user.min.js?v=0a8875fd"></script>
     <script>
-    /* =========================================================
-       PUBLIC HOME - UI INTERACTIONS ONLY
-       Menu / section navigation / partner buttons / login entry.
-       No Supabase client, auth listener or role routing lives here:
-         - shopping, cart, checkout gate, booking gates -> user.js
-         - session, OAuth, roles, partner routing        -> supabase-config.js (loaded by auth.html)
-       ========================================================= */
     function mfScrollToSection(id) {
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2650,10 +2606,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
     </script>
 
 <script>
-/* =========================================================
-   MediFinder India PUBLIC HOME — layout repair
-   Keeps #page-home active and scrollable after user.js finishes rendering.
-   ========================================================= */
 (function () {
     "use strict";
 
@@ -2816,8 +2768,6 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 })();
 </script>
 <style id="mf-public-only-css">
-/* PUBLIC HOME ONLY: logged-in screens (Profile / Cart / Orders) are never part of home.html.
-   Logged-in people are redirected to their own page by session-guard.js before this paints. */
 #page-cart, #page-order, #page-profile { display: none !important; }
 </style>
 <script id="mf-public-only-js">

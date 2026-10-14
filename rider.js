@@ -42,10 +42,7 @@ window.mfVehKey = function (t) {
   return 'bike';
 };
 window.mfIco = function (id, cls) { return '<svg class="mf-ico ' + (cls || '') + '" aria-hidden="true"><use href="#i-' + id + '"/></svg>'; };
-﻿// ==========================================
-// 1. Global Configuration & Supabase Initialization
-// URL & key loaded from supabase-constants.js
-// ==========================================
+﻿
 const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined')
     ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
     : null;
@@ -55,13 +52,6 @@ function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ============================================================
-// ✅ NEW: Real shop/customer contact + address resolution helpers
-// (orders.pharmacy_name is often blank — real shop info must be
-// joined from merchants via orders.merchant_id. Customer address
-// comes from orders.customer_address / delivery_address / address
-// fallback chain, confirmed against the live orders schema.)
-// ============================================================
 function cleanTelNumber(phone) {
     if (!phone) return '';
     const cleaned = String(phone).trim().replace(/[\s\-\(\)]/g, '');
@@ -86,11 +76,6 @@ function getCustomerInfo(order) {
     return { name, phone, address };
 }
 
-// Fetches real shop (merchant) info via orders.merchant_id — since
-// orders.pharmacy_name/address/phone are frequently blank in practice.
-// Falls back to orders.pharmacy_name + pharmacy_lat/lon only if no
-// merchant row can be resolved. Caches the result on the order object
-// so repeated calls (map + card render) don't re-fetch.
 async function getShopInfo(order) {
     if (!order) return { name: 'Pharmacy', address: '', phone: '', lat: null, lon: null };
     if (order.__shopInfoCache) return order.__shopInfoCache;
@@ -142,15 +127,10 @@ let riderActiveMinutes = 600;
 let currentRiderId = localStorage.getItem("riderId") || ""; 
 let cachedRiderPosition = null;
 
-// ✅ NEW: On Duty / Off Duty স্ট্যাটাস (সব পেজে localStorage দিয়ে সিঙ্ক থাকবে)
 let isOnDuty = localStorage.getItem("rider_duty_status") !== "off"; // ডিফল্ট = ON DUTY
-// ✅ NEW: লাইভ জিপিএস ব্রডকাস্টিং হ্যান্ডেল
 let liveLocationInterval = null;
 let liveRiderMarker = null;
 
-// ============================================================
-// ✅ NEW BLOCK: Performance utilities — debounce/throttle/cache
-// ============================================================
 function debounce(fn, wait = 300) {
     let t;
     return (...args) => {
@@ -180,9 +160,6 @@ async function cachedFetch(key, fetchFn, ttlMs = 15000) {
     return value;
 }
 
-// ============================================================
-// ✅ NEW: একই error toast বারবার দেখানো বন্ধ — প্রতিটা key-র জন্য cooldown থাকে
-// ============================================================
 const _toastOnceAt = {};
 function toastOnce(key, msg, type = 'error', cooldownMs = 60000) {
     const now = Date.now();
@@ -191,14 +168,6 @@ function toastOnce(key, msg, type = 'error', cooldownMs = 60000) {
     showToast(msg, type);
 }
 
-// ============================================================
-// ✅ NEW: Delivery charge নিয়ম — pharmacy থেকে customer পর্যন্ত দূরত্ব
-//   ≤ 10 km  → ₹25
-//   > 10 km  → ₹35  (20 km বা তার বেশিও ₹35)
-// ============================================================
-// Rider base fee by shop -> customer ROAD distance (km):
-//   up to 3 km = Rs20, 3-5 = Rs22, 5-8 = Rs25, 8-10 = Rs28 (above 10 km stays at the top slab until a new rule is set)
-// On-time bonus: +Rs5 if the order is delivered within 30 minutes of the rider accepting it.
 const DELIVERY_SLABS = [[3, 20], [5, 22], [8, 25], [10, 28]];
 const DELIVERY_TOP_CHARGE = 28;
 const DELIVERY_BONUS = 5;
@@ -249,9 +218,6 @@ function computeOnTimeBonus(order) {
     return (Date.now() - t) <= DELIVERY_BONUS_MINUTES * 60 * 1000 ? DELIVERY_BONUS : 0;
 }
 
-// ============================================================
-// ✅ NEW: auth user id / riders.id একবার বের করে ক্যাশ করা (প্রতি GPS tick এ network call নয়)
-// ============================================================
 let _riderAuthUserId = null;
 async function getRiderAuthId() {
     if (_riderAuthUserId) return _riderAuthUserId;
@@ -274,28 +240,6 @@ async function ensureRiderBigIntId() {
     return data.id;
 }
 
-// ==========================================
-// ✅ NEW BLOCK (400-FIX helper): Schema-safe riders table update
-// ==========================================
-// Central helper for every UPDATE against the `riders` table.
-//
-// Why this exists: the spec forbids guessing at columns that may not
-// exist on `riders` (e.g. vehicle_plate / vehicle_type) and forbids
-// silently eating errors. PostgREST returns a specific, recognisable
-// error when a column in the update payload doesn't exist in its
-// schema cache (code 'PGRST204', message like
-// "Could not find the 'vehicle_plate' column of 'riders' in the schema
-// cache"). This helper:
-//   1. Always resolves the target row by auth_user_id (never email) —
-//      this matches the riders RLS policy (auth.uid() = auth_user_id)
-//      and is the root fix for the "PATCH /riders?email=..." 400/403.
-//   2. Sends the full payload first.
-//   3. If PostgREST reports an unknown-column error, it strips exactly
-//      that column from the payload and retries — so we adapt to the
-//      *actual* live schema instead of assuming columns exist, without
-//      silently dropping fields that ARE valid.
-//   4. Surfaces every Supabase error object (code/message/details/hint)
-//      to the console and rethrows so callers can show a real UI error.
 async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6, returning = true } = {}) {
     if (!supabaseClient) throw new Error('Supabase client not initialized');
     if (!authUserId) throw new Error('Missing auth_user_id for riders update');
@@ -353,11 +297,6 @@ async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6, 
     throw new Error('safeUpdateRiderByAuthUser: exceeded retry budget while adapting payload to schema');
 }
 
-// ============================================================
-// ✅ NEW BLOCK: Zomato/Swiggy স্টাইল স্মুথ পেজ ট্রানজিশন (SPA-like)
-// পেজ পাল্টানোর সময় সাদা ফ্ল্যাশ/জাম্প এর বদলে fade in/out হবে, আর
-// বটম-ন্যাভ/হেডার অ্যাভাটার ক্লিকে navigate করার আগে ছোট fade-out হবে
-// ============================================================
 (function enableSmoothPageTransitions() {
     const styleTag = document.createElement('style');
     styleTag.textContent = `
@@ -381,7 +320,6 @@ async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6, 
     document.addEventListener("DOMContentLoaded", () => {
         fadeInBody();
 
-        // ✅ বটম নেভিগেশন এবং যেকোনো internal .html লিংকে ক্লিক করলে smooth fade-out করে তারপর navigate করবে
         document.addEventListener('click', (e) => {
             const link = e.target.closest('a[href$=".html"], a[href*=".html?"]');
             if (!link) return;
@@ -396,7 +334,6 @@ async function safeUpdateRiderByAuthUser(authUserId, payload, { maxRetries = 6, 
     window.navigateWithFade = navigateWithFade;
 })();
 
-// ✅ NEW: সব <img> ট্যাগে lazy loading চালু (উপরের navbar লোগো ছাড়া — সেটা সবসময় সাথে সাথেই লাগবে)
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('img').forEach(img => {
         if (!img.closest('.navbar') && !img.hasAttribute('loading')) {
@@ -426,13 +363,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             localStorage.setItem("isLoggedIn", "true");
             localStorage.setItem("userEmail", session.user.email);
 
-            // ✅ FIX: আগে riders টেবিলে row শুধু autoApplyGoogleAvatar() এর ভেতরেই (এবং সেটাও
-            // শুধু Google ছবি থাকলে + local avatar cache খালি থাকলে) তৈরি হতো। ফলে email/password
-            // দিয়ে লগইন করা রাইডার বা যাদের avatar cache আগে থেকেই সেট আছে, তাদের riders টেবিলে
-            // কোনো row-ই তৈরি হতো না। এর ফলে duty_status আপডেট (toggle/heartbeat) নীরবে fail করত
-            // (admin dashboard এ "Online Riders" 0 দেখাত) এবং loadCurrentRiderProfileStatus() row
-            // না পেয়ে সাথে সাথেই থেমে যেত (name/username/KYC ব্যাজ কখনো আপডেট হতো না)।
-            // এখন লগইনের সাথে সাথেই একটা row গ্যারান্টি করা হচ্ছে।
             await ensureRiderDbRow(session.user);
 
             // Google দিয়ে লগইন করলে Google প্রোফাইল পিকচার অটোমেটিক অ্যাভাটার হিসেবে বসবে —
@@ -450,27 +380,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await loadCurrentRiderProfileStatus();
 
-    // ✅ NEW: On Duty / Off Duty সুইচ UI সিঙ্ক করা (হোম ও অর্ডার পেজে)
     initDutyToggleUI();
 
-    // ✅ NEW FIX: লগইন/পেজ লোড হওয়ার সাথে সাথেই riders টেবিলে duty_status DB তে সিঙ্ক করা।
-    // আগে duty_status শুধু ম্যানুয়ালি টগল বাটনে ক্লিক করলেই DB তে সেভ হতো, তাই লগইন করার পরও
-    // অ্যাডমিন প্যানেলের "Online Riders" কাউন্ট ০ দেখাচ্ছিল যতক্ষণ না রাইডার নিজে বাটনে ক্লিক করছিল।
     syncDutyStatusOnPageLoad();
     startDutyHeartbeat();
 
-    // ✅ NEW: single-file SPA — decide which tab to show on load. A refresh keeps
-    // you on whichever tab you were last on (sessionStorage), a `?open=kyc` deep
-    // link (from the "Verify to earn" popup) always forces the Profile tab open
-    // and launches the KYC wizard, and otherwise it defaults to Home.
     let initialTab = 'home';
     try {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('open') === 'kyc') {
             initialTab = 'profile';
         } else if (localStorage.getItem('rider_kyc_wizard_open') === '1') {
-            // ✅ KYC ফর্ম খোলা অবস্থায় পেজ রিলোড/ট্যাব কিল হয়েছিল (যেমন ক্যামেরা খোলার পর low memory) —
-            // হোমে না গিয়ে সরাসরি KYC তে ফিরে যাবে, draft সহ
             initialTab = 'profile';
             window._resumeKycWizard = true;
         } else {
@@ -498,10 +418,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (e) {}
     }
 
-    // ✅ NEW: ব্রাউজার ব্যাকগ্রাউন্ডে থাকলেও নতুন অর্ডার নোটিফিকেশনের জন্য পারমিশন রিকোয়েস্ট
-    // Notification permission is asked only when the rider taps ON DUTY (see toggleDutyStatus)
-
-    // ✅ NEW: রাইডার অন-ডিউটি থাকলে প্রতি ৫ সেকেন্ডে লাইভ লোকেশন ব্রডকাস্ট শুরু
     startLiveLocationTracking();
 
     if (document.getElementById("todayTotalEarnings")) {
@@ -525,7 +441,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // ✅ NEW: হোম পেজের হেডারে প্রোফাইল অ্যাভাটার লোড করা
     if (document.getElementById("headerAvatarImg")) {
         const savedHeaderAvatar = localStorage.getItem("rider_avatar");
         if (savedHeaderAvatar) {
@@ -550,7 +465,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const myId = localStorage.getItem("riderId") || localStorage.getItem("rider_id");
                 if (n.rider_id && String(n.rider_id) !== String(myId)) return;
 
-                // ✅ Badge count বাড়ানো, ১০ এর বেশি হলে "10+" দেখানো
                 const badge = document.getElementById('noti-badge');
                 if (badge) {
                     const current = badge.style.display === 'none' ? 0 : (parseInt(badge.textContent) || 0);
@@ -559,7 +473,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     badge.style.display = 'inline-flex';
                 }
 
-                // ✅ Dropdown খোলা থাকলেও instant নতুন notification card উপরে বসবে, রিফ্রেশ লাগবে না
                 const dropdownBody = document.getElementById('noti-dropdown-body');
                 if (dropdownBody) {
                     const placeholder = dropdownBody.querySelector('p.noti-item');
@@ -571,8 +484,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             })
             .subscribe();
 
-        // ✅ NEW: rider_kyc টেবিলে admin কোনো ডকুমেন্ট verify/reject করলে — profile পেজ খোলা
-        // থাকলে রিফ্রেশ ছাড়াই সাথে সাথে Pending → Verified/Rejected UI আপডেট হয়ে যাবে
         if (document.getElementById('kycVerifyBanner')) {
             if (window._kycRealtimeChannel) supabaseClient.removeChannel(window._kycRealtimeChannel);
             window._kycRealtimeChannel = supabaseClient
@@ -593,9 +504,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
-// ==========================================
-// 2. Map Engine: Always Visible, Dynamic Coordinates & Modes
-// ==========================================
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -608,11 +516,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 async function initBaseTrackingMap() {
     const sessionOrder = localStorage.getItem("active_delivery_order");
 
-    // ✅ FIX (#15): no more hardcoded Kolkata fallback. Map centers on
-    // real rider GPS if available; if not, and there's no active order
-    // either, we center on a neutral world view (0,0 zoomed way out is
-    // ugly, so we just wait for GPS — Leaflet needs *a* center to init,
-    // but we no longer silently pretend it's a real place).
     let centerLat = null, centerLon = null;
     let gotGps = false;
     if (cachedRiderPosition) {
@@ -620,7 +523,6 @@ async function initBaseTrackingMap() {
         centerLon = cachedRiderPosition.lon;
         gotGps = true;
     } else {
-        // ✅ smooth: ক্যাশ করা লোকেশন নিয়ে দ্রুত (২.৫ সেকেন্ডের বেশি অপেক্ষা নয়), high-accuracy ছাড়া
         try {
             const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, maximumAge: 300000, timeout: 2500 }));
             centerLat = pos.coords.latitude;
@@ -641,8 +543,6 @@ async function initBaseTrackingMap() {
         const uLat = (activeOrderData.user_lat !== undefined && activeOrderData.user_lat !== null) ? Number(activeOrderData.user_lat) : null;
         const uLon = (activeOrderData.user_lon !== undefined && activeOrderData.user_lon !== null) ? Number(activeOrderData.user_lon) : null;
 
-        // ✅ FIX: rider এর আসল GPS পাওয়া গেলে ম্যাপ সেন্টার তাঁর নিজের অবস্থানেই থাকবে,
-        // না পেলে real pharmacy/customer কোঅর্ডিনেট থাকলে তার মাঝামাঝি — কখনো fake location নয়
         if (!gotGps) {
             if (pLat !== null && pLon !== null && uLat !== null && uLon !== null) {
                 centerLat = (pLat + uLat) / 2;
@@ -661,16 +561,12 @@ async function initBaseTrackingMap() {
 
         updateMapVehiclePill(activeOrderData.vehicle_type || 'bike');
     } else {
-        // ✅ কোনো active order না থাকলে distance সবসময় 0 KM দেখাবে
         const distEl = document.getElementById("distanceLeftValue");
         const etaEl = document.getElementById("etaValue");
         if (distEl) distEl.innerText = "0 km";
         if (etaEl) etaEl.innerText = "--";
     }
 
-    // ✅ FIX (#15): no fake location anywhere — if we truly have nothing
-    // real to center on, default the Leaflet view to a harmless global
-    // origin at low zoom rather than a specific fabricated city.
     if (centerLat === null || centerLon === null) {
         centerLat = 20; centerLon = 0;
     }
@@ -684,8 +580,6 @@ async function initBaseTrackingMap() {
     }).addTo(map);
     if (map.attributionControl) map.attributionControl.setPrefix(false);
 
-    // ✅ FIX: rider marker এখন থেকে সবসময় আসল GPS position এ বসবে (আগে ফেক midpoint এ বসতো,
-    // যা পরে লাইভ GPS marker এর সাথে দুইটা আলাদা marker দেখাতো)
     if (gotGps) {
         updateLiveRiderMarkerOnMap(centerLat, centerLon);
     }
@@ -696,7 +590,7 @@ async function initBaseTrackingMap() {
         if (document.getElementById("orderCount")) {
             document.getElementById("orderCount").innerText = "1";
         }
-        updateLiveDistanceAndETA(); // ✅ প্রথমবার লোড হওয়ার সাথে সাথেই distance/ETA বসিয়ে দেওয়া
+        updateLiveDistanceAndETA();
         // Listen for order status changes in real-time
         listenToOrderUpdates(activeOrderData.order_id);
     } else {
@@ -717,7 +611,6 @@ async function initBaseTrackingMap() {
     }
 }
 
-// ✅ NEW: "My Location" ফ্লোটিং বাটন — GPS পারমিশন নিয়ে instant নিজের অবস্থানে zoom করবে
 function focusMyLocationOnMap() {
     if (!map || !navigator.geolocation) return;
     const btn = document.getElementById("myLocationBtn");
@@ -746,13 +639,6 @@ function focusMyLocationOnMap() {
     );
 }
 
-// ✅ NEW: rider এর বর্তমান GPS অনুযায়ী distance ও ETA লাইভ আপডেট করা
-// order accept করার আগে pharmacy কে টার্গেট ধরে, picked_up/out_for_delivery হলে customer কে টার্গেট ধরে
-// ✅ REWRITE (#4 + #15): Distance keeps coming from real GPS always.
-// ETA now has fixed business logic — pickup phase shows "Pickup", and
-// the customer-delivery phase (picked_up/out_for_delivery) always shows
-// a flat "20 min" regardless of distance. No fake fallback coordinates
-// are used anywhere — missing real coords means "Location unavailable".
 function updateLiveDistanceAndETA() {
     const distEl = document.getElementById("distanceLeftValue");
     const etaEl = document.getElementById("etaValue");
@@ -765,9 +651,6 @@ function updateLiveDistanceAndETA() {
     }
 
     const status = activeOrderData.status || 'accepted';
-    // ✅ FIX: `status` এখন accept করার সাথে সাথেই সবসময় 'picked_up' হয়ে যায় (customer
-    // ট্র্যাকিং ফিক্সের জন্য), তাই ডেলিভারি-ফেজ বোঝার জন্য এখন `rider_pickup_stage`
-    // কলামটাই আসল সোর্স — রাইডার আসলেই ফার্মেসি থেকে তুলেছে কিনা সেটা বলে।
     const pickupStage = activeOrderData.rider_pickup_stage || 'assigned';
     const isDeliveryPhase = (pickupStage === 'picked_up');
 
@@ -790,7 +673,7 @@ function updateLiveDistanceAndETA() {
 
     if (etaEl) {
         if (isDeliveryPhase) {
-            etaEl.innerText = "20 min"; // ✅ fixed ETA during customer-delivery phase, per business rule
+            etaEl.innerText = "20 min";
         } else {
             etaEl.innerText = "Pickup"; // pickup/pharmacy phase — no ETA countdown
         }
@@ -808,10 +691,6 @@ function updateMapVehiclePill(mode) {
     pillText.innerText = v[1];
 }
 
-// ✅ REWRITE (#3 + #15): markers now carry real shop/customer name,
-// full address and phone (with a working call button) in their popups.
-// No fake fallback coordinates — a marker is only placed when a real
-// lat/lon exists for that party.
 async function renderMapMarkers(order, shopInfo) {
     if (!shopInfo) shopInfo = await getShopInfo(order);
     const custInfo = getCustomerInfo(order);
@@ -845,17 +724,11 @@ async function renderMapMarkers(order, shopInfo) {
         L.marker([uLat, uLon], {icon: userIcon}).addTo(map).bindPopup(custPopup);
     }
 
-    // ✅ FIX: আগে এখানে একটা ফেক "You (Rider)" marker মাঝামাঝি বসানো হতো, যেটা আসল লাইভ GPS
-    // marker এর সাথে ডুপ্লিকেট হয়ে যেত। এখন rider marker শুধু updateLiveRiderMarkerOnMap()
-    // থেকেই বসে — real GPS position থেকে।
     if (pLat !== null && pLon !== null && uLat !== null && uLon !== null && !isNaN(pLat) && !isNaN(uLat)) {
         L.polyline([[pLat, pLon], [uLat, uLon]], {color: '#e63946', weight: 4, dashArray: '5, 10'}).addTo(map);
     }
 }
 
-// ==========================================
-// 3. Home Screen: Live Realtime Order Queries
-// ==========================================
 function listenToOrderUpdates(orderId) {
     if (!supabaseClient) return;
     if (window._orderUpdateChannel) {
@@ -874,8 +747,6 @@ function listenToOrderUpdates(orderId) {
                 localStorage.removeItem("active_delivery_order");
                 setTimeout(() => { switchRiderTab("earning"); }, 1500);
             } else if (activeOrderData && payload.new.rider_pickup_stage && payload.new.rider_pickup_stage !== activeOrderData.rider_pickup_stage) {
-                // ✅ FIX: `status` accept করার সাথে সাথেই 'picked_up' হয়ে যায়, তাই আসল
-                // পিকআপ-ধাপ সিঙ্ক করতে হলে `rider_pickup_stage` কলামটাই দেখতে হবে
                 activeOrderData.rider_pickup_stage = payload.new.rider_pickup_stage;
                 localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
                 renderDeliveryStatusStep(activeOrderData);
@@ -886,8 +757,6 @@ function listenToOrderUpdates(orderId) {
         .subscribe();
 }
 
-// ✅ NEW: Zomato/Swiggy স্টাইল skeleton loader — orders fetch হওয়ার আগ পর্যন্ত
-// "No orders" ফ্ল্যাশ না দেখিয়ে একটা shimmer placeholder দেখাবে, ফলে পেজটা স্মুথ মনে হবে
 function renderOrdersSkeleton(container) {
     if (!container) return;
     let skeletons = '';
@@ -930,33 +799,23 @@ function listenToAvailableOrders() {
     const container = document.getElementById("ordersContainer");
     if (!container) return;
 
-    // ✅ FIX: আগে সরাসরি "No orders available" দেখাতো, যেটা ১ মুহূর্ত পরে data এলে flash/flicker করতো।
-    // এখন shimmer skeleton দেখাবে যতক্ষণ না আসল data লোড হয়।
     renderOrdersSkeleton(container);
 
-    // ✅ পেজ লোড হওয়ার সাথে সাথেই বর্তমান broadcasted অর্ডারগুলো একবার লোড করা (অন-ডিউটি থাকলে)
     fetchPendingOrdersSnapshot();
 
     window._ordersChannel = supabaseClient
         .channel('public:orders')
-        // ❌ FIX: আগে এখানে INSERT + status==='pending' শুনে সাথে সাথেই order দেখিয়ে দিত —
-        // মানে merchant broadcast করার আগেই rider order দেখে ফেলত। এই listener পুরোপুরি
-        // বাদ দেওয়া হলো। এখন order শুধু merchant broadcast করলেই (status → 'broadcasted')
-        // rider এর কাছে live আসবে, নিচের UPDATE listener দিয়ে।
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
             const isBroadcastLike = (payload.new.status === 'broadcasted' || payload.new.status === 'shipped') && payload.new.delivery_partner !== 'courier';
             if (isBroadcastLike && !payload.new.rider_id) {
                 if (!isOnDuty) return;
                 if (!document.getElementById(`order-${payload.new.order_id}`) && !isOrderRejectedByMe(payload.new.order_id)) {
                     renderAvailableOrder(payload.new);
-                    fireNewOrderNotification(payload.new); // 🔴 merchant ship করার সাথে সাথেই notification
+                    fireNewOrderNotification(payload.new);
                 }
             } else if (!isBroadcastLike) {
                 const card = document.getElementById(`order-${payload.new.order_id}`);
                 if (card) { card.remove(); checkIfOrdersEmpty(); }
-                // ✅ NEW: অন্য রাইডার এই অর্ডার accept করলে (বা অর্ডারটা আর available না থাকলে),
-                // এই অর্ডারের নোটিফিকেশনও নিজে থেকে সরিয়ে দেওয়া হয় — ম্যানুয়ালি ✕ করা লাগবে না
-                // ✅ smooth: লাইভ লোকেশন আপডেটে প্রতি ৫ সেকেন্ডে এই event আসে, তাই প্রতি order এর জন্য মাত্র একবারই purge
                 window._purgedNotiOrders = window._purgedNotiOrders || new Set();
                 const purgeKey = String(payload.new.order_id);
                 if (!window._purgedNotiOrders.has(purgeKey)) {
@@ -972,9 +831,6 @@ function listenToAvailableOrders() {
         })
         .subscribe();
 
-    // ✅ NEW: Safety-net — realtime event কোনো কারণে (network drop, RLS, missed event) না
-    // পৌঁছালেও, প্রতি ২০ সেকেন্ডে একবার snapshot আবার fetch হবে, যাতে rider-এর home page
-    // অনির্দিষ্টকাল খালি না থেকে যায়। এটা মূল সমস্যার (RLS/replication) বিকল্প না, শুধু fallback।
     if (window._ordersPollInterval) clearInterval(window._ordersPollInterval);
     window._ordersPollInterval = setInterval(() => {
         if (isOnDuty && !document.hidden) fetchPendingOrdersSnapshot();
@@ -984,7 +840,7 @@ function listenToAvailableOrders() {
 function renderAvailableOrder(order) {
     const container = document.getElementById("ordersContainer");
     if (!container) return;
-    clearOrdersSkeleton(container); // ✅ realtime অর্ডার আসলে shimmer থাকলে সেটাও সরিয়ে দাও
+    clearOrdersSkeleton(container);
     const emptyState = container.querySelector("div[style*='text-align:center']");
     if (emptyState && !emptyState.classList.contains("order-card")) emptyState.remove();
 
@@ -1005,7 +861,6 @@ function renderAvailableOrder(order) {
         }
     }
 
-    // ✅ NEW: KYC approved না থাকলে Accept বাটন লক থাকবে, ক্লিক করলে popup + প্রোফাইলের KYC wizard-এ রিডাইরেক্ট
     const canAccept = window._riderLicenseVerified === true;
     const acceptBtnHtml = canAccept
         ? `<button class="btn-accept" onclick="acceptOrder('${order.order_id}', '${encodeURIComponent(JSON.stringify(order))}')">Accept Request</button>`
@@ -1039,8 +894,6 @@ function renderAvailableOrder(order) {
     container.insertAdjacentHTML('beforeend', cardHtml);
 }
 
-// ✅ NEW: KYC approve না হওয়া পর্যন্ত অর্ডার accept করার চেষ্টা করলে এই popup দেখাবে, Continue করলে
-// সরাসরি প্রোফাইলের KYC wizard-এ (Rider Details থেকে শুরু, আগে যা লেখা ছিল prefill হয়ে) নিয়ে যাবে
 function showKycRequiredPopup() {
     const goToProfile = confirm("Please upload your documents and complete KYC before accepting delivery orders.\n\nContinue to KYC now?");
     if (goToProfile) {
@@ -1048,9 +901,6 @@ function showKycRequiredPopup() {
     }
 }
 
-// ✅ NEW: এই সেশনে যে অর্ডারগুলো এই রাইডার রিজেক্ট করেছে সেগুলো মনে রাখা হয়,
-// যাতে broadcast/snapshot আবার লোড হলেও সেগুলো আবার স্ক্রিনে ফিরে না আসে।
-// (অন্য রাইডাররা তবুও এই অর্ডারটা দেখতে ও গ্রহণ করতে পারবে — শুধু এই রাইডারের ভিউ থেকে সরানো হচ্ছে)
 window._rejectedOrderIds = window._rejectedOrderIds || new Set();
 
 function isOrderRejectedByMe(orderId) {
@@ -1072,12 +922,8 @@ function checkIfOrdersEmpty() {
     }
 }
 
-// ==========================================
-// 4. Delivery Management Routing Actions
-// ==========================================
 async function acceptOrder(orderId, orderObj) {
     if (!supabaseClient) return;
-    // ✅ NEW: ডাবল-সেফটি — বাটন লক থাকা সত্ত্বেও কোনোভাবে কল হলে এখানেও আটকে দেওয়া হবে
     if (window._riderLicenseVerified !== true) {
         showKycRequiredPopup();
         return;
@@ -1097,22 +943,7 @@ async function acceptOrder(orderId, orderObj) {
             showToast("Session check failed: " + (e.message || e), "error");
         }
 
-        // ✅ FIX: আগে এখানে status: 'accepted' লেখা হতো, কিন্তু merchant নিজেও order প্রথমে
-        // accept করার সময় একই 'accepted' status লেখে। ফলে merchant "Shipped" করার পরে (status:
-        // 'shipped') যখন rider Accept করত, status আবার 'accepted' এ ফিরে যেত — customer এর
-        // অর্ডার ট্র্যাকিং টাইমলাইন উল্টো দিকে চলে যেত ("Accepted by pharmacy" আবার দেখাত),
-        // "Out for Delivery" এ যেত না। এখন 'picked_up' লেখা হচ্ছে, যেটা customer পাশে
-        // (userscript.js) আগে থেকেই "Out for Delivery" ধাপ হিসেবে ম্যাপ করা আছে — তাই rider
-        // Accept করা মাত্রই customer সাথে সাথে "Out for Delivery" দেখবে।
-        //
-        // ✅ NEW: `status` কাস্টমারের ট্র্যাকিং-এর জন্য (উপরের ফিক্স অনুযায়ী) সাথে সাথেই
-        // 'picked_up' লেখা হয়, কিন্তু রাইডারের নিজের স্ক্রিনে তখনও আসলে ফার্মেসিতে পৌঁছায়নি —
-        // তাই রাইডারের নিজের দুই-ধাপ পিকআপ ফ্লো (ফার্মেসির দিকনির্দেশ → Arrived → Picked Up →
-        // কাস্টমারের দিকনির্দেশ) আলাদা কলাম `rider_pickup_stage` দিয়ে ট্র্যাক করা হয়, `status`
-        // ছোঁয়া ছাড়াই। `pickup_deadline_at` একটা ফিক্সড টাইমস্ট্যাম্প — পেজ রিফ্রেশ করলেও
-        // টাইমার আবার 25:00 থেকে শুরু না হয়ে ঠিক জায়গা থেকে কাউন্ট করবে।
         const pickupDeadline = new Date(Date.now() + 25 * 60 * 1000).toISOString();
-        // ✅ Delivery charge নিয়ম: ≤10 km → ₹25, তার বেশি → ₹35 (pharmacy → customer দূরত্ব)
         const deliveryCharge = computeDeliveryCharge(orderObj);
         const updatePayload = { status: 'picked_up', rider_pickup_stage: 'assigned', pickup_deadline_at: pickupDeadline, delivery_charge: deliveryCharge };
         if (riderBigIntId) updatePayload.rider_id = riderBigIntId;
@@ -1138,11 +969,6 @@ async function acceptOrder(orderId, orderObj) {
     }
 }
 
-// ✅ REWRITE (#1 + #2): full shop (pickup) and customer (deliver-to)
-// blocks now show name + complete address + phone, each with its own
-// working call button. Shop info is resolved via merchants (join on
-// merchant_id) since orders.pharmacy_name/address/phone are frequently
-// blank. Missing phone shows "No phone available" — never a fake tel: link.
 async function loadAcceptedOrderDetails(order, shopInfo) {
     const container = document.getElementById("activeOrdersContainer");
     if (!container) return;
@@ -1185,14 +1011,11 @@ async function loadAcceptedOrderDetails(order, shopInfo) {
                 </div>
             </div>
         </div>`;
-    renderDeliveryStatusStep(order); // ✅ NEW: কারেন্ট স্টেপ অনুযায়ী বাটন/OTP-লক/কল-বাটন রেন্ডার করা
+    renderDeliveryStatusStep(order);
     startDeliveryTimer(order);
     panMapToPhaseTarget(order);
 }
 
-// ✅ FIX: টাইমার এখন আর সবসময় ফিক্সড 25:00 থেকে শুরু হয় না — order.pickup_deadline_at
-// (একটা ফিক্সড টাইমস্ট্যাম্প, accept করার মুহূর্তেই DB-তে সেভ হয়) থেকে বাকি সময় হিসাব করে,
-// তাই পেজ রিফ্রেশ করলেও টাইমার আবার নতুন করে শুরু হয় না — ঠিক জায়গা থেকেই কাউন্ট করে।
 function startDeliveryTimer(order) {
     let deadline = order && order.pickup_deadline_at ? new Date(order.pickup_deadline_at).getTime() : null;
     if (!deadline || isNaN(deadline)) {
@@ -1223,7 +1046,6 @@ function startDeliveryTimer(order) {
     countdownTimer = setInterval(tick, 1000);
 }
 
-// ✅ NEW: পিকআপ ধাপ বদলালে ম্যাপ অটো-প্যান করে সেই মুহূর্তের গন্তব্যে (ফার্মেসি বা কাস্টমার) ফোকাস করে
 function panMapToPhaseTarget(order) {
     if (!map) return;
     const stage = order.rider_pickup_stage || 'assigned';
@@ -1241,17 +1063,11 @@ function panMapToPhaseTarget(order) {
     }
 }
 
-// ==========================================
-// 5B. NEW: পিকআপ স্ট্যাটাস টগল স্টেপ (Arrived at Store → Picked Up → OTP Unlock)
-// ==========================================
 function renderDeliveryStatusStep(order) {
     const stepBar = document.getElementById("statusStepBar");
     const otpBtn = document.getElementById("otpVerifyTriggerBtn");
     if (!stepBar) return;
 
-    // ✅ FIX: `status` accept করার মুহূর্তেই সবসময় 'picked_up' হয়ে যায় (customer-side ফিক্স,
-    // acceptOrder() দ্রষ্টব্য) — তাই রাইডারের নিজের পিকআপ ধাপ বোঝাতে এখন `rider_pickup_stage`
-    // ব্যবহার হয়, `status` নয়।
     const stage = order.rider_pickup_stage || 'assigned';
 
     if (stage === 'arrived_at_store') {
@@ -1278,9 +1094,6 @@ function renderDeliveryStatusStep(order) {
     renderPhaseCallButton(order, stage);
 }
 
-// ✅ NEW: ফুটারে সবসময় "Call Customer" দেখানোর বদলে — যে ধাপে আছে সেই পার্টিকেই (ফার্মেসি
-// বা কাস্টমার) কল করার বাটন প্রমিনেন্টলি দেখানো হয়, যাতে "merchant এর call বাটন নেই"
-// এই সমস্যা না থাকে
 function renderPhaseCallButton(order, stage) {
     const slot = document.getElementById("phaseCallBtnSlot");
     if (!slot) return;
@@ -1323,17 +1136,14 @@ async function markOrderPickedUp() {
         activeOrderData.rider_pickup_stage = 'picked_up';
         localStorage.setItem("active_delivery_order", JSON.stringify(activeOrderData));
         renderDeliveryStatusStep(activeOrderData);
-        updateLiveDistanceAndETA(); // ✅ পিকআপের পর টার্গেট এখন pharmacy থেকে customer এ বদলে যাবে
-        panMapToPhaseTarget(activeOrderData); // ✅ ম্যাপও এখন কাস্টমারের দিকে প্যান করবে
+        updateLiveDistanceAndETA();
+        panMapToPhaseTarget(activeOrderData);
         showToast("Status updated: Order Picked Up. You can now head to the customer's location.", "success");
     } catch (err) {
         showToast("Failed to update status: " + (err.message || err), "error");
     }
 }
 
-// ==========================================
-// 5C. NEW: On Duty / Off Duty সুইচ সিস্টেম
-// ==========================================
 function initDutyToggleUI() {
     const pill = document.getElementById("statusTogglePill") || document.querySelector(".status-toggle-pill");
     if (pill) {
@@ -1382,10 +1192,6 @@ async function toggleDutyStatus() {
     }
 
     try {
-        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল কারণ RLS policy auth_user_id
-        // ম্যাচ করে চেক করে, email না। এখন safeUpdateRiderByAuthUser() দিয়ে auth_user_id ম্যাচ
-        // করেই update() করা হচ্ছে — row তো ensureRiderDbRow() দিয়ে লগইনের সময়ই গ্যারান্টিভাবে
-        // তৈরি হয়ে যায়। প্রতিটা Supabase error (code/message/details/hint) console এ দেখা যাবে।
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             await safeUpdateRiderByAuthUser(user.id, { duty_status: isOnDuty ? 'online' : 'offline' });
@@ -1396,18 +1202,12 @@ async function toggleDutyStatus() {
     }
 }
 
-// ==========================================
-// ✅ NEW BLOCK: Duty-status DB sync (fixes admin dashboard "Online Riders" showing 0)
-// ==========================================
-
 // পেজ লোড হওয়ার সাথে সাথেই বর্তমান isOnDuty অবস্থাটা riders টেবিলে লিখে দেওয়া হয়,
 // যাতে রাইডার লগইন করা মাত্রই অ্যাডমিন প্যানেলে সে অনলাইন হিসেবে দেখা যায় —
 // আগে শুধু ম্যানুয়াল টগল ক্লিকেই এটা DB তে যেত।
 async function syncDutyStatusOnPageLoad() {
     if (!supabaseClient) return;
     try {
-        // ✅ FIX: এখানেও email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল। row তৈরির
-        // দায়িত্ব ensureRiderDbRow()-এর, তাই এখানে auth_user_id দিয়ে safeUpdateRiderByAuthUser() ব্যবহার করা হচ্ছে।
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (!user) return;
         await safeUpdateRiderByAuthUser(user.id, {
@@ -1426,7 +1226,6 @@ function startDutyHeartbeat() {
     window._dutyHeartbeatInterval = setInterval(async () => {
         if (!supabaseClient || !isOnDuty) return;
         try {
-            // ✅ FIX: email-ভিত্তিক upsert(onConflict:'email') 403 দিচ্ছিল — auth_user_id দিয়ে safeUpdateRiderByAuthUser()
             const { data: { user } } = await supabaseClient.auth.getUser();
             if (!user) return;
             await safeUpdateRiderByAuthUser(user.id, { duty_status: 'online', last_active_at: new Date().toISOString() });
@@ -1436,28 +1235,11 @@ function startDutyHeartbeat() {
     }, 60000);
 }
 
-// ব্রাউজার ট্যাব/অ্যাপ বন্ধ হওয়ার সময় (রাইডার ম্যানুয়ালি অফ-ডিউটি না করলেও) best-effort
-// ভাবে duty_status = offline সেট করার চেষ্টা করা হয়, যাতে অ্যাডমিন প্যানেল real-time মিথ্যা
-// "online" না দেখায়।
-//
-// ✅ FINAL FIX (spec #10): এখানেই ছিল আসল "PATCH /rest/v1/riders?email=eq...  400 Bad Request"
-// error-এর উৎস। দুটো সমস্যা ছিল: (ক) filter email=eq... ব্যবহার হচ্ছিল, যেখানে RLS policy
-// auth.uid() = auth_user_id ম্যাচ করে — email না; (খ) Authorization header এ anon
-// SUPABASE_KEY পাঠানো হচ্ছিল, actual logged-in user এর session access token না — ফলে
-// auth.uid() রিকোয়েস্টের ভেতরে null হয়ে যেত এবং RLS policy কখনো pass করত না।
-// এখন: (১) filter auth_user_id=eq.<uid> ব্যবহার করা হচ্ছে, (২) Authorization header এ
-// বর্তমান সেশনের real access_token পাঠানো হচ্ছে (এখনো apikey হিসেবে anon key-ই যাচ্ছে,
-// যেটা Supabase-এর REST API-র জন্য mandatory এবং সঠিক)। এই দুটো মিলিয়েই RLS policy
-// (auth.uid() = auth_user_id) সঠিকভাবে ম্যাচ করবে এবং 400/403 আর আসবে না।
 window.addEventListener("pagehide", () => {
     try {
         // KYC চলাকালীন ক্যামেরা খুললে পেজ hide হয় — তখন রাইডারকে offline দেখানো ঠিক না
         if (localStorage.getItem('rider_kyc_wizard_open') === '1') return;
         if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_KEY === 'undefined') return;
-        // Supabase JS SDK persists the session in localStorage under a key derived from the
-        // project ref — we read the raw persisted session here (rather than awaiting
-        // supabaseClient.auth.getSession(), which is async and may not resolve before the
-        // page actually unloads) so we can grab the real user id + access token synchronously.
         let authUserId = null;
         let accessToken = null;
         for (let i = 0; i < localStorage.length; i++) {
@@ -1506,14 +1288,14 @@ async function fetchPendingOrdersSnapshot() {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('*')
-            .in('status', ['broadcasted', 'shipped']) // ✅ FIX: merchant এর "Ship" বাটন আসলে status='shipped' সেট করে (না 'broadcasted'),
+            .in('status', ['broadcasted', 'shipped'])
             // কিন্তু এই query আগে শুধু 'broadcasted' খুঁজত — ফলে merchant ship করলেও rider এর কাছে order কখনো আসত না।
             // এখন দুটো status-ই match করবে যাতে ship করা মাত্রই rider এর available orders list এ চলে আসে।
-            .neq('delivery_partner', 'courier'); // ✅ Standard-delivery অর্ডার এখন সয়ংক্রিয়ভাবে Shiprocket এ বুক হয়ে যায় —
+            .neq('delivery_partner', 'courier');
             // ওগুলো courier দিয়ে যাচ্ছে, তাই rider এর available list এ দেখানো ঠিক না।
         if (error) throw error;
 
-        clearOrdersSkeleton(container); // ✅ real data চলে এসেছে, এখন shimmer সরিয়ে দাও
+        clearOrdersSkeleton(container);
 
         if (data && data.length > 0) {
             data.forEach(order => {
@@ -1530,9 +1312,6 @@ async function fetchPendingOrdersSnapshot() {
     }
 }
 
-// ==========================================
-// 5D. NEW: লাইভ জিপিএস লোকেশন ব্রডকাস্টিং (প্রতি ৫ সেকেন্ডে)
-// ==========================================
 let liveWatchId = null;
 let _gpsErrorCount = 0;
 let _gpsHighAccuracy = true;
@@ -1543,10 +1322,6 @@ const GPS_BROADCAST_MS = 5000;        // সর্বনিম্ন ৫ সে�
 const GPS_FORCE_BROADCAST_MS = 15000; // না নড়লেও ১৫ সেকেন্ডে একবার
 const GPS_MIN_MOVE_M = 15;            // ১৫ মিটারের বেশি নড়লে সাথে সাথে পাঠানো
 
-// ✅ REWRITE: আগে প্রতি ৩ সেকেন্ডে নতুন getCurrentPosition (high accuracy, maximumAge 0) চালু হতো —
-// আগেরটা শেষ হওয়ার আগেই নতুনটা শুরু, ফলে বারবার "Timeout expired" আসত আর প্রতিবার error toast
-// দেখাত। এখন একটাই watchPosition চলে, error হলে চুপচাপ low-accuracy এ নেমে যায়, আর একই
-// error toast কয়েক মিনিটে একবারের বেশি দেখায় না।
 function startLiveLocationTracking(force) {
     if (!navigator.geolocation) return;
     if (force) _gpsDenied = false;
@@ -1679,9 +1454,6 @@ function updateLiveRiderMarkerOnMap(lat, lon) {
     }
 }
 
-// ==========================================
-// 5E. NEW: ব্যাকগ্রাউন্ড ব্রাউজার নোটিফিকেশন (নতুন অর্ডার ব্রডকাস্ট হলে)
-// ==========================================
 function requestBrowserNotificationPermission() {
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
@@ -1711,21 +1483,7 @@ function fireNewOrderNotification(order) {
 }
 
 
-// ✅ REWRITE (Parcel Verification popup fix):
-// Root cause of the auto-appearing OTP popup was NOT a stray JS call — grep
-// confirms openOtpModal() was only ever wired to two onclick handlers (the
-// footer "Verify OTP" button, and — as a bug — the timer badge, now removed
-// above). The real cause was CSS: #otpModal lives OUTSIDE the #tab-* wrappers
-// (it's a shared overlay, same as the KYC/payout/complaint pages), but the
-// SPA-merge's `.hidden` utility rules were only ever scoped as `#tab-home
-// .hidden`, `#tab-delivery .hidden`, etc. Since #otpModal is never a
-// descendant of any #tab-*, `hidden` on it matched no CSS rule, while its own
-// base `.otp-modal-overlay { display:flex; position:fixed; inset:0 }` rule
-// still applied unconditionally — so it rendered full-screen immediately on
-// load. Fixed with a dedicated global `.otp-modal-overlay.hidden` rule in
-// rider.css (see there) that no longer depends on any #tab-* scope.
 function openOtpModal() {
-    // ✅ (#3) never open without a real active order
     if (!activeOrderData || !activeOrderData.order_id) {
         showToast('No active delivery order found.', 'error');
         return;
@@ -1737,7 +1495,6 @@ function openOtpModal() {
     const successScreen = document.getElementById("otpSuccessScreen");
     if (!otpModal || !otpFormContent) return;
 
-    // ✅ (#11) every open is a clean reset — no leftover success state, no stale input/button
     if (successScreen) successScreen.classList.add('hidden');
     otpFormContent.style.display = "block";
     if (otpInput) otpInput.value = "";
@@ -1751,13 +1508,9 @@ function closeOtpModal() {
     const otpModal = document.getElementById("otpModal");
     const successScreen = document.getElementById("otpSuccessScreen");
     if (otpModal) otpModal.classList.add("hidden");
-    if (successScreen) successScreen.classList.add('hidden'); // ✅ (#11) never leaves success-mode active behind a closed modal
+    if (successScreen) successScreen.classList.add('hidden');
 }
 
-// ✅ NEW: full-screen green success UI (replaces the old small white
-// "Verification Successful!" card). Only ever called after OTP verification
-// + order update + wallet credit have ALL already succeeded (see call sites
-// inside verifyOtpCode() below) — never on its own.
 function showOtpSuccessScreen(amount) {
     const otpModal = document.getElementById("otpModal");
     const successScreen = document.getElementById("otpSuccessScreen");
@@ -1772,21 +1525,6 @@ function showOtpSuccessScreen(amount) {
     }, 2000);
 }
 
-// ✅ REWRITE (#5, #6, #9, #13): Robust OTP → delivered → wallet credit
-// sequence with real error checking at every DB step and duplicate
-// protection.
-//
-// IMPORTANT schema note discovered while wiring this up: riders_wallet
-// has a UNIQUE constraint on rider_id alone (riders_wallet_rider_id_key),
-// so each rider can only ever have ONE row in riders_wallet — it is a
-// running wallet balance (balance / total_earned / total_withdrawn),
-// not a per-order ledger. So this step upserts that single row (adds
-// this delivery's amount on top of the existing balance/total_earned)
-// instead of inserting a new row per order, which the unique constraint
-// would reject on the 2nd delivery. Per-order History/Today/Week totals
-// are computed separately from the `orders` table (see loadEarningsFromDB)
-// since that table has no such restriction and already holds rider_id,
-// delivery_charge, status and updated_at per order.
 async function verifyOtpCode() {
     if (!supabaseClient) return;
     if (!activeOrderData) { showToast('No active delivery order found.', 'error'); return; }
@@ -1800,9 +1538,6 @@ async function verifyOtpCode() {
     if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.innerText = "Verifying..."; }
 
     try {
-        // SECURITY: the OTP check, the 'delivered' status change and the wallet credit now all
-        // happen on the server (RPC complete_delivery). The browser can no longer set its own
-        // earning amount or wallet balance, and cannot skip the customer's code.
         const { data: res, error: rpcErr } = await supabaseClient.rpc('complete_delivery', {
             p_order_id: String(activeOrderData.order_id),
             p_otp: enteredOtp
@@ -1831,38 +1566,18 @@ async function verifyOtpCode() {
         const amount = Number(res && res.amount) || 0;
         const bonusAmount = Number(res && res.bonus) || 0;
 
-        // ✅ (#7,#8,#9) Everything succeeded (OTP correct + order delivered + wallet
-        // credited) — ONLY now show the full-screen green success UI, with the real
-        // delivery_charge amount, then auto-route to the Earning tab.
         localStorage.removeItem("active_delivery_order");
         showOtpSuccessScreen(amount);
         const noteEl = document.querySelector('#otpSuccessScreen .otp-success-note');
         if (noteEl) noteEl.textContent = bonusAmount ? `Payment added to your earning wallet (includes ₹${bonusAmount} on-time bonus)` : 'Payment added to your earning wallet';
 
     } catch (err) {
-        // ✅ Never silently succeed on failure — revert UI so rider can retry
         if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.innerText = "Verify & Complete"; }
         otpFormContent.style.display = "block";
         showToast("Delivery completion failed: " + (err.message || err), "error");
     }
 }
 
-// ==========================================
-// 6. Metrics and Earnings Layout Controls
-// ==========================================
-// ✅ REWRITE (#7, #8, #9): per-order earnings history now comes from the
-// `orders` table (status='delivered', rider_id=current rider), NOT from
-// riders_wallet.
-//
-// Why: the live schema shows riders_wallet_rider_id_key = UNIQUE(rider_id)
-// — riders_wallet can only ever hold ONE row per rider (a running wallet
-// balance), so it structurally cannot hold a dated per-order history.
-// `orders` already carries rider_id, delivery_charge and updated_at per
-// completed delivery with no such restriction, so period totals
-// (Today/Yesterday/This Week/... ) and the completed-history list are
-// computed from there — each delivered order = one history entry, exactly
-// as required. riders_wallet is still used (in verifyOtpCode / payout) as
-// the running wallet balance for payout eligibility.
 async function loadEarningsFromDB() {
     if (!supabaseClient) return;
     try {
@@ -1890,7 +1605,6 @@ async function loadEarningsFromDB() {
     }
 }
 
-// ✅ NEW: প্রতিটা filter period এর জন্য শুরু/শেষ তারিখের রেঞ্জ বের করা
 function getPeriodRange(period) {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1944,7 +1658,6 @@ function sumEarningsForPeriod(period) {
     return getEntriesForPeriod(period).reduce((sum, e) => sum + (parseFloat(e.amount_earned) || 0), 0);
 }
 
-// ✅ NEW: Total Earnings card এর period switch করলে headline amount আপডেট হবে
 function selectEarningsPeriod(period) {
     const filterRow = document.getElementById("earningsPeriodFilter");
     if (filterRow) {
@@ -1959,9 +1672,6 @@ function selectEarningsPeriod(period) {
     if (labelEl) labelEl.innerText = `Total Earnings — ${PERIOD_LABELS[period] || period}`;
 }
 
-// ✅ FIX: আগে এখানে localStorage("today_earnings") থেকে টোটাল দেখানো হতো, যেটা কখনো
-// আসলে সেট হতো না — তাই সবসময় ₹0 দেখাতো। এখন riders_wallet টেবিল থেকে আসল completed
-// delivery earnings period অনুযায়ী (Today/Yesterday/This Week ইত্যাদি) sum করে দেখানো হয়।
 async function initEarningsPage() {
     await loadEarningsFromDB();
     await loadActiveHoursFromDB();
@@ -1971,20 +1681,12 @@ async function initEarningsPage() {
     selectProfitPeriod('today');         // Profit Analysis গ্রাফ
     refreshPayoutButton();               // আজকের payout যোগ্য amount বাটনে দেখানো
 
-    // ✅ FIX (#7, #12): earnings/history are sourced from `orders` now (see
-    // loadEarningsFromDB note on the riders_wallet unique(rider_id)
-    // constraint), so the realtime listener follows `orders` UPDATE events
-    // for this rider instead of riders_wallet — a delivery completing
-    // (status → delivered) on this or another device updates Total
-    // Earnings, History and the Profit graph without a manual refresh.
     const _earnRiderId = await ensureRiderBigIntId();
     if (supabaseClient && _earnRiderId) {
         if (window._walletRealtimeChannel) supabaseClient.removeChannel(window._walletRealtimeChannel);
         window._walletRealtimeChannel = supabaseClient
             .channel('rider-earnings-realtime')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `rider_id=eq.${_earnRiderId}` }, async (payload) => {
-                // ✅ FIX: লাইভ GPS প্রতি ৫ সেকেন্ডে এই order row আপডেট করে — আগে প্রতিবার earnings
-                // রিফ্রেশ + "Earnings updated" toast আসত। এখন শুধু নতুন delivered order এ একবার।
                 if (!payload.new || payload.new.status !== 'delivered') return;
                 const seen = window._earnSeenOrders || (window._earnSeenOrders = new Set());
                 const oid = String(payload.new.order_id);
@@ -2004,7 +1706,6 @@ async function initEarningsPage() {
     }
 }
 
-// ✅ NEW: Recent Completed History লিস্ট, DB থেকে period অনুযায়ী ফিল্টার করে রেন্ডার করা হয়
 function renderEarningsHistory(period) {
     const historyCount = document.querySelector(".history-count");
     const earningList = document.getElementById("earning-history-list");
@@ -2037,7 +1738,6 @@ function renderEarningsHistory(period) {
     });
 }
 
-// ✅ NEW: History সেকশনের filter chip ক্লিক হ্যান্ডলার
 function selectHistoryPeriod(period) {
     const filterRow = document.getElementById("historyPeriodFilter");
     if (filterRow) {
@@ -2048,7 +1748,6 @@ function selectHistoryPeriod(period) {
     renderEarningsHistory(period);
 }
 
-// ✅ NEW: Profit Analysis গ্রাফ — period অনুযায়ী দিনভিত্তিক bucket এ ভাগ করে sparkline আঁকা হয়
 function selectProfitPeriod(period) {
     const filterRow = document.getElementById("profitPeriodFilter");
     if (filterRow) {
@@ -2059,19 +1758,12 @@ function selectProfitPeriod(period) {
     renderProfitGraph(period);
 }
 
-// ✅ REWRITE (premium): trade-ideas.com স্টাইল রঙিন সেগমেন্ট বজায় রেখে এবার প্রতিটা সেগমেন্ট
-// smooth curve (Catmull-Rom → Bezier) দিয়ে আঁকা হয় জ্যাগেড সরলরেখার বদলে, ছোট period
-// (Today/Yesterday) এর জন্য বেশি bucket (ঘণ্টাভিত্তিক রেজোলিউশন) ব্যবহার করা হয় যাতে গ্রাফ
-// একটা একক ডায়াগোনাল লাইনের মতো ফাঁকা না দেখায়, এবং নিচে একটা axis label সারি যোগ হয়েছে।
 function renderProfitGraph(period) {
     const entries = getEntriesForPeriod(period);
     const [start, end] = getPeriodRange(period);
     const totalMs = Math.max(1, end.getTime() - start.getTime());
 
     const isSingleDay = (period === 'today' || period === 'yesterday');
-    // ✅ FIX: আগে 'today'/'yesterday' এর জন্যও মাত্র ২টা bucket (২-পয়েন্টের সরলরেখা) হতো,
-    // যেটা গ্রাফ হিসেবে প্রায় অকেজো দেখাতো। এখন একদিনের রেঞ্জকে ৮টা (৩-ঘণ্টার) bucket এ
-    // ভাগ করা হয়, বাকি period গুলো আগের মতোই দিনভিত্তিক (সর্বোচ্চ ৭টা bucket)।
     const bucketCount = isSingleDay ? 8 : Math.min(7, Math.max(2, Math.round(totalMs / 86400000) || 2));
     const bucketMs = totalMs / bucketCount;
     const buckets = new Array(bucketCount).fill(0);
@@ -2179,13 +1871,6 @@ function renderProfitGraph(period) {
     }
 }
 
-// ✅ REWRITE (#10, #11, #13): payout amount is no longer trusted from the
-// UI text — it's read straight from riders_wallet.balance (the real,
-// accumulated, unpaid wallet balance for this rider — see the
-// riders_wallet unique(rider_id) note in loadEarningsFromDB). Duplicate
-// protection checks admin_payout_requests for any existing pending
-// request before allowing a new one. DB earnings/history are never wiped
-// via localStorage — that reset is removed entirely.
 const PAYOUT_REJECTED = ['rejected', 'declined', 'failed', 'cancelled', 'canceled'];
 const PAYOUT_OPEN = ['pending', 'approved', 'in_progress', 'processing', 'accepted'];
 
@@ -2237,9 +1922,6 @@ async function refreshPayoutButton() {
     }
 }
 
-// ✅ REWRITE: payout amount এখন DB থেকে ঠিকঠাক হিসাব হয় — আজকের delivered order এর earning থেকে
-// আজ আগে request হয়ে যাওয়া amount বাদ দিয়ে। Duplicate/double payout আটকানো আছে, আর
-// request এর আগে earnings fresh করে নেওয়া হয় যাতে সদ্য delivery হওয়া order বাদ না পড়ে।
 async function handlePayoutRequest() {
     if (!supabaseClient) return;
     const payoutRequestBtn = document.getElementById("payoutRequestBtn");
@@ -2284,8 +1966,6 @@ async function handlePayoutRequest() {
     }
 }
 
-// ✅ NEW: "Check Your Payment" — maps whatever request_status string the admin dashboard
-// writes into one of exactly 3 rider-facing states: Pending -> In Progress -> Completed.
 function normalizePayoutStatus(raw) {
     const s = (raw || '').toLowerCase();
     if (s === 'completed' || s === 'paid' || s === 'done' || s === 'success') {
@@ -2389,10 +2069,6 @@ async function loadActiveHoursFromDB() {
     try {
         if (!currentRiderId) return;
         const today = new Date().toISOString().split('T')[0];
-        // ✅ FIX (#7, #13): riders_wallet only ever holds one row per rider
-        // (unique(rider_id)), so "deliveries today" must be counted from
-        // the orders table instead — plus the query result's `error` is
-        // now actually checked.
         const { data, error } = await supabaseClient.from('orders')
             .select('order_id')
             .eq('rider_id', currentRiderId)
@@ -2410,9 +2086,6 @@ async function loadActiveHoursFromDB() {
     }
 }
 
-// ==========================================
-// 7. Profile Management, Language & Strict Doc KYC Actions
-// ==========================================
 function processAvatarUpdate(event) {
     const file = event.target.files[0];
     if (file) {
@@ -2431,14 +2104,9 @@ function processAvatarUpdate(event) {
     }
 }
 
-// ✅ NEW: লগইন করার সাথে সাথেই riders টেবিলে ওই ইমেইলের একটা row আছে কিনা নিশ্চিত করা হয়।
-// row না থাকলে email + সম্ভব হলে Google full_name/duty_status দিয়ে একটা নতুন row বসিয়ে দেওয়া হয়।
-// row আগে থেকেই থাকলে কিছুই ওভাররাইট করা হয় না (শুধু email/duty_status এর upsert, বাকি কলাম অপরিবর্তিত থাকে)।
 async function ensureRiderDbRow(user) {
     if (!supabaseClient || !user?.id) return;
     try {
-        // ✅ FIX: auth_user_id দিয়ে চেক করা হচ্ছে (email দিয়ে না), কারণ RLS policy
-        // auth.uid() = auth_user_id ম্যাচ করে — email match করে না, তাই 403 আসছিল।
         const { data: existing } = await supabaseClient
             .from('riders')
             .select('id')
@@ -2459,9 +2127,6 @@ async function ensureRiderDbRow(user) {
     }
 }
 
-// ✅ NEW: Google OAuth দিয়ে লগইন করলে Google প্রোফাইল পিকচারটা রাইডারের অ্যাভাটার হিসেবে
-// অটোমেটিক বসিয়ে দেওয়া হয় — কিন্তু শুধু তখনই, যখন rider এখনো কোনো কাস্টম অ্যাভাটার
-// সেট করেনি (riders.avatar_url খালি)। এরপর rider চাইলে profile পেজ থেকে নিজে বদলে নিতে পারবে।
 async function autoApplyGoogleAvatar(user) {
     if (!supabaseClient || !user) return;
     try {
@@ -2484,7 +2149,6 @@ async function autoApplyGoogleAvatar(user) {
         }
 
         localStorage.setItem("rider_avatar", googlePic);
-        // ✅ FIX: email দিয়ে upsert(onConflict:'email') 403 দিচ্ছিল — এখন auth_user_id দিয়ে safeUpdateRiderByAuthUser()
         try {
             await safeUpdateRiderByAuthUser(user.id, { avatar_url: googlePic });
         } catch (err) {
@@ -2495,16 +2159,6 @@ async function autoApplyGoogleAvatar(user) {
     }
 }
 
-// ✅ REWRITE (spec #11): No longer assumes every column exists. Builds the
-// payload from whatever fields are actually present in the DOM, then hands
-// it to safeUpdateRiderByAuthUser() which sends it as-is first and only
-// drops a field if PostgREST itself reports that exact column doesn't
-// exist in the live schema (PGRST204) — never guessed up front. vehicle_plate
-// and vehicle_type are included here because riders_kyc (rider_kyc.plate_no /
-// vehicle_type) is the real source of truth for vehicle KYC — if riders.vehicle_plate
-// / riders.vehicle_type also exist as sync columns they get updated too; if they
-// don't exist on this installation, safeUpdateRiderByAuthUser drops them
-// automatically instead of failing the whole save.
 async function saveRiderProfileToDatabase() {
     if (!supabaseClient) return;
 
@@ -2590,11 +2244,6 @@ function closeSubPage(pageId) {
         if (document.body) {
             document.documentElement.style.overflowY = '';
         }
-        // ✅ NEW (KYC full-screen redesign): the wizard hides the normal bottom nav
-        // while open and pushes one history entry for the Android hardware-back
-        // safety-net (see popstate handler below) — restore/consume both here so
-        // every close path (step-1 Back, successful submit, or any future close)
-        // is handled from one place.
         if (pageId === 'kycWizardPage') {
             showRiderBottomNav();
             if (_kycHistoryPushed) { _kycHistoryPushed = false; history.back(); }
@@ -2610,7 +2259,6 @@ function toggleNotifications() {
     if (!notiDropdown) return;
     notiDropdown.classList.toggle('hidden');
 
-    // ✅ ড্রপডাউনের বাইরে ক্লিক করলে বন্ধ হয়ে যাবে (Zomato/Swiggy স্টাইল)
     if (!notiDropdown.classList.contains('hidden')) {
         setTimeout(() => {
             document.addEventListener('click', closeNotiDropdownOutside);
@@ -2627,23 +2275,8 @@ function closeNotiDropdownOutside(e) {
     document.removeEventListener('click', closeNotiDropdownOutside);
 }
 
-// ✅ FIX: আগে notification লোড হওয়ার সাথে সাথেই সবগুলো is_read=true করে দিত (auto mark-all-read),
-// ফলে badge/লাল ডট কখনো ঠিকমতো দেখাই যেত না। এখন শুধু unread count (10+ ক্যাপসহ) লোড হয় এবং
-// প্রতিটা notification ক্লিক করলে আলাদাভাবে read হবে (নিচের markNotificationAsRead ফাংশন)।
-//
-// ✅ NEW: প্রতিটা notification এ একটা ✕ (cross) বাটন থাকবে — সেটা চাপলে notification
-// DB থেকে permanently ডিলিট হয়ে যাবে, তাই রিফ্রেশ করলেও আর ফিরে আসবে না।
-// ✅ NEW: ✕ না চাপলেও ১০ দিন পর পুরনো notification অটোমেটিক ডিলিট হয়ে যায় (নিচে purge অংশ দেখুন)।
-// ✅ NEW: order-সংক্রান্ত notification-এ order_id থাকলে সেটা DOM-এ data-order-id হিসেবে বসানো
-// হয়, যাতে অন্য রাইডার অর্ডারটা accept করলে (listenToAvailableOrders এ দেখুন) মিলিয়ে সেই
-// notification নিজে থেকেই সরিয়ে দেওয়া যায়।
 const NOTI_AUTO_PURGE_DAYS = 20;
 
-// ✅ NEW: DB থেকে delete করার সাথে সাথে localStorage-এও permanently "dismissed" হিসেবে
-// মার্ক রাখা হয় — কারণ Supabase-এ rider_notifications টেবিলে DELETE policy না থাকলে (RLS)
-// সার্ভার-সাইড delete চুপচাপ ব্যর্থ হতে পারে (কোনো error ছাড়াই), আর সেক্ষেত্রে রিফ্রেশ/dropdown
-// আবার খুললে পুরনো row-টা DB থেকে আবার চলে আসতো। এখন ক্রস করা ID localStorage-এ সেভ থাকায়,
-// DB delete কাজ করুক বা না করুক — একবার ক্রস করলে সেটা রাইডারের কাছে আর কখনো দেখাবে না।
 const DISMISSED_NOTI_KEY = 'dismissedNotificationIds';
 
 function getDismissedNotiIds() {
@@ -2676,8 +2309,6 @@ async function loadDeliveryNotifications() {
 
         const dismissed = getDismissedNotiIds();
 
-        // ✅ NEW: ১০ দিনের বেশি পুরনো notification গুলো ব্যাকগ্রাউন্ডে permanently ডিলিট করে দেওয়া
-        // (ম্যানুয়ালি ✕ না করলেও এই বয়সের notification আর দেখানো হবে না)
         const purgeBeforeIso = new Date(Date.now() - NOTI_AUTO_PURGE_DAYS * 86400000).toISOString();
         supabaseClient.from('rider_notifications')
             .delete()
@@ -2692,11 +2323,8 @@ async function loadDeliveryNotifications() {
             .eq('is_read', false)
             .gte('created_at', purgeBeforeIso);
 
-        // ✅ dismissed (ক্রস করা) হিসেবে লোকালি মার্ক করা আইডিগুলো unread count থেকেও বাদ যাবে
         let unread = count || 0;
 
-        // Recent notifications (read + unread) for the dropdown list.
-        // ✅ order_id কলাম থাকলে সেটাও আনার চেষ্টা করা হয় (না থাকলে fallback করে বেসিক কলামেই থামে)
         let data;
         const res1 = await supabaseClient.from('rider_notifications')
             .select('id, title, message, created_at, is_read, order_id')
@@ -2716,8 +2344,6 @@ async function loadDeliveryNotifications() {
             data = res1.data;
         }
 
-        // ✅ FIX: যেসব ID আগে ক্রস করা হয়েছিল (localStorage-এ dismissed), সেগুলো বাদ দিয়ে রেন্ডার
-        // করা হয় — DB-তে delete সফল না হলেও (RLS ইত্যাদির কারণে) এগুলো আর কখনো ফিরে আসবে না।
         const visibleData = (data || []).filter(n => !dismissed[n.id]).slice(0, 60);
         const dismissedUnreadCount = (data || []).filter(n => dismissed[n.id] && !n.is_read).length;
         unread = Math.max(0, unread - dismissedUnreadCount);
@@ -2742,9 +2368,6 @@ async function loadDeliveryNotifications() {
     }
 }
 
-// ✅ NEW: একটা notification card এর HTML — cross(✕) বাটনসহ, একই টেমপ্লেট সবখানে (initial load + realtime insert) ব্যবহার হয়
-// ✅ NEW: notification-এ কী প্রোডাক্ট/আইটেম আছে তা কোথাও দেখানো হবে না — শুধু Pickup/Deliver
-// address অংশটুকু রাখা হয়, ". Order: ... Items: ... Total: ..." অংশ কেটে বাদ দেওয়া হয়।
 function sanitizeNotificationMessage(msg) {
     if (!msg) return '';
     const idx = msg.search(/\.\s*Order\s*:/i);
@@ -2773,15 +2396,11 @@ function renderNotiItemHtml(n) {
     </div>`;
 }
 
-// ✅ NEW: ✕ বাটনে ক্লিক করলে notification permanently ডিলিট হবে (DB + localStorage dismissed-list
-// দুটো জায়গা থেকেই) — DB delete RLS-এর কারণে ব্যর্থ হলেও, localStorage-এর কারণে একবার ক্রস
-// করলে রিফ্রেশ করলেও আর কখনো ফিরে আসবে না।
 async function deleteNotification(id, btnEl) {
     if (!id) return;
     const item = btnEl ? btnEl.closest('.noti-item') : document.querySelector(`.noti-item[data-noti-id="${id}"]`);
     const wasUnread = item && item.classList.contains('unread');
 
-    // ✅ সবার আগে localStorage-এ permanently dismissed মার্ক করে দেওয়া — এটাই আসল গ্যারান্টি
     markNotiDismissedLocally(id);
 
     if (item) {
@@ -2814,13 +2433,9 @@ async function deleteNotification(id, btnEl) {
         const { error } = await supabaseClient.from('rider_notifications').delete().eq('id', id);
         if (error) throw error;
     } catch (e) {
-        // ✅ DB delete ব্যর্থ হলেও চুপচাপ থাকা হয় (toast দেখানো হয় না) — কারণ localStorage
-        // dismissed-list ইতিমধ্যে UI-তে permanently hide করার দায়িত্ব নিয়ে নিয়েছে
     }
 }
 
-// ✅ NEW: কোনো অর্ডার আর broadcast/available না থাকলে (অন্য রাইডার accept করলে বা মার্চেন্ট
-// বাতিল করলে) — সেই অর্ডার সংক্রান্ত notification (যদি order_id মিলে) DOM ও DB থেকে সরিয়ে দেওয়া হয়।
 async function removeOrderNotificationByOrderId(orderId) {
     if (!orderId) return;
     document.querySelectorAll(`.noti-item[data-order-id="${orderId}"]`).forEach(el => {
@@ -2839,8 +2454,6 @@ async function removeOrderNotificationByOrderId(orderId) {
     }
 }
 
-// ✅ NEW: একটা notification ক্লিক করলে সেটা read হবে — লাল ডট চলে যাবে, badge count ১ কমবে,
-// এবং database এ is_read=true সেভ হবে (Facebook/Zomato স্টাইল)
 async function markNotificationAsRead(id, el) {
     if (!supabaseClient || !id) return;
     if (el && el.classList.contains('read')) return; // already read, nothing to do
@@ -2908,11 +2521,6 @@ async function triggerProfileNameEdit() {
     }
 }
 
-// ============================================================
-// FIX: showConfirmationModal() was called by processGlobalLogout() but was never
-// defined anywhere, so tapping "Logout Account" threw a ReferenceError and did nothing.
-// Self-contained confirm dialog (no dependency on rider.css).
-// ============================================================
 function showConfirmationModal(message, onConfirm) {
     const old = document.getElementById('riderConfirmOverlay');
     if (old) old.remove();
@@ -2951,13 +2559,6 @@ async function processGlobalLogout() {
     });
 }
 
-// ============================================================
-// ✅ NEW BLOCK: Single-file SPA tab switching (rider.html merges what used
-// to be 4 separate pages — delyvaryhome/order/earning/profile.html — into
-// one file with #tab-home / #tab-delivery / #tab-earning / #tab-profile
-// sections). switchRiderTab() replaces every old `window.location.href =
-// "delyvaryX.html"` full-page navigation with an instant in-page toggle.
-// ============================================================
 window._activeRiderTab = 'home';
 
 function switchRiderTab(tab) {
@@ -2970,9 +2571,6 @@ function switchRiderTab(tab) {
     });
     initBottomNav();
 
-    // ✅ FIX: Leaflet মাপ ভুল হিসাব করে যদি তার container display:none অবস্থায় init হয় —
-    // Delivery ট্যাব হাইড থাকা অবস্থায় ম্যাপ প্রথমবার লোড হয়ে থাকলে, ট্যাবে ফেরত এলে
-    // invalidateSize() কল করে সঠিক সাইজ/পজিশন রিক্যালকুলেট করানো হয়
     if (tab === 'delivery' && typeof map !== 'undefined' && map) {
         setTimeout(() => { try { map.invalidateSize(); } catch (e) {} }, 60);
     }
@@ -2984,9 +2582,6 @@ function switchRiderTab(tab) {
     document.title = titles[tab] || 'MediFinder India - Rider App';
 }
 
-// Bottom nav active state — now driven by the in-app active tab instead of
-// the page filename (there's only one file, rider.html, so pathname-based
-// detection no longer applies)
 function initBottomNav() {
     document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
         const tab = item.getAttribute('data-tab');
@@ -2994,17 +2589,8 @@ function initBottomNav() {
     });
 }
 
-// ✅ NEW: একাধিকবার (initial load + realtime event + upload success) loadCurrentRiderProfileStatus()
-// প্রায় একসাথে কল হলে race condition হতে পারতো — ধীরে শেষ হওয়া পুরনো কল, পরে শুরু হওয়া নতুন কলের
-// (সঠিক) DOM আপডেটকে ওভাররাইট করে পুরনো/খালি ডেটা দিয়ে বসিয়ে দিত। এখন একটা sequence number
-// দিয়ে গার্ড করা হলো — শুধু সর্বশেষ শুরু হওয়া কলটাই DOM আপডেট করতে পারবে।
 let _profileStatusCallSeq = 0;
 
-// ✅ REWRITE (spec §15, §10): rider row is now resolved via
-// auth_user_id (never email) — matches the RLS policy and is the
-// second half of the 400/403 fix (ensureRiderDbRow / safeUpdateRiderByAuthUser
-// already used auth_user_id for writes; this was the last read path
-// still using email).
 async function loadCurrentRiderProfileStatus() {
     if (window.location.pathname.includes('home.html')) return; 
     const _mySeq = ++_profileStatusCallSeq;
@@ -3040,7 +2626,6 @@ async function loadCurrentRiderProfileStatus() {
             currentRiderId = rId; 
         }
 
-        // ✅ NEW: unified KYC application — single row per rider in rider_kyc_application
         let kycApp = null;
         if (rId) {
             const { data: appData, error: appErr } = await supabaseClient
@@ -3055,7 +2640,6 @@ async function loadCurrentRiderProfileStatus() {
         window._kycApplicationCache = kycApp;
 
         const kycStatus = kycApp ? kycApp.status : 'not_submitted';
-        // ✅ Accept Order button (home/order pages) stays locked until KYC is fully approved
         window._riderLicenseVerified = (kycStatus === 'approved');
 
         renderKycStatusUI(kycApp, kycStatus, riderProfile);
@@ -3072,8 +2656,6 @@ async function loadCurrentRiderProfileStatus() {
             document.getElementById("avatarDisplayImage").src = kycApp.selfie_img;
         }
 
-        // ✅ FIX: আগে full_name খালি থাকলে HTML এর স্ট্যাটিক "Rider Account" লেখাই থেকে যেত।
-        // এখন fallback chain: signup name → Google display name → email prefix।
         if (document.getElementById('profileDisplayName')) {
             const googleName = currentSession?.user?.user_metadata?.full_name || currentSession?.user?.user_metadata?.name || "";
             const nameToShow = riderProfile.full_name || googleName || (currentSession?.user?.email ? currentSession.user.email.split('@')[0] : "Rider");
@@ -3098,7 +2680,6 @@ async function loadCurrentRiderProfileStatus() {
             document.getElementById("verificationStatus").innerText = riderProfile.status || "Pending";
         }
 
-        // ✅ Total Lifetime Income — completed delivery অনুযায়ী calculate
         if (document.getElementById("totalLifetimeIncome") && rId) {
             loadTotalLifetimeIncome(rId);
         }
@@ -3108,16 +2689,6 @@ async function loadCurrentRiderProfileStatus() {
     }
 }
 
-// ============================================================
-// ✅ NEW BLOCK: Rider KYC v2 — unified onboarding wizard, banner
-// ring, read-only views, complaint & delete-account flows.
-// Table: rider_kyc_application (one row per rider_id).
-// ============================================================
-
-// Renders either the "Verify your account to earn money" banner
-// (not_submitted / pending / rejected) or the read-only Account
-// Details & Legal section (approved) — including the avatar's
-// green verified ring and small vehicle badge.
 function renderKycStatusUI(kycApp, status, riderProfile) {
     const banner = document.getElementById('kycVerifyBanner');
     const approvedSection = document.getElementById('kycApprovedSection');
@@ -3134,8 +2705,6 @@ function renderKycStatusUI(kycApp, status, riderProfile) {
         bannerAvatar.src = mainAvatarImg.src;
     }
 
-    // ✅ NEW: Home page-এর লাল KYC ব্যানার — Profile পেজে না থেকেও (Home/Delivery/Earning এ)
-    // approve না হওয়া পর্যন্ত দেখাবে
     const homeBanner = document.getElementById('homeKycBanner');
 
     if (status === 'approved') {
@@ -3205,7 +2774,6 @@ function computeKycCompletionPercent(app) {
     return Math.round((filled / required.length) * 100);
 }
 
-// ---------------- Wizard navigation ----------------
 const KYC_STEP_TITLES = { 1: 'Rider Details', 2: 'Vehicle Details', 3: 'License & Insurance', 4: 'Identity Verification', 5: 'Bank & Payment', 6: 'Preview & Submit' };
 let kycCurrentStep = 1;
 window._kycDraft = { fields: {}, existing: null };
@@ -3223,8 +2791,6 @@ function showKycStep(n) {
     const titleEl = document.getElementById('kycWizardStepTitle');
     if (titleEl) titleEl.innerText = KYC_STEP_TITLES[n] || '';
 
-    // ✅ NEW (full-screen redesign): shared bottom action bar — step counter +
-    // dynamic Continue/Submit label, and always scroll the new step into view
     const stepCountEl = document.getElementById('kycStepCount');
     if (stepCountEl) stepCountEl.innerText = `${n}/6`;
     const continueBtn = document.getElementById('kycFsContinueBtn');
@@ -3234,9 +2800,6 @@ function showKycStep(n) {
     saveKycDraft(); // ধাপ বদলালেই progress লোকাল স্টোরেজে সেভ
 }
 
-// ✅ NEW: the full-screen wizard has ONE shared bottom "Continue →" button
-// instead of a separate Continue button baked into every step — this just
-// routes it to the right existing function per step, nothing duplicated.
 function kycFsContinue() {
     if (kycCurrentStep === 6) { submitKycApplication(); }
     else { kycWizardNext(kycCurrentStep); }
@@ -3287,7 +2850,6 @@ function hasExistingImg(field) {
     return !!(window._kycDraft.existing && window._kycDraft.existing[field]);
 }
 function hasChosenFile(inputId) {
-    // ✅ ছবি এখন compress করে memory/IndexedDB তে রাখা হয় (input.files এ নয়)
     return !!(window._kycFiles && window._kycFiles[inputId]);
 }
 
@@ -3415,8 +2977,6 @@ function renderKycPreview() {
     `;
 }
 
-// ✅ NEW (KYC full-screen redesign): hide/restore the normal rider bottom nav
-// while the onboarding wizard is open, so it reads as an independent page.
 function hideRiderBottomNav() {
     const nav = document.querySelector('.bottom-nav');
     if (nav) nav.classList.add('hidden');
@@ -3426,23 +2986,8 @@ function showRiderBottomNav() {
     if (nav) nav.classList.remove('hidden');
 }
 
-// ✅ NEW: premium upload cards (hidden native <input type=file>, styled label/preview
-// on top) for every file input inside the wizard. One delegated 'change' listener,
-// wired once — keeps the existing input IDs the rest of the KYC JS depends on untouched.
 let _kycUploadCardsWired = false;
 
-// ============================================================
-// ✅ NEW: KYC draft persistence + হালকা ছবি হ্যান্ডলিং
-//
-// সমস্যা: ক্যামেরা খোলার পর ফোনের memory কম পড়লে ব্রাউজার ট্যাব কিল করে দেয়, ফলে ছবি তোলার
-// পর পেজ রিলোড হয়ে হোমে চলে যেত এবং সব লেখা/ছবি হারিয়ে যেত। আগে পুরো ফটো FileReader দিয়ে
-// base64 (DataURL) বানানো হতো — সেটাই বড় memory spike ছিল।
-//
-// এখন: (১) ছবি সাথে সাথে ছোট (max 1280px, JPEG) করা হয় এবং preview দেখানো হয় objectURL দিয়ে,
-// (২) ছবি IndexedDB তে আর লেখাগুলো localStorage এ সেভ হয় — প্রতিটা Continue, প্রতিটা টাইপ, আর
-// অ্যাপ ব্যাকগ্রাউন্ডে যাওয়ার মুহূর্তে, (৩) রিলোড হলে রাইডার সরাসরি একই ধাপে, আগের সব তথ্য ও
-// ছবিসহ ফিরে আসে। Submit সফল হলেই draft মুছে যায়।
-// ============================================================
 const KYC_DRAFT_KEY = 'rider_kyc_draft_v1';
 const KYC_WIZARD_OPEN_KEY = 'rider_kyc_wizard_open';
 const KYC_TEXT_FIELD_IDS = ['kycFirstName','kycAge','kycContactNo','kycWhatsappNo','kycEmail','kycAddress','kycVehicleNo','kycLicenseNo','kycIdType','kycIdNo','kycAccountNo','kycIfscCode','kycBranch','kycUpiId'];
@@ -3668,9 +3213,6 @@ function initKycUploadCards() {
     window.addEventListener('pagehide', saveKycDraft);
 }
 
-// ✅ NEW: on open (fresh, or reopening a rejected/in-progress application), show
-// each upload card as "already on file" when a URL exists for it but no new file
-// has been chosen yet in this session — matches the text-field prefill behaviour.
 function markKycUploadCardsFromExisting(existing) {
     const fieldMap = {
         kycVehicleImg: 'vehicle_img', kycLicenseImg: 'license_img', kycInsuranceImg: 'insurance_img',
@@ -3699,8 +3241,6 @@ function markKycUploadCardsFromExisting(existing) {
     });
 }
 
-// ✅ NEW: lets the Android hardware/browser back button step back inside the
-// wizard (or close it at step 1) instead of leaving the rider app entirely.
 let _kycHistoryPushed = false;
 window.addEventListener('popstate', function () {
     if (!_kycHistoryPushed) return; // nothing of ours to handle
@@ -3780,9 +3320,6 @@ function handleKycBannerTap() {
     openKycWizard();
 }
 
-// ✅ FIX: rider.html is now a single-file SPA (Home/Delivery/Earning/Profile are all
-// sections of the same page), so this no longer needs to navigate anywhere — it just
-// switches to the Profile tab and opens the wizard directly, same as handleKycBannerTap().
 function goToKycFromHome() {
     const app = window._kycApplicationCache;
     const status = app ? app.status : 'not_submitted';
@@ -3794,8 +3331,6 @@ function goToKycFromHome() {
     openKycWizard();
 }
 
-// ✅ FIX: "Failed to fetch" = network drop (slow/unstable mobile data). এখন প্রতিটা upload/insert
-// auto-retry হয়, আর যে ছবি একবার upload হয়ে গেছে সেটা দ্বিতীয়বার Submit চাপলে আর আবার upload হয় না।
 const _kycUploadedUrls = new WeakMap(); // blob -> publicUrl
 
 function _isNetworkError(err) {
@@ -3849,8 +3384,6 @@ async function submitKycApplication() {
         const existing = window._kycDraft.existing || {};
         const d = window._kycDraft.fields;
 
-        // ✅ Submit এর আগে সব ধাপ আবার যাচাই — required লেখা ও required ছবি (vehicle, license*, selfie, ID, bank doc)
-        // একটাও বাদ থাকলে সেই ধাপে ফিরিয়ে নিয়ে যাবে। (*bicycle/EV ছাড়া)
         for (let st = 1; st <= 5; st++) {
             const vErr = validateAndCollectStep(st);
             if (vErr) { showKycStep(st); showToast(vErr, 'error'); return; }
@@ -3924,7 +3457,6 @@ async function submitKycApplication() {
     }
 }
 
-// ---------------- Read-only KYC views (approved / rejected review) ----------------
 function kycReadRow(label, value) {
     return `<div class="kyc-preview-row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value || '—')}</span></div>`;
 }
@@ -4016,7 +3548,6 @@ function openKycReadonly(section) {
     openSubPage('kycReadonlyPage');
 }
 
-// ---------------- Complaint ----------------
 async function submitRiderComplaint() {
     const reasonEl = document.getElementById('complaintReasonInput');
     const subjectEl = document.getElementById('complaintSubjectInput');
@@ -4043,7 +3574,6 @@ async function submitRiderComplaint() {
     }
 }
 
-// ---------------- Delete account ----------------
 function goToDeleteAccountConfirm() {
     const reasonEl = document.getElementById('deleteReasonInput');
     if (!reasonEl || !reasonEl.value) { showToast('Please select a reason.', 'error'); return; }
@@ -4072,7 +3602,6 @@ async function confirmDeleteAccount() {
     }
 }
 
-// ✅ NEW: rider এর সব completed/delivered অর্ডারের delivery_charge যোগ করে Total Lifetime Income দেখানো
 async function loadTotalLifetimeIncome(riderId) {
     const el = document.getElementById("totalLifetimeIncome");
     if (!el || !supabaseClient) return;
@@ -4094,7 +3623,6 @@ async function loadCurrentMerchantStatus() {
 
 }
 
-// ==================== RIDER UPGRADE LAYER (map, notifications, payment, vehicle) ====================
 /* MediFinder Rider upgrade layer — rider.js er PORE load hobe */
 (function () {
 'use strict';
@@ -4103,7 +3631,6 @@ const esc = s => (typeof escapeHtml === 'function' ? escapeHtml(s) : String(s ==
 const num = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
 const mf = window._mf = { markers: null, rl: null, map: null, rider: null, km: null, from: null, key: '', busy: false, last: 0 };
 
-/* ---------- routing (no external API) ---------- */
 const rCache = {};
 async function roadRoute(a, b) {
   // No external routing API: only Leaflet + OpenStreetMap tiles are used.
@@ -4121,7 +3648,6 @@ function getPos() {
 }
 const distM = (a, lat, lon) => Math.hypot((lat - a.lat) * 111320, (lon - a.lon) * 111320 * Math.cos(lat * Math.PI / 180));
 
-/* ---------- payment: COD / Prepaid ---------- */
 function payLabel(o) {
   // DB: payment_method hamesha 'cod' thake, tai asol source = payment_mode (COD / UPI / UPI_QR / ONLINE)
   const mode = String(o.payment_mode || '').toUpperCase().trim();
@@ -4137,7 +3663,6 @@ function setPay(o) {
   el.textContent = l; el.className = 'value emphasis mf-pay-' + l.toLowerCase();
 }
 
-/* ---------- order card: real distance + payment badge ---------- */
 async function fillCardDistance(order) {
   const card = document.getElementById('order-' + order.order_id); if (!card) return;
   let el = card.querySelector('.distance-info');
@@ -4156,7 +3681,6 @@ async function fillCardDistance(order) {
   el.innerHTML = rt ? `${ic}${rt.km.toFixed(1)} km away · ${Math.max(1, Math.round(rt.min))} min`
                     : `${ic}~${haversineKm(pos.lat, pos.lon, shop.lat, shop.lon)} km away`;
 }
-/* ---------- delivery fee from real road distance (shop -> customer) ---------- */
 async function resolveRoadKm(order) {
   if (!order) return null;
   if (order.__roadKm != null) return order.__roadKm;
@@ -4188,7 +3712,6 @@ if (typeof _ao === 'function') window.acceptOrder = async function (orderId, ord
 const _ra = window.renderAvailableOrder;
 if (_ra) window.renderAvailableOrder = function (order) { _ra.apply(this, arguments); fillCardDistance(order); fillCardFee(order); };
 
-/* ---------- vehicle from KYC ---------- */
 const VEH = window.MF_VEH;
 window.updateMapVehiclePill = function (mode) {
   const k = mfVehKey(window._mfVehicle || mode), v = VEH[k];
@@ -4208,7 +3731,6 @@ async function loadVehicle() {
   } catch (e) {}
 }
 
-/* ---------- map ---------- */
 function ensure() {
   if (!map) return false;
   if (mf.map !== map) { mf.map = map; mf.markers = L.layerGroup().addTo(map); mf.rl = L.layerGroup().addTo(map); mf.rider = null; }
@@ -4306,7 +3828,6 @@ window.initBaseTrackingMap = async function () {
   loadVehicle();
 };
 
-/* ---------- notifications: full page + push on/off ---------- */
 const pushOn = () => {
   if (window.MFPush && typeof window.MFPush.isOn === 'function') return window.MFPush.isOn();
   return 'Notification' in window && Notification.permission === 'granted' && localStorage.getItem('mf_push_pref') !== 'off';
@@ -4392,7 +3913,6 @@ window.fireNewOrderNotification = function (o) {
   notify('New delivery request', `Parcel #${o.order_id} • ₹${computeDeliveryCharge(o)}`, 'order-' + o.order_id, false);
 };
 
-/* ---------- admin-side changes become notifications (payout status, order status) ---------- */
 const seenKey = k => 'mf_seen_' + k;
 const once = k => { if (localStorage.getItem(seenKey(k))) return false; try { localStorage.setItem(seenKey(k), '1'); } catch (e) {} return true; };
 function watchAdminEvents() {
@@ -4421,7 +3941,6 @@ function watchAdminEvents() {
 }
 setTimeout(watchAdminEvents, 2000);
 
-/* ---------- one-tap "turn on push" card on Home (push works with app closed only after this) ---------- */
 function pushCard() {
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const old = $('mfPushCard');
@@ -4444,7 +3963,6 @@ setTimeout(pushCard, 1500);
 setInterval(pushCard, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pushCard(); });
 
-/* ---------- ask for push permission once, on the rider's first tap ---------- */
 (function () {
   if (!('Notification' in window) || Notification.permission !== 'default') return;
   const ask = () => {
@@ -4457,12 +3975,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) push
   document.addEventListener('click', ask, true);
 })();
 
-/* ---------- tab switch ---------- */
 const _sw = window.switchRiderTab;
 window.switchRiderTab = function (t) { closeNoti(); _sw.apply(this, arguments); };
 })();
 
-// ==================== SPEED LAYER: instant tabs / no repeated loading ====================
 (function () {
   'use strict';
   // 1) getSession ek-ta call kore 20s cache (code e 10+ jaygay await hoy)

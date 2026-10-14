@@ -2,6 +2,8 @@
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
+    <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+    <script src="btn-loading.js?v=3e075ab0"></script>
     <title>Merchant Dashboard | MediFinder India</title>
     <meta name="description" content="MediFinder India merchant panel for pharmacies.">
     <meta name="robots" content="noindex, nofollow">
@@ -31,14 +33,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script>try{if(localStorage.getItem("mf_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
-<link rel="stylesheet" href="marchent.css?v=2">
+<link rel="stylesheet" href="marchent.css?v=a44f89a7">
 </head>
 <body>
 
-<!-- ============ APP SHELL ============ -->
 <div id="app">
 
-  <!-- ============ DESKTOP SIDEBAR ============ -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <img class="brand-logo" src="favicon.png" alt="MediFinder India">
@@ -58,10 +58,8 @@
     </button>
   </aside>
 
-  <!-- ============ MAIN COLUMN ============ -->
   <div class="main-col">
 
-    <!-- ============ HEADER ============ -->
     <header class="topbar">
       <div class="topbar-brand only-mobile">
         <img class="brand-logo small" src="favicon.png" alt="MediFinder India">
@@ -83,18 +81,15 @@
       </div>
     </header>
 
-    <!-- ============ PAGE OUTLET ============ -->
     <main class="page-outlet" id="pageOutlet">
       <!-- pages rendered by JS -->
     </main>
 
-    <!-- ============ MOBILE BOTTOM NAV ============ -->
     <nav class="bottom-nav only-mobile" id="bottomNav">
       <!-- filled by JS -->
     </nav>
   </div>
 
-  <!-- ============ MOBILE SIDEBAR DRAWER (More menu) ============ -->
   <div class="drawer-scrim" id="drawerScrim"></div>
   <aside class="drawer" id="moreDrawer">
     <div class="drawer-head">
@@ -106,10 +101,8 @@
     <nav class="drawer-nav" id="drawerNav"></nav>
   </aside>
 
-  <!-- ============ TOAST ============ -->
   <div class="toast" id="toast" hidden></div>
 
-  <!-- ============ CONFIRM DIALOG ============ -->
   <div class="modal-scrim" id="confirmScrim" hidden>
     <div class="modal confirm-modal" role="alertdialog" aria-modal="true">
       <h3 id="confirmTitle">Are you sure?</h3>
@@ -123,11 +116,11 @@
 
 </div>
 
-<script src="permission-every.js?v=4"></script>
+<script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="marchent.js?v=15"></script>
-<script src="push-notifications.js?v=4" defer></script>
+<script src="marchent.js?v=7ca1b2b3"></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 </body>
 </html>

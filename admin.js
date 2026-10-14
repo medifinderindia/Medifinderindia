@@ -1,18 +1,9 @@
-/* =========================================================
-   MediFinder India Admin — SPA logic (no external libraries)
-   Everything is read live from Supabase; every control writes to
-   the database, then re-renders.
-   ========================================================= */
 "use strict";
 
-/* ---------------------------------------------------------
-   0. SUPABASE CONNECTION + ADMIN LOGIN GATE
-   (same client-creation pattern as user.js / rider.js / marchent.js —
-   see supabase-constants.js for SUPABASE_URL / SUPABASE_KEY)
-   --------------------------------------------------------- */
 const supabase = (typeof SUPABASE_URL !== "undefined" && typeof SUPABASE_KEY !== "undefined" && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
   : null;
+if (supabase && !window.supabaseClient) window.supabaseClient = supabase; // shared with push-notifications.js
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
@@ -24,13 +15,6 @@ function showAdminLoginGate(message){
 }
 
 
-/* ---------------------------------------------------------
-   0b. LIVE DATA LOADERS — Orders, Users, Merchants/KYC, Riders,
-   Prescriptions, Payouts, Refunds, Products, Coupons, Zones,
-   Ads, Tickets, Reviews — all wired to real Supabase tables.
-   (Nurses/Labs/Ambulance/Admins/Audit-Log/Notifications live
-   further down in section 0c.)
-   --------------------------------------------------------- */
 function fmtDateTime(iso){
   if(!iso) return "—";
   const d = new Date(iso);
@@ -418,15 +402,6 @@ async function loadRefundsFromDB(){
   }));
 }
 
-/* ---------------------------------------------------------
-   0c. LIVE DATA LOADERS — Healthcare Services (Nurses, Labs,
-   Ambulance) + Admin Management + Audit Log + Notification History.
-   These map to the REAL tables in Supabase. A few UI columns
-   (marked below) have no matching column in the real schema —
-   those are shown as "—" instead of invented numbers, and are
-   noted in comments so you know what would need a schema change
-   to actually track.
-   --------------------------------------------------------- */
 async function loadSampleCollectorNameMap(){
   if(!supabase) return {};
   const { data, error } = await supabase.from('sample_collectors').select('id, full_name');
@@ -680,7 +655,6 @@ async function computeSystemHealthLive(){
   try{ channelCount = supabase.getChannels().length; }catch(e){}
   health.push({ name:"Realtime Channels", status: channelCount>0 ? "operational" : "degraded", meta: `${channelCount} channel(s) subscribed` });
   health.push({ name:"Last Full Sync", status:"operational", meta: _lastSyncAt ? fmtDateTime(_lastSyncAt) : "Not yet synced" });
-  health.push({ name:"Payment Gateway (Razorpay)", status:"not-monitored", meta:"No server-side health check wired up yet — verify in Razorpay dashboard" });
   health.push({ name:"Push Notification Delivery", status:"not-monitored", meta:"No open/delivery tracking wired up yet" });
   health.push({ name:"Storage (uploads)", status:"not-monitored", meta:"No storage health check wired up yet" });
   health.push({ name:"Backups", status:"not-monitored", meta:"Managed by Supabase — check Project Settings → Backups" });
@@ -818,10 +792,6 @@ async function bootAdminDashboard(){
   subscribeLiveData();
 }
 
-/* ---------------------------------------------------------
-   1. DATA STORE
-   Filled live from Supabase by the loaders below.
-   --------------------------------------------------------- */
 const DATA = {
   users: [
     // Loaded live from Supabase (public.profiles, role='user') by loadUsersFromDB() — see bottom of file.
@@ -916,9 +886,6 @@ const DATA = {
 let _lastSyncAt = null;
 
 
-/* ---------------------------------------------------------
-   2. STATE
-   --------------------------------------------------------- */
 const STATE = {
   view: "dashboard",
   sidebarCollapsed: false,
@@ -943,9 +910,6 @@ function vs(viewId, defaults){
   return STATE.viewState[viewId];
 }
 
-/* ---------------------------------------------------------
-   3. NAV CONFIG
-   --------------------------------------------------------- */
 const NAV = [
   {group:"", items:[
     {id:"dashboard", icon:"▣", label:"Dashboard"},
@@ -1000,9 +964,6 @@ const BOTTOM_NAV = ["dashboard","orders","users","support"];
 const NAV_FLAT = NAV.flatMap(g=>g.items);
 function navItem(id){ return NAV_FLAT.find(i=>i.id===id) || HIDDEN_NAV.find(i=>i.id===id); }
 
-/* ---------------------------------------------------------
-   4. GENERIC HELPERS
-   --------------------------------------------------------- */
 const $ = (sel,root=document)=>root.querySelector(sel);
 const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
 const esc = (s)=> String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1073,10 +1034,6 @@ function toolbarTabs(viewId, tabs){
   return `<div class="tabs">${tabs.map(t=>`<div class="tab ${state.tab===t.key?"active":""}" data-tab="${viewId}" data-key="${t.key}">${esc(t.label)}</div>`).join("")}</div>`;
 }
 
-/* Full-page sheets (replaces the old popups).
-   Every form / detail / confirm screen opens as its own full page with a
-   sticky header (back arrow + title) and a sticky action bar. The phone's
-   Back button and the Esc key close it too. */
 let _pageOpen = false, _confirmResolve = null;
 function askConfirm(title, message, opts){
   opts = opts || {};
@@ -1132,9 +1089,6 @@ function svgBarChart(values, labels, opts={}){
   return `<div class="chart-wrap"><svg class="bar-chart" viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${bars}</svg></div>`;
 }
 
-/* ---------------------------------------------------------
-   5. VIEW RENDERERS
-   --------------------------------------------------------- */
 const VIEWS = {};
 
 /* ---- Dashboard ---- */
@@ -1372,11 +1326,6 @@ VIEWS.products = () => {
   </div></div>`;
 };
 
-/* ---- Prescriptions ----
-   Real prescription_orders has no admin approve/reject concept — a merchant
-   accepts a pending Rx request (first to tap wins, via accept_prescription_order).
-   Admin's real role here is oversight: view the uploaded image + who accepted it,
-   and cancel a stuck/abusive pending request. */
 const RX_TABS=[{key:"all",label:"All"},{key:"pending",label:"Pending"},{key:"accepted",label:"Accepted"},{key:"cancelled",label:"Cancelled"}];
 VIEWS.prescriptions = () => {
   const state = vs("prescriptions",{tab:"pending"});
@@ -1494,15 +1443,6 @@ function viewCouponsTable(){ return `
   </div></div>`;
 }
 
-/* ---- Sponsored Banners ----
-   Real sponsored_products is a homepage-banner table (title/subtitle/tag/
-   icon-or-image/button/expiry). user.js already has the full real display +
-   click-through logic built: it reads a linked product's id out of
-   btn_action via the pattern [?&]id=... and, if found, fetches that
-   medicine and (a) uses its own photo as a fallback image, (b) sends the
-   shopper straight to that product's page on tap — or, if
-   first_order_discount_percent is set, opens a one-tap discounted-offer
-   modal instead. This form writes exactly what that code expects. */
 VIEWS.sponsored = () => `
   <div class="view-head"><h1>Sponsored Banners</h1><p>Homepage promo banners shown to customers — link one to a real product to make it tappable straight to that product's page.</p></div>
   <div class="view-toolbar"><button class="btn gold" data-act="ad-add">★ New banner</button></div>
@@ -1821,9 +1761,6 @@ VIEWS.settings = () => { const s = STATE.settings; return `
   <button class="btn primary" data-act="settings-save">Save settings</button>`;
 };
 
-/* ---------------------------------------------------------
-   6. ACTIONS (event delegation targets)
-   --------------------------------------------------------- */
 const Actions = {
   "user-toggle": async (el)=>{ const u=DATA.users.find(x=>x.id===el.dataset.id); if(!u) return;
     const prev = u.status, next = u.status==="active" ? "blocked" : "active";
@@ -2219,10 +2156,6 @@ function promptAdd(title, label, onSave){
   $("#promptSaveBtn").addEventListener("click", ()=>{ const v=$("#promptVal").value.trim(); if(!v){ toast("This field is required","danger"); return; } closeModal(); onSave(v); });
 }
 
-/* =========================================================
-   6b. ADMIN RESTRUCTURE — KYC / Booking / Payout / Payment /
-       Notification / Zone / System / Logout   (all REAL tables)
-   ========================================================= */
 DATA.raw = { merchantKyc:[], riderKyc:[], nurseKyc:[], collectorKyc:[], collectors:[], ambulance:[] };
 DATA.payouts = { merchant:[], rider:[], nurse:[], collector:[], ambulance:[] };
 
@@ -2333,7 +2266,6 @@ async function loadPartnerExtras(){
     }); });
 }
 
-/* ---------- KYC ---------- */
 let _kycCache = null, _kycCacheAt = 0;
 function kycAllRows(){
   // building every partner's KYC row (with documents) is heavy and runs several times per render -> reuse for the same render
@@ -2403,7 +2335,6 @@ VIEWS.kyc = () => {
 };
 function kycFind(kind,id){ return kycAllRows().find(r=>r.kind===kind && String(r.id)===String(id)); }
 
-/* ---------- BOOKING ---------- */
 const BK_STATUS_TABS = [{key:"all",label:"All"},{key:"new",label:"Pending"},{key:"accepted",label:"Accepted"},{key:"cancelled",label:"Rejected"},{key:"completed",label:"Completed"}];
 const BK_META = {
   lab:{title:"Lab", prefix:"lbk", provider:"Blood collector", rows:()=>DATA.labBookings},
@@ -2428,7 +2359,6 @@ VIEWS.booking = () => {
   </div></div>`;
 };
 
-/* ---------- PAYOUT ---------- */
 const PAY_STATUSES = ["pending","processing","paid","failed","on_hold"];
 const PAY_LABEL = {pending:"Pending",processing:"Processing",paid:"Paid",failed:"Failed",on_hold:"On Hold"};
 const PAY_STATUS_TABS = [{key:"all",label:"All"}, ...PAY_STATUSES.map(k=>({key:k,label:PAY_LABEL[k]}))];
@@ -2467,7 +2397,6 @@ VIEWS.payout = () => {
   </div></div>`;
 };
 
-/* ---------- PAYMENT VERIFICATION (UPI/UTR submitted by customers) ---------- */
 DATA.payQueue = [];
 async function loadPaymentQueue(){
   if(!supabase) return;
@@ -2578,14 +2507,12 @@ function subscribePaymentLive(){
   });
 }
 
-/* ---------- SYSTEM ---------- */
 VIEWS.system = () => {
   const t = vs("system",{tab:"security"}).tab;
   const map = {security:"adminroles", health:"syshealth", errors:"errorlogs", emergency:"emergency", settings:"settings"};
   return (VIEWS[map[t]] || VIEWS.adminroles)();
 };
 
-/* ---------- NOTIFICATION ---------- */
 const NTF_AUDIENCE = {"user-all":"All Users","user-one":"Individual User",merchant:"Merchants",rider:"Riders",lab:"Lab Partners",nurse:"Nurse Partners",ambulance:"Ambulance Partners"};
 function ntfTargets(t){
   if(t==="merchant") return DATA.merchants.map(m=>({id:m.id,label:m.name}));
@@ -2605,7 +2532,6 @@ async function mustUpdate(q, what){
 }
 
 
-/* ---------- KYC document viewer (inline images, works for pending / verified / rejected) ---------- */
 async function kycDocUrl(bucket, ref){
   if(isUrl(ref)) return ref;
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(ref, 3600);
@@ -2822,9 +2748,6 @@ Object.assign(Actions, {
   },
 });
 
-/* ---------------------------------------------------------
-   7. RENDER / ROUTER
-   --------------------------------------------------------- */
 function renderSidebar(){
   const html = NAV.map(g=>({...g, items:g.items.filter(i=>navAllowed(i.id))})).filter(g=>g.items.length).map(g=>`
     <div class="nav-group">
@@ -2923,9 +2846,6 @@ function setView(id, childKey){
   $("#content").scrollTop = 0;
 }
 
-/* ---------------------------------------------------------
-   8. EVENT WIRING (delegation)
-   --------------------------------------------------------- */
 function runAction(el){
   if(el._busy) return;                       // ignore double taps while the first one is still running
   let r;
@@ -3010,9 +2930,6 @@ document.addEventListener("keydown", (e)=>{
   if(e.key==="Escape") closeModal();
 });
 
-/* ---------------------------------------------------------
-   8b. GLOBAL SEARCH
-   --------------------------------------------------------- */
 function globalSearchResults(q){
   q = q.trim().toLowerCase();
   if(!q) return [];
@@ -3050,12 +2967,6 @@ document.addEventListener("click", (e)=>{
   if(!e.target.closest("#globalSearchWrap")){ const box=$("#globalSearchResults"); if(box) box.classList.remove("open"); }
 });
 
-/* =========================================================
-   10. ADMIN UPGRADE v2
-   Real dashboard numbers, partner pages, commission, persisted
-   emergency control, fast parallel loading, full-page sheets,
-   Leaflet/OpenStreetMap maps, company report + receipts.
-   ========================================================= */
 const R = DATA.raw; // used by the KYC approve action for ambulance drivers
 const _p2 = n=>String(n).padStart(2,"0");
 function localDayStr(d){ d = d || new Date(); return `${d.getFullYear()}-${_p2(d.getMonth()+1)}-${_p2(d.getDate())}`; }
@@ -3080,7 +2991,6 @@ DATA.me = { name:"Admin", email:"", role:"Admin", lastLogin:"—", twofa:false }
 Object.assign(STATE.emergency, { pauseNurse:false, pauseAmbulance:false, pauseLab:false });
 const MAIN_ADMIN_EMAIL = "medifinderindia@gmail.com";
 
-/* ---------- Commission rules ---------- */
 const COMM_TYPES = {merchant:"Merchant / Pharmacy", rider:"Rider", nurse:"Nurse", lab:"Lab / Blood Collector", ambulance:"Ambulance"};
 function commissionFor(type, partnerId, amount){
   const rules = DATA.commissionRules.filter(r=>r.active && r.type===type);
@@ -3105,7 +3015,6 @@ async function loadCommissionRules(){
   DATA.commissionRules = (data||[]).map(r=>({ id:r.id, type:r.partner_type, partnerId:r.partner_id, partnerName:r.partner_name||"", rateType:r.rate_type==="flat"?"flat":"percent", rate:Number(r.rate||0), note:r.note||"", active:r.is_active!==false }));
 }
 
-/* ---------- Persisted platform controls (emergency flags + settings) ---------- */
 async function loadPlatformControls(){
   if(!supabase) return;
   const { data, error } = await supabase.from("platform_controls").select("*");
@@ -3123,7 +3032,6 @@ async function savePlatformControl(key, value){
 }
 const SQL_HINT = " — run medifinder_admin_v2.sql in the Supabase SQL editor first";
 
-/* ---------- Real dashboard counts ---------- */
 async function loadCounts(){
   if(!supabase) return;
   const cnt = async (q)=>{ try{ const r = await q; return r.count || 0; }catch(e){ return 0; } };
@@ -3161,7 +3069,6 @@ function updateAdminChip(){
   if(em) em.textContent = DATA.me.email || DATA.me.role;
 }
 
-/* ---------- Fill every "—" with real data where it exists ---------- */
 function postProcessData(){
   const mById = {}; DATA.merchants.forEach(m=>{ mById[String(m.id)] = m; });
   DATA.orders.forEach(o=>{
@@ -3199,7 +3106,6 @@ function postProcessData(){
   DATA.users.forEach(u=>{ if(u.addr==="—") u.addr = "No address saved"; });
 }
 
-/* ---------- Fast, parallel loading (was ~30 sequential requests) ---------- */
 let _refreshing = null;
 refreshLiveData = function(){
   if(_refreshing) return _refreshing;
@@ -3239,7 +3145,6 @@ subscribeLiveData = function(){
   supabase.channel("admin-controls-live").on("postgres_changes",{event:"*",schema:"public",table:"platform_controls"},reload(loadPlatformControls)).subscribe();
 };
 
-/* ---------- NAV: Lab / Nurse / Ambulance partner + Commission ---------- */
 (function(){
   const ops = NAV.find(g=>g.group==="Operations");
   const idx = ops.items.findIndex(i=>i.id==="riders");
@@ -3258,7 +3163,6 @@ subscribeLiveData = function(){
   rep.children = [{key:"overview",label:"Overview"},{key:"download",label:"Company Report"},{key:"receipt",label:"Receipt / Invoice"}];
 })();
 
-/* ---------- Dashboard (every number is real) ---------- */
 VIEWS.dashboard = () => {
   const T = DATA.recent.today, Y = DATA.recent.yesterday, live = o=>!DEAD_ORDER.includes(o.status);
   const ordersToday = T.length, ordersYest = Y.length;
@@ -3334,7 +3238,6 @@ VIEWS.dashboard = () => {
   </div></div>`;
 };
 
-/* ---------- Notification bell (the red dot now works) ---------- */
 function pendingAlertItems(){
   const kyc = kycAllRows().filter(r=>r.status==="pending");
   const kn = (k)=> kyc.filter(r=>r.kind===k).length;
@@ -3383,7 +3286,6 @@ document.addEventListener("click", (e)=>{
   if(panel && !e.target.closest("#bellPanel")) panel.classList.remove("open");
 });
 
-/* ---------- Settings: show the signed-in admin, save for real ---------- */
 const _settingsBase = VIEWS.settings;
 VIEWS.settings = () => `
   <div class="card"><div class="card-head"><h3>Signed-in admin</h3></div><div class="card-body">
@@ -3400,7 +3302,6 @@ Actions["settings-save"] = async ()=>{
   Object.assign(s, next); await logAdminAction("Updated platform settings"); render(); toast("Settings saved");
 };
 
-/* ---------- Partner pages (Lab / Nurse / Ambulance) ---------- */
 function partnerRows(kind){
   const Rw = DATA.raw;
   if(kind==="lab"){
@@ -3487,7 +3388,6 @@ async function partnerSetStatus(kind, id, suspend){
 Actions["partner-suspend"] = (el)=> partnerSetStatus(el.dataset.kind, el.dataset.id, true);
 Actions["partner-activate"] = (el)=> partnerSetStatus(el.dataset.kind, el.dataset.id, false);
 
-/* ---------- Medicine: return / exchange before approve, edit = price + pause only ---------- */
 function returnFields(p){
   const rd = Number(p.returnDays) > 0 ? p.returnDays : "", ed = Number(p.exchangeDays) > 0 ? p.exchangeDays : "";
   return `<div class="hint" style="margin:2px 0 8px">The days you write here are exactly what customers get — counted from the <b>moment the order is delivered</b>, to the minute.  Optional — leave both unchecked and the product simply has no return / exchange. Works for Rx medicines too.</div>
@@ -3545,7 +3445,6 @@ Actions["product-edit-save"] = async (el)=>{ const p = DATA.products.find(x=>x.i
   toast(partial ? "Saved, but return/exchange was not saved"+SQL_HINT : (p.visible ? "Medicine updated" : "Medicine updated & paused"), partial?"danger":"default");
 };
 
-/* ---------- KYC documents: full-page viewer, never a new tab ---------- */
 kycLightbox = function(url, label, pdf){
   document.getElementById("kycLightbox")?.remove();
   const box = document.createElement("div"); box.id = "kycLightbox"; box.className = "doc-full";
@@ -3565,7 +3464,6 @@ Actions["doc-open"] = async (el)=>{
 };
 document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") document.getElementById("kycLightbox")?.remove(); });
 
-/* ---------- Notification: pick the target by ID (name resolves automatically) ---------- */
 const shortId = (id)=> String(id).length>12 ? String(id).slice(0,8)+"…" : String(id);
 function ntfEntities(t){
   if(t==="user-one") return DATA.users.map(u=>({id:String(u.id), label:u.name, sub:`${u.phone} · ${u.email}`, ids:[String(u.id)]}));
@@ -3646,7 +3544,6 @@ Actions["ntf-send"] = async (el)=>{
   return _ntfSendBase(el);
 };
 
-/* ---------- Zones: services on/off + green / yellow / red ---------- */
 const ZONE_SVCS = [{key:"svc30",col:"svc_30min",label:"30-min delivery"},{key:"svcSameDay",col:"svc_sameday",label:"Same-day delivery"},{key:"svcNurse",col:"svc_nurse",label:"Nurse service"},{key:"svcLab",col:"svc_lab",label:"Lab service"}];
 function readZoneSvcs(){ const o = {}; ZONE_SVCS.forEach(x=>{ const el = document.getElementById("zs_"+x.key); o[x.col] = el ? !!el.checked : true; }); return o; }
 function zoneHealth(z){
@@ -3741,7 +3638,6 @@ Actions["zone-svc"] = async (el)=>{
   toast(`${s.label} ${next?"ON":"OFF"} — ${z.name}`, next?"default":"danger");
 };
 
-/* ---------- Maps: Leaflet + OpenStreetMap, stable, never on top of the menu ---------- */
 let _zoneMap = null, _ambMap = null, _zoneMapToken = 0, _leafletRetry = 0;
 const _mapView = {};
 function destroyMaps(){
@@ -3896,7 +3792,6 @@ VIEWS.fleet = () => {
 Actions["fleet-type-filter"] = (el)=>{ vs("fleet",{zoneFilter:"all"}).typeFilter = el.value; delete _mapView.fleet; render(); };
 Actions["fleet-refresh"] = ()=>{ delete _mapView.fleet; delete _mapView.riders; loadRidersFromDB().then(render); toast("Fleet map refreshed"); };
 
-/* Rider GPS pings no longer hammer the server (max one reload every 3 s) */
 const _loadRidersBase = loadRidersFromDB; let _rl = null, _rlAgain = false;
 loadRidersFromDB = function(){
   if(_rl){ _rlAgain = true; return _rl; }
@@ -3904,7 +3799,6 @@ loadRidersFromDB = function(){
   return _rl;
 };
 
-/* ---------- Emergency control: real, saved, with 3 new service switches ---------- */
 const EMG_FLAGS = [
   {key:"pauseOrders", t:"Pause new orders", s:"Customers can browse but not place new orders"},
   {key:"pauseDelivery", t:"Pause delivery dispatch", s:"Existing orders held, no new rider assignment"},
@@ -3974,7 +3868,6 @@ Actions["emg-restore"] = async (el)=>{
   await Promise.all([loadZonesFromDB(), loadMerchantsFromDB(), loadRidersFromDB()]); render(); toast(`${label} restored`);
 };
 
-/* ---------- Commission: who pays how much ---------- */
 VIEWS.commission = () => {
   const type = vs("commission",{tab:"merchant"}).tab, rules = DATA.commissionRules.filter(r=>r.type===type);
   const def = commissionFor(type, "__none__", 100);
@@ -4049,7 +3942,6 @@ Actions["comm-del"] = async (el)=>{ const r = DATA.commissionRules.find(x=>Strin
   await logAdminAction(`Deleted commission rule ${r.partnerName||r.type+" default"}`); await loadCommissionRules(); render(); toast("Rule deleted","danger");
 };
 
-/* ---------- Reports: overview (real) · one-click company report · receipts ---------- */
 function reportOverview(){
   const total = DATA.orders.length, dead = DATA.orders.filter(o=>["cancelled","failed","rejected"].includes(o.status)).length;
   const durs = DATA.orders.filter(o=>o.status==="delivered").map(o=>{ const r = o._raw||{}, end = r.delivered_at || r.completed_at || r.delivery_completed_at; if(!end||!o.created) return null; const m = (new Date(end)-new Date(o.created))/60000; return m>0 && m<1440 ? m : null; }).filter(x=>x!=null);
@@ -4309,7 +4201,6 @@ Actions["receipt-open"] = (el)=>{
   logAdminAction(`Opened receipt ${r.no}`);
 };
 
-/* ---------- Complaints (real reply saved) + Reviews (real moderation) ---------- */
 const TICKET_TABS = [{key:"open",label:"Open"},{key:"in_progress",label:"In progress"},{key:"closed",label:"Closed"},{key:"all",label:"All"}];
 VIEWS.support = () => {
   const st = vs("support",{tab:"open", search:""}); const q = (st.search||"").toLowerCase();
@@ -4393,7 +4284,6 @@ Actions["review-del"] = async (el)=>{ const r = DATA.reviews.find(x=>x.key===el.
 Actions["review-hide"] = Actions["review-del"];
 
 Actions["analytics-refresh"] = async ()=>{ try{ await refreshLiveData(); }catch(e){} STATE.lastAnalyticsRefresh = new Date().toLocaleTimeString(); render(); toast("Delivery analytics refreshed"); };
-/* ---------- Emergency: live watch (all numbers real, refreshes every 30 s) ---------- */
 function minsAgo(iso){ if(!iso) return null; const m = (Date.now()-new Date(iso))/60000; return isNaN(m) ? null : Math.max(0, Math.round(m)); }
 function emergencyWatchHtml(){
   const drivers = DATA.raw.ambulance || [];
@@ -4439,7 +4329,6 @@ setInterval(()=>{
   Promise.all([loadAmbulanceBookingsFromDB(), loadAmbulanceDriversFromDB(), loadOrdersFromDB(), loadPrescriptionsFromDB(), loadPaymentQueue()]).then(()=>{ if(STATE.view==="system" && !_pageOpen && !document.activeElement?.matches?.("select,input,textarea")) render(); }).catch(()=>{});
 }, 30000);
 
-/* ---------- Invoice: type any invoice / order / booking number → download ---------- */
 function orderFromRow(r){
   const rider = r.rider_id ? ((DATA.riders.find(x=>String(x.id)===String(r.rider_id))||{}).name || ("Rider #"+r.rider_id)) : "Not assigned";
   return { id:r.order_id||r.id, _raw:r, _merchantId:r.merchant_id, customer:r.customer_name||r.user_name||"Customer", merchant:r.pharmacy_name||((DATA.merchants.find(m=>String(m.id)===String(r.merchant_id))||{}).name)||"—", rider, total:orderTotalOf(r), payment:/cod/i.test(String(r.payment_mode||r.payment_method||""))?"COD":"Online", status:r.status||"pending", date:fmtDateTime(r.created_at), created:r.created_at };
@@ -4506,7 +4395,6 @@ Actions["invoice-download"] = async ()=>{
 Actions["invoice-pick"] = async (el)=>{ const x = (STATE._invRes||[])[Number(el.dataset.i)]; if(!x) return; const r = await buildReceiptFull(x.kind, x.id); if(!r){ toast("Invoice data not found","danger"); return; } await deliverInvoice(r); };
 Actions["invoice-dl"] = async (el)=>{ const r = await buildReceiptFull(el.dataset.kind, el.dataset.id); if(!r){ toast("Invoice data not found","danger"); return; } await deliverInvoice(r); };
 
-/* ---------- Offers / Campaigns (Flipkart-style: banner + countdown + scheduled push) ---------- */
 (function(){
   const g = NAV.find(gr=>gr.items.some(i=>i.id==="notifications"));
   const it = {id:"campaigns", icon:"📢", label:"Offers / Campaigns", children:[{key:"live",label:"Live"},{key:"scheduled",label:"Scheduled"},{key:"ended",label:"Ended"},{key:"all",label:"All"}]};
@@ -4669,7 +4557,6 @@ Actions["camp-push"] = async (el)=>{
   toast(`Push sent to ${data.sent} device${data.sent===1?"":"s"}`);
 };
 
-/* ---------- Render wrapper: keeps typed text, rebuilds maps, updates bell ---------- */
 function snapshotForm(){
   const c = document.getElementById("content"); if(!c) return null;
   const snap = { vals:{}, scroll:c.scrollTop };
@@ -4708,7 +4595,6 @@ document.addEventListener("change", (e)=>{
   if(["zone-svc","emg-flag","comm-toggle","fleet-type-filter"].includes(a)) Actions[a](t);
 });
 
-/* ---------- Double-tap protection: one tap = one request, button shows busy ---------- */
 const CHANGE_ONLY = new Set(["product-visible","zone-toggle","emg-toggle","emg-select","fleet-zone-filter","fleet-type-filter","zone-svc","emg-flag","comm-toggle"]);
 const _busy = new Map();
 function guardAction(name, fn){
@@ -4733,12 +4619,6 @@ function guardAction(name, fn){
 }
 Object.keys(Actions).forEach(k=>{ Actions[k] = guardAction(k, Actions[k]); });
 
-/* =========================================================
-   10b. v3 - role access, dark/light theme, live channel count, admin invite
-   ========================================================= */
-
-/* ---------- Role access (UI level). Edit ROLE_RULES to change what each role can open / do. ----------
-   Super Admin (and the built-in owner login) = everything. An unknown role name = read-only (fail closed). */
 const ROLE_RULES = {
   "Operations Admin": { deny:["finance","payout","payment","adminroles"], denyActs:/^(pay-|payout-|refund-|ledger-|comm-)/ },
   "Finance Admin":    { allow:["dashboard","orders","finance","payout","payment","reports"], allowActs:/^(pay-|payout-|refund-|ledger-|comm-|report-|invoice-|receipt-)/ },
@@ -4777,7 +4657,6 @@ Object.keys(Actions).forEach(k=>{
   };
 });
 
-/* ---------- Dark / light theme ---------- */
 const THEME_KEY = "mf_admin_theme";
 function currentTheme(){ return document.documentElement.getAttribute("data-theme") || "light"; }
 function themePref(){ try{ const v = localStorage.getItem(THEME_KEY); return (v==="dark"||v==="light") ? v : "auto"; }catch(e){ return "auto"; } }
@@ -4802,7 +4681,6 @@ function appearanceCard(){
 const _settingsBeforeTheme = VIEWS.settings;
 VIEWS.settings = () => appearanceCard() + _settingsBeforeTheme();
 
-/* ---------- Live pill: how many realtime channels are really connected ---------- */
 function updateLivePill(){
   const pill = document.getElementById("livePill"), lab = document.getElementById("liveLabel");
   if(!pill || !lab || !supabase) return;
@@ -4815,7 +4693,6 @@ function updateLivePill(){
 }
 setInterval(updateLivePill, 3000);
 
-/* ---------- Admin invite: emails a setup link to the invited address ---------- */
 function adminLoginUrl(){ return new URL("admin.html", window.location.href).href; }
 async function sendAdminLoginLink(email){
   try{ return await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo: adminLoginUrl(), shouldCreateUser:true } }); }
@@ -4829,7 +4706,6 @@ async function markAdminLogin(session){
   }catch(e){}
 }
 
-/* ---------- Admin accounts: status badge, row buttons, manage actions ---------- */
 function isOwnerEmail(e){ return String(e||"").trim().toLowerCase()===MAIN_ADMIN_EMAIL; }
 
 function adminStatusBadge(r){
@@ -4892,7 +4768,6 @@ async function adminManage(id, what){
   render(); toast(note);
 }
 
-/* ---------- Full-screen gate (invite setup, expired link, suspended, session ended) ---------- */
 function gateShow(inner){
   let root = document.getElementById("adminGate");
   if(!root){ root = document.createElement("div"); root.id = "adminGate"; root.className = "gate-overlay"; document.body.appendChild(root); }
@@ -4915,7 +4790,6 @@ function readAuthLinkError(){
   }catch(e){ return ""; }
 }
 
-/* ---------- Password / phone / 6-digit code rules (same rules the database enforces, plus password strength) ---------- */
 const COMMON_PW = /(password|passw0rd|admin|qwerty|letmein|welcome|medifinder|iloveyou|12345|abcde)/i;
 function pwRules(pw, email){
   const local = String(email||"").split("@")[0].toLowerCase();
@@ -4943,7 +4817,6 @@ function phoneOk(v){
   return /^[6-9]\d{9}$/.test(n) || /^0[6-9]\d{9}$/.test(n) || /^91[6-9]\d{9}$/.test(n);
 }
 
-/* ---------- First-time setup: opened from the emailed invite link ---------- */
 function showAdminSetup(email, name){
   gateShow(`
     <h2>Welcome${name ? ", "+esc(name) : ""}</h2>
@@ -4988,7 +4861,6 @@ function showAdminSetup(email, name){
   });
 }
 
-/* ---------- Ends the session within a minute if the admin is suspended / blocked / deleted, or the 12 h verification runs out ---------- */
 let _adminWatch = null;
 function startAdminSessionWatch(){
   if(_adminWatch || !supabase) return;
@@ -5003,9 +4875,6 @@ function startAdminSessionWatch(){
   }, 60000);
 }
 
-/* ---------------------------------------------------------
-   9. INIT
-   --------------------------------------------------------- */
 async function init(){
   render(); // paint the shell immediately so the UI isn't blank while auth/data load
   if(!supabase){ return; } // supabase-js/constants not loaded on this page
@@ -5060,11 +4929,6 @@ async function init(){
   await supabase.auth.signOut();
   gateMessage("Please log in", "For security, sign in with your email, password, phone number and 6-digit code.", "Go to admin login", goAdminLogin);
 }
-/* =========================================================
-   ERROR LOGS  (System -> Error Logs)
-   Every Shiprocket / NimbusPost / courier failure is written by the
-   `courier` edge function into public.system_error_logs.
-   ========================================================= */
 async function loadErrorLogsFromDB(){
   if(!supabase) return;
   const { data, error } = await supabase.from('system_error_logs').select('*').order('created_at', { ascending:false }).limit(300);

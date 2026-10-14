@@ -1,11 +1,3 @@
-/* ============================================================
-   rider.css — merged single-file stylesheet for rider.html
-   Structure: 1) unified :root  2) global app-shell rules (nav,
-   overlays, hidden utility)  3) per-tab scoped rules (#tab-home,
-   #tab-delivery, #tab-earning, #tab-profile) so identical class
-   names from the 4 original pages never collide.
-   ============================================================ */
-
 :root {
     --primary: #e02020;
     --primary-light: #ff4747;
@@ -39,10 +31,6 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ---------------- GLOBAL APP SHELL ---------------- */
-/* (merged from small inline <style> blocks previously duplicated across
-   delyvaryorder.html / delyvaryearning.html — both are used by JS-generated
-   buttons that can appear on more than one tab, so kept global here) */
 .btn-call-user {
     background: #2ec4b6;
     color: #fff;
@@ -164,21 +152,9 @@ body {
     transition: all 0.3s ease; 
     padding: 20px;
 }
-/* ✅ CRITICAL FIX: #otpModal is a shared overlay OUTSIDE every #tab-* wrapper
-   (same as the KYC/payout/complaint pages), but the SPA-merge's `.hidden`
-   utility only ever got scoped as `#tab-home .hidden`, `#tab-delivery .hidden`
-   etc. — so it never matched an element that isn't inside any tab. Combined
-   with `.otp-modal-overlay` above having an unconditional `display:flex`,
-   that meant the OTP popup rendered full-screen immediately on every page
-   load, before any button was ever tapped. This explicit compound rule (and
-   the general global `.hidden` below) fixes it for good, independent of tab scope. */
 .otp-modal-overlay.hidden { display: none !important; }
 .hidden { display: none !important; }
 
-/* ✅ NEW: full-screen green "delivery completed" success UI (replaces the old
-   small white "Verification Successful!" card, which used to live inside
-   .otp-modal-card). Shown only by showOtpSuccessScreen() in rider.js, after
-   OTP verification + order update + wallet credit have ALL already succeeded. */
 .otp-success-fullscreen {
     position: fixed;
     inset: 0;
@@ -533,7 +509,6 @@ body {
 .kyc-wizard-header .back-overlay-btn:hover { background: rgba(255,255,255,0.28); }
 
 
-/* ================= TAB-HOME (from delyvaryhome.css) ================= */
 #tab-home .navbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--card-bg); box-shadow: 0 2px 12px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 150; }
 #tab-home .logo-area { display: flex; align-items: center; gap: 10px; }
 #tab-home .app-logo { height: 36px; width: 36px; border-radius: 10px; object-fit: cover; }
@@ -734,7 +709,6 @@ body {
 #tab-home .kyc-home-banner i:last-child { font-size: 0.8rem; opacity: 0.85; }
 #tab-home .kyc-home-banner.hidden { display: none !important; }
 
-/* ================= TAB-DELIVERY (from delyvaryorder.css) ================= */
 #tab-delivery .app-layout {
     display: flex;
     flex-direction: column;
@@ -1332,7 +1306,6 @@ body {
 #tab-delivery .sub-tag { color: rgba(255,255,255,0.75) !important; }
 #tab-delivery img, #tab-delivery svg:not(.mf-ico) { max-width: 100%; height: auto; }
 
-/* ================= TAB-EARNING (from delyvaryearning.css) ================= */
 #tab-earning .navbar { 
     display: flex; 
     justify-content: space-between;
@@ -1687,7 +1660,6 @@ body {
     letter-spacing: 0.2px;
 }
 
-/* ================= TAB-PROFILE (from delyvaryprofile.css) ================= */
 #tab-profile .navbar { 
     display: flex; 
     justify-content: space-between;
@@ -2232,17 +2204,6 @@ body {
 #tab-profile .kyc-readonly-status-pill.approved { background: #dcfce7; color: #16a34a; }
 #tab-profile .kyc-readonly-status-pill.rejected { background: #fee2e2; color: #dc2626; }
 #tab-profile .kyc-readonly-status-pill.pending { background: #fef3c7; color: #d97706; }
-/* ============================================================================
-   ✅ AUTHORITATIVE KYC WIZARD SECTION (full-screen onboarding redesign)
-   ----------------------------------------------------------------------------
-   #kycWizardPage lives OUTSIDE every #tab-* wrapper (same as the OTP modal /
-   payout history / complaint overlays), so none of the old `#tab-profile
-   .kyc-*` rules above ever actually applied to it — this is the ONE
-   authoritative place for all KYC wizard visuals now. Everything here is
-   scoped under #kycWizardPage so it can never leak into or be affected by
-   any other page's styles (see rider.css section 18 audit note).
-   ============================================================================ */
-
 /* Full-viewport onboarding page — NOT a bottom-sheet/popup */
 #kycWizardPage.kyc-fullscreen {
     position: fixed;
@@ -2491,15 +2452,6 @@ body {
     .kyc-fs-shell { background: #fff; box-shadow: 0 0 60px rgba(0,0,0,0.08); }
 }
 
-/* ============================================================
-   FINAL FIX — SHARED PROFILE SUB-PAGES
-   Complaint / Delete Account were outside #tab-profile, while
-   the original form CSS was scoped only to #tab-profile.
-   Therefore native browser controls were appearing unstyled.
-   These global rules intentionally apply only to the shared
-   sub-page overlays, so they do not disturb other screens.
-   ============================================================ */
-
 .sub-page-overlay .sub-page-body {
     width: 100%;
 }
@@ -2671,9 +2623,6 @@ body {
 }
 
 
-/* ============================================================
-   Smoothness + KYC upload states
-   ============================================================ */
 html { -webkit-tap-highlight-color: transparent; }
 body { overscroll-behavior-y: contain; -webkit-font-smoothing: antialiased; }
 
@@ -2699,14 +2648,6 @@ button:active, .period-chip:active, .nav-item:active { transform: scale(0.97); }
     button, .period-chip, .nav-item { transition: none; }
 }
 
-/* =========================================================
-   SCROLL FIX (final authority — keep at the very END of file)
-   Root cause: the merged page CSS gave BOTH <html> and <body>
-   "overflow-x:hidden" (+ body display:flex). When both are set the
-   body becomes its own scroll box and the real page scroll is
-   swallowed on mobile (Profile and other tabs would not scroll).
-   Fix: only <html> clips horizontally; <body> never scrolls.
-   ========================================================= */
 html {
     height: auto;
     overflow-x: hidden;
@@ -2842,10 +2783,6 @@ body.mf-noti-open{overflow:hidden}
 .mf-push-card button{border:0;border-radius:20px;padding:8px 16px;background:#fff;color:#e02020;font-weight:800;font-size:.8rem}
 
 
-/* ============================================================
-   FULL-PAGE SUB SCREENS (replaces the old bottom-sheet popups)
-   Support / FAQ / Complaint / Delete / Language / KYC view / Payment status
-   ============================================================ */
 .sub-page-overlay{
   background:#f4f6fa!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
   align-items:stretch!important;justify-content:center!important;z-index:2000;overflow:hidden;
@@ -2917,19 +2854,13 @@ body.mf-noti-open{overflow:hidden}
 #kycImgViewer #kivImg{max-width:100%;max-height:100%;object-fit:contain;touch-action:pinch-zoom}
 
 
-/* =====================================================================
-   MediFinder Rider — PREMIUM LAYER (v9). Loads last = final authority.
-   Ink #0f172a · Brand red #e02020 · Map blue #2563eb · Hairline #eef0f4
-   ===================================================================== */
 :root{--mf-ink:#0f172a;--mf-ink-2:#334155;--mf-mute:#64748b;--mf-line:#eef0f4;--mf-red:#e02020;--mf-red-d:#b91414;--mf-blue:#2563eb;
   --mf-shadow:0 1px 2px rgba(15,23,42,.05),0 10px 28px rgba(15,23,42,.07)}
 body{background:#f6f7fb;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
 
-/* ---------- premium SVG icons ---------- */
 .mf-ico{width:1.25em;height:1.25em;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-.22em;overflow:visible}
 button .mf-ico,a .mf-ico{pointer-events:none}
 
-/* ---------- floating glass bottom nav ---------- */
 .bottom-nav{bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;left:50%;width:calc(100% - 24px)!important;max-width:480px!important;padding:7px 6px!important;
   border-radius:26px!important;background:rgba(255,255,255,.9)!important;-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);
   border:1px solid rgba(15,23,42,.06)!important;box-shadow:0 14px 34px rgba(15,23,42,.18),0 2px 6px rgba(15,23,42,.06)!important;gap:2px}
@@ -2941,7 +2872,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 .nav-item:hover{color:inherit}
 .app-container{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))!important}
 
-/* ---------- home header + duty switch ---------- */
 .mf-duty{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.28);padding:8px 15px 8px 12px;border-radius:999px;font-family:inherit;font-weight:800;font-size:.78rem;color:#fff;cursor:pointer;
   background:rgba(255,255,255,.14)!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:none}
 .mf-duty-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:mfDuty 1.8s ease-out infinite}
@@ -2956,7 +2886,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 #tab-home .btn-accept{border-radius:14px!important;font-weight:800;box-shadow:0 8px 18px rgba(224,32,32,.25)}
 #tab-home .btn-reject{border-radius:14px!important}
 
-/* ---------- delivery: map card ---------- */
 #tab-delivery .section-card{border-radius:26px!important;border:1px solid var(--mf-line)!important;box-shadow:var(--mf-shadow)!important;overflow:hidden}
 #tab-delivery .icon-wrap{width:46px;height:46px;border-radius:15px!important;display:grid;place-items:center;background:linear-gradient(145deg,#fff1f1,#ffdede)!important;box-shadow:inset 0 0 0 1px rgba(224,32,32,.1)}
 #tab-delivery .icon-wrap .mf-ico{width:23px;height:23px;color:var(--mf-red)!important}
@@ -2996,7 +2925,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 .mf-rider i,.mf-rider .mf-ico{position:relative;z-index:2}
 .mf-rider .mf-ico{width:36px;height:36px;padding:7px;box-sizing:border-box;border-radius:50%;background:var(--mf-ink);color:#fff;border:3px solid #fff;box-shadow:0 8px 18px rgba(15,23,42,.45);stroke-width:1.9}
 
-/* ---------- earning: dark ink wallet card ---------- */
 #tab-earning .earnings-summary-card{background:radial-gradient(120% 90% at 100% 0%,rgba(224,32,32,.45),transparent 55%),linear-gradient(155deg,#0b1220,#1b2434 70%)!important;color:#fff!important;border-radius:28px!important;border:0!important;box-shadow:0 18px 40px rgba(15,23,42,.28)!important}
 #tab-earning .earnings-summary-card .label-heading{color:rgba(255,255,255,.72)!important;text-transform:none!important;letter-spacing:0!important;font-weight:600}
 #tab-earning .earnings-summary-card h1{color:#fff!important;font-size:2.5rem;font-weight:800;letter-spacing:-.5px}
@@ -3008,7 +2936,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 #tab-earning .check-payout-btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px!important;font-weight:800}
 #tab-earning .graph-box,#tab-earning .history-section{border-radius:24px!important;border:1px solid var(--mf-line)!important;box-shadow:var(--mf-shadow)!important}
 
-/* ---------- profile ---------- */
 #tab-profile .profile-card-header{background:radial-gradient(120% 80% at 90% -10%,rgba(255,255,255,.24),transparent 55%),linear-gradient(150deg,#a50f0f 0%,#e02020 52%,#ff4d4d 100%)!important;border-radius:30px!important;
   box-shadow:0 20px 44px rgba(224,32,32,.3),inset 0 1px 0 rgba(255,255,255,.28)!important}
 #tab-profile .avatar-wrapper img{border:4px solid #fff!important;box-shadow:0 0 0 3px rgba(255,255,255,.35),0 12px 24px rgba(0,0,0,.28)!important}
@@ -3031,7 +2958,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 #tab-profile .kyc-vehicle-option .mf-ico{width:30px;height:30px;display:block;margin:0 auto 6px}
 #tab-profile .kyc-vehicle-option.selected .mf-ico{color:var(--mf-red)}
 
-/* ---------- notifications page ---------- */
 .mf-noti-head{background:linear-gradient(135deg,#0f172a,#7f1212 70%,#e02020)!important}
 .mf-back{display:grid!important;place-items:center}
 .mf-back .mf-ico{width:20px;height:20px}
@@ -3040,7 +2966,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 .mf-noti b{color:var(--mf-ink)}
 .mf-push-card>.mf-ico{width:38px;height:38px;padding:9px;box-sizing:border-box;border-radius:13px;background:rgba(224,32,32,.1);color:var(--mf-red)}
 
-/* ---------- sub pages / OTP ---------- */
 .sub-page-header .back-overlay-btn .mf-ico{width:20px;height:20px}
 .otp-header .mf-ico{width:44px;height:44px;color:var(--mf-red);stroke-width:1.6}
 .otp-success-checkmark-circle .mf-ico{width:46px;height:46px;stroke-width:2.6}
@@ -3052,9 +2977,6 @@ button .mf-ico,a .mf-ico{pointer-events:none}
 #tab-delivery .live-map-wrapper{padding:14px 16px 14px!important}
 
 
-/* =====================================================================
-   v10 — Payment status page, notifications, Google Translate chrome
-   ===================================================================== */
 #payoutHistoryPage .sub-page-content{background:#f4f6fa}
 #payoutHistoryPage .sub-page-body{padding:16px 16px 28px!important;display:flex;flex-direction:column;gap:12px}
 .pay-summary{position:relative;overflow:hidden;border-radius:26px;padding:22px 22px 18px;color:#fff;background:radial-gradient(120% 90% at 100% 0%,rgba(224,32,32,.5),transparent 55%),linear-gradient(155deg,#0b1220,#1b2434 70%);box-shadow:0 16px 36px rgba(15,23,42,.26)}
@@ -3116,7 +3038,6 @@ body{top:0!important;position:static!important}
 font{vertical-align:baseline}
 
 
-/* ===================== DARK THEME ===================== */
 /* MediFinder Rider — dark theme. Loaded after rider.css */
 html[data-theme="dark"]{color-scheme:dark;--light-bg:#0d1117;--card-bg:#161b26;--surface-light:#161b26;--app-bg:#0d1117;--dark:#e8ecf4;--text-main:#e8ecf4;--text-primary:#e8ecf4;--text-muted:#9aa4b5;--border-color:#252d3b;--accent-light:#12301f;--shadow-sm:0 2px 8px rgba(0,0,0,.4);--shadow-md:0 10px 25px rgba(0,0,0,.45);--shadow-lg:0 20px 40px rgba(0,0,0,.5);--mf-ink:#e8ecf4;--mf-ink-2:#c3cad8;--mf-mute:#9aa4b5;--mf-line:#252d3b;--mf-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.45)}
 html[data-theme="dark"] body{background:#0d1117 !important}

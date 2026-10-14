@@ -300,6 +300,8 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 html[data-theme=dark] [style*="color:#718078"]{color:#b49b9b!important}
 html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeholder{color:#8f7777}
 </style>
+<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+<script src="btn-loading.js?v=3e075ab0"></script>
 </head>
 <body>
 <div class="app">
@@ -490,23 +492,15 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
 </div>
 </div>
 
-<script src="permission-every.js?v=4"></script>
+<script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
-<script src="prod-utils.js"></script>
+<script src="prod-utils.js?v=3321430c"></script>
 <script>
-/* MediFinder India — shared KYC enhancer
-   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
-   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
-   - Date fields -> Year, then Month, then Day (selects)
-   - State text box -> state dropdown
-   - Premium form styling
-*/
 (function () {
   if (window.__kycEnh) return;
   window.__kycEnh = true;
 
-  /* ---------------- STYLES ---------------- */
   var css = `
   .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
   .kyc-hint.ok{color:#e02020}.kyc-hint.bad{color:#d94841}
@@ -542,7 +536,6 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
   st.textContent = css;
   document.head.appendChild(st);
 
-  /* ---------------- INPUT RULES ---------------- */
   var digits = function (v) { return v.replace(/\D/g, ''); };
   var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
   var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
@@ -649,7 +642,6 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
     }
   }, true);
 
-  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function dim(y, m) { return new Date(y, m, 0).getDate(); }
@@ -699,7 +691,6 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
     inp.insertAdjacentElement('afterend', wrap);
   }
 
-  /* ---------------- STATE DROPDOWN ---------------- */
   var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
   function enhanceState(inp) {
     if (inp.dataset.st) return;
@@ -717,7 +708,6 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
     inp.replaceWith(sel);
   }
 
-  /* ---------------- SCAN ---------------- */
   var queued = false;
   function scan() {
     queued = false;
@@ -735,9 +725,6 @@ html[data-theme=dark] input::placeholder,html[data-theme=dark] textarea::placeho
 
 </script>
 <script>
-// ==========================================
-// AMBULANCE PARTNER PORTAL — Live Supabase wiring
-// ==========================================
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
 let currentUser = null;
@@ -894,7 +881,6 @@ function show(title){
   document.getElementById('overlay').style.display='block';
 }
 
-// ---------- BOOT ----------
 document.addEventListener('DOMContentLoaded', init);
 
 async function init(){
@@ -926,7 +912,6 @@ async function init(){
   });
 }
 
-// ---------- DRIVER RECORD ----------
 async function loadOrCreateDriver(profile){
   const { data: existing } = await supabaseClient.from('ambulance_drivers').select('*').eq('auth_user_id', currentUser.id).maybeSingle();
   if (existing) {
@@ -973,7 +958,6 @@ async function toggleAvailability(){
   MedUtils.toast(newVal ? 'You are now Online' : 'You are now Offline', 'success');
 }
 
-// ---------- BOOKINGS ----------
 async function refreshBookings(){
   if (!driverRow) return;
   const [{ data: mine, error: e1 }, { data: open, error: e2 }] = await Promise.all([
@@ -1089,7 +1073,6 @@ function renderEmergencyAlert(){
   }
 }
 
-// ---------- NEW REQUESTS VIEW ----------
 function notifyIfNewRequests(newList){
   const newOnes = newList.filter(b => !knownRequestIds.has(b.id));
   if (knownRequestIds.size && newOnes.length) {
@@ -1172,7 +1155,6 @@ function rejectBooking(id){
   renderRequestsView();
 }
 
-// ---------- LIVE LOCATION & NAVIGATION ----------
 function haversineKm(lat1, lon1, lat2, lon2){
   const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -1281,7 +1263,6 @@ function stopLocationWatch(){
   if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
 }
 
-// ---------- AMBULANCE & VEHICLE / KYC (step-by-step, locked after submit) ----------
 const KYC_DOCS=[{key:'aadhaar',label:'Aadhaar Card'},{key:'pan',label:'PAN Card'},{key:'license',label:'Driving Licence'},{key:'photo',label:'Selfie Photo (clear face)',img:1},{key:'address_proof',label:'Address Proof'}];
 const VEHICLE_DOCS=[{key:'vehicle_photo',label:'Ambulance Photo',img:1},{key:'plate_photo',label:'Number Plate Photo',img:1},{key:'rc',label:'RC (Registration Certificate)'},{key:'insurance',label:'Insurance',exp:1},{key:'fitness',label:'Fitness Certificate',exp:1},{key:'pollution',label:'Pollution Certificate',exp:1},{key:'permit',label:'Permit',exp:1}];
 const BANK_PROOF={key:'bank_proof',label:'Bank Proof (Cancelled Cheque / Passbook photo)',img:1};
@@ -1448,7 +1429,6 @@ function renderKycBanner(){
   const t={pending:['⏳ Your KYC is under review. You can accept requests once admin verifies it.','View Status'],rejected:['❌ KYC rejected'+(driverRow.kyc_rejection_reason?': '+driverRow.kyc_rejection_reason:'')+'. Please fix and resubmit.','Fix & Resubmit']}[st]||[`📄 Complete your KYC to start accepting ambulance requests (${done}/${tot} documents uploaded)`,'Complete KYC'];
   el.innerHTML=`<div class="kyc-top ${st}"><span>${MedUtils.escapeAttr(t[0])}</span><button class="btn primary" onclick="goToVehicleKyc('Driver KYC')">${t[1]}</button></div>`;
 }
-// ---------- BANK (submit once, then locked) ----------
 const maskAcc=a=>a?'•'.repeat(Math.max(0,a.length-4))+a.slice(-4):'—';
 function bankFormHtml(p){
   const L=bankLocked(),d=driverRow,st=bankOk()?['accepted','Verified']:L?['way','Under Review']:['new','Required'];
@@ -1467,7 +1447,6 @@ async function submitBank(p){
   if(await saveDriver(f)){MedUtils.toast('Bank details submitted','success');addNotif('bank','Bank details submitted','Sent for verification.');renderAllKyc()}
 }
 
-// ---------- TRIP MODAL ----------
 function tripTimelineHtml(b){
   const steps = [
     { key: 'created_at', label: 'Requested' },
@@ -1554,7 +1533,6 @@ async function updateBookingStatus(id, status){
   refreshBookings();
 }
 
-// ---------- MY TRIPS ----------
 function tripGroup(status){
   if (status === 'accepted') return 'upcoming';
   if (status === 'arriving' || status === 'picked_up') return 'active';
@@ -1609,7 +1587,6 @@ function renderMyTripsView(){
   }).join('');
 }
 
-// ---------- EARNINGS & BANK ----------
 let earningsBookings = [];
 let earningsLoaded = false;
 
@@ -1698,7 +1675,6 @@ function downloadStatement(){
   URL.revokeObjectURL(url);
 }
 
-// ---------- RATINGS & PERFORMANCE ----------
 function ratingStats(){
   const rated = myBookings.filter(b => b.rating != null);
   const avg = rated.length ? (rated.reduce((s,b) => s + Number(b.rating), 0) / rated.length) : null;
@@ -1787,7 +1763,6 @@ async function saveReply(id){
 }
 
 
-// ---------- NOTIFICATIONS ----------
 function getNotifPrefs(){
   try { return JSON.parse(localStorage.getItem('ambulancePartnerNotifPrefs') || '{}'); } catch(e) { return {}; }
 }
@@ -1884,7 +1859,6 @@ async function deleteAccount(){
   }catch(e){MedUtils.toast('Could not delete account: '+(e.message||e),'error')}
 }
 
-// ---------- PROFILE & SETTINGS ----------
 const photoSrc = () => driverRow.photo_url || (driverRow.kyc_documents && driverRow.kyc_documents.photo && driverRow.kyc_documents.photo.url) || '';
 
 function renderProfileView(){
@@ -1982,7 +1956,6 @@ async function changePassword(){
   MedUtils.toast('Password reset link sent to '+email,'success');
 }
 
-// ---------- EMERGENCY / SUPPORT ----------
 const SUPPORT_PHONE = '+919593625498';
 let supportTickets = [];
 let ticketsTableExists = null;
@@ -2047,7 +2020,7 @@ async function submitTicket(){
 }
 
 </script>
-<script src="push-notifications.js?v=4" defer></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 <script>
 /* ===== MediFinder premium layer: hero, Partner Hub, safety, bottom nav ===== */
 (function(){

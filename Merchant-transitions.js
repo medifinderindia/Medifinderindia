@@ -1,12 +1,3 @@
-// ==========================================
-// 🎬 MEDI FINDER — SMOOTH NAVIGATION (Phase 4)
-// Fades the page out briefly before moving to the next page, and fixes
-// href="#" links that were jumping the page to top / adding junk history
-// entries (the "button press feels like a refresh / back button behaves
-// oddly" complaint). Safe no-op for anything that isn't a plain internal
-// page link — external links, tel:, mailto:, wa.me, and JS-only actions
-// are left completely untouched.
-// ==========================================
 (function () {
     function extractNavUrl(el) {
         if (!el) return null;

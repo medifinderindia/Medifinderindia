@@ -1,9 +1,3 @@
-// ==========================================
-// MediFinder Merchant - Background Service Worker
-// Enables order notifications to be shown even when the
-// merchant's browser tab is minimized / not in focus.
-// ==========================================
-
 self.addEventListener('install', (event) => {
     self.skipWaiting();
 });

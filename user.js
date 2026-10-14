@@ -4,18 +4,11 @@ function mfEsc(v) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
 }
-/* ==========================================================================
-   1. GLOBAL SYSTEM CONFIGURATIONS & SUPABASE INIT
-   URL & key loaded from supabase-constants.js
-   ========================================================================== */
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 window.supabaseClient = supabase; // shared with offer.js
 
 let currentCart = JSON.parse(localStorage.getItem('medi_cart')) || [];
 let patientsData = JSON.parse(localStorage.getItem('medi_patients')) || [];
-// ✅ NEW — which patient (or "Self") the current checkout is for. Reset to
-// Self by default; never persisted across sessions on purpose (re-asked
-// per checkout, same as the real apps this was modeled on).
 let selectedOrderPatient = { id: '', name: '' };
 let alarmsData = JSON.parse(localStorage.getItem('medi_alarms')) || [];
 let systemNotifications = [];
@@ -27,10 +20,6 @@ let selectedPaymentMethod = "COD";
 let selectedDeliverySpeed = "manual"; // 'express' (30min, +20), 'sameday' (+10), 'manual' (free, 5-7 days)
 let selectedDeliverySpeedFee = 0;
 let cartActivePatientId = localStorage.getItem('medi_cart_patient_id') || 'self';
-// Reserved once the shopper opens the Online Payment screen — reused as the
-// real order_id (both in the UPI intent's tn= note AND the order row itself)
-// so the note the customer's UPI app shows always matches the order that
-// actually gets created after "Payment Completed".
 let pendingOnlineOrderId = null;
 
 // Customer-entered UPI reference (UTR). The database rejects online payments without a
@@ -52,11 +41,6 @@ let selectedOnlinePaymentMethod = null;
 let isPincodeVerified = false;
 let verifiedAddress = localStorage.getItem('medi_verified_address') || "";
 let discountAmount = 0;
-// Tracks which coupon row is currently applied at checkout so it can be
-// marked used (is_used = true) once the order actually goes through —
-// { code, source: 'personal'|'public', id }. 'personal' = a user_coupons
-// row owned by this user (referral/order rewards); 'public' = a general
-// coupons row anyone with the code can use.
 let appliedCouponInfo = null;
 let coinUseApplied = 0;      // coins the customer chose to spend on this order (1 coin = Rs 1)
 let coinWalletBalance = 0;
@@ -109,10 +93,6 @@ function showPrescriptionProgressState() {
     if (bar) bar.style.width = '0%';
 }
 
-// The Supabase JS storage.upload() call doesn't expose byte-level progress,
-// so this animates toward ~90% while the real upload is in flight and snaps
-// to 100% only once it actually resolves — an honest "still working" cue
-// rather than a fake instant bar.
 function animatePrescriptionProgress() {
     const bar = document.getElementById('presc-progress-bar');
     if (!bar) return () => {};
@@ -124,15 +104,6 @@ function animatePrescriptionProgress() {
     return () => { clearInterval(timer); bar.style.width = '100%'; };
 }
 
-// ✅ Fix (Item 8b — Logout button, and several other silent no-ops): this
-// function was called from ~9 places across the app (Logout, Delete
-// Prescription, Empty Cart, Cancel Order, Delete Address, etc.) but was
-// never actually defined anywhere in this file — every direct (unguarded)
-// call to it threw "showConfirmationModal is not defined" the instant it
-// ran, silently, with no visible error to the user. That's the real reason
-// tapping Logout appeared to do nothing. Defined only if it doesn't already
-// exist (e.g. from prod-utils.js), so this can never override or duplicate
-// a real implementation if one is ever added there.
 if (typeof window.showConfirmationModal !== 'function') {
     window.showConfirmationModal = function(message, onConfirm, options) {
         options = options || {};
@@ -172,11 +143,6 @@ window.deleteActivePrescription = function() {
         localStorage.setItem('medi_presc_uploaded_status', 'false');
         renderPrescriptionWidgetState();
 
-        // ✅ Fix: supabase storage.remove() does NOT throw on failure — it
-        // returns { error } (and a silent empty array when the DELETE
-        // storage policy blocks it). The old try/catch therefore never saw
-        // a failure, so the image stayed in storage while the app said
-        // "Prescription deleted". Now the real result is checked. Needs the
         let storageRemoved = true;
         // storagePath can be missing (e.g. slip restored from an older save),
         // so fall back to deriving it from the public URL.
@@ -210,13 +176,6 @@ window.deleteActivePrescription = function() {
 };
 
 
-// add/buy an Rx medicine without a verified prescription on file. Rx uploads
-// now live per-item on the Cart page (see promptRxUploadOnAdd) — this used
-// to scroll the Home page to its own general prescription widget, which
-// isn't what actually gates a Buy Now anymore, so it now adds the item to
-// the cart and offers to take the shopper there instead. Home's own
-// prescription-upload-section is kept only as a general "send my slip to
-// nearby pharmacies" tool, decoupled from this Buy Now flow.
 function blockForMissingPrescription(productData) {
     if (productData) {
         try { addToCart(productData); return; } catch (e) {}
@@ -298,14 +257,6 @@ let userLiveLat = 22.5726;  // fallback — real coords set by GPS
 let userLiveLng = 88.3639; // fallback — real coords set by GPS
 const shopCoordinates = { lat: 22.5780, lng: 88.3650 }; // fallback — real coords set by GPS
 
-// ============================================================
-// GPS ACCURACY + ERROR HANDLING (shared by every geolocation call in this
-// file — detectLiveUserGPSCoordinates(), setupMapPageModules()'s initial fix
-// and its live watchPosition()). Keeps a single source of truth for the
-// real device accuracy (position.coords.accuracy, never faked) and makes
-// sure a GPS failure shows one friendly message instead of raw JS errors
-// or a spam of repeated toasts.
-// ============================================================
 let userGPSAccuracyMeters = null;
 let _gpsErrorToastShownAt = 0;
 
@@ -325,10 +276,6 @@ function renderGPSAccuracyIndicator(accuracyMeters) {
     targets.forEach(el => { el.textContent = label; el.style.display = ''; });
 }
 
-// Turns a raw GeolocationPositionError into one friendly, non-technical
-// message and shows it at most once every 20s so a flaky signal (common
-// with watchPosition on the move) never spams the shopper with toasts.
-// Never exposes err.message / raw JS error text to the user.
 function handleGeolocationError(err) {
     let msg = "Couldn't get your location. Please try again.";
     if (err && typeof err.code === 'number') {
@@ -364,9 +311,6 @@ function safeGetCurrentPosition(onSuccess, options, silent) {
     navigator.geolocation.getCurrentPosition(onSuccess, silent ? function () {} : handleGeolocationError, options || GEO_OPTIONS_ONE_SHOT);
 }
 
-// ============================================================
-// LANGUAGE MATRIX - West Bengal regional languages + major Indian languages
-// ============================================================
 const languageMatrix = {
     en: {
         title: "MEDIFINDER INDIA", editBtn: "Edit Name", addrTitle: "Manage Delivery Addresses",
@@ -513,22 +457,20 @@ const languageMatrix = {
     }
 };
 
-// ============================================================
-// MEDIFINDER SMART LOADING SYSTEM (added — full-page boot loader +
-// reusable favicon.png product-image loading/fallback). Does not
-// touch existing UI, routing, Supabase, or business logic below.
-// ============================================================
 const MF_IMG_PLACEHOLDER = 'favicon.png';
 const MF_SMART_IMG_SELECTORS = '.img-container img, .cart-item-img, #modal-main-img, .order-img-box img, #order-detail-body img, #sponsoredOfferModal img';
 
-function mfHideBootLoader() {
+function mfHideBootLoader(force) {
     const loader = document.getElementById('mf-boot-loader');
     if (!loader || loader.classList.contains('mf-loader-hidden')) return;
+    // stylesheets are loaded without blocking first paint -> keep the loader up until
+    // they are applied (never longer than the safety timer below), so no unstyled flash.
+    if (force !== true && (window.__mfCssN || 0) < 2) { setTimeout(mfHideBootLoader, 50); return; }
     loader.classList.add('mf-loader-hidden');
-    setTimeout(() => { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 400);
+    setTimeout(() => { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 300);
 }
-window.addEventListener('load', mfHideBootLoader);
-setTimeout(mfHideBootLoader, 4000); // safety net only — never used to add delay
+window.addEventListener('load', () => mfHideBootLoader());
+setTimeout(() => mfHideBootLoader(true), 3000);
 
 function mfApplySmartImage(img) {
     if (!img || img.dataset.mfSmart === '1') return;
@@ -579,17 +521,6 @@ function initMfSmartImageSystem() {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // Every init step below now runs through runInitStep() instead of being
-    // called bare. Previously a single thrown error in ANY one of these
-    // (e.g. a null DOM lookup on a page that doesn't have that element,
-    // or a temporary Supabase/network hiccup) would stop this ENTIRE
-    // listener dead — so every setup*() call listed AFTER the one that
-    // threw never ran at all. That one root cause was silently breaking
-    // huge swaths of the app at once (map page, cart page, profile menu,
-    // hamburger, voice search, wishlist, bottom nav...) with no visible
-    // error to the user, because the only trace was a console error most
-    // people never open. Wrapping each step isolates failures so one
-    // broken module can no longer take the rest of the app down with it.
     function runInitStep(label, fn) {
         try { fn(); } catch (err) { console.error(`[init] ${label} failed:`, err); }
     }
@@ -645,16 +576,11 @@ document.addEventListener("DOMContentLoaded", () => {
     runInitStep('initWishlistButtons', initWishlistButtons);
     runInitStep('initVoiceSearch', initVoiceSearch);
     runInitStep('initServicesMenu', initServicesMenu);
-    // ✅ initHamburgerMenu() removed — no hamburger menu in the app.
     runInitStep('updateProductCount', updateProductCount);
 
     // Live "Cart (N)" bottom-nav badge — synced with the cart on every load.
     runInitStep('updateCartNavBadge', updateCartNavBadge);
 
-    // Home-only header greeting ("Hi, [Name]" + time-of-day message) and its
-    // show-on-Home-only visibility. Also refreshed on every navigateTo() call
-    // (see the SPA router below) and every 5 min so the greeting stays correct
-    // ("Good afternoon" -> "Good evening") if the app is left open.
     runInitStep('home header greeting', () => {
         renderHomeHeaderGreeting();
         updateHomeHeaderVisibility((window.location.hash || '').replace('#', '') || 'home');
@@ -671,12 +597,6 @@ document.addEventListener("DOMContentLoaded", () => {
     runInitStep('mfHideBootLoader', mfHideBootLoader);
 });
 
-// Fixes orders (and cart/notifications) appearing to "disappear" when the user
-// hits the browser Back button. The browser often restores the page from its
-// back/forward cache (bfcache) instead of reloading it — DOMContentLoaded does
-// NOT fire again in that case, so the page just shows whatever was rendered
-// before the order existed. event.persisted === true is how we detect that
-// restore and force everything to re-sync against localStorage + Supabase.
 window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return; // normal load/navigation — DOMContentLoaded already handled it
     if (document.getElementById('order-list')) refreshOrdersFromServer();
@@ -701,14 +621,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Inline fallback handlers — called directly from onclick attributes. These
-// used to ALSO fire the document-level delegated listener above for the very
-// same click (inline onclick runs at the target phase, then the click still
-// bubbles up to document afterwards), so a single tap silently called
-// addToCart() TWICE — quietly inflating quantities (and the bottom-nav
-// count) without ever showing a duplicate row, since the second call just
-// incremented the same item's qty. stopPropagation() here stops that bubble,
-// so only ONE of the two listeners now ever runs per tap.
 window.handleQuickAddToCart = function(btn) {
     if (window.event) window.event.stopPropagation();
     const card = btn.closest('.product-card');
@@ -728,9 +640,6 @@ window.handleQuickBuyNow = function(btn) {
     navigateToProductDetail(card.dataset);
 };
 
-// ============================================================
-// PAGE PREFETCH SYSTEM - Instant Tab Switching
-// ============================================================
 function setupPagePrefetch(){
     const pages = []; // no-op after user.html/user.css/user.js consolidation — pages are already in the DOM, nothing to prefetch
     const prefetched = new Set();
@@ -776,17 +685,8 @@ function prefetchPage(page){
 
 const prefetchCache = {};
 
-// ============================================================
-// SERVICE WORKER + BACKGROUND NOTIFICATION SYSTEM
-// ============================================================
 function setupServiceWorkerNotifications() {
     if ('serviceWorker' in navigator && 'Notification' in window) {
-        // 'default' means the user hasn't been asked yet; once they grant or
-        // deny it, Notification.permission stops being 'default' and this
-        // skips the prompt on every subsequent page load.
-        // Notification permission is NOT requested here any more (it used to pop
-        // up on every page load). push-notifications.js asks once, from a tap on
-        // the home-page prompt, and the Notifications page has an on/off switch.
 
         // Register service worker for background notifications
         if ('serviceWorker' in navigator) {
@@ -849,14 +749,6 @@ function applyUserIdentityToUI(name, uid, email, avatarUrl) {
     }
 }
 
-// ============================================================
-// HOME-ONLY HEADER — "Hi, [Name]" + time-of-day greeting
-// Shown ONLY on the Home tab (see updateHomeHeaderVisibility(), hooked into
-// the SPA router's navigateTo() below). Name is always pulled live from the
-// same cached/session-resolved profile name applyUserIdentityToUI() already
-// maintains — never hardcoded. Greeting text updates automatically by hour.
-// ============================================================
-
 // "Good morning / Good noon / Good evening / Good night" — matches the
 // exact wording requested. Hour bands: 3–10:59 morning, 11–15:59 noon,
 // 16–19:59 evening, 20:00–2:59 night (wraps past midnight).
@@ -868,12 +760,6 @@ function getTimeBasedGreeting() {
     return "Good night"; // 20:00–23:59 and 00:00–02:59
 }
 
-// Renders into whichever of these exist on the page (all optional, safely
-// null-checked, so this never errors if the HTML only has some of them):
-//   #home-greeting-name  -> just the name ("Rejoyan")
-//   #home-greeting-time  -> just the greeting line ("Good afternoon")
-//   #home-greeting-text  -> combined fallback ("Hi, Rejoyan") if the split
-//                           name/time elements aren't present
 function renderHomeHeaderGreeting() {
     const name = localStorage.getItem('medi_profile_name') || 'there';
     const greeting = getTimeBasedGreeting();
@@ -887,10 +773,6 @@ function renderHomeHeaderGreeting() {
     if (!nameEl && !timeEl && combinedEl) combinedEl.textContent = `Hi, ${name}`;
 }
 
-// Home gets the header; Shops/Cart/Orders/Profile never do. Looks for a
-// single header element carrying id="home-only-header" (or, if the markup
-// uses a class instead, class="home-only-header") and toggles it — nothing
-// else on the page is touched, so no other header gets created or removed.
 function updateHomeHeaderVisibility(page) {
     const headers = document.querySelectorAll('#home-only-header, .home-only-header');
     headers.forEach(el => { el.style.display = (page === 'home') ? '' : 'none'; });
@@ -935,14 +817,6 @@ async function autoFillSavedUserDataOnAuth() {
                     .eq('email', userEmail)
                     .limit(1);
 
-                // Item 4: when someone signs up with Google/email and no `profiles`
-                // row exists yet (or one exists but is missing a name/photo), Google
-                // already gave us that info on the auth session itself
-                // (user_metadata.full_name / .name and .avatar_url / .picture) —
-                // previously this was never read, so the account looked nameless
-                // and photo-less everywhere until the person manually edited their
-                // profile. Now it's backfilled automatically and saved so it's
-                // there for good.
                 const meta = session.user.user_metadata || {};
                 const metaName = meta.full_name || meta.name || '';
                 const metaAvatar = meta.avatar_url || meta.picture || '';
@@ -1001,10 +875,6 @@ async function autoFillSavedUserDataOnAuth() {
         } catch(e) {
 
         } finally {
-            // ✅ Guest-state placeholder now only needs to worry about the
-            // profile page itself — the hamburger menu it used to also
-            // reset is gone. Profile page shows its own logged-out prompt
-            // via the normal auth-state UI already handled elsewhere.
         }
     }
 }
@@ -1174,20 +1044,6 @@ async function setupGlobalNotificationHub() {
     }
 }
 
-// ============================================================
-// HOME PAGE: Search with Suggestions
-// ============================================================
-// ============================================================
-// SHOP VIEW — real merchant info card, injected above the products grid
-// on the existing ?merchant=ID storefront (doc3 "VIEW" flow). Deliberately
-// reuses this SPA route rather than creating a new HTML page. Every field
-// is read straight off the real `merchants`/`orders` rows; anything the
-// row doesn't actually have shows "Not available" instead of being guessed.
-// NOTE: shop image + prescription-support field names weren't confirmed
-// anywhere else in this codebase, so this checks a few likely column names
-// and falls back gracefully — see the final report for the exact columns
-// to confirm/rename if different.
-// ============================================================
 async function renderShopInfoCard(m, merchantId) {
     const productsSection = document.querySelector('.products-showcase-section');
     if (!productsSection || !productsSection.parentNode) return;
@@ -1254,53 +1110,22 @@ async function renderShopInfoCard(m, merchantId) {
 }
 
 
-// ✅ Extracted from setupHomePageModules() so the Home product grid can be
-// (re)loaded on demand — specifically so "Medical Instrument" mode can be
-// toggled in-place via navigateTo('instrument') with no page reload,
-// instead of the old ?type=instrument query-param + full-reload approach.
-// Behaves identically to the inline code this replaced; just callable again.
-async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
-    const productsGrid = document.getElementById('main-products-grid');
-    const noProductsMsg = document.getElementById('no-products-msg');
-    const embeddedCards = productsGrid ? productsGrid.querySelectorAll('.product-card') : [];
-    let allProductNames = [];
-    if (!productsGrid) return allProductNames;
-    if (supabase) {
-        try {
-            // NOTE: this used to read from `partner_medicines` (a separate,
-            // disconnected table), which is why the storefront showed demo
-            // composition/ratings/etc. that never matched what a merchant
-            // actually uploaded. `medicines` is the real table merchants add
-            // to and admin approves — that is the single source of truth now.
-            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
-            if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
-            if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
-            const { data: dbProducts, error: dbError } = await medQuery;
-            
-            if (!dbError && dbProducts && dbProducts.length > 0) {
-                allProductNames = dbProducts.map(p => p.name || p.product_name);
-
-                // "30+ Min" is a real express-delivery promise, not decoration —
-                // only show it on medicines whose merchant is actually within
-                // 12km of the shopper. Fetch every relevant merchant's saved
-                // location (marchentprofile.html -> merchants.latitude/longitude)
-                // once up front and compare with haversineKm() against the same
-                // live GPS coords (userLiveLat/userLiveLng) already used for the
-                // cart delivery-fee and map-distance calculations elsewhere.
-                const merchantIdsForDistance = [...new Set(dbProducts.map(p => p.merchant_id).filter(Boolean))];
-                const merchantCoordsMap = {};
-                if (merchantIdsForDistance.length > 0) {
-                    try {
-                        const { data: merchantCoords } = await supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIdsForDistance);
-                        if (merchantCoords) {
-                            merchantCoords.forEach(m => {
-                                if (m.latitude && m.longitude) merchantCoordsMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) };
-                            });
-                        }
-                    } catch (e) {}
-                }
-
-                await mfLoadRealRatings(dbProducts.map(p => p.id));
+// ---- Home grid: instant paint from cache + skeleton + single paint function (PERF) ----
+function mfHomeGridSig(products, coords) {
+    return JSON.stringify([products, coords, products.map(p => { const r = mfRealRatings[p.id]; return r && r.count > 0 ? [r.avg, r.count] : 0; })]);
+}
+function mfClearSkeleton(grid) {
+    if (grid && grid.querySelector('.skeleton-card')) grid.innerHTML = '';
+}
+// Load failed / no connection: never leave the shimmer running forever and never leave a blank screen.
+function mfShowGridError(grid, msgEl) {
+    mfClearSkeleton(grid);
+    if (grid && !grid.querySelector('.product-card') && msgEl) {
+        msgEl.innerHTML = '<i class="fa-solid fa-wifi" style="font-size:2rem; color:#ccc; margin-bottom:8px; display:block;"></i>Could not load products. Please check your internet connection and try again.';
+        msgEl.style.display = 'block';
+    }
+}
+function mfPaintHomeGrid(dbProducts, merchantCoordsMap, productsGrid, merchantFilterId, isInstrumentMode, noProductsMsg) {
                 productsGrid.innerHTML = dbProducts.map(prod => {
                     const sellingPrice = parseFloat(prod.selling_price || prod.unit_price || prod.price || 0);
                     const mrp = parseFloat(prod.mrp || 0);
@@ -1333,8 +1158,6 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                     if (discount > 0) {
                         overlayBadges += `<div class="badge-express" style="background:#28a745; left:auto; right:8px; top:8px; font-size:0.7rem;"><i class="fa-solid fa-tag"></i> ${discount}% OFF</div>`;
                     }
-                    // FREE DELIVERY is no longer an overlay badge — it renders as a small
-                    // inline "FREE" chip beside the product name (see .product-title-row below).
 
                     const hasRealRating = rating > 0;
                     const stars = [1,2,3,4,5].map(i => 
@@ -1357,7 +1180,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                              fixes the product image and name positions on the Home page. -->
                         ${overlayBadges}
                         <div class="img-container">
-                            <img src="${mfEsc(img)}" alt="${mfEsc(productName)}" loading="lazy">
+                            <img src="${mfEsc(img)}" alt="${mfEsc(productName)}" loading="lazy" decoding="async">
                         </div>
                         ${expressBadge ? `<div class="badge-express-row" style="display:flex; justify-content:flex-end; padding:4px 6px 0;">${expressBadge}</div>` : ''}
                         <div class="prod-info">
@@ -1397,44 +1220,98 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                 const countBadge = document.getElementById('product-count-badge');
                 if (countBadge) countBadge.textContent = `${dbProducts.length} items`;
 
-                // The section heading is a static "Available Medicine" label now
-                // (no live count in parentheses) — skipped in seller-storefront
-                // mode (seller name) and instrument mode ("Medical Instruments"),
-                // both of which set their own heading text separately above.
                 const heading = document.getElementById('products-section-heading');
-                if (heading && !merchantFilterId && !isInstrumentMode) heading.textContent = 'Available Medicine';
+                if (heading && !merchantFilterId && !isInstrumentMode) heading.textContent = 'Available Products';
 
                 if (noProductsMsg) noProductsMsg.style.display = 'none';
+}
+
+async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
+    const productsGrid = document.getElementById('main-products-grid');
+    const noProductsMsg = document.getElementById('no-products-msg');
+    const embeddedCards = productsGrid ? productsGrid.querySelectorAll('.product-card') : [];
+    let allProductNames = [];
+    if (!productsGrid) return allProductNames;
+    if (supabase) {
+        try {
+            const _mfGridKey = 'mf_hg1:' + (merchantFilterId || '') + ':' + (isInstrumentMode ? 'i' : 'm');
+            try {
+                const _c = JSON.parse(localStorage.getItem(_mfGridKey) || 'null');
+                if (_c && Array.isArray(_c.p) && _c.p.length && Date.now() - _c.t < 24 * 3600 * 1000) {
+                    Object.keys(_c.r || {}).forEach(id => { mfRealRatings[id] = { avg: _c.r[id][0], count: _c.r[id][1], _done: true }; });
+                    mfPaintHomeGrid(_c.p, _c.m || {}, productsGrid, merchantFilterId, isInstrumentMode, noProductsMsg);
+                    productsGrid.dataset.mfSig = mfHomeGridSig(_c.p, _c.m || {});
+                    allProductNames = _c.p.map(p => p.name || p.product_name);
+                } else {
+                    productsGrid.dataset.mfSig = ''; // first visit: the existing skeleton cards stay until real data arrives
+                }
+            } catch (e) {}
+            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
+            if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
+            if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
+            const { data: dbProducts, error: dbError } = await medQuery;
+            
+            if (!dbError && dbProducts && dbProducts.length > 0) {
+                allProductNames = dbProducts.map(p => p.name || p.product_name);
+
+                const merchantIdsForDistance = [...new Set(dbProducts.map(p => p.merchant_id).filter(Boolean))];
+                const merchantCoordsMap = {};
+                // PERF: shop-coordinates and ratings do not depend on each other, so they are
+                // fetched together (was two slow round-trips one after the other), and neither
+                // may hold the product grid back for more than 2.5 seconds.
+                const _coordsP = merchantIdsForDistance.length
+                    ? supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIdsForDistance)
+                        .then(({ data: merchantCoords }) => {
+                            (merchantCoords || []).forEach(m => {
+                                if (m.latitude && m.longitude) merchantCoordsMap[m.id] = { lat: parseFloat(m.latitude), lng: parseFloat(m.longitude) };
+                            });
+                        }).catch(() => {})
+                    : Promise.resolve();
+                const _ratingsP = mfLoadRealRatings(dbProducts.map(p => p.id));
+                await Promise.race([Promise.all([_coordsP, _ratingsP]), new Promise(r => setTimeout(r, 2500))]);
+
+                // Repaint only when something really changed (no flicker after the instant cached paint).
+                const _sig = mfHomeGridSig(dbProducts, merchantCoordsMap);
+                if (productsGrid.dataset.mfSig !== _sig) {
+                    mfPaintHomeGrid(dbProducts, merchantCoordsMap, productsGrid, merchantFilterId, isInstrumentMode, noProductsMsg);
+                    productsGrid.dataset.mfSig = _sig;
+                } else if (noProductsMsg) {
+                    noProductsMsg.style.display = 'none';
+                }
+                try {
+                    const _rSnap = {};
+                    dbProducts.forEach(p => { const r = mfRealRatings[p.id]; if (r && r.count > 0) _rSnap[p.id] = [r.avg, r.count]; });
+                    localStorage.setItem(_mfGridKey, JSON.stringify({ t: Date.now(), p: dbProducts, m: merchantCoordsMap, r: _rSnap }));
+                } catch (e) { /* storage full / private mode — cache is optional */ }
             } else if (dbProducts && dbProducts.length === 0) {
                 // No medicines available
+                productsGrid.innerHTML = ''; productsGrid.dataset.mfSig = '';
                 if (noProductsMsg) {
-                    noProductsMsg.innerHTML = '<i class="fa-solid fa-box-open" style="font-size:2rem; color:#ccc; margin-bottom:8px; display:block;"></i>No medicines available yet. Check back soon!';
+                    noProductsMsg.innerHTML = '<i class="fa-solid fa-box-open" style="font-size:2rem; color:#ccc; margin-bottom:8px; display:block;"></i>No products available yet. Check back soon!';
                     noProductsMsg.style.display = 'block';
                 }
             } else {
                 // Show embedded products when no DB products
+                mfShowGridError(productsGrid, noProductsMsg);
                 embeddedCards.forEach(card => card.style.display = 'block');
-                if (noProductsMsg) noProductsMsg.style.display = 'none';
+                if (noProductsMsg && productsGrid.querySelector('.product-card')) noProductsMsg.style.display = 'none';
             }
         } catch (e) {
 
             // Show embedded products on error
+            mfShowGridError(productsGrid, noProductsMsg);
             embeddedCards.forEach(card => card.style.display = 'block');
-            if (noProductsMsg) noProductsMsg.style.display = 'none';
+            if (noProductsMsg && productsGrid.querySelector('.product-card')) noProductsMsg.style.display = 'none';
         }
     } else {
         // No supabase - show embedded products
+        mfShowGridError(productsGrid, noProductsMsg);
         embeddedCards.forEach(card => card.style.display = 'block');
-        if (noProductsMsg) noProductsMsg.style.display = 'none';
+        if (noProductsMsg && productsGrid.querySelector('.product-card')) noProductsMsg.style.display = 'none';
     }
     return allProductNames;
 }
 
-// Shows/hides the "Medical Instrument" stripped-down view of the Home page —
-// quick services, prescription-upload card and medicine category chips don't
-// apply there, plus a distinct heading and its own "Back to Home" bar. Called
-// both on a fresh load (URL has ?type=instrument) and by setInstrumentMode()
-// below for the no-reload SPA toggle.
 function applyInstrumentModeUI(active) {
     ['quick-services-menu', 'prescription-upload-section', 'categories-section'].forEach(cls => {
         const el = document.querySelector('.' + cls);
@@ -1456,13 +1333,6 @@ function applyInstrumentModeUI(active) {
             bar.id = 'instrument-mode-back-bar';
             bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
             bar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder India Home';
-            // ✅ "Back to Home" bug fix: this used to call navigateTo('home')
-            // while ALREADY on the home app-page (instrument mode is just a
-            // display mode of Home, not a separate page) — navigateTo() saw
-            // it was already the active page and did nothing, so the hidden
-            // sections/heading/this bar never got restored. It now calls
-            // setInstrumentMode(false) directly, which is what actually
-            // undoes all of this mode's UI/state changes.
             bar.addEventListener('click', () => { setInstrumentMode(false); });
             const productsSection = document.querySelector('.products-showcase-section');
             if (productsSection && productsSection.parentNode) {
@@ -1470,15 +1340,11 @@ function applyInstrumentModeUI(active) {
             }
         }
     } else {
-        if (heading) heading.textContent = 'Available Medicine';
+        if (heading) heading.textContent = 'Available Products';
         if (backBar) backBar.remove();
     }
 }
 
-// ✅ Real SPA toggle for "Medical Instrument" — no page reload, no
-// ?type=instrument for internal navigation (that query param still works for
-// old external links landing fresh on the page, handled above). Used by
-// navigateTo('instrument') and navigateTo('home') to enter/exit cleanly.
 async function setInstrumentMode(active) {
     window.__instrumentModeActive = !!active;
     applyInstrumentModeUI(!!active);
@@ -1490,12 +1356,6 @@ async function setInstrumentMode(active) {
 async function setupHomePageModules() {
     if (!document.getElementById('family-health-banner') && !document.getElementById('main-products-grid')) return;
 
-    // Normalizes whatever text the merchant picked for "dosage form / category"
-    // (e.g. "Tablets", "SYRUP", "Baby Care Kit") down to the exact lowercase
-    // keys used by the category filter chips: tablet, capsule, syrup, insulin,
-    // baby, food, others. This is what makes clicking a category chip actually
-    // filter the live database products (previously it silently matched
-    // nothing because casing/labels never lined up).
     function normalizeCategoryKey(raw) {
         const c = String(raw || '').toLowerCase().trim();
         if (!c) return 'others';
@@ -1520,17 +1380,7 @@ async function setupHomePageModules() {
 
     let allProductNames = [];
 
-    // Seller storefront mode — reached via "View seller's other products" on
-    // product-detail.html (userhome.html?merchant=ID). Previously this param
-    // was never read, so it silently dumped the visitor on the normal,
-    // unfiltered home page. Now it hides the generic homepage furniture and
-    // turns this same grid into a single-seller store showing everything
-    // that merchant has approved, still orderable exactly like any product.
     const merchantFilterId = new URLSearchParams(window.location.search).get('merchant');
-    // Quick Services "Medical Instrument" tile now uses navigateTo('instrument')
-    // (see setInstrumentMode() + the navigateTo() special-case below) — the old
-    // ?type=instrument query param is kept ONLY so any external/legacy link
-    // still using it keeps working exactly as before on a fresh page load.
     const typeFilterParam = new URLSearchParams(window.location.search).get('type');
     const isInstrumentMode = typeFilterParam === 'instrument' || window.__instrumentModeActive === true;
     if (!merchantFilterId) applyInstrumentModeUI(isInstrumentMode);
@@ -1609,9 +1459,6 @@ async function setupHomePageModules() {
         });
     }
 
-    // ============================================================
-    // SEARCH WITH SUGGESTIONS (2-3 letter trigger)
-    // ============================================================
     const homeSearchInput = document.getElementById('home-medicine-search');
     const clearSearchBtn = document.getElementById('clear-search-btn');
     let suggestionsBox = document.getElementById('search-suggestions-box');
@@ -1640,10 +1487,6 @@ async function setupHomePageModules() {
         "Ranitidine", "Albendazole", "Metronidazole", "Ciprofloxacin"
     ];
 
-    // Flipkart-style search dock: while actively searching, the promo top-bar
-    // AND the logo/notification header both disappear, and the search bar
-    // itself pins to the very top of the page in the header's place — same
-    // pattern as tapping the search box in the Flipkart app.
     if (!document.getElementById('search-dock-css')) {
         const dockStyle = document.createElement('style');
         dockStyle.id = 'search-dock-css';
@@ -1655,10 +1498,6 @@ async function setupHomePageModules() {
         document.head.appendChild(dockStyle);
     }
 
-    // Item 1: while actively searching, hide everything except the search bar
-    // itself and the results grid — quick services, slider, prescription
-    // upload, and the category chips all disappear so the results are the
-    // only thing under the search box, and come back once the query is cleared.
     function setSearchModeSections(isSearching) {
         document.body.classList.toggle('search-docked', isSearching);
         if (isSearching) {
@@ -1666,10 +1505,6 @@ async function setupHomePageModules() {
             if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
         }
         if (merchantFilterId) return; // seller-storefront mode already hides these permanently
-        // In instrument mode, quick-services-menu / prescription-upload-section /
-        // categories-section are hidden permanently (see isInstrumentMode block
-        // above) — don't let clearing the search bring them back. Only the
-        // slider still toggles with search state on that page.
         const permanentlyHiddenClasses = isInstrumentMode
             ? ['auto-slider-section']
             : ['quick-services-menu', 'auto-slider-section', 'prescription-upload-section', 'categories-section'];
@@ -1822,16 +1657,12 @@ async function setupHomePageModules() {
         });
     }
 
-    // ============================================================
-    // ROTATING SEARCH HINT (Flipkart style): "Search for Tablets" ->
-    // "Search for Baby Care" -> ... Hidden once the shopper types.
-    // ============================================================
     (function initRotatingSearchHint() {
         const hintBox = document.getElementById('mf-search-hint');
         const wordEl = document.getElementById('mf-hint-word');
         if (!hintBox || !wordEl || !homeSearchInput || hintBox.dataset.started === '1') return;
         hintBox.dataset.started = '1';
-        const words = ['Tablets', 'Capsules', 'Syrups', 'Baby Care', 'Food & Drinks', 'Health Essentials', 'Insulin', 'Medical Instruments'];
+        const words = ['Medicines', 'Medical Supplies', 'Personal Care', 'Daily Essentials', 'Grocery & Food', 'Baby Care', 'Health Devices', 'Soap & Hygiene'];
         let idx = 0;
         const syncVisibility = () => hintBox.classList.toggle('is-hidden', homeSearchInput.value.length > 0);
         homeSearchInput.addEventListener('input', syncVisibility);
@@ -1899,9 +1730,6 @@ async function setupHomePageModules() {
         });
     }
 
-    // ============================================================
-    // PRESCRIPTION UPLOAD
-    // ============================================================
     async function handlePrescriptionFile(file) {
         if (!file) return;
         const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -1952,11 +1780,6 @@ async function setupHomePageModules() {
         renderPrescriptionWidgetState();
         showToast("Prescription uploaded successfully!", "success");
 
-        // The AI (Gemini) auto-read step has been removed — it was failing with
-        // 401 Unauthorized and isn't needed for the actual business flow: the
-        // slip just needs to reach nearby pharmacies. Instead, show a quick
-        // phone-number confirmation sheet, and broadcast the moment it's
-        // submitted (no medicine detection/selection involved anymore).
         if (uploadedPrescriptionUrl) {
             openPrescriptionPhoneConfirmSheet(uploadedPrescriptionUrl);
         }
@@ -2066,8 +1889,6 @@ function openHealthCheckupPopup() {
     };
 }
 
-// Accurate great-circle distance in km (replaces the old rough sqrt() estimate
-// used around the map code, and reused to find pharmacies near a prescription).
 function haversineKm(lat1, lng1, lat2, lng2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -2076,12 +1897,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// The home page's "20 Min" express badge is computed once, synchronously,
-// while the product grid is first built — using whatever GPS fix is
-// available at that instant (often still the fallback coords, since real
-// GPS resolves a moment later). This re-checks every already-rendered card
-// against the real fix once it lands, without re-fetching or re-rendering
-// the whole grid (which would duplicate event listeners).
 async function refreshExpressDeliveryBadges() {
     if (!supabase) return;
     const grid = document.getElementById('main-products-grid');
@@ -2125,13 +1940,6 @@ async function refreshExpressDeliveryBadges() {
 }
 window.refreshExpressDeliveryBadges = refreshExpressDeliveryBadges;
 
-// Creates ONE shared row in `prescription_orders` (so acceptance is atomic —
-// whichever pharmacy taps Accept first wins, via the accept_prescription_order
-// RPC, and every other pharmacy's Accept button disappears live) and then
-// notifies every nearby pharmacy through the EXISTING `merchant_notifications`
-// table (already wired up with realtime + the notification bell), tagging
-// each notification with related_prescription_id so tapping it opens this
-// exact request. Returns the new prescription_orders id, or null on failure.
 async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selectedMedicines, customerPhone, customerAddress) {
     if (!supabase) return null;
     try {
@@ -2161,11 +1969,6 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
         }
         if (targets.length === 0) targets = merchants; // fallback: notify everyone if we couldn't get location
 
-        // ✅ NEW — doc3 "Order using prescription from this shop": if the
-        // upload was started from a specific shop's Shop View page, target
-        // ONLY that merchant instead of broadcasting to every nearby one.
-        // One-shot — cleared right after being read so it never leaks into
-        // a later, ordinary home-page upload.
         const targetedMerchantId = localStorage.getItem('medi_rx_target_merchant');
         if (targetedMerchantId) {
             localStorage.removeItem('medi_rx_target_merchant');
@@ -2218,17 +2021,6 @@ async function broadcastPrescriptionToNearbyPharmacies(prescriptionUrl, selected
     }
 }
 
-// Item 3: rendered as a bottom sheet (slides up from the bottom of the
-// screen, like the rest of the app's mobile modals) instead of a centered
-// dialog. The prescription itself has ALREADY been sent to nearby pharmacies
-// by this point (see handlePrescriptionFile) — this sheet is now just an
-// optional "add the medicines AI could read off your slip to your cart"
-// helper, so it no longer re-broadcasts anything.
-// Replaces the old AI medicine-matching sheet. This is now the only step
-// between "file uploaded to storage" and "nearby pharmacies notified" — a
-// quick bottom sheet showing the prescription number/reference and asking
-// for (or confirming) the phone number the pharmacy should call. Submitting
-// it is what actually triggers the broadcast.
 async function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
     const rxState = await getRxContactState();
     const autoPhone = rxState.phone || getAutoUserPhone();
@@ -2298,31 +2090,90 @@ async function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
     };
 }
 
-// ============================================================
-// PRODUCT DETAIL - opens as an in-app SPA page (page-product-detail)
-// instead of navigating away to a separate product-detail.html file.
-// Same data this used to serialize into the URL is now just used to
-// fill in the page directly, then navigateTo('product-detail') shows
-// it the same way Home/Shops/Cart/etc. already switch pages — no full
-// page reload, so it opens instantly and Back returns to where the
-// user tapped from.
-// ============================================================
 let __pdCurrentData = null;
 let __pdReturnPage = 'home';
 let __pdQty = 1;
 
 function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+/* ===== PRODUCT DETAILS: share link + deep link ===== */
+/* MediFinder: working product share links + safe handling of empty #product-detail */
+(function () {
+    'use strict';
+    var params = new URLSearchParams(location.search);
+    var pid = params.get('product') || params.get('pid');
+
+    function toast(m, t) { try { if (typeof showToast === 'function') showToast(m, t || 'warning'); } catch (e) {} }
+    function goHome() {
+        try { if (typeof window.navigateTo === 'function') window.navigateTo('home'); } catch (e) {}
+    }
+    function cleanUrl() {
+        try { history.replaceState(null, '', location.pathname + '#home'); } catch (e) {}
+    }
+
+    // 1) Share button: link carries the product id (old link had only #product-detail => blank page)
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('#pd-share-btn');
+        if (!btn) return;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        var d = null;
+        try { d = JSON.parse(localStorage.getItem('currentProduct') || 'null'); } catch (x) {}
+        if (!d || !d.id) { toast('Product not ready to share yet', 'warning'); return; }
+        var url = location.origin + '/home.html?product=' + encodeURIComponent(d.id);
+        var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
+        (async function () {
+            try {
+                if (navigator.share) await navigator.share(data);
+                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
+            } catch (err) { /* cancelled */ }
+        })();
+    }, true);
+
+    // 2) Opening a shared link
+    function openFromLink() {
+        if (!pid) {
+            // bare "#product-detail" with no product (old shared links / refresh): never show an empty page
+            if ((location.hash || '').replace('#', '') === 'product-detail') { goHome(); cleanUrl(); }
+            return;
+        }
+        var tries = 0;
+        (async function run() {
+            if (typeof navigateToProductDetail !== 'function' || typeof supabase === 'undefined' || !supabase) {
+                if (++tries < 60) return setTimeout(run, 100);
+                return goHome();
+            }
+            try {
+                var r = await supabase.from('medicines').select('*').eq('id', pid).maybeSingle();
+                var row = r && r.data;
+                var live = row && ['Approved', 'Active'].indexOf(row.status) !== -1;
+                if (!row || !live) { goHome(); cleanUrl(); toast('This product is no longer available.', 'warning'); return; }
+                navigateToProductDetail({
+                    id: row.id,
+                    name: row.name || row.product_name,
+                    price: row.selling_price ?? row.unit_price ?? row.price,
+                    mrp: row.mrp,
+                    img: row.image_url,
+                    merchantId: row.merchant_id,
+                    category: row.category
+                    // loadPdAuthoritativeData() fills in everything else from the same row
+                });
+                try { history.replaceState(null, '', location.pathname + '?product=' + encodeURIComponent(pid) + '#product-detail'); } catch (e) {}
+            } catch (err) { goHome(); toast('Could not open this product. Please try again.', 'error'); }
+        })();
+    }
+
+    function init() { setTimeout(openFromLink, 0); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+/* ===== /PRODUCT DETAILS deep link ===== */
+;
 function navigateToProductDetail(data) {
     try {
         localStorage.setItem('currentProduct', JSON.stringify(data));
         __pdCurrentData = data;
         __pdQty = 1;
 
-        // Brief skeleton so the page never shows half-blank content while
-        // the DOM is being filled — hidden again the moment the paint below
-        // finishes (near-instant when we already have card data, and stays
-        // up longer if this page was opened without any, e.g. a raw link).
         const skeleton = document.getElementById('pd-skeleton');
         const content = document.getElementById('pd-content');
         const errorState = document.getElementById('pd-error-state');
@@ -2330,13 +2181,6 @@ function navigateToProductDetail(data) {
         if (content) content.style.display = 'none';
         if (errorState) errorState.style.display = 'none';
 
-        // These blocks are filled in asynchronously (Supabase calls further
-        // below), one product at a time. If we don't clear them here, the
-        // *previous* product's offers/rating/variants/FBT/similar/seller
-        // content stays visible — sometimes for a couple of seconds on a
-        // slow connection — until this product's own async loaders finish
-        // and overwrite it. That's what looks like "data from another
-        // product" mixing into this one.
         ['pd-offers-block', 'pd-flash-sale-banner', 'pd-rating-breakdown', 'pd-variants-block',
          'pd-fbt-block', 'pd-similar-block', 'pd-more-seller-block'].forEach(id => {
             const el = document.getElementById(id);
@@ -2372,13 +2216,6 @@ function navigateToProductDetail(data) {
 
         if (typeof window.navigateTo === 'function') window.navigateTo('product-detail');
 
-        // Everything below is best-effort and DB-backed: it re-fetches the
-        // authoritative row from `medicines` by id (so a stale/incomplete
-        // card never shows the wrong price, stock, composition or image —
-        // see loadPdAuthoritativeData) and independently loads offers,
-        // reviews, frequently-bought-together and similar products. Each
-        // piece fails silently and hides its own section if its table/
-        // column isn't there — nothing here can break the page above.
         loadPdAuthoritativeData(data);
         loadPdWishlistState(data);
         loadPdRatingAndReviews(data);
@@ -2394,6 +2231,47 @@ function navigateToProductDetail(data) {
     }
 }
 
+// "What you get in this order": unit + pack size, multiplied by the chosen quantity.
+// "10 tablets" x2 -> "20 tablets";  "500 ml / 6 pcs" x2 -> "1000 ml / 12 pcs".
+// If the pack text has no leading number (e.g. "Pack of 6") it is shown as-is, per unit.
+function mfPackScale(text, qty) {
+    const parts = String(text).split(/\s*[\/,]\s*/).filter(Boolean);
+    if (!parts.length) return null;
+    const out = [];
+    for (const p of parts) {
+        const m = p.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+        if (!m) return null;
+        const n = Math.round(parseFloat(m[1]) * qty * 100) / 100;
+        out.push((m[2] ? n + ' ' + m[2] : String(n)).trim());
+    }
+    return out.join(' / ');
+}
+function mfRenderPackBox(data, qty) {
+    const box = document.getElementById('pd-pack-box');
+    if (!box) return;
+    const pick = (a, b) => { const v = data ? (data[a] != null && data[a] !== '' ? data[a] : data[b]) : ''; return v == null ? '' : String(v).trim(); };
+    const unit = pick('unitType', 'unit_type'), pack = pick('packSize', 'pack_size'), strength = pick('strength', 'strength');
+    if (!data || (!unit && !pack)) { box.style.display = 'none'; return; }
+    qty = Math.max(1, parseInt(qty, 10) || 1);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('pd-pack-one', [unit ? '1 ' + unit : '', pack].filter(Boolean).join(' \u00b7 '));
+    const strRow = document.getElementById('pd-pack-str-row');
+    if (strRow) { strRow.style.display = strength ? '' : 'none'; set('pd-pack-str', strength); }
+    const totalRow = document.getElementById('pd-pack-total-row');
+    if (totalRow) {
+        if (qty > 1) {
+            const unitWord = unit ? (/s$/i.test(unit) ? unit : (/(x|ch|sh)$/i.test(unit) ? unit + 'es' : unit + 's')) : 'packs';
+            const scaled = pack ? mfPackScale(pack, qty) : '';
+            set('pd-pack-total-label', 'Your order (' + qty + ' ' + unitWord + ')');
+            set('pd-pack-all', scaled ? scaled : (pack ? pack + ' each' : qty + ' ' + unitWord));
+            totalRow.style.display = '';
+        } else {
+            totalRow.style.display = 'none';
+        }
+    }
+    box.style.display = '';
+}
+
 // Fills every DOM field that's already available synchronously from
 // whatever `data` we currently have (dataset on first paint, or the fuller
 // DB row once loadPdAuthoritativeData() resolves). Safe to call twice.
@@ -2404,7 +2282,12 @@ function paintProductDetail(data) {
     const stockQty = data.stock !== undefined ? parseInt(data.stock) : (data.stock_qty !== undefined ? parseInt(data.stock_qty) : NaN);
     const inStock = String(data.stock ?? data.stock_qty ?? '').toLowerCase() !== 'out' && String(data.stock ?? data.stock_qty ?? '') !== '0';
     const productType = data.productType || data['data-product-type'] || data.product_type || 'Medicine';
-    const isInstrument = String(productType).toLowerCase() !== 'medicine';
+    const ptLower = String(productType).toLowerCase();
+    const isInstrument = /instrument/.test(ptLower);
+    const isGeneral = !isInstrument && /(general|personal|grocery)/.test(ptLower);
+    const isMedicine = !isInstrument && !isGeneral;
+    const genTitle = /personal/.test(ptLower) ? 'Personal Care Details' : /grocery/.test(ptLower) ? 'Grocery Details' : 'Product Details';
+    const genTypeLabel = /personal/.test(ptLower) ? 'Personal Care & Hygiene' : /grocery/.test(ptLower) ? 'Grocery & Packaged Food' : 'Daily Essentials';
 
     const setText = (id, val, fallback) => {
         const el = document.getElementById(id);
@@ -2439,6 +2322,21 @@ function paintProductDetail(data) {
     fill('pd-mfd', pdDate(data.mfd || data.mfd_date));
     fill('pd-expiry', pdDate(data.expiry || data.expiry_date || data['data-expiry']));
     fill('pd-storage', isInstrument ? '' : (data.storage || data.storage_instructions));
+    // General / Personal Care / Grocery block: every field the merchant filled in
+    if (isGeneral) {
+        const gt = document.getElementById('pd-gen-title'); if (gt) gt.textContent = genTitle;
+        fill('pd-gen-type', genTypeLabel);
+        fill('pd-gen-category', catVal);
+        fill('pd-gen-subcategory', data.subCategory || data.sub_category);
+        fill('pd-gen-pack', data.packSize || data.pack_size);
+        fill('pd-gen-unit', data.unitType || data.unit_type);
+        fill('pd-gen-brand', data.brandName || data.brand || data.manufacturer);
+        fill('pd-gen-batch', data.batchNo || data.batch_number);
+        fill('pd-gen-lot', data.lotNo || data.lot_number);
+        fill('pd-gen-mfd', pdDate(data.mfd || data.mfd_date));
+        fill('pd-gen-expiry', pdDate(data.expiry || data.expiry_date || data['data-expiry']));
+        fill('pd-gen-storage', data.storage || data.storage_instructions);
+    }
     fill('pd-side-effects', data.sideEffects || data.side_effects);
     fill('pd-warnings', data.warnings);
 
@@ -2447,8 +2345,11 @@ function paintProductDetail(data) {
     const medInfoItem = document.getElementById('pd-medicine-info-item');
     const instInfoItem = document.getElementById('pd-instrument-info-item');
     const safetyItem = document.getElementById('pd-safety-item');
-    if (medInfoItem) medInfoItem.style.display = isInstrument ? 'none' : 'block';
-    if (safetyItem && isInstrument) safetyItem.style.display = 'none';
+    const genInfoItem = document.getElementById('pd-general-info-item');
+    if (medInfoItem) medInfoItem.style.display = isMedicine ? 'block' : 'none';
+    if (genInfoItem) genInfoItem.style.display = isGeneral ? 'block' : 'none';
+    // Side effects / doctor warnings only make sense for medicines
+    if (safetyItem && !isMedicine) safetyItem.style.display = 'none';
     else if (safetyItem && safetyItem.dataset.pdPruned !== '1') safetyItem.style.display = '';
     if (instInfoItem) {
         instInfoItem.style.display = isInstrument ? 'block' : 'none';
@@ -2484,6 +2385,13 @@ function paintProductDetail(data) {
             add('fa-shield-halved', 'Warranty', data.warranty, 'good');
             add('fa-palette', 'Color', data.color);
             add('fa-ruler-horizontal', 'Range', data.measurementRange || data.measurement_range);
+        } else if (isGeneral) {
+            add('fa-industry', 'Brand', brandV);
+            add('fa-tags', 'Category', catVal);
+            add('fa-box', 'Pack Size', data.packSize || data.pack_size);
+            add('fa-hashtag', 'Batch No', data.batchNo || data.batch_number);
+            add('fa-gears', 'MFG', pdDate(data.mfd || data.mfd_date));
+            add('fa-calendar-xmark', 'Expiry', pdDate(data.expiry || data.expiry_date), 'amber');
         } else {
             add('fa-industry', 'Brand', brandV);
             add('fa-capsules', 'Form', data.dosageForm || data.dosage_form);
@@ -2538,16 +2446,13 @@ function paintProductDetail(data) {
 
     const qtyEl = document.getElementById('pd-qty');
     if (qtyEl) qtyEl.textContent = String(__pdQty);
+    mfRenderPackBox(data, __pdQty);
 
     const addBtn = document.getElementById('pd-add-to-cart-btn');
     const buyBtn = document.getElementById('pd-buy-now-btn');
     [addBtn, buyBtn].forEach(btn => { if (btn) btn.disabled = !inStock; });
     if (buyBtn) buyBtn.textContent = inStock ? 'BUY NOW' : 'UNAVAILABLE';
 
-    // "Sold by [shop]" block — only shown when this product actually
-    // carries a merchant_id (every real DB product does; only very old/
-    // sample rows might not). Tapping "Visit Shop"/"View Products" opens
-    // the shop as an in-app page via navigateToShopDetail().
     const soldByBlock = document.getElementById('pd-sold-by-block');
     const merchantId = data.merchantId || data['data-merchant-id'] || data.merchant_id || '';
     if (soldByBlock) {
@@ -2592,7 +2497,6 @@ function paintProductDetail(data) {
     renderPdBreadcrumb(data);
 }
 
-// ============ Image gallery (multiple images, thumbnails, counter) ============
 function renderPdGallery(data) {
     const track = document.getElementById('pd-gallery-track');
     const thumbs = document.getElementById('pd-gallery-thumbs');
@@ -2604,12 +2508,6 @@ function renderPdGallery(data) {
         .map(u => (u || '').trim()).filter(Boolean);
     const uniqueUrls = [...new Set(urls.length ? urls : [mainImg.src])];
 
-    // The track is a persistent DOM element reused across every product
-    // (this is an in-app SPA page, not a fresh page load), so a scroll
-    // position left over from swiping through a *previous* product's
-    // gallery would otherwise still be applied here — making the page
-    // open on that old slide 2/3 instead of this product's main image.
-    // Always snap back to the first slide before doing anything else.
     track.scrollLeft = 0;
 
     // Rebuild any extra slides beyond the first (which is #pd-main-img
@@ -2648,7 +2546,6 @@ function renderPdGallery(data) {
     }
 }
 
-// ============ Breadcrumb ============
 function renderPdBreadcrumb(data) {
     const catEl = document.getElementById('pd-crumb-cat');
     const nameEl = document.getElementById('pd-crumb-name');
@@ -2656,8 +2553,6 @@ function renderPdBreadcrumb(data) {
     if (nameEl) nameEl.textContent = data.name || 'Product';
 }
 
-// ============ Database-authoritative refresh (feature: never trust a
-// stale/incomplete card for price, stock, composition, Rx status, image) ============
 async function loadPdAuthoritativeData(originalData) {
     const id = originalData.id;
     if (!supabase || !id) return;
@@ -2751,7 +2646,6 @@ async function loadPdVariants(row) {
     } catch (e) { /* no variant columns yet — block stays hidden */ }
 }
 
-// ============ Wishlist heart ============
 async function loadPdWishlistState(data) {
     const heart = document.getElementById('pd-wishlist-heart');
     if (!heart) return;
@@ -2774,9 +2668,6 @@ async function loadPdWishlistState(data) {
     }
 }
 
-// ============ Rating breakdown + reviews (requires a `product_reviews`
-// table: id, medicine_id, user_id, user_name, rating, review_text,
-// photo_url, created_at — hides itself gracefully until that table exists) ============
 let __pdReviewsFull = [];
 async function loadPdRatingAndReviews(data) {
     const listEl = document.getElementById('pd-reviews-list');
@@ -2826,8 +2717,6 @@ async function loadPdRatingAndReviews(data) {
     }
 }
 
-// ============ Reviews: premium cards, photo grid (max 6 + "+N"), full-screen
-// zoom viewer with the reviewer's comment, per-user "Helpful" toggle ============
 let __pdReviewsExpanded = false;
 let __pdWrFiles = [];
 let __pdHelpfulSet = new Set();
@@ -3066,9 +2955,6 @@ async function submitPdReview() {
     }
 }
 
-// ============ Live offers + flash sale (merges merchant `offers` with
-// platform-wide `platform_offers` — never invents a discount that isn't
-// actually in either table) ============
 async function loadPdOffersAndFlashSale(data) {
     const offersBlock = document.getElementById('pd-offers-block');
     const offersList = document.getElementById('pd-offers-list');
@@ -3104,7 +2990,6 @@ async function loadPdOffersAndFlashSale(data) {
     } else if (offersBlock) { offersBlock.style.display = 'none'; }
 }
 
-// ============ Seller verification badge (merchants.license_status) ============
 async function loadPdSellerVerification(data) {
     const badge = document.getElementById('pd-seller-verified-badge');
     if (!supabase || !badge) return;
@@ -3117,8 +3002,6 @@ async function loadPdSellerVerification(data) {
     } catch (e) { badge.style.display = 'none'; }
 }
 
-// ============ Delivery availability (reuses the address already on file
-// for this account — never fabricates an ETA) ============
 function renderPdDeliveryBox() {
     const locEl = document.getElementById('pd-delivery-location');
     const etaEl = document.getElementById('pd-delivery-eta');
@@ -3132,10 +3015,6 @@ function renderPdDeliveryBox() {
     }
 }
 
-// ✅ Item 8 — Product Details location row: "Change" opens the address
-// book (Profile → Manage Delivery Addresses), "GPS" uses the live GPS fix
-// directly for this delivery check. Delegated on document so it works no
-// matter when the product page is painted.
 document.addEventListener('click', (e) => {
     const changeBtn = e.target.closest && e.target.closest('#pd-loc-change-btn');
     const gpsBtn = e.target.closest && e.target.closest('#pd-loc-gps-btn');
@@ -3171,8 +3050,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// ============ Frequently bought together (other approved products from
-// the same merchant) ============
 async function loadPdFrequentlyBoughtTogether(data) {
     const block = document.getElementById('pd-fbt-block');
     const listEl = document.getElementById('pd-fbt-list');
@@ -3227,7 +3104,6 @@ function pdMiniCardHtml(prod) {
     </div>`;
 }
 
-// ============ Similar products — OTHER shops only (same category/type) ============
 const PD_LIVE_STATUSES = ['Approved', 'Active'];
 async function loadPdSimilarProducts(data) {
     const block = document.getElementById('pd-similar-block');
@@ -3260,9 +3136,6 @@ async function loadPdSimilarProducts(data) {
     } catch (e) { block.style.display = 'none'; }
 }
 
-// ============ More for you — endless list under "Similar" ============
-// Order: same sub-category -> same category -> same product type -> everything live.
-// The list keeps growing as the shopper scrolls (IntersectionObserver), so the page never dead-ends.
 const __pdMore = { stage: 0, offset: 0, seen: new Set(), loading: false, done: false, data: null, token: 0 };
 function pdMoreReset(data) {
     __pdMore.stage = 0; __pdMore.offset = 0; __pdMore.seen = new Set([String(data.id)]); __pdMore.loading = false; __pdMore.done = false; __pdMore.data = data; __pdMore.token++;
@@ -3313,7 +3186,6 @@ document.addEventListener('DOMContentLoaded', function () {
     new IntersectionObserver(function (en) { if (en[0].isIntersecting) pdMoreLoad(); }, { root: body || null, rootMargin: '400px 0px' }).observe(sent);
 });
 
-// ============ More from this seller ============
 async function loadPdMoreFromSeller(data) {
     const block = document.getElementById('pd-more-seller-block');
     const listEl = document.getElementById('pd-more-seller-list');
@@ -3354,10 +3226,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (qtyMinus) qtyMinus.addEventListener('click', () => {
         __pdQty = Math.max(1, __pdQty - 1);
         if (qtyEl) qtyEl.textContent = String(__pdQty);
+        mfRenderPackBox(__pdCurrentData, __pdQty);
     });
     if (qtyPlus) qtyPlus.addEventListener('click', () => {
         __pdQty = __pdQty + 1;
         if (qtyEl) qtyEl.textContent = String(__pdQty);
+        mfRenderPackBox(__pdCurrentData, __pdQty);
     });
 
     const addBtn = document.getElementById('pd-add-to-cart-btn');
@@ -3475,15 +3349,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (wrSubmit) wrSubmit.addEventListener('click', submitPdReview);
 });
 
-/* ============================================================
-   SHOP DETAIL — in-app page (page-shop-detail). Replaces the old,
-   separate shop-details.html file (never actually reachable from a
-   real deployment path) with the same SPA pattern already used for
-   Product Detail: fill the page's DOM in place, then navigateTo()
-   shows it — no page reload, works identically everywhere the app
-   already runs, and Back always returns to where the shop was
-   opened from.
-   ============================================================ */
 let __sdCurrentMerchantId = null;
 let __sdReturnPage = 'shops';
 let __sdAllProducts = [];   // full product list for the open shop
@@ -3591,10 +3456,6 @@ function renderShopDetail(m, totalOrders) {
         else { logoImg.style.display = 'none'; }
     }
 
-    // Open/Closed — merchants.status is the only operational-state column
-    // that exists today; there's no opening-hours table yet, so the badge
-    // reflects account status (active = accepting orders) and the hours
-    // line honestly says "not available" instead of guessing a schedule.
     const statusBadge = document.getElementById('sd-status-badge');
     const isActive = ['active', 'approved'].includes(String(m.status || '').toLowerCase());
     if (statusBadge) {
@@ -3878,11 +3739,6 @@ function updateProductCount() {
     badge.textContent = `${count} items`;
 }
 
-// Item 5: Rx medicines are no longer blocked from the cart entirely. They're
-// added like anything else, but flagged unverified (rxVerified: false) until
-// their OWN prescription is uploaded from the cart page. A confirmation
-// message explains this and offers to take the user to the cart — it no
-// longer force-navigates to the home page.
 function addToCart(product) {
     const isControlledRx = product.isRx === true || product.isRx === 'true';
     const existing = currentCart.find(item => String(item.id) === String(product.id));
@@ -3893,26 +3749,15 @@ function addToCart(product) {
             id: product.id,
             name: product.name,
             price: parseFloat(product.price),
-            // ✅ NEW: MRP/listing price carried alongside the selling price so
-            // return-eligibility (₹299+ rule) can look at whichever is higher,
-            // exactly like the product card already does for the strike-through.
             mrp: parseFloat(product.mrp || product.price) || parseFloat(product.price) || 0,
             img: product.img,
             qty: 1,
             isRx: isControlledRx,
             rxVerified: isControlledRx ? false : true,
             merchantId: product.merchantId || product.merchant_id || '',
-            // Used by the Shiprocket rate lookup on Standard delivery (see
-            // refreshShiprocketRateAndBill()). Falls back to 0.5kg for any
-            // product that doesn't carry a real weight_kg yet, so an old/
-            // unweighed product never blocks a Shiprocket rate call.
             weight: parseFloat(product.weightKg || product.weight_kg) || 0.5,
             exempt_platform_fee: product.id === "p2",
             exempt_processing_charge: product.id === "p4",
-            // ✅ FIXED: this was read at checkout (see the "sponsor_discount_claims"
-            // insert further down) but never actually set anywhere, so a sponsored
-            // slot's one-time discount claim was never recorded. Now carried through
-            // from openSponsoredOfferModal() when a shopper adds a sponsored deal.
             sponsorDiscountSlotId: product.sponsorDiscountSlotId || null
         });
     }
@@ -3927,10 +3772,6 @@ function addToCart(product) {
     updateCartNavBadge();
 }
 
-// Replaces the old blockForMissingPrescription() flow for the "add to cart"
-// moment specifically — the medicine IS already in the cart at this point,
-// so Confirm just takes the user to the cart (where the real upload lives)
-// instead of redirecting to the home page and dropping the item.
 function promptRxUploadOnAdd(name) {
     const msg = `"${name}" requires a doctor's prescription. It has been added to your cart — please upload the prescription there to continue with your order.`;
     const onCartPage = !!document.getElementById('cart-items-container');
@@ -3942,20 +3783,6 @@ function promptRxUploadOnAdd(name) {
         showToast(`${name} added — upload its prescription in the cart to continue.`, "info");
     }
 }
-
-// ============================================================
-// CART PAGE
-// ============================================================
-// ✅ NEW — "This medicine is for" picker. Injected once (idempotent) right
-// above the Place Order button; reuses the existing patientsData array
-// (populated from the real `patients` table) — never a second patient
-// system. Selection is stored in-memory only and read by
-// processFinalOrderPayload() when building the real order row.
-    // ✅ Item 3: removed the duplicate "This medicine is for" Self/Add-patient
-    // box that used to be injected here, right above Place Order. The single
-    // "Ordering For" chip row at the top of the cart (renderCartPatientChips)
-    // is now the only patient picker — see cartActivePatientId, used directly
-    // in the order payload below instead of the old selectedOrderPatient.
 
 function setupCartPageModules() {
     if (!document.getElementById('cart-items-container')) return;
@@ -3977,8 +3804,6 @@ function setupCartPageModules() {
     const saveAddrBtn = document.getElementById('save-address-btn');
     if (saveAddrBtn) saveAddrBtn.addEventListener('click', saveDeliveryAddress);
 
-    // Item 10: Edit opens the form pre-filled with the saved address (instead
-    // of a blank form) so editing means editing, not starting over.
     const changeAddrBtn = document.getElementById('change-address-btn');
     if (changeAddrBtn) changeAddrBtn.addEventListener('click', () => {
         const addrForm = document.getElementById('address-form');
@@ -3987,8 +3812,6 @@ function setupCartPageModules() {
         if (savedBox) savedBox.style.display = 'none';
     });
 
-    // Item 10: with no saved address at all, the form stays hidden until the
-    // person explicitly taps "Add Now" — it no longer shows by default.
     const addNowBtn = document.getElementById('add-now-address-btn');
     if (addNowBtn) addNowBtn.addEventListener('click', () => {
         const addrForm = document.getElementById('address-form');
@@ -4118,17 +3941,6 @@ function setupCartPageModules() {
     const stickyPlaceBtn = document.getElementById('place-order-sticky-btn');
     if (stickyPlaceBtn) stickyPlaceBtn.addEventListener('click', handlePlaceOrderClick);
 
-    // ✅ Item 3: duplicate patient picker removed — the "Ordering For" chip
-    // row at the top of the cart is now the only place to pick Self/patient.
-
-    // Delegated backup handlers for qty +/- and remove — the container's
-    // innerHTML gets fully replaced every time the cart changes, and relying
-    // only on freshly-injected inline onclick="" attributes was unreliable
-    // (some webviews don't consistently re-bind them, and any special
-    // character in an id could silently break the inline attribute string).
-    // Delegating from the container itself — which is never replaced —
-    // guarantees the tap always resolves correctly. Existing onclick=""
-    // attributes are left in place as-is, this is purely an added safety net.
     const cartItemsContainerEl = document.getElementById('cart-items-container');
     if (cartItemsContainerEl && !cartItemsContainerEl.dataset.delegatedBound) {
         cartItemsContainerEl.dataset.delegatedBound = '1';
@@ -4177,10 +3989,6 @@ function setupCartPageModules() {
     }
 }
 
-// Item 10: the cart's delivery-address box now shows the SAME address book
-// used on the profile page (`user_addresses`, address1/address2) instead of
-// a separate address only ever saved locally to this one browser. Falls back
-// to the old local `medi_delivery_address` for a guest / offline session.
 async function loadCartDeliveryAddress() {
     const addNowBtn = document.getElementById('add-now-address-btn');
     const form = document.getElementById('address-form');
@@ -4258,9 +4066,6 @@ function renderCartPatientChips() {
             <i class="fa-solid ${c.id === 'self' ? 'fa-user' : 'fa-user-injured'}"></i> ${mfEsc(c.name)}
         </div>
     `).join('');
-    // ✅ Item 3: the "ORDERING FOR" heading above now reflects who is
-    // actually selected (was previously just a hardcoded "Patient" label
-    // that never changed, which read as broken).
     const nameEl = document.getElementById('cart-active-patient-name');
     if (nameEl) nameEl.textContent = (chips.find(c => c.id === cartActivePatientId) || chips[0]).name;
 }
@@ -4271,11 +4076,6 @@ window.selectCartPatient = function(id) {
     renderCartPatientChips();
 };
 
-// Admin controls which pincodes get 30-min / same-day via the same
-// service_zones table checkPincodeServiceability() already reads. Standard
-// (5-7 day) delivery always stays available regardless of pincode — only
-// the two fast options get locked out for a pincode the admin hasn't
-// approved yet.
 async function refreshDeliverySpeedAvailability(pincode) {
     const hint = document.getElementById('delivery-speed-hint');
     const expressCard = document.querySelector('#delivery-speed-options .speed-option-card[data-speed="express"]');
@@ -4328,10 +4128,6 @@ function showSavedAddress(addr) {
     if (box) box.style.display = 'block';
     if (addNowBtn) addNowBtn.style.display = 'none';
     if (display) {
-        // Real tag ("Home"/"Work"/etc.) instead of a hardcoded "HOME", plus a
-        // DEFAULT badge (matching the same addr-default-badge styling used in
-        // the Manage Addresses list) whenever this address is the saved default —
-        // so the auto-selected address is visibly marked as such, per spec.
         const tagLabel = (addr.tag || 'Home').toUpperCase();
         const defaultBadge = addr.isDefault ? '<span class="addr-default-badge">DEFAULT</span>' : '';
         display.innerHTML = `
@@ -4354,11 +4150,6 @@ function showSavedAddress(addr) {
     if (editingIdEl) editingIdEl.value = addr.id || '';
 }
 
-// Checks the pincode against the admin's service_zones registry (same table
-// the admin "Network Area Control" panel manages via Launch Zone Live /
-// Suspend Zone). A pincode with no row at all means that area hasn't been
-// launched yet; a row with status 'suspended' means it was launched but is
-// temporarily paused — both are treated as unavailable.
 async function checkPincodeServiceability(pincode) {
     if (!supabase || !pincode) return { available: true }; // fail-open on setup issues, never brick checkout over a network hiccup
     try {
@@ -4394,7 +4185,6 @@ async function saveDeliveryAddress() {
         return;
     }
 
-    // Double-tap guard (slow network used to let people tap Save 2-3 times)
     if (window.__addrSaving) return;
     window.__addrSaving = true;
     setTimeout(() => { window.__addrSaving = false; }, 1500);
@@ -4411,7 +4201,6 @@ async function saveDeliveryAddress() {
     recalculateBill();
     refreshShiprocketRateAndBill();
 
-    // 🔄 BACKGROUND (non-blocking): fast-delivery zone info + sync to user_addresses
     const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
     (async () => {
         try {
@@ -4518,17 +4307,6 @@ function renderCartPage() {
     const container = document.getElementById('cart-items-container');
     if (!container) return;
 
-    // Defensive sanitation: a null/undefined/malformed entry anywhere in
-    // currentCart used to make the entire list below throw partway through
-    // .map() — since the throw happens INSIDE the map callback, the
-    // container.innerHTML assignment never completes, so the page keeps
-    // showing whatever was there before (often the very first "cart is
-    // empty" placeholder) forever after — while everything that reads
-    // currentCart independently (the bottom-nav badge, recalculateBill's
-    // total) kept working fine, since neither of those touches the broken
-    // entry the same way. That's exactly "count/total update but no items
-    // show." Dropping bad entries here — and persisting the cleanup — means
-    // one broken row can never blank the whole cart again.
     const cleanCart = currentCart.filter(item => item && typeof item === 'object' && item.id);
     if (cleanCart.length !== currentCart.length) {
         console.warn(`renderCartPage: dropped ${currentCart.length - cleanCart.length} invalid cart item(s)`);
@@ -4566,8 +4344,6 @@ function renderCartPage() {
                 ? '<span class="cart-item-rx" style="background:#fff0f0;color:#ff4d4d;border:1px solid #ff4d4d;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-triangle-exclamation"></i> Rx</span>'
                 : '<span class="cart-item-rx" style="background:#f0fff5;color:#2ed573;border:1px solid #2ed573;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Rx Verified</span>')
             : '';
-        // Item 5: a per-item green tick over the thumbnail once THIS item's
-        // own prescription has been uploaded and verified — not a global flag.
         const rxTick = (isRxItem && item.rxVerified) ? '<span class="cart-item-rx-tick" style="position:absolute;bottom:-4px;right:-4px;background:#2ed573;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;border:2px solid #fff;"><i class="fa-solid fa-check"></i></span>' : '';
         const uploadRow = rxBlocked ? `
                     <div class="cart-rx-upload-row" style="display:flex;gap:8px;margin-top:6px;">
@@ -4619,10 +4395,6 @@ function renderCartPage() {
     updateCartNavBadge();
 }
 
-// Item 5 + Item 3: uploading a cart-item's prescription both marks that
-// specific item verified (green tick, order unblocked) AND immediately
-// broadcasts the slip to nearby pharmacies, reusing the same notification
-// pipeline as the home page prescription-upload widget.
 let pendingRxCartItemId = null;
 async function handleCartRxUpload(file) {
     if (!file) return;
@@ -4641,14 +4413,6 @@ async function handleCartRxUpload(file) {
         }
         const fileExt = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
         const storagePath = `live_slips/cart_${Date.now()}_${targetId}.${fileExt}`;
-        // NOTE: this used to pass { upsert: true }. The path is already unique
-        // (timestamp + cart item id), so upsert was never actually needed —
-        // and upsert makes supabase-js send an "x-upsert" header, which the
-        // storage API only honours when the bucket's RLS policy also grants
-        // UPDATE (not just INSERT). Only an INSERT policy exists here (same as
-        // the working home-page prescription upload, which never sets upsert),
-        // so the UPDATE-permission check was failing server-side with a plain
-        // 400 Bad Request. Dropping upsert makes this match that working path.
         const { error } = await supabase.storage.from('media').upload(storagePath, file, {
             contentType: file.type || 'image/jpeg'
         });
@@ -4720,13 +4484,6 @@ window.removeFromCart = function(id) {
     updateCartNavBadge();
 };
 
-// ============================================================
-// BOTTOM NAV — LIVE CART QUANTITY BADGE ("Cart (3)")
-// Reuses the existing currentCart/localStorage cart — no separate cart
-// system. Finds the Cart tile inside #bottom-nav via data-page="cart" (same
-// attribute setActiveNavIcon() already relies on) and keeps a small badge
-// element inside it in sync. Safe no-op if the bottom nav isn't on the page.
-// ============================================================
 function updateCartNavBadge() {
     const cartNavItem = document.querySelector('#bottom-nav .nav-item[data-page="cart"]');
     if (!cartNavItem) return;
@@ -4759,38 +4516,17 @@ function updateCartNavBadge() {
     }
 }
 
-// ============================================================
-// DISTANCE + PRICE BASED DELIVERY FEE ENGINE
-// The merchant sets their shop's real GPS location from the "Geolocation &
-// Address Config" panel (marchentprofile.html -> merchants.latitude /
-// merchants.longitude). The customer's live GPS (userLiveLat/userLiveLng,
-// see detectLiveUserGPSCoordinates()) is compared against every merchant
-// present in the cart via haversineKm(), and the FARTHEST shop distance
-// decides which distance band applies (worst case, since one delivery run
-// has to reach every shop in the cart). Within that band, the order
-// subtotal decides which price sub-band applies. ₹499+ subtotal is always
-// FREE on all four charges, regardless of distance.
-// ============================================================
 const FREE_DELIVERY_THRESHOLD = 499;
 let cartDeliveryDistanceKm = null; // cached by refreshDeliveryDistanceAndBill() — real OSRM road distance when available, Haversine fallback otherwise
 let cartDeliveryEtaMin = null;     // cached alongside it — OSRM road ETA in minutes; null when only the Haversine fallback was available
 
 function getDeliveryFeeTierByDistance(distanceKm, subtotal) {
-    // Distance bands: <=5km, <=12km, >12km. Only three distance figures were
-    // given (5km / 12km / "50km or more"), with nothing specified for the
-    // 12–50km gap, so everything past 12km uses the long-distance ("50km+")
-    // band. Unknown distance (no GPS fix / merchant location not set yet)
-    // also falls back to this band so delivery is never under-charged.
     let band;
     if (distanceKm === null || distanceKm === undefined || isNaN(distanceKm)) band = 'far';
     else if (distanceKm <= 5) band = 'near';
     else if (distanceKm <= 12) band = 'mid';
     else band = 'far';
 
-    // Price sub-band: under ₹150 pays the higher rate; ₹150 up to just under
-    // the ₹499 free-delivery cutoff pays the reduced rate (only ₹150 and
-    // ₹299 thresholds were given, and nothing further, so ₹299–₹498 reuses
-    // the ₹299 figures as the lowest paid tier before delivery becomes free).
     const priceBand = subtotal < 150 ? 'low' : 'mid';
 
     const FEE_TABLE = {
@@ -4810,15 +4546,6 @@ function getDeliveryFeeTierByDistance(distanceKm, subtotal) {
     return FEE_TABLE[band][priceBand];
 }
 
-// Looks up every merchant present in the cart, computes the farthest shop
-// distance from the customer's live GPS, caches it in cartDeliveryDistanceKm,
-// then re-runs recalculateBill() so the bill reflects the real distance band
-// instead of the unknown-distance fallback. Safe to call anytime the cart or
-// the user's location changes — it always ends by calling recalculateBill().
-// ✅ Real product ratings: medicines.rating is just a default "4.5" that was
-// never a real customer rating. The average now comes from actual rows in
-// product_reviews; a product with no reviews shows "New" instead of a fake
-// score. Results are cached so every product grid reads the same numbers.
 const mfRealRatings = {}; // medicine id -> { avg, count }
 async function mfLoadRealRatings(ids) {
     try {
@@ -4837,11 +4564,6 @@ function mfRealRatingFor(prod) {
     return r && r.count > 0 ? Math.round(r.avg * 10) / 10 : 0;
 }
 
-// ✅ Real delivery distance: measured from the shop to the address the
-// customer is actually delivering to (geocoded from its pincode/city and
-// cached), NOT from the live GPS — which sits on a hard-coded Kolkata
-// fallback until a real fix lands, and made every far-off shop look 400km+
-// away. Live GPS is only used when the address can't be located.
 async function resolveActiveDeliveryCoords() {
     try {
         const a = JSON.parse(localStorage.getItem('medi_delivery_address') || 'null');
@@ -4873,11 +4595,6 @@ async function refreshDeliveryDistanceAndBill() {
         const { data, error } = await supabase.from('merchants_public').select('id, latitude, longitude').in('id', merchantIds);
         if (error || !data || data.length === 0) { recalculateBill(); return; }
 
-        // Worst-case shop decides the fee band (one delivery run has to reach
-        // every shop in the cart), same rule as before — but now the distance
-        // for each shop is the real OSRM road distance when it resolves, with
-        // a safe Haversine fallback per-shop if OSRM is slow/unreachable. The
-        // page never breaks or blocks on a routing failure.
         const validMerchants = data.filter(m => m.latitude && m.longitude);
         if (validMerchants.length === 0) { cartDeliveryDistanceKm = null; cartDeliveryEtaMin = null; recalculateBill(); return; }
 
@@ -4902,23 +4619,6 @@ async function refreshDeliveryDistanceAndBill() {
     }
 }
 
-// ============================================================
-// SHIPROCKET-BASED DELIVERY CHARGE — STANDARD DELIVERY ONLY
-// Standard ("manual") is the speed that actually ships via courier, so its
-// charge comes from a real Shiprocket rate instead of the flat distance
-// table above. Express/Same-day are MediFinder's own fast-rider promises
-// and keep using the distance table — Shiprocket doesn't run those.
-//
-// Each merchant in the cart is its own pickup point, so the `shiprocket`
-// Supabase Edge Function is called once per merchant (pickup pincode =
-// that merchant's merchants.pincode, delivery pincode = the customer's
-// saved address pincode, weight = that merchant's cart items' weight(kg) ×
-// qty, cod = whether COD is selected) and the rates are summed into
-// cartShiprocketRate. Any failure (network, missing pincode, Shiprocket
-// error) fails OPEN back to the distance table — same "never brick
-// checkout" pattern as checkPincodeServiceability() — never blocks the
-// customer from placing an order.
-// ============================================================
 let cartShiprocketRate = null;           // cached total Standard-delivery ₹ from Shiprocket, or null when not available/applicable
 let cartShiprocketUnserviceable = false; // true only when Shiprocket explicitly reported no courier for this pincode pair
 
@@ -4941,10 +4641,6 @@ async function fetchShiprocketRateForMerchant(pickupPincode, deliveryPincode, we
     }
 }
 
-// Safe to call from anywhere (speed change, address change, payment method
-// change, cart load) — it no-ops back to the distance table whenever
-// Standard isn't selected or a rate can't be resolved, and always ends by
-// calling recalculateBill() so the screen reflects whatever it found.
 async function refreshShiprocketRateAndBill() {
     if (selectedDeliverySpeed !== 'manual') {
         cartShiprocketRate = null;
@@ -5009,12 +4705,6 @@ async function refreshShiprocketRateAndBill() {
     }
 }
 
-// Standard delivery uses the live Shiprocket total when one's been resolved
-// for the current address/cart/payment method; otherwise (Shiprocket still
-// loading, unreachable, or returned nothing) it falls back to a flat ₹15 —
-// per explicit request, instead of the old distance-tier guess — so the
-// bill line is never blank. Express/Same-day speeds are unaffected: they
-// don't use Shiprocket at all and keep their own flat speed fee (₹20/₹10).
 function getStandardDeliveryFee(tierDeliveryFee) {
     if (selectedDeliverySpeed !== 'manual') return tierDeliveryFee;
     if (typeof cartShiprocketRate === 'number') return cartShiprocketRate;
@@ -5114,19 +4804,6 @@ function generateSecureSixDigitOTP() {
     return String(100000 + (buf[0] % 900000));
 }
 
-// ============================================================
-// UPI INTENT / DEEP-LINK PAYMENT — direct merchant VPA, no gateway
-// Merchant VPA: 9593625498@ibl  |  Payee name: MediFinder
-//
-// This ONLY builds and launches a upi://pay deep link so the customer's own
-// UPI app (PhonePe/GPay/Paytm/etc.) opens with the amount pre-filled. No
-// PIN, card, or secret key is ever collected on this site — the PIN is
-// entered inside the customer's own UPI app. A plain deep link gives no
-// callback, so this code NEVER marks an order "Paid" just because the link
-// was opened — the shopper has to explicitly confirm with "Payment
-// Completed" (see the #upi-payment-confirm step below), and even then the
-// order is only saved as payment_verification_status "pending" until
-// MediFinder's team verifies it from the admin panel.
 const UPI_PAYEE_VPA = "9593625498@ibl";
 const UPI_PAYEE_NAME = "MediFinder India";
 
@@ -5160,10 +4837,6 @@ function hideUpiPaymentConfirmStep() {
     if (confirmStep) confirmStep.style.display = 'none';
 }
 
-// Builds upi://pay?pa=...&pn=...&am=...&cu=INR&tn=... with correct
-// URL-encoding (encodeURIComponent turns "@" into "%40" and spaces into
-// "%20"). orderIdForNote is the reserved order id so the note the customer
-// sees inside their UPI app already names the real MediFinder order.
 function buildUpiDeepLink(amountRupees, orderIdForNote) {
     const amt = (Math.round((parseFloat(amountRupees) || 0) * 100) / 100).toFixed(2);
     let link = `upi://pay?pa=${encodeURIComponent(UPI_PAYEE_VPA)}&pn=${encodeURIComponent(UPI_PAYEE_NAME)}&am=${amt}&cu=INR`;
@@ -5171,11 +4844,6 @@ function buildUpiDeepLink(amountRupees, orderIdForNote) {
     return link;
 }
 
-// "PAY NOW" (UPI App card) handler. Mobile-only intent launch; desktop just
-// shows a message pointing at the QR option. Uses the standard
-// visibility/blur heuristic to guess whether a UPI app actually intercepted
-// the link, purely to decide whether to reveal the "Have you completed the
-// payment?" confirmation step — this is NOT payment confirmation itself.
 function handlePayWithUpiClick() {
     const statusMsg = document.getElementById('upi-pay-status-msg');
     const showStatus = (text, color) => {
@@ -5217,12 +4885,6 @@ function handlePayWithUpiClick() {
     }, 2000);
 }
 
-// Entry point for the main/sticky "Place Order" buttons. For COD it goes
-// straight to processFinalOrderPayload() as before. For ONLINE it never
-// places an order directly — the shopper must go through the UPI-app or
-// QR card above and tap "Payment Completed" there (that button calls
-// processFinalOrderPayload() itself); this just guides them to it so a
-// stray tap on the main button can't silently create an unpaid order.
 async function handlePlaceOrderClick() {
     // Public-home flow: a guest can browse and fill a cart, but placing an order
     // needs an account. The cart (localStorage) survives the login round-trip.
@@ -5244,20 +4906,12 @@ async function processFinalOrderPayload() {
         showToast("Please enter your delivery address first!", "error");
         return;
     }
-    // Item 5: each Rx item now needs its OWN uploaded/verified prescription
-    // (item.rxVerified, set once that specific item's camera/gallery upload
-    // succeeds in the cart) rather than one global flag for the whole cart.
     const unverifiedRxItem = currentCart.find(item => (item.isRx === true || item.isRx === 'true') && !item.rxVerified);
     if (unverifiedRxItem) {
         showToast(`Order blocked! Upload prescription for "${unverifiedRxItem.name}" first.`, "error");
         return;
     }
 
-    // ✅ Standard (5-7 day) delivery is available for every pincode in India —
-    // only the fast 30-Min / Same-Day speeds are gated by the admin's
-    // service_zones list. This check used to run unconditionally and would
-    // incorrectly block a plain Standard order too for a pincode the admin
-    // simply hasn't added to that list yet.
     if (selectedDeliverySpeed !== 'manual') {
         const zoneCheckAtOrder = await checkPincodeServiceability(addr.pincode);
         if (!zoneCheckAtOrder.available) {
@@ -5308,13 +4962,6 @@ async function processFinalOrderPayload() {
     if (stickyPlaceBtn) { stickyPlaceBtn.disabled = true; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
     if (paymentCompletedBtn) { paymentCompletedBtn.disabled = true; paymentCompletedBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; }
 
-    // Direct UPI/QR payment, no gateway: this only reaches here after the
-    // shopper explicitly tapped "Payment Completed" on the confirmation step
-    // (see showUpiPaymentConfirmStep/handlePlaceOrderClick above) — there is
-    // still no automatic way to confirm the money actually arrived, so the
-    // order is saved as payment_verification_status "pending" below and only
-    // flips to "verified" once MediFinder's admin team checks it manually.
-
     try {
     const primaryMerchantId = currentCart.find(item => item.merchantId)?.merchantId || null;
     let physicalDistanceKm = Math.sqrt(Math.pow(userLiveLat - shopCoordinates.lat, 2) + Math.pow(userLiveLng - shopCoordinates.lng, 2)) * 111;
@@ -5363,17 +5010,11 @@ async function processFinalOrderPayload() {
         }
     }
 
-    // Item: carry the uploaded prescription slip(s) through to the real order row so the
-    // merchant panel can actually display it (previously this was never saved on `orders`).
     const rxCartItems = currentCart.filter(i => i.rxVerified && i.prescriptionUrl);
     const orderPrescriptionRequired = rxCartItems.length > 0;
     const orderPrescriptionUrl = rxCartItems.length > 0 ? rxCartItems[0].prescriptionUrl : null;
     rxCartItems.forEach(i => addToPrescriptionBox({ fileName: 'Prescription - ' + (i.name || 'order'), url: i.prescriptionUrl, source: 'order', orderId: orderId }));
 
-    // For COD, payment_mode stays exactly "COD" as before. For online orders
-    // it's saved as the specific method used ("UPI" or "UPI_QR") — matching
-    // the value marchentorders.html's getPaymentDisplay() already recognizes
-    // — instead of the generic "ONLINE" the radio button's value carries.
     const paymentModeToSave = selectedPaymentMethod === "COD" ? "COD" : (selectedOnlinePaymentMethod || "UPI");
 
     const orderPayload = {
@@ -5408,11 +5049,6 @@ async function processFinalOrderPayload() {
         merchant_id: primaryMerchantId,
         prescription_required: orderPrescriptionRequired,
         rx_prescription_url: orderPrescriptionUrl,
-        // ✅ Item 3 fix: "This medicine is for" now comes from the single
-        // patient selector at the TOP of the cart ("Ordering For" chips —
-        // Self / saved patients) instead of a second, duplicate Self/Add
-        // Patient picker that used to be injected again just above the
-        // Place Order button. One patient-selection UI, not two.
         patient_id: (cartActivePatientId && cartActivePatientId !== 'self') ? cartActivePatientId : null,
         patient_name: (cartActivePatientId && cartActivePatientId !== 'self') ? (patientsData.find(p => p.id === cartActivePatientId)?.name || null) : null,
         // Per-component bill breakdown — read by order-receipt.html so the
@@ -5445,12 +5081,6 @@ async function processFinalOrderPayload() {
     if (supabase) {
         try {
             let { data: insertedOrder, error } = await supabase.from('orders').insert([orderPayload]).select().single();
-            // Several columns here (patient_id/patient_name, and the new bill-
-            // breakdown columns below) are optional additions that may not
-            // exist yet on every deployment's `orders` table — PostgREST
-            // rejects the WHOLE insert over a single unknown column, so on
-            // that specific error this strips the column it named and
-            // retries, instead of failing order placement entirely.
             let payloadForRetry = orderPayload;
             let retryGuard = 0;
             while (error && retryGuard < 12 && /column .*(does not exist|not found)|could not find/i.test(error.message || '')) {
@@ -5479,7 +5109,7 @@ async function processFinalOrderPayload() {
                     if (medIds.length) {
                         const medRes = await Promise.race([
                             supabase.from('medicines').select('*').in('id', medIds),
-                            new Promise(r => setTimeout(() => r(null), 5000))
+                            new Promise(r => setTimeout(() => r(null), 2000))
                         ]);
                         (medRes && medRes.data || []).forEach(m => { medMap[String(m.id)] = m; });
                     }
@@ -5501,11 +5131,6 @@ async function processFinalOrderPayload() {
                     total_price: item.price * item.qty,
                     status: 'active',
                     merchant_id: item.merchantId || primaryMerchantId || null,
-                    // ✅ NEW: best-effort MRP column, used later by the Order Detail
-                    // return-eligibility check (₹299+ rule). If the 'order_items'
-                    // table doesn't actually have this column yet, the insert below
-                    // falls back to the original, safe payload automatically instead
-                    // of failing the whole order-items save.
                     mrp: item.mrp || item.price
                     };
                 });
@@ -5520,10 +5145,6 @@ async function processFinalOrderPayload() {
                         showToast("Order items save error: " + (e2.message || e2), "error");
                     }
                 }
-                // Mark the applied coupon as used now that the order has
-                // actually gone through — checks the right table depending
-                // on whether it was the user's own earned coupon (user_coupons)
-                // or a general public code (coupons), so it can't be reused.
                 if (appliedCouponInfo && appliedCouponInfo.id) {
                     try {
                         const couponTable = appliedCouponInfo.source === 'personal' ? 'user_coupons' : 'coupons';
@@ -5570,10 +5191,6 @@ async function processFinalOrderPayload() {
                 }
                 for (const item of currentCart) {
                     if (item.id && item.qty) {
-                        // supabase-js resolves with {error} on a failed RPC call, it does
-                        // NOT throw — so the try/catch fallback here never actually ran
-                        // when decrement_stock was missing (404), and stock silently never
-                        // decremented. Check the returned error explicitly instead.
                         try {
                             const { error: rpcErr } = await supabase.rpc('decrement_stock', { med_id: item.id, qty: item.qty });
                             if (rpcErr) throw rpcErr;
@@ -5674,10 +5291,6 @@ async function processFinalOrderPayload() {
         hideUpiPaymentConfirmStep();
     }
 
-    // Cart is intentionally left as-is here. The order is already saved to the
-    // orders table (i.e. archived) — auto-wiping the cart on top of that was
-    // the reported bug. Items now only leave the cart when the user removes
-    // them via the existing per-item delete button.
     } finally {
         if (placeOrderBtn) { placeOrderBtn.disabled = false; placeOrderBtn.innerHTML = ''; }
         if (stickyPlaceBtn) { stickyPlaceBtn.disabled = false; stickyPlaceBtn.innerHTML = '<i class="fa-solid fa-bag-shopping"></i> Place Order'; }
@@ -5733,21 +5346,6 @@ function createConfetti() {
     setTimeout(function(){ container.innerHTML = ''; }, 4000);
 }
 
-// ============================================================
-// ORDERS PAGE
-// ============================================================
-// Turns a `prescription_orders` row into the same shape renderOrdersUI
-// already knows how to draw a card for — the prescription photo stands in
-// for a product image, and there's no billed total yet since the pharmacy
-// hasn't confirmed/priced the medicines.
-// ============================================================
-// ORDER SYSTEM HELPERS — added for the unified "My Orders" page,
-// the Order Detail view, its bill box, status timeline, delivery-status
-// display logic, and return eligibility. All of these are pure, defensive
-// helpers: every one of them safely handles missing/null/string values so
-// nothing here can throw and break order rendering (see item 17).
-// ============================================================
-
 // Safely turns any price-ish value (number, numeric string, "₹1,234.50",
 // null, undefined) into a clean float. Never throws, never returns NaN.
 function safeParseCurrency(val) {
@@ -5764,10 +5362,6 @@ function formatRupees(val) {
     return `₹${n.toFixed(2)}`;
 }
 
-// Parses whatever date representation an order might carry
-// (date_string in "DD/MM/YYYY" en-GB form, an ISO created_at/delivered_at,
-// or nothing at all) into a real Date, or null if it can't be parsed —
-// callers must null-check rather than assume a valid Date comes back.
 function safeParseOrderDate(order) {
     if (!order) return null;
     const candidates = [order.delivered_at, order.created_at, order.date_string];
@@ -5787,11 +5381,6 @@ function safeParseOrderDate(order) {
     return null;
 }
 
-// Merges the active + completed order caches into ONE de-duplicated,
-// newest-first list — this is what removes the dependency on separate
-// "Active"/"History" tabs while still reusing all the existing
-// localStorage caching that refreshOrdersFromServer()/realtime already
-// maintain, so nothing about how orders get fetched/cached changes.
 function getUnifiedOrdersList() {
     const active = JSON.parse(localStorage.getItem('medi_active_orders') || '[]') || [];
     const completed = JSON.parse(localStorage.getItem('medi_completed_orders') || '[]') || [];
@@ -5814,11 +5403,6 @@ function getUnifiedOrdersList() {
     return merged;
 }
 
-// Item 6 — DELIVERY STATUS LOGIC. This is purely a display-layer mapping;
-// it never writes back to the order's real backend `status` field. For any
-// "in transit" backend status, it uses eta_minutes (when available) to
-// decide between "Shipped" (long-haul, >1 day out) and "Out for Delivery"
-// (short/local leg, currently moving) — exactly as requested.
 function getOrderDisplayStatus(order) {
     const s = (order?.status || '').toLowerCase();
     const map = {
@@ -5842,9 +5426,6 @@ function getOrderDisplayStatus(order) {
     return map[s] || (order?.is_prescription_order ? (s === 'accepted' ? 'Accepted' : 'Pending') : (order?.status || 'Pending'));
 }
 
-// Item 5 — full order-status timeline for the Order Detail view.
-// Cancelled orders get their own short, honest timeline instead of a
-// half-finished "Delivered" progress bar.
 function buildOrderStatusTimeline(order) {
     const s = (order?.status || '').toLowerCase();
     if (s === 'cancelled') {
@@ -5870,10 +5451,6 @@ function buildOrderStatusTimeline(order) {
     return stages.map(st => ({ label: st.label, done: currentIdx >= st.idx, active: currentIdx === st.idx }));
 }
 
-// Fetches the most recent return request (if any) for this order, so the
-// Order Detail sheet can show a real pickup-status timeline once a return
-// has been submitted — instead of the customer only ever seeing the return
-// reason they picked with no visibility into what happens after.
 async function fetchReturnForOrder(orderId) {
     if (!supabase || !orderId) return null;
     try {
@@ -5885,12 +5462,6 @@ async function fetchReturnForOrder(orderId) {
     }
 }
 
-// Mirrors buildOrderStatusTimeline()'s stage/dot pattern, but for the
-// pickup/refund lifecycle of a return request: Requested -> Approved ->
-// Pickup Scheduled -> Picked Up -> Refunded (or Rejected, shown like a
-// cancellation). Reads whatever the merchant/admin side has set on the
-// `returns` row (status, pickup_date) — degrades gracefully to just
-// "Requested" if nothing further has been updated yet.
 function buildReturnStatusTimeline(ret) {
     const s = (ret?.status || 'pending').toLowerCase();
     const isEx = String(ret?.request_type || '').toLowerCase() === 'exchange';
@@ -5913,10 +5484,6 @@ function buildReturnStatusTimeline(ret) {
     return stages.map(st => ({ label: st.label, done: currentIdx >= st.idx, active: currentIdx === st.idx }));
 }
 
-// Fetches the real line items for an order from `order_items` (the table
-// processFinalOrderPayload() already writes to) so the Order Detail bill box
-// and return-eligibility check can use real per-product prices instead of
-// guessing from the order total alone. Always resolves — never throws.
 async function fetchOrderLineItems(orderId) {
     if (!supabase || !orderId || String(orderId).startsWith('RX-')) return [];
     try {
@@ -5928,10 +5495,6 @@ async function fetchOrderLineItems(orderId) {
     }
 }
 
-// ✅ NEW — Order Page premium merge (Item: pharmacy/shop name on cards).
-// Simple in-memory cache so re-rendering Orders repeatedly never re-queries
-// the same merchant row twice — keeps this fully real-data-driven without
-// hammering Supabase on every renderOrdersUI() call.
 const _merchantNameCache = {};
 async function getMerchantNameCached(merchantId) {
     if (!merchantId) return '';
@@ -5947,10 +5510,6 @@ async function getMerchantNameCached(merchantId) {
     }
 }
 
-// ✅ NEW — Invoice / Receipt button. Opens the user's EXISTING
-// order-receipt.html with the real order_id (+ merchant_id when known).
-// Never generates a new receipt page, a Blob invoice, or a temporary file —
-// order-receipt.html itself is left completely untouched.
 window.openOrderInvoice = function (orderId, merchantId, autoDownload) {
     if (!orderId) { showToast("Invoice not available for this order.", "error"); return; }
     window.open(
@@ -5960,13 +5519,6 @@ window.openOrderInvoice = function (orderId, merchantId, autoDownload) {
     );
 };
 
-// Item 8 — ORDER BILL. Builds a safe {subtotal, charges, total} breakdown
-// dynamically from whatever real fields are actually available: real
-// per-item prices from order_items when we have them, and the order's own
-// saved total for the grand total and (as a same-order fallback) the
-// subtotal too. "Charges" bundles platform fee + delivery charge together
-// since individual fee columns aren't persisted on the order row — this
-// never invents numbers, it only derives the difference that's really there.
 function computeOrderBill(order, items) {
     const total = safeParseCurrency(order?.total_amount ?? order?.total_bill);
     let subtotal = safeParseCurrency(order?.total);
@@ -5979,11 +5531,6 @@ function computeOrderBill(order, items) {
     return { subtotal: +subtotal.toFixed(2), charges, total: +total.toFixed(2) };
 }
 
-// Item 9 — RETURN / EXCHANGE LOGIC (real).
-// Every product carries the rule the ADMIN saved for it: is_returnable +
-// return_window_days and is_exchangeable + exchange_window_days. The window
-// starts at the exact moment the order was delivered (orders.delivered_at)
-// and runs for exactly that many days — to the minute.
 async function fetchReturnPolicies(items, order) {
     const out = { byId: {}, byName: {} };
     if (!supabase || !items || !items.length) return out;
@@ -6062,9 +5609,6 @@ async function computeReturnEligibilityReal(order, items) {
     };
 }
 
-// Kept for any older caller — always resolves to "not eligible" synchronously.
-function computeReturnEligibility(order, items) { return { eligible: false }; }
-
 function mapPrescriptionOrderToCard(rx) {
     const statusMap = { pending: 'pending', accepted: 'accepted', cancelled: 'cancelled' };
     return {
@@ -6093,10 +5637,6 @@ async function refreshOrdersFromServer() {
                     .order('created_at', { ascending: false })
                     .limit(20);
 
-                // Item 3/5: prescription orders now show up in the same order
-                // list as regular medicine orders instead of being invisible
-                // here — with the prescription image standing in for the
-                // product photo, and status/OTP wired the same way.
                 const { data: dbRxOrders } = await supabase.from('prescription_orders')
                     .select('*')
                     .eq('user_id', session.user.id)
@@ -6119,11 +5659,6 @@ async function refreshOrdersFromServer() {
     renderOrdersUI();
 }
 
-// Item 3 — "My Orders" now shows every order together (Pending, Accepted,
-// Packed, Broadcasted, Shipped, Out for Delivery, Delivered, Cancelled) in
-// one merged, newest-first list, instead of separate Active/History tabs.
-// The old .tab-btn markup (if present in the HTML) is hidden rather than
-// removed, so nothing about the page layout breaks if it's still there.
 let _ordersHelpButtonBound = false;
 async function setupOrdersPageModules() {
     const listContainer = document.getElementById('order-list');
@@ -6142,9 +5677,6 @@ async function setupOrdersPageModules() {
     setupOrdersHelpButton();
 }
 
-// Item 13 — Help button at the top-right of My Orders. Injected once
-// (idempotent — safe even though setupOrdersPageModules() can run more than
-// once) so there's never a duplicate button or duplicate click handler.
 function setupOrdersHelpButton() {
     const ordersPage = document.getElementById('page-order') || document.getElementById('order-list')?.closest('.app-page');
     if (!ordersPage) return;
@@ -6182,7 +5714,7 @@ function openOrdersHelpSheet() {
             <a href="mailto:medifinderindia@gmail.com" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
                 <i class="fa-solid fa-envelope" style="color:#1c82aa;width:20px;text-align:center;"></i> medifinderindia@gmail.com
             </a>
-            <a href="https://api.whatsapp.com/send?phone=919593625498&text=${whatsappMsg}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:16px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
+            <a href="https://api.whatsapp.com/send?phone=919382262825&text=${whatsappMsg}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:16px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
                 <i class="fa-brands fa-whatsapp" style="color:#25D366;width:20px;text-align:center;"></i> Chat on WhatsApp
             </a>
             <button type="button" id="orders-help-close" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;font-weight:600;cursor:pointer;">Close</button>
@@ -6223,9 +5755,6 @@ function listenToUserOrders() {
                 const statusMap = { pending: 'Order Placed', accepted: 'Accepted by pharmacy', arrived_at_store: 'Rider at pharmacy', picked_up: 'Picked up by rider', shipped: 'Out for delivery', delivered: 'Delivered!', broadcasted: 'Rider search active', cancelled: 'Order cancelled' };
                 showToast(statusMap[statusText] || `Order status: ${updated.status}`, statusText === 'delivered' ? 'success' : statusText === 'cancelled' ? 'error' : 'info');
 
-                // ✅ NEW: ট্র্যাকিং modal যদি এই order এর জন্যই খোলা থাকে, তাহলে সাথে সাথেই সেটাও রিফ্রেশ
-                // করা হবে — আগে শুধু অর্ডার কার্ড আর toast আপডেট হতো, modal বন্ধ করে আবার না খুললে
-                // পুরনো (stale) স্টেপ/স্ট্যাটাসই দেখাত।
                 const trackingModal = document.getElementById('tracking-modal');
                 if (trackingModal && trackingModal.classList.contains('active') && trackingModal.dataset.trackingOrderId === id && typeof window.openLiveTrackingModal === 'function') {
                     window.openLiveTrackingModal(id, updated.transit_mode || 'Bike', updated.shop_lat || 22.578, updated.shop_lng || 88.365, updated.eta_minutes || 30, updated.status, updated.rider_id || null);
@@ -6271,18 +5800,11 @@ function renderOrdersUI() {
         return;
     }
 
-    // Item 4 — ORDER CARD: first product image, Order ID, date/time, current
-    // status, total amount. Tapping anywhere on the card opens the full
-    // Order Detail view (item 5) instead of showing Track/Cancel/OTP inline.
     listContainer.innerHTML = orders.map(order => {
         const id = order.order_id || order.id;
         const isRx = !!order.is_prescription_order;
         const s = (order.status || '').toLowerCase();
         const displayStatus = getOrderDisplayStatus(order);
-        // ✅ Order status colors — exact mapping per spec: Accepted=green,
-        // Rejected=red (this schema calls it "Cancelled"), Pending=yellow,
-        // Delivered=orange. This is a display-only color map; it never
-        // touches the real backend status value in order.status.
         const statusColors = {
             'Accepted': 'background:#e3faf2;color:#2ed573;',
             'Delivered': 'background:#fff1e0;color:#e8590c;',
@@ -6293,11 +5815,6 @@ function renderOrdersUI() {
         const safeImg = order.items_img || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400';
         const dateLabel = order.date_string || (safeParseOrderDate(order) ? safeParseOrderDate(order).toLocaleDateString('en-GB') : '');
 
-        // ✅ NEW — Premium order-page additions: real item count (derived
-        // from the same items_text already saved at checkout — no extra
-        // query), real ETA (only while genuinely in transit), and a
-        // pharmacy-name slot that's filled in just below, once, from a
-        // cached merchant lookup — never invented.
         const itemCount = (order.items_text || '').split(',').map(t => t.trim()).filter(Boolean).length;
         const itemCountLabel = itemCount > 0 ? `${itemCount} item${itemCount > 1 ? 's' : ''}` : '';
         const inTransit = ['picked_up', 'shipped', 'broadcasted', 'out_for_delivery'].includes(s);
@@ -6341,9 +5858,6 @@ function renderOrdersUI() {
         `;
     }).join('');
 
-    // ✅ NEW — fill in real pharmacy/shop names asynchronously, after the
-    // card markup is already on screen, so the list never blocks on network
-    // round-trips. Batched to one fetch per unique merchant_id (cached).
     const uniqueMerchantIds = [...new Set(orders.map(o => o.merchant_id).filter(Boolean))];
     uniqueMerchantIds.forEach(async (mid) => {
         const name = await getMerchantNameCached(mid);
@@ -6567,18 +6081,6 @@ window.handleReturnOrder = async function (orderId) {
     });
 };
 
-// ============================================================
-// ORDER DETAIL VIEW (Item 5) — opened by tapping an order card. Shows the
-// first product image, Order ID, placed date/time, the full status
-// timeline (Item 6), delivery address (Item 7), an itemized bill box
-// (Item 8), Track/Cancel/OTP/Return controls (each independently gated —
-// Items 5/9/10/11), and, once delivered, a lightweight feedback section
-// (Item 12). Re-uses all the existing tracking/cancel/return/OTP handlers
-// rather than duplicating any of that logic.
-// ============================================================
-// ✅ NEW — Flipkart-style "Buy Again": re-adds a delivered order's items to the cart using the
-// product's CURRENT price/stock (never the old order price), skips anything that is gone or out of
-// stock, then opens the cart.
 window.buyAgainFromOrder = async function (orderId, btn) {
     if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
     try {
@@ -6661,24 +6163,15 @@ window.openOrderDetailModal = async function (orderId) {
         const returnInfo = await computeReturnEligibilityReal(order, items);
         window.__mfReturnInfo = window.__mfReturnInfo || {}; window.__mfReturnInfo[id] = { info: returnInfo, order };
         const canReturnOrExchange = returnInfo.eligible || returnInfo.exchangeEligible;
-        // ✅ If a return has already been requested for this order, fetch it
-        // so its pickup-status timeline can be shown instead of just
-        // silently letting the customer tap "Return" again.
         const existingReturn = (canReturnOrExchange || s === 'delivered') ? await fetchReturnForOrder(id) : null;
         if (!document.body.contains(modal)) return; // closed while the return lookup was in flight
 
-        // Item 7 — delivery address, pulled from the order's own saved
-        // fields first (never hard-coded), falling back to the shopper's
-        // cached profile/verified address only if the order itself is missing it.
         const custName = order.customer_name || localStorage.getItem('medi_profile_name') || 'Customer';
         const custPhone = order.customer_phone || (typeof getAutoUserPhone === 'function' ? getAutoUserPhone() : '') || '';
         const custAddress = order.customer_address || order.delivery_address || order.address || localStorage.getItem('medi_verified_address') || 'Address not available';
 
-        // ✅ NEW — real pharmacy/shop name for this order (cached lookup by
-        // merchant_id; never shown if we don't actually have one).
         const shopName = !isRx && order.merchant_id ? await getMerchantNameCached(order.merchant_id) : '';
 
-        // Item 5/9/10/11 — button visibility rules.
         const canCancel = isRx ? (s === 'pending') : !['shipped', 'broadcasted', 'picked_up', 'delivered', 'cancelled'].includes(s);
         // OTP is only for MediFinder rider deliveries (Express / Same-day). Standard (courier) orders have no OTP.
         const showOtp = !['cancelled', 'delivered'].includes(s) && (isRx || __orderIsPersonalRider(order));
@@ -6857,10 +6350,6 @@ window.openOrderDetailModal = async function (orderId) {
     }
 };
 
-// Item 12 — lightweight feedback/rating UI. Tries a real `order_feedback`
-// table first; if that table doesn't exist yet, falls back to a local
-// per-order record so the UI still works and nothing about the order
-// system breaks — no new columns are invented on the `orders` table itself.
 async function submitOrderFeedback(orderId, rating, comment) {
     if (!rating) { showToast('Please select a star rating.', 'error'); return; }
     const payload = { order_id: orderId, rating, comment: comment || '', created_at: new Date().toISOString() };
@@ -6882,8 +6371,6 @@ async function submitOrderFeedback(orderId, rating, comment) {
     document.getElementById('order-detail-modal')?.remove();
 }
 
-// ✅ NEW: tracking modal-এর ভেতরের Leaflet map + rider live marker এর state — বারবার modal
-// খোলা/বন্ধ হলে যাতে পুরনো map instance/subscription লিক না হয়ে যায় তাই এখানে রাখা হলো।
 window._trackingMapState = { map: null, riderMarker: null, shopMarker: null, riderChannel: null, userMarker: null, userPos: null, routeLine: null };
 
 function teardownTrackingMap() {
@@ -6898,11 +6385,6 @@ function teardownTrackingMap() {
 }
 
 
-// ============================================================
-// Delivery mode of an order
-//  - personal rider : delivery_speed express / sameday (or a MediFinder rider is assigned) -> OTP + live map
-//  - courier        : delivery_speed manual (Standard, Shiprocket/courier) -> NO OTP, courier timeline
-// ============================================================
 function __orderIsPersonalRider(order) {
     if (!order) return false;
     const sp = String(order.delivery_speed || '').toLowerCase();
@@ -7026,10 +6508,6 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
         window._trackingMapState.shopMarker = L.marker([shopLat, shopLng], { icon: shopIcon }).addTo(map).bindPopup('Pharmacy');
         map.invalidateSize();
 
-        // ✅ NEW — real customer/user GPS marker (blue). Only ever the actual
-        // browser geolocation fix — never a guessed/hardcoded position. If
-        // permission is denied/unavailable, this silently omits the marker
-        // rather than faking one.
         function fitTrackingBounds() {
             const st = window._trackingMapState;
             if (!st.map) return;
@@ -7053,7 +6531,7 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
             fitTrackingBounds();
         } else if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
-                if (!window._trackingMapState.map) return; // modal closed before this resolved
+                if (!window._trackingMapState.map) return;
                 const userPos = [pos.coords.latitude, pos.coords.longitude];
                 const userIcon = L.divIcon({ html: '<div style="background:#2563eb;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(37,99,235,0.55);"></div>', className: 'custom-div-icon', iconSize: [22, 22] });
                 window._trackingMapState.userPos = userPos;
@@ -7082,9 +6560,6 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
                 }
                 if (caption) caption.textContent = `${rider.name || 'Rider'} is on the way`;
 
-                // ✅ NEW — real route line between rider and the customer, drawn
-                // ONLY when we actually have a real GPS fix for the user; never
-                // drawn from guessed/placeholder coordinates.
                 const st = window._trackingMapState;
                 if (st.userPos) {
                     // rider -> you (dashed). The solid line is the shop -> you road route.
@@ -7097,7 +6572,6 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
 
         refreshRiderPosition();
 
-        // ✅ realtime: rider এর অবস্থান বদলালেই সাথে সাথেই marker + route সরে যাবে (polling লাগবে না)
         window._trackingMapState.riderChannel = supabase
             .channel(`tracking-rider-${riderId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'riders', filter: `id=eq.${riderId}` }, (payload) => {
@@ -7112,13 +6586,6 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
     }, 150);
 }
 
-// ============================================================
-// TRACKING SHEET — Bill Summary + downloadable order-receipt.html
-// ============================================================
-// Pulls the real saved order row (Supabase first, falling back to the
-// locally cached `medi_active_orders` copy so this still works offline)
-// instead of ever inventing numbers — the same subtotal/grand-total the
-// customer actually saw and paid at checkout.
 async function fetchOrderForBilling(orderId) {
     if (supabase) {
         try {
@@ -7223,7 +6690,7 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
     if (!modal) return;
     modal.style.display = "flex";
     modal.classList.add('active');
-    modal.dataset.trackingOrderId = orderId; // ✅ NEW: চালু থাকা modal live status update এর জন্য কোন order tracking হচ্ছে সেটা মনে রাখা
+    modal.dataset.trackingOrderId = orderId;
     const modalOrderId = document.getElementById('modal-order-id');
     if (modalOrderId) modalOrderId.innerText = `Order Tracking: ${orderId}`;
     const stepPlaced = document.getElementById('step-placed');
@@ -7239,11 +6706,8 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
         const t = stepPlaced?.querySelector('.text');
         if (t) t.innerText = "Accepted & Packed";
     } else if (status === "broadcasted" || status === "shipped" || status === "arrived_at_store" || status === "picked_up") {
-        // ✅ FIX: আগে এখানে "broadcasted" চেক করা হতো না, তাই merchant ship করার পর rider এর জন্য
-        // search চলাকালীন (status='broadcasted') progress bar-এ Shipping step active দেখাত না।
         if (stepShipping) stepShipping.className = "timeline-step active";
     } else if (status === "delivered") {
-        // ✅ FIX: আগে delivered হলেও step-delivery কখনো finished মার্ক হতো না — শেষ ধাপ চিরকাল ফাঁকা থেকে যেত।
         if (stepShipping) stepShipping.className = "timeline-step finished";
         if (stepDelivery) stepDelivery.className = "timeline-step finished";
     } else if (status === "cancelled") {
@@ -7253,9 +6717,6 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
 
     const mapContainer = modal.querySelector('.map-container');
     if (mapContainer) {
-        // ✅ FIX: আগে এই বক্সে সবসময় "Live tracking will be available once rider is assigned" লেখা
-        // দেখাত, rider আসলে assign/picked up হয়ে থাকলেও, আর কোনো real map ছিলই না (index.html-এ
-        // Leaflet লোড করা থাকলেও ব্যবহার হচ্ছিল না)। এখন status অনুযায়ী আসল অবস্থা + Leaflet map দেখাবে।
         if (status === "delivered") {
             teardownTrackingMap();
             mapContainer.innerHTML = `
@@ -7289,7 +6750,7 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
             modal.classList.remove('active');
             modal.style.display = "none";
             modal.dataset.trackingOrderId = '';
-            teardownTrackingMap(); // ✅ NEW: modal বন্ধ হলে map/realtime subscription ক্লিনআপ করা, মেমরি লিক এড়াতে
+            teardownTrackingMap();
         };
     }
 
@@ -7303,10 +6764,6 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
     }
 };
 
-// Simple step-tracker for prescription orders — there's no rider/shop
-// assignment system for these yet (only pending → accepted → cancelled), so
-// this deliberately doesn't pretend to show a live map/ETA like a real
-// medicine order; it just shows honestly where the request stands.
 window.openRxOrderTrackingModal = function(rxId, status) {
     const s = (status || '').toLowerCase();
     const steps = [
@@ -7362,10 +6819,6 @@ window.openDeliveryBoyVerificationModal = async function(orderId, isRx) {
             }
         } catch(e) {}
     }
-    // Item 11 — "View OTP" only ever shows the code. There is intentionally
-    // NO "Confirm & Complete"/"Confirm" button on the user side anymore —
-    // only the delivery rider's own app can mark an order delivered. Nothing
-    // here writes to `orders.status` at all.
     let popup = document.createElement('div');
     popup.className = "modal active";
     popup.id = "otp-verification-modal";
@@ -7386,13 +6839,6 @@ window.openDeliveryBoyVerificationModal = async function(orderId, isRx) {
     };
 };
 
-// ============================================================
-// MAP PAGE - Real-time GPS, Search + Suggestions, Distance, GO direction
-// ============================================================
-// Fetches an actual road route (turn-by-turn road geometry) from the free/open
-// OSRM demo server instead of drawing a straight line that ignores rivers,
-// ponds, buildings, etc. Falls back to a straight line only if OSRM is
-// unreachable, so the map never breaks even if the free service is briefly down.
 async function fetchRoadRoute(fromLat, fromLng, toLat, toLng) {
     try {
         const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
@@ -7458,20 +6904,10 @@ async function setupMapPageModules() {
 
     let map = L.map('map', { zoomControl: false }).setView([userLiveLat, userLiveLng], 13);
     window.__shopsLeafletMap = map; // exposed for SPA tab-switch invalidateSize()
-    // NOTE: CartoDB's basemaps.cartocdn.com tiles now require a registered
-    // API key (they started gating this domain) — without one, every tile
-    // just showed a grey "API KEY REQUIRED" watermark instead of an actual
-    // map. Switched to the standard OpenStreetMap tile server, which is
-    // free, needs no key/signup, and renders real, full-resolution tiles.
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
-    // ✅ This SPA keeps every page's markup in the DOM at once and only
-    // toggles visibility, so if Home (not Shops/Map) was the first page
-    // shown, #map was display:none the instant Leaflet measured it here.
-    // A follow-up invalidateSize() once the container is actually visible
-    // corrects that stale 0×0 measurement so markers/routes plot correctly.
     setTimeout(() => map.invalidateSize(), 100);
 
     const userIcon = L.divIcon({ html: '<i class="fa-solid fa-street-view" style="color:#ff4d4d;font-size:30px;"></i>', className: 'custom-div-icon', iconSize: [30,30] });
@@ -7596,14 +7032,6 @@ async function setupMapPageModules() {
     }
 
     const triggerLiveMapDirections = async (shop) => {
-        // ✅ FIX (Map "GO" button): this page is one of several SPA tabs that
-        // all live in the DOM at once, so when the map was first created the
-        // #map container could still have been display:none (if the app
-        // opened on Home first) — Leaflet measures the container size at
-        // creation time, and a 0×0 map silently fails to draw/position new
-        // layers correctly even after the tab becomes visible. Forcing an
-        // invalidateSize() right before drawing the route guarantees Leaflet
-        // has the real, current pixel size before it plots anything.
         if (map) map.invalidateSize();
         if (operationalRoutingControl) map.removeLayer(operationalRoutingControl);
         if (activeShopMarker) map.removeLayer(activeShopMarker);
@@ -7628,11 +7056,6 @@ async function setupMapPageModules() {
         const displayGrid = document.getElementById('search-results');
         const countEl = document.getElementById('pharmacy-count');
         if (!displayGrid) return;
-        // Always show the nearest shop first (real haversine distance from the
-        // user's live GPS fix) — no fixed/demo ordering, whatever the caller
-        // passed in gets re-sorted here so "50 m, 300 m, 1.3 km..." is always
-        // true regardless of which list (full hub vs. a medicine-search match)
-        // is being rendered.
         shops = shops.slice().sort((a, b) =>
             (sameTownPin(b) - sameTownPin(a)) ||
             (haversineKm(userLiveLat, userLiveLng, a.lat, a.lng) - haversineKm(userLiveLat, userLiveLng, b.lat, b.lng))
@@ -7643,9 +7066,6 @@ async function setupMapPageModules() {
             return;
         }
         displayGrid.innerHTML = shops.map(shop => {
-            // Straight-line placeholder shown immediately; replaced below with the
-            // real road distance/duration from OSRM once it resolves (was previously
-            // a made-up "distKm * 6 + 5" formula that produced nonsense like "0 m 5 min").
             const distKm = haversineKm(userLiveLat, userLiveLng, shop.lat, shop.lng);
             const distLabel = distKm < 0.1 ? `< 100 m` : (distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`);
             return `
@@ -7693,10 +7113,6 @@ async function setupMapPageModules() {
         displayGrid.querySelectorAll('.view-shop-trigger').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                // Opens the shop as an in-app page (page-shop-detail) — no
-                // more navigating to the separate shop-details.html file,
-                // which wasn't reachable from this deployment. Same SPA
-                // pattern as Product Detail: instant, no page reload.
                 navigateToShopDetail(btn.dataset.shopId);
             });
         });
@@ -7727,9 +7143,6 @@ async function setupMapPageModules() {
 
         const medicineSuggestions = ["Paracetamol","Amoxicillin","Vitamin C","Ibuprofen","Cetirizine","Azithromycin","Metformin","Insulin","Omeprazole","Cough Syrup","Betadine","Dolo 650","Crocin","Ranitidine","Ciprofloxacin"];
 
-        // ✅ NEW — real, labeled suggestions from Supabase (medicines + shops),
-        // replacing the old hardcoded demo medicine-name list. Debounced so
-        // typing quickly doesn't fire a query per keystroke.
         let suggestDebounceTimer = null;
         async function fetchRealSuggestions(q) { q = String(q == null ? '' : q).replace(/[%,()"\\]/g, ' ').trim(); if (!q) return { medicines: [], shops: [] };
             if (!supabase) return { medicines: [], shops: [] };
@@ -7850,9 +7263,6 @@ async function setupMapPageModules() {
 }
 
 
-// ============================================================
-// PROFILE PAGE
-// ============================================================
 function setupProfilePageModules() {
     const cachedName = localStorage.getItem('medi_profile_name') || "Guest User";
     const userNameElement = document.getElementById('user-name');
@@ -7887,12 +7297,6 @@ function setupProfilePageModules() {
                         await supabase.storage.from('media').upload(path, chosenFile, { upsert: true });
                         const { data: urlData } = supabase.storage.from('media').getPublicUrl(path);
                         if (urlData?.publicUrl) {
-                            // Item 4: this used to filter by `id`, but every other
-                            // write to `profiles` on this page keys off `email` —
-                            // so on a row keyed by email, .eq('id', ...) matched
-                            // nothing and the photo silently never saved. Also
-                            // upsert (not update-only) so a brand-new account with
-                            // no profiles row yet still gets one created here.
                             await supabase.from('profiles').upsert({ email: session.user.email, avatar_url: urlData.publicUrl }, { onConflict: 'email' });
                             localStorage.setItem('medi_profile_avatar', urlData.publicUrl);
                             document.querySelectorAll('#profile-pic').forEach(img => { img.src = urlData.publicUrl; });
@@ -7925,14 +7329,6 @@ function setupProfilePageModules() {
         };
     }
 
-    // Referral code is NEVER generated or awarded on the client anymore.
-    // It is generated server-side by a DB trigger the moment a profiles
-    // row is created (see redeem_referral_code.sql), and the 100-coin
-    // award is granted only through the redeem_referral_code() RPC,
-    // which runs security-definer checks against the referrals table
-    // (self-referral blocked, one-time-per-account blocked). This block
-    // just displays the server's value and lets the user redeem someone
-    // else's code once.
     const refCodeDisplayField = document.getElementById('referral-code-display');
     const referralStatusNotice = document.getElementById('referral-status-notice');
     const triggerCopyBtn = document.getElementById('copy-referral-btn');
@@ -8089,10 +7485,6 @@ function setupProfilePageModules() {
         triggerReminderModalBtn.onclick = () => { toggleModalDisplay('reminder-modal', true); renderAlarmsListUI(); };
     }
 
-    // ✅ Multiple date+time rows — lets one medicine get reminders on several
-    // different dates in one go, each date with its own time, instead of a
-    // single always-repeating time. Rows are simple date+time pairs; "Add
-    // another date" appends more of them before saving.
     const alarmDateRowsBox = document.getElementById('alarm-date-rows');
     function addAlarmDateRow(prefDate) {
         if (!alarmDateRowsBox) return;
@@ -8157,10 +7549,6 @@ function setupProfilePageModules() {
     const cancellationTrigger = document.getElementById('cancellation-trigger');
     const helpTrigger = document.getElementById('help-desk-trigger');
     const referEarnBtn = document.getElementById('refer-earn-btn');
-    // Inline name editor — replaces the old "Edit Name" popup modal. Tapping
-    // the button now reveals an input + Save + Cancel right at that spot in
-    // the profile card itself (no dead click, no separate popup), per spec.
-    // Reuses the same profiles.upsert persistence the old modal used.
     function openInlineNameEditor() {
         if (document.getElementById('inline-name-editor')) return; // already open
         const userInfoBox = editBtn.closest('.user-info') || editBtn.parentElement;
@@ -8221,9 +7609,6 @@ function setupProfilePageModules() {
     // whole card opens the same address book.
     const manageAddressCard = document.getElementById('manage-address-trigger');
     if (manageAddressCard) manageAddressCard.addEventListener('click', () => { toggleModalDisplay('address-modal', true); loadSavedAddresses(); });
-    // ✅ Item 5: back to the local usert&c.html page per explicit request —
-    // Terms, Privacy Policy and Cancellation & Refund all point to it
-    // (each can deep-link to its own section via the hash).
     if (termsTrigger) termsTrigger.onclick = () => { window.location.href = 'usert%26c.html#terms'; };
     if (privacyTrigger) privacyTrigger.onclick = () => { window.location.href = 'usert%26c.html#privacy'; };
     if (cancellationTrigger) cancellationTrigger.onclick = () => { window.location.href = 'usert%26c.html#refund'; };
@@ -8241,8 +7626,6 @@ function setupProfilePageModules() {
     const wishlistTrigger = document.getElementById('wishlist-trigger');
     if (wishlistTrigger) wishlistTrigger.addEventListener('click', () => { toggleModalDisplay('wishlist-modal', true); renderProfileWishlist(); });
 
-    // Merged in from the old hamburger menu (no longer reachable — the app
-    // now uses a 5-icon bottom nav instead of a hamburger button).
     const myOrdersCard = document.getElementById('my-orders-trigger');
     if (myOrdersCard) myOrdersCard.addEventListener('click', () => { if (typeof window.navigateTo === 'function') window.navigateTo('order'); });
 
@@ -8258,13 +7641,8 @@ function setupProfilePageModules() {
         setTimeout(() => { document.querySelector('#help-modal .faq-accordion')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
     });
 
-    // ✅ NEW — Complaint Center + Delete Account, injected once into the
-    // profile page (no HTML changes required to get this working).
     setupAccountSupportSection();
 
-    // ============================================================
-    // ADDRESS BOOK — Flipkart-style multi-address (tags, default, edit/delete/select)
-    // ============================================================
     function resetAddressForm() {
         ['prof-addr-name', 'prof-addr-phone', 'prof-addr-house', 'addr-line2', 'prof-addr-landmark', 'prof-addr-city', 'addr-state', 'prof-addr-pincode'].forEach(id => {
             const el = document.getElementById(id);
@@ -8337,8 +7715,6 @@ function setupProfilePageModules() {
         try {
             const { data, error } = await supabase.from('user_addresses').select('*').eq('user_id', uid).order('is_default', { ascending: false }).order('created_at', { ascending: false });
             if (error) {
-                // Previously swallowed silently — a saved address would then just
-                // never appear in the list with no indication why. Surface it.
                 console.error('user_addresses load failed:', error);
                 showToast("Couldn't load your saved addresses: " + (error.message || error.hint || 'unknown error'), "error");
             } else if (data) {
@@ -8380,11 +7756,6 @@ function setupProfilePageModules() {
     }
 
     const saveAddressBtn = document.getElementById('prof-save-address-btn');
-    // ✅ NEW — GPS-assisted address entry. Injected once, right before the
-    // Save button, reusing the same safeGetCurrentPosition()/nominatim
-    // reverse-geocode pattern already used on the Map page. Never invents
-    // an API key — if reverse geocoding fails, it leaves the coordinates-
-    // derived fields for the user to complete manually.
     if (saveAddressBtn && !document.getElementById('addr-use-gps-btn')) {
         const gpsBtn = document.createElement('button');
         gpsBtn.type = 'button';
@@ -8445,9 +7816,6 @@ function setupProfilePageModules() {
                 return;
             }
 
-            // ✅ Standard delivery covers every Indian pincode — saving an
-            // address must never be blocked just because 30-Min/Same-Day
-            // aren't launched there yet (that's gated separately, per speed).
             if (statusMsg) { statusMsg.style.color = '#747d8c'; statusMsg.innerText = 'Checking fast-delivery availability...'; }
             const zoneCheck = await checkPincodeServiceability(pincode);
             if (statusMsg) {
@@ -8505,27 +7873,13 @@ function setupProfilePageModules() {
         myBoxBtn.onclick = () => openMyPrescriptionBox();
     }
 
-    // Deep-linking from the hamburger menu on other pages (e.g.
-    // userhome.html#... -> userprofile.html#my-box-btn) previously just left
-    // a dead URL hash — the browser can't "open" a modal via anchor scroll.
-    // This actually triggers the matching action once the page is ready.
     if (window.location.hash === '#my-box-btn') openMyPrescriptionBox();
     else if (window.location.hash === '#refer-earn-btn') { toggleModalDisplay('referral-modal', true); loadMyReferralState(); loadMyCouponsAndOffers(); }
     else if (window.location.hash === '#help-desk-trigger') toggleModalDisplay('help-modal', true);
     else if (window.location.hash === '#pill-reminders-trigger') { toggleModalDisplay('reminder-modal', true); renderAlarmsListUI(); }
 }
 
-// ============================================================
-// ACCOUNT & SUPPORT — Complaint Center + Delete Account (doc2 items 22-24).
-// Injected once into #page-profile so this works without any HTML changes;
-// idempotent — safe even though setupProfilePageModules() can re-run.
-// ============================================================
 function setupAccountSupportSection() {
-    // Now static HTML menu items inside the scrollable profile list (see
-    // #open-complaint-btn / #open-delete-account-btn in user.html) instead of
-    // being appended after </main> at runtime — that made them render as a
-    // fixed block below the scrollable area instead of scrolling with the
-    // rest of the profile menu.
     const complaintBtn = document.getElementById('open-complaint-btn');
     const deleteBtn = document.getElementById('open-delete-account-btn');
     if (complaintBtn) complaintBtn.addEventListener('click', openComplaintCenterModal);
@@ -8649,12 +8003,6 @@ async function renderComplaintHistory() {
     } catch (e) { /* silent — history is a nice-to-have, never blocks the form */ }
 }
 
-// ============================================================
-// DELETE ACCOUNT (doc2 item 24) — real confirmation flow. Attempts a secure
-// server-side RPC (delete_user_account) first; if it doesn't exist yet,
-// this clearly tells the user instead of silently faking deletion by only
-// clearing localStorage. No service-role/admin key is ever used here.
-// ============================================================
 const DELETE_ACCOUNT_REASONS = ['Found a better app', 'Too many notifications', 'Privacy concerns', 'Not using it anymore', 'Poor delivery experience', 'Other'];
 
 function openDeleteAccountModal() {
@@ -8724,12 +8072,7 @@ async function confirmDeleteAccount(reason) {
 }
 
 
-// Old popup version — no longer used (it overflowed on phones). Kept for reference only.
 
-
-// ============================================================
-// MY PRESCRIPTION — full page + shared archive helpers
-// ============================================================
 function openMyPrescriptionBox() {
     if (typeof window.navigateTo === 'function') window.navigateTo('prescriptions');
 }
@@ -8841,7 +8184,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (back) back.addEventListener('click', () => { if (typeof window.navigateTo === 'function') window.navigateTo('profile'); });
 });
 
-// ---------- Mobile number + address needed for a prescription order ----------
 async function getRxContactState() {
     if ((!savedAddresses || savedAddresses.length === 0) && supabase) {
         try {
@@ -8967,19 +8309,6 @@ async function sendRxToPharmaciesWithContact(prescriptionUrl, medicines) {
 function toggleModalDisplay(modalId, makeVisible) {
     const target = document.getElementById(modalId);
     if (!target) return;
-    // ✅ CRITICAL FIX (Item 5 — root cause of "wishlist/add patient/manage
-    // address/pill reminder/offers all click but show nothing"): user.css
-    // has THREE separate ".modal { ... }" rule blocks left over from past
-    // edits. Only the very first one sets "opacity:0; pointer-events:none;"
-    // as the resting state, cleared only by adding the ".active" class
-    // (that block's ".modal.active { opacity:1; pointer-events:auto; }").
-    // This function was only ever setting the inline style.display, never
-    // the "active" class — so a modal could be display:flex and still sit
-    // there at opacity:0 with pointer-events:none, i.e. invisible AND
-    // unclickable, which looked exactly like "nothing happens". Toggling
-    // the "active" class here (alongside the inline display, kept for
-    // back-compat with any code checking style.display directly) fixes
-    // every modal on the page at once.
     target.style.display = makeVisible ? "flex" : "none";
     target.classList.toggle('active', !!makeVisible);
 }
@@ -9034,14 +8363,10 @@ window.destroyAlarmSequenceFromScheduler = function(targetAlarmId) {
     renderAlarmsListUI();
 };
 
-// ============================================================
-// PILL ALARM ENGINE - Web Audio + System Notification
-// ============================================================
 function runBackgroundPillAlarmEngine() {
     if (alarmsData.length === 0) return;
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
-    // ✅ LOCAL date (toISOString() was UTC → alarms between 00:00–05:30 IST never matched their date)
     const todayLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const nowMin = now.getHours() * 60 + now.getMinutes();
     let fired = {};
@@ -9130,9 +8455,6 @@ function ringPillAlarm(alarmItem) {
     document.body.appendChild(pop);
 }
 
-// ============================================================
-// LANGUAGE TRANSLATION ENGINE
-// ============================================================
 function triggerGlobalAppLanguageTranslation(languageKeyToken) {
     const translationDataSet = languageMatrix[languageKeyToken] || languageMatrix.en;
     const structuralTargetElementMappings = [
@@ -9173,16 +8495,6 @@ function triggerGlobalAppLanguageTranslation(languageKeyToken) {
     try { mfApplyGenericTranslation(languageKeyToken); } catch (e) { console.warn('[i18n]', e); }
 }
 
-// ============================================================
-// ✅ Item 7 — whole-app text translation layer.
-// triggerGlobalAppLanguageTranslation() above only knows ~24 hard-wired
-// element ids, so everything else stayed English. This layer translates
-// ANY exact-match UI text (text nodes + placeholders), including content
-// the app renders later, via a MutationObserver. Covered: Bengali (bn) and
-// Hindi (hi). Other languages keep the old id-based translation and show
-// English for the strings below until their entries are added.
-// To extend: add lines to MF_UI_DICT (english key -> {bn, hi}).
-// ============================================================
 const MF_UI_DICT = {
   "shop by category": { bn: "ক্যাটাগরি অনুযায়ী কিনুন", hi: "श्रेणी के अनुसार खरीदें" },
   "available medicine": { bn: "উপলব্ধ ওষুধ", hi: "उपलब्ध दवाइयाँ" },
@@ -9414,10 +8726,6 @@ function initLiveOfferAndBroadcastStream() {
     }
 }
 
-// ✅ NEW: Realtime refresh — when the admin creates/updates/deletes a
-// sponsored slot from adminsponsored.html, this reloads the homepage slider
-// automatically instead of the shopper needing to know to refresh. Debounced
-// so a burst of admin edits doesn't refetch on every single keystroke-save.
 let _sponsoredRealtimeChannel = null;
 let _sponsoredReloadTimer = null;
 function initSponsoredRealtime() {
@@ -9440,22 +8748,6 @@ function initSponsoredRealtime() {
     }
 }
 
-/* ==========================================================================
-   SPONSORED PRODUCTS SLIDER — loads from DB
-   ========================================================================== */
-
-// ✅ NEW: single source of truth for "what image do we show on this sponsored
-// slide". Priority order:
-//   1) admin's custom uploaded banner (custom_image_url) — this is the field
-//      the Sponsored Products admin page (adminsponsored.html) actually
-//      uploads to when "Sponsored Banner Image" is turned on. The old render
-//      code here never read this column at all, which was the real reason
-//      admin-uploaded photos never showed up on the user home page.
-//   2) the linked product's own photo (medicines.image_url), for a
-//      product-linked slot that hasn't been given a custom banner
-//   3) any other image-ish column, kept only as a safety net in case this
-//      row ever gains one — this project's `sponsored_products` table does
-//      not currently have these, so this branch is normally a no-op.
 function getSponsoredImageUrl(item, linkedProduct) {
     if (!item) return '';
     let raw = '';
@@ -9485,13 +8777,6 @@ function withSponsoredCacheBust(url, item) {
     return url + sep + 'v=' + encodeURIComponent(version);
 }
 
-// Safely applies (or falls back away from) a sponsored slide's background
-// image. Preloads the image first so a broken/expired URL never shows a
-// half-rendered slide or throws — it just falls back to the slide's
-// gradient + icon, exactly like a slot with no image at all.
-
-// ✅ Sponsored → product page. Product page lives INSIDE this SPA now, so we open it
-// with navigateToProductDetail() (product-detail.html no longer exists → was a 404).
 function sponsorOpenProduct(p) {
     if (!p) return;
     navigateToProductDetail({
@@ -9535,12 +8820,6 @@ function applySponsoredSlideVisual(div, imageUrl, gradientCss) {
 
     const preloader = new Image();
     preloader.onload = () => {
-        // ✅ FIXED (image staying white): a gradient AND a url() jammed into
-        // one `background` shorthand without a comma isn't valid CSS — the
-        // browser silently drops the whole declaration. Two proper comma-
-        // separated layers instead: photo on top ("contain" so it never gets
-        // cropped/distorted), gradient underneath ("cover") filling any
-        // leftover space.
         div.style.backgroundImage = '';
         div.style.background = gradient;
         div.style.setProperty('--sp-img', `url("${String(imageUrl).replace(/"/g, '%22')}")`);
@@ -9555,17 +8834,12 @@ function applySponsoredSlideVisual(div, imageUrl, gradientCss) {
     preloader.src = imageUrl;
 }
 
-// "Others" sponsored click target: goes to whatever exact URL the admin
-// saved in btn_action (internal MediFinder page or external https:// link).
-// Never used for product-linked slots — those keep using
-// navigateToProductDetail() / openSponsoredOfferModal() further below.
 function navigateToSponsoredLink(rawUrl) {
     let url = (rawUrl || '').toString().trim();
     if (!url) {
         if (typeof showToast === 'function') showToast('This sponsored link is currently unavailable.', 'error');
         return;
     }
-    // Old admin rows still say product-detail.html / userhome.html (files that no longer exist) -> the SPA is user.html
     url = url.replace(/^\/?(product-detail|userhome)\.html/i, 'user.html');
     // "www.site.com" (no scheme) would be treated as a relative page - add https://
     if (!/^(https?:|mailto:|tel:|\/|\.|#)/i.test(url) && /^[\w-]+(\.[\w-]+)+/.test(url) && !/\.html?(\?|#|$)/i.test(url)) {
@@ -9605,11 +8879,6 @@ async function loadSponsoredProducts() {
     const slider = document.getElementById('home-slider');
     if (!slider || !supabase) return;
     try {
-        // ✅ NEW: auto-hide anything past its "Valid Until" date, so an expired
-        // sponsored slot disappears from the app the moment it lapses (the admin
-        // panel also auto-flips it to Inactive — see adminsponsored.html).
-        // Falls back to the plain query if the `valid_until` column doesn't exist
-        // yet on this project's `sponsored_products` table.
         const todayStr = new Date().toISOString().split('T')[0];
         let { data, error } = await supabase
             .from('sponsored_products')
@@ -9676,24 +8945,12 @@ async function loadSponsoredProducts() {
             const linkedProduct = linkedId ? productMap[decodeURIComponent(linkedId[1])] : null;
             const isLinkedToProduct = !!linkedId;
 
-            // ✅ FIXED: this used to look ONLY at linkedProduct.image_url, so
-            // an admin's uploaded custom banner (custom_image_url — the field
-            // the Sponsored Products admin page actually uploads to) was
-            // never shown, for BOTH product-linked slots and raw-link
-            // ("Others") slots. getSponsoredImageUrl() now checks the real
-            // priority: custom banner → linked product photo → safety-net
-            // fallbacks. See helper functions just above this function.
             const rawImg = getSponsoredImageUrl(item, linkedProduct);
             const imgUrl = withSponsoredCacheBust(rawImg, item);
 
             const hasDeal = isLinkedToProduct && item.first_order_discount_percent > 0;
             if (isLinkedToProduct || item.btn_action) div.style.cursor = 'pointer';
 
-            // "Others" slots (no linked product) get a small type hint next
-            // to the admin's own tag text, so shoppers can tell it isn't a
-            // product deal. Purely a display-layer label — nothing written
-            // back to the database, and an admin's own "OTHER"-ish tag text
-            // is left exactly as typed.
             const tagLabel = item.tag || 'SPONSORED';
             const tagHtml = isLinkedToProduct ? tagLabel : (tagLabel + (/other/i.test(tagLabel) ? '' : ' • OTHER'));
 
@@ -9731,26 +8988,11 @@ async function loadSponsoredProducts() {
             if (!isMediaSlide) applySponsoredSlideVisual(div, imgUrl, item.gradient);
             else div.style.background = '#eef1f5';
 
-            // A slot linked to a real product with a discount attached opens the
-            // focused "Sponsored Offer" view (shows ONLY that offer + lets the
-            // shopper add it to cart at the discounted price in one tap).
-            // A slot linked to a product with NO discount just goes straight to
-            // that product's page, same as before.
-            // A slot that isn't linked to a product at all opens its raw link.
             if (hasDeal) {
                 const openOffer = (e) => { e.stopPropagation(); openSponsoredOfferModal(item, linkedProduct); };
                 div.addEventListener('click', openOffer);
                 div.querySelector('.slide-btn')?.addEventListener('click', openOffer);
             } else if (isLinkedToProduct) {
-                // ✅ FIXED: this used to navigate with ONLY ?id=..., so
-                // product-detail.html had no name/price/img and fell back to
-                // whatever stale product was last saved in
-                // localStorage.currentProduct (wrong item, and price stored
-                // as a STRING from card.dataset — the exact cause of the
-                // "toFixed is not a function" crash + blank image). Using
-                // navigateToProductDetail() with the real linkedProduct row
-                // means the detail page opens instantly with correct,
-                // properly-typed data, same as every normal product card.
                 const goToProduct = (e) => {
                     e.stopPropagation();
                     if (linkedProduct && typeof navigateToProductDetail === 'function') {
@@ -9779,13 +9021,6 @@ async function loadSponsoredProducts() {
                 div.addEventListener('click', goToProduct);
                 div.querySelector('.slide-btn')?.addEventListener('click', goToProduct);
             } else {
-                // ✅ FIXED: "Others" sponsored slots now go through
-                // navigateToSponsoredLink() — same exact admin-provided URL
-                // as before (item.btn_action, works for both internal
-                // MediFinder pages and external https:// links), but the
-                // WHOLE card is clickable (not just the button, matching the
-                // product-linked slots above), and an empty/missing link now
-                // shows a toast instead of silently doing nothing.
                 const goToLink = (e) => { e.stopPropagation(); navigateToSponsoredLink(item.btn_action); };
                 div.addEventListener('click', goToLink);
                 div.querySelector('.slide-btn')?.addEventListener('click', goToLink);
@@ -9799,13 +9034,6 @@ async function loadSponsoredProducts() {
     }
 }
 
-// ============================================================
-// SPONSORED OFFER MODAL — the "show only this offer, then let them
-// add it to cart at the discounted price" flow for sponsored slots
-// that have a first_order_discount_percent set.
-// Fully self-contained (inline styles) so it doesn't depend on any
-// class being defined in userhome.css.
-// ============================================================
 async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     if (!linkedProduct) { showToast('This offer is unavailable right now.', 'error'); return; }
 
@@ -9813,7 +9041,7 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     // this exact deal before, just take them to the normal product page.
     let alreadyClaimed = false;
     try {
-        const uid = currentUserId || (supabase ? (await supabase.auth.getUser()).data?.user?.id : null);
+        const uid = supabase ? ((await supabase.auth.getSession()).data?.session?.user?.id || null) : null;
         if (uid && supabase) {
             const { data: claim } = await supabase
                 .from('sponsor_discount_claims')
@@ -9887,9 +9115,6 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
 }
 
 
-/* ==========================================================================
-   AUTO-SLIDING BANNER - Flipkart Style Carousel
-   ========================================================================== */
 window._autoSliderInterval = null;
 function initAutoSlider() {
     const slider = document.getElementById('home-slider');
@@ -9986,9 +9211,6 @@ function initAutoSlider() {
     });
 }
 
-/* ==========================================================================
-   MODAL RATING STARS - Interactive Rating System
-   ========================================================================== */
 function initModalRatingStars() {
     const starsContainer = document.getElementById('interactive-rating-stars');
     if (!starsContainer) return;
@@ -10051,9 +9273,6 @@ function initModalRatingStars() {
 
 // showToast is provided by prod-utils.js — creates its own container on any page
 
-/* ==========================================================================
-   SCROLL TO TOP BUTTON
-   ========================================================================== */
 function initScrollToTop() {
     const scrollBtn = document.getElementById('scroll-top-btn');
     const mainScroll = document.getElementById('main-scroll');
@@ -10072,13 +9291,6 @@ function initScrollToTop() {
     });
 }
 
-/* ==========================================================================
-   HOME PAGE STICKY SCROLL (Item 2)
-   As the medicine list is scrolled, the header, quick-services menu,
-   slider and prescription-upload card scroll away normally with the page —
-   but the search bar and the category chip row lock in place at the top
-   so they stay reachable, with the product grid scrolling underneath them.
-   ========================================================================== */
 function initHomeStickyScroll() {
     const header = document.querySelector('header');
     const searchSection = document.querySelector('.truemeds-search-section');
@@ -10100,28 +9312,9 @@ function initHomeStickyScroll() {
     // the collapse-on-scroll transition above has a real starting point to
     // animate from (an unset max-height can't be transitioned smoothly).
 
-    // The category row locks in right below the search bar — measured live
-    // (instead of a hardcoded px value) so it lines up correctly on every
-    // screen size and after fonts/images finish loading.
-    // (Category row is intentionally NOT locked any more - it scrolls with the page.)
-
-    // On scroll: the header disappears (collapses to 0 height instead of just
-    // hiding, so the page content actually moves up into its place), the
-    // search bar — already sticky at top:0 — visually ends up locked exactly
-    // where the header used to be, and the category row shrinks slightly and
-    // stays locked directly under the search bar.
     const scrollEl = document.getElementById('main-scroll');
     const SCROLL_LOCK_THRESHOLD = 24;
     let ticking = false;
-    // ✅ Fix (Item 1 — app-wide scroll lag): positionCategoriesLock() used to
-    // be called from here, i.e. on every single scroll frame. It reads
-    // searchSection.offsetHeight, which forces a synchronous layout
-    // recalculation (layout thrashing) right after the classList.toggle
-    // calls above just changed layout — on every scroll tick, anywhere in
-    // the app. That was the real cause of the reported lag. The search
-    // bar's own height never changes while scrolling (only its box-shadow
-    // does via the locked class), so this position only ever needs
-    // recomputing once, on init and on resize — it no longer runs per frame.
     function applyScrollLockState() {
         const y = scrollEl ? scrollEl.scrollTop : window.scrollY;
         const locked = y > SCROLL_LOCK_THRESHOLD;
@@ -10139,13 +9332,6 @@ function initHomeStickyScroll() {
     }, { passive: true });
 }
 
-/* ==========================================================================
-   WISHLIST BUTTONS (Item 7)
-   Previously this only ever wrote to localStorage, so the wishlist vanished
-   on refresh/new device. Now it's backed by a real `user_wishlist` table
-   (see wishlist_migration.sql) keyed on the logged-in user's auth id —
-   localStorage is kept only as an instant-paint cache / guest fallback.
-   ========================================================================== */
 async function initWishlistButtons() {
     const wishlistBtns = document.querySelectorAll('.wishlist-btn');
     if (wishlistBtns.length === 0) return;
@@ -10257,9 +9443,6 @@ async function renderProfileWishlist() {
     }
 }
 
-/* ==========================================================================
-   VOICE / MIC SEARCH (Web Speech API)
-   ========================================================================== */
 function initVoiceSearch() {
     const micBtn = document.getElementById('voice-search-btn');
     const searchInput = document.getElementById('home-medicine-search');
@@ -10275,10 +9458,6 @@ function initVoiceSearch() {
         return;
     }
 
-    // Inject listening-state styles once (no separate CSS file needed).
-    // While listening, the mic visually moves over to the avatar's spot
-    // (left side) and a plain search button takes over the mic's old
-    // right-side slot — same swap that happens while typing.
     if (!document.getElementById('voice-search-inline-style')) {
         const style = document.createElement('style');
         style.id = 'voice-search-inline-style';
@@ -10373,17 +9552,11 @@ function initVoiceSearch() {
     });
 }
 
-/* ==========================================================================
-   SERVICES MENU
-   ========================================================================== */
 function initServicesMenu() {
     const serviceItems = document.querySelectorAll('.service-item');
     serviceItems.forEach(item => {
         item.addEventListener('click', () => {
             const service = item.dataset.service;
-            // ✅ Lab Test, Nurse Booking, Ambulance and Tablet Coin are now
-            // merged pages within this same SPA (not a separate manubar.html
-            // file) — navigateTo() switches straight to each one in place.
             switch(service) {
                 case 'lab':
                     navigateTo('lab-test');
@@ -10413,22 +9586,6 @@ function initServicesMenu() {
     });
 }
 
-/* ==========================================================================
-   HAMBURGER MENU
-   ========================================================================== */
-// ============================================================
-// MY COUPONS & OFFERS — real, persistent list (Offers & Coupons)
-// "My Coupons" = actually earned coupons (order rewards, referral
-// rewards, admin grants) from user_coupons, one row per shopper.
-// "New Offers" = platform-wide active offers from platform_offers,
-// which simply accumulates whatever admin adds/activates.
-// ============================================================
-
-// ============================================================
-// OFFERS & COUPONS — dedicated full page. Shows ONLY offers that are running right now:
-// the user's own coupons, merchant offers/coupons, platform offers and public coupons.
-// Refreshes live when a merchant/admin adds or changes one.
-// ============================================================
 function __offerIsRunning(o) {
     if (!o) return false;
     if (o.is_active === false || o.active === false || o.is_used === true) return false;
@@ -10570,24 +9727,7 @@ async function loadMyCouponsAndOffers() {
     }
 }
 
-/* ✅ Hamburger menu removed entirely (HTML markup, CSS, and this init
-   function) per explicit standing request — there is no hamburger button
-   or overlay anywhere in the app. Real name/UID syncing still happens via
-   applyUserIdentityToUI(), called from autoFillSavedUserDataOnAuth() below,
-   independent of this removed function. */
-/* ============================================================
-   SPA ROUTER — added when consolidating userhome/usermap/userorder/
-   usercart/userprofile into user.html + user.css + user.js.
-   Only ADDS behaviour: switches which .app-page section is visible
-   instead of doing a full page navigation. Nothing above this point
-   was removed. product-detail.html and usert&c.html remain separate
-   real pages and are still opened with a normal navigation.
-   ============================================================ */
 (function () {
-    // ✅ Merged-in pages from manubar.html get their own PAGE_IDS entries so
-    // the exact same show/hide + history + nav-icon machinery this app
-    // already uses for Home/Shops/Cart/Order/Profile now also covers Lab
-    // Test, Nurse Booking, Ambulance and Tablet Coin — no second router.
     const PAGE_IDS = {
         home: 'page-home', shops: 'page-shops', order: 'page-order', cart: 'page-cart', profile: 'page-profile', notification: 'page-notification',
         'lab-test': 'page-lab-test', 'nurse-booking': 'page-nurse-booking', 'ambulance': 'page-ambulance', 'tablet-coin': 'page-tablet-coin',
@@ -10602,19 +9742,10 @@ async function loadMyCouponsAndOffers() {
     }
 
     window.navigateTo = function (page, anchorId) {
-        // ✅ "Medical Instrument" isn't a separate .app-page — it's a display
-        // mode of Home (hides quick-services/prescription/categories, shows
-        // a filtered product grid; see setInstrumentMode()). Routed through
-        // navigateTo('instrument') like every other page, no page reload,
-        // and it still gets its own URL hash (#instrument).
         const enteringInstrument = page === 'instrument';
         const targetPage = enteringInstrument ? 'home' : page;
         if (!PAGE_IDS[targetPage]) return;
 
-        // Turn instrument mode OFF on any navigation except the one entering
-        // it right now. This is what actually fixes "Back to Home doesn't
-        // work": previously nothing ever undid instrument mode's UI changes
-        // once entered (the old ?type=instrument reload had no exit path).
         if (window.__instrumentModeActive && !enteringInstrument && typeof setInstrumentMode === 'function') {
             setInstrumentMode(false);
         }
@@ -10637,14 +9768,6 @@ async function loadMyCouponsAndOffers() {
         // page — cheap to resync on every navigation.
         updateCartNavBadge();
 
-        // Cart page: re-render every time it's opened, not just when an item
-        // is added elsewhere. addToCart()/changeCartQty()/removeFromCart()
-        // already refresh #cart-items-container themselves, so normally this
-        // is redundant — but it's the one guaranteed backstop that makes the
-        // visible list match currentCart even if some earlier refresh call
-        // was skipped or failed, instead of leaving stale/placeholder markup
-        // on screen while the nav badge and totals (computed independently)
-        // are already correct.
         if (targetPage === 'cart' && typeof renderCartPage === 'function') {
             renderCartPage();
         }
@@ -10663,10 +9786,6 @@ async function loadMyCouponsAndOffers() {
             setTimeout(function () { window.__shopsLeafletMap.invalidateSize(); }, 60);
         }
 
-        // ✅ Reset THIS page's own scroll position to the top on every entry
-        // (window.scrollTo below is a no-op here since body itself never
-        // scrolls — each page's real scroll container is its own
-        // .main-content-scrollable <main>).
         const scrollEl = target ? target.querySelector('.main-content-scrollable') : null;
         if (scrollEl) scrollEl.scrollTop = 0;
 
@@ -10701,10 +9820,6 @@ async function loadMyCouponsAndOffers() {
         if (PAGE_IDS[hash]) window.navigateTo(hash);
     });
 
-    // ✅ The Lab Test / Nurse Booking / Ambulance / Tablet Coin pages share a
-    // "cat-strip" of quick links to jump between each other (previously
-    // manubar.html's own separate mini-router); one delegated listener here
-    // sends all of them through the same navigateTo() as everything else.
     document.addEventListener('click', function (e) {
         const link = e.target.closest ? e.target.closest('.cat-item[data-cat]') : null;
         if (!link) return;
@@ -10721,32 +9836,22 @@ async function loadMyCouponsAndOffers() {
         window.navigateTo(key);
     });
 })();
-/* ============================================================
-   Merged from manubar.html — Lab Test page
-   ============================================================ */
 
 (function(){
 
-// ---------------- Supabase ----------------
-// ✅ Reuses this app's single shared Supabase client (declared once at the
-// top of user.js) instead of creating a second, redundant client instance
-// now that this page lives inside the same document.
 const supabaseClient = supabase;
 function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ---------------- Icon library (fallback when a test has no admin image) ----------------
 const icons = {
   tube: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 2v13a3 3 0 006 0V2" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><path d="M9 9h6" stroke="#a11212" stroke-width="1.6"/><path d="M9 2h6" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16" r="1.4" fill="#d21f1f"/></svg>`,
   drop: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3s6 7 6 11a6 6 0 01-12 0c0-4 6-11 6-11z" stroke="#a11212" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
   default: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 2v13a3 3 0 006 0V2" stroke="#a11212" stroke-width="1.6" stroke-linecap="round"/><path d="M9 9h6" stroke="#a11212" stroke-width="1.6"/></svg>`
 };
 
-// ---------------- State ----------------
 let allTests = [];
 let userPincode = localStorage.getItem('labGatePincode') || '';
 let currentUser = null;
 
-// ---------------- Load tests from Supabase (no more fake demo data) ----------------
 async function loadTests(){
   const { data, error } = await supabaseClient.from('lab_tests').select('*').eq('active', true).order('created_at', {ascending:false});
   if(error){ console.error(error); allTests = []; }
@@ -10832,7 +9937,6 @@ function renderGrid(filter=""){
 
 document.getElementById("lb_searchInput").addEventListener("input", (e)=>{ renderGrid(e.target.value); });
 
-// ---------------- Voice search (mic button) ----------------
 (function(){
   const micBtn = document.getElementById('lb_micBtn');
   const searchInput = document.getElementById('lb_searchInput');
@@ -10891,7 +9995,6 @@ document.getElementById("lb_searchInput").addEventListener("input", (e)=>{ rende
   });
 })();
 
-// ---------------- Pincode gate ----------------
 const gatePincodeInput = document.getElementById('lb_gatePincode');
 const gateNote = document.getElementById('lb_gateNote');
 gatePincodeInput.value = userPincode;
@@ -10912,7 +10015,6 @@ document.getElementById('lb_gateCheckBtn').addEventListener('click', applyGatePi
 gatePincodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') applyGatePincode(); });
 if(userPincode) applyGatePincode();
 
-// ---------------- Booking flow ----------------
 const overlay = document.getElementById("lb_overlay");
 const sheetTestName = document.getElementById("lb_sheetTestName");
 const gpsStatus = document.getElementById("lb_gpsStatus");
@@ -11044,10 +10146,6 @@ document.getElementById('lb_rxFileInput').addEventListener('change', (e)=>{
   box.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${esc(file.name)}`;
 });
 
-// ✅ The old standalone mini-router's window.__initialSpaPage flag no longer
-// exists now that navigation is handled by the main SPA router — this
-// page-entry history guard isn't needed there either.
-
 function openSheet(){ overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; }
 function closeSheetUI(){ overlay.classList.remove("active"); }
 window.addEventListener("popstate", ()=>{
@@ -11062,7 +10160,7 @@ window.addEventListener("popstate", ()=>{
   if(document.getElementById('lb_rateOverlay').classList.contains('active')){
     document.getElementById('lb_rateOverlay').classList.remove('active'); return;
   }
-  if (typeof window.navigateTo === 'function') window.navigateTo('home'); // ✅ SPA nav instead of a full page reload
+  if (typeof window.navigateTo === 'function') window.navigateTo('home');
 });
 closeX.addEventListener("click", ()=>{ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } });
 overlay.addEventListener("click", (e)=>{ if(e.target === overlay){ if(sheetOpenViaHistory){ history.back(); } else { closeSheetUI(); } } });
@@ -11205,14 +10303,12 @@ confirmBtn.addEventListener("click", async ()=>{
 });
 
 
-// ---------------- Test Details ----------------
 const detailsOverlay = document.getElementById('lb_detailsOverlay');
 const detailsBody = document.getElementById('lb_detailsBody');
 const detailTitle = document.getElementById('lb_detailTitle');
 document.getElementById('lb_closeDetailsX').addEventListener('click', ()=> history.back());
 detailsOverlay.addEventListener('click', (e)=>{ if(e.target === detailsOverlay) history.back(); });
 
-// ---------------- Share + publisher name ----------------
 function shareLabTest(id){
   const t = allTests.find(x=>x.id===id);
   if(!t) return;
@@ -11346,7 +10442,6 @@ async function loadTestStats(testId){
     : `<p class="no-reviews">No reviews yet — be the first to share feedback after your test.</p>`;
 }
 
-// ---------------- Rate / Feedback sheet ----------------
 const rateOverlay = document.getElementById('lb_rateOverlay');
 const rateTestLabel = document.getElementById('lb_rateTestLabel');
 const starPicker = document.getElementById('lb_starPicker');
@@ -11391,7 +10486,6 @@ document.getElementById('lb_submitRateBtn').addEventListener('click', async ()=>
   loadMyBookings();
 });
 
-// ---------------- My Bookings ----------------
 const bookingsOverlay = document.getElementById('lb_bookingsOverlay');
 document.getElementById('lb_myBookingsBtn').addEventListener('click', ()=>{
   bookingsOverlay.classList.add('active');
@@ -11459,17 +10553,6 @@ async function cancelMyBooking(id){
   loadMyBookings();
 }
 
-async function labDownloadReceiptOld(b){
-  const text = `MediFinder India Booking Receipt\n\nTest: ${b.test_name}\nPrice: ₹${b.test_price}\nPatient: ${b.patient_name}\nDate: ${b.book_date} ${b.book_time}\nStatus: ${b.status}\nPayment: ${b.payment_method.toUpperCase()} (${b.payment_status})`;
-  if(navigator.share){
-    try { await navigator.share({ title: 'MediFinder India Receipt', text }); return; } catch(e){}
-  }
-  const w = window.open('', '_blank');
-  w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
-  w.document.close();
-}
-
-// ---------------- Init ----------------
 window.addEventListener('mf:auth', (e)=>{ currentUser = (e.detail && e.detail.user) || null; try{ loadMyBookings(); }catch(_){} });
 window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='lab-test'){ try{ loadMyBookings(); }catch(_){} } });
 document.addEventListener('DOMContentLoaded', async ()=>{
@@ -11485,18 +10568,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 })();
 
 
-/* ============================================================
-   Merged from manubar.html — Nurse Booking page
-   ============================================================ */
-
 (function(){
 
-/* ============================================================
-   NURSE BOOKING — service-type based pricing, pincode gating,
-   Self-declared UPI payment (Pay Now / QR + confirm) before submit,
-   Supabase-backed status tracking
-   ============================================================ */
-// ✅ Reuses this app's single shared Supabase client instead of a second one.
 const supabaseClient = supabase;
 function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -11513,7 +10586,6 @@ async function pushHomeNotification(title, message){
   }catch(e){}
 }
 
-// ---------------- Fixed service catalogue ----------------
 const SERVICES = [
   { key:"ayah", label:"Ayah / Basic Attendant", scope:"Companionship for elderly people, bathing, feeding and help with walking.", rate:600, unit:"day" },
   { key:"gda", label:"GDA (General Duty Assistant)", scope:"Medication management, checking sugar and blood pressure, giving nebulizer, feeding through Ryle's tube.", rate:800, unit:"day" },
@@ -11575,7 +10647,6 @@ function resetUpiSteps(){
   document.getElementById('nb_upiStepConfirm').style.display = "none";
 }
 
-// ---------------- Pincode availability gate ----------------
 const addrPincode = document.getElementById('nb_addrPincode');
 const pinNote = document.getElementById('nb_pinNote');
 let pincodeOk = false;
@@ -11597,7 +10668,6 @@ async function checkPincodeAvailability(){
   }
 }
 
-// ---------------- Form elements ----------------
 const overlay = document.getElementById("nb_overlay");
 const openBookBtn = document.getElementById("nb_openBookBtn");
 const closeX = document.getElementById("nb_closeX");
@@ -11677,7 +10747,6 @@ function resetForm(){
 function openSheet(){ resetForm(); overlay.classList.add("active"); history.pushState({sheet:true}, ""); sheetOpenViaHistory = true; nbInjectGeoUI(); nbCaptureGps(true); }
 function closeSheetUI(){ overlay.classList.remove("active"); }
 
-// ---------------- GPS pin for the nurse visit location ----------------
 function nbInjectGeoUI(){
   if(document.getElementById('nb_geoBox')) return;
   const field = addrHouse.closest('.field') || addrHouse.parentElement;
@@ -11849,7 +10918,6 @@ function sendWhatsAppNotification(b){
   window.open(url, "_blank");
 }
 
-// ---------------- Render bookings ----------------
 const bookingsWrap = document.getElementById("nb_bookingsWrap");
 let myBookings = [];
 
@@ -11921,17 +10989,6 @@ async function renderBookings(){
   }).join("");
 }
 
-async function nurseDownloadReceiptOld(b){
-  const text = `MediFinder India — Nurse Booking Receipt\n\nPatient: ${b.patient_name}\nService: ${b.service_label}\nRate: ₹${b.rate}/${b.rate_unit} × ${b.duration}\nSubtotal: ₹${b.subtotal}\nService Charge (10%): ₹${b.service_charge}\nTotal Paid: ₹${b.total_amount}\nPayment ID: ${b.razorpay_payment_id || '—'}\nStatus: ${b.status}`;
-  if(navigator.share){
-    try { await navigator.share({ title: 'MediFinder India Nurse Receipt', text }); return; } catch(e){}
-  }
-  const w = window.open('', '_blank');
-  w.document.write(`<pre style="font-family:sans-serif;white-space:pre-wrap;padding:24px;">${text}</pre><script>window.print();<\/script>`);
-  w.document.close();
-}
-
-// ---------------- Toast ----------------
 let toastTimeout;
 function showToast(msg){
   const toast = document.getElementById("nb_toast");
@@ -11942,7 +10999,6 @@ function showToast(msg){
 }
 
 
-// ---------------- Init ----------------
 window.addEventListener('mf:auth', (e)=>{ currentUser = (e.detail && e.detail.user) || null; renderBookings(); });
 window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='nurse-booking') renderBookings(); });
 document.addEventListener('DOMContentLoaded', async ()=>{
@@ -11961,15 +11017,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 })();
 
 
-/* ============================================================
-   Merged from manubar.html — Ambulance page
-   ============================================================ */
-
 (function(){
 
-/* ============================================================
-   Config
-   ============================================================ */
 const EMERGENCY_PHONE = "9593625498";
 const FARE_RULES = {
   non_ac: { base: 500,  baseKm: 10, perKm: 15 },
@@ -11977,10 +11026,6 @@ const FARE_RULES = {
   icu:    { base: 1500, baseKm: 10, perKm: 50 }
 };
 const TYPE_LABEL = { non_ac: "Non-AC", ac: "AC / Oxygen", icu: "ICU / Advanced" };
-
-// ✅ No local client here — this whole IIFE naturally resolves `supabase`
-// to this app's single shared client (declared once at the top of user.js)
-// via normal scope lookup now that this page lives in the same document.
 
 const $ = (id) => document.getElementById(id);
 function escapeHtml(str){ return String(str||"").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
@@ -12005,9 +11050,6 @@ function calcFare(type, distanceKm){
   return Math.round(r.base + extraKm * r.perKm);
 }
 
-/* ============================================================
-   1) Top strip auto-slide
-   ============================================================ */
 (function(){
   const spans = document.querySelectorAll("#ab_topStripTrack span");
   let i = 0;
@@ -12018,9 +11060,6 @@ function calcFare(type, distanceKm){
   }, 3500);
 })();
 
-/* ============================================================
-   2) State
-   ============================================================ */
 let userLiveLat = null, userLiveLng = null;
 let allDrivers = [];
 let activeTypeFilter = "all";
@@ -12029,9 +11068,6 @@ let currentBooking = null;
 let trackMapObj = null, trackDriverMarker = null, trackPickupMarker = null;
 let bookingsChannel = null, driversChannel = null;
 
-/* ============================================================
-   3) GPS
-   ============================================================ */
 $("ab_gpsBtn").addEventListener("click", () => {
   if (!navigator.geolocation) { showToast("Your browser doesn't support GPS"); return; }
   showToast("Finding location...");
@@ -12062,9 +11098,6 @@ async function geocodePickup(){
 $("ab_pickupInput").addEventListener("input", () => { userLiveLat = null; userLiveLng = null; });
 $("ab_pickupInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("ab_searchBtn").click(); } });
 
-/* ============================================================
-   4) Load & render online, verified drivers (realtime)
-   ============================================================ */
 async function loadDrivers(){
   if (!supabase) return;
   // RLS blocks direct reads of ambulance_drivers (bank/KYC data) -> use the safe RPC
@@ -12147,9 +11180,6 @@ function renderAmbulances(){
   });
 }
 
-/* ============================================================
-   5) Booking modal
-   ============================================================ */
 function openBookingModal(driverId, items){
   selectedDriver = items.find(d => String(d.id) === String(driverId));
   if (!selectedDriver) return;
@@ -12215,9 +11245,6 @@ $("ab_confirmBookBtn").addEventListener("click", async () => {
   } finally { abBooking = false; }
 });
 
-/* ============================================================
-   6) Live tracking modal
-   ============================================================ */
 function openTrackModal(){
   openModal("trackModal");
   setTimeout(initTrackMap, 150);
@@ -12317,9 +11344,6 @@ $("ab_cancelRideBtn").addEventListener("click", async () => {
   refreshHistory();
 });
 
-/* ============================================================
-   7) Payment (Razorpay) once ride completes
-   ============================================================ */
 function maybeShowPayment(booking){
   const v = booking.payment_verification_status;
   if (booking.payment_status === "paid" || v === "pending" || v === "verified") return;
@@ -12351,13 +11375,8 @@ function maybeShowPayment(booking){
   };
 }
 
-/* ============================================================
-   8) History drawer
-   ============================================================ */
 $("ab_historyFab").addEventListener("click", () => { openHistory(); refreshHistory(); });
 
-// ✅ Category-strip navigation between these pages is now handled by
-// the single shared .cat-item[data-cat] listener in the main SPA router.
 $("ab_drawerOverlay").addEventListener("click", closeHistory);
 let liveMap = null, liveTimer = null, liveBookingId = null, liveBooking = null;
 let livePickup = null, liveDrop = null, liveDriverMarker = null, liveDriverLine = null, liveLastRouteAt = 0, liveFitted = false;
@@ -12541,9 +11560,6 @@ async function refreshHistory(){
     </div>`).join("") : `<p class="mb-empty">No bookings yet.</p>`;
 }
 
-/* ============================================================
-   9) Resume an in-progress booking on page load
-   ============================================================ */
 async function resumeActiveBooking(){
   if (!supabase) return;
   const { data: userData } = await supabase.auth.getUser();
@@ -12560,9 +11576,6 @@ async function resumeActiveBooking(){
 }
 
 
-/* ============================================================
-   Init
-   ============================================================ */
 loadDrivers();
 subscribeDrivers();
 refreshHistory();
@@ -12571,26 +11584,9 @@ resumeActiveBooking();
 })();
 
 
-/* ============================================================
-   Merged from manubar.html — Tablet Coin page
-   ============================================================ */
-
 (function(){
 
-/* ============================================================
-   TABLET COIN — real wallet (Supabase: profiles.coins + coin_transactions)
-   ============================================================ */
 
-
-// ---------------- Earn rules ----------------
-// Every rule here is credited server-side (Supabase trigger/RPC — see
-// tablet_coin_schema.sql), never by client-side JS alone. `auto:true` rules
-// need no button — they post to coin_transactions on their own the moment the
-// real event happens (order delivered, referral completes, etc.). The two
-// `auto:false` rules ("Daily Check-in" and "Complete Your Profile") need a
-// tap because there's no other real event to hang them on, so they call a
-// security-definer RPC that enforces the once-per-day / once-ever limit —
-// never a local balance edit.
 const earnTasks = [
   { id:"order_500",         icon:"🛒", title:"Order ₹500+",              desc:"Any delivered order of ₹500 or more.",                          reward:5,  auto:true },
   { id:"order_1000",        icon:"🛍️", title:"Order ₹1000+",             desc:"Any delivered order of ₹1000 or more.",                         reward:12, auto:true },
@@ -12604,13 +11600,6 @@ const earnTasks = [
   { id:"profile_complete",  icon:"✅", title:"Complete Your Profile",    desc:"One-time bonus for adding your address and verified phone.",    reward:10, auto:false },
 ];
 
-// ---------------- State helpers ----------------
-// ---------------- Live notification bridge to user.html ----------------
-// Same Supabase project as the rest of MediFinder — inserts land in the
-// `notifications` table so they show up instantly in the home page bell.
-// NOTE: verify SUPABASE_URL / SUPABASE_ANON_KEY match the variable names in your
-// actual supabase-constants.js file.
-// ✅ Reuses this app's single shared Supabase client instead of a second one.
 const sbClient = supabase;
 
 async function pushHomeNotification(title, message){
@@ -12624,10 +11613,6 @@ async function pushHomeNotification(title, message){
   }catch(e){}
 }
 
-// ---------------- Real wallet (Supabase) ----------------
-// Balance lives in profiles.coins (the same column the referral system
-// already credits) and every earn/redeem event is a row in
-// coin_transactions — nothing here is stored client-side any more.
 let _tcUserId = null;
 let _tcBalance = 0;
 let _tcHistory = [];
@@ -12670,12 +11655,6 @@ function minsLeft(taskId, cooldownMins){
   return left > 0 ? Math.ceil(left) : 0;
 }
 
-// ---------------- Render earn grid ----------------
-// `auto:true` rules are credited server-side the moment the real event
-// happens (order delivered, referral completes, review posted, etc.) — no
-// button, just a live status pulled from coin_transactions. Only the two
-// `auto:false` rules show a tap-to-claim button, and that tap calls a
-// security-definer RPC (never a local balance edit).
 const earnGrid = document.getElementById("tc_earnGrid");
 function renderEarnGrid(){
   earnGrid.innerHTML = "";
@@ -12736,7 +11715,6 @@ earnGrid.addEventListener("click", async (e)=>{
   }
 });
 
-// ---------------- Render redeem grid ----------------
 const redeemGrid = document.getElementById("tc_redeemGrid");
 function renderRedeemGrid(){
   const bal = getBalance();
@@ -12754,7 +11732,6 @@ function renderRedeemGrid(){
 
 
 
-// ---------------- History sheet ----------------
 const histOverlay = document.getElementById("tc_histOverlay");
 const histBody = document.getElementById("tc_histBody");
 const histCloseX = document.getElementById("tc_histCloseX");
@@ -12802,7 +11779,6 @@ function renderHistory(){
   }).join("");
 }
 
-// ---------------- Toast ----------------
 let toastTimeout;
 function showToast(msg){
   const toast = document.getElementById("tc_toast");
@@ -12812,7 +11788,6 @@ function showToast(msg){
   toastTimeout = setTimeout(()=> toast.classList.remove("show"), 2200);
 }
 
-// ---------------- Init ----------------
 let _tcChannel = null;
 async function tcInit(){
   await tcLoadWallet();
@@ -12846,18 +11821,6 @@ window.addEventListener('mf:page-enter', (e)=>{ if(e.detail && e.detail.page==='
 })();
 
 
-/* ==========================================================================
-   PUBLIC-HOME LOGIN GATE  (used by home.html AND user.html)
-   --------------------------------------------------------------------------
-   Visitors browse home.html as guests. Login is requested only for
-   account-specific actions:
-     - Place order / Buy Now / UPI payment  -> mfEnsureLoggedIn({type:'checkout'})
-     - Orders, Profile, Notifications views -> guarded window.navigateTo()
-   The intended action is saved in localStorage ('mf_pending_action', 30 min TTL)
-   so mfResumePendingAction() can return the user to it after login.
-   Auth itself (Supabase client, OAuth, roles, redirects) stays in
-   supabase-config.js - nothing here signs anyone in or redirects by role.
-   ========================================================================== */
 (function () {
     'use strict';
 
@@ -13144,8 +12107,6 @@ async function nurseDownloadReceipt(b) {
     }
   }
   new MutationObserver(sync).observe(list, { childList: true });
-  document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ if (typeof loadMyBookings === 'function') loadMyBookings(); }, 1500); });
-  try { if (typeof supabaseClient !== 'undefined') supabaseClient.channel('lab_bookings_live').on('postgres_changes', { event:'*', schema:'public', table:'lab_bookings' }, function(){ if (typeof loadMyBookings === 'function') loadMyBookings(); }).subscribe(); } catch(e) {}
 })();
 
 
@@ -13222,13 +12183,6 @@ async function nurseDownloadReceipt(b) {
 })();
 
 
-/* ============================================================
-   SESSION + REALTIME BUS
-   user.html is a SPA now, so nothing reloads when the user logs in or places an
-   order. This keeps every page in sync with Supabase:
-   - mf:auth        -> fired on login / logout / account switch
-   - mf:page-enter  -> fired every time a page is opened (see navigateTo)
-   ============================================================ */
 (function () {
   if (typeof supabase === 'undefined' || !supabase || !supabase.auth) return;
   var lastUid = undefined;
@@ -13297,13 +12251,6 @@ async function nurseDownloadReceipt(b) {
 })();
 
 
-/* ============================================================
-   PRODUCT DETAIL — layout helpers
-   1) --mf-nav-h : real height of the bottom nav (0 when it is hidden) so
-      fixed bars always sit exactly ABOVE it and never get covered.
-   2) The ADD TO CART / BUY NOW bar hides itself once the shopper scrolls
-      down to the "Similar Products" section, and returns when they scroll up.
-   ============================================================ */
 (function () {
     function setNavHeight() {
         var nav = document.getElementById('bottom-nav');
@@ -13370,9 +12317,6 @@ function mfFitSponsoredSlide() {
     const cont = document.querySelector('.slider-container');
     if (!cont) return;
     const slides = cont.querySelectorAll('.slide');
-    // Learn every banner's shape up-front (not only the visible one) so the
-    // card is already the right height when a slide comes into view - this is
-    // what used to leave blurred side bars right after login / refresh.
     const desktop = window.innerWidth >= 768;
     slides.forEach(s => {
         const im = s.querySelector('img.sponsored-media');
@@ -13407,9 +12351,6 @@ function mfFitSponsoredSlide() {
 window.addEventListener('resize', function () { try { mfFitSponsoredSlide(); } catch (e) {} });
 
 
-/* ==========================================================================
-   OCT 9 — dark/light setting, keyboard-aware bottom nav, map-search mic
-   ========================================================================== */
 (function () {
     // ---- Dark / light toggle (persisted) ----
     function applyTheme(t) {
@@ -13429,7 +12370,6 @@ window.addEventListener('resize', function () { try { mfFitSponsoredSlide(); } c
         if (row) row.addEventListener('click', (e) => { if (!e.target.closest('.mf-theme-switch')) { cb.checked = !cb.checked; applyTheme(cb.checked ? 'dark' : 'light'); } });
     }
 
-    // ---- Keyboard open -> hide bottom nav (it used to ride up above the keyboard) ----
     const TEXTY = /^(text|search|tel|email|number|password|url|date|time|)$/i;
     const isTextField = (el) => el && ((el.tagName === 'INPUT' && TEXTY.test(el.type || '')) || el.tagName === 'TEXTAREA' || el.isContentEditable);
     let kbTimer = null;

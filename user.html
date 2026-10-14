@@ -36,24 +36,41 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style id="mf-critical">
+    /* critical CSS: the boot loader paints at once, before the big stylesheets arrive */
+    html,body{margin:0;background:#fff}
+    #mf-boot-loader{position:fixed;inset:0;z-index:999999;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease}
+    #mf-boot-loader.mf-loader-hidden{opacity:0;pointer-events:none}
+    .mf-boot-loader-ring-wrap{position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center}
+    .mf-boot-loader-ring{position:absolute;inset:0;border-radius:50%;border:5px solid #f8d7d7;border-top-color:#e02020;animation:mfBootSpin .9s linear infinite}
+    .mf-boot-loader-logo{width:88px;height:88px;object-fit:contain;border-radius:50%;position:relative;z-index:1}
+    @keyframes mfBootSpin{to{transform:rotate(360deg)}}
+    </style>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co" crossorigin>
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-solid-900.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-regular-400.woff2">
+    <!-- stylesheets load without blocking first paint; the boot loader covers the page until the 2 big ones are applied -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
+    <link rel="stylesheet" href="user.min.css?v=cd20a64a" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
+    <link rel="stylesheet" href="offer.css?v=951ffa15" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="ux-final.css?v=6476ed2e" media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+        <link rel="stylesheet" href="user.min.css?v=cd20a64a">
+        <link rel="stylesheet" href="offer.css?v=951ffa15">
+        <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+        <link rel="stylesheet" href="ux-final.css?v=6476ed2e">
+    </noscript>
+    <script src="btn-loading.js?v=3e075ab0"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="user.min.css?v=10">
-    <link rel="stylesheet" href="offer.css?v=1">
-    <script src="permission-every.js?v=4"></script>
+    <script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js" defer></script>
     <script src="supabase-constants.js" defer></script>
-    <!-- ✅ Needed for the merged-in Ambulance page's payment flow (ride fare
-         + driver commission-due payments via Razorpay). -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
 </head>
 <body>
-    <!-- Full-page boot loader — shown until window 'load' fires (see
-         mfHideBootLoader() in user.js). Was already wired up in JS but the
-         markup itself was missing, so it never actually appeared. -->
     <div id="mf-boot-loader">
         <div class="mf-boot-loader-ring-wrap">
             <div class="mf-boot-loader-ring"></div>
@@ -61,7 +78,6 @@
         </div>
     </div>
 
-    <!-- ============ HOME ============ -->
     <div id="page-home" class="app-page active" data-page="home">
 
     <!-- Toast Notification Container -->
@@ -237,13 +253,13 @@
 
         <section class="products-showcase-section">
             <div class="section-header-row">
-                <h3 class="section-title" id="products-section-heading">Available Medicine</h3>
+                <h3 class="section-title" id="products-section-heading">Available Products</h3>
                 <span class="product-count-badge" id="product-count-badge" style="display:none;">0 items</span>
             </div>
             
             <div id="no-products-msg" style="display: none; text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem;">
                 <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #ccc; margin-bottom: 8px; display: block;"></i>
-                No matching medicines found.
+                No matching products found.
             </div>
 
             <div class="products-grid" id="main-products-grid">
@@ -346,7 +362,6 @@
 
     </div>
 
-    <!-- ============ PRODUCT DETAIL (in-app page, replaces old product-detail.html navigation) ============ -->
     <div id="page-product-detail" class="app-page" data-page="product-detail">
         <header class="pd-page-header">
             <button class="pd-back-btn" id="pd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
@@ -452,6 +467,13 @@
                         </div>
                     </div>
 
+                    <div class="pd-pack-box" id="pd-pack-box" style="display:none;">
+                        <div class="pd-pack-head"><i class="fa-solid fa-box-open"></i> What you get in this order</div>
+                        <div class="pd-pack-row"><span>Each unit</span><b id="pd-pack-one">&mdash;</b></div>
+                        <div class="pd-pack-row" id="pd-pack-str-row" style="display:none;"><span>Strength</span><b id="pd-pack-str">&mdash;</b></div>
+                        <div class="pd-pack-row pd-pack-total" id="pd-pack-total-row" style="display:none;"><span id="pd-pack-total-label">Your order</span><b id="pd-pack-all">&mdash;</b></div>
+                    </div>
+
                     <div class="pd-variants-block" id="pd-variants-block" style="display:none;">
                         <span class="detail-label">Other Options</span>
                         <div class="pd-variants-row" id="pd-variants-row"></div>
@@ -498,7 +520,7 @@
                         </section>
 
                         <section class="pd-modern-card pd-accordion-item" id="pd-instrument-info-item" style="display:none;">
-                            <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-stethoscope"></i></span> Device Details</h4>
+                            <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-stethoscope"></i></span> Medical Device Details</h4>
                             <div class="pd-tabs" role="tablist">
                                 <button type="button" class="pd-tab on" data-pane="pd-inst-spec">Specifications</button>
                                 <button type="button" class="pd-tab" data-pane="pd-inst-care-pane">Warranty &amp; Care</button>
@@ -518,6 +540,29 @@
                                 <div class="detail-item"><span class="detail-label">Brand / Manufacturer</span><span class="detail-value" id="pd-inst-brand">—</span></div>
                                 <div class="detail-item"><span class="detail-label">Warranty Period</span><span class="detail-value" id="pd-inst-warranty">—</span></div>
                                 <div class="detail-item pd-stack"><span class="detail-label">Care & Usage Instructions</span><span class="detail-value" id="pd-inst-care">—</span></div>
+                            </div>
+                        </section>
+
+                        <section class="pd-modern-card pd-accordion-item" id="pd-general-info-item" style="display:none;">
+                            <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-box-open"></i></span> <span id="pd-gen-title">Product Details</span></h4>
+                            <div class="pd-tabs" role="tablist">
+                                <button type="button" class="pd-tab on" data-pane="pd-gen-spec">Specifications</button>
+                                <button type="button" class="pd-tab" data-pane="pd-gen-batch-pane">Manufacturer &amp; Batch</button>
+                            </div>
+                            <div class="pd-pane on" id="pd-gen-spec">
+                                <div class="detail-item"><span class="detail-label">Product Type</span><span class="detail-value" id="pd-gen-type">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Category</span><span class="detail-value" id="pd-gen-category">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Sub Category</span><span class="detail-value" id="pd-gen-subcategory">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Pack Size</span><span class="detail-value" id="pd-gen-pack">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Unit Type</span><span class="detail-value" id="pd-gen-unit">&mdash;</span></div>
+                            </div>
+                            <div class="pd-pane" id="pd-gen-batch-pane">
+                                <div class="detail-item"><span class="detail-label">Brand / Manufacturer</span><span class="detail-value" id="pd-gen-brand">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Batch Number</span><span class="detail-value" id="pd-gen-batch">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Lot Number</span><span class="detail-value" id="pd-gen-lot">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Manufacturing Date (MFG)</span><span class="detail-value" id="pd-gen-mfd">&mdash;</span></div>
+                                <div class="detail-item"><span class="detail-label">Expiry Date</span><span class="detail-value" id="pd-gen-expiry">&mdash;</span></div>
+                                <div class="detail-item pd-stack"><span class="detail-label">Storage / Usage Instructions</span><span class="detail-value" id="pd-gen-storage">&mdash;</span></div>
                             </div>
                         </section>
 
@@ -616,12 +661,6 @@
         </div>
     </div>
 
-    <!-- ============ SHOP DETAIL (in-app page — replaces the old, separate
-         shop-details.html file, which never actually opened from any real
-         deployment path. Tapping "VIEW" on a shop, selecting a shop from
-         search suggestions, or "Visit Shop" on a product's detail page now
-         all route here via navigateToShopDetail(), the same in-app SPA
-         pattern already used for Product Detail. ============ -->
     <div id="page-shop-detail" class="app-page" data-page="shop-detail">
         <header class="pd-page-header sd-page-header">
             <button class="pd-back-btn" id="sd-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
@@ -735,8 +774,6 @@
         </main>
     </div>
 
-    <!-- ============ SHOPS / MAP ============ -->
-    <!-- ============ NOTIFICATION (full page) ============ -->
     <div id="page-notification" class="app-page" data-page="notification">
         <header class="notification-page-header">
             <h2><i class="fa-solid fa-bell"></i> Notifications</h2>
@@ -750,7 +787,6 @@
         </div>
     </div>
 
-    <!-- ============ MY PRESCRIPTION (full page, replaces the old popup) ============ -->
     <div id="page-prescriptions" class="app-page" data-page="prescriptions">
         <header class="rxpage-header">
             <button type="button" class="rxpage-back-btn" id="rxpage-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
@@ -802,7 +838,6 @@
 
     </div>
 
-    <!-- ============ ORDERS ============ -->
     <div id="page-order" class="app-page" data-page="order">
         <div class="order-screen premium-orders-screen">
             <div class="orders-title-row">
@@ -843,7 +878,6 @@
         </div>
     </div>
 
-    <!-- ============ CART ============ -->
     <div id="page-cart" class="app-page" data-page="cart">
 
     <main class="cart-screen">
@@ -924,13 +958,6 @@
                     <button class="save-address-btn" id="save-address-btn"><i class="fa-solid fa-bookmark"></i> Save Address</button>
                     <p id="addr-status-msg"></p>
                 </div>
-                <!-- ✅ Item 3: removed the second/duplicate address display
-                     (the old single "saved-address-box" card) that used to
-                     render here alongside cart-address-list above — showing
-                     the same saved address twice in two different card
-                     styles. cart-address-list is now the one and only
-                     address system on this page; "Write address manually"
-                     below still opens the form to add or edit an address. -->
                 <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #e02020;background:#fff8f8;color:#e02020;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
             </div>
 
@@ -1174,7 +1201,6 @@
     </div>
     </div>
 
-    <!-- ============ PROFILE ============ -->
     <div id="page-profile" class="app-page" data-page="profile">
 
     <main class="profile-screen">
@@ -1210,9 +1236,6 @@
                 <i class="fa-solid fa-chevron-right" style="color:#ff4d4d;"></i>
             </div>
 
-            <!-- MY ORDERS (merged in from the old hamburger menu, which is
-                 no longer reachable since the app switched to the 5-icon
-                 bottom nav) -->
             <div class="menu-card-item" id="my-orders-trigger">
                 <div class="menu-icon" style="background:#e8f4fd;color:#1c82aa;"><i class="fa-solid fa-box"></i></div>
                 <div class="menu-text">
@@ -1305,10 +1328,6 @@
                 </div>
             </div>
 
-            <!-- Added so Privacy Policy / Cancellation & Refund actually have
-                 somewhere to link from — user.js already had onclick logic
-                 for these two ids ready and waiting, it just had no matching
-                 HTML element to attach to, so the links never rendered. -->
             <div class="menu-card-item" id="privacy-trigger">
                 <div class="menu-icon" style="background:#e6f7ff;color:#0b7fab;"><i class="fa-solid fa-user-shield"></i></div>
                 <div class="menu-text">
@@ -1353,15 +1372,12 @@
                 <i class="fa-solid fa-chevron-right" style="color:#ccc;"></i>
             </div>
 
-            <!-- ✅ Item 5: "Help Desk" menu item removed per request (FAQ +
-                 Customer Care Desk below already cover diagnostics/support). -->
-
             <div class="menu-card-item contact-hub-item">
                 <div class="menu-icon" style="background:#e7f5ff;color:#1c7ed6;"><i class="fa-solid fa-headset"></i></div>
                 <div class="menu-text">
                     <h3 id="lang-care-title">Customer Care Desk</h3>
                     <div class="contact-actions-grid">
-                        <a href="tel:9593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
+                        <a href="tel:+919593625498" class="care-anchor-btn"><i class="fa-solid fa-phone"></i> Call Support</a>
                         <a href="mailto:medifinderindia@gmail.com?subject=MediFinder%20India%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> Email Us</a>
                         <a href="mailto:support@medifinderindia.com?subject=MediFinder%20India%20App%20Support%20Ticket&body=Hello%20Team,%0A%0AI%20am%20facing%20an%20issue%20with..." class="care-anchor-btn"><i class="fa-solid fa-envelope"></i> support@medifinderindia.com</a>
                     </div>
@@ -1549,7 +1565,7 @@
             </div>
             <div class="modal-scrollable-inner" style="padding:16px;">
                 <div class="contact-actions-grid" style="margin-bottom:16px;">
-                    <a href="tel:9593625498" class="care-anchor-btn faq-call-btn"><i class="fa-solid fa-phone"></i> Call Support <span>9593625498</span></a>
+                    <a href="tel:+919593625498" class="care-anchor-btn faq-call-btn"><i class="fa-solid fa-phone"></i> Call Support <span>9593625498</span></a>
                 </div>
                 <div class="faq-accordion">
                     <details class="faq-item" open>
@@ -1598,7 +1614,6 @@
     </div> 
 
 
-    <!-- ============ Merged from manubar.html: Lab Test / Nurse Booking / Ambulance / Tablet Coin ============ -->
 <div id="page-lab-test" class="app-page pg-lab">
 <main class="main-content-scrollable">
 
@@ -2014,7 +2029,6 @@
 <main class="main-content-scrollable">
 
 
-<!-- ================= TOP STRIP (auto-slide) ================= -->
 <div class="top-strip">
   <div class="top-strip-track" id="ab_topStripTrack">
     <span class="active">100% Verified Drivers &amp; Vehicles — GPS Tracked</span>
@@ -2023,17 +2037,15 @@
   </div>
 </div>
 
-<!-- ================= HEADER (title + Back to Home, locked) ================= -->
 <header class="site-header">
   <h1 class="page-title">Ambulance Booking</h1>
   <a href="#" class="back-home-btn" onclick="event.preventDefault(); navigateTo('home');"><i class="fa-solid fa-house"></i> Back to Home</a>
 </header>
 
 
-<!-- ================= HEADER ACTIONS (sits below the locked header) ================= -->
 <div class="header-actions-row">
   <div class="header-actions">
-    <a href="tel:9593625498" class="emergency-call-btn"><i class="fa-solid fa-phone"></i> Call to Book: 9593625498</a>
+    <a href="tel:+919593625498" class="emergency-call-btn"><i class="fa-solid fa-phone"></i> Call to Book: 9593625498</a>
     <a href="tel:112" class="amb-sos-btn" aria-label="SOS call 112"><i class="fa-solid fa-triangle-exclamation"></i> SOS &middot; Call 112</a>
     <button id="ab_historyFab" class="history-fab" title="My Bookings"><i class="fa-solid fa-calendar-check"></i><span class="dot"></span></button>
   </div>
@@ -2065,7 +2077,6 @@
   </div>
 </div>
 
-<!-- ================= SEARCH PANEL (Uber style) ================= -->
 <section class="search-panel-wrap">
   <div class="search-panel">
     <div class="search-row">
@@ -2094,7 +2105,6 @@
   </ol>
 </div>
 
-<!-- ================= TYPE FILTER ================= -->
 <div class="type-filter">
   <div class="type-chip active" data-type="all"><i class="fa-solid fa-layer-group"></i>All</div>
   <div class="type-chip" data-type="non_ac"><i class="fa-solid fa-truck-medical"></i>Non-AC</div>
@@ -2102,7 +2112,6 @@
   <div class="type-chip" data-type="icu"><i class="fa-solid fa-kit-medical"></i>ICU</div>
 </div>
 
-<!-- ================= RESULTS ================= -->
 <section class="results-section">
   <div class="results-head">
     <h2 style="font-size:16px;">Available Ambulances</h2>
@@ -2116,7 +2125,6 @@
   </div>
 </section>
 
-<!-- ================= BOOKING MODAL ================= -->
 </main>
 <div id="ab_bookingModal" class="modal-overlay hidden">
   <div class="modal-card">
@@ -2143,7 +2151,6 @@
   </div>
 </div>
 
-<!-- ================= LIVE TRACKING MODAL ================= -->
 <div id="ab_trackModal" class="modal-overlay hidden">
   <div class="modal-card">
     <button class="modal-close" data-close="trackModal">✕</button>
@@ -2169,7 +2176,6 @@
   </div>
 </div>
 
-<!-- ================= HISTORY DRAWER ================= -->
 <div id="ab_drawerOverlay" class="drawer-overlay"></div>
 <aside id="ab_historyDrawer" class="history-drawer">
   <div class="mb-head">
@@ -2280,7 +2286,6 @@
 
 </div>
 
-    <!-- ============ SHARED: premium bottom navigation ============ -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Primary navigation">
         <button type="button" class="nav-item active" data-page="home" onclick="navigateTo('home')">
             <span class="nav-icon"><i class="fas fa-home"></i></span>
@@ -2302,19 +2307,12 @@
             <span class="nav-icon"><i class="fas fa-user"></i></span>
             <span id="lang-nav-profile">PROFILE</span>
         </button>
-        <!-- ✅ Hamburger menu removed per explicit request — every item it
-             held (My Profile, My Orders, Track Shop, Pill Reminder, My
-             Prescriptions, Offers & Coupons, Customer Support, Logout) is
-             already reachable from the Profile tab in the bottom nav, so
-             nothing is lost by dropping this second, redundant menu. The
-             #hamburger-btn / #hamburger-overlay markup and its close button
-             are gone entirely — not just hidden with CSS — so there's no
-             leftover invisible button sitting in the layout. -->
     </nav>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
-    <script src="prod-utils.js?v=13" defer></script>
-    <script src="user.min.js?v=13" defer></script>
-<script src="offer.js?v=1" defer></script>
-<script src="push-notifications.js?v=4" defer></script>
+    <script src="prod-utils.js?v=3321430c" defer></script>
+    <script src="user.min.js?v=0a8875fd" defer></script>
+    <script src="ux-final.js?v=346553eb" defer></script>
+<script src="offer.js?v=745a7be5" defer></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 </body>
 </html>

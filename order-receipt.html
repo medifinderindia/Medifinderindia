@@ -174,7 +174,6 @@ async function load(){
  }catch(e){console.error(e);err('Unable to load this receipt. Please try again.');}
 }
 
-/* ================= MEDICINE ORDER ================= */
 async function getInvoice(t,ref){
  const r=await db.rpc('get_invoice',{p_type:t,p_ref:String(ref)});
  if(r.error){console.error(r.error);return null;}
@@ -306,7 +305,6 @@ function renderOrder(o,m){
  });
 }
 
-/* ================= NURSE ================= */
 async function loadNurse(){
  if(!bookingId){err('Missing booking ID.');return;}
  const inv=await getInvoice('nurse',bookingId);
@@ -336,7 +334,6 @@ async function loadNurse(){
  });
 }
 
-/* ================= LAB TEST ================= */
 async function loadLab(){
  if(!bookingId){err('Missing booking ID.');return;}
  const inv=await getInvoice('lab',bookingId);
@@ -369,7 +366,6 @@ async function loadLab(){
  });
 }
 
-/* ================= AMBULANCE ================= */
 async function loadAmbulance(){
  if(!bookingId){err('Missing booking ID.');return;}
  const inv=await getInvoice('ambulance',bookingId);
@@ -406,7 +402,6 @@ function renderService(c){
  shell({...c,bottom2:c.bottom2||'This is a computer generated service invoice. MediFinder India is the booking platform; the service is delivered by the provider named above. For support, use the Help Desk in the MediFinder India app.',signFor:c.signFor||'For MediFinder India'});
 }
 
-/* ================= SHARED SHELL ================= */
 function shell(c){
  const qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(location.origin+location.pathname+'?'+c.qrQuery+'&v=1');
  document.title='Invoice '+c.invoiceNo+' | MediFinder India';
@@ -456,7 +451,6 @@ function verifyId(c){
  return 'MFV-'+h.toString(36).toUpperCase().padStart(7,'0').slice(0,7);
 }
 
-/* ================= VERIFICATION (only the provider can verify) ================= */
 const $=id=>document.getElementById(id);
 async function loadVerification(){
  VS=null;

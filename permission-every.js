@@ -1,20 +1,3 @@
-// ==========================================
-// MediFinder India — Lazy Permission Guard (all pages)
-//
-// OLD behaviour: a wizard asked Notification + Location + Camera + Microphone
-// right after login. REMOVED.
-//
-// NEW behaviour:
-//   * Nothing is asked up-front. The browser's own permission prompt appears
-//     only when the visitor actually USES a feature (GPS button, camera /
-//     prescription scan, voice search, ...).
-//   * Once the visitor has answered (Allow / Block / closed the prompt) for a
-//     feature, we never ask for that same feature again until the browser tab
-//     is closed (sessionStorage is wiped when the tab closes).
-//
-// Load this file BEFORE every other script (plain <script>, no defer):
-//   <script src="permission-every.js?v=4"></script>
-// ==========================================
 (function () {
     'use strict';
     if (window.__mfPermissionGuard) return;
@@ -34,7 +17,6 @@
             .catch(function () { return false; });
     }
 
-    // ---------- Geolocation ----------
     if (navigator.geolocation) {
         var geo = navigator.geolocation;
         var origGet = geo.getCurrentPosition.bind(geo);
@@ -64,7 +46,6 @@
         };
     }
 
-    // ---------- Camera / Microphone ----------
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         var md = navigator.mediaDevices;
         var origGum = md.getUserMedia.bind(md);
@@ -92,7 +73,6 @@
         };
     }
 
-    // ---------- Notifications ----------
     if ('Notification' in window && typeof Notification.requestPermission === 'function') {
         var origReq = Notification.requestPermission.bind(Notification);
         Notification.requestPermission = function (cb) {

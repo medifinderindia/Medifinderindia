@@ -1,14 +1,3 @@
-// ==========================================
-// MediFinder India - Session Guard + Router (all pages)  v2
-//  1. Logged-in person STAYS logged in until Logout (or MF_MAX_IDLE_DAYS idle).
-//  2. Public pages (home.html) never show a logged-in person: they are sent
-//     to THEIR OWN page (role + service_type) instantly, no network needed.
-//  3. ANY sign-out (any page, any script) wipes every cached login trace, so
-//     the next visit is: Splash -> public Home.
-//  4. Back/forward cache can never show a stale logged-in page after logout.
-// Load as the FIRST script in <head>, plain <script>, no defer:
-//   <script src="session-guard.js?v=2"></script>
-// ==========================================
 (function () {
     'use strict';
     if (window.__mfSessionGuard) return;

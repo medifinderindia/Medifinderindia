@@ -31,21 +31,9 @@ console.log("marchent.js v15 loaded");
 })();
 /* ===== end theme manager ===== */
 
-/* ==========================================================================
-   MEDIFINDER INDIA — MERCHANT SIDE
-   marchent.js — routing, state, live Supabase data layer, and all page renderers.
-
-   DATA LAYER
-   ----------
-   Every DB.* function talks to the live Supabase project (URL / anon key come from
-   supabase-constants.js when present). RLS scopes all rows to the logged-in merchant.
-   ========================================================================== */
 (function () {
   'use strict';
 
-  /* ============================================================
-     ICONS — small inline-SVG path set, reused across nav + pages
-     ============================================================ */
   const ICONS = {
     home: '<path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-6h4v6"/>',
     orders: '<path d="M4 7l8-4 8 4-8 4-8-4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/>',
@@ -95,9 +83,6 @@ console.log("marchent.js v15 loaded");
     return `<svg class="${extraClass || ''}" viewBox="0 0 24 24">${ICONS[name] || ''}</svg>`;
   }
 
-  /* ============================================================
-     SMALL UTILITIES
-     ============================================================ */
   const delay = (ms) => new Promise((res) => setTimeout(res, ms));
   const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -138,11 +123,6 @@ console.log("marchent.js v15 loaded");
     });
   }
 
-  /* ============================================================
-     SUPABASE — client, auth helpers, and the `medicines` table mapping
-     (public anon/publishable key is safe in the browser; RLS protects the data.
-      Override with window.MF_SUPABASE_URL / window.MF_SUPABASE_KEY if needed.)
-     ============================================================ */
   // Read the shared constants file (supabase-constants.js) if it is loaded; fall back to the project defaults.
   function globalPick(names) {
     for (const n of names) {
@@ -179,9 +159,6 @@ console.log("marchent.js v15 loaded");
     return merchantIdCache;
   }
 
-  /* ---------- medicines row  <->  UI product ----------
-     status  : 'Draft' | 'Pending' (admin_approved=false) | 'Approved'/'Active' (admin_approved=true) | 'Inactive' | 'Rejected'
-     public storefront only shows status Approved/Active (existing RLS policy meds_sel).            */
   const DB_TYPE = { medicine: 'Medicine', instrument: 'Instrument', general: 'General', personal_care: 'Personal Care', grocery: 'Grocery' };
   const typeFromDb = (t) => { const x = String(t || '').toLowerCase(); return /instrument/.test(x) ? 'instrument' : /personal/.test(x) ? 'personal_care' : /general/.test(x) ? 'general' : /grocery/.test(x) ? 'grocery' : 'medicine'; };
   function rowToProduct(r) {
@@ -275,13 +252,6 @@ console.log("marchent.js v15 loaded");
     }));
   }
 
-  /* ============================================================
-     REAL DATA LAYER — every DB.* function below talks to the live
-     Supabase project (tables already exist; RLS scopes rows to the
-     logged-in merchant). Mock data has been removed.
-     ============================================================ */
-
-  /* ---------- small shared helpers ---------- */
   const TERMS_URL = 'marchentt&c.html#terms';       // Terms & Conditions (marchentt&c.html)
   const PRIVACY_URL = 'marchentt&c.html#privacy';   // Privacy Policy (same page)
   const RATE_PER_DAY = 10;                          // ₹ per product per day — Featured / Promote
@@ -307,7 +277,6 @@ console.log("marchent.js v15 loaded");
     return out;
   }
 
-  /* ---------- merchant row <-> UI merchant ---------- */
   let merchantRowCache = null;
   async function loadMerchantRow(force) {
     if (merchantRowCache && !force) return merchantRowCache;
@@ -392,7 +361,6 @@ console.log("marchent.js v15 loaded");
     return data.signedUrl;
   }
 
-  /* ---------- orders ---------- */
   function parseItemsText(t) {
     if (!t) return [];
     return String(t).split(/,\s+/).map(part => {
@@ -445,7 +413,6 @@ console.log("marchent.js v15 loaded");
   let ordersCache = { t: 0, data: null };
   const invalidateOrders = () => { ordersCache = { t: 0, data: null }; };
 
-  /* ---------- notify helpers (best effort — never block the main action) ---------- */
   async function notifyMerchant(title, message, category, ref) {
     try {
       const mid = await requireMerchantId();
@@ -463,7 +430,6 @@ console.log("marchent.js v15 loaded");
     } catch (e) { console.warn('customer notification failed', e); }
   }
 
-  /* ---------- promotions / coupons ---------- */
   function promoStatusOf(r) {
     const now = Date.now();
     const start = r.start_date ? new Date(r.start_date).getTime() : 0;
@@ -501,7 +467,6 @@ console.log("marchent.js v15 loaded");
     };
   }
 
-  /* ---------- customers (derived from this merchant's orders) ---------- */
   function buildCustomers(orders) {
     const map = new Map();
     orders.forEach(o => {
@@ -534,7 +499,6 @@ console.log("marchent.js v15 loaded");
     return list;
   }
 
-  /* ---------- returns ---------- */
   const RETURN_STATUS_ALIAS = { requested: 'pending', processing: 'approved', picked_up: 'approved', received: 'approved', canceled: 'rejected', cancelled: 'rejected', closed: 'completed' };
   function rowToReturn(r, order, itemRow) {
     const raw = String(r.status || 'pending').toLowerCase();
@@ -557,7 +521,6 @@ console.log("marchent.js v15 loaded");
     };
   }
 
-  /* ---------- price maths (bulk price management) ---------- */
   function computeNewPrice(oldPrice, mrp, changeType, changeValue) {
     let p = Number(oldPrice);
     if (changeType === 'inc_pct') p = p * (1 + changeValue / 100);
@@ -570,9 +533,6 @@ console.log("marchent.js v15 loaded");
     return { price: p, capped };
   }
 
-  /* ============================================================
-     DB — Supabase-backed API
-     ============================================================ */
   const DB = {
     /* ---- merchant / profile / KYC ---- */
     /* Permanent account deletion: the delete_my_merchant_account() SQL function (see delete_merchant_account.sql)
@@ -746,12 +706,6 @@ console.log("marchent.js v15 loaded");
       await notifyMerchant('Order Shipped', `Order ${order.code} dispatched via ${who}.`, 'order', order.id);
       await notifyCustomer(order, { title: 'Order on the way', message: `Your order ${order.code} has been handed over to ${who}.`, orderCode: order.code });
     },
-    // Automatic dispatch: no manual "who delivers this" choice.
-    // - express / sameday  -> MediFinder's own riders (same as picking "medifinder" in the old sheet)
-    // - manual (Standard)  -> book an actual Shiprocket shipment + AWB via the `shiprocket` edge function
-    // Falls back to the manual courier-picker sheet only if Shiprocket can't be booked (network issue,
-    // pincode not serviceable, no pickup address registered on the Shiprocket account, etc.) so an order
-    // never gets stuck with no way to dispatch it.
     autoDispatch: async (order) => {
       if (order.deliverySpeed && order.deliverySpeed !== 'manual') {
         await DB.dispatchOrder(order, 'medifinder');
@@ -1335,9 +1289,6 @@ console.log("marchent.js v15 loaded");
     return parts.filter(Boolean).length * 20;
   }
 
-  /* ============================================================
-     APP STATE
-     ============================================================ */
   const state = {
     merchant: null,
     wizard: { step: 1, draft: null, files: {} },
@@ -1354,9 +1305,6 @@ console.log("marchent.js v15 loaded");
     rx: { draft: null }            // add-medicines draft for an accepted prescription
   };
 
-  /* ============================================================
-     NAVIGATION CONFIG
-     ============================================================ */
   const NAV_FULL = [
     { route: 'dashboard', label: 'Dashboard', icon: 'home' },
     { route: 'orders', label: 'Orders', icon: 'orders', badge: 'orders' },
@@ -1438,9 +1386,6 @@ console.log("marchent.js v15 loaded");
     badge.textContent = `${dot} ${label}`;
   }
 
-  /* ============================================================
-     SHEETS (bottom-sheet / dialog) — used by profile, RX, delivery, promotions…
-     ============================================================ */
   function closeSheet() { document.querySelectorAll('.sheet-scrim').forEach(el => el.remove()); document.body.classList.remove('sheet-open'); }
   function openSheet(title, bodyHtml, opts) {
     opts = opts || {};
@@ -1462,9 +1407,6 @@ console.log("marchent.js v15 loaded");
   }
   const sheetOpen = () => !!document.querySelector('.sheet-scrim') || !document.getElementById('confirmScrim').hidden;
 
-  /* ============================================================
-     BADGES + REALTIME
-     ============================================================ */
   async function refreshBadges() {
     if (!sb || !merchantIdCache) return;
     try {
@@ -1513,9 +1455,6 @@ console.log("marchent.js v15 loaded");
   }
   function stopRealtime() { if (rtChannel && sb) { try { sb.removeChannel(rtChannel); } catch (e) { /* ignore */ } } rtChannel = null; }
 
-  /* ============================================================
-     ROUTER
-     ============================================================ */
   function navigate(route, param) {
     location.hash = '#/' + route + (param ? '/' + encodeURIComponent(param) : '');
   }
@@ -1616,9 +1555,6 @@ console.log("marchent.js v15 loaded");
   const PAGES = {};
   const AFTER = {};
 
-  /* ============================================================
-     DASHBOARD
-     ============================================================ */
   const isToday = (d, offset) => { const t = new Date(); t.setDate(t.getDate() - (offset || 0)); return localDate(new Date(d)) === localDate(t); };
 
   PAGES.dashboard = async () => {
@@ -1740,9 +1676,6 @@ console.log("marchent.js v15 loaded");
     return `<span class="pill ${cls}"><span class="pill-dot"></span>${esc(label)}</span>`;
   }
 
-  /* ============================================================
-     ORDERS
-     ============================================================ */
   const ORDER_TABS = [['all', 'All'], ['pending', 'New'], ['accepted', 'Accepted'], ['shipped', 'Dispatched'], ['picked_up', 'Out for delivery'], ['delivered', 'Delivered'], ['cancelled', 'Cancelled']];
 
   PAGES.orders = async (param) => {
@@ -1791,7 +1724,6 @@ console.log("marchent.js v15 loaded");
     </div>`;
   }
 
-  /* ---------- downloads: saved file + order receipt PDF ---------- */
   function saveBlobAs(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2001,11 +1933,6 @@ console.log("marchent.js v15 loaded");
     if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); const n = el.value.length; try { el.setSelectionRange(n, n); } catch (e) { /* ignore */ } } }
   }
 
-  /* ============================================================
-     PRESCRIPTION / RX
-     Flow: pending request -> Accept (first pharmacy wins) -> "Add medicines" (search your
-     inventory, price is picked up automatically) -> Create order.
-     ============================================================ */
   PAGES.prescription = async (param) => {
     const list = await DB.getPrescriptions();
     const activeId = param || state.selected.rxId || (list.find(r => r.status === 'pending' || r.status === 'accepted') || list[0] || {}).id;
@@ -2180,9 +2107,6 @@ console.log("marchent.js v15 loaded");
     if (active && active.status === 'accepted') mountRxAddPanel(active);
   };
 
-  /* ============================================================
-     INVENTORY  +  ADD/EDIT PRODUCT MODAL
-     ============================================================ */
   let likeInfo = { byId: {}, total: 0 };
   const likesOf = (p) => likeInfo.byId[p.id] || 0;
   PAGES.inventory = async () => {
@@ -2294,12 +2218,6 @@ console.log("marchent.js v15 loaded");
     AFTER.inventory();
   }
 
-  /* ============================================================
-     ADD / EDIT PRODUCT — 6-step wizard (full SPA page, route: #/add-product[/<id>])
-     Steps: Type → Basic info → Details → Price & stock → Safety → Review & publish
-     Publish  → status 'pending'  (admin/system validation → 'approved' → live in Inventory)
-     Draft    → status 'draft'
-     ============================================================ */
   const PRODUCT_CATEGORIES = {
     medicine: ['Tablet', 'Capsule', 'Syrup', 'Insulin', 'Injection', 'Cream', 'Ointment', 'Gel', 'Drops', 'Powder', 'Sachet', 'Inhaler', 'Spray', 'Lotion', 'Soap', 'Other'],
     general: ['Tissue & Paper', 'Detergent & Laundry', 'Cleaning Supplies', 'Household Items', 'Other Daily Essentials'],
@@ -2374,7 +2292,6 @@ console.log("marchent.js v15 loaded");
   const rupee = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
-  /* ---------- small form builders ---------- */
   const pField = (name, label, val, o = {}) => `
     <label class="field"><span>${label}${o.hint ? ` <span class="field-hint">${o.hint}</span>` : ''}</span>
       <input type="${o.type || 'text'}" name="${name}" value="${esc(val)}"${o.req ? ' required' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.attrs ? ' ' + o.attrs : ''}>
@@ -2387,7 +2304,6 @@ console.log("marchent.js v15 loaded");
   };
   const pArea = (name, label, val, ph) => `<label class="field"><span>${label}</span><textarea name="${name}" rows="3"${ph ? ` placeholder="${esc(ph)}"` : ''}>${esc(val)}</textarea></label>`;
 
-  /* ---------- step bodies ---------- */
   function productStepHtml(step, d, editing) {
     const allowedTypes = allowedProductTypes(state.merchant);
     if (!d.type && allowedTypes.length === 1 && !editing) d.type = allowedTypes[0];
@@ -2411,7 +2327,7 @@ console.log("marchent.js v15 loaded");
             ${pSelect('category', 'Category*', PRODUCT_CATEGORIES[d.type], d.category, true)}
             ${pField('subCategory', 'Sub category', d.subCategory)}
           </div>
-          ${pArea('description', 'Product description', d.description)}
+          ${pArea('description', 'Product description' + ' <span class="field-hint">(optional)</span>', d.description)}
           <div class="field" style="margin-bottom:6px"><span>Product images <span class="field-hint">(up to 4 · main photo required)</span></span></div>
           <div class="img-grid">${IMAGE_SLOTS.map((label, i) => imageSlotHtml(i, label, d.images[i])).join('')}</div>`;
       case 'details':
@@ -2454,7 +2370,7 @@ console.log("marchent.js v15 loaded");
           </div>`;
       case 'safety':
         return isMed ? `
-          ${pField('composition', 'Composition / Salt', d.composition)}
+          ${pField('composition', 'Composition / Salt', d.composition, { hint: '(optional)' })}
           ${canSellRx(state.merchant) ? `<div class="field"><span>Prescription required?</span>
             <div class="seg" role="radiogroup">
               <label><input type="radio" name="rxRequired" value="yes"${d.rxRequired ? ' checked' : ''}><span>Yes</span></label>
@@ -2467,25 +2383,25 @@ console.log("marchent.js v15 loaded");
             <span class="field-hint">Prescription medicines unlock after your Drug Licence is verified. Until then only OTC medicines can be listed.</span>
           </div>`}
           <div class="form-row two">
-            ${pField('batchNo', 'Batch number', d.batchNo)}
-            ${pField('lotNo', 'Lot number', d.lotNo)}
+            ${pField('batchNo', 'Batch number', d.batchNo, { hint: '(optional)' })}
+            ${pField('lotNo', 'Lot number', d.lotNo, { hint: '(optional)' })}
           </div>
           <div class="form-row two">
-            ${pField('mfd', 'MFD', d.mfd, { type: 'date' })}
+            ${pField('mfd', 'MFD', d.mfd, { type: 'date', hint: '(optional)' })}
             ${pField('expiry', 'Expiry*', d.expiry, { type: 'date', hint: '(needed to publish)' })}
           </div>
-          ${pArea('storage', 'Storage instructions', d.storage, 'e.g. Store below 25 °C, away from sunlight')}` : d.type !== 'instrument' ? `
+          ${pArea('storage', 'Storage instructions' + ' <span class="field-hint">(optional)</span>', d.storage, 'e.g. Store below 25 °C, away from sunlight')}` : d.type !== 'instrument' ? `
           <div class="form-row two">
-            ${pField('batchNo', 'Batch number', d.batchNo)}
-            ${pField('lotNo', 'Lot number', d.lotNo)}
+            ${pField('batchNo', 'Batch number', d.batchNo, { hint: '(optional)' })}
+            ${pField('lotNo', 'Lot number', d.lotNo, { hint: '(optional)' })}
           </div>
           <div class="form-row two">
-            ${pField('mfd', 'MFD', d.mfd, { type: 'date' })}
+            ${pField('mfd', 'MFD', d.mfd, { type: 'date', hint: '(optional)' })}
             ${pField('expiry', 'Expiry' + (d.type === 'grocery' ? '*' : ''), d.expiry, { type: 'date', hint: d.type === 'grocery' ? '(needed to publish)' : '(if the product has one)' })}
           </div>
-          ${pArea('storage', 'Storage / usage instructions', d.storage)}` : `
-          ${pSelect('warranty', 'Warranty period', WARRANTY_OPTIONS, d.warranty)}
-          ${pArea('care', 'Care / usage instructions', d.care)}`;
+          ${pArea('storage', 'Storage / usage instructions' + ' <span class="field-hint">(optional)</span>', d.storage)}` : `
+          ${pSelect('warranty', 'Warranty period (optional)', WARRANTY_OPTIONS, d.warranty)}
+          ${pArea('care', 'Care / usage instructions' + ' <span class="field-hint">(optional)</span>', d.care)}`;
       case 'review': return productReviewHtml(d, editing);
     }
     return '';
@@ -2553,14 +2469,13 @@ console.log("marchent.js v15 loaded");
         : 'After you publish, the product is validated and shows as <b>Pending approval</b> in Inventory. Once approved it goes live in the store. Drafts stay private.'}</p>`;
   }
 
-  /* ---------- page shell ---------- */
   function renderProductPage() {
     const P = state.product;
     if (P.done) return renderProductDone();
     const step = P.step, d = P.draft, editing = !!P.editingId;
     const s = PRODUCT_STEPS[step];
     const desc = s.key === 'details' ? (d.type === 'medicine' ? 'Form, strength and pack information.' : d.type === 'instrument' ? 'Model and technical specifications.' : 'Pack size and unit.')
-      : s.key === 'safety' ? (d.type === 'medicine' ? 'Composition, prescription rules, batch and expiry.' : d.type === 'instrument' ? 'Warranty and care instructions.' : 'Batch, expiry and storage.')
+      : s.key === 'safety' ? (d.type === 'medicine' ? 'All optional except the expiry date. Add batch, MFD and notes if you have them.' : d.type === 'instrument' ? 'Warranty and care notes are optional.' : 'Batch, MFD and notes are optional.')
       : s.desc;
     const last = step === PRODUCT_STEPS.length - 1;
     const firstStep = editing ? 1 : 0;
@@ -2604,7 +2519,6 @@ console.log("marchent.js v15 loaded");
     </div>`;
   }
 
-  /* ---------- logic ---------- */
   function collectProductStep() {
     const form = document.getElementById('pwForm');
     if (!form) return;
@@ -2735,9 +2649,6 @@ console.log("marchent.js v15 loaded");
   };
   AFTER['add-product'] = () => wireProductPage();
 
-  /* ============================================================
-     CATEGORIES
-     ============================================================ */
   PAGES.categories = async () => {
     const [categories, products] = await Promise.all([DB.getCategories(), DB.getProducts()]);
     if (!categories.length) return `<div class="page-head"><h1>Categories</h1></div><div class="card">${emptyBlock('tag', 'No categories yet', 'Categories will appear as you add products.')}</div>`;
@@ -2763,9 +2674,6 @@ console.log("marchent.js v15 loaded");
     }));
   };
 
-  /* ============================================================
-     SHARED FORM WIDGETS — product picker
-     ============================================================ */
   function pickerHtml(products, selected, id) {
     const sel = new Set((selected || []).map(String));
     return `<div class="picker" data-picker="${id}">
@@ -2801,9 +2709,6 @@ console.log("marchent.js v15 loaded");
   const valueLabel = (type, v) => type === 'fixed' || type === 'flat' ? money(v) + ' off' : v + '% off';
   const productNames = (ids, products) => { const m = new Map(products.map(p => [Number(p.id), p.name])); const names = ids.map(i => m.get(i)).filter(Boolean); return names.length ? (names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2} more` : '')) : (ids.length ? `${ids.length} products` : 'All products'); };
 
-  /* ============================================================
-     PROMOTIONS  (Discounts · Coupons · Flash sales · Price management · Featured · Analytics · How it works)
-     ============================================================ */
   const PROMO_TABS = [['discounts', 'Discounts'], ['coupons', 'Coupons'], ['flash', 'Flash sales'], ['price', 'Price management'], ['featured', 'Featured'], ['analytics', 'Analytics'], ['how', 'How it works']];
   const PROMO_TAB = {};
 
@@ -2837,7 +2742,6 @@ console.log("marchent.js v15 loaded");
     ${extra || ''}
     <button class="btn btn-ghost btn-sm" data-pl-del="${id}" aria-label="Delete">${icon('trash')}</button></div>`;
 
-  /* ---------- 1. DISCOUNTS ---------- */
   let discountCache = [];
   PROMO_TAB.discounts = {
     action: `<button class="btn btn-primary" id="newDiscountBtn">${icon('plus')}<span>Create discount</span></button>`,
@@ -2897,7 +2801,6 @@ console.log("marchent.js v15 loaded");
     });
   }
 
-  /* ---------- 2. COUPONS ---------- */
   let couponCache = [];
   PROMO_TAB.coupons = {
     action: `<button class="btn btn-primary" id="newCouponBtn">${icon('plus')}<span>Create coupon</span></button>`,
@@ -2968,7 +2871,6 @@ console.log("marchent.js v15 loaded");
     });
   }
 
-  /* ---------- 3. FLASH SALES ---------- */
   let flashCache = [];
   PROMO_TAB.flash = {
     action: `<button class="btn btn-primary" id="newFlashBtn">${icon('plus')}<span>Create flash sale</span></button>`,
@@ -3028,7 +2930,6 @@ console.log("marchent.js v15 loaded");
     });
   }
 
-  /* ---------- 4. PRICE MANAGEMENT ---------- */
   PROMO_TAB.price = {
     render: async () => {
       const [products, history] = await Promise.all([liveProducts(), DB.getPriceHistory().catch(() => [])]);
@@ -3099,30 +3000,6 @@ console.log("marchent.js v15 loaded");
     }
   };
 
-  /* ---------- 5. FEATURED / PROMOTE PRODUCTS ---------- */
-  function razorpayKey() { return window.MF_RAZORPAY_KEY || globalPick(['RAZORPAY_KEY_ID', 'RAZORPAY_KEY', 'razorpayKey', 'RAZORPAY_PUBLIC_KEY', 'RAZORPAY_KEY_PUBLIC']); }
-  function loadScript(src) {
-    return new Promise((res, rej) => {
-      if ([...document.scripts].some(s => s.src === src)) return res();
-      const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load payment script')); document.head.appendChild(s);
-    });
-  }
-  async function payWithRazorpay(amount, description) {
-    const key = razorpayKey();
-    if (!key) throw appError('NO_KEY', 'Online payment is not configured yet (Razorpay key missing).');
-    await loadScript('https://checkout.razorpay.com/v1/checkout.js');
-    const m = state.merchant || {};
-    return new Promise((resolve, reject) => {
-      const rz = new window.Razorpay({
-        key, amount: Math.round(amount * 100), currency: 'INR', name: 'MediFinder India', description,
-        prefill: { name: m.ownerName || '', email: m.email || '', contact: m.phone || '' }, theme: { color: '#d6334a' },
-        handler: (r) => resolve(r.razorpay_payment_id),
-        modal: { ondismiss: () => reject(appError('DISMISSED', 'Payment cancelled')) }
-      });
-      rz.on('payment.failed', (r) => reject(appError('FAILED', (r.error && r.error.description) || 'Payment failed')));
-      rz.open();
-    });
-  }
   let featuredCache = [];
   // No payment gateway: pay straight from any UPI app on the phone, or scan the MediFinder QR (medifinder.png), then confirm.
   // Set window.MF_UPI_ID (e.g. in supabase-constants.js) to MediFinder's receiving UPI ID to enable the "Pay with UPI app" button.
@@ -3202,7 +3079,6 @@ console.log("marchent.js v15 loaded");
     }
   };
 
-  /* ---------- 6. PROMOTION ANALYTICS ---------- */
   PROMO_TAB.analytics = {
     render: async () => {
       const a = await DB.getPromoAnalytics();
@@ -3217,7 +3093,6 @@ console.log("marchent.js v15 loaded");
     }
   };
 
-  /* ---------- 7. HOW IT WORKS ---------- */
   PROMO_TAB.how = {
     render: async () => {
       const steps = [
@@ -3232,9 +3107,6 @@ console.log("marchent.js v15 loaded");
     }
   };
 
-  /* ============================================================
-     CUSTOMERS  (List · Analytics · Segments + bulk message)
-     ============================================================ */
   const SEGMENTS = [
     ['new', 'New', 'First order within the last 30 days'],
     ['regular', 'Regular', 'Ordered more than once and active'],
@@ -3355,9 +3227,6 @@ console.log("marchent.js v15 loaded");
       ${c.orders.slice(0, 15).map(o => `<div class="review-row" data-route="orders" data-param="${o.id}" style="cursor:pointer"><span>${esc(o.code)}<div class="cell-muted" style="font-size:11.5px">${fmtDate(o.createdAt)}</div></span><span>${money(o.total)} ${statusPill(o.status)}</span></div>`).join('')}`);
   }
 
-  /* ============================================================
-     RETURNS  (requests · status · details · pickup · refund · completion)
-     ============================================================ */
   const RETURN_TABS = [['all', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['refunded', 'Refunded'], ['completed', 'Completed']];
   const RET_PILL = { pending: ['pill-amber', 'Pending'], approved: ['pill-teal', 'Approved'], rejected: ['pill-red', 'Rejected'], refunded: ['pill-green', 'Refunded'], completed: ['pill-green', 'Completed'] };
   const retPill = (s) => { const [c, l] = RET_PILL[s] || ['pill-gray', s]; return `<span class="pill ${c}"><span class="pill-dot"></span>${l}</span>`; };
@@ -3535,9 +3404,6 @@ console.log("marchent.js v15 loaded");
     }));
   }
 
-  /* ============================================================
-     DELIVERY — two delivery options: MediFinder India riders  |  Courier company
-     ============================================================ */
   PAGES.delivery = async () => {
     const active = await DB.getDelivery();
     const own = active.filter(o => o.partner !== 'courier');
@@ -3583,12 +3449,8 @@ console.log("marchent.js v15 loaded");
     }));
   };
 
-  /* ============================================================
-     NOTIFICATIONS
-     ============================================================ */
   const NOTIF_ICON = { order: 'orders', rx: 'rx', prescription: 'rx', stock: 'inventory', rider: 'truck', payout: 'wallet', return: 'undo', admin: 'bell', system: 'bell' };
   const notifIcon = (t) => NOTIF_ICON[String(t || '').toLowerCase()] || 'bell';
-  /* ---------- Push notifications on/off ---------- */
   /* Real push is handled by push-notifications.js (window.MFPush) — it subscribes this device and saves it to Supabase.
      Its on/off preference lives in localStorage 'mf_push_pref'. */
   const PUSH_PREF_KEY = 'mf_push_pref';
@@ -3660,9 +3522,6 @@ console.log("marchent.js v15 loaded");
   };
   AFTER.notifications = () => wireNotifs(document.getElementById('pageOutlet'), () => render());
 
-  /* ============================================================
-     PAYMENTS / EARNINGS
-     ============================================================ */
   PAGES.payments = async () => {
     const p = await DB.getPayments();
     const payoutRows = p.payoutHistory.map(x => `<tr><td class="cell-mono">${x.id}</td><td class="cell-muted">${fmtDate(x.date)}</td><td class="cell-mono">${money(x.amount)}</td><td><span class="pill ${x.paid ? 'pill-green' : 'pill-amber'}">${esc(x.status)}</span></td></tr>`).join('');
@@ -3687,9 +3546,6 @@ console.log("marchent.js v15 loaded");
     </div>`;
   };
 
-  /* ============================================================
-     ANALYTICS
-     ============================================================ */
   PAGES.analytics = async () => {
     const a = await DB.getAnalytics();
     const maxTop = Math.max(...a.topProducts.map(p => p.sold), 1);
@@ -3714,9 +3570,6 @@ console.log("marchent.js v15 loaded");
     </div>`;
   };
 
-  /* ============================================================
-     SUPPORT  (real tickets in merchant_complaints)
-     ============================================================ */
   const SUPPORT_EMAILS = ['support@medifinderindia.com', 'medifinderindia@gmail.com'];
   const FAQ_GROUPS = [
     ['Getting started & KYC', [
@@ -3797,9 +3650,6 @@ console.log("marchent.js v15 loaded");
     const sh = openSheet('Notifications', inner(list), { onOpen: (s) => wireNotifs(s.el, draw) });
   }
 
-  /* ============================================================
-     SETTINGS
-     ============================================================ */
   PAGES.settings = async () => {
     const s = await DB.getSettings();
     return `
@@ -3931,10 +3781,6 @@ console.log("marchent.js v15 loaded");
     document.getElementById('nimbusWhBtn')?.addEventListener('click', openNimbusWarehouseSheet);
   };
 
-  /* ============================================================
-     PROFILE  +  KYC
-     Help & Support, Notifications, Language, Logout open right here as sheets; Terms opens its own page.
-     ============================================================ */
   const KYC_STATUS_META = {
     not_started: { dot: '🔴', label: 'Verification Required' },
     in_progress: { dot: '🟠', label: 'Verification In Progress' },
@@ -4110,7 +3956,6 @@ console.log("marchent.js v15 loaded");
     });
   };
 
-  /* ---------- KYC read-only detail (verified merchant) ---------- */
   const KYC_SECTION_LABEL = { store: 'Store Information', address: 'Business Address', license: 'Documents', identity: 'Identity', bank: 'Bank & Payment' };
   const isPdfUrl = (u) => /\.pdf(\?|#|$)/i.test(u || '');
   const docView = (v) => !v ? `<div class="doc-preview">${icon('file')}<span>Not uploaded</span></div>`
@@ -4126,7 +3971,6 @@ console.log("marchent.js v15 loaded");
       b.replaceWith(a);
     }));
   }
-  /* ---------- Full-screen image viewer: pinch / double-tap / wheel zoom, drag to pan ---------- */
   function closeLightbox() { document.getElementById('lightbox')?.remove(); document.body.classList.remove('lightbox-open'); }
   function openLightbox(src) {
     closeLightbox();
@@ -4216,7 +4060,6 @@ console.log("marchent.js v15 loaded");
     </div>`;
   };
 
-  /* ---------- KYC onboarding wizard ---------- */
   const WIZARD_STEPS = [
     { key: 'store', title: 'Store Information', desc: 'Tell customers who you are.' },
     { key: 'address', title: 'Shop Address', desc: 'Where customers can find and reach you.' },
@@ -4460,7 +4303,6 @@ console.log("marchent.js v15 loaded");
     return true;
   }
 
-  /* ---------- shop location pin map ---------- */
   let __pinMap = null, __pinMarker = null;
   function parseGpsInput(v) {
     const p = String(v || '').split(',').map(x => parseFloat(x));
@@ -4585,18 +4427,9 @@ console.log("marchent.js v15 loaded");
     } catch (e) { /* ignore */ }
   }
 
-  /* ============================================================
-     GLOBAL UI WIRING (nav clicks, drawer, sheets) — bound once
-     ============================================================ */
   function openDrawer() { document.getElementById('moreDrawer').classList.add('open'); document.getElementById('drawerScrim').classList.add('open'); }
   function closeDrawer() { document.getElementById('moreDrawer').classList.remove('open'); document.getElementById('drawerScrim').classList.remove('open'); }
 
-  /* ---------- keyboard-aware fixed footer (mobile) ----------
-     Prevents the fixed Back/Continue bar (and other bottom bars) from
-     getting stuck behind/over the on-screen keyboard on mobile. Tracks
-     the real visible viewport with the VisualViewport API and pins the
-     footer just above the keyboard when it's open, and hides the bottom
-     nav so it can't overlap the footer or the field being typed into. */
   function initKeyboardAwareFooter() {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -4644,9 +4477,6 @@ console.log("marchent.js v15 loaded");
     document.getElementById('drawerScrim')?.addEventListener('click', closeDrawer);
   }
 
-  /* ============================================================
-     INIT
-     ============================================================ */
   async function init() {
     bindGlobalUI();
     initKeyboardAwareFooter();
@@ -4663,12 +4493,6 @@ console.log("marchent.js v15 loaded");
 })();
 
 
-/* ============================================================
-   KYC file picker preview — after a file is chosen show a small
-   thumbnail with name + size. Green = OK (with a Change button),
-   Red = wrong type / too big (input is cleared so it can be re-picked).
-   Additive: works on every <input type="file"> inside a label.field.
-   ============================================================ */
 (function () {
   var MB = 1024 * 1024;
   function fmt(n) { return n >= MB ? (n / MB).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }

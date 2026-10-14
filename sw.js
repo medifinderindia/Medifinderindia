@@ -1,44 +1,14 @@
-// ==========================================
-// MediFinder Production Service Worker v9.0
-// Vercel-ready: skips all cross-origin, no CSP violations
-// ==========================================
-
-const STATIC_CACHE = 'medi-static-v17';
-const DYNAMIC_CACHE = 'medi-dynamic-v17';
-const IMAGE_CACHE = 'medi-images-v17';
+const STATIC_CACHE = 'medi-static-v19';
+const DYNAMIC_CACHE = 'medi-dynamic-v19';
+const IMAGE_CACHE = 'medi-images-v19';
 
 // Each URL is cached on its own (allSettled below), so one missing file never
 // breaks the whole precache. Adjust paths here if a file lives elsewhere.
 const PRECACHE_URLS = [
-    '/',
     '/home.html',
     '/user.html',
-    '/marchent.html',
-    '/marchent.css',
-    '/rider.html',
-    '/admin.html',
-    '/admin.css',
-    '/ambulance-partner.html',
-    '/nurse-patner.html',
-    '/blood-patner.html',
-    '/order-receipt.html',
-    '/supabase-constants.js',
-    '/supabase-config.js',
-    '/prod-utils.js',
-    '/permission-every.js',
-    '/push-notifications.js',
-    '/offer.js',
-    '/offer.css',
-    '/user.min.js',
-    '/marchent.js',
-    '/rider.js',
-    '/admin.js',
-    '/user.min.css',
-    '/rider.css',
-    '/merchant-shared.css',
-    '/manifest.json',
     '/favicon.png',
-    '/favicon-48.png',
+    '/manifest.json',
     '/apple-touch-icon.png'
 ];
 
@@ -94,20 +64,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML navigation: network-first
-  if (request.mode === 'navigate' || request.destination === 'document' || /\.html$/i.test(url.pathname)) {
-    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
-    return;
-  }
-
-  // CSS/JS: network-first
+  // CSS / JS
   if (/\.(css|js)$/i.test(url.pathname)) {
-    event.respondWith(networkFirst(request, STATIC_CACHE));
+    // versioned file (…?v=abc123): that exact URL never changes -> serve from cache instantly
+    if (url.searchParams.has('v')) { event.respondWith(cacheFirstVersioned(request, STATIC_CACHE)); return; }
+    // unversioned file: fresh from network, but never make the user wait more than 3 s
+    event.respondWith(networkFirstTimeout(request, STATIC_CACHE, 3000, false)); return;
+  }
+
+  // HTML pages: fresh from network, but never wait more than 2.5 s when a saved copy exists
+  if (request.mode === 'navigate' || request.destination === 'document' || /\.html$/i.test(url.pathname)) {
+    event.respondWith(networkFirstTimeout(request, DYNAMIC_CACHE, 2500, true));
     return;
   }
 
-  // Default: network-first
-  event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+  // Default
+  event.respondWith(networkFirstTimeout(request, DYNAMIC_CACHE, 4000, false));
 });
 
 async function cacheFirst(request, cacheName) {
@@ -125,22 +97,45 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
-async function networkFirst(request, cacheName) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      // URLs with a query string are not cached (keeps auth/error URLs out of the cache)
-      const urlObj = new URL(request.url);
-      if (!urlObj.search) {
-        const cache = await caches.open(cacheName);
-        cache.put(request, response.clone());
-      }
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    return cached || caches.match('/home.html');
+// Versioned static file: cache-first. Old versions of the same file are removed.
+async function cacheFirstVersioned(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const response = await fetch(request);
+  if (response.ok) {
+    cache.put(request, response.clone());
+    const u = new URL(request.url);
+    cache.keys().then(keys => keys.forEach(k => {
+      const ku = new URL(k.url);
+      if (ku.pathname === u.pathname && ku.search !== u.search) cache.delete(k);
+    })).catch(() => {});
   }
+  return response;
+}
+
+// Network first, but if a saved copy exists and the network is slow (> ms), show the saved copy
+// at once while the network request keeps running and refreshes the cache for next time.
+// ignoreQuery = true for HTML: /user.html?ref=x and /user.html share one saved copy.
+async function networkFirstTimeout(request, cacheName, ms, ignoreQuery) {
+  const cache = await caches.open(cacheName);
+  const u = new URL(request.url);
+  const key = ignoreQuery ? (u.origin + u.pathname) : request;
+  const cached = await cache.match(key, ignoreQuery ? { ignoreSearch: true } : undefined);
+
+  const net = fetch(request).then(res => {
+    if (res.ok && (ignoreQuery || !u.search)) cache.put(key, res.clone());
+    return res;
+  });
+
+  if (!cached) {
+    try { return await net; }
+    catch (e) { return (await caches.match('/home.html')) || Response.error(); }
+  }
+  return Promise.race([
+    net.catch(() => cached),
+    new Promise(resolve => setTimeout(() => resolve(cached), ms))
+  ]);
 }
 
 self.addEventListener('push', (event) => {

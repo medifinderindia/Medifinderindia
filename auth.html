@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+    <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+    <script src="btn-loading.js?v=3e075ab0"></script>
     <title>Login or Sign Up | MediFinder India</title>
     <meta name="description" content="Log in or create your MediFinder India account as a customer, pharmacy, delivery partner or healthcare partner.">
     <meta name="robots" content="noindex, nofollow">
@@ -37,1221 +39,705 @@
 <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<script src="session-guard.js?v=2"></script>
-    <script src="permission-every.js?v=4"></script>
+<script src="session-guard.js?v=b85e8247"></script>
+    <script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <style>
-
 :root{
-    --primary:#e02020;
-    --primary-light:#ff4747;
-    --primary-dark:#b71c1c;
-    --dark:#1a1a2e;
-    --bg:#f8f9fa;
-    --card:#ffffff;
-    --text-main:#1a1a2e;
-    --text-muted:#747d8c;
-    --border:#eef1f4;
-    --green:#2ed573;
-    --gold:#ffa502;
-    --purple:#7c3aed;
-    --radius:16px;
-    --shadow-sm:0 2px 8px rgba(0,0,0,0.05);
-    --shadow-md:0 10px 24px rgba(0,0,0,0.08);
-    --shadow-red:0 10px 24px rgba(224,32,32,0.18);
-    --teal:#0d9488;
-    --teal-dark:#0f766e;
-    --teal-light:#e6f7f2;
-    --shadow-teal:0 8px 20px rgba(13,148,136,0.20);
+    --navy:#10286f; --blue:#1565d8; --blue-2:#2a8cf2; --red:#e8212c; --red-2:#ff4a52;
+    --muted:#5d6f94; --line:#d9e5f6; --field:#f6f9ff; --soft:#eaf3ff;
+    --primary-color:#e8212c; --text-main:#10286f; --text-muted:#5d6f94; --border-color:#d9e5f6;
+    /* viewport-driven sizing so everything fits the screen height */
+    --vh:1vh;
+    --g:12px; --fh:50px; --btn:52px; --logo:56px;
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-tap-highlight-color:transparent;}
-html,body{max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--text-main);scroll-behavior:smooth;}
-img,svg{max-width:100%;height:auto;}
-a{text-decoration:none;color:inherit;}
-button{font-family:inherit;}
+@supports (height:1dvh){:root{--vh:1dvh}}
 
-/* ===== TOP UTILITY STRIP (seamless right-to-left ticker) ===== */
-.top-strip{background:var(--dark);color:#fff;font-size:0.72rem;font-weight:600;letter-spacing:0.3px;overflow:hidden;white-space:nowrap;padding:6px 0;position:relative;}
-.top-strip-track{display:inline-flex;width:max-content;animation:mfTickerScroll 20s linear infinite;}
-.top-strip-item{display:inline-flex;align-items:center;padding:0 28px 0 12px;white-space:nowrap;}
-.top-strip i{color:var(--primary-light);margin-right:6px;}
-@keyframes mfTickerScroll{
-    0%{transform:translateX(0);}
-    100%{transform:translateX(-50%);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+html{-webkit-text-size-adjust:100%}
+body{
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    color:var(--navy);
+    background:
+        radial-gradient(700px 360px at 12% -8%,#ffe6ea 0,transparent 62%),
+        radial-gradient(760px 480px at 100% 0,#dfecff 0,transparent 58%),
+        linear-gradient(#f2f7ff,#fff 62%);
 }
-@media (prefers-reduced-motion: reduce){
-    .top-strip-track{animation-play-state:paused;}
+body.mf-view-auth{overflow-x:hidden}
+button,input,select{font-family:inherit}
+a{color:var(--blue)}
+.hidden-section{display:none}
+:focus-visible{outline:2px solid var(--blue-2);outline-offset:2px}
+
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em}
+
+.auth-view{display:none;min-height:calc(var(--vh)*100);justify-content:center;overflow-x:hidden}
+.auth-shell{
+    width:100%;max-width:440px;min-height:calc(var(--vh)*100);position:relative;overflow:hidden;
+    display:flex;flex-direction:column;background:#f6faff;
 }
-@media (max-width:520px){
-    .top-strip{padding:5px 0;}
-    .top-strip-item{font-size:0.66rem;padding:0 18px 0 10px;}
-    .top-strip-track{animation-duration:14s;}
+@media(min-width:560px) and (max-width:899px){
+    .auth-view{align-items:center}
+    .auth-shell{min-height:calc(var(--vh)*100 - 40px);border-radius:28px;border:1px solid #e3ecfa;box-shadow:0 22px 60px rgba(16,40,111,.14)}
 }
 
-/* ===== HEADER ===== */
+.auth-top{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--g)*1.2) 18px 0;position:relative;z-index:3}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none}
+.brand-logo{width:var(--logo);height:var(--logo);object-fit:contain;flex:none}
+.brand-words{display:flex;flex-direction:column;line-height:1}
+.brand-name{font-size:calc(var(--logo)*.43);font-weight:800;color:var(--navy);letter-spacing:-.5px}
+.brand-india{font-size:calc(var(--logo)*.34);font-weight:800;color:var(--red);margin-top:1px}
+.brand-tag{font-size:max(8px,calc(var(--logo)*.15));font-weight:700;letter-spacing:2px;color:var(--navy);margin-top:calc(var(--logo)*.09);text-transform:uppercase}
+.lang-pill{
+    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#fff;
+    border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--navy);
+    box-shadow:0 4px 12px rgba(16,40,111,.07);user-select:none;
+}
+.lang-pill .ic{font-size:15px}
+.lang-pill .chev{font-size:11px;color:var(--muted)}
 
-.btn{
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:10px 20px;border-radius:12px;font-weight:700;font-size:0.85rem;
-    cursor:pointer;border:none;transition:all .2s ease;white-space:nowrap;
+.hero{position:relative;padding:calc(var(--g)*.8) 18px 4px;--hh:210px;--lift:16px;height:var(--hh);min-height:0}
+.hero-signup{--hh:150px;--lift:26px}
+.hero::before{
+    content:"";position:absolute;right:-34px;top:0;width:240px;height:100%;border-radius:50%;z-index:0;
+    background:radial-gradient(circle at 50% 50%,#cde1ff 0,#e5efff 52%,transparent 72%);
 }
-.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:var(--shadow-red);}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(224,32,32,0.25);}
-.btn-outline{background:#fff;color:var(--text-main);border:1.5px solid var(--border);}
-.btn-outline:hover{border-color:var(--primary);color:var(--primary);}
+.hero h1{position:relative;z-index:2;max-width:62%;font-size:27px;line-height:1.12;font-weight:800;letter-spacing:-.6px;color:var(--navy)}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero p{position:relative;z-index:2;max-width:56%;margin-top:8px;font-size:13px;line-height:1.38;font-weight:500;color:#3b4f7d}
+.hero-img{position:absolute;right:0;bottom:0;z-index:1;height:calc(var(--hh) + var(--lift));width:auto;max-width:44%;object-fit:contain;object-position:right bottom;pointer-events:none}
+.hero-signup h1{max-width:100%;font-size:clamp(22px,6.4vw,27px);white-space:nowrap}
+.hero-signup p{max-width:54%}
+.hero-signup .hero-img{max-width:37%}
 
-:root {
-    --primary-color: #e02020; 
-    --primary-hover: #c41c1c;
-    --accent-glow: rgba(224, 32, 32, 0.2);
-    --bg-gradient: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
-    --card-bg: #ffffff;
-    --text-main: #23313a;
-    --text-muted: #70848f;
-    --border-color: #e2eaf0;
+.card{
+    position:relative;z-index:3;margin:0 14px;padding:calc(var(--g)*1.3) 16px calc(var(--g)*1.4);background:#fff;border-radius:22px;
+    border:1px solid #edf2fb;box-shadow:0 10px 30px rgba(16,40,111,.10);
 }
+.card-label{font-size:clamp(15px,calc(var(--vh)*2.4),17px);font-weight:800;color:var(--navy);margin-bottom:calc(var(--g)*.8)}
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
-/* ✅ FIX: this rule used to be the standalone Login.html/signup.html page's
-   body layout (flex, centered, padded). Now that home.html has several
-   top-level siblings (header, #view-login, #view-signup,
-   modals), a flex body turned them all into side-by-side flex-row items —
-   that's what was squeezing/hiding the Login & Signup cards. Body is now
-   plain block layout; #view-login/#view-signup center their own
-   .auth-container instead (see rules below). */
-html,
-body {
-    width: 100%;
-    min-height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-}
-
-body {
-    display: block;
-    background: var(--bg);
-    color: var(--text-main);
-}
-
-.auth-container {
-    width: 100%;
-    max-width: 440px;
-    position: relative;
-}
-
-/* Premium Logo Circle Layout
-   ✅ FIX: was position:absolute; top:-55px — offset from an
-   already-padded .auth-container, which is what created the
-   large empty "drop" between the header and the logo. Now it
-   sits in normal flow right at the top of the login/signup
-   content, directly under the header, with the card following
-   right after it — no negative offset, no overlap needed. */
-.logo-wrapper {
-    display: flex;
-    justify-content: center;
-    position: relative;
-    margin-bottom: 16px;
-}
-
-.logo-circle {
-    width: 100px;
-    height: 100px;
-    background: #ffffff;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 10px 30px rgba(224, 32, 32, 0.18);
-    padding: 6px;
-    border: 4px solid #ffffff;
-}
-
-.logo-circle img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-}
-
-/* Auth Card Box
-   ✅ FIX: padding-top was 80px, reserved to leave room under the
-   old overlapping absolute-positioned logo circle. The logo now
-   sits above the card in normal flow, so the card just needs its
-   normal padding — this is part of removing the awkward gap. */
-.auth-box {
-    background: var(--card-bg);
-    border-radius: 24px;
-    padding: 32px 24px 32px 24px;
-    box-shadow: 0 20px 40px rgba(224, 32, 32, 0.08);
-    width: 100%;
-}
-
-.auth-box h2 {
-    color: var(--text-main);
-    font-size: 24px;
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 4px;
-}
-
-.subtitle {
-    color: var(--text-muted);
-    font-size: 12px;
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.section-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-main);
-    margin-bottom: 8px;
-}
-
-/* Role Selectors */
-.role-container {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.role-card {
-    flex: 1;
-    cursor: pointer;
-}
-
-.role-card input[type="radio"] {
-    display: none;
-}
-
-.role-content {
-    background: #f8fafc;
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    padding: 10px 4px 8px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    transition: all 0.2s ease;
-}
-
-.role-icon-circle {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    transition: all 0.2s ease;
-}
-
-.role-icon-circle.user-role {
-    background: #e8f5e9;
-    color: #2ed573;
-}
-.role-icon-circle.merchant-role {
-    background: #fff3e0;
-    color: #ff9800;
-}
-.role-icon-circle.delivery-role {
-    background: #e3f2fd;
-    color: #2196f3;
-}
-
-.role-content span {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-main);
-}
-.role-content small {
-    font-size: 9px;
-    font-weight: 500;
-    color: var(--text-muted);
-    line-height: 1;
-}
-
-/* ===== SERVICE PROVIDER ROLE ===== */
-
-.service-type-wrap {
-    margin: 0 0 16px;
-    display: none;
-}
-.service-type-wrap.show {
-    display: block;
-    animation: serviceFadeIn .22s ease;
-}
-.service-type-select {
-    width: 100%;
-    padding: 12px 14px;
-    border: 1.5px solid var(--border-color);
-    border-radius: 12px;
-    font-size: 13px;
-    color: var(--text-main);
-    background: #f8fafc;
-    outline: none;
-    cursor: pointer;
-}
-.service-type-select:focus {
-    border-color: var(--primary-color);
-    background: #fff;
-    box-shadow: 0 0 0 4px var(--accent-glow);
-}
-
-@keyframes serviceFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-@media (max-width: 420px) {
-    .role-container { gap: 6px; }
-    .role-content { padding-left: 2px; padding-right: 2px; }
-    .role-content span { font-size: 11px; }
-    .role-content small { font-size: 8px; }
-}
-
-/* Modernized role cards */
+.role-container{display:flex;gap:10px;margin-bottom:var(--g)}
+.role-card{position:relative;flex:1 1 0;min-width:0;display:block;cursor:pointer}
+.role-card input{position:absolute;opacity:0;pointer-events:none}
 .role-content{
-    box-shadow:0 2px 6px rgba(16,24,40,0.04);
+    height:100%;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;
+    padding:clamp(6px,calc(var(--vh)*1.4),12px) 4px clamp(5px,calc(var(--vh)*1.2),10px);
+    border:1.5px solid var(--line);border-radius:16px;background:#fbfdff;
+    transition:border-color .15s,background .15s,box-shadow .15s;
 }
-.role-card input[type="radio"]:checked + .role-content{
-    box-shadow:0 10px 22px rgba(224,32,32,0.16);
+.role-content .ic{font-size:clamp(18px,calc(var(--vh)*2.9),23px);color:#17306f;margin-bottom:2px}
+.role-content b{font-size:clamp(12.5px,calc(var(--vh)*1.9),14px);font-weight:800;color:var(--navy)}
+.role-content small{font-size:10.5px;line-height:1.2;font-weight:500;color:var(--muted)}
+.role-card input:checked + .role-content{
+    border-color:var(--blue-2);background:var(--soft);
+    box-shadow:inset 0 0 0 1px var(--blue-2),0 6px 14px rgba(21,101,216,.14);
 }
-.role-content:hover{ border-color:#f3b9b9; }
+.role-card input:checked + .role-content .ic{color:var(--blue)}
+.role-card input:focus-visible + .role-content{outline:2px solid var(--blue-2);outline-offset:2px}
 
-/* ===== EMS ACTIVE BADGE (shown on login/signup once an EMS role is chosen) ===== */
-.ems-active-badge{
-    display:flex;align-items:center;gap:12px;
-    background:linear-gradient(135deg,#fff5f5,#fff);
-    border:1.5px solid #ffd6d6;border-radius:14px;
-    padding:12px 14px;margin-bottom:16px;
-}
-.ems-badge-icon{
-    width:40px;height:40px;flex-shrink:0;border-radius:12px;
-    background:linear-gradient(135deg,var(--primary-color,#e02020),#b71c1c);
-    color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;
-}
-.ems-badge-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
-.ems-badge-text strong{font-size:12.5px;color:var(--text-main);}
-.ems-badge-text span{font-size:12px;font-weight:700;color:var(--primary-color,#e02020);}
-.ems-badge-change{
-    border:1.5px solid var(--border-color);background:#fff;color:var(--text-muted);
-    font-size:11px;font-weight:700;padding:6px 12px;border-radius:10px;cursor:pointer;
-    transition:all .2s ease;
-}
-.ems-badge-change:hover{border-color:var(--primary-color,#e02020);color:var(--primary-color,#e02020);}
+.ems-active-badge{align-items:center;gap:10px;padding:10px 12px;margin-bottom:var(--g);border:1.5px solid #bcd6fb;background:var(--soft);border-radius:14px}
+.ems-badge-icon{width:34px;height:34px;border-radius:11px;background:var(--blue);color:#fff;display:grid;place-items:center;flex:none;font-size:19px}
+.ems-badge-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.ems-badge-text strong{font-size:13px;color:var(--navy)}
+.ems-badge-text span{font-size:12px;font-weight:700;color:var(--blue)}
+.ems-badge-change{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer}
+.service-type-wrap{display:none}
 
-.role-card input[type="radio"]:checked + .role-content {
-    border-color: var(--primary-color);
-    background: rgba(224, 32, 32, 0.04);
-    box-shadow: 0 0 16px var(--accent-glow);
-    transform: translateY(-2px);
+/* inputs */
+.input-group{position:relative;margin-bottom:var(--g)}
+.input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;color:#1b3573;pointer-events:none}
+.input-group input{
+    width:100%;height:var(--fh);padding:0 14px 0 44px;border:1.5px solid var(--line);border-radius:14px;
+    background:var(--field);font-size:16px;font-weight:500;color:var(--navy);outline:none;
+    transition:border-color .15s,box-shadow .15s,background .15s;
 }
+.input-group input::placeholder{color:#8fa0c0}
+.input-group input:focus{border-color:var(--blue-2);background:#fff;box-shadow:0 0 0 4px rgba(42,140,242,.14)}
+.input-group.has-toggle input{padding-right:46px}
+.toggle-password-btn{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;
+    background:none;color:#17306f;font-size:18px;cursor:pointer;display:grid;place-items:center;
+}
+.field-row{display:flex;gap:8px}
+.field-row .input-group{flex:1 1 0;min-width:0}
+.field-row .input-icon{left:11px;font-size:16px}
+.field-row .input-group input{padding-left:34px}
+.field-row .input-group.has-toggle input{padding-right:40px}
+.field-row .toggle-password-btn{width:32px;right:2px}
+.referral-group input{padding-right:90px}
+.btn-verify{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);height:calc(var(--fh) - 12px);padding:0 16px;border:0;border-radius:11px;
+    background:#e3efff;color:var(--blue);font-size:14px;font-weight:800;cursor:pointer;
+}
+.btn-verify:disabled{opacity:.6}
+.referral-message{display:block;margin:-4px 4px var(--g);font-size:12px;font-weight:600}
+.referral-message:empty{display:none}
 
-.role-card input[type="radio"]:checked + .role-content .role-icon-circle {
-    background: var(--primary-color);
-    color: white;
-    box-shadow: 0 4px 12px rgba(224,32,32,0.3);
+/* checkbox rows */
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 var(--g)}
+.check{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:500;color:#1b3573;cursor:pointer}
+.check input{
+    appearance:none;-webkit-appearance:none;flex:none;width:20px;height:20px;border:1.8px solid #2b4a8f;border-radius:5px;
+    background:#fff;display:grid;place-items:center;cursor:pointer;margin:0;
 }
+.check input:checked{background:var(--blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/14px no-repeat;border-color:var(--blue)}
+.check.terms{align-items:flex-start;font-size:12.5px;line-height:1.4;margin:2px 0 var(--g)}
+.check.terms input{margin-top:1px}
+.check.terms a{font-weight:700;text-decoration:none}
+#forgot-password-link{font-size:14px;font-weight:700;color:var(--blue);text-decoration:none}
 
-.role-card input[type="radio"]:checked + .role-content span {
-    color: var(--primary-color);
+/* buttons */
+.btn-premium{
+    width:100%;height:var(--btn);border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:10px;
+    background:linear-gradient(90deg,#0a5cd6,#2688f0);color:#fff;font-size:clamp(15px,calc(var(--vh)*2.4),17px);font-weight:700;cursor:pointer;
+    box-shadow:0 10px 22px rgba(21,101,216,.32);transition:transform .12s,box-shadow .12s;
 }
+.btn-premium:active{transform:scale(.985)}
+.btn-premium:disabled{opacity:.7;cursor:not-allowed}
+.btn-premium.red{background:linear-gradient(90deg,#e11d2a,#ff4a52);box-shadow:0 10px 22px rgba(232,33,44,.30)}
+.btn-premium.secondary{height:46px;margin-top:2px;font-size:15px;background:#fff;color:var(--blue);border:1.5px solid var(--blue-2);box-shadow:none}
 
-/* Input Styles */
-.input-group {
-    position: relative;
-    margin-bottom: 12px;
+.divider{display:flex;align-items:center;gap:12px;margin:calc(var(--g)*1.2) 0 var(--g);font-size:13px;font-weight:600;color:#31487f}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.social-group{display:flex;gap:10px;margin:0}
+.btn-social{
+    flex:1 1 0;min-width:0;height:max(40px,calc(var(--fh) - 2px));display:flex;align-items:center;justify-content:center;gap:6px;
+    border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--navy);
+    font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(16,40,111,.05);padding:0 4px;
 }
+.btn-social .ic{font-size:20px}
+.btn-social.btn-phone{color:var(--blue);border-color:#bcd6fb;background:var(--soft)}
 
-.input-icon {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 14px;
+.btn-truecaller{
+    width:100%;margin-top:10px;height:var(--fh);display:flex;align-items:center;gap:12px;padding:0 14px 0 8px;
+    border:1.5px solid #bcd6fb;border-radius:14px;background:#fff;color:var(--navy);cursor:pointer;
+    font-weight:600;box-shadow:0 3px 10px rgba(16,40,111,.06);text-align:left;
 }
+.btn-truecaller .tc-ico{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#2a8cf2,#0a5cd6);color:#fff;display:grid;place-items:center;flex:none;font-size:19px}
+.btn-truecaller .tc-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
+.btn-truecaller .tc-brand{font-size:12.5px;font-weight:800;font-style:italic;letter-spacing:-.3px;color:#0a5cd6}
+.btn-truecaller .tc-arrow{font-size:16px;color:#17306f}
+.policy-role{display:none}
+.card:has(input[name="signup-role"][value="merchant"]:checked) .policy-role,
+.card:has(input[name="signup-role"][value="delivery"]:checked) .policy-role,
+.card:has(#signup-role-service:checked) .policy-role{display:inline}
 
-.input-group input {
-    width: 100%;
-    padding: 12px 14px 12px 42px;
-    border: 1.5px solid var(--border-color);
-    border-radius: 12px;
-    font-size: 13px;
-    color: var(--text-main);
-    background: #f8fafc;
-    outline: none;
-    transition: all 0.2s ease;
+/* phone OTP sheet (bottom sheet on mobile, centred dialog on desktop) */
+#phone-section,#phone-signup-section{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+    border-radius:24px 24px 0 0;max-height:88dvh;max-height:88vh;overflow:auto;
+    box-shadow:0 0 0 200vmax rgba(8,25,70,.5);
 }
+@supports (height:1dvh){#phone-section,#phone-signup-section{max-height:88dvh}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.sheet-head b{font-size:18px;font-weight:800;color:var(--navy)}
+.sheet-close{width:36px;height:36px;border:0;border-radius:50%;background:var(--soft);color:var(--navy);font-size:18px;display:grid;place-items:center;cursor:pointer}
+.sub-note{font-size:13.5px;line-height:1.45;color:var(--muted);margin:0 0 14px}
+#phone-section .input-group,#phone-signup-section .input-group{margin-bottom:10px}
+#phone-section input,#phone-signup-section input{height:50px}
+.otp-input-group{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+.otp-field .input-icon{display:none}
+.otp-field input{padding:0 14px;text-align:center;font-size:22px;font-weight:800;letter-spacing:.45em;text-indent:.45em}
+.otp-field input::placeholder{font-size:14px;font-weight:500;letter-spacing:0;text-indent:0}
+.otp-timer-row{display:flex;justify-content:space-between;font-size:13px;margin:0 4px 10px;color:var(--muted)}
+.otp-timer-row a{color:var(--red);font-weight:700;text-decoration:none}
+.login-otp-timer{text-align:center;font-size:13px;color:var(--muted);margin-top:10px}
+.login-resend-otp{display:block;text-align:center;font-size:13px;color:var(--red);text-decoration:underline;cursor:pointer;margin-top:6px}
 
-.input-group input:focus {
-    border-color: var(--primary-color);
-    background: #ffffff;
-    box-shadow: 0 0 0 4px var(--accent-glow);
+/* footer: trust + help + links */
+.trust{display:flex;align-items:center;gap:6px;margin:auto 14px 0;padding-top:calc(var(--g)*1.2);position:relative;z-index:2}
+.trust-items{display:flex;flex:1;min-width:0}
+.trust-item{flex:1;padding:2px 6px;text-align:center;font-size:11.5px;font-weight:600;line-height:1.25;color:#1f3a7d}
+.trust-item .ic{display:block;margin:0 auto 4px;font-size:20px;color:#1a4aa8}
+.trust-item + .trust-item{border-left:1px solid #d3e1f6}
+.help{position:relative;display:flex;align-items:flex-end;gap:2px;flex:none;text-decoration:none}
+.help-bubble{
+    margin-bottom:26px;padding:6px 9px;border:1px solid var(--line);border-radius:12px;background:#fff;
+    font-size:9.5px;font-weight:800;line-height:1.25;color:var(--navy);box-shadow:0 4px 10px rgba(16,40,111,.08);
 }
-/*veryfy bottom*/
-.referral-section {
-    margin-bottom: 15px;
-    text-align: left;
+.help-bot{
+    position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:24px;
+    background:linear-gradient(145deg,#2a8cf2,#10286f);box-shadow:0 8px 16px rgba(16,40,111,.28);
 }
+.help-bot em{
+    position:absolute;top:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;
+    font-size:10px;font-style:normal;font-weight:800;display:grid;place-items:center;border:2px solid #fff;
+}
+.foot-links{position:relative;z-index:2;padding:calc(var(--g)*.9) 0 calc(var(--g)*1.2);margin-top:auto}
+.trust + .foot-links{margin-top:0}
+.switch{text-align:center;font-size:13.5px;color:#31487f}
+.switch a{font-weight:700;text-decoration:none}
+.legal{margin:8px 18px 0;text-align:center;font-size:11px;line-height:1.45;color:var(--muted)}
+.legal a{text-decoration:none}
 
-.referral-group {
-    display: flex;
-    align-items: center;
-    position: relative;
+/* phones/tablets: same look as the design, page scrolls on short screens */
+@media(max-width:899px){
+    .role-content{padding:12px 4px 10px}
+    .role-content .ic{font-size:24px}
+    .role-content b{font-size:14px}
+    .card-label{font-size:17px;margin-bottom:10px}
+    .btn-premium{font-size:17px}
+    .foot-links{padding-bottom:18px}
+    .trust{padding-bottom:4px}
 }
-
-.referral-group input {
-    flex: 1;
-    padding-right: 80px; /* বাটনের জন্য জায়গা রাখা */
-}
-
-.btn-verify {
-    position: absolute;
-    right: 5px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: #e31e24; /* মেডিকেল রেড থিম */
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    transition: background 0.3s ease;
-}
-
-.btn-verify:hover {
-    background: #b81418;
-}
-
-.referral-message {
-    display: block;
-    font-size: 12px;
-    margin-top: 5px;
-    margin-left: 5px;
-    font-weight: 500;
-}
-
-/* Buttons */
-.btn-premium {
-    width: 100%;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(224, 32, 32, 0.2);
-}
-
-.btn-premium:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
-}
-
-.btn-premium.secondary {
-    background: #eef5f7;
-    color: var(--primary-color);
-    box-shadow: none;
-    margin-bottom: 12px;
-}
-
-.btn-premium.secondary:hover {
-    background: #e2eef2;
-}
-
-/* Divider */
-.divider {
-    text-align: center;
-    margin: 16px 0;
-    position: relative;
-}
-
-.divider::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 100%;
-    height: 1px;
-    background: var(--border-color);
-    z-index: 1;
+@media(max-width:360px){
+    .trust-item{font-size:10.5px}
+    .help-bubble{display:none}
+    .btn-social .ic{font-size:18px}
 }
 
-.divider span {
-    background: var(--card-bg);
-    padding: 0 15px;
-    color: var(--text-muted);
-    font-size: 12px;
-    position: relative;
-    z-index: 2;
+.admin-modal-box h3{font-size:17px;color:var(--navy);display:flex;align-items:center;gap:8px}
+.admin-step .step-desc{font-size:14px;color:var(--muted);margin-bottom:14px}
+.admin-step.hidden-section{display:none}
+.admin-modal-box .input-group input{height:48px}
+.close-modal-btn{color:var(--navy)}
+
+.mf-medical-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;isolation:isolate;
+  background:linear-gradient(145deg,#f8fbff 0%,#fff 48%,#eef6ff 100%)}
+.mf-glow{position:absolute;width:clamp(180px,35vw,360px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,rgba(87,160,255,.16),rgba(87,160,255,.04) 48%,transparent 72%);
+  filter:blur(8px);animation:mf-glow-drift 14s ease-in-out infinite alternate}
+.mf-glow-one{top:5%;right:-12%}
+.mf-glow-two{bottom:4%;left:-14%;animation-delay:-7s}
+.mf-ecg{position:absolute;width:100%;height:90px;top:24%;left:0;opacity:.42}
+.mf-ecg path{fill:none;stroke:#66aaff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:12 9;animation:mf-ecg-flow 7s linear infinite}
+.mf-med-icon{position:absolute;width:clamp(30px,4vw,46px);height:clamp(30px,4vw,46px);color:#6fa6ea;opacity:.38;animation:mf-icon-float 8s ease-in-out infinite}
+.mf-med-icon svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.mf-cross{top:9%;left:7%}
+.mf-capsule{top:34%;right:7%;animation-delay:-2s}
+.mf-heart{top:60%;left:5%;width:clamp(34px,4.4vw,52px);height:clamp(34px,4.4vw,52px);animation-delay:-4s}
+.mf-steth{right:9%;bottom:9%;animation-delay:-5s}
+.mf-shield{top:17%;right:30%;width:clamp(26px,3vw,36px);height:clamp(26px,3vw,36px);animation-delay:-3s}
+.mf-tablet{bottom:20%;left:30%;width:clamp(24px,3vw,34px);height:clamp(24px,3vw,34px);animation-delay:-6s}
+.mf-orbit{position:absolute;width:150px;height:150px;border:1px solid rgba(94,157,235,.14);border-radius:50%}
+.mf-orbit-one{top:13%;right:-55px}
+.mf-orbit-two{bottom:17%;left:-75px;width:190px;height:190px}
+@keyframes mf-icon-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-12px,0)}}
+@keyframes mf-glow-drift{from{transform:translate3d(-8px,0,0) scale(.96)}to{transform:translate3d(10px,12px,0) scale(1.04)}}
+@keyframes mf-ecg-flow{to{stroke-dashoffset:-168}}
+@media(max-width:600px){
+  .mf-ecg{top:17%;height:65px;opacity:.25}
+  .mf-med-icon{opacity:.26}
+  .mf-glow{filter:none}
+  .mf-orbit{opacity:.65}
+}
+@media(prefers-reduced-motion:reduce){
+  .mf-medical-bg *{animation:none!important}
+  *{transition:none!important}
+}
+@media(max-width:380px){
+    .brand-tag{letter-spacing:1.4px}
+    .role-content small{font-size:9.5px}
+    .btn-social{font-size:12.5px}
 }
 
-/* Social Buttons */
-.social-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.btn-social {
-    flex: 1;
-    background: #ffffff;
-    color: var(--text-main);
-    border: 1.5px solid var(--border-color);
-    padding: 10px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-}
-
-.btn-social:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
-
-.btn-google img {
-    width: 18px;
-}
-
-.btn-phone i {
-    color: #2ecc71;
-}
-
-/* OTP Toggle Logic Animation Styles */
-.hidden-section {
-    display: none;
-}
-
-.otp-input-group {
-    margin-top: 12px;
-    border-top: 1px dashed var(--border-color);
-    padding-top: 15px;
-}
-
-.toggle-text {
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 16px;
-}
-
-.toggle-text a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 600;
-}
-/* ========================================== */
-/* ADMIN MODAL PREMIUM STYLES                 */
-/* ========================================== */
-.admin-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(35, 49, 58, 0.6);
-    backdrop-filter: blur(5px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-}
-
-.admin-modal-box {
-    background: var(--card-bg);
-    width: 90%;
-    max-width: 400px;
-    border-radius: 20px;
-    padding: 25px;
-    box-shadow: 0 25px 50px rgba(224, 32, 32, 0.25);
-    animation: modalSlideUp 0.3s ease-out;
-}
-
-@keyframes modalSlideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-.admin-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-.admin-modal-header h3 {
-    font-size: 18px;
-    color: #e31e24; /* মেডিকেল বা অ্যালার্ট রেড */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.close-modal-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.step-desc {
-    font-size: 13px;
-    color: var(--text-main);
-    font-weight: 500;
-    margin-bottom: 15px;
-}
-/* ========================================== */
-/* DYNAMIC POLICY WRAPPER STYLES              */
-/* ========================================== */
-.policy-wrapper {
-    background: #f8fafc;
-    border: 1.5px solid var(--border-color);
-    border-radius: 14px;
-    padding: 12px 15px;
-    transition: all 0.3s ease;
-}
-
-.policy-wrapper:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 8px var(--accent-glow);
-}
-
-/* ==========================================
-   PREMIUM RESPONSIVE HEADER (SPA)
-   ========================================== */
-.mf-header{position:sticky;top:0;z-index:600;background:linear-gradient(135deg,rgba(255,255,255,0.97) 0%,rgba(230,247,242,0.94) 100%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(13,148,136,0.14);box-shadow:0 2px 14px rgba(13,148,136,0.06);}
-.mf-header-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;max-width:1300px;margin:0 auto;gap:14px;}
-.mf-brand{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.mf-brand-logo{height:36px;width:36px;border-radius:9px;object-fit:cover;background:#fff;}
-.mf-brand-text{font-size:1.14rem;font-weight:800;letter-spacing:-0.3px;white-space:nowrap;color:var(--primary);}
-.mf-brand-black{color:var(--dark);}
-.mf-brand-india{color:var(--primary);font-size:0.52em;font-weight:700;margin-left:4px;position:relative;top:-6px;opacity:0.85;}
-.mf-nav-desktop{display:flex;align-items:center;gap:24px;font-size:0.86rem;font-weight:700;color:var(--text-muted);}
-.mf-nav-desktop a{cursor:pointer;transition:color .2s ease;}
-.mf-nav-desktop a:hover{color:var(--primary);}
-.mf-header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-/* Login stays medical red regardless of the .btn-outline base it also carries */
-.mf-login-btn{
-    padding:9px 18px;font-size:0.8rem;white-space:nowrap;
-    background:linear-gradient(135deg,var(--primary),var(--primary-dark))!important;
-    color:#fff!important;
-    border:none!important;
-    box-shadow:0 6px 16px rgba(224,32,32,0.22);
-    transition:all .2s ease;
-}
-.mf-login-btn:hover{
-    transform:translateY(-2px);
-    box-shadow:0 10px 22px rgba(224,32,32,0.3);
-    color:#fff!important;
-}
-/* Sign Up (desktop + mobile menu) stays a complementary eco teal */
-.mf-header .btn-primary{
-    background:linear-gradient(135deg,var(--teal),var(--teal-dark))!important;
-    box-shadow:var(--shadow-teal)!important;
-}
-.mf-header .btn-primary:hover{
-    box-shadow:0 12px 26px rgba(13,148,136,0.28)!important;
-}
-.mf-menu-toggle{display:none;background:var(--teal-light);border:none;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:1rem;color:var(--teal-dark);cursor:pointer;flex-shrink:0;}
-.mf-mobile-menu{display:none;flex-direction:column;gap:2px;padding:12px 20px 18px;border-top:1px solid var(--border);background:#fff;}
-.mf-mobile-menu.open{display:flex;}
-.mf-mobile-menu a{padding:10px 4px;font-weight:700;font-size:0.9rem;color:var(--text-main);cursor:pointer;}
-
-@media (max-width:860px){
-    .mf-nav-desktop{display:none;}
-    .mf-signup-btn-desktop{display:none;}
-    .mf-menu-toggle{display:flex;}
-}
-@media (prefers-reduced-motion: reduce){
-    html,body{scroll-behavior:auto;}
-    *{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;}
-}
-
-/* ==========================================
-   SPA VIEW CONTAINERS (Home / Login / Signup)
-   Each is a normal block-level sibling of the header — never
-   flexed side-by-side. Login/Signup get their own min-height so
-   the card has room to sit below the sticky header instead of
-   collapsing to 0 height.
-   ========================================== */
-
-#view-login,
-#view-signup{
-    width:100%;
-    min-height:calc(100vh - 65px);
-    display:none;
-}
-
-/* ✅ FIX: top padding was 56px stacked on top of the logo's old
-   -55px offset and the card's 80px top padding — three spacing
-   rules compounding into one large gap under the header. Now the
-   container just gives comfortable, normal breathing room. */
-#view-login .auth-container,
-#view-signup .auth-container{
-    width:min(100% - 24px, 440px);
-    max-width:440px;
-    margin:0 auto;
-    padding:28px 0 40px;
-    position:relative;
-}
-@media (max-width:600px){
-    #view-login .auth-container,
-    #view-signup .auth-container{
-        width:min(100% - 20px, 440px);
-        padding:18px 0 30px;
+@media(min-width:900px){
+    :root{
+        --g:clamp(8px,calc(var(--vh)*1.25),13px);
+        --fh:clamp(40px,calc(var(--vh)*5.4),50px);
+        --btn:clamp(44px,calc(var(--vh)*5.8),54px);
+        --logo:68px;
+    }
+    body{background:radial-gradient(900px 500px at 8% 0,#ffe9ec 0,transparent 60%),radial-gradient(900px 600px at 100% 100%,#dbe9ff 0,transparent 60%),#eef4fd}
+    .auth-view{align-items:center;padding:20px}
+    .auth-shell{
+        max-width:1180px;height:min(calc(var(--vh)*100 - 40px),840px);display:grid;
+        grid-template-columns:1.08fr .92fr;grid-template-rows:auto 1fr auto;
+        grid-template-areas:"top card" "hero card" "trust links";
+        border-radius:34px;border:1px solid #e0eafa;box-shadow:0 30px 80px rgba(16,40,111,.16);
+    }
+    .mf-medical-bg{background:linear-gradient(100deg,#e2eeff 0%,#f4f9ff 54%,#fbfdff 54%,#f6faff 100%)}
+    .mf-ecg{top:30%;height:110px;opacity:.38}
+    .auth-top{grid-area:top;padding:34px 48px 0;position:static}
+    .lang-pill{position:absolute;top:26px;right:34px;z-index:6}
+    .hero{grid-area:hero;padding:30px 48px 0;height:auto;min-height:0}
+    .hero::before{right:auto;left:8%;width:70%;height:80%;top:auto;bottom:0;min-height:0}
+    .hero h1{font-size:clamp(34px,3.4vw,50px);letter-spacing:-1.2px;line-height:1.1}
+    .hero p{display:block;max-width:46%;font-size:17px;line-height:1.5;margin-top:16px}
+    .hero-img{height:58%;max-width:62%;right:28px;bottom:0}
+    .hero h1,.hero-signup h1{max-width:none}
+    .hero-signup h1{white-space:normal}
+    .hero-signup .hero-img{max-width:62%}
+    .hero-signup p{max-width:46%}
+    .hero-signup{min-height:0}
+    .hero-signup h1{font-size:clamp(32px,3.2vw,46px)}
+    .card{grid-area:card;align-self:center;margin:0 52px;padding:calc(var(--g)*2) 30px calc(var(--g)*2)}
+    .card-label{font-size:18px}
+    .trust{grid-area:trust;position:static;margin:0;padding:0 48px 30px}
+    .trust-items{display:flex}
+    .trust-item{font-size:13px}
+    .help-bubble{display:block}
+    .help-bot{width:52px;height:52px;font-size:26px}
+    .foot-links{grid-area:links;padding:0 52px 26px;margin:0}
+    .legal{margin-left:0;margin-right:0}
+    #phone-section,#phone-signup-section{
+        left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(420px,92vw);border-radius:24px;padding:24px;
     }
 }
-
-/* ==========================================
-   ✅ SIGNUP UI MODERN REFRESH (scoped to #view-signup only —
-   login card is untouched)
-   ========================================== */
-#view-signup .auth-box{
-    border-radius:28px;
-    box-shadow:0 24px 50px rgba(224,32,32,0.10), 0 2px 8px rgba(16,24,40,0.05);
-    border:1px solid #f6e2e2;
-    position:relative;
-    overflow:hidden;
-}
-#view-signup .auth-box::before{
-    content:"";
-    position:absolute; top:0; left:0; right:0; height:5px;
-    background:linear-gradient(90deg,var(--primary-color,#e02020),#ff8a3d,#0d9488);
-}
-#view-signup .auth-box h2{
-    background:linear-gradient(135deg,var(--primary-color,#e02020),#b71c1c);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    letter-spacing:-0.3px;
-}
-#view-signup .role-content{
-    border-radius:14px;
-}
-#view-signup .role-card input[type="radio"]:checked + .role-content{
-    transform:translateY(-3px) scale(1.01);
-}
-#view-signup .input-group input{
-    border-radius:14px;
-    background:#fff;
-}
-#view-signup .input-group input:focus{
-    box-shadow:0 0 0 5px rgba(224,32,32,0.10);
-    transform:translateY(-1px);
-}
-#view-signup .btn-premium{
-    background:linear-gradient(135deg,var(--primary-color,#e02020),#b71c1c);
-    border-radius:14px;
-    box-shadow:0 10px 22px rgba(224,32,32,0.28);
-    letter-spacing:.2px;
-}
-#view-signup .btn-premium:hover{
-    box-shadow:0 14px 28px rgba(224,32,32,0.34);
-    transform:translateY(-2px);
-}
-#view-signup .btn-social{
-    border-radius:14px;
-}
-#view-signup .btn-social:hover{
-    transform:translateY(-1px);
-    box-shadow:0 6px 14px rgba(16,24,40,0.08);
-}
-
-/* ==========================================
-   ✅ LOGIN UI PREMIUM REFRESH (scoped to #view-login)
-   ========================================== */
-#view-login .auth-box{
-    border-radius:28px;
-    box-shadow:0 24px 50px rgba(224,32,32,0.10), 0 2px 8px rgba(16,24,40,0.05);
-    border:1px solid #f6e2e2;
-    position:relative;
-    overflow:hidden;
-}
-#view-login .auth-box::before{
-    content:"";
-    position:absolute; top:0; left:0; right:0; height:5px;
-    background:linear-gradient(90deg,#0d9488,var(--primary-color,#e02020),#ffa502);
-}
-#view-login .logo-circle{
-    box-shadow:0 14px 34px rgba(224,32,32,0.22);
-}
-#view-login .auth-box h2{
-    background:linear-gradient(135deg,var(--primary-color,#e02020),#b71c1c);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    letter-spacing:-0.3px;
-}
-.login-security-badge{
-    display:flex;align-items:center;justify-content:center;gap:6px;
-    background:linear-gradient(135deg,#fff5f5,#e6f7f2);
-    border:1px solid #ffe0e0;
-    color:var(--primary-color,#e02020);
-    font-size:10.5px;font-weight:800;letter-spacing:.2px;
-    padding:7px 14px;border-radius:20px;
-    margin:0 auto 18px;
-    width:fit-content;
-}
-#view-login .role-content{
-    border-radius:14px;
-}
-#view-login .role-card input[type="radio"]:checked + .role-content{
-    transform:translateY(-3px) scale(1.01);
-}
-#view-login .input-group input{
-    border-radius:14px;
-    background:#fff;
-}
-#view-login .input-group input:focus{
-    box-shadow:0 0 0 5px rgba(224,32,32,0.10);
-    transform:translateY(-1px);
-}
-#view-login .btn-premium{
-    background:linear-gradient(135deg,var(--primary-color,#e02020),#b71c1c);
-    border-radius:14px;
-    box-shadow:0 10px 22px rgba(224,32,32,0.28);
-    letter-spacing:.2px;
-}
-#view-login .btn-premium:hover{
-    box-shadow:0 14px 28px rgba(224,32,32,0.34);
-    transform:translateY(-2px);
-}
-#view-login .btn-social{
-    border-radius:14px;
-}
-#view-login .btn-social:hover{
-    transform:translateY(-1px);
-    box-shadow:0 6px 14px rgba(16,24,40,0.08);
-}
-
-/* ===== OTP / secondary buttons: keep them light with red text =====
-   (the #view-login / #view-signup .btn-premium rules above are more specific than
-   .btn-premium.secondary, which turned "Send OTP" into a solid red block with red text) */
-#view-login .btn-premium.secondary,
-#view-signup .btn-premium.secondary{
-    background:#fff1f1;
-    color:#e02020;
-    border:1.5px solid #f3b9b9;
-    box-shadow:none;
-    margin-bottom:12px;
-}
-#view-login .btn-premium.secondary:hover,
-#view-signup .btn-premium.secondary:hover{
-    background:#ffe3e3;
-    border-color:#e02020;
-    box-shadow:none;
-    transform:translateY(-1px);
-}
-.btn-premium:disabled,
-#view-login .btn-premium:disabled,
-#view-signup .btn-premium:disabled{
-    opacity:.65;
-    cursor:not-allowed;
-    transform:none;
-}
-
-/* ===== Show/Hide password toggle (login + signup) ===== */
-.input-group.has-toggle input{
-    padding-right:42px;
-}
-.toggle-password-btn{
-    position:absolute;
-    right:6px;
-    top:50%;
-    transform:translateY(-50%);
-    background:transparent;
-    border:none;
-    color:var(--text-muted);
-    font-size:14px;
-    width:30px;
-    height:30px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    border-radius:8px;
-    transition:all .2s ease;
-}
-.toggle-password-btn:hover{
-    color:var(--primary-color,#e02020);
-    background:rgba(224,32,32,0.06);
-}
-
-/* ==========================================
-   ✅ HERO IMPACT STATS (users / shops / delivery)
-   ========================================== */
-
-/* ==========================================
-   ✅ FULL-SCREEN, NO-SCROLL LOGIN / SIGNUP
-   When body.mf-view-auth is active (login or signup view is
-   showing), the page itself never scrolls — the header is
-   hidden and the auth card is sized + spaced to fit inside one
-   screen (100dvh). If a card is still taller than the screen on
-   a very small device, only the card itself scrolls internally
-   — the outer page stays fixed.
-   ========================================== */
- body.mf-view-auth {
-    height:100%;
-    overflow:hidden;
-}
-body.mf-view-auth .mf-header{
-    display:none;
-}
-body.mf-view-auth #view-login,
-body.mf-view-auth #view-signup{
-    height:100dvh;
-    height:100svh;
-    max-height:100dvh;
-    min-height:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-    padding:8px 0;
-}
-body.mf-view-auth #view-login .auth-container,
-body.mf-view-auth #view-signup .auth-container{
-    max-height:100%;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    padding:6px 0;
-    scrollbar-width:none;
-}
-body.mf-view-auth #view-login .auth-container::-webkit-scrollbar,
-body.mf-view-auth #view-signup .auth-container::-webkit-scrollbar{
-    display:none;
-}
-
-/* Compact spacing so the whole card fits in one viewport */
-body.mf-view-auth .logo-wrapper{ margin-bottom:8px; }
-body.mf-view-auth .logo-circle{ width:64px; height:64px; }
-body.mf-view-auth .auth-box{ padding:18px 20px 18px; }
-body.mf-view-auth .auth-box h2{ font-size:19px; margin-bottom:2px; }
-body.mf-view-auth .subtitle{ margin-bottom:8px; }
-body.mf-view-auth .login-security-badge{ margin-bottom:8px; padding:5px 12px; font-size:9.5px; }
-body.mf-view-auth .section-label{ margin-bottom:5px; }
-body.mf-view-auth .role-container{ margin-bottom:8px; gap:6px; }
-body.mf-view-auth .role-content{ padding:7px 4px 6px; gap:2px; }
-body.mf-view-auth .role-icon-circle{ width:28px; height:28px; font-size:13px; }
-body.mf-view-auth .input-group{ margin-bottom:8px; }
-body.mf-view-auth .input-group input{ padding:10px 12px 10px 40px; font-size:12.5px; }
-body.mf-view-auth .btn-premium{ padding:11px; }
-body.mf-view-auth .divider{ margin:10px 0; }
-body.mf-view-auth .social-group{ margin-bottom:8px; }
-body.mf-view-auth .toggle-text{ margin-top:8px; }
-@media (max-height:700px){
-    body.mf-view-auth .logo-wrapper{ display:none; }
-    body.mf-view-auth .auth-box{ padding:14px 18px 16px; }
-    body.mf-view-auth .login-security-badge{ display:none; }
+@media(min-width:900px) and (max-height:700px){
+    .hero p{display:none}
+    .trust-items{display:none}
+    .trust{padding-bottom:18px}
+    .hero-img{height:70%}
 }
 
 </style>
 </head>
 <body>
+<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l1.6-5h14.8L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/><path d="M10 21v-5h4v5"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 6h12v10H2z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="6.5" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></symbol>
+<symbol id="i-ems" viewBox="0 0 24 24"><path d="M2 6h12v10H2z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="6.5" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/><path d="M8 8.5v5M5.5 11h5"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7.5 8.5 6 8.5-6"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4"/><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.2"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18.5h2"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v9H5v-9"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="m17 6 3 3"/><path d="m14 9 2 2"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5a14 14 0 0 1 0 19 14 14 0 0 1 0-19z"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 9.2-8 10.9-4.6-1.7-8-5.9-8-10.9v-6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+<symbol id="i-steth" viewBox="0 0 24 24"><path d="M6 3v6a4 4 0 0 0 8 0V3"/><path d="M5 3h2M13 3h2"/><path d="M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3.5"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1"/><path d="M2 13v3M22 13v3"/><circle cx="9" cy="13.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="13.5" r="1" fill="currentColor" stroke="none"/><path d="M9.5 17h5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m8 12.3 2.7 2.7L16 9.5"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-apple" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.9-3.5.9s-1.8-.8-3-.8C6.9 7.4 5.4 8.3 4.6 9.7c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.1.8c1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.8-1.1-2.8-4.1zM14.1 5.5c.6-.8 1.1-1.8.9-2.9-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.8-1.3z"/></symbol>
+<symbol id="i-fb" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1877f2" stroke="none"/><path fill="#fff" stroke="none" d="M13.4 21v-7h2.3l.4-2.8h-2.7V9.4c0-.8.3-1.4 1.4-1.4h1.4V5.5c-.3 0-1.1-.1-2-.1-2.1 0-3.5 1.3-3.5 3.6v2.2H8.4V14h2.3v7z"/></symbol>
+<symbol id="i-google" viewBox="0 0 48 48"><path fill="#EA4335" stroke="none" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" stroke="none" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" stroke="none" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" stroke="none" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></symbol>
+<symbol id="i-user-f" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.3" fill="currentColor" stroke="none"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-mail-f" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5v.4l-9 5.7-9-5.7zM3 9.3l9 5.7 9-5.7v8.2a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+<symbol id="i-lock-f" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5" fill="currentColor" stroke="none"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke-width="2.3"/><circle cx="12" cy="15.7" r="1.5" fill="#fff" stroke="none"/></symbol>
+<symbol id="i-handset-f" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+<symbol id="i-gift-f" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4.5" rx="1" fill="currentColor" stroke="none"/><path d="M5 13.5h14V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" fill="currentColor" stroke="none"/><path d="M12 8v13" stroke="#fff" stroke-width="1.6"/><path d="M7.5 8a2.3 2.3 0 0 1 0-4.6C10.5 3.4 12 8 12 8s1.5-4.6 4.5-4.6a2.3 2.3 0 0 1 0 4.6"/></symbol>
+<symbol id="i-store-f" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M3.4 3.5h17.2l1.4 5.3a3.2 3.2 0 0 1-6 1.5 3.2 3.2 0 0 1-6 0 3.2 3.2 0 0 1-6-1.5z"/><path fill="currentColor" stroke="none" d="M4.5 12.3V21h15v-8.7a4.6 4.6 0 0 1-3 .1 4.6 4.6 0 0 1-3.5.7 4.6 4.6 0 0 1-3.5-.7 4.6 4.6 0 0 1-4.5-.1z"/><rect x="10" y="15.5" width="4" height="5.5" rx=".6" fill="#fff" stroke="none"/></symbol>
+<symbol id="i-truck-f" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M2 6.5A1.5 1.5 0 0 1 3.5 5H14v11.5H2zM15 8.5h3.5l3 3.3v4.7H15z"/><circle cx="6.5" cy="18" r="2.3" fill="currentColor" stroke="none"/><circle cx="17.5" cy="18" r="2.3" fill="currentColor" stroke="none"/><circle cx="6.5" cy="18" r=".9" fill="#fff" stroke="none"/><circle cx="17.5" cy="18" r=".9" fill="#fff" stroke="none"/></symbol>
+<symbol id="i-shield-f" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 2.5l8 3v6c0 5-3.4 9.2-8 10.9-4.6-1.7-8-5.9-8-10.9v-6z"/><path d="M12 8v7.5M8.25 11.75h7.5" stroke="#fff" stroke-width="2.2"/></symbol>
+</defs></svg>
 
-<!-- ===== TOP STRIP (always first — sits above the header on every view) ===== -->
-<div class="top-strip">
-    <div class="top-strip-track">
-        <span class="top-strip-item"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 30+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
-        <span class="top-strip-item" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i>MEDICINE DELIVERED TO YOUR DOORSTEP IN 30+ MINUTES &nbsp;•&nbsp; 100% GENUINE &amp; LICENSED PHARMACIES</span>
+<div id="view-login" class="auth-view">
+  <div class="auth-shell">
+    <div class="mf-medical-bg" aria-hidden="true">
+      <span class="mf-glow mf-glow-one"></span>
+      <span class="mf-glow mf-glow-two"></span>
+      <svg class="mf-ecg" viewBox="0 0 600 100" preserveAspectRatio="none"><path d="M0 50 H130 L155 50 L175 20 L195 80 L220 10 L245 70 L265 50 H360 L380 50 L400 35 L420 65 L440 50 H600"/></svg>
+      <span class="mf-med-icon mf-cross"><svg viewBox="0 0 48 48"><path d="M19 6h10v13h13v10H29v13H19V29H6V19h13z" fill="currentColor" fill-opacity=".12"/></svg></span>
+      <span class="mf-med-icon mf-capsule"><svg viewBox="0 0 48 48"><g transform="rotate(-40 24 24)"><rect x="5" y="15" width="38" height="18" rx="9"/><path d="M24 15v18"/><path d="M24 15h10a9 9 0 0 1 0 18H24z" fill="currentColor" fill-opacity=".18" stroke="none"/></g></svg></span>
+      <span class="mf-med-icon mf-heart"><svg viewBox="0 0 48 48"><path d="M24 41C10 31 6 23 6 17a9.5 9.5 0 0 1 18-4.3A9.5 9.5 0 0 1 42 17c0 6-4 14-18 24z"/><path d="M12 24h7l3-6 4 11 3-5h7"/></svg></span>
+      <span class="mf-med-icon mf-steth"><svg viewBox="0 0 48 48"><path d="M12 6v14a8 8 0 0 0 16 0V6"/><path d="M10 6h4M26 6h4"/><path d="M20 28v4a8 8 0 0 0 16 0v-6"/><circle cx="36" cy="22" r="4"/></svg></span>
+      <span class="mf-med-icon mf-shield"><svg viewBox="0 0 48 48"><path d="M24 5l16 6v12c0 10-7 18-16 21C15 41 8 33 8 23V11z"/><path d="M24 17v14M17 24h14"/></svg></span>
+      <span class="mf-med-icon mf-tablet"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="15"/><path d="M13.4 34.6 34.6 13.4"/><path d="M24 9a15 15 0 0 1 10.6 4.4L13.4 34.6A15 15 0 0 1 24 9z" fill="currentColor" fill-opacity=".16" stroke="none"/></svg></span>
+      <span class="mf-orbit mf-orbit-one"></span>
+      <span class="mf-orbit mf-orbit-two"></span>
     </div>
-</div>
-
-<header class="mf-header">
-    <div class="mf-header-inner">
-        <a href="home.html" class="mf-brand">
-            <img src="favicon.png" alt="MediFinder India Logo" class="mf-brand-logo" onerror="this.style.display='none'">
-            <span class="mf-brand-text">Medi<span class="mf-brand-black">Finder</span><span class="mf-brand-india">India</span></span>
+    <div class="auth-top">
+        <a href="home.html" class="brand" aria-label="MediFinder India home">
+            <img src="favicon.png" alt="MediFinder India logo" class="brand-logo" onerror="this.style.display='none'">
+            <span class="brand-words">
+                <span class="brand-name">MediFinder</span>
+                <span class="brand-india">India</span>
+                <span class="brand-tag">Search • Connect • Care</span>
+            </span>
         </a>
-        <nav class="mf-nav-desktop">
-            <a href="home.html">Home</a>
-        </nav>
-        <div class="mf-header-actions">
-            <button type="button" class="btn btn-outline mf-login-btn" onclick="showView('login')">Log In</button>
-            <button type="button" class="btn btn-primary mf-signup-btn-desktop" onclick="showView('signup')">Sign Up</button>
-            <button type="button" class="mf-menu-toggle" id="mfMenuToggle" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
-        </div>
+        <span class="lang-pill" aria-label="Language: English"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> EN <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg></span>
     </div>
-    <div class="mf-mobile-menu" id="mfMobileMenu">
-        <a href="home.html">Home</a>
-        <button type="button" class="btn btn-primary" onclick="showView('signup');closeMobileMenu();" style="width:100%;margin-top:8px;">Sign Up</button>
-    </div>
-</header>
 
-<!-- ==========================================
-     VIEW: LOGIN (from former Login.html — same IDs,
-     same events, same Supabase logic; just panel-toggled)
-     ========================================== -->
-<div id="view-login">
-    <div class="auth-container">
-        <div class="logo-wrapper">
-            <div class="logo-circle">
-                <img src="favicon.png" alt="MediFinder India Premium Logo">
-            </div>
-        </div>
+    <section class="hero">
+        <h1>Welcome Back<br>to <em>MediFinder India</em></h1>
+        <p>Your health, our priority — find trusted pharmacies, doctors, hospitals and healthcare services all in one place.</p>
+        <img class="hero-img" src="drimg.png" alt="" onerror="this.style.display='none'">
+    </section>
 
-        <div class="auth-box">
-            <a href="#" onclick="exitEmsPartnerMode();window.location.href='home.html';return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
-            <h2>Welcome Back</h2>
-            <p class="subtitle">Log in to your MediFinder India profile.</p>
-            <div class="login-security-badge"><i class="fa-solid fa-shield-halved"></i> 256-bit Encrypted • Premium Secure Access</div>
-
-            <form id="login-form">
-                <label class="section-label">Select Your Role</label>
-                <div class="role-container" id="login-role-container">
-                    <label class="role-card">
-                        <input type="radio" name="login-role" value="user" checked>
-                        <div class="role-content">
-                            <div class="role-icon-circle user-role"><i class="fa-solid fa-user"></i></div>
-                            <span>User</span>
-                            <small>Order Medicines</small>
-                        </div>
-                    </label>
-                    <label class="role-card">
-                        <input type="radio" name="login-role" value="merchant">
-                        <div class="role-content">
-                            <div class="role-icon-circle merchant-role"><i class="fa-solid fa-store"></i></div>
-                            <span>Merchant</span>
-                            <small>Manage Shop</small>
-                        </div>
-                    </label>
-                    <label class="role-card">
-                        <input type="radio" name="login-role" value="delivery">
-                        <div class="role-content">
-                            <div class="role-icon-circle delivery-role"><i class="fa-solid fa-truck"></i></div>
-                            <span>Delivery</span>
-                            <small>Deliver Orders</small>
-                        </div>
-                    </label>
-                </div>
-                <input type="radio" name="login-role" value="service" id="login-role-service" style="display:none">
-                <div class="ems-active-badge" id="login-ems-badge" style="display:none;">
-                    <div class="ems-badge-icon"><i class="fa-solid fa-truck-medical"></i></div>
-                    <div class="ems-badge-text"><strong>EMS Partner Login</strong><span id="login-ems-badge-label"></span></div>
-                    <button type="button" class="ems-badge-change" onclick="exitEmsPartnerMode()">Change</button>
-                </div>
-
-                <div class="input-group">
-                    <i class="fa-solid fa-envelope input-icon"></i>
-                    <input type="email" id="login-email" placeholder="Email Address" required>
-                </div>
-
-                <div class="input-group has-toggle">
-                    <i class="fa-solid fa-lock input-icon"></i>
-                    <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
-                    <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('login-password', this)"><i class="fa-solid fa-eye"></i></button>
-                </div>
-
-                <div style="text-align: right; margin-bottom: 15px;">
-                    <a href="#" id="forgot-password-link" style="color: #ff4747; text-decoration: none; font-size: 0.85rem;">Forgot Password?</a>
-                </div>
-
-                <button type="submit" class="btn-premium">Log In</button>
-            </form>
-
-            <div class="divider"><span>Or Connect With</span></div>
-
-            <div class="social-group">
-                <button type="button" class="btn-social btn-google" id="google-btn">
-                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
-                </button>
-                <button type="button" class="btn-social btn-phone" id="phone-auth-toggle">
-                    <i class="fa-solid fa-phone"></i> Phone 
-                </button>
-            </div>
-
-            <div id="phone-section" class="hidden-section">
-                <div class="input-group" style="margin-top: 15px;">
-                    <i class="fa-solid fa-phone input-icon"></i>
-                    <input type="tel" id="phone-number" placeholder="+919593XXXXXX">
-                </div>
-                <button type="button" class="btn-premium secondary" id="send-otp-btn">Send OTP</button>
-
-                <div class="input-group otp-input-group hidden-section" id="otp-input-wrapper" style="margin-top: 15px;">
-                    <i class="fa-solid fa-key input-icon"></i>
-                    <input type="text" id="otp-code" placeholder="Enter 6-Digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]*">
-                    <button type="button" class="btn-premium" id="verify-otp-btn"><i class="fas fa-check-circle"></i> Verify & Login</button>
-                </div>
-                <div id="login-otp-timer" style="text-align:center; font-size:13px; color:#888; margin-top:8px; display:none;"></div>
-                <a href="#" id="login-resend-otp" style="display:none; text-align:center; font-size:13px; color:#e02020; text-decoration:underline; cursor:pointer; margin-top:4px;">Resend OTP</a>
-            </div>
-
-            <p class="toggle-text">Don't have an account? <a href="#" onclick="showView('signup');return false;">Create Account</a></p>
-        </div>
-    </div>
-</div>
-
-<!-- ==========================================
-     VIEW: SIGNUP (from former signup.html — same IDs,
-     same events, same Supabase logic; just panel-toggled)
-     ========================================== -->
-<div id="view-signup">
-    <div class="auth-container">
-        <div class="logo-wrapper">
-            <div class="logo-circle">
-                <img src="favicon.png" alt="MediFinder India Premium Logo">
-            </div>
-        </div>
-
-        <div class="auth-box">
-            <a href="#" onclick="exitEmsPartnerMode();window.location.href='home.html';return false;" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;margin-bottom:14px;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
-            <h2>Create Account</h2>
-            <p class="subtitle">Join MediFinder India to search, connect, and care.</p>
-
-            <label class="section-label">Register As</label>
-            <div class="role-container" id="signup-role-container">
+    <div class="card">
+        <form id="login-form">
+            <div class="card-label">Login As</div>
+            <div class="role-container" id="login-role-container">
                 <label class="role-card">
-                    <input type="radio" name="signup-role" value="user" checked>
-                    <div class="role-content"><i class="fa-solid fa-user"></i><span>User</span></div>
+                    <input type="radio" name="login-role" value="user" checked>
+                    <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-user-f"/></svg><b>User</b><small>(Patient)</small></div>
                 </label>
                 <label class="role-card">
-                    <input type="radio" name="signup-role" value="merchant">
-                    <div class="role-content"><i class="fa-solid fa-store"></i><span>Merchant</span></div>
+                    <input type="radio" name="login-role" value="merchant">
+                    <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-store-f"/></svg><b>Merchant</b><small>(Pharmacy/Shop)</small></div>
                 </label>
                 <label class="role-card">
-                    <input type="radio" name="signup-role" value="delivery">
-                    <div class="role-content"><i class="fa-solid fa-truck"></i><span>Delivery</span></div>
+                    <input type="radio" name="login-role" value="delivery">
+                    <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-truck-f"/></svg><b>Delivery</b><small>(Delivery Partner)</small></div>
                 </label>
             </div>
-            <input type="radio" name="signup-role" value="service" id="signup-role-service" style="display:none">
-            <div class="ems-active-badge" id="signup-ems-badge" style="display:none;">
-                <div class="ems-badge-icon"><i class="fa-solid fa-truck-medical"></i></div>
-                <div class="ems-badge-text"><strong>Registering as EMS Partner</strong><span id="signup-ems-badge-label"></span></div>
+            <input type="radio" name="login-role" value="service" id="login-role-service" style="display:none">
+            <div class="ems-active-badge" id="login-ems-badge" style="display:none;">
+                <div class="ems-badge-icon"><svg class="ic" aria-hidden="true"><use href="#i-ems"/></svg></div>
+                <div class="ems-badge-text"><strong>EMS Partner Login</strong><span id="login-ems-badge-label"></span></div>
                 <button type="button" class="ems-badge-change" onclick="exitEmsPartnerMode()">Change</button>
             </div>
 
-            <!-- Service Provider Type: kept as a hidden data carrier for the chosen EMS service -->
-            <div class="service-type-wrap" id="signup-service-wrap">
-                <select id="signup-service-type" class="service-type-select" name="signup-service-type" style="display:none">
-                    <option value="">Choose your service</option>
-                    <option value="nurse">Nurse</option>
-                    <option value="ambulance_driver">Ambulance Driver</option>
-                    <option value="phlebotomist">Phlebotomist / Blood Collector</option>
-                </select>
-                <input type="hidden" id="signup-service-role" name="signup-service-role" value="">
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
+                <input type="email" id="login-email" placeholder="Email Address" aria-label="Email address" autocomplete="username" required>
             </div>
 
-            <!-- dynamically updated link and terms policy wrapper -->
-            <div class="policy-wrapper" style="margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; text-align: left;">
-                <input type="checkbox" id="policy-agree-checkbox" style="margin-top: 4px; transform: scale(1.2); cursor: pointer;">
-                <label for="policy-agree-checkbox" style="font-size: 13px; color: var(--text-main); cursor: pointer; line-height: 1.4;">
-                    I agree to the <a id="dynamic-policy-link" href="info.html#terms" target="_blank" rel="noopener noreferrer" style="color: var(--primary-color); font-weight: 600; text-decoration: none;">User Policy</a>, Terms & Conditions, and Privacy Policy.
-                </label>
+            <div class="input-group has-toggle">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-lock-f"/></svg>
+                <input type="password" id="login-password" placeholder="Password" aria-label="Password" required autocomplete="current-password">
+                <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('login-password', this)"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></button>
             </div>
 
-            <form id="signup-form">
-                <div class="input-group">
-                    <i class="fa-solid fa-user input-icon"></i>
-                    <input type="text" id="signup-name" placeholder="Full Name" required>
-                </div>
-                <div class="input-group">
-                    <i class="fa-solid fa-envelope input-icon"></i>
-                    <input type="email" id="signup-email" placeholder="Email Address" required>
-                </div>
-                <div class="input-group">
-                    <i class="fa-solid fa-phone input-icon"></i>
-                    <input type="phone" id="signup-phone" placeholder="Phone" required>
-                </div>
-                <div class="input-group has-toggle">
-                    <i class="fa-solid fa-shield-halved input-icon"></i>
-                    <input type="password" id="signup-password" placeholder="Password" required>
-                    <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('signup-password', this)"><i class="fa-solid fa-eye"></i></button>
-                </div>
-                <div class="input-group has-toggle">
-                    <i class="fa-solid fa-shield-halved input-icon"></i>
-                    <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
-                    <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('signup-confirm-password', this)"><i class="fa-solid fa-eye"></i></button>
-                </div>
-
-                <div class="referral-section">
-                    <div class="input-group referral-group">
-                        <i class="fa-solid fa-gift input-icon"></i>
-                        <input type="text" id="referral-code" placeholder="Referral Code (Optional)">
-                        <button type="button" id="verify-referral-btn" class="btn-verify">Verify</button>
-                    </div>
-                    <span id="referral-msg" class="referral-message"></span>
-                </div>
-
-                <button type="submit" class="btn-premium">Sign Up with Email</button>
-            </form>
-
-            <div class="divider"><span>Or Register With</span></div>
-
-            <div class="social-group">
-                <button type="button" class="btn-social btn-google" id="google-signup-btn">
-                    <img src="https://thumbs.dreamstime.com/b/google-logo-vector-format-white-background-illustration-407571048.jpg" alt="Google"> Google
-                </button>
-                <button type="button" class="btn-social btn-phone" id="phone-signup-toggle">
-                    <i class="fa-solid fa-phone"></i> Phone 
-                </button>
+            <div class="row-between">
+                <label class="check"><input type="checkbox" id="remember-me"> Remember me</label>
+                <a href="#" id="forgot-password-link">Forgot Password?</a>
             </div>
 
-            <div id="phone-signup-section" class="hidden-section">
-                <p class="subtitle" style="margin-bottom: 10px; margin-top:15px;">Enter phone with country code to get OTP.</p>
-                
-                <div class="input-group">
-                    <i class="fa-solid fa-user input-icon"></i>
-                    <input type="text" id="otp-name" placeholder="Your Full Name">
-                </div>
-                
-                <div class="input-group">
-                    <i class="fa-solid fa-phone input-icon"></i>
-                    <input type="tel" id="phone-signup-number" placeholder="+9195936XXXXX">
-                </div>
-                <button type="button" class="btn-premium secondary" id="send-signup-otp-btn">Send Verification OTP</button>
+            <button type="submit" class="btn-premium">Log In <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+        </form>
 
-                <div class="input-group otp-input-group hidden-section" id="signup-otp-wrapper" style="margin-top: 15px;">
-                    <i class="fa-solid fa-key input-icon"></i>
-                    <input type="text" id="signup-otp-code" placeholder="Enter 6-Digit OTP">
-                    
-                    <div class="otp-timer-container" style="display: flex; justify-content: space-between; font-size: 0.85rem; margin: 8px 0; padding: 0 5px; width:100%;">
-                        <span id="otp-timer-text" style="color: #666;">Resend available in: <b id="countdown-timer">60</b>s</span>
-                        <a href="#" id="resend-otp-link" style="color: #ff4747; text-decoration: none; display: none; font-weight: bold;">Resend OTP</a>
-                    </div>
+        <div class="divider"><span>Or Login With</span></div>
 
-                    <button type="button" class="btn-premium" id="verify-signup-otp-btn">Verify & Create Account</button>
-                </div>
+        <div class="social-group">
+            <button type="button" class="btn-social btn-google" id="google-btn" aria-label="Continue with Google"><svg class="ic" aria-hidden="true"><use href="#i-google"/></svg><span class="lbl">Google</span></button>
+            <button type="button" class="btn-social alt" id="apple-btn" aria-label="Continue with Apple" onclick="mfComingSoon('Apple')"><svg class="ic" aria-hidden="true"><use href="#i-apple"/></svg><span class="lbl">Apple</span></button>
+            <button type="button" class="btn-social alt" id="facebook-btn" aria-label="Continue with Facebook" onclick="mfComingSoon('Facebook')"><svg class="ic" aria-hidden="true"><use href="#i-fb"/></svg><span class="lbl">Facebook</span></button>
+        </div>
+        <button type="button" class="btn-truecaller" id="phone-auth-toggle" aria-label="Continue with phone number"><span class="tc-ico"><svg class="ic" aria-hidden="true"><use href="#i-handset-f"/></svg></span><span class="tc-txt">Phone (Truecaller)</span><span class="tc-brand">truecaller</span><svg class="ic tc-arrow" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+
+        <div id="phone-section" class="hidden-section" role="dialog" aria-label="Login with phone OTP">
+            <div class="sheet-head"><b>Login with Phone OTP</b><button type="button" class="sheet-close" aria-label="Close" onclick="mfCloseSheet('phone-section')"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+            <p class="sub-note">Enter your mobile number with country code. We will send a 6-digit code by SMS.</p>
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
+                <input type="tel" id="phone-number" placeholder="+919593XXXXXX" aria-label="Mobile number with country code" autocomplete="tel">
             </div>
+            <button type="button" class="btn-premium secondary" id="send-otp-btn">Send OTP</button>
 
-            <p class="toggle-text">Already have an account? <a href="#" onclick="showView('login');return false;">Log In</a></p>
+            <div class="otp-input-group hidden-section" id="otp-input-wrapper">
+                <div class="input-group otp-field">
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-key"/></svg>
+                    <input type="text" id="otp-code" placeholder="Enter 6-digit code" aria-label="6-digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                </div>
+                <button type="button" class="btn-premium" id="verify-otp-btn"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Verify &amp; Login</button>
+            </div>
+            <div id="login-otp-timer" class="login-otp-timer" style="display:none;"></div>
+            <a href="#" id="login-resend-otp" class="login-resend-otp" style="display:none;">Resend OTP</a>
         </div>
     </div>
+
+    <div class="trust">
+        <div class="trust-items">
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-shield-f"/></svg>Verified<br>Pharmacies</div>
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-user-f"/></svg>Trusted<br>Doctors</div>
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-truck-f"/></svg>Fast<br>Delivery</div>
+        </div>
+        <a class="help" href="info.html#contact" aria-label="Need help? Contact support">
+            <span class="help-bubble">Need help?<br>I'm here!</span>
+            <span class="help-bot"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg><em>1</em></span>
+        </a>
+    </div>
+
+    <div class="foot-links">
+        <p class="switch">Don't have an account? <a href="#" onclick="showView('signup');return false;">Create Account</a></p>
+        <p class="legal">By continuing, you agree to our <a href="info.html#terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a> and <a href="info.html#privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></p>
+    </div>
+
+  </div>
 </div>
+
+<div id="view-signup" class="auth-view">
+  <div class="auth-shell">
+    <div class="mf-medical-bg" aria-hidden="true">
+      <span class="mf-glow mf-glow-one"></span>
+      <span class="mf-glow mf-glow-two"></span>
+      <svg class="mf-ecg" viewBox="0 0 600 100" preserveAspectRatio="none"><path d="M0 50 H130 L155 50 L175 20 L195 80 L220 10 L245 70 L265 50 H360 L380 50 L400 35 L420 65 L440 50 H600"/></svg>
+      <span class="mf-med-icon mf-cross"><svg viewBox="0 0 48 48"><path d="M19 6h10v13h13v10H29v13H19V29H6V19h13z" fill="currentColor" fill-opacity=".12"/></svg></span>
+      <span class="mf-med-icon mf-capsule"><svg viewBox="0 0 48 48"><g transform="rotate(-40 24 24)"><rect x="5" y="15" width="38" height="18" rx="9"/><path d="M24 15v18"/><path d="M24 15h10a9 9 0 0 1 0 18H24z" fill="currentColor" fill-opacity=".18" stroke="none"/></g></svg></span>
+      <span class="mf-med-icon mf-heart"><svg viewBox="0 0 48 48"><path d="M24 41C10 31 6 23 6 17a9.5 9.5 0 0 1 18-4.3A9.5 9.5 0 0 1 42 17c0 6-4 14-18 24z"/><path d="M12 24h7l3-6 4 11 3-5h7"/></svg></span>
+      <span class="mf-med-icon mf-steth"><svg viewBox="0 0 48 48"><path d="M12 6v14a8 8 0 0 0 16 0V6"/><path d="M10 6h4M26 6h4"/><path d="M20 28v4a8 8 0 0 0 16 0v-6"/><circle cx="36" cy="22" r="4"/></svg></span>
+      <span class="mf-med-icon mf-shield"><svg viewBox="0 0 48 48"><path d="M24 5l16 6v12c0 10-7 18-16 21C15 41 8 33 8 23V11z"/><path d="M24 17v14M17 24h14"/></svg></span>
+      <span class="mf-med-icon mf-tablet"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="15"/><path d="M13.4 34.6 34.6 13.4"/><path d="M24 9a15 15 0 0 1 10.6 4.4L13.4 34.6A15 15 0 0 1 24 9z" fill="currentColor" fill-opacity=".16" stroke="none"/></svg></span>
+      <span class="mf-orbit mf-orbit-one"></span>
+      <span class="mf-orbit mf-orbit-two"></span>
+    </div>
+    <div class="auth-top">
+        <a href="home.html" class="brand" aria-label="MediFinder India home">
+            <img src="favicon.png" alt="MediFinder India logo" class="brand-logo" onerror="this.style.display='none'">
+            <span class="brand-words">
+                <span class="brand-name">MediFinder</span>
+                <span class="brand-india">India</span>
+                <span class="brand-tag">Search • Connect • Care</span>
+            </span>
+        </a>
+        <span class="lang-pill" aria-label="Language: English"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> EN <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg></span>
+    </div>
+
+    <section class="hero hero-signup">
+        <h1>Join MediFinder India</h1>
+        <p>Create your account and get access to trusted healthcare services, offers and more.</p>
+        <img class="hero-img" src="create.png" alt="" onerror="this.style.display='none'">
+    </section>
+
+    <div class="card">
+        <div class="card-label">Register As</div>
+        <div class="role-container" id="signup-role-container">
+            <label class="role-card">
+                <input type="radio" name="signup-role" value="user" checked>
+                <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-user-f"/></svg><b>User</b><small>(Patient)</small></div>
+            </label>
+            <label class="role-card">
+                <input type="radio" name="signup-role" value="merchant">
+                <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-store-f"/></svg><b>Merchant</b><small>(Pharmacy/Shop)</small></div>
+            </label>
+            <label class="role-card">
+                <input type="radio" name="signup-role" value="delivery">
+                <div class="role-content"><svg class="ic" aria-hidden="true"><use href="#i-truck-f"/></svg><b>Delivery</b><small>(Delivery Partner)</small></div>
+            </label>
+        </div>
+        <input type="radio" name="signup-role" value="service" id="signup-role-service" style="display:none">
+        <div class="ems-active-badge" id="signup-ems-badge" style="display:none;">
+            <div class="ems-badge-icon"><svg class="ic" aria-hidden="true"><use href="#i-ems"/></svg></div>
+            <div class="ems-badge-text"><strong>Registering as EMS Partner</strong><span id="signup-ems-badge-label"></span></div>
+            <button type="button" class="ems-badge-change" onclick="exitEmsPartnerMode()">Change</button>
+        </div>
+
+        <!-- Service Provider Type: hidden data carrier for the chosen EMS service -->
+        <div class="service-type-wrap" id="signup-service-wrap">
+            <select id="signup-service-type" class="service-type-select" name="signup-service-type" style="display:none">
+                <option value="">Choose your service</option>
+                <option value="nurse">Nurse</option>
+                <option value="ambulance_driver">Ambulance Driver</option>
+                <option value="phlebotomist">Phlebotomist / Blood Collector</option>
+            </select>
+            <input type="hidden" id="signup-service-role" name="signup-service-role" value="">
+        </div>
+
+        <form id="signup-form">
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-user-f"/></svg>
+                <input type="text" id="signup-name" placeholder="Full Name" aria-label="Full name" autocomplete="name" required>
+            </div>
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
+                <input type="email" id="signup-email" placeholder="Email Address" aria-label="Email address" autocomplete="email" required>
+            </div>
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
+                <input type="tel" id="signup-phone" placeholder="Phone Number" aria-label="Phone number" autocomplete="tel" required>
+            </div>
+            <div class="input-group has-toggle">
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-lock-f"/></svg>
+                    <input type="password" id="signup-password" placeholder="Password" aria-label="Password" autocomplete="new-password" required>
+                    <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('signup-password', this)"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></button>
+                </div>
+            <div class="input-group has-toggle">
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-lock-f"/></svg>
+                    <input type="password" id="signup-confirm-password" placeholder="Confirm Password" aria-label="Confirm password" autocomplete="new-password" required>
+                    <button type="button" class="toggle-password-btn" aria-label="Show password" onclick="toggleMfPassword('signup-confirm-password', this)"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></button>
+                </div>
+
+            <div class="referral-section">
+                <div class="input-group referral-group">
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-gift-f"/></svg>
+                    <input type="text" id="referral-code" placeholder="Referral Code (Optional)" aria-label="Referral code (optional)">
+                    <button type="button" id="verify-referral-btn" class="btn-verify">Apply</button>
+                </div>
+                <span id="referral-msg" class="referral-message"></span>
+            </div>
+
+            <!-- dynamic-policy-link text/href is updated by supabase-config.js when the role changes -->
+            <label class="check terms">
+                <input type="checkbox" id="policy-agree-checkbox">
+                <span>I agree to the <span class="policy-role"><a id="dynamic-policy-link" href="info.html#terms" target="_blank" rel="noopener noreferrer">User Policy</a>, </span><a href="info.html#terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a> and <a href="info.html#privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></span>
+            </label>
+
+            <button type="submit" class="btn-premium red">Create Account <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+        </form>
+
+        <div class="divider"><span>Or Register With</span></div>
+
+        <div class="social-group">
+            <button type="button" class="btn-social btn-google" id="google-signup-btn" aria-label="Continue with Google"><svg class="ic" aria-hidden="true"><use href="#i-google"/></svg><span class="lbl">Google</span></button>
+            <button type="button" class="btn-social alt" id="apple-signup-btn" aria-label="Continue with Apple" onclick="mfComingSoon('Apple')"><svg class="ic" aria-hidden="true"><use href="#i-apple"/></svg><span class="lbl">Apple</span></button>
+            <button type="button" class="btn-social alt" id="facebook-signup-btn" aria-label="Continue with Facebook" onclick="mfComingSoon('Facebook')"><svg class="ic" aria-hidden="true"><use href="#i-fb"/></svg><span class="lbl">Facebook</span></button>
+        </div>
+        <button type="button" class="btn-truecaller" id="phone-signup-toggle" aria-label="Continue with phone number"><span class="tc-ico"><svg class="ic" aria-hidden="true"><use href="#i-handset-f"/></svg></span><span class="tc-txt">Phone (Truecaller)</span><span class="tc-brand">truecaller</span><svg class="ic tc-arrow" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+
+        <div id="phone-signup-section" class="hidden-section" role="dialog" aria-label="Register with phone OTP">
+            <div class="sheet-head"><b>Register with Phone OTP</b><button type="button" class="sheet-close" aria-label="Close" onclick="mfCloseSheet('phone-signup-section')"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+            <p class="sub-note">Enter phone with country code to get OTP.</p>
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-user-f"/></svg>
+                <input type="text" id="otp-name" placeholder="Your Full Name" aria-label="Your full name" autocomplete="name">
+            </div>
+            <div class="input-group">
+                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
+                <input type="tel" id="phone-signup-number" placeholder="+9195936XXXXX" aria-label="Mobile number with country code" autocomplete="tel">
+            </div>
+            <button type="button" class="btn-premium secondary" id="send-signup-otp-btn">Send Verification OTP</button>
+
+            <div class="otp-input-group hidden-section" id="signup-otp-wrapper">
+                <div class="input-group otp-field">
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-key"/></svg>
+                    <input type="text" id="signup-otp-code" placeholder="Enter 6-digit code" aria-label="6-digit OTP" inputmode="numeric" autocomplete="one-time-code">
+                </div>
+                <div class="otp-timer-row">
+                    <span id="otp-timer-text">Resend available in: <b id="countdown-timer">60</b>s</span>
+                    <a href="#" id="resend-otp-link" style="display:none;">Resend OTP</a>
+                </div>
+                <button type="button" class="btn-premium" id="verify-signup-otp-btn">Verify &amp; Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="trust">
+        <div class="trust-items">
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-shield-f"/></svg>Verified<br>Pharmacies</div>
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-user-f"/></svg>Trusted<br>Doctors</div>
+            <div class="trust-item"><svg class="ic" aria-hidden="true"><use href="#i-truck-f"/></svg>Fast<br>Delivery</div>
+        </div>
+        <a class="help" href="info.html#contact" aria-label="Need help? Contact support">
+            <span class="help-bubble">Need help?<br>I'm here!</span>
+            <span class="help-bot"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg><em>1</em></span>
+        </a>
+    </div>
+
+    <div class="foot-links">
+        <p class="switch">Already have an account? <a href="#" onclick="showView('login');return false;">Log In</a></p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Helpers: Apple / Facebook placeholder + closing the phone OTP sheet -->
+<script>
+function mfComingSoon(name){
+    var msg = name + ' sign-in is coming soon. Please use Google or Phone OTP for now.';
+    if (typeof showToast === 'function') showToast(msg, 'info'); else alert(msg);
+}
+function mfCloseSheet(id){
+    var el = document.getElementById(id);
+    if (el) el.classList.add('hidden-section');
+}
+document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') { mfCloseSheet('phone-section'); mfCloseSheet('phone-signup-section'); }
+});
+</script>
+
 
 <!-- Forgot Password modal + Admin verification modal (from former Login.html, unchanged) -->
 <div id="forgot-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
         <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
             <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0;"><i class="fa-solid fa-unlock-keyhole"></i> Reset Password</h3>
+                <h3 style="margin: 0;"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> Reset Password</h3>
                 <button type="button" id="close-forgot-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
             <div class="admin-step">
                 <p class="step-desc" style="font-size: 0.9rem; color: #555; margin-bottom: 15px;">Enter your registered email to receive a password reset link.</p>
                 <div class="input-group">
-                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
                     <input type="email" id="reset-email" placeholder="Your Email Address" style="width: 100%;">
                 </div>
                 <button type="button" class="btn-premium" id="send-reset-link-btn" style="margin-top: 15px; width: 100%;">Send Reset Link</button>
@@ -1262,7 +748,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
     <div id="admin-modal" class="admin-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
         <div class="admin-modal-box" style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; position: relative;">
             <div class="admin-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0;"><i class="fa-solid fa-shield-halved"></i> Admin Verification</h3>
+                <h3 style="margin: 0;"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg> Admin Verification</h3>
                 <button type="button" id="close-admin-modal" class="close-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
 
@@ -1270,7 +756,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
                 <p class="step-desc">Step 1: Enter Secure Admin Password</p>
                 <form onsubmit="return false">
                 <div class="input-group">
-                    <i class="fa-solid fa-key input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-key"/></svg>
                     <input type="password" id="admin-password" placeholder="Enter Security Password" autocomplete="current-password">
                 </div>
                 </form>
@@ -1282,11 +768,11 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
                 <p class="step-desc">Step 1: Enter your Admin Email &amp; Password</p>
                 <form onsubmit="return false">
                 <div class="input-group">
-                    <i class="fa-solid fa-envelope input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
                     <input type="email" id="admin-invited-email" placeholder="Your admin email" autocomplete="username" inputmode="email">
                 </div>
                 <div class="input-group" style="margin-top: 10px;">
-                    <i class="fa-solid fa-key input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-key"/></svg>
                     <input type="password" id="admin-invited-password" placeholder="Your password" autocomplete="current-password">
                 </div>
                 </form>
@@ -1297,7 +783,7 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
             <div id="admin-step-2" class="admin-step hidden-section">
                 <p class="step-desc">Step 2: Enter OTP sent to Admin Email</p>
                 <div class="input-group">
-                    <i class="fa-solid fa-envelope-circle-check input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
                     <input type="text" id="admin-email-otp" placeholder="Enter 6-Digit Email OTP">
                 </div>
                 <button type="button" class="btn-premium" id="admin-btn-step-2" style="margin-top: 10px; width: 100%;">Verify Email OTP</button>
@@ -1306,11 +792,11 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
             <div id="admin-step-3" class="admin-step hidden-section">
                 <p class="step-desc">Step 3: Enter Admin Phone Number &amp; OTP</p>
                 <div class="input-group">
-                    <i class="fa-solid fa-comment-sms input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
                     <input type="text" id="admin-phone-otp" placeholder="Admin phone number">
                 </div>
                 <div class="input-group" style="margin-top: 10px;">
-                    <i class="fa-solid fa-shield-halved input-icon"></i>
+                    <svg class="ic input-icon" aria-hidden="true"><use href="#i-shield"/></svg>
                     <input type="text" id="admin-fixed-otp" placeholder="Enter 6-Digit OTP" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
                 </div>
                 <button type="button" class="btn-premium" id="admin-btn-step-3" style="margin-top: 10px; width: 100%;">Finalize & Login</button>
@@ -1319,32 +805,13 @@ body.mf-view-auth .toggle-text{ margin-top:8px; }
     </div>
 
 <script>
-// ==========================================
-// SPA VIEW SWITCHER (Home / Login / Signup)
-// Additive only — does not touch any Supabase/auth logic in supabase-config.js.
-// ==========================================
 function showView(view){
-    // ✅ FIX: '' (empty inline style) doesn't override the stylesheet's
-    // "#view-login, #view-signup { display:none; }" rule — it just falls
-    // back to it, so the target view stayed hidden even when "active".
-    // Setting an explicit 'block'/'flex' actually overrides that rule.
     ['login','signup'].forEach(function(v){
         var el = document.getElementById('view-' + v);
         if (el) el.style.display = (v !== view) ? 'none' : 'flex';
     });
-    // ✅ Full-screen, no-scroll login/signup: hides the sticky header and
-    // locks the outer page from scrolling while the auth card fills the
-    // viewport (see the "FULL-SCREEN, NO-SCROLL LOGIN / SIGNUP" CSS block).
     document.body.classList.add('mf-view-auth');
     closeMobileMenu();
-    // ✅ GOOGLE OAUTH FIX: while a Google OAuth callback is pending, the URL still
-    // carries the access_token/refresh_token (hash) or ?code= param that
-    // supabase-js's client needs to read to build the session. Rewriting the URL
-    // here — even just to strip ?panel= — was wiping that out before the client
-    // library (created later, in supabase-config.js) ever got a chance to read it,
-    // which is why getSession() kept coming back with no session. Skip the rewrite
-    // for this one case; the eventual window.location.replace(dashboard) in
-    // handleGoogleOAuthCallback() cleans the URL up anyway once it's done.
     if (!window._mfGoogleOAuthPending) {
         try {
             var url = window.location.pathname + '?panel=' + view;
@@ -1367,24 +834,12 @@ if (mfMenuToggle) {
     });
 }
 
-// Initial view: honors ?panel=login|signup (used by the password-recovery
-// redirect in supabase-config.js), otherwise shows Home. This runs before
-// supabase-config.js so its own onAuthStateChange-driven redirects (for an
-// already-logged-in user landing here) still take over afterwards.
 (function(){
     try {
         var params = new URLSearchParams(window.location.search);
 
-        // ✅ GOOGLE OAUTH FIX: this IIFE's showView() call below rewrites the URL
-        // via history.replaceState BEFORE supabase-config.js (loaded further down
-        // the page) ever gets a chance to look at window.location.search — so by
-        // the time it checked for ?oauth=google, this script had already erased it.
-        // Stash it on window first so supabase-config.js can read it reliably.
         window._mfGoogleOAuthPending = params.get('oauth') === 'google';
 
-        // ✅ PUBLIC-HOME FLOW: showView() below rewrites the URL (dropping every
-        // param), so partner/reason are stashed on window first. They are consumed
-        // by mfApplyPartnerParam() / mfShowAuthReason() near the end of this page.
         var partner = (params.get('partner') || '').toLowerCase();
         var VALID_PARTNERS = ['merchant', 'delivery', 'nurse', 'phlebotomist', 'ambulance_driver'];
         window._mfPartnerParam = VALID_PARTNERS.indexOf(partner) !== -1 ? partner : '';
@@ -1434,13 +889,6 @@ if (mfMenuToggle) {
 
 
 <script>
-/* =========================================================
-   MEDIFINDER INDIA SERVICE-PROVIDER ROLE
-   Service type is selected ONCE during signup.
-   Login intentionally does NOT ask for the service again.
-   The selected service is exposed globally so the existing
-   Supabase/auth script can save it with the profile.
-   ========================================================= */
 (function () {
     const SERVICE_KEY = 'mf_signup_service_type';
 
@@ -1536,14 +984,6 @@ if (mfMenuToggle) {
 </script>
 
 <script>
-/* =========================================================
-   MEDIFINDER INDIA EMS PARTNER FLOW
-   Triggered from the "Join as an EMS Partner" section on the
-   home page. Picking Ambulance Driver / Nurse / Blood Collector
-   pre-selects the "service" role + service type, hides the
-   normal User/Merchant/Delivery role cards on the login &
-   signup forms, and shows a small "EMS Partner" badge instead.
-   ========================================================= */
 const EMS_LABELS = {
     ambulance_driver: 'Ambulance Driver',
     nurse: 'Nurse',
@@ -1603,33 +1043,17 @@ function exitEmsPartnerMode(){
 </script>
 
 <script>
-/* =========================================================
-   PASSWORD SHOW/HIDE TOGGLE (login + signup)
-   ========================================= */
 function toggleMfPassword(inputId, btn){
     const input = document.getElementById(inputId);
     if (!input) return;
-    const icon = btn.querySelector('i');
     const showing = input.type === 'text';
     input.type = showing ? 'password' : 'text';
-    if (icon){
-        icon.classList.toggle('fa-eye', showing);
-        icon.classList.toggle('fa-eye-slash', !showing);
-    }
+    const use = btn.querySelector('use');
+    if (use) use.setAttribute('href', showing ? '#i-eye' : '#i-eye-off');
     btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
 }
 </script>
 <script>
-/* =========================================================
-   PARTNER ENTRY FROM THE PUBLIC HOME  (auth.html?partner=<type>)
-   home.html -> "Partner With MediFinder India" cards / footer links send
-   visitors here. This only PRE-SELECTS inputs of the existing
-   signup/login forms - it does not create a second auth system.
-     merchant                              -> role = merchant
-     delivery                              -> role = delivery
-     nurse | ambulance_driver | phlebotomist -> role = service + service_type
-                                              (reuses openEmsPartnerAuth)
-   ========================================================= */
 function mfApplyPartnerParam(){
     var type = window._mfPartnerParam || '';
     if (!type) return;
@@ -1678,8 +1102,8 @@ function mfShowAuthReason(){
     else run();
 })();
 </script>
-<script src="push-notifications.js?v=4" defer></script>
-<script src="prod-utils.js?v=14"></script>
-<script src="supabase-config.js?v=24"></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
+<script src="prod-utils.js?v=3321430c"></script>
+<script src="supabase-config.js?v=162f3022"></script>
 </body>
 </html>

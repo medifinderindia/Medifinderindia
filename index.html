@@ -41,25 +41,12 @@
     <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- ✅ FIX: এই দুইটা লাইন আগে মিসিং ছিল, যার কারণে supabase-config.js এর
-         supabase.createClient(...) কল ReferenceError দিয়ে ক্র্যাশ করত এবং
-         window.supabaseClient কখনো সেট হতো না। ফলে splash screen সবসময়
-         session না পেয়ে Login.html এ পাঠিয়ে দিত, যদিও ইউজার আগে থেকেই লগইন ছিল। -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
 
     <!-- Prevent any white/blank flash before CSS paints -->
     <style>html,body{background:#ffffff;margin:0;padding:0;}</style>
 
-    <!-- ==========================================
-         Splash "once per session" gate
-         Runs synchronously before anything paints. If this tab has
-         already shown the splash (and not logged out since), we hide
-         the splash instantly — no flash — and the main script below
-         will do a silent redirect instead of the full animation.
-         Mobile browsers that reload index.html on app-resume will hit
-         this path instead of re-playing the splash every time.
-         ========================================== -->
     <script>
         (function () {
             try {
@@ -71,11 +58,7 @@
             }
         })();
     </script>
-    <style>/* ==========================================
-   MediFinder India Splash Screen
-   Premium animated loading experience
-   ========================================== */
-
+    <style>
 :root {
     --mf-red: #e02020;
     --mf-red-dark: #b81717;
@@ -443,29 +426,17 @@ html.mf-fast .splash-screen {
 
         <p class="splash-footer">Medicine in 30+ Minutes</p>
     </div>
-<script>// ==========================================
-// MediFinder Splash Screen Logic
-// - Cycles medical icons
-// - Plays the loading bar animation
-// - Checks Supabase session and redirects to the
-//   correct destination WITHOUT ever flashing the login page
-// ==========================================
+<script>
 (function () {
     "use strict";
 
     // Splash is allowed to show for at most this long, no matter what.
     var MAX_DISPLAY_MS = 4200;
-    // Splash won't disappear before this — matches the loading bar's fill
-    // duration (see splash.css) so it always finishes visually before redirect.
     var MIN_DISPLAY_MS = 3000;
 
     var startedAt = Date.now();
     var redirected = false;
 
-    // Returning from Google sign-in? (Supabase may land on this page when auth.html's
-    // redirect URL isn't allow-listed.) In that case we must NEVER fall back to
-    // home.html — we wait for the real session, resolve the role and go straight to
-    // the role page (or back to login if the role doesn't match).
     var isOAuthReturn = false;
     try {
         isOAuthReturn = sessionStorage.getItem("mf_oauth_pending") === "1" ||
@@ -573,10 +544,6 @@ html.mf-fast .splash-screen {
         });
     }
 
-    // Figures out where the user should land: home.html (not logged in),
-    // or the correct role home page (logged in). Reuses the exact client
-    // and role logic already shipped in supabase-config.js when available,
-    // so there is a single source of truth for role → destination mapping.
     async function determineDestination() {
         try {
             await waitFor(function () { return !!window.supabaseClient; }, 1200, 50);
@@ -642,11 +609,6 @@ html.mf-fast .splash-screen {
         }
     }
 
-    // Safety valve: no matter what triggers repeated loads of this page
-    // (stale cached copy, an old service worker, a PWA shell re-launching
-    // at its start_url, etc.), this makes sure we NEVER auto-redirect more
-    // than a few times in a short window. If that happens, we stop and show
-    // a manual "Continue" link instead of silently bouncing forever.
     function tooManyRecentRedirects() {
         try {
             var raw = sessionStorage.getItem("mf_redirect_log");
@@ -702,11 +664,6 @@ html.mf-fast .splash-screen {
     }
 
     async function init() {
-        // Fast path: this tab already played the splash this session (and hasn't
-        // logged out since — see the SIGNED_OUT handler in supabase-config.js,
-        // which clears this flag). Skip the animation entirely and just redirect
-        // silently. The .mf-fast class (set synchronously in <head>) already
-        // hid the splash markup, so there's no visual flash either.
         var alreadyShown = false;
         try {
             alreadyShown = !!sessionStorage.getItem("mf_splash_shown");
@@ -761,6 +718,6 @@ html.mf-fast .splash-screen {
     }
 })();</script>
     <!-- Existing production auth logic (session client, role redirect helpers). Not modified in behavior. -->
-    <script src="supabase-config.js?v=22"></script>
+    <script src="supabase-config.js?v=162f3022"></script>
 </body>
 </html>

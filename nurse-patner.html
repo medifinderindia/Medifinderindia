@@ -121,6 +121,8 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 .icon#themeBtn{font-size:17px;line-height:1}
 @media(max-width:760px){.set-card{padding:16px}}
 </style>
+<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+<script src="btn-loading.js?v=3e075ab0"></script>
 </head>
 <body>
 <div class="app">
@@ -244,22 +246,14 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 <button data-p="more" onclick="toggleSide()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button>
 </nav>
 <div class="toast" id="toast"></div>
-<script src="permission-every.js?v=4"></script>
+<script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script>
-/* MediFinder India — shared KYC enhancer
-   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
-   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
-   - Date fields -> Year, then Month, then Day (selects)
-   - State text box -> state dropdown
-   - Premium form styling
-*/
 (function () {
   if (window.__kycEnh) return;
   window.__kycEnh = true;
 
-  /* ---------------- STYLES ---------------- */
   var css = `
   .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
   .kyc-hint.ok{color:#087f5b}.kyc-hint.bad{color:#d94841}
@@ -295,7 +289,6 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
   st.textContent = css;
   document.head.appendChild(st);
 
-  /* ---------------- INPUT RULES ---------------- */
   var digits = function (v) { return v.replace(/\D/g, ''); };
   var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
   var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
@@ -402,7 +395,6 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
     }
   }, true);
 
-  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function dim(y, m) { return new Date(y, m, 0).getDate(); }
@@ -452,7 +444,6 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
     inp.insertAdjacentElement('afterend', wrap);
   }
 
-  /* ---------------- STATE DROPDOWN ---------------- */
   var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
   function enhanceState(inp) {
     if (inp.dataset.st) return;
@@ -470,7 +461,6 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
     inp.replaceWith(sel);
   }
 
-  /* ---------------- SCAN ---------------- */
   var queued = false;
   function scan() {
     queued = false;
@@ -487,7 +477,7 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 })();
 
 </script>
-<script src="prod-utils.js"></script>
+<script src="prod-utils.js?v=3321430c"></script>
 <script>
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
 let currentUser=null,nurseRow=null,myVisits=[],openVisits=[],visitsById={},realtimeChannel=null,currentPage='dashboard';
@@ -560,7 +550,6 @@ window.logoutPartner=mfLogoutConfirm;
 
 async function mfBeforeLogout(){}
 async function init(){try{const{data:{session}}=await supabaseClient.auth.getSession();if(!session){location.href='home.html?panel=login';return}currentUser=session.user;let profile=null;const p=await supabaseClient.from('profiles').select('role,service_type,full_name,phone').eq('id',currentUser.id).maybeSingle();if(p.error)handleError(p.error,'Profile load');profile=p.data;if(profile&&profile.role==='service'&&profile.service_type&&profile.service_type!=='nurse'){toast('This account is registered as '+profile.service_type+', not a nurse.');await supabaseClient.auth.signOut();setTimeout(()=>location.href='home.html?panel=login',1200);return}await loadOrCreateNurse(profile);await loadKyc();renderNurseHeader();await refreshVisits();subscribeRealtime();supabaseClient.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'||!session)location.href='home.html?panel=login'})}catch(e){handleError(e,'Portal initialization')}}
-/* ===================== KYC / PAYOUT / GATING (v2) ===================== */
 let adminNotifs=[],kyc=null,wallet=null,payouts=[],kycStepView=1,kycFiles={},refreshTimer=null;
 const KYC_BUCKET='nurse-kyc',MAX_FILE=5*1024*1024;
 const ID_TYPES=['Aadhaar Card','PAN Card','Voter ID','Driving Licence','Passport'];
@@ -589,12 +578,10 @@ async function loadWallet(){
   if(p.error)handleError(p.error,'Payouts');else payouts=p.data||[];
 }
 
-/* ---------- status helpers ---------- */
 function statusMeta(v){const s=v.status;if(s==='pending')return{cls:'new',label:'Pending'};if(s==='cancelled')return{cls:'new',label:'Cancelled'};if(s==='approved')return v.completed_at?{cls:'accepted',label:'Completed'}:{cls:'way',label:'Accepted'};return{cls:'way',label:s||'Unknown'}}
 function skippedIds(){try{return JSON.parse(lsGet('nurse_skipped_'+(currentUser?.id||''))||'[]')}catch(e){return[]}}
 function skipVisit(id){const s=skippedIds();if(!s.includes(id))s.push(id);lsSet('nurse_skipped_'+currentUser.id,JSON.stringify(s.slice(-200)));closeModal();openVisits=openVisits.filter(v=>v.id!==id);renderStats();renderPage(currentPage);updateBadges();toast('Request hidden from your list')}
 
-/* ---------- visits ---------- */
 function openVisit(id){
   const v=visitsById[id];if(!v)return;const meta=statusMeta(v);
   $('mt').textContent='Visit Details';
@@ -606,7 +593,6 @@ function openVisit(id){
   else{btn.textContent='Close';btn.onclick=closeModal}
   $('overlay').style.display='block';
 }
-/* ---------- location / prescription / receipt ---------- */
 function visitAddress(v){return [v.addr_house,v.addr_street,v.addr_landmark,v.addr_city,v.addr_state,v.addr_pincode].filter(Boolean).join(', ')}
 function hasCoords(v){return Number.isFinite(Number(v.addr_lat))&&Number.isFinite(Number(v.addr_lng))&&v.addr_lat!==null&&v.addr_lng!==null&&(Number(v.addr_lat)||Number(v.addr_lng))}
 function mapsUrl(v){return hasCoords(v)?`https://www.google.com/maps/dir/?api=1&destination=${v.addr_lat},${v.addr_lng}&travelmode=driving`:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(visitAddress(v))}`}
@@ -698,7 +684,6 @@ function subscribeRealtime(){
   if(!window.__nursePoll)window.__nursePoll=setInterval(()=>{if(document.visibilityState==='visible'&&isOnline())refreshVisits()},15000);
 }
 
-/* ---------- global banner / availability ---------- */
 function renderGlobalBanner(){
   const el=$('kycBanner');if(!el)return;const st=kycStatus();let h='';
   if(currentPage==='kyc'){el.innerHTML='';return}
@@ -727,14 +712,12 @@ async function toggleOnline(){
   nurseRow=data||{...nurseRow,is_online:next};toast(next?'You are online':'You are offline');refreshVisits();
 }
 
-/* ---------- requests (gated) ---------- */
 function renderRequestsPage(){
   if(!isApproved()){$('requestStats').innerHTML='';$('requestsBody').innerHTML='<tr><td colspan="6" class="empty">Complete KYC and wait for admin approval to receive booking requests.</td></tr>';return}
   if(!isOnline()){$('requestStats').innerHTML='';$('requestsBody').innerHTML='<tr><td colspan="6" class="empty">You are offline. Go online from the Schedule page to see new requests.</td></tr>';return}
   renderRequestsList();
 }
 
-/* ---------- earnings / bank & payouts ---------- */
 function renderEarningsPage(){
   const done=myVisits.filter(v=>v.status==='approved'&&v.completed_at);
   const sum=a=>a.reduce((s,v)=>s+Number(v.total_amount||0),0);
@@ -766,7 +749,6 @@ async function requestPayout(){
   toast('Payout requested');await loadWallet();renderBankPage();updateBadges();
 }
 
-/* ---------- KYC wizard ---------- */
 function opt(list,sel){return '<option value="">Select</option>'+list.map(x=>`<option${x===sel?' selected':''}>${esc(x)}</option>`).join('')}
 function inp(label,id,val,type='text',extra=''){return `<div><span class="field-label">${label} *</span><input class="input" style="width:100%" id="${id}" type="${type}" value="${esc(val)}" ${extra}></div>`}
 function fileRow(key,col,label){const has=kv(col),picked=kycFiles[key];return `<div class="full"><span class="field-label">${label} *</span><div class="filebox"><input type="file" id="f_${key}" accept="image/*,.pdf" onchange="pickKycFile('${key}',this)"><small id="fs_${key}">${picked?'Selected: '+esc(picked.name):(has?'✔ Already uploaded — choose a file only to replace it':'JPG, PNG or PDF · max 5 MB')}</small></div></div>`}
@@ -866,7 +848,6 @@ async function saveKycStep(){
   }catch(e){console.error('KYC save',e);toast('Could not save: '+(e.message||'error'));btn.disabled=false;btn.textContent=step<3?'Save & Continue →':'Submit for Verification'}
 }
 
-/* ---------- notifications (real, with read state) ---------- */
 function notifItems(){
   const items=[],st=kycStatus();
   if(st==='approved')items.push({t:'KYC approved',p:'You are verified. You can now receive bookings and request payouts.',ts:kyc.reviewed_at||kyc.updated_at,go:'kyc'});
@@ -889,7 +870,6 @@ function renderNotificationsPage(){try{window.MFPush&&window.MFPush.mountSwitch&
 }
 function markNotificationsRead(){lsSet('nurse_notif_seen_'+currentUser.id,String(Date.now()));updateBadges();renderNotificationsPage();toast('Notifications marked as read')}
 
-/* ---------- performance / ratings / profile ---------- */
 function renderPerformancePage(){
   const total=myVisits.length,assigned=myVisits.filter(v=>v.status==='approved'),done=assigned.filter(v=>v.completed_at).length,upcoming=assigned.length-done,cancelled=myVisits.filter(v=>v.status==='cancelled').length,rate=assigned.length?Math.round(done/assigned.length*100):0;
   $('performanceCards').innerHTML=`<div class="mini-card"><div class="label">Total bookings</div><div class="value">${total}</div></div><div class="mini-card"><div class="label">Completed</div><div class="value">${done}</div></div><div class="mini-card"><div class="label">Upcoming</div><div class="value">${upcoming}</div></div><div class="mini-card"><div class="label">Cancelled</div><div class="value">${cancelled}</div></div><div class="mini-card"><div class="label">Completion rate</div><div class="value">${rate}%</div><div class="hint">Completed ÷ accepted visits</div></div><div class="mini-card"><div class="label">Today's visits</div><div class="value">${myVisits.filter(v=>isToday(v.book_date)).length}</div></div>`;
@@ -924,7 +904,6 @@ function renderPage(page){
   if(page==='ratings')renderRatingsPage();
 }
 
-/* ---------- support (real tickets) ---------- */
 $('supportForm').addEventListener('submit',async e=>{
   e.preventDefault();const f=e.target;
   const category=f.querySelector('select').value,subject=f.querySelector('input').value.trim(),message=f.querySelector('textarea').value.trim();
@@ -939,7 +918,7 @@ $('supportForm').addEventListener('submit',async e=>{
 document.addEventListener('DOMContentLoaded',init);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSide()}});
 </script>
-<script src="push-notifications.js?v=4" defer></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 <script>
 /* ===== Premium upgrade: hero, settings, bottom nav ===== */
 (function(){

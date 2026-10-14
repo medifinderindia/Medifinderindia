@@ -1,18 +1,6 @@
-// ==========================================
-// MediFinder — Push Notifications (shared, all pages)
-// User / Merchant / Rider / Admin / Ambulance / Nurse / Blood partner —
-// jekono page e ei ekta line add korlei hobe (supabase-config.js er PORE):
-//   <script src="push-notifications.js?v=1" defer></script>
-//
-// Kaj: Permission granted thakle → SW register → PushManager.subscribe()
-//      → Supabase push_subscriptions e save (RPC: save_push_subscription)
-// Permission chaowa kaj permission-every.js er; eta shudhu subscribe kore.
-// ==========================================
 (function () {
     'use strict';
 
-    // ✅ `npx web-push generate-vapid-keys` er PUBLIC key ekhane boshao.
-    // ❌ PRIVATE key kokhono ekhane noy — shudhu Edge Function secret e.
     const VAPID_PUBLIC_KEY = 'BJAxnajNPVqnHqwS8m123RdeQADveZn13WpXN5prhkE4Ya8nzPfr5XQufeQDMlQByN6B4QOIDxC1jNm7az4anmQ';
     const SW_URL = '/sw.js';
 

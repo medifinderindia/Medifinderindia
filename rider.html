@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+    <script src="btn-loading.js?v=3e075ab0"></script>
     <title>Delivery Partner App | MediFinder India</title>
     <meta name="description" content="MediFinder India delivery partner app.">
     <meta name="robots" content="noindex, nofollow">
@@ -33,12 +35,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <script>try{if(localStorage.getItem("mf_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
-    <link rel="stylesheet" href="rider.css?v=11">
+    <link rel="stylesheet" href="rider.css?v=2ecfb009">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <!-- Supabase CDN -->
-    <script src="permission-every.js?v=4"></script>
+    <script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
 </head>
@@ -47,9 +49,7 @@
 
     <div class="app-container">
 
-        <!-- ============================================================ -->
         <!-- TAB: HOME (was delyvaryhome.html)                             -->
-        <!-- ============================================================ -->
         <section id="tab-home" class="rider-tab">
         <!-- Top Navbar: left = On Duty, middle = empty, right = Notification only -->
         <header class="navbar">
@@ -73,7 +73,6 @@
             </div>
         </div>
 
-        <!-- ✅ NEW: KYC not approved yet -> red bar prompting document upload -->
         <div id="homeKycBanner" class="kyc-home-banner hidden" onclick="goToKycFromHome()">
             <svg class="mf-ico" aria-hidden="true"><use href="#i-triangle-exclamation"/></svg>
             <span class="kyc-home-banner-text">Please upload your documents and earn money</span>
@@ -93,9 +92,7 @@
         </div>
         </section>
 
-        <!-- ============================================================ -->
         <!-- TAB: DELIVERY (was delyvaryorder.html)                        -->
-        <!-- ============================================================ -->
         <section id="tab-delivery" class="rider-tab hidden">
         <div class="dashboard-grid">
             
@@ -118,7 +115,6 @@
 
                 <div class="live-map-wrapper" style="position:relative;">
                     <div id="zomatoRealMap" translate="no" class="notranslate"></div>
-                    <!-- ✅ NEW: My Location floating button — ক্লিক করলে GPS permission নিয়ে নিজের অবস্থানে zoom করবে -->
                     <button id="myLocationBtn" class="my-location-btn" onclick="focusMyLocationOnMap()" title="My Location">
                         <svg class="mf-ico" aria-hidden="true"><use href="#i-location-crosshairs"/></svg>
                     </button>
@@ -153,13 +149,10 @@
         </div>
         </section>
 
-        <!-- ============================================================ -->
         <!-- TAB: EARNING (was delyvaryearning.html)                       -->
-        <!-- ============================================================ -->
         <section id="tab-earning" class="rider-tab hidden">
         <div class="main-content main-content-noheader">
 
-            <!-- ✅ NEW: header সরিয়ে দেওয়ার পর, একদম উপরের কোণায় Payout status history খোলার বাটন -->
             <div class="earning-top-bar">
                 <button class="check-payout-btn" onclick="openPayoutHistory()">
                     <svg class="mf-ico" aria-hidden="true"><use href="#i-receipt"/></svg> Check Your Payment
@@ -182,7 +175,6 @@
                     </div>
                     
                     <!-- ১০ ঘণ্টা লিমিটের অ্যাডমিন পে-আউট রিকোয়েস্ট বাটন -->
-                    <!-- ✅ NEW: Total Earnings card এর period filter chips -->
                     <div class="period-filter-row" id="earningsPeriodFilter">
                         <button class="period-chip active" data-period="today" onclick="selectEarningsPeriod('today')">Today</button>
                         <button class="period-chip" data-period="yesterday" onclick="selectEarningsPeriod('yesterday')">Yesterday</button>
@@ -206,7 +198,6 @@
                         </div>
                     </div>
                     
-                    <!-- ✅ NEW: Profit Analysis গ্রাফের period filter chips -->
                     <div class="period-filter-row" id="profitPeriodFilter">
                         <button class="period-chip active" data-period="today" onclick="selectProfitPeriod('today')">Today</button>
                         <button class="period-chip" data-period="yesterday" onclick="selectProfitPeriod('yesterday')">Yesterday</button>
@@ -236,7 +227,6 @@
                     <h3 class="section-subtitle">Recent Run Completed History</h3>
                     <span class="history-count">0 Orders</span>
                 </div>
-                <!-- ✅ NEW: History সেকশনের period filter chips -->
                 <div class="period-filter-row" id="historyPeriodFilter" style="margin-bottom:14px;">
                     <button class="period-chip active" data-period="today" onclick="selectHistoryPeriod('today')">Today</button>
                     <button class="period-chip" data-period="yesterday" onclick="selectHistoryPeriod('yesterday')">Yesterday</button>
@@ -253,9 +243,7 @@
         </div>
         </section>
 
-        <!-- ============================================================ -->
         <!-- TAB: PROFILE (was delyvaryprofile.html)                       -->
-        <!-- ============================================================ -->
         <section id="tab-profile" class="rider-tab hidden">
         <div class="main-content main-content-noheader" id="mainContentSection">
             <div id="profileViewSegment">
@@ -277,7 +265,6 @@
                         </button>
                     </div>
 
-                    <!-- ✅ NEW: Total Lifetime Income — profile header এর ডান পাশে, completed delivery অনুযায়ী calculate হয় -->
                     <div class="income-block">
                         <span class="income-label tr-text" data-en="Total Lifetime Income" data-bn="মোট আজীবন আয়" data-hi="कुल आजीवन आय">Total Lifetime Income</span>
                         <span class="income-value" id="totalLifetimeIncome">₹0</span>
@@ -286,7 +273,6 @@
 
                 <div class="menu-list-section">
 
-                    <!-- ✅ NEW: unified KYC verify banner — shown while not_submitted / pending / rejected -->
                     <div id="kycVerifyBanner" class="kyc-verify-banner hidden" onclick="handleKycBannerTap()">
                         <img id="kycBannerAvatar" class="kyc-banner-avatar" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile">
                         <div class="kyc-banner-text">
@@ -302,7 +288,6 @@
                         </div>
                     </div>
 
-                    <!-- ✅ NEW: Account Details & Legal — only populated/shown once KYC is approved -->
                     <div id="kycApprovedSection" class="hidden">
                         <h3 class="menu-group-title tr-text" data-en="Account Details &amp; Legal" data-bn="অ্যাকাউন্ট বিবরণ ও আইনি নথি" data-hi="खाता विवरण और कानूनी">Account Details &amp; Legal</h3>
 
@@ -349,7 +334,6 @@
 
                     <h3 class="menu-group-title tr-text" data-en="Help & Legal Architecture" data-bn="সহায়তা ও আইনি নীতি" data-hi="सहायता और कानूनी नीतियां">Help & Legal Architecture</h3>
 
-                    <!-- ✅ App Language সরানো হলো এখানে — আগে "Financial & Activity" গ্রুপে ছিল, স্পেক অনুযায়ী সেই গ্রুপ থেকে সরিয়ে Bank & Payment কে জায়গা দেওয়া হয়েছে -->
                     <div class="menu-item-button" onclick="openSubPage('themePage')">
                         <div class="menu-item-left">
                             <div class="icon-box language-icon"><svg class="mf-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
@@ -382,7 +366,6 @@
                         <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
-                    <!-- ✅ NEW: Complaint -->
                     <div class="menu-item-button" onclick="openSubPage('complaintPage')">
                         <div class="menu-item-left">
                             <div class="icon-box" style="background:#fff7ed; color:#c2410c;"><svg class="mf-ico" aria-hidden="true"><use href="#i-triangle-exclamation"/></svg></div>
@@ -407,7 +390,6 @@
                         <svg class="mf-ico arrow-icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
                     </div>
 
-                    <!-- ✅ NEW: Delete Account -->
                     <div class="menu-item-button" onclick="openSubPage('deleteAccountPage')">
                         <div class="menu-item-left">
                             <div class="icon-box" style="background:#fee2e2; color:#dc2626;"><svg class="mf-ico" aria-hidden="true"><use href="#i-user-xmark"/></svg></div>
@@ -433,10 +415,8 @@
         </nav>
     </div>
 
-    <!-- ============================================================ -->
     <!-- SHARED OVERLAYS (rendered above every tab, regardless of which
          tab is currently active) -->
-    <!-- ============================================================ -->
 
     <!-- OTP verification modal (was inside delyvaryorder.html) -->
         <div class="otp-modal-overlay hidden" id="otpModal">
@@ -456,10 +436,6 @@
             </div>
         </div>
 
-        <!-- ✅ NEW: full-screen green delivery-completed success UI. Separate top-level
-             overlay (not nested inside .otp-modal-card) so it can cover the entire
-             viewport — only ever shown by showOtpSuccessScreen() after OTP + order
-             update + wallet credit have ALL succeeded. -->
         <div id="otpSuccessScreen" class="otp-success-fullscreen hidden">
             <div class="otp-success-checkmark-circle"><svg class="mf-ico" aria-hidden="true"><use href="#i-check"/></svg></div>
             <div class="otp-success-title">DELIVERY COMPLETED</div>
@@ -483,7 +459,6 @@
 
     <!-- KYC wizard / read-only views / complaint / delete account / language / support
          (all were inside delyvaryprofile.html) -->
-    <!-- ✅ NEW: Unified KYC Onboarding Wizard (replaces old per-document Vehicle/License/Aadhaar/PAN/Bank pages) -->
         <div id="kycWizardPage" class="kyc-fullscreen hidden">
         <div class="kyc-fs-shell">
             <div class="kyc-fs-header">
@@ -734,8 +709,6 @@
         </div>
     </div>
 
-    <!-- ✅ NEW: Read-only KYC section viewer — used both after approval (locked) and for
-         reviewing a rejected application before resubmitting -->
     <div id="kycReadonlyPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
@@ -746,7 +719,6 @@
         </div>
     </div>
 
-    <!-- ✅ NEW: Complaint -->
     <div id="complaintPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
@@ -779,7 +751,6 @@
         </div>
     </div>
 
-    <!-- ✅ NEW: Delete Account -->
     <div id="deleteAccountPage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
@@ -815,7 +786,6 @@
     </div>
 
 
-    <!-- ✅ NEW: App Language (আগে এই div-ই ছিল না, তাই বাটনে ক্লিক করলে কিছুই হতো না) -->
     <div id="themePage" class="sub-page-overlay hidden">
         <div class="sub-page-content">
             <div class="sub-page-header">
@@ -947,8 +917,8 @@
 
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script src="prod-utils.js?v=1"></script>
-    <script src="rider.js?v=10"></script>
-<script src="push-notifications.js?v=4" defer></script>
+    <script src="prod-utils.js?v=3321430c"></script>
+    <script src="rider.js?v=e9d26949"></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 </body>
 </html>

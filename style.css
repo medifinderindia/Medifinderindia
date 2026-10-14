@@ -374,9 +374,7 @@ body {
     text-decoration: none;
     font-weight: 600;
 }
-/* ========================================== */
 /* ADMIN MODAL PREMIUM STYLES                 */
-/* ========================================== */
 .admin-modal-overlay {
     position: fixed;
     top: 0;
@@ -437,9 +435,7 @@ body {
     font-weight: 500;
     margin-bottom: 15px;
 }
-/* ========================================== */
 /* DYNAMIC POLICY WRAPPER STYLES              */
-/* ========================================== */
 .policy-wrapper {
     background: #f8fafc;
     border: 1.5px solid var(--border-color);

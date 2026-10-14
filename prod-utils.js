@@ -1,8 +1,3 @@
-// ==========================================
-// MediFinder Production Utilities v2.0
-// Error handling, validation, security, UX
-// ==========================================
-
 const MedUtils = {
   // --- SECURITY: XSS Protection ---
   sanitizeHTML(str) {
@@ -83,9 +78,6 @@ const MedUtils = {
       <span class="mf-toast-msg">${this.sanitizeHTML(message)}</span>
     `;
 
-    // ✅ Moved off the top-center (was covering the header/toggle/notification
-    // bell) to a compact bottom-right corner card instead, clear of the
-    // bottom nav bar via safe-area-inset-bottom, and slides in from the right.
     Object.assign(toast.style, {
       position: 'fixed',
       bottom: 'calc(env(safe-area-inset-bottom, 0px) + 78px)',
@@ -276,16 +268,6 @@ const MedUtils = {
   }
 };
 
-// ==========================================
-// ✅ FIX: global showToast() alias
-// ==========================================
-// home.html, supabase-config.js, and the role-specific scripts (rider.js,
-// user.js, etc.) all call a global showToast(message, type) directly, but the
-// actual toast implementation only existed as MedUtils.toast(...) on this
-// object. That mismatch meant every showToast(...) call threw "showToast is
-// not defined" and silently killed the script right at that line — this is
-// exactly why no red/green popups (and nothing after them, like redirects)
-// were showing up. This alias makes both spellings work.
 window.showToast = function (message, type = 'info', duration) {
   if (duration === undefined) { MedUtils.toast(message, type); }
   else { MedUtils.toast(message, type, duration); }

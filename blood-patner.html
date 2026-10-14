@@ -63,7 +63,6 @@ body{overflow-x:hidden}button,input,select,textarea{font:inherit}button{cursor:p
 .earn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:16px}
 @media(max-width:760px){.fgrid{grid-template-columns:1fr}}
 
-/* ===================== PREMIUM KYC ===================== */
 #page-kyc{--kg:linear-gradient(135deg,#087f5b 0%,#0ca678 100%);--ring:0 0 0 4px rgba(12,166,120,.14)}
 #page-kyc .section-head{background:var(--kg);color:#fff;border-radius:20px;padding:22px 24px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(8,127,91,.25)}
 #page-kyc .section-head:before{content:"";position:absolute;right:-50px;top:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.1)}
@@ -180,7 +179,6 @@ body{overflow-x:hidden}button,input,select,textarea{font:inherit}button{cursor:p
 .tc-actions{display:flex;gap:8px}.tc-actions .action{padding:9px 16px;font-size:12.5px;font-weight:700;border-radius:11px;border:1.5px solid #cfe6db}
 @media(max-width:430px){.tc-foot{flex-direction:column;align-items:stretch}.tc-actions .action{flex:1}}
 
-/* ===================== PREMIUM POLISH ===================== */
 :root{--p-grad:linear-gradient(135deg,#087f5b,#12b886);--p-ring:0 0 0 4px rgba(18,184,134,.16);--p-shadow2:0 18px 44px rgba(8,60,43,.14)}
 ::selection{background:#bff0dc;color:#073b2b}
 html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth}
@@ -264,7 +262,6 @@ button:active{transform:scale(.97)}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-/* ===================== PREMIUM FORM SHEET (Add / Edit Test) ===================== */
 #formBody{padding:14px 16px 0;overflow-y:auto;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;background:#f6faf8}
 #formBody .form-card{border-radius:20px;padding:18px;margin-bottom:14px;border:1px solid #e3ede8;box-shadow:0 6px 20px rgba(22,50,40,.05);background:#fff}
 #formBody .form-card h3{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;color:var(--dark);padding-bottom:12px;margin-bottom:14px;border-bottom:1px dashed #dbe8e2}
@@ -377,6 +374,8 @@ html[data-theme=dark] [style*="rgb(232, 247, 241)"]{background:#12382c!important
 html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="color:#111"],html[data-theme=dark] [style*="color:#000"]{color:#e6efeb!important}
 html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="color: rgb(113, 128, 120)"]{color:#93a69d!important}
 </style>
+<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
+<script src="btn-loading.js?v=3e075ab0"></script>
 </head>
 <body>
 <div class="app">
@@ -434,22 +433,14 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
 <nav class="bnav" id="bnav" aria-label="Quick navigation"><button type="button" data-p="dashboard" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button type="button" data-p="new" onclick="navigate('new')"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg><span>Requests</span></button><button type="button" data-p="today" onclick="navigate('today')"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Today</span></button><button type="button" data-p="reports" onclick="navigate('reports')"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span>Reports</span></button><button type="button" onclick="toggleSide()"><svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg><span>More</span></button></nav>
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="modal-head"><h3 id="modalTitle">Booking Details</h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-foot"><button class="btn light" onclick="closeModal()">Close</button><button class="btn primary" id="modalAction">Close</button></div></div></div>
 <div class="overlay" id="formOverlay"><div class="modal sheet"><div class="modal-head"><h3 id="formTitle">Form</h3><button class="close" onclick="closeForm()" aria-label="Close">✕</button></div><div id="formBody"></div></div></div>
-<script src="permission-every.js?v=4"></script>
+<script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script>
-/* MediFinder India — shared KYC enhancer
-   Works on dynamically rendered forms (ambulance / nurse / blood partner pages).
-   - Live input rules: phone 10 digits, pincode 6 digits, account no 9-18 digits, IFSC, names, UPI, charges
-   - Date fields -> Year, then Month, then Day (selects)
-   - State text box -> state dropdown
-   - Premium form styling
-*/
 (function () {
   if (window.__kycEnh) return;
   window.__kycEnh = true;
 
-  /* ---------------- STYLES ---------------- */
   var css = `
   .kyc-hint{display:block;text-align:right;font-size:11px;color:#8a9a92;margin-top:5px;font-weight:600;letter-spacing:.2px;min-height:14px}
   .kyc-hint.ok{color:#087f5b}.kyc-hint.bad{color:#d94841}
@@ -485,7 +476,6 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
   st.textContent = css;
   document.head.appendChild(st);
 
-  /* ---------------- INPUT RULES ---------------- */
   var digits = function (v) { return v.replace(/\D/g, ''); };
   var upalnum = function (v) { return v.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
   var letters = function (v) { return v.replace(/[^A-Za-z .'&-]/g, '').replace(/\s{2,}/g, ' '); };
@@ -592,7 +582,6 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
     }
   }, true);
 
-  /* ---------------- DATE: YEAR -> MONTH -> DAY ---------------- */
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function dim(y, m) { return new Date(y, m, 0).getDate(); }
@@ -642,7 +631,6 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
     inp.insertAdjacentElement('afterend', wrap);
   }
 
-  /* ---------------- STATE DROPDOWN ---------------- */
   var STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
   function enhanceState(inp) {
     if (inp.dataset.st) return;
@@ -660,7 +648,6 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
     inp.replaceWith(sel);
   }
 
-  /* ---------------- SCAN ---------------- */
   var queued = false;
   function scan() {
     queued = false;
@@ -677,7 +664,7 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
 })();
 
 </script>
-<script src="prod-utils.js"></script>
+<script src="prod-utils.js?v=3321430c"></script>
 <script>
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 const sb=supabaseClient;
@@ -764,7 +751,6 @@ function openForm(title,html){$('formTitle').textContent=title;$('formBody').inn
 function closeForm(){$('formOverlay').style.display='none'}
 async function mfBeforeLogout(){if(collectorRow)await sb.from('sample_collectors').update({online:false,updated_at:new Date().toISOString()}).eq('id',collectorRow.id)}
 
-/* ===================== INIT / DATA ===================== */
 async function init(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){window.location.href='home.html?panel=login';return}
@@ -852,7 +838,6 @@ function updateBadges(){
   const unread=myNotifs.filter(x=>!x.is_read).length,d=$('bellDot');if(d)d.style.display=unread?'block':'none';
 }
 
-/* ===================== HEADER / BANNER ===================== */
 function renderCollectorHeader(){
   const name=collectorRow?.full_name||'Sample Collector',first=name.split(' ')[0],initials=name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'SC';
   $('collectorNameMini').textContent=name;
@@ -875,7 +860,6 @@ function renderKycBanner(){
 function renderAvailabilityBadge(){const b=$('availabilityBadge');if(!b)return;const online=!!collectorRow?.online;b.textContent=online?'● Online — Tap to go offline':'● Offline — Tap to go online';b.style.background=online?'#e8f7f1':'#fff';b.style.color=online?'#087f5b':'var(--muted)';const p=$('profileAvailability');if(p)p.textContent=online?'You are currently Online and can receive collection requests.':'You are currently Offline and will not be treated as available for new collection requests.'}
 async function toggleAvailability(){if(!collectorRow)return;const val=!collectorRow.online;const {error}=await sb.from('sample_collectors').update({online:val,updated_at:new Date().toISOString()}).eq('id',collectorRow.id);if(error){fail(error,'Availability update');return}collectorRow.online=val;renderAvailabilityBadge();toast(val?'You are now Online':'You are now Offline','success')}
 
-/* ===================== BOOKINGS ===================== */
 function statusMeta(s){const m={'Pending':['pending','New Request'],'Confirmed':['accepted','Accepted'],'Sample Collected':['collection','Sample Collected'],'Processing':['collection','Processing'],'Completed':['ready','Completed'],'Cancelled':['cancelled','Cancelled']};const x=m[s]||['pending',s||'Unknown'];return{cls:x[0],label:x[1]}}
 function renderStats(){
   const pending=myBookings.filter(b=>['Confirmed','Sample Collected','Processing'].includes(b.status)),done=myBookings.filter(b=>b.status==='Completed'&&isTodayTs(b.completed_at||b.updated_at)),rev=myEarnings.filter(e=>isTodayTs(e.created_at)).reduce((s,e)=>s+Number(e.net_amount||0),0);
@@ -972,7 +956,6 @@ async function updateBookingStatus(id,status){
   closeModal();await refreshBookings();renderAll();
 }
 
-/* ===================== REPORTS ===================== */
 function renderReports(){
   const root=$('reportsRoot');if(!root)return;
   const pend=reportPending().sort((a,b)=>dueAt(a)-dueAt(b)),done=myBookings.filter(b=>b.report_url);
@@ -999,7 +982,6 @@ async function uploadReport(id){
   }catch(e){fail(e,'Report upload');btn.disabled=false;btn.textContent='Upload Report'}
 }
 
-/* ===================== EARNINGS ===================== */
 function eStatus(s){const m={pending:['pending','Pending'],approved:['accepted','Approved'],paid:['ready','Paid'],rejected:['cancelled','Rejected']}[s]||['pending',s||'Pending'];return `<span class="status ${m[0]}">${m[1]}</span>`}
 function renderEarnings(){
   const total=myEarnings.filter(e=>e.status!=='rejected').reduce((s,e)=>s+Number(e.net_amount||0),0),today=myEarnings.filter(e=>isTodayTs(e.created_at)&&e.status!=='rejected').reduce((s,e)=>s+Number(e.net_amount||0),0),pend=myEarnings.filter(e=>['pending','approved'].includes(e.status)).reduce((s,e)=>s+Number(e.net_amount||0),0),paid=myEarnings.filter(e=>e.status==='paid').reduce((s,e)=>s+Number(e.net_amount||0),0);
@@ -1007,7 +989,6 @@ function renderEarnings(){
   $('earningsTable').innerHTML=myEarnings.length?myEarnings.map(e=>`<tr><td>#${esc(String(e.booking_ref||e.booking_uuid).slice(0,8).toUpperCase())}</td><td>${esc(e.patient_name||'Unknown')}</td><td>${esc(e.test_name||'—')}</td><td>${fmtDate(e.created_at)}</td><td>${fmt(e.gross_amount)}</td><td>− ${fmt(e.commission_amount)} <span class="sub">${esc(e.commission_pct)}%</span></td><td><b>${fmt(e.net_amount)}</b></td><td>${eStatus(e.status)}</td></tr>`).join(''):'<tr><td colspan="8" class="empty">No completed collection earnings yet.</td></tr>';
 }
 
-/* ===================== NOTIFICATIONS ===================== */
 function renderNotifications(){
   const el=$('notificationList');if(!el)return;
   el.innerHTML=myNotifs.length?myNotifs.map(n=>`<div class="item"><div class="circle">${n.type==='kyc'?'📄':n.type==='test'?'🧪':'🔔'}</div><div><b>${esc(n.title||'')}${n.is_read?'':' <span class="dot" style="position:static;display:inline-block;margin-left:4px"></span>'}</b><p>${esc(n.message||'')}</p><time>${safeAgo(n.created_at)}</time></div></div>`).join(''):'<div class="item"><div class="circle">🔔</div><div><b>No new notifications</b><p>KYC, test approval and booking updates will appear here.</p></div></div>';
@@ -1016,7 +997,6 @@ function renderNotifications(){
   }
 }
 
-/* ===================== PROFILE / SUPPORT ===================== */
 function renderProfile(){if(!collectorRow)return;
   const k=kycRow||{},set=(id,v)=>{const el=$(id);if(el)el.textContent=v||'—'};
   const name=k.full_name||collectorRow.full_name||'—',phone=k.mobile_no||collectorRow.phone||'—';
@@ -1039,7 +1019,6 @@ async function submitSupport(){
   toast('Support request sent. Our team will contact you.','success');$('supportMessage').value='';
 }
 
-/* ===================== KYC ===================== */
 const KMAP={full_name:'full_name',mobile:'mobile_no',whatsapp:'whatsapp_no',address:'address',city:'city',state:'state',pincode:'pincode',id_type:'id_proof_type',id_number:'id_proof_number',addr_type:'address_proof_type',addr_number:'address_proof_number',bank_holder:'bank_holder',account_no:'bank_account_no',ifsc:'ifsc',upi:'upi_id'};
 const FMAP={photo:'photo_url',id_file:'id_proof_url',addr_file:'address_proof_url',passbook:'passbook_url'};
 const ID_TYPES=['Aadhaar Card','PAN Card','Voter ID','Driving License','Passport'];
@@ -1154,7 +1133,6 @@ function kycReadOnly(st){
   <div class="form-card"><h3>Bank</h3><div class="detail">${box('Account holder',k.bank_holder)}${box('Account number',mask(k.bank_account_no))}${box('IFSC',k.ifsc)}${box('UPI ID',k.upi_id)}</div></div>`;
 }
 
-/* ===================== MY TESTS ===================== */
 function testBadge(t){
   if(t.approval_status==='rejected')return `<span class="status cancelled">Hidden by admin</span>`;
     return t.active?`<span class="status accepted">● Live</span>`:`<span class="status collection">○ Off</span>`;
@@ -1260,7 +1238,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)try{pushSt
 window.addEventListener('resize',()=>{if(window.innerWidth>760)closeSide()});
 
 </script>
-<script src="push-notifications.js?v=4" defer></script>
+<script src="push-notifications.js?v=5f2a2897" defer></script>
 <script>
 /* ===== Language (English / বাংলা / हिन्दी) + dark/light toggle + Profile settings + bottom nav ===== */
 (function(){

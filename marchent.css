@@ -1,7 +1,3 @@
-/* ==========================================================================
-   MEDIFINDER INDIA — MERCHANT SIDE
-   Design tokens
-   ========================================================================== */
 :root{
   --red-700:#a8253c;
   --red-600:#c22d47;
@@ -64,13 +60,9 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .only-desktop{display:flex;}
 @media (min-width:900px){.only-mobile{display:none !important;}}
 
-/* ==========================================================================
-   APP SHELL
-   ========================================================================== */
 #app{display:flex;min-height:100vh;min-height:100dvh;}
 .main-col{flex:1;display:flex;flex-direction:column;min-width:0;}
 
-/* ---------- Desktop sidebar ---------- */
 .sidebar{
   width:var(--sidebar-w);
   flex-shrink:0;
@@ -126,7 +118,6 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .sidebar-merchant-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidebar-merchant-status{font-size:11.5px;font-weight:600;color:var(--ink-500);}
 
-/* ---------- Topbar ---------- */
 .topbar{
   height:var(--topbar-h);flex-shrink:0;
   display:flex;align-items:center;gap:12px;
@@ -163,7 +154,6 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
   border:2px solid var(--white);
 }
 
-/* ---------- Bottom nav (mobile) ---------- */
 .bottom-nav{
   height:var(--bottomnav-h);flex-shrink:0;
   background:var(--white);border-top:1px solid var(--ink-100);
@@ -188,7 +178,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
   border-radius:99px;min-width:14px;height:14px;display:flex;align-items:center;justify-content:center;
 }
 
-/* ---------- Drawer (mobile "More") ---------- */
 .drawer-scrim{
   position:fixed;inset:0;background:rgba(20,24,31,.4);z-index:40;
   opacity:0;pointer-events:none;transition:opacity .2s ease;
@@ -210,9 +199,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .drawer-nav{padding:10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
 .drawer-nav .nav-item{font-size:15px;padding:12px;}
 
-/* ==========================================================================
-   PAGE OUTLET / SHARED PAGE STRUCTURE
-   ========================================================================== */
 .page-outlet{
   flex:1;padding:24px 28px 40px;
   padding-top:calc(24px + env(safe-area-inset-top,0));
@@ -340,9 +326,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
 .skeleton-row{height:52px;margin-bottom:8px;}
 
-/* ==========================================================================
-   PROFILE / KYC
-   ========================================================================== */
 .profile-hero{padding:22px 20px;display:flex;gap:16px;align-items:center;margin-bottom:16px;}
 .profile-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--ink-100);flex-shrink:0;}
 .profile-hero-info{flex:1;min-width:0;}
@@ -430,9 +413,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
   padding:14px;margin-bottom:16px;font-size:13.5px;color:var(--red-700);
 }
 
-/* ==========================================================================
-   ORDERS / PRESCRIPTION split layout
-   ========================================================================== */
 .split-layout{display:grid;grid-template-columns:1fr 380px;gap:0;border:1px solid var(--ink-100);border-radius:var(--radius-m);overflow:hidden;background:var(--white);min-height:520px;}
 .split-list{border-right:1px solid var(--ink-100);overflow-y:auto;max-height:70vh;}
 .split-list-item{padding:14px 18px;border-bottom:1px solid var(--ink-50);cursor:pointer;}
@@ -455,9 +435,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .timeline-title{font-weight:700;font-size:13.5px;}
 .timeline-time{font-size:12px;color:var(--ink-500);}
 
-/* ==========================================================================
-   DELIVERY MAP
-   ========================================================================== */
 .delivery-layout{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;}
 .map-canvas{
   height:460px;border-radius:var(--radius-m);background:
@@ -471,9 +448,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .bottom-sheet{padding:18px;}
 .eta-badge{display:flex;align-items:center;gap:10px;background:var(--green-100);color:var(--green-600);border-radius:var(--radius-s);padding:10px 14px;font-weight:700;font-size:13.5px;margin-bottom:14px;}
 
-/* ==========================================================================
-   ANALYTICS / CHARTS (lightweight SVG)
-   ========================================================================== */
 .chart-card{padding:20px;}
 .bar-chart{display:flex;align-items:flex-end;gap:8px;height:160px;margin-top:10px;}
 .bar-chart .bar{flex:1;background:var(--red-100);border-radius:6px 6px 0 0;position:relative;transition:height .3s ease;}
@@ -487,9 +461,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .rank-bar-fill{height:100%;background:var(--teal-600);border-radius:99px;}
 .rank-value{font-family:var(--font-mono);font-size:12.5px;font-weight:700;width:64px;text-align:right;flex-shrink:0;}
 
-/* ==========================================================================
-   NOTIFICATIONS
-   ========================================================================== */
 .notif-item{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--ink-50);cursor:pointer;}
 .notif-item:last-child{border-bottom:none;}
 .notif-item.unread{background:var(--red-50);}
@@ -500,9 +471,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .notif-msg{font-size:13px;color:var(--ink-500);margin-top:2px;}
 .notif-time{font-size:11.5px;color:var(--ink-300);margin-top:4px;}
 
-/* ==========================================================================
-   SETTINGS
-   ========================================================================== */
 .settings-row{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--ink-50);}
 .settings-row:last-child{border-bottom:none;}
 .settings-row-label{font-weight:600;font-size:14px;}
@@ -512,9 +480,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .switch.on{background:var(--red-500);}
 .switch.on::after{transform:translateX(18px);}
 
-/* ==========================================================================
-   TOAST / MODALS
-   ========================================================================== */
 .toast{
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
   background:var(--ink-900);color:#fff;padding:12px 20px;border-radius:16px;
@@ -543,9 +508,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
 .confirm-modal{max-width:380px;border-radius:var(--radius-l);}
 .confirm-modal p{color:var(--ink-500);font-size:13.5px;margin:10px 0 4px;}
 
-/* ==========================================================================
-   RESPONSIVE — MOBILE (<900px): distinct UX, not a scaled-down desktop
-   ========================================================================== */
 @media (max-width:899px){
   .sidebar{display:none;}
   .only-mobile{display:flex;}
@@ -587,9 +549,6 @@ body.kb-open .bottom-nav{transform:translateY(100%);pointer-events:none;}
   .page-outlet{padding:14px 12px calc(24px + var(--bottomnav-h) + 24px + env(safe-area-inset-bottom,0));}
 }
 
-/* ==========================================================================
-   ADD / EDIT PRODUCT WIZARD
-   ========================================================================== */
 .pw-head{max-width:760px;}
 .pw-card{padding:22px;max-width:760px;}
 .pw-card h2{font-size:17px;margin-bottom:4px;}
@@ -730,16 +689,9 @@ body.kb-open .pw-actions{bottom:var(--kb-offset);}
 .login-error{color:var(--red-600);font-size:12.5px;font-weight:600;margin:-4px 0 12px;}
 
 
-/* ==========================================================================
-   v2 ADDITIONS — logo image, text-overflow fixes, sheets, promotions,
-   customers, returns, RX add-medicines, delivery, drawer profile
-   ========================================================================== */
-
-/* ---------- Brand logo (favicon.png replaces the old "M" mark) ---------- */
 .brand-logo{width:32px;height:32px;border-radius:9px;object-fit:contain;flex-shrink:0;background:transparent;}
 .brand-logo.small{width:28px;height:28px;border-radius:7px;}
 
-/* ---------- TEXT-BREAKING FIXES: long words, names, IDs & addresses must wrap, never spill out ---------- */
 .item-card-title,.item-card-sub,.notif-title,.notif-msg,.profile-row-label,.timeline-title,.page-sub,
 .state-block p,.state-block h4,.cell-strong,.cell-muted,.settings-row-label,.settings-row-sub,
 .detail-field-value,.profile-hero-info h2,.profile-hero-info .mid,.pv-title,.wizard-desc,.field,.field-hint,
@@ -782,7 +734,6 @@ a.profile-row{text-decoration:none;color:inherit;}
   .review-row span:first-child{max-width:42%;}
 }
 
-/* ---------- Drawer profile card (More → Profile) ---------- */
 .drawer-profile{display:flex;align-items:center;gap:12px;width:100%;padding:12px;margin-bottom:6px;border:1px solid var(--ink-100);border-radius:var(--radius-m);background:var(--ink-50);cursor:pointer;text-align:left;font-family:inherit;}
 .drawer-profile.active{border-color:var(--red-500);background:var(--red-50);}
 .drawer-profile-photo{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--ink-200);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--ink-500);}
@@ -790,7 +741,6 @@ a.profile-row{text-decoration:none;color:inherit;}
 .drawer-profile-info b{font-size:14px;overflow-wrap:anywhere;}
 .drawer-profile-info small{font-size:12px;color:var(--ink-500);font-weight:600;}
 
-/* ---------- Sheets -> full pages ---------- */
 .sheet-scrim{z-index:70;display:block;background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .modal.sheet,.modal.sheet.wide{max-width:680px;width:100%;max-height:none;min-height:100%;margin:0 auto;border-radius:0;box-shadow:none;padding:0 16px calc(28px + env(safe-area-inset-bottom,0));}
 .modal.sheet .modal-head{position:sticky;top:0;z-index:2;background:#fff;justify-content:flex-start;gap:8px;margin:0 -16px 16px;padding:calc(10px + env(safe-area-inset-top,0)) 12px 10px;border-bottom:1px solid var(--ink-100);}
@@ -798,7 +748,6 @@ a.profile-row{text-decoration:none;color:inherit;}
 .sheet-body .review-block{margin-bottom:18px;}
 body.sheet-open,body.lightbox-open{overflow:hidden;}
 
-/* ---------- KYC document image + full-screen viewer ---------- */
 .doc-img{display:block;position:relative;width:100%;margin-top:6px;padding:0;border:1px solid var(--ink-200);border-radius:var(--radius-s);background:var(--ink-50);overflow:hidden;cursor:zoom-in;}
 .doc-img img{display:block;width:100%;max-height:260px;object-fit:contain;background:#fff;}
 .doc-img-hint{position:absolute;right:8px;bottom:8px;background:rgba(20,24,31,.72);color:#fff;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;}
@@ -810,7 +759,6 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 .lightbox-close svg{width:22px;height:22px;stroke:#fff;}
 .lightbox-hint{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0));text-align:center;color:rgba(255,255,255,.7);font-size:12px;pointer-events:none;}
 
-/* ---------- FAQ page ---------- */
 .faq-item{border-bottom:1px solid var(--ink-100);}
 .faq-item:last-child{border-bottom:none;}
 .faq-item summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;font-size:13.5px;font-weight:700;}
@@ -819,7 +767,6 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 .faq-item[open] summary::after{content:'–';}
 .faq-item p{font-size:13px;color:var(--ink-500);padding:0 0 12px;}
 
-/* ---------- Radio cards (delivery choice, language) ---------- */
 .radio-card{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px solid var(--ink-200);border-radius:var(--radius-m);margin-bottom:10px;cursor:pointer;}
 .radio-card:has(input:checked){border-color:var(--red-500);background:var(--red-50);}
 .radio-card input{margin-top:3px;accent-color:var(--red-500);flex-shrink:0;}
@@ -827,7 +774,6 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 .radio-card-body b{font-size:14px;}
 .radio-card-body small{font-size:12.5px;color:var(--ink-500);}
 
-/* ---------- List rows (promotions / coupons) ---------- */
 .list-row{display:flex;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid var(--ink-50);align-items:flex-start;}
 .list-row:last-child{border-bottom:none;}
 .list-row-main{flex:1;min-width:0;}
@@ -840,7 +786,6 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 .how-row:last-child{border-bottom:none;}
 .how-row > div:last-child{min-width:0;}
 
-/* ---------- Product picker ---------- */
 .picker{border:1px solid var(--ink-200);border-radius:var(--radius-m);padding:10px;background:var(--white);font-weight:500;}
 .picker-list{max-height:220px;overflow-y:auto;margin:8px 0;border-top:1px solid var(--ink-50);}
 .picker-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--ink-50);cursor:pointer;font-weight:500;}
@@ -859,7 +804,6 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
 @media (max-width:899px){.form-row.three{grid-template-columns:1fr;}}
 
-/* ---------- Customers ---------- */
 .seg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 .seg-card{padding:14px 16px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
 .seg-card .stat-value{font-size:24px;font-family:var(--font-mono);font-weight:800;}
@@ -867,14 +811,12 @@ body.sheet-open,body.lightbox-open{overflow:hidden;}
 select.filter-chip{padding-right:10px;}
 .notif-sheet{margin:0 -22px;}
 
-/* ---------- Returns ---------- */
 .detail-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
 @media (max-width:899px){.detail-cols{grid-template-columns:1fr;}}
 .photo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .photo-row img{width:84px;height:84px;object-fit:cover;border-radius:var(--radius-s);border:1px solid var(--ink-100);}
 .timeline-time{font-size:12px;color:var(--ink-500);}
 
-/* ---------- RX: prescription image + add medicines ---------- */
 .rx-viewer.rx-img{aspect-ratio:auto;max-height:340px;overflow:hidden;padding:0;background:var(--ink-50);}
 .rx-viewer.rx-img img{width:100%;max-height:340px;object-fit:contain;}
 a.rx-viewer{text-decoration:none;}
@@ -897,12 +839,10 @@ a.rx-viewer{text-decoration:none;}
 .qty-stepper button{width:32px;height:32px;border:none;background:var(--ink-50);font-size:16px;cursor:pointer;font-weight:700;}
 .qty-stepper span{min-width:30px;text-align:center;font-weight:700;font-size:13.5px;}
 
-/* ---------- Delivery ---------- */
 .delivery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
 .delivery-grid .panel{margin-bottom:0;}
 .delivery-grid .panel-head{gap:8px;}
 
-/* ---------- Profile ---------- */
 .profile-photo-wrap{position:relative;flex-shrink:0;cursor:pointer;}
 .photo-edit{position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;background:var(--red-500);color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
 .photo-edit svg{width:12px;height:12px;}
@@ -911,9 +851,6 @@ a.rx-viewer{text-decoration:none;}
 @media (max-width:560px){.seg{max-width:100%;flex-wrap:wrap;width:auto;}.seg span{padding:10px 14px;}}
 
 
-/* ==========================================================================
-   MOBILE LAYOUT FIXES (nav bar never jumps; Add-product footer never covers fields)
-   ========================================================================== */
 @media (max-width:899px){
   /* bottom nav is pinned to the real bottom of the screen instead of floating with the layout viewport */
   .bottom-nav{position:fixed;left:0;right:0;bottom:0;}
@@ -942,7 +879,6 @@ a.rx-viewer{text-decoration:none;}
 .switch.busy{opacity:.6;pointer-events:none;}
 
 
-/* ===================== DARK THEME ===================== */
 /* MediFinder Merchant — dark theme. Loaded after marchent.css */
 html[data-theme="dark"]{
   color-scheme:dark;

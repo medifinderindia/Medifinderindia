@@ -1,12 +1,3 @@
-// ==========================================
-// MediFinder — Offers / Campaigns (homepage banner + server-time countdown)
-// Use on user home page (after supabase-config.js):
-//   <link rel="stylesheet" href="offer.css?v=1">
-//   <div id="mf-offers"></div>                      <- where the section should appear
-//   <script src="offer.js?v=1" defer></script>
-// Countdown uses the SERVER clock (offset from get_active_campaigns), so refresh
-// or a wrong phone clock never changes the time left.
-// ==========================================
 (function () {
     'use strict';
     var MOUNT_ID = 'mf-offers';
