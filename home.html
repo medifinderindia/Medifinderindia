@@ -31,7 +31,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="session-guard.js?v=b85e8247"></script>
+    <script>
+    /* keep shared product link alive if a logged-in user is redirected to user.html */
+    try {
+        var __mfp = new URLSearchParams(location.search).get('product');
+        if (__mfp) sessionStorage.setItem('mf_pending_product', JSON.stringify({ id: __mfp, t: Date.now() }));
+    } catch (e) {}
+    </script>
+    <script src="session-guard.js?v=pl1"></script>
     <script src="permission-every.js?v=ce3004a5"></script>
     <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://medifinderindia.com/#org","name":"MediFinder India","url":"https://medifinderindia.com/","logo":"https://medifinderindia.com/favicon.png","image":"https://medifinderindia.com/og-image.png","description":"MediFinder India is a technology-driven healthcare and fast-delivery platform connecting customers with participating pharmacies, healthcare service providers and delivery partners.","foundingDate":"2026","founder":{"@id":"https://medifinderindia.com/#rejoyan-sarkar"},"email":"support@medifinderindia.com","telephone":"+919593625498","address":{"@type":"PostalAddress","streetAddress":"Banihari, Janchi, Gangarampur","addressLocality":"Dakshin Dinajpur","addressRegion":"West Bengal","postalCode":"733140","addressCountry":"IN"},"areaServed":{"@type":"AdministrativeArea","name":"West Bengal, India"},"contactPoint":{"@type":"ContactPoint","telephone":"+919593625498","email":"support@medifinderindia.com","contactType":"customer support","areaServed":"IN","availableLanguage":["English","Bengali","Hindi"]},"sameAs":["https://www.facebook.com/profile.php?id=61590844315430","https://www.youtube.com/@medifinderindia","https://www.instagram.com/medifinderindia.com_/","https://wa.me/919382262825"],"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"Person","@id":"https://medifinderindia.com/#rejoyan-sarkar","name":"Rejoyan Sarkar","url":"https://medifinderindia.com/info.html#founder","jobTitle":"Founder","worksFor":{"@id":"https://medifinderindia.com/#org"}},{"@type":"WebSite","@id":"https://medifinderindia.com/#website","url":"https://medifinderindia.com/","name":"MediFinder India","publisher":{"@id":"https://medifinderindia.com/#org"},"about":{"@id":"https://medifinderindia.com/#org"},"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"ItemList","name":"MediFinder India main pages","itemListElement":[{"@type":"SiteNavigationElement","position":1,"name":"About Us","url":"https://medifinderindia.com/info.html#about"},{"@type":"SiteNavigationElement","position":2,"name":"Contact Us","url":"https://medifinderindia.com/info.html#contact"}]}]}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2546,7 +2553,7 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 <script src="push-notifications.js?v=5f2a2897" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="prod-utils.js?v=3321430c"></script>
-    <script src="user.min.js?v=0a8875fd"></script>
+    <script src="user.min.js?v=pl1"></script>
     <script>
     function mfScrollToSection(id) {
         var el = document.getElementById(id);

@@ -108,6 +108,9 @@
             // (2) home.html is PUBLIC ONLY: a logged-in person is sent to their own page.
             if (isHome) {
                 var dest = routeFor(readUser());
+                // keep a shared product link (?product=ID) when sending a logged-in user to user.html
+                var pm = location.search.match(/[?&]product=([^&#]+)/);
+                if (dest === 'user.html' && pm) dest += '?product=' + pm[1];
                 go(dest || 'index.html');       // unknown service type -> splash resolves it from the DB
             }
         }

@@ -2102,6 +2102,13 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
     'use strict';
     var params = new URLSearchParams(location.search);
     var pid = params.get('product') || params.get('pid');
+    if (!pid) {
+        try {
+            var sp = JSON.parse(sessionStorage.getItem('mf_pending_product') || 'null');
+            if (sp && sp.id && Date.now() - sp.t < 10 * 60 * 1000) pid = sp.id;
+        } catch (e) {}
+    }
+    try { if (pid) sessionStorage.removeItem('mf_pending_product'); } catch (e) {}
 
     function toast(m, t) { try { if (typeof showToast === 'function') showToast(m, t || 'warning'); } catch (e) {} }
     function goHome() {
@@ -2159,6 +2166,16 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
                     // loadPdAuthoritativeData() fills in everything else from the same row
                 });
                 try { history.replaceState(null, '', location.pathname + '?product=' + encodeURIComponent(pid) + '#product-detail'); } catch (e) {}
+                // Guest page: other startup scripts can re-activate Home after we open the product,
+                // leaving Home + Product stacked on one screen. Re-assert "product page only" briefly.
+                var settle = function () {
+                    var pd = document.getElementById('page-product-detail');
+                    if (!pd || !pd.classList.contains('active')) return;
+                    document.querySelectorAll('.app-page.active').forEach(function (el) { if (el !== pd) el.classList.remove('active'); });
+                    document.querySelectorAll('#home-only-header, .home-only-header').forEach(function (el) { el.style.display = 'none'; });
+                };
+                [0, 300, 900, 2000, 4000].forEach(function (ms) { setTimeout(settle, ms); });
+                window.addEventListener('load', settle);
             } catch (err) { goHome(); toast('Could not open this product. Please try again.', 'error'); }
         })();
     }
