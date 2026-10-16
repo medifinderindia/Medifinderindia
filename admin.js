@@ -706,84 +706,107 @@ function deriveActivityFeed(){
   }));
 }
 
+
+/* ---- smooth realtime refresh: never re-draw the page while the admin is touching / scrolling / typing ---- */
+let _rsTimer=null,_lastTouch=0,_lastScroll=0;
+["touchstart","touchmove","pointerdown","wheel"].forEach(ev=>document.addEventListener(ev,()=>{ _lastTouch=Date.now(); },{passive:true,capture:true}));
+document.addEventListener("scroll",()=>{ _lastScroll=Date.now(); },{passive:true,capture:true});
+function userBusyNow(){
+  const now=Date.now();
+  if(now-_lastTouch<900 || now-_lastScroll<600) return true;
+  if(document.body.classList.contains("fp-open")) return true;
+  const mr=document.getElementById("modalRoot"); if(mr && mr.children.length) return true;
+  if(document.querySelector(".btn.bl-busy")) return true;
+  const a=document.activeElement, c=document.getElementById("content");
+  if(a && c && c.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+  return false;
+}
+function renderSoft(){
+  clearTimeout(_rsTimer);
+  _rsTimer=setTimeout(function tick(){
+    if(userBusyNow()){ _rsTimer=setTimeout(tick,500); return; }
+    render();
+  },400);
+}
+
 function subscribeLiveData(){
   if(!supabase) return;
   supabase.channel('admin-users-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'profiles' }, ()=>{ loadUsersFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'profiles' }, ()=>{ loadUsersFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-orders-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, ()=>{ loadOrdersFromDB().then(()=>{ loadMerchantsFromDB().then(()=>{ loadTransactionsFromDB(); render(); }); }); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'orders' }, ()=>{ loadOrdersFromDB().then(()=>{ loadMerchantsFromDB().then(()=>{ loadTransactionsFromDB(); renderSoft(); }); }); })
     .subscribe();
   supabase.channel('admin-merchants-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'merchants' }, ()=>{ loadMerchantsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'merchants' }, ()=>{ loadMerchantsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-riders-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'riders' }, ()=>{ loadRidersFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'riders' }, ()=>{ loadRidersFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-rider-kyc-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'rider_kyc_application' }, ()=>{ loadRidersFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'rider_kyc_application' }, ()=>{ loadRidersFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-prescriptions-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'prescription_orders' }, ()=>{ loadPrescriptionsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'prescription_orders' }, ()=>{ loadPrescriptionsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-merchant-payouts-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'merchant_payouts' }, ()=>{ loadMerchantPayoutsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'merchant_payouts' }, ()=>{ loadMerchantPayoutsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-rider-payouts-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'admin_payout_requests' }, ()=>{ loadRiderPayoutsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'admin_payout_requests' }, ()=>{ loadRiderPayoutsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-refunds-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'cancelled_orders' }, ()=>{ loadRefundsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'cancelled_orders' }, ()=>{ loadRefundsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-products-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'medicines' }, ()=>{ loadProductsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'medicines' }, ()=>{ loadProductsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-coupons-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'coupons' }, ()=>{ loadCouponsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'coupons' }, ()=>{ loadCouponsFromDB().then(renderSoft); })
     .subscribe();
   subscribePaymentLive();
   supabase.channel('admin-zones-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'service_zones' }, ()=>{ loadZonesFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'service_zones' }, ()=>{ loadZonesFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-ads-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'sponsored_products' }, ()=>{ loadAdsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'sponsored_products' }, ()=>{ loadAdsFromDB().then(renderSoft); })
     .subscribe();
   ['complaints','merchant_complaints','rider_complaints'].forEach(t=>{
     supabase.channel('admin-tickets-'+t)
-      .on('postgres_changes', { event:'*', schema:'public', table:t }, ()=>{ loadTicketsFromDB().then(render); })
+      .on('postgres_changes', { event:'*', schema:'public', table:t }, ()=>{ loadTicketsFromDB().then(renderSoft); })
       .subscribe();
   });
   ['product_reviews','lab_test_reviews'].forEach(t=>{
     supabase.channel('admin-reviews-'+t)
-      .on('postgres_changes', { event:'*', schema:'public', table:t }, ()=>{ loadReviewsFromDB().then(render); })
+      .on('postgres_changes', { event:'*', schema:'public', table:t }, ()=>{ loadReviewsFromDB().then(renderSoft); })
       .subscribe();
   });
   supabase.channel('admin-nurses-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'nurses' }, ()=>{ loadNursesFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'nurses' }, ()=>{ loadNursesFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-nurse-bookings-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'nurse_bookings' }, ()=>{ loadNurseBookingsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'nurse_bookings' }, ()=>{ loadNurseBookingsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-lab-tests-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'lab_tests' }, ()=>{ loadLabTestsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'lab_tests' }, ()=>{ loadLabTestsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-lab-bookings-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'lab_bookings' }, ()=>{ loadLabBookingsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'lab_bookings' }, ()=>{ loadLabBookingsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-ambulance-drivers-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'ambulance_drivers' }, ()=>{ loadAmbulanceDriversFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'ambulance_drivers' }, ()=>{ loadAmbulanceDriversFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-ambulance-bookings-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'ambulance_bookings' }, ()=>{ loadAmbulanceBookingsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'ambulance_bookings' }, ()=>{ loadAmbulanceBookingsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-admins-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'admins' }, ()=>{ loadAdminsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'admins' }, ()=>{ loadAdminsFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-audit-log-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'admin_audit_log' }, ()=>{ loadAuditLogFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'admin_audit_log' }, ()=>{ loadAuditLogFromDB().then(renderSoft); })
     .subscribe();
   supabase.channel('admin-notif-broadcasts-live')
-    .on('postgres_changes', { event:'*', schema:'public', table:'admin_notification_broadcasts' }, ()=>{ loadNotificationBroadcastsFromDB().then(render); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'admin_notification_broadcasts' }, ()=>{ loadNotificationBroadcastsFromDB().then(renderSoft); })
     .subscribe();
 }
 
@@ -2501,7 +2524,7 @@ function subscribePaymentLive(){
         const n = p.new || {};
         loadPaymentQueue().then(()=>{
           if(n.payment_verification_status==="pending" && (p.eventType==="INSERT" || (p.old && p.old.payment_verification_status!=="pending"))) toast("💰 New online payment waiting for verification","default");
-          render();
+          renderSoft();
         });
       }).subscribe();
   });

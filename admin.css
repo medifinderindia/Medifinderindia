@@ -800,3 +800,10 @@ tbody td:has(.empty), tbody td[colspan]{ white-space:normal; max-width:none; }
   .nav-item{ white-space:nowrap; }
   .nav-item > span:not(.ic){ overflow:hidden; text-overflow:ellipsis; min-width:0; }
 }
+
+
+/* ===== scroll fix (phone) ===== */
+.app-shell{ grid-template-rows:minmax(0,1fr); }
+.main-col{ min-height:0; }
+.content{ min-height:0; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; touch-action:pan-y; }
+.table-wrap, .card-body.pad0, .tabs, .roles-scroll{ overscroll-behavior-x:contain; touch-action:pan-x pan-y; }

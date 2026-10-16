@@ -1,0 +1,59 @@
+/* btn-loading.css v2 — button states, skeleton loader, toast. Uses your existing CSS variables. */
+:root{ --bl-ok:#2e7d4f; --bl-err:#b83f2c; }
+
+/* ---------- Button states: Saving… / Saved / Failed — Retry ---------- */
+.btn.bl-busy, .btn.bl-ok, .btn.bl-err, button.bl-busy, button.bl-ok, button.bl-err{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  opacity:1 !important; transition:background .25s ease, border-color .25s ease, color .25s ease, transform .15s ease;
+}
+.bl-busy{ pointer-events:none; cursor:progress; }
+.bl-busy:disabled, .bl-ok:disabled, .bl-err:disabled{ opacity:1 !important; }
+.bl-lbl{ white-space:nowrap; }
+
+.bl-spin{
+  width:15px; height:15px; border-radius:50%; flex:0 0 auto;
+  border:2px solid currentColor; border-right-color:transparent; border-top-color:currentColor;
+  animation:bl-rot .7s linear infinite;
+}
+@keyframes bl-rot{ to{ transform:rotate(360deg); } }
+
+.bl-ic{ width:17px; height:17px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.bl-ok{ background:var(--bl-ok) !important; border-color:var(--bl-ok) !important; color:#fff !important; animation:bl-pop .32s cubic-bezier(.22,.8,.3,1); }
+.bl-ok .bl-ic circle{ stroke-dasharray:63; stroke-dashoffset:63; animation:bl-draw .4s ease forwards; }
+.bl-ok .bl-tick{ stroke-dasharray:20; stroke-dashoffset:20; animation:bl-draw .3s .25s ease forwards; }
+.bl-err{ background:var(--bl-err) !important; border-color:var(--bl-err) !important; color:#fff !important; animation:bl-shake .4s ease; }
+@keyframes bl-draw{ to{ stroke-dashoffset:0; } }
+@keyframes bl-pop{ 0%{ transform:scale(.96); } 60%{ transform:scale(1.03); } 100%{ transform:scale(1); } }
+@keyframes bl-shake{ 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-5px); } 40%{ transform:translateX(5px); } 60%{ transform:translateX(-3px); } 80%{ transform:translateX(3px); } }
+
+/* ---------- Skeleton loader (cards + table rows) ---------- */
+.sk{ position:relative; overflow:hidden; border-radius:14px; background:var(--surface-alt, #e9efed); }
+.sk::after{
+  content:""; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+  animation:sk-wave 1.3s ease-in-out infinite;
+}
+html[data-theme="dark"] .sk::after{ background:linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); }
+@keyframes sk-wave{ to{ transform:translateX(100%); } }
+.sk-page{ padding:2px 0; }
+.sk-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; }
+@media (min-width:900px){ .sk-grid{ grid-template-columns:repeat(4,1fr); } }
+.sk-card{ height:92px; }
+.sk-table{ height:280px; }
+.sk-row{ height:44px; margin:10px 0; border-radius:10px; }
+.sk-line{ height:12px; border-radius:6px; margin:8px 0; }
+.sk-line.w60{ width:60%; } .sk-line.w40{ width:40%; }
+
+/* ---------- Toast ---------- */
+.toast-stack{ left:50%; right:auto !important; transform:translateX(-50%); bottom:calc(76px + env(safe-area-inset-bottom,0px)) !important; align-items:center; pointer-events:none; width:max-content; max-width:calc(100vw - 24px); }
+@media (min-width:981px){ .toast-stack{ left:auto; right:20px !important; transform:none; bottom:20px !important; align-items:flex-end; } }
+.toast{ pointer-events:auto; animation:toast-in .28s cubic-bezier(.22,.8,.3,1) !important; }
+@keyframes toast-in{ from{ opacity:0; transform:translateY(14px) scale(.96); } to{ opacity:1; transform:none; } }
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  .bl-spin{ animation-duration:1.6s !important; }
+  .sk::after{ animation:none !important; }
+  .bl-ok, .bl-err, .toast{ animation:none !important; }
+  .bl-ok .bl-ic circle, .bl-ok .bl-tick{ animation:none !important; stroke-dashoffset:0 !important; }
+}
