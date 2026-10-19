@@ -264,5 +264,57 @@
     window.addEventListener('storage', paintCart);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
-  window.MFCampaign = { open: open, reload: load, preview: preview };
+
+  /* ---------- home "Today's Health Deals" feed (replaces the offer.js strip when it loads OK) ---------- */
+  var hm = { off: 0, items: [], timer: null, at: 0, busy: false };
+  function homeTile(p) {
+    var d = pct(p);
+    return '<div class="hm-tile"><div class="pic">' + (safeImg(p.img) ? '<img src="' + esc(p.img) + '" alt="" loading="lazy" decoding="async">' : '') + '</div><b>' + inr(p.price) + '</b>' + (d ? '<em>' + d + '% off</em>' : '<em class="n">&nbsp;</em>') + '</div>';
+  }
+  function homeCard(c) {
+    var more = Number(c.count) - (c.products || []).length;
+    return '<article class="hm-card"><button type="button" class="hm-open" data-hm="open" data-id="' + esc(c.id) + '" aria-label="Open ' + esc(c.title) + '">' +
+      (safeImg(c.image) ? '<img class="hm-banner" src="' + esc(c.image) + '" alt="' + esc(c.title) + '" decoding="async" fetchpriority="high">' : '') +
+      (c.show_countdown ? '<div class="hm-count" data-end="' + esc(c.end_at) + '" data-start="' + esc(c.start_at) + '"></div>' : '') +
+      '<div class="hm-body">' + (c.discount_text ? '<div class="hm-pill">' + esc(c.discount_text) + '</div>' : '') + '<h3>' + esc(c.title) + '</h3>' +
+      ((c.products || []).length ? '<div class="hm-tiles">' + c.products.map(homeTile).join('') + (more > 0 ? '<div class="hm-more"><b>' + more + '+</b><span>items</span></div>' : '') + '</div>' : '') +
+      '</div></button></article>';
+  }
+  function homeTick() {
+    var els = document.querySelectorAll('#mf-home-campaigns .hm-count'); if (!els.length) { clearInterval(hm.timer); hm.timer = null; return; }
+    var t = Date.now() + hm.off;
+    els.forEach(function (el) {
+      var sA = Date.parse(el.getAttribute('data-start')), eA = Date.parse(el.getAttribute('data-end')), pre = t < sA, ms = Math.max(0, (pre ? sA : eA) - t), sec = Math.floor(ms / 1000);
+      var u = function (n, l) { return '<span class="u"><i>' + String(n).padStart(2, '0') + '</i>' + l + '</span>'; };
+      el.innerHTML = '<b>' + (pre ? 'STARTS IN' : 'ENDS IN') + '</b><div>' + u(Math.floor(sec / 86400), 'd') + u(Math.floor(sec % 86400 / 3600), 'h') + u(Math.floor(sec % 3600 / 60), 'm') + u(sec % 60, 's') + '</div>';
+      if (ms === 0 && !pre && !hm.busy) { hm.busy = true; setTimeout(function () { hm.busy = false; loadHome(true); }, 1500); }
+    });
+  }
+  function paintHome(host) {
+    if (!hm.items.length) { host.innerHTML = ''; document.body.classList.remove('mf-cp-home'); return; }
+    host.innerHTML = '<h2 class="hm-title"><span aria-hidden="true">🔥</span> Today’s Health Deals</h2>' + hm.items.map(homeCard).join('');
+    document.body.classList.add('mf-cp-home');                 // hides the old #mf-offers strip only after this one rendered
+    homeTick(); if (!hm.timer) hm.timer = setInterval(homeTick, 1000);
+  }
+  function loadHome(force) {
+    var host = $('mf-home-campaigns'); if (!host || !sb()) return;
+    if (!force && Date.now() - hm.at < 30000) return; hm.at = Date.now();
+    sb().rpc('mf_campaign_home').then(function (r) {
+      if (r.error || !r.data) return;                          // keep whatever is on screen (old strip stays as fallback)
+      hm.off = Date.parse(r.data.server_now) - Date.now(); hm.items = r.data.items || []; paintHome(host);
+    }, function () {});
+  }
+  function wireHome() {
+    var host = $('mf-home-campaigns'); if (!host || host.__mfWired) return; host.__mfWired = true;
+    host.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-hm="open"]'); if (!t) return;
+      e.preventDefault(); e.stopPropagation();
+      var id = t.getAttribute('data-id'); st.tracked = {}; st.ref = id;
+      track('click', 'home'); st.ref = null; open(id);
+    });
+    loadHome(true);
+    window.addEventListener('mf:page-enter', function (e) { if (e.detail && e.detail.page === 'home') loadHome(false); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireHome); else wireHome();
+    window.MFCampaign = { open: open, reload: load, preview: preview };
 })();
