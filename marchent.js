@@ -109,6 +109,51 @@ console.log("marchent.js v15 loaded");
     showToast._t = setTimeout(() => { t.hidden = true; }, 2600);
   }
 
+  /* ===== Save-button states: Save -> Saving… -> Saved Successfully | Save Failed — Retry ===== */
+  const BS_ICON = {
+    spin: '<span class="bs-spin" aria-hidden="true"></span>',
+    ok: '<svg class="bs-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path class="bs-tick" d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
+    fail: '<svg class="bs-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.6v.1"/></svg>'
+  };
+  const BtnState = {
+    _paint(btn, cls, icon, text) {
+      if (!btn) return;
+      if (btn._bsHtml == null) btn._bsHtml = btn.innerHTML;
+      clearTimeout(btn._bsT);
+      btn.classList.add('btn-state');
+      btn.classList.remove('is-loading', 'is-success', 'is-fail');
+      if (cls) btn.classList.add(cls);
+      btn.innerHTML = icon + '<span class="bs-txt">' + esc(text) + '</span><i class="spinner" hidden aria-hidden="true"></i>';   // hidden marker: tells btn-loading.js this button is already handled
+    },
+    start(btn, text) {
+      if (!btn) return;
+      this._paint(btn, 'is-loading', BS_ICON.spin, text || 'Saving…');
+      btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+    },
+    ok(btn, text, hold) {
+      if (!btn) return Promise.resolve();
+      const ms = hold == null ? 750 : hold;
+      this._paint(btn, 'is-success', BS_ICON.ok, text || 'Saved Successfully');
+      btn.disabled = true; btn.removeAttribute('aria-busy');
+      btn._bsT = setTimeout(() => this.reset(btn), ms + 1500);   // only matters if the page is not re-rendered
+      return new Promise(r => setTimeout(r, ms));
+    },
+    fail(btn, text) {
+      if (!btn) return;
+      this._paint(btn, 'is-fail', BS_ICON.fail, text || 'Save Failed — Retry');
+      btn.disabled = false; btn.removeAttribute('aria-busy');
+      btn._bsT = setTimeout(() => this.reset(btn), 8000);
+    },
+    reset(btn) {
+      if (!btn) return;
+      clearTimeout(btn._bsT);
+      if (btn._bsHtml != null) { btn.innerHTML = btn._bsHtml; btn._bsHtml = null; }
+      btn.classList.remove('btn-state', 'is-loading', 'is-success', 'is-fail');
+      btn.disabled = false; btn.removeAttribute('aria-busy');
+    }
+  };
+  const submitBtn = (e, root) => (e && e.submitter) || (root || e.target).querySelector('button.btn-primary, button.btn-danger, button:not([type])');
+
   function confirmDialog(title, body) {
     return new Promise((resolve) => {
       const scrim = document.getElementById('confirmScrim');
@@ -159,13 +204,15 @@ console.log("marchent.js v15 loaded");
     return merchantIdCache;
   }
 
-  const DB_TYPE = { medicine: 'Medicine', instrument: 'Instrument', general: 'General', personal_care: 'Personal Care', grocery: 'Grocery' };
-  const typeFromDb = (t) => { const x = String(t || '').toLowerCase(); return /instrument/.test(x) ? 'instrument' : /personal/.test(x) ? 'personal_care' : /general/.test(x) ? 'general' : /grocery/.test(x) ? 'grocery' : 'medicine'; };
-  function rowToProduct(r) {
+  const DB_TYPE = { medicine: 'Medicine', instrument: 'Instrument', general: 'General', personal_care: 'Personal Care', grocery: 'Grocery', baby_mother: 'Baby & Mother Care', nutrition: 'Medical Nutrition' };
+  const typeFromDb = (t) => { const x = String(t || '').toLowerCase(); return /instrument/.test(x) ? 'instrument' : /baby|mother/.test(x) ? 'baby_mother' : /nutrition|supplement/.test(x) ? 'nutrition' : /personal/.test(x) ? 'personal_care' : /general/.test(x) ? 'general' : /grocery|food/.test(x) ? 'grocery' : 'medicine'; };
+  const blankBatch = () => ({ serial: '', batchNo: '', lotNo: '', mfd: '', expiry: '', qty: '', cost: '' });
+  function rowToProduct(r, priv) {
     const raw = String(r.status || '').toLowerCase();
     let status, active = true;
     if (raw === 'draft') status = 'draft';
     else if (raw === 'rejected') status = 'rejected';
+    else if (raw === 'restricted') { status = 'restricted'; active = false; }
     else if (raw === 'inactive') { status = 'approved'; active = false; }
     else if (raw === 'approved' || raw === 'active' || r.admin_approved) status = 'approved';
     else status = 'pending';
@@ -173,12 +220,23 @@ console.log("marchent.js v15 loaded");
     const price = r.selling_price != null ? Number(r.selling_price) : Number(r.unit_price || 0);
     const mrp = r.mrp != null ? Number(r.mrp) : price;
     const images = [r.image_url, r.image_url_2, r.image_url_3, r.image_url_4].map(x => x || '');
+    const ed = (r.extra_details && typeof r.extra_details === 'object') ? r.extra_details : {};
+    const x = { ...((ed.x && typeof ed.x === 'object') ? ed.x : {}) };
+    if (!x.manufacturer) x.manufacturer = r.manufacturer || '';
+    const costs = (priv && Array.isArray(priv.costs)) ? priv.costs : [];
+    const batches = (Array.isArray(ed.batches) && ed.batches.length)
+      ? ed.batches.map(b => ({ ...blankBatch(), ...b }))
+      : [{ ...blankBatch(), batchNo: r.batch_number || '', lotNo: r.lot_number || '', mfd: r.mfd_date || '', expiry: r.expiry_date || '', qty: r.stock_qty != null ? Number(r.stock_qty) : '' }];
+    batches.forEach((b, i) => { b.cost = costs[i] != null ? costs[i] : ''; });
+    const docs = [0, 1].map(i => ({ url: '', name: '', ...((Array.isArray(ed.docs) && ed.docs[i]) || {}) }));
+    const cb = (ed.combo && typeof ed.combo === 'object') ? ed.combo : {};
+    const combo = [0, 1].map(i => { const it = (Array.isArray(cb.items) && cb.items[i]) || {}; return { type: it.type || '', category: it.category || '', x: { ...((it.x && typeof it.x === 'object') ? it.x : {}) } }; });
     return {
-      id: r.id, type, status, active,
+      id: r.id, type, status, active, isCombo: !!cb.enabled, combo,
       name: r.product_name || r.name || '', generic: r.generic_name || '', brand: r.brand_name || r.manufacturer || '',
       manufacturer: r.manufacturer || r.brand_name || '',
       category: r.category || '', subCategory: r.sub_category || '', description: r.description || '',
-      images, image: images[0],
+      images, image: images[0], docs, x, batches,
       mrp, price, discount: calcDiscount(mrp, price),
       stock: Number(r.stock_qty || 0), minStock: r.min_stock_alert != null ? Number(r.min_stock_alert) : 5,
       unitType: r.unit_type || '',
@@ -189,42 +247,61 @@ console.log("marchent.js v15 loaded");
       modelNumber: r.model_number || '', color: r.item_color || '', deviceType: r.device_type || '', display: r.display_spec || '',
       battery: r.battery_info || '', range: r.measurement_range || '', warranty: r.warranty_period || 'No Warranty',
       care: type === 'instrument' ? (r.storage_condition || '') : '',
+      gst: r.gst_rate != null ? Number(r.gst_rate) : '', hsn: r.hsn_code || '', weight: r.weight_kg != null ? Number(r.weight_kg) : '', sideEffects: r.side_effects || '',
+      returnable: !!r.is_returnable, returnDays: r.return_window_days != null ? r.return_window_days : '',
+      exchangeable: !!r.is_exchangeable, exchangeDays: r.exchange_window_days != null ? r.exchange_window_days : '',
       createdAt: r.created_at
     };
   }
   function productToRow(p, merchantId) {
     const isMed = p.type === 'medicine';
+    const x = p.x || {};
+    const bs = Array.isArray(p.batches) ? p.batches : [];
     let status, admin_approved;
     if (p.status === 'draft') { status = 'Draft'; admin_approved = false; }
     else if (p.status === 'approved') { status = p.active === false ? 'Inactive' : 'Approved'; admin_approved = true; }
+    else if (p.status === 'restricted') { status = 'Restricted'; admin_approved = false; }
     else { status = 'Pending'; admin_approved = false; }          // 'pending' (and re-published 'rejected')
     const imgs = p.images || [];
     const row = {
       merchant_id: merchantId,
       product_type: DB_TYPE[p.type] || 'Medicine',
       product_name: p.name, name: p.name,
-      generic_name: p.generic || null, brand_name: p.brand || null, manufacturer: p.brand || '',
+      generic_name: p.generic || null, brand_name: p.brand || null, manufacturer: x.manufacturer || p.brand || '',
       category: p.category || null, sub_category: p.subCategory || null, description: p.description || '',
       image_url: imgs[0] || '', image_url_2: imgs[1] || null, image_url_3: imgs[2] || null, image_url_4: imgs[3] || null,
       mrp: p.mrp, selling_price: p.price, unit_price: p.price,
       stock_qty: p.stock, min_stock_alert: p.minStock, unit_type: p.unitType || null,
+      gst_rate: (p.gst === '' || p.gst == null) ? null : Number(p.gst), hsn_code: p.hsn ? String(p.hsn).trim() : null,
+      is_returnable: !!p.returnable, return_window_days: p.returnable ? (Number(p.returnDays) || null) : null,
+      is_exchangeable: !!p.exchangeable, exchange_window_days: p.exchangeable ? (Number(p.exchangeDays) || null) : null,
+      extra_details: {
+        x,
+        batches: bs.map(({ cost, ...b }) => b),            // purchase prices are NOT stored here (customer-readable table)
+        docs: (p.docs || []).map(d => ({ url: (d && d.url) || '', name: (d && d.name) || '' })),
+        combo: { enabled: !!p.isCombo, items: (p.combo || []).slice(0, 2).map(it => ({ type: (it && it.type) || '', category: (it && it.category) || '', x: (it && it.x) || {} })) }
+      },
       status, admin_approved
     };
+    if (!isMed) row.weight_kg = (p.weight === '' || p.weight == null) ? null : Number(p.weight);
     if (isMed) Object.assign(row, {
       dosage_form: p.dosageForm || '', strength: p.strength || '', pack_size: p.packSize || null, composition: p.composition || '',
       prescription_req: p.rxRequired ? 'Yes' : 'No', is_rx: !!p.rxRequired,
       batch_number: p.batchNo || '', lot_number: p.lotNo || null,
-      mfd_date: p.mfd || null, expiry_date: p.expiry || null, storage_condition: p.storage || ''
+      mfd_date: p.mfd || null, expiry_date: p.expiry || null, storage_condition: p.storage || '',
+      side_effects: p.sideEffects || null
     });
-    else if (p.type !== 'instrument') Object.assign(row, {      // general / personal care / grocery
-      pack_size: p.packSize || null, prescription_req: 'No', is_rx: false,
+    else if (p.type !== 'instrument') Object.assign(row, {      // general / personal care / baby / nutrition / grocery
+      dosage_form: p.dosageForm || '', pack_size: p.packSize || null, composition: p.composition || '',
+      prescription_req: 'No', is_rx: false,
       batch_number: p.batchNo || '', lot_number: p.lotNo || null,
       mfd_date: p.mfd || null, expiry_date: p.expiry || null, storage_condition: p.storage || ''
     });
     else Object.assign(row, {
-      model_number: p.modelNumber || null, item_color: p.color || null, device_type: p.deviceType || null,
+      model_number: p.modelNumber || null, item_color: p.color || null, device_type: p.deviceType || p.category || null,
       display_spec: p.display || null, battery_info: p.battery || null, measurement_range: p.range || null,
-      warranty_period: p.warranty || null, storage_condition: p.care || ''   // care / usage instructions
+      warranty_period: p.warranty || null, storage_condition: p.care || '',   // storage / care instructions
+      batch_number: p.batchNo || '', lot_number: p.lotNo || null, mfd_date: p.mfd || null, expiry_date: p.expiry || null
     });
     return row;
   }
@@ -239,21 +316,30 @@ console.log("marchent.js v15 loaded");
     return new Blob([arr], { type: mime });
   }
 
+  // Merchant-only data (purchase prices) lives in product_private (RLS: owner / admin only)
+  async function loadPrivate(mid) {
+    try {
+      const { data, error } = await sb.from('product_private').select('medicine_id,data').eq('merchant_id', mid);
+      if (error || !data) return {};
+      return Object.fromEntries(data.map(r => [r.medicine_id, r.data || {}]));
+    } catch (e) { return {}; }
+  }
+
   // New photos are data: URLs held in the browser; upload them to storage and return public URLs (existing http URLs are kept).
-  async function uploadProductImages(merchantId, images) {
+  async function uploadProductImages(merchantId, images, tag = '') {
     return Promise.all((images || []).map(async (src, i) => {
       if (!src || !src.startsWith('data:')) return src || '';
       const blob = dataUrlToBlob(src);   // no fetch(): data: URLs can be blocked by CSP / mobile webviews
-      const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' })[blob.type] || 'jpg';
-      const path = `${merchantId}/${Date.now()}-${i + 1}.${ext}`;
+      const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' })[blob.type] || 'jpg';
+      const path = `${merchantId}/${Date.now()}-${tag}${i + 1}.${ext}`;
       const { error } = await sb.storage.from(PRODUCT_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
       if (error) { error.message = 'Image upload failed: ' + error.message; throw error; }
       return sb.storage.from(PRODUCT_BUCKET).getPublicUrl(path).data.publicUrl;
     }));
   }
 
-  const TERMS_URL = 'marchentt&c.html#terms';       // Terms & Conditions (marchentt&c.html)
-  const PRIVACY_URL = 'marchentt&c.html#privacy';   // Privacy Policy (same page)
+  const TERMS_URL = 'marchentt_c.html#terms';       // Terms & Conditions (marchentt_c.html)
+  const PRIVACY_URL = 'marchentt_c.html#privacy';   // Privacy Policy (same page)
   const RATE_PER_DAY = 10;                          // ₹ per product per day — Featured / Promote
   const PROMO_FAR_END = '2099-12-31T23:59:59.000Z';   // "no end date"
   const SETTINGS_KEY = 'mf_merchant_settings';
@@ -711,6 +797,7 @@ console.log("marchent.js v15 loaded");
         await DB.dispatchOrder(order, 'medifinder');
         return { ok: true, mode: 'medifinder' };
       }
+      if (!COURIER_AUTO) return { ok: false, manual: true };
       try {
         const { data, error } = await sb.functions.invoke('courier', { body: { action: 'dispatch', order_id: order.code } });
         let body = data;
@@ -867,14 +954,17 @@ console.log("marchent.js v15 loaded");
       const mid = await requireMerchantId();
       const { data, error } = await sb.from('medicines').select('*').eq('merchant_id', mid).order('created_at', { ascending: false });
       if (error) { console.error(error); throw error; }
-      productsCache = data.map(rowToProduct);
+      const priv = await loadPrivate(mid);
+      productsCache = data.map(r => rowToProduct(r, priv[r.id]));
       return productsCache;
     },
     getProduct: async (id) => {
       const mid = await requireMerchantId();
       const { data, error } = await sb.from('medicines').select('*').eq('id', id).eq('merchant_id', mid).maybeSingle();
       if (error) { console.error(error); throw error; }
-      return data ? rowToProduct(data) : null;
+      if (!data) return null;
+      const priv = await loadPrivate(mid);
+      return rowToProduct(data, priv[data.id]);
     },
     // Categories currently used by this merchant's non-draft products
     getCategories: async () => {
@@ -884,14 +974,26 @@ console.log("marchent.js v15 loaded");
     saveProduct: async (product) => {
       const mid = await requireMerchantId();
       const images = await uploadProductImages(mid, product.images);
-      const row = productToRow({ ...product, images }, mid);
+      const docUrls = await uploadProductImages(mid, (product.docs || []).map(d => (d && d.url) || ''), 'd');
+      const docs = (product.docs || []).map((d, i) => ({ name: (d && d.name) || '', url: docUrls[i] || '' }));
+      const row = productToRow({ ...product, images, docs }, mid);
       const q = product.id
         ? sb.from('medicines').update(row).eq('id', product.id).eq('merchant_id', mid).select().single()
         : sb.from('medicines').insert(row).select().single();
       const { data, error } = await q;
       if (error) { console.error(error); throw error; }
       productsCache = null;
-      return rowToProduct(data);
+      const costs = (product.batches || []).map(b => (b.cost === '' || b.cost == null ? null : Number(b.cost)));
+      let privateFailed = false;
+      if (costs.some(c => c != null) || product.id) {
+        try {
+          const { error: pe } = await sb.from('product_private').upsert({ medicine_id: data.id, merchant_id: mid, data: { costs }, updated_at: new Date().toISOString() });
+          if (pe) throw pe;
+        } catch (e) { console.warn('product_private save failed', e); privateFailed = true; }
+      }
+      const saved = rowToProduct(data, { costs });
+      saved.privateFailed = privateFailed;
+      return saved;
     },
     // Pause (status Inactive -> hidden from customers, can't be ordered) / Resume (only for admin-approved products)
     setProductActive: async (id, active) => {
@@ -907,6 +1009,31 @@ console.log("marchent.js v15 loaded");
       if (error) { console.error(error); throw error; }
       if (!data || !data.length) throw appError('DENIED', 'This product could not be deleted.');
       productsCache = null;
+    },
+
+    /* ---- admin offers (campaigns): merchant joins with products → shown on the customer Deals page ---- */
+    getOpenCampaigns: async () => {
+      const { data, error } = await sb.rpc('merchant_open_campaigns');
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    },
+    getMyCampaignProducts: async () => {
+      const mid = await requireMerchantId();
+      const { data, error } = await sb.from('campaign_products').select('campaign_id,medicine_id,status').eq('merchant_id', mid);
+      if (error) throw error;
+      return data || [];
+    },
+    saveCampaignProducts: async (campaignId, add, remove) => {
+      const mid = await requireMerchantId();
+      if (add.length) {
+        const rows = add.map(id => ({ campaign_id: campaignId, medicine_id: Number(id), merchant_id: mid, status: 'approved' }));
+        const { error } = await sb.from('campaign_products').upsert(rows, { onConflict: 'campaign_id,medicine_id', ignoreDuplicates: true });
+        if (error) throw error;
+      }
+      if (remove.length) {
+        const { error } = await sb.from('campaign_products').delete().eq('campaign_id', campaignId).eq('merchant_id', mid).in('medicine_id', remove.map(Number));
+        if (error) throw error;
+      }
     },
 
     /* ---- promotions: discounts / flash sales / featured ---- */
@@ -1235,18 +1362,22 @@ console.log("marchent.js v15 loaded");
     { label: 'General Store / Daily Essentials', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: '', types: ['general'],
       hint: 'Daily essentials, tissue, detergent and general household products. Needs owner ID, shop address proof, bank details and trade licence (if applicable).' },
     { label: 'Personal Care & Hygiene', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: 'Additional permission for your product type (if applicable)', types: ['personal_care'],
-      hint: 'Soap, shampoo, handwash, toothpaste, toothbrush, sanitary pads and diapers. Needs KYC and shop proof. Some product types may need extra permission.' },
-    { label: 'Retail Pharmacy / Medical Store', drug: true, drugReq: true, fssai: false, pharmacist: true, invoice: false, extra: '', types: ['medicine'],
-      hint: 'Tablets, capsules, syrups, insulin and other approved medicines. Needs Drug Licence, pharmacist proof and KYC. You cannot sell medicines until the licence is verified.' },
+      hint: 'Toothpaste, toothbrush, soap, shampoo, hair oil, moisturizer and sanitary products. Needs KYC and shop proof. Some product types may need extra permission.' },
+    { label: 'Retail Pharmacy / Medical Store', drug: true, drugReq: true, fssai: false, pharmacist: true, invoice: false, extra: '', types: ['medicine', 'instrument', 'personal_care', 'baby_mother', 'nutrition', 'general', 'grocery'],
+      hint: 'Medicines plus medical devices, personal care, baby & mother care, medical nutrition, daily essentials and health food. Needs Drug Licence, pharmacist proof and KYC. You cannot sell medicines until the licence is verified.' },
     { label: 'Medical Consumables & Devices', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: true, extra: 'Approval for regulated medical device (if your product needs one)', types: ['instrument'],
       hint: 'Bandages, gauze, medical gloves, masks, thermometers, BP monitors and nebulizers. Needs KYC, product invoice and brand / manufacturer details.' },
-    { label: 'Wholesale / Distributor', drug: true, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: '', types: ['general', 'personal_care', 'instrument', 'medicine'],
+    { label: 'Wholesale / Distributor', drug: true, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: '', types: ['general', 'personal_care', 'baby_mother', 'nutrition', 'instrument', 'medicine'],
       hint: 'Approved General, Personal Care and Medical products, only the types you are permitted to supply. Needs KYC, business proof, bank details and GST / trade licence (if applicable). A Drug Licence is required only to distribute medicines.' },
-    { label: 'Grocery & Packaged Food', drug: false, drugReq: false, fssai: true, pharmacist: false, invoice: false, extra: '', types: ['grocery'],
-      hint: 'Biscuits, packaged food, oats and approved packaged drinks. Needs KYC, shop proof and FSSAI registration / licence.' }
+    { label: 'Health Food & Nutrition', drug: false, drugReq: false, fssai: true, pharmacist: false, invoice: false, extra: '', types: ['grocery'],
+      hint: 'Health-related food only: protein powder, health drinks, vitamins & supplements, diabetic food, nutrition bars. Ordinary grocery and snacks are not allowed. Needs KYC, shop proof and FSSAI registration / licence.' },
+    { label: 'Baby & Mother Care', drug: false, drugReq: false, fssai: false, pharmacist: false, invoice: false, extra: 'Additional permission for your product type (if applicable)', types: ['baby_mother'],
+      hint: 'Diapers, baby wipes, baby lotion, shampoo and soap, and maternity pads. Needs KYC and shop proof. Infant food and nutrition belong to Medical Nutrition & Supplements.' },
+    { label: 'Medical Nutrition & Supplements', drug: true, drugReq: false, fssai: true, pharmacist: false, invoice: false, extra: '', types: ['nutrition'],
+      hint: 'Health supplements, protein powders, vitamins, ORS, electrolytes, and medical, diabetic and infant nutrition. Needs KYC, shop proof and FSSAI registration / licence. Add a Drug Licence only if your products are legally classified as medicines. Ordinary grocery items are not allowed.' }
   ];
   const BUSINESS_PROOF_TYPES = ['Shop address proof', 'Shop Establishment Certificate', 'Shop photo with signboard', 'Rent agreement / property document', 'Utility bill of the shop'];
-  const LEGACY_CATEGORY = { 'Retail Pharmacy': 2, 'Medical Store': 2, 'Wholesale Pharmacy': 4, 'Health & Wellness': 3 };
+  const LEGACY_CATEGORY = { 'Grocery & Packaged Food': 5, 'Retail Pharmacy': 2, 'Medical Store': 2, 'Wholesale Pharmacy': 4, 'Health & Wellness': 3 };
   function catInfo(label) {
     const c = BUSINESS_CATEGORIES.find(x => x.label === label);
     if (c) return c;
@@ -1258,7 +1389,7 @@ console.log("marchent.js v15 loaded");
   /* Documents section: business proof for everyone; Drug Licence / pharmacist / FSSAI / invoice by category */
   function docsComplete(d) {
     const c = catInfo(d.category), docs = d.docs || {};
-    if (!d.category || !BUSINESS_CATEGORIES.some(x => x.label === d.category)) return false;
+    if (!d.category || !(BUSINESS_CATEGORIES.some(x => x.label === d.category) || d.category === 'Grocery & Packaged Food')) return false;
     if (!hasAll(docs.business, ['type', 'doc'])) return false;
     if (c.drugReq && !hasAll(d.license, ['number', 'expiry', 'doc'])) return false;
     if (c.drug && !c.drugReq && String((d.license || {}).number || '').trim() && !hasAll(d.license, ['expiry', 'doc'])) return false;
@@ -1818,7 +1949,10 @@ console.log("marchent.js v15 loaded");
   }
 
   /* Delivery-company chooser: MediFinder India's own riders OR a courier company */
-  const COURIERS = ['Shiprocket', 'Delhivery', 'Blue Dart', 'DTDC', 'Ecom Express', 'Xpressbees', 'India Post', 'Other'];
+  // Turn this to true ONLY after the NimbusPost account is live and the `courier` / `nimbus-warehouse` edge functions are deployed.
+  // While false, every non-rider order is dispatched manually (merchant picks a courier and types the AWB).
+  const COURIER_AUTO = false;
+  const COURIERS = ['NimbusPost', 'Shiprocket', 'Delhivery', 'Blue Dart', 'DTDC', 'Ecom Express', 'Xpressbees', 'India Post', 'Other'];
   function openDispatchSheet(order, onDone) {
     openSheet('Choose delivery', `
       <p class="cell-muted" style="font-size:13px;margin-bottom:12px">Order ${esc(order.code)} · who will deliver it?</p>
@@ -1848,11 +1982,11 @@ console.log("marchent.js v15 loaded");
           let name = form.courier.value;
           if (partner === 'courier' && name === 'Other') name = form.courierOther.value.trim();
           if (partner === 'courier' && !name) { showToast('Enter the courier company name', 'error'); return; }
-          const btn = form.querySelector('#dispatchGo'); btn.disabled = true;
+          const btn = form.querySelector('#dispatchGo'); BtnState.start(btn, 'Dispatching…');
           const trk = form.tracking.value.trim();
-          if (partner === 'courier' && trk && trk === order.code) { btn.disabled = false; showToast('That is the order ID, not a courier tracking/AWB number', 'error'); return; }
-          try { await DB.dispatchOrder(order, partner, name, trk); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder India riders'); onDone(); }
-          catch (err) { console.error(err); btn.disabled = false; showToast('Could not dispatch this order', 'error'); }
+          if (partner === 'courier' && trk && trk === order.code) { BtnState.reset(btn); showToast('That is the order ID, not a courier tracking/AWB number', 'error'); return; }
+          try { await DB.dispatchOrder(order, partner, name, trk); await BtnState.ok(btn, 'Dispatched'); sh.close(); showToast(partner === 'courier' ? 'Handed to courier' : 'Sent to MediFinder India riders'); onDone(); }
+          catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not dispatch this order', 'error'); }
         });
       }
     });
@@ -1870,9 +2004,9 @@ console.log("marchent.js v15 loaded");
         const form = sh.el.querySelector('#cancelForm');
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const btn = form.querySelector('#cancelGo'); btn.disabled = true;
-          try { await DB.cancelOrder(order, form.reason.value, form.note.value.trim()); sh.close(); showToast('Order rejected'); onDone(); }
-          catch (err) { console.error(err); btn.disabled = false; showToast('Could not update this order', 'error'); }
+          const btn = form.querySelector('#cancelGo'); BtnState.start(btn, 'Rejecting…');
+          try { await DB.cancelOrder(order, form.reason.value, form.note.value.trim()); await BtnState.ok(btn, 'Order Rejected'); sh.close(); showToast('Order rejected'); onDone(); }
+          catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not update this order', 'error'); }
         });
       }
     });
@@ -1887,9 +2021,10 @@ console.log("marchent.js v15 loaded");
       </form>`, {
       onOpen: (sh) => sh.el.querySelector('#courierForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const f = e.target;
-        try { await DB.updateCourier(order, f.cname.value.trim(), f.tracking.value.trim()); sh.close(); showToast('Tracking updated'); onDone(); }
-        catch (err) { console.error(err); showToast('Could not save', 'error'); }
+        const f = e.target, btn = submitBtn(e, f);
+        BtnState.start(btn);
+        try { await DB.updateCourier(order, f.cname.value.trim(), f.tracking.value.trim()); await BtnState.ok(btn); sh.close(); showToast('Tracking updated'); onDone(); }
+        catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save', 'error'); }
       })
     });
   }
@@ -1903,27 +2038,28 @@ console.log("marchent.js v15 loaded");
       const act = b.dataset.orderAction;
       const done = () => render();
       try {
-        if (act === 'accept') { b.disabled = true; await DB.acceptOrder(order); showToast('Order accepted'); done(); }
-        else if (act === 'delivered') { const ok = await confirmDialog('Mark as delivered?', 'The customer will be notified.'); if (ok) { await DB.markDelivered(order); showToast('Order delivered'); done(); } }
+        if (act === 'accept') { BtnState.start(b, 'Accepting…'); await DB.acceptOrder(order); await BtnState.ok(b, 'Order Accepted', 500); showToast('Order accepted'); done(); }
+        else if (act === 'delivered') { const ok = await confirmDialog('Mark as delivered?', 'The customer will be notified.'); if (ok) { BtnState.start(b, 'Updating…'); await DB.markDelivered(order); await BtnState.ok(b, 'Delivered', 500); showToast('Order delivered'); done(); } }
         else if (act === 'dispatch') {
           if (order.deliverySpeed && order.deliverySpeed !== 'manual') {
-            b.disabled = true;
+            BtnState.start(b, 'Dispatching…');
             const r = await DB.autoDispatch(order);
-            if (r.ok) { showToast('Sent to MediFinder India riders'); done(); }
-            else { b.disabled = false; showToast('Could not dispatch this order', 'error'); }
+            if (r.ok) { await BtnState.ok(b, 'Sent to Riders', 500); showToast('Sent to MediFinder India riders'); done(); }
+            else { BtnState.fail(b, 'Failed — Retry'); showToast('Could not dispatch this order', 'error'); }
           } else {
-            b.disabled = true;
+            if (!COURIER_AUTO) { openDispatchSheet(order, done); return; }
+            BtnState.start(b, 'Finding courier…');
             showToast('Finding the cheapest courier…');
             const r = await DB.autoDispatch(order);
-            if (r.ok) { showToast(`Booked with ${r.courier} (AWB ${r.awb})`); done(); }
-            else { b.disabled = false; const why = r.error && r.error.message ? String(r.error.message).slice(0, 140) : ''; showToast('Courier booking failed' + (why ? ': ' + why : '') + ' — choose delivery manually', 'error'); openDispatchSheet(order, done); }
+            if (r.ok) { await BtnState.ok(b, 'Courier Booked', 600); showToast(`Booked with ${r.courier} (AWB ${r.awb})`); done(); }
+            else { BtnState.fail(b, 'Booking Failed — Retry'); const why = r.error && r.error.message ? String(r.error.message).slice(0, 140) : ''; showToast('Courier booking failed' + (why ? ': ' + why : '') + ' — choose delivery manually', 'error'); openDispatchSheet(order, done); }
           }
         }
         else if (act === 'cancel') openCancelSheet(order, done);
         else if (act === 'courier') openCourierSheet(order, done);
         else if (act === 'receipt') openOrderReceipt(order);
-        else if (act === 'label') { b.disabled = true; showToast('Fetching courier label…'); try { await DB.downloadCourierLabel(order); showToast('Courier label downloaded'); } catch (e) { showToast('Courier label: ' + String(e.message || e).slice(0, 120), 'error'); } finally { b.disabled = false; } }
-      } catch (err) { console.error(err); b.disabled = false; showToast('Could not update this order', 'error'); }
+        else if (act === 'label') { BtnState.start(b, 'Fetching label…'); showToast('Fetching courier label…'); try { await DB.downloadCourierLabel(order); BtnState.ok(b, 'Label Downloaded'); showToast('Courier label downloaded'); } catch (e) { BtnState.fail(b, 'Failed — Retry'); showToast('Courier label: ' + String(e.message || e).slice(0, 120), 'error'); } }
+      } catch (err) { console.error(err); BtnState.fail(b, 'Failed — Retry'); showToast('Could not update this order', 'error'); }
     }));
   };
   async function renderOrdersOnly(focusId) {
@@ -2071,13 +2207,14 @@ console.log("marchent.js v15 loaded");
       if (d.lines.some(l => !(l.price > 0))) { showToast('A selected medicine has no price — fix it in Inventory', 'error'); return; }
       const ok = await confirmDialog('Create this order?', `${d.lines.length} medicine${d.lines.length === 1 ? '' : 's'} · ${money(d.lines.reduce((s, l) => s + l.price * l.qty, 0))}. The customer will be notified.`);
       if (!ok) return;
-      createBtn.disabled = true;
+      BtnState.start(createBtn, 'Creating order…');
       try {
         const res = await DB.createRxOrder(rx, d.lines, d.payment);
+        await BtnState.ok(createBtn, 'Order Created');
         state.rx.draft = null;
         showToast('Order created');
         navigate('orders', res.id);
-      } catch (err) { console.error(err); createBtn.disabled = false; showToast('Could not create the order. Please try again.', 'error'); }
+      } catch (err) { console.error(err); BtnState.fail(createBtn, 'Failed — Retry'); showToast('Could not create the order. Please try again.', 'error'); }
     });
     redrawLines();
     doSearch('');
@@ -2180,6 +2317,7 @@ console.log("marchent.js v15 loaded");
     if (p.status === 'draft') return '<span class="pill pill-gray">Draft</span>';
     if (p.status === 'pending') return '<span class="pill pill-amber">Pending approval</span>';
     if (p.status === 'rejected') return '<span class="pill pill-red">Rejected</span>';
+    if (p.status === 'restricted') return '<span class="pill pill-amber">Restricted</span>';
     return p.active ? '<span class="pill pill-green">Active</span>' : '<span class="pill pill-gray">Paused</span>';
   }
   function stockPill(p) {
@@ -2218,49 +2356,369 @@ console.log("marchent.js v15 loaded");
     AFTER.inventory();
   }
 
+  const HEALTH_FOOD = ['Protein Powder', 'Health Drinks', 'Vitamins & Supplements', 'Diabetic Food', 'Energy & Nutrition Bars'];
+  const isHealthFood = (d) => d.type === 'grocery';
   const PRODUCT_CATEGORIES = {
     medicine: ['Tablet', 'Capsule', 'Syrup', 'Insulin', 'Injection', 'Cream', 'Ointment', 'Gel', 'Drops', 'Powder', 'Sachet', 'Inhaler', 'Spray', 'Lotion', 'Soap', 'Other'],
     general: ['Tissue & Paper', 'Detergent & Laundry', 'Cleaning Supplies', 'Household Items', 'Other Daily Essentials'],
-    personal_care: ['Soap & Body Wash', 'Shampoo & Hair Care', 'Handwash', 'Toothpaste', 'Toothbrush & Oral Care', 'Sanitary Pads', 'Diapers', 'Other Personal Care'],
-    grocery: ['Biscuits', 'Packaged Food', 'Oats & Cereals', 'Packaged Drinks', 'Other Grocery'],
+    personal_care: ['Toothpaste', 'Toothbrush', 'Soap', 'Shampoo', 'Hair Oil', 'Moisturizer', 'Sanitary Products', 'Other'],
+    baby_mother: ['Diapers', 'Baby Wipes', 'Baby Lotion', 'Baby Shampoo', 'Baby Soap', 'Maternity Pads', 'Other'],
+    nutrition: ['Health Supplement', 'Protein Powder', 'Vitamin & Mineral Supplement', 'ORS', 'Electrolyte Powder', 'Medical Nutrition', 'Diabetic Nutrition', 'Infant Nutrition', 'Nutrition Drink', 'Other'],
+    grocery: ['Protein Powder', 'Health Drinks', 'Vitamins & Supplements', 'Diabetic Food', 'Energy & Nutrition Bars'],
     instrument: ['Bandage & Gauze', 'Medical Gloves', 'Mask', 'Diagnostic Equipment', 'BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Nebulizer', 'Weighing Scale', 'Stethoscope', 'Surgical Instrument', 'Walking Stick / Crutches', 'First Aid & Dressing', 'Syringe & Needle', 'Hearing Aid', 'Other Medical Equipment']
   };
   const PRODUCT_UNITS = {
-    medicine: ['Strip', 'Bottle', 'Tube', 'Box', 'Vial', 'Sachet', 'Pcs'],
-    instrument: ['Piece', 'Set', 'Pair', 'Box', 'Unit'],
-    general: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet'],
-    personal_care: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet'],
-    grocery: ['Pcs', 'Pack', 'Bottle', 'Box', 'Sachet']
+    medicine: ['Strip', 'Bottle', 'Tube', 'Box', 'Vial', 'Sachet', 'Pcs', 'Set', 'Combo'],
+    instrument: ['Piece', 'Pcs', 'Set', 'Pair', 'Box', 'Unit', 'Combo'],
+    general: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet', 'Set', 'Combo'],
+    personal_care: ['Pcs', 'Pack', 'Bottle', 'Box', 'Tube', 'Sachet', 'Set', 'Combo'],
+    baby_mother: ['Pack', 'Pcs', 'Box', 'Bottle', 'Tube', 'Sachet', 'Set', 'Combo'],
+    nutrition: ['Pack', 'Box', 'Bottle', 'Jar', 'Tin', 'Pouch', 'Sachet', 'Pcs', 'Set', 'Combo'],
+    grocery: ['Pcs', 'Pack', 'Bottle', 'Box', 'Sachet', 'Set', 'Combo']
   };
   const PRODUCT_TYPE_CARDS = {
-    medicine: { ico: 'pill', title: 'Medicines', sub: 'Tablets, capsules, syrups, insulin and other approved medicines' },
-    instrument: { ico: 'steth', title: 'Medical Supplies & Devices', sub: 'Bandages, gauze, gloves, masks, thermometers, BP monitors, nebulizers' },
+    medicine: { ico: 'pill', title: 'Medicines', sub: 'Prescription and OTC medicines — tablets, capsules, syrups, insulin' },
+    instrument: { ico: 'steth', title: 'Medical Devices & Instruments', sub: 'Bandages, gloves, masks, thermometers, BP monitors, nebulizers' },
+    personal_care: { ico: 'tag', title: 'Personal Care & Hygiene', sub: 'Toothpaste, soap, shampoo, hair oil, moisturizer, sanitary products' },
+    baby_mother: { ico: 'users', title: 'Baby & Mother Care', sub: 'Diapers, baby wipes, baby lotion, shampoo, soap, maternity pads' },
+    nutrition: { ico: 'box', title: 'Medical Nutrition & Supplements', sub: 'Supplements, protein, vitamins, ORS, electrolytes, medical nutrition' },
     general: { ico: 'store', title: 'Daily Essentials', sub: 'Tissue, detergent and general household products' },
-    personal_care: { ico: 'tag', title: 'Personal Care & Hygiene', sub: 'Soap, shampoo, handwash, toothpaste, toothbrush, sanitary pads, diapers' },
-    grocery: { ico: 'box', title: 'Grocery & Packaged Food', sub: 'Biscuits, packaged food, oats, approved packaged drinks' }
+    grocery: { ico: 'box', title: 'Health Food', sub: 'Protein powder, health drinks, vitamins & supplements, diabetic food, nutrition bars (health-related only)' }
   };
   const WARRANTY_OPTIONS = ['No Warranty', '3 Months', '6 Months', '1 Year', '2 Years', '5 Years'];
-  const PRODUCT_STEPS = [
-    { key: 'type', title: 'Product type', desc: 'What are you selling?' },
-    { key: 'basic', title: 'Basic information', desc: 'The name, brand and photos customers see first.' },
-    { key: 'details', title: 'Product details', desc: '' },
-    { key: 'price', title: 'Price & stock', desc: 'Set your MRP, selling price and how many units you have.' },
-    { key: 'safety', title: 'Safety information', desc: '' },
-    { key: 'review', title: 'Review & publish', desc: 'Check everything before it goes for approval.' }
-  ];
-  const IMAGE_SLOTS = ['Main photo', 'Side / back photo', 'Composition / detail photo', 'MRP / price photo'];
+  const GST_RATES = ['0', '5', '12', '18', '28'];
 
+  /* ---- wizard steps (some are skipped for some product types) ---- */
+  const ALL_STEPS = [
+    { key: 'type' }, { key: 'basic' }, { key: 'details', skip: ['medicine'] }, { key: 'batch' },
+    { key: 'price' }, { key: 'combo' }, { key: 'compliance', skip: ['general', 'grocery'] }, { key: 'images' }, { key: 'review' }
+  ];
+  const stepsFor = (type) => ALL_STEPS.filter(s => !(s.skip && s.skip.includes(type)));
+  const STEP_TEXT = {
+    type: { _: ['Product type', 'What are you selling?'] },
+    basic: {
+      _: ['Product information', 'The name, brand and details customers see first.'],
+      instrument: ['Device identification', 'Name, brand, model and intended use.'],
+      medicine: ['Product information', 'Medicine type, name, composition, strength and pack.']
+    },
+    details: {
+      _: ['Pack details', 'Pack size and weight.'],
+      instrument: ['Technical specifications', 'Only the fields that apply to this device type are shown.'],
+      personal_care: ['Product specifications', 'Quantity, ingredients and usage — match the label.'],
+      baby_mother: ['Product details', 'Fields change with the product type you chose.'],
+      nutrition: ['Pack & composition', 'Ingredients, nutrition, directions and warnings — match the label.']
+    },
+    batch: {
+      _: ['Batch & shelf life', 'Add each batch with its own expiry and quantity. Stock is the total of all batches.'],
+      medicine: ['Batch & expiry', 'Add each batch with its own expiry and quantity. Stock is the total of all batches.'],
+      instrument: ['Serial & batch', 'Serial, batch and expiry only where they apply to this device.'],
+      general: ['Batch & expiry', 'Batch, expiry and quantity. Stock is the total of all batches.'],
+      grocery: ['Batch & expiry', 'Batch, expiry and quantity. Stock is the total of all batches.']
+    },
+    price: { _: ['Pricing & inventory', 'MRP, selling price, unit of sale and stock alert.'] },
+    combo: { _: ['Combo pack (optional)', 'Selling two products together? Turn it on and fill each product’s own details.'] },
+    compliance: {
+      _: ['Compliance', 'Regulatory details. Admin reviews the product separately from your KYC.'],
+      medicine: ['Regulatory & compliance', 'Licence, classification and optional product information.'],
+      instrument: ['Warranty & compliance', 'Warranty, service and regulatory details.']
+    },
+    images: { _: ['Images & documents', 'Clear photos of the pack and label. Documents are optional.'] },
+    review: { _: ['Review & publish', 'Check everything before it goes for approval.'] }
+  };
+  function stepMeta(key, type) {
+    const t = STEP_TEXT[key] || { _: [key, ''] };
+    const v = t[type] || t._;
+    return { key, title: v[0], desc: v[1] };
+  }
+  const STEP_NOTES = {
+    'medicine.compliance': 'Prescription and OTC classification must follow verified product information and applicable law. Medicines go for review only after your Drug Licence is verified.',
+    'instrument.compliance': 'Warranty and replacement terms are shown clearly to customers. Licences and documents are verified by admin before sale.',
+    'personal_care.compliance': 'Ingredients, quantity, warnings and shelf life must match the actual label. Do not make unverified medical or therapeutic claims.',
+    'baby_mother.details': 'Size, weight range, ingredients and age suitability must match the manufacturer’s label. Infant food and nutrition belong in Medical Nutrition & Supplements.',
+    'baby_mother.compliance': 'Ingredients, age suitability and safety warnings must match the actual product. Do not make unverified medical claims.',
+    'grocery.basic': 'Only health-related food is allowed: protein powder, health drinks, vitamins & supplements, diabetic food and nutrition bars. Ordinary grocery, biscuits and snacks are not allowed.',
+    'nutrition.basic': 'Only medical-related nutrition and health supplements are allowed here. Ordinary grocery items (rice, lentils, cooking oil, snacks) are not allowed.',
+    'nutrition.compliance': 'Rules depend on how the product is classified — not every supplement is a medicine. Do not make unverified disease-treatment claims.',
+    'medicine.batch': 'Purchase price is visible only to you. Expired batches cannot be put on sale.'
+  };
+
+  const IMAGE_SLOTS_BY_TYPE = {
+    medicine: ['Front packaging', 'Back label', 'Composition / ingredient label', 'Other label / packaging'],
+    instrument: ['Front product image', 'Back / label image', 'Model / serial label image', 'Package contents image'],
+    personal_care: ['Front product image', 'Back label image', 'Ingredients label image', 'Packaging image'],
+    baby_mother: ['Front product image', 'Back label image', 'Ingredients / materials label', 'Packaging image'],
+    nutrition: ['Front pack image', 'Back label image', 'Ingredients / nutrition label', 'Batch / expiry label'],
+    _: ['Main photo', 'Side / back photo', 'Composition / detail photo', 'MRP / price photo']
+  };
+  const DOC_SLOTS_BY_TYPE = {
+    medicine: ['Applicable product document', 'Supporting document'],
+    instrument: ['User manual (PDF)', 'Warranty / regulatory document'],
+    personal_care: ['Regulatory / licence document', 'Other product document'],
+    baby_mother: ['Regulatory / licence document', 'Other product document'],
+    nutrition: ['Licence / supporting document', 'Other product document']
+  };
+
+  /* ---- field definitions (top:true → stored in a main product column; otherwise in the extra details) ---- */
+  const fT = (k, l, o) => ({ t: 'text', k, l, ...o });
+  const fS = (k, l, opts, o) => ({ t: 'select', k, l, opts, ...o });
+  const fN = (k, l, o) => ({ t: 'number', k, l, ...o });
+  const fA = (k, l, o) => ({ t: 'area', k, l, ...o });
+  const fRO = (l, v) => ({ t: 'ro', l, v });
+  const catIs = (...c) => (d) => c.includes(d.category);
+  const adminStatus = (d) => ({
+    draft: 'Not submitted yet — admin reviews it after you submit', pending: 'Pending admin review', approved: 'Approved by admin',
+    rejected: 'Rejected — update and submit again', restricted: 'Restricted by admin'
+  }[d.status] || 'Pending admin review');
+  const DEV_ELEC = ['BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Nebulizer', 'Weighing Scale', 'Diagnostic Equipment', 'Hearing Aid'];
+  const DEV_MEAS = ['BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Weighing Scale', 'Diagnostic Equipment'];
+  const inCat = (list) => (d) => !d.category || list.includes(d.category);
+  const notCat = (list) => (d) => !d.category || !list.includes(d.category);
+  const BABY_LOT = ['Baby Lotion', 'Baby Shampoo', 'Baby Soap'];
+  const babyOther = (d) => !d.category || d.category === 'Other';
+  const identityTail = [fT('country', 'Country of origin', { hint: '(where applicable)' }), fT('sku', 'Product code / SKU'), fT('barcode', 'Barcode / GTIN')];
+  const careBatchExtra = [
+    fA('storage', 'Storage instructions', { top: true }),
+    fT('shelfLife', 'Shelf life', { ph: 'e.g. 24 months', hint: '(where applicable)' })
+  ];
+  const careCompliance = [
+    fRO('Applicable product category', (d) => d.category || '—'),
+    fT('licenceReg', 'Licence / registration details', { hint: '(where required)' }),
+    fA('mfrDetails', 'Manufacturer / importer details'),
+    fA('labelInfo', 'Product label information'),
+    fRO('Admin verification status', adminStatus)
+  ];
+  const plainForm = {
+    basic: [
+      fT('name', 'Product name', { top: true, req: true }), fT('generic', 'Generic name', { top: true }),
+      fT('brand', 'Brand / Manufacturer', { top: true, req: true }), fS('category', 'Category', null, { top: true, req: true }),
+      fT('subCategory', 'Sub category', { top: true }), fA('description', 'Product description', { top: true, hint: '(optional)' })
+    ],
+    details: [
+      fT('packSize', 'Pack size', { top: true, ph: 'e.g. 500 ml / 6 pcs · Combo: 1 soap + 1 shampoo (2 pcs)' }),
+      fN('weight', 'Weight (kg)', { top: true, hint: '(optional)', step: '0.001' })
+    ],
+    batchExtra: [fA('storage', 'Storage / usage instructions', { top: true, hint: '(optional)' })]
+  };
+  const FORMS = {
+    medicine: {
+      basic: [
+        fS('medicineType', 'Medicine type', ['Prescription', 'OTC'], { req: true }),
+        fT('name', 'Medicine name', { top: true, req: true }),
+        fT('brand', 'Brand name', { top: true, req: true }),
+        fT('generic', 'Generic name', { top: true }),
+        fA('composition', 'Active ingredient / composition', { top: true, req: true }),
+        fT('strength', 'Strength', { top: true, ph: 'e.g. 500 mg' }),
+        fS('dosageForm', 'Dosage form', ['Tablet', 'Capsule', 'Syrup', 'Cream', 'Drops', 'Other'], { top: true }),
+        fT('packSize', 'Pack size', { top: true, ph: 'e.g. 10 tablets / 100 ml · Combo: 3 pcs' }),
+        fT('manufacturer', 'Manufacturer name', { req: true }),
+        fT('marketer', 'Marketer name'),
+        fS('category', 'Category', null, { top: true, req: true }),
+        fT('subCategory', 'Sub category', { top: true })
+      ],
+      batchExtra: [fA('storage', 'Storage instructions', { top: true, ph: 'e.g. Store below 25 °C, away from sunlight' })],
+      compliance: [
+        fRO('Drug licence reference', () => { const l = (state.merchant && state.merchant.license) || {}; return l.number ? `${l.number} · ${l.status || 'unverified'}` : 'Not added — add your Drug Licence in KYC'; }),
+        fS('licenceType', 'Applicable drug licence type', ['Retail drug licence', 'Wholesale drug licence', 'Restricted licence', 'Other']),
+        fRO('Prescription required', (d) => (d.rxRequired ? 'Yes (from the medicine type)' : 'No — OTC (from the medicine type)')),
+        fS('schedule', 'Schedule / regulatory classification', ['Not applicable', 'Schedule G', 'Schedule H', 'Schedule H1', 'Schedule X', 'Other']),
+        fS('pharmacist', 'Pharmacist verification', ['Not applicable', 'Verified by registered pharmacist']),
+        fT('barcode', 'Barcode / GTIN', { hint: '(optional)' }),
+        fT('mfrCode', 'Manufacturer product code', { hint: '(optional)' }),
+        fT('specialStorage', 'Special storage requirements', { hint: '(optional)' }),
+        fA('description', 'Product description', { top: true, hint: '(optional)' }),
+        fA('sideEffects', 'Side effects / warnings', { top: true, hint: '(optional)' })
+      ]
+    },
+    instrument: {
+      basic: [
+        fS('category', 'Device type', null, { top: true, req: true }),
+        fT('name', 'Product name', { top: true, req: true }),
+        fT('brand', 'Brand name', { top: true, req: true }),
+        fT('manufacturer', 'Manufacturer name', { req: true }),
+        fT('importer', 'Importer name', { hint: '(if applicable)' }),
+        fT('modelNumber', 'Model number', { top: true, req: true }),
+        fT('sku', 'Product code / SKU'),
+        fT('barcode', 'Barcode / GTIN'),
+        fT('country', 'Country of origin', { hint: '(where applicable)' }),
+        fA('intendedUse', 'Intended use', { req: true })
+      ],
+      details: [
+        fT('range', 'Measurement range', { top: true, show: inCat(DEV_MEAS) }),
+        fT('accuracy', 'Accuracy specification', { show: inCat(DEV_MEAS) }),
+        fS('powerSource', 'Power source', ['Battery', 'Rechargeable', 'Electric', 'Manual'], { show: inCat(DEV_ELEC) }),
+        fT('battery', 'Battery details', { top: true, ph: 'e.g. 2 × AAA', show: inCat(DEV_ELEC) }),
+        fS('connectivity', 'Connectivity', ['None', 'Bluetooth', 'USB', 'Wi-Fi'], { show: inCat(DEV_ELEC) }),
+        fT('display', 'Display', { top: true, ph: 'e.g. LCD / Digital', show: inCat(DEV_ELEC) }),
+        fT('dimensions', 'Dimensions', { ph: 'e.g. 12 × 8 × 4 cm' }),
+        fN('weight', 'Product weight (kg)', { top: true, step: '0.001' }),
+        fT('material', 'Material', { show: notCat(DEV_ELEC) }),
+        fT('color', 'Colour', { top: true }),
+        fT('accessories', 'Compatible accessories', { show: inCat(DEV_ELEC) }),
+        fA('packageContents', 'Package contents'),
+        fT('shortDesc', 'Short description'),
+        fA('description', 'Detailed description', { top: true }),
+        fA('keyFeatures', 'Key features'),
+        fA('techSpecs', 'Technical specifications'),
+        fA('usage', 'Usage instructions'),
+        fA('care', 'Storage instructions', { top: true, hint: '(where applicable)' })
+      ],
+      batchExtra: [],
+      compliance: [
+        fS('warranty', 'Warranty duration', WARRANTY_OPTIONS, { top: true }),
+        fT('warrantyProvider', 'Warranty provider', { req: (d) => !!d.warranty && d.warranty !== 'No Warranty' }),
+        fA('serviceCentre', 'Service centre details', { hint: '(if applicable)' }),
+        fS('installation', 'Installation required', ['No', 'Yes']),
+        fA('afterSales', 'After-sales support details'),
+        fA('replacementTerms', 'Replacement terms', { hint: '(shown to customers)' }),
+        fS('deviceClass', 'Medical device classification', ['Class A (low risk)', 'Class B (low-moderate risk)', 'Class C (moderate-high risk)', 'Class D (high risk)', 'Not classified / not applicable'], { req: true }),
+        fT('regNumber', 'Licence / registration details', { ph: 'e.g. CDSCO registration no.' }),
+        fT('regMarking', 'Regulatory marking / product label'),
+        fA('instructionsForUse', 'Instructions for use'),
+        fA('safetyWarnings', 'Safety warnings'),
+        fRO('Admin verification status', adminStatus)
+      ]
+    },
+    personal_care: {
+      basic: [
+        fS('category', 'Product type', null, { top: true, req: true }),
+        fT('name', 'Product name', { top: true, req: true }),
+        fT('brand', 'Brand name', { top: true, req: true }),
+        fT('variant', 'Product variant / fragrance'),
+        fT('manufacturer', 'Manufacturer name', { req: true }),
+        ...identityTail,
+        fA('description', 'Product description', { top: true })
+      ],
+      details: [
+        fN('netQty', 'Net quantity / weight / volume', { req: true, step: '0.01' }),
+        fS('netUnit', 'Unit', ['g', 'kg', 'ml', 'L', 'Piece', 'Pack'], { req: true }),
+        fT('packSize', 'Pack size', { top: true, ph: 'e.g. 100 g / 6 pcs · Combo: 1 soap + 1 shampoo (2 pcs)' }),
+        fT('skinType', 'Skin type / hair type', { hint: '(where applicable)' }),
+        fA('composition', 'Ingredients / composition', { top: true, hint: '(where applicable)' }),
+        fT('material', 'Material', { hint: '(where applicable)' }),
+        fA('intendedUse', 'Intended use'),
+        fA('usage', 'Usage instructions'),
+        fA('warnings', 'Safety warnings / allergen information', { hint: '(where applicable)' })
+      ],
+      batchExtra: careBatchExtra,
+      compliance: careCompliance
+    },
+    baby_mother: {
+      basic: [
+        fS('category', 'Product type', null, { top: true, req: true }),
+        fT('name', 'Product name', { top: true, req: true }),
+        fT('brand', 'Brand name', { top: true, req: true }),
+        fT('variant', 'Product variant'),
+        fT('manufacturer', 'Manufacturer name', { req: true }),
+        ...identityTail,
+        fA('description', 'Product description', { top: true })
+      ],
+      details: [
+        fS('diaperType', 'Diaper type', ['Tape', 'Pant'], { req: true, show: catIs('Diapers') }),
+        fS('size', 'Size', ['Newborn', 'S', 'M', 'L', 'XL', 'XXL', 'Other'], { req: true, show: catIs('Diapers', 'Maternity Pads') }),
+        fT('weightRange', 'Recommended weight range', { req: true, hint: '(as per label)', ph: 'e.g. 4–8 kg', show: catIs('Diapers') }),
+        fN('piecesPerPack', 'Pieces per pack', { req: true, show: catIs('Diapers', 'Maternity Pads') }),
+        fS('dayNight', 'Day / night use', ['Day', 'Night', 'Day & Night'], { show: catIs('Diapers') }),
+        fT('material', 'Material / skin contact information', { show: catIs('Diapers', 'Maternity Pads') }),
+        fN('wipesCount', 'Wipes count', { req: true, show: catIs('Baby Wipes') }),
+        fT('packSize', 'Pack size', { top: true, ph: 'e.g. 3 packs × 72 wipes', show: (d) => d.category === 'Baby Wipes' || babyOther(d) }),
+        fS('fragranceType', 'Fragrance', ['Fragrance-free', 'Fragranced'], { show: catIs('Baby Wipes') }),
+        fN('netQty', 'Net weight / volume', { req: true, step: '0.01', show: catIs(...BABY_LOT) }),
+        fS('netUnit', 'Unit', ['g', 'kg', 'ml', 'L'], { req: true, show: catIs(...BABY_LOT) }),
+        fA('composition', 'Ingredients', { top: true, show: (d) => !catIs('Diapers', 'Maternity Pads')(d) }),
+        fT('ageSuitability', 'Age suitability', { req: true, hint: '(as per label)', show: catIs(...BABY_LOT) }),
+        fT('skinType', 'Skin / hair type', { hint: '(where applicable)', show: catIs(...BABY_LOT) }),
+        fT('fragrance', 'Fragrance / variant', { show: catIs('Diapers', ...BABY_LOT) }),
+        fT('absorbency', 'Absorbency / specification', { hint: '(where applicable)', show: catIs('Maternity Pads') }),
+        fA('intendedUse', 'Intended use', { show: catIs('Baby Wipes', 'Maternity Pads') }),
+        fA('usage', 'Usage instructions', { show: (d) => !catIs('Diapers', 'Baby Wipes')(d) }),
+        fA('warnings', 'Safety warnings', { show: (d) => !catIs('Diapers', 'Maternity Pads')(d) })
+      ],
+      batchExtra: careBatchExtra,
+      compliance: careCompliance
+    },
+    nutrition: {
+      basic: [
+        fS('category', 'Product type', null, { top: true, req: true }),
+        fT('name', 'Product name', { top: true, req: true }),
+        fT('brand', 'Brand name', { top: true, req: true }),
+        fT('variant', 'Product variant / flavour'),
+        fT('manufacturer', 'Manufacturer name', { req: true }),
+        fT('marketer', 'Importer / marketer name'),
+        fT('country', 'Country of origin', { req: true }),
+        fT('sku', 'SKU / product code'),
+        fT('barcode', 'Barcode / GTIN'),
+        fA('description', 'Product description', { top: true })
+      ],
+      details: [
+        fS('dosageForm', 'Form', ['Powder', 'Tablet', 'Capsule', 'Syrup', 'Liquid', 'Sachet', 'Ready-to-Drink', 'Other'], { top: true, req: true }),
+        fT('packSize', 'Net quantity / pack size', { top: true, req: true, ph: 'e.g. 500 g / 30 tablets' }),
+        fN('weight', 'Net weight (kg)', { top: true, hint: '(optional)', step: '0.001' }),
+        fN('unitsPerPack', 'Units per pack'),
+        fA('composition', 'Ingredients / composition', { top: true, req: true }),
+        fA('nutritionInfo', 'Nutritional information (as per label)', { req: true }),
+        fA('allergens', 'Allergen information'),
+        fT('ageGroup', 'Recommended age group', { hint: '(as per label)' }),
+        fA('directions', 'Directions for use (as per label)', { req: true }),
+        fA('warnings', 'Safety warnings / contraindications (as per label)')
+      ],
+      batchExtra: [fA('storage', 'Storage instructions', { top: true })],
+      compliance: [
+        fS('regCategory', 'Regulatory category', ['Health supplement / nutraceutical (FSSAI)', 'Food for special medical purpose (FSSAI)', 'Infant / baby nutrition (FSSAI)', 'ORS / electrolyte (FSSAI)', 'Regulated as a drug (Drug licence)', 'Other'], { req: true }),
+        fT('fssai', 'FSSAI licence / registration number', { req: (d) => !/drug/i.test((d.x || {}).regCategory || ''), hint: '(for food / supplement products)' }),
+        fT('drugApproval', 'Drug licence / approval', { req: (d) => /drug/i.test((d.x || {}).regCategory || ''), hint: '(where legally required)' }),
+        fA('mfrDetails', 'Manufacturer / importer details'),
+        fRO('Admin verification status', adminStatus)
+      ]
+    },
+    general: plainForm,
+    grocery: {
+      ...plainForm,
+      details: [
+        fT('packSize', 'Pack size', { top: true, ph: 'e.g. 500 g / 6 pcs · Combo: 1 protein bar + 1 health drink (2 pcs)' }),
+        fN('weight', 'Net weight (kg)', { top: true, hint: '(optional)', step: '0.001' }),
+        fA('composition', 'Ingredients / composition', { top: true, req: isHealthFood }),
+        fA('nutritionInfo', 'Nutritional information (as per label)', { req: isHealthFood }),
+        fA('allergens', 'Allergen information'),
+        fS('vegType', 'Veg / Non-veg', ['Veg', 'Non-veg']),
+        fT('ageGroup', 'Recommended age group', { hint: '(as per label)', show: isHealthFood }),
+        fA('directions', 'Directions for use (as per label)', { req: isHealthFood, show: isHealthFood }),
+        fT('fssai', 'FSSAI licence / registration number', { req: isHealthFood, show: isHealthFood }),
+        fT('shelfLife', 'Shelf life', { ph: 'e.g. 12 months', hint: '(where applicable)' }),
+        fA('warnings', 'Safety warnings / precautions', { hint: '(where applicable)' })
+      ]
+    }
+  };
+  const formFields = (d, key) => {
+    const F = (FORMS[d.type] || {})[key] || [];
+    return F.map(f => (f.k === 'category' ? { ...f, opts: PRODUCT_CATEGORIES[d.type] || [] } : f));
+  };
+
+  /* ---- draft helpers ---- */
+  const expiryRequired = (d) => ['medicine', 'nutrition', 'grocery'].includes(d.type);
   function blankProduct() {
     return {
       id: null, type: '', name: '', generic: '', brand: '', category: '', subCategory: '', description: '',
-      images: ['', '', '', ''],
+      images: ['', '', '', ''], docs: [{ url: '', name: '' }, { url: '', name: '' }], x: {}, batches: [blankBatch()],
       unitType: '', dosageForm: '', strength: '', packSize: '',
       modelNumber: '', color: '', deviceType: '', display: '', battery: '', range: '',
       mrp: '', price: '', stock: '', minStock: 5,
       composition: '', rxRequired: false, batchNo: '', mfd: '', expiry: '', lotNo: '', storage: '',
       warranty: 'No Warranty', care: '',
+      gst: '', hsn: '', weight: '', sideEffects: '',
+      returnable: false, returnDays: '', exchangeable: false, exchangeDays: '',
+      isCombo: false, combo: [blankComboItem(), blankComboItem()],
       active: true, status: 'draft'
     };
+  }
+  function blankComboItem() { return { type: '', category: '', x: {} }; }
+  function syncFromBatches(d) {
+    const bs = (d.batches || []).filter(Boolean);
+    const filled = bs.filter(b => b.qty !== '' && b.qty != null);
+    d.stock = filled.length ? filled.reduce((s, b) => s + (Number(b.qty) || 0), 0) : '';
+    const live = bs.filter(b => Number(b.qty) > 0);
+    const pool = (live.length ? live : bs).filter(b => b.expiry).sort((a, b) => String(a.expiry).localeCompare(String(b.expiry)));
+    const first = pool[0] || bs[0] || {};
+    d.expiry = first.expiry || ''; d.mfd = first.mfd || ''; d.batchNo = first.batchNo || ''; d.lotNo = first.lotNo || '';
   }
   function productToDraft(p) {
     const d = { ...blankProduct(), ...p };
@@ -2273,6 +2731,13 @@ console.log("marchent.js v15 loaded");
     d.images = [0, 1, 2, 3].map(i => imgs[i] || '');
     d.warranty = p.warranty || 'No Warranty';
     d.minStock = p.minStock != null ? p.minStock : 5;
+    d.x = { ...(p.x || {}) };
+    if (d.type === 'medicine' && !d.x.medicineType) d.x.medicineType = d.rxRequired ? 'Prescription' : 'OTC';
+    d.batches = (p.batches && p.batches.length ? p.batches : [blankBatch()]).map(b => ({ ...blankBatch(), ...b }));
+    d.docs = [0, 1].map(i => ({ url: '', name: '', ...((p.docs && p.docs[i]) || {}) }));
+    d.isCombo = !!p.isCombo;
+    d.combo = [0, 1].map(i => { const it = (p.combo && p.combo[i]) || {}; return { type: it.type || '', category: it.category || '', x: { ...(it.x || {}) } }; });
+    syncFromBatches(d);
     return d;
   }
   const calcDiscount = (mrp, price) => {
@@ -2280,9 +2745,10 @@ console.log("marchent.js v15 loaded");
     return mrp > 0 && price >= 0 && price <= mrp ? Math.round((mrp - price) / mrp * 1000) / 10 : 0;
   };
   function draftToProduct(d, status) {
+    syncFromBatches(d);
     return {
       ...d, status,
-      manufacturer: d.brand,
+      manufacturer: (d.x && d.x.manufacturer) || d.brand,
       mrp: Number(d.mrp) || 0, price: Number(d.price) || 0,
       discount: calcDiscount(d.mrp, d.price),
       stock: Number(d.stock) || 0, minStock: Number(d.minStock) || 0,
@@ -2304,104 +2770,232 @@ console.log("marchent.js v15 loaded");
   };
   const pArea = (name, label, val, ph) => `<label class="field"><span>${label}</span><textarea name="${name}" rows="3"${ph ? ` placeholder="${esc(ph)}"` : ''}>${esc(val)}</textarea></label>`;
 
-  function productStepHtml(step, d, editing) {
+  const returnBlockHtml = (d) => `
+    <div class="field" style="margin-top:14px"><span>Return / replacement policy <span class="field-hint">(where permitted · optional)</span></span></div>
+    <div class="form-row two">
+      <label class="field checkbox-field"><input type="checkbox" name="returnable"${d.returnable ? ' checked' : ''}><span>Returnable / refund</span></label>
+      ${pField('returnDays', 'Return window (days)', d.returnDays, { type: 'number', attrs: 'min="1" max="30" step="1" inputmode="numeric"' })}
+    </div>
+    <div class="form-row two">
+      <label class="field checkbox-field"><input type="checkbox" name="exchangeable"${d.exchangeable ? ' checked' : ''}><span>Replaceable / exchangeable</span></label>
+      ${pField('exchangeDays', 'Replacement window (days)', d.exchangeDays, { type: 'number', attrs: 'min="1" max="30" step="1" inputmode="numeric"' })}
+    </div>`;
+
+  /* generic field renderer for the schema above */
+  const fieldVal = (d, f) => (f.top ? d[f.k] : (d.x || {})[f.k]);
+  const fieldReq = (d, f) => (typeof f.req === 'function' ? !!f.req(d) : !!f.req);
+  function fieldHtml(d, f) {
+    if (f.t === 'ro') return `<div class="calc-box"><span>${esc(f.l)}</span><b>${esc(f.v(d))}</b></div>`;
+    const req = fieldReq(d, f);
+    const name = f.top ? f.k : 'x.' + f.k;
+    const v = fieldVal(d, f);
+    const val = v == null ? '' : v;
+    const lab = esc(f.l) + (req ? '*' : '');
+    const hint = f.hint ? ` <span class="field-hint">${f.hint}</span>` : '';
+    if (f.t === 'select') return pSelect(name, lab + hint, f.opts || [], String(val), req);
+    if (f.t === 'area') return pArea(name, lab + hint, val, f.ph);
+    const attrs = f.t === 'number' ? `min="0" step="${f.step || '1'}" inputmode="decimal"` : '';
+    return pField(name, lab, val, { type: f.t === 'number' ? 'number' : 'text', req, hint: f.hint, ph: f.ph, attrs });
+  }
+  function renderFields(d, fields) {
+    let html = '', buf = [];
+    const flush = () => { if (buf.length) { html += buf.length === 2 ? `<div class="form-row two">${buf.join('')}</div>` : buf[0]; buf = []; } };
+    fields.forEach(f => {
+      if (f.show && !f.show(d)) return;
+      const h = fieldHtml(d, f);
+      if (f.t === 'area' || f.t === 'ro') { flush(); html += h; } else { buf.push(h); if (buf.length === 2) flush(); }
+    });
+    flush();
+    return html;
+  }
+  function missingRequired(d, key) {
+    const miss = [];
+    formFields(d, key === 'batch' ? 'batchExtra' : key).forEach(f => {
+      if (f.t === 'ro' || (f.show && !f.show(d)) || !fieldReq(d, f)) return;
+      const v = fieldVal(d, f);
+      if (v == null || String(v).trim() === '') miss.push(f.l);
+    });
+    return miss;
+  }
+
+  function batchHtml(d) {
+    const inst = d.type === 'instrument', reqExp = expiryRequired(d);
+    const cards = d.batches.map((b, i) => `
+      <div class="batch-card" style="border:1px solid rgba(128,128,128,.28);border-radius:12px;padding:12px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b>${inst ? 'Item / batch' : 'Batch'} ${i + 1}</b>
+          ${d.batches.length > 1 ? `<button type="button" class="btn btn-ghost btn-sm" data-del-batch="${i}">Remove</button>` : ''}
+        </div>
+        <div class="form-row two">
+          ${inst ? pField(`b${i}.serial`, 'Serial number', b.serial, { hint: '(where applicable)' }) : pField(`b${i}.lotNo`, 'Lot number', b.lotNo, { hint: '(optional)' })}
+          ${pField(`b${i}.batchNo`, 'Batch number', b.batchNo, { hint: '(optional)' })}
+        </div>
+        <div class="form-row two">
+          ${pField(`b${i}.mfd`, 'Manufacturing date', b.mfd, { type: 'date', hint: '(optional)' })}
+          ${pField(`b${i}.expiry`, reqExp ? 'Expiry / best before*' : 'Expiry / best before', b.expiry, { type: 'date', req: reqExp, hint: reqExp ? '' : '(if applicable)' })}
+        </div>
+        <div class="form-row two">
+          ${pField(`b${i}.qty`, 'Quantity in this batch*', b.qty, { type: 'number', req: true, attrs: 'min="0" step="1" inputmode="numeric"' })}
+          ${pField(`b${i}.cost`, 'Purchase price (₹)', b.cost, { type: 'number', hint: '(only you can see this)', attrs: 'min="0" step="0.01" inputmode="decimal"' })}
+        </div>
+      </div>`).join('');
+    return `${cards}<button type="button" class="btn btn-outline btn-sm" data-add-batch>${icon('plus')}<span>Add another batch</span></button>
+      <div class="calc-box" style="margin-top:12px"><span>Total stock (all batches)</span><b>${d.stock === '' ? '—' : esc(d.stock)}</b></div>`;
+  }
+  function priceHtml(d) {
+    return `
+      <div class="form-row two">
+        ${pField('mrp', 'MRP (₹)*', d.mrp, { type: 'number', req: true, attrs: 'min="0" step="0.01" inputmode="decimal"' })}
+        ${pField('price', 'Selling price (₹)*', d.price, { type: 'number', req: true, attrs: 'min="0" step="0.01" inputmode="decimal"' })}
+      </div>
+      <div class="calc-box" id="pwDiscount">${discountLabel(d.mrp, d.price)}</div>
+      <div class="form-row two">
+        <label class="field"><span>Stock quantity <span class="field-hint">(from your batches)</span></span><input type="number" value="${esc(d.stock)}" readonly tabindex="-1"></label>
+        ${pField('minStock', 'Low stock alert quantity', d.minStock, { type: 'number', attrs: 'min="0" step="1" inputmode="numeric"' })}
+      </div>
+      <div class="form-row two">
+        ${pSelect('unitType', 'Unit of sale', PRODUCT_UNITS[d.type] || PRODUCT_UNITS.general, d.unitType)}
+        ${pSelect('gst', 'GST rate (%)', GST_RATES, String(d.gst))}
+      </div>
+      ${pField('hsn', 'HSN code', d.hsn, { hint: '(optional)', attrs: 'maxlength="8" inputmode="numeric"' })}
+      ${returnBlockHtml(d)}`;
+  }
+
+  /* ---- combo pack: 2 products, each with the inputs of its own product type ---- */
+  const COMBO_SKIP = ['name', 'brand', 'category', 'subCategory', 'description', 'sku', 'barcode', 'country', 'marketer', 'importer', 'mfrCode'];
+  function comboFieldsFor(type) {
+    const F = FORMS[type] || {}, seen = {}, out = [];
+    [...(F.basic || []), ...(F.details || []), ...((F.compliance || []).filter(f => ['sideEffects', 'safetyWarnings'].includes(f.k)))].forEach(f => {
+      if (f.t === 'ro' || COMBO_SKIP.includes(f.k) || seen[f.k]) return;
+      seen[f.k] = 1; out.push(f);
+    });
+    return out;
+  }
+  const comboPd = (it) => ({ type: it.type, category: it.category, x: it.x || {}, name: (it.x || {}).name, brand: (it.x || {}).brand });
+  function comboFieldHtml(pd, f, i) {
+    const req = fieldReq(pd, f), name = `c${i}.${f.k}`;
+    const v = (pd.x || {})[f.k], val = v == null ? '' : v;
+    const lab = esc(f.l) + (req ? '*' : '');
+    const hint = f.hint ? ` <span class="field-hint">${f.hint}</span>` : '';
+    if (f.t === 'select') return pSelect(name, lab + hint, f.opts || [], String(val), req);
+    if (f.t === 'area') return pArea(name, lab + hint, val, f.ph);
+    const attrs = f.t === 'number' ? `min="0" step="${f.step || '1'}" inputmode="decimal"` : '';
+    return pField(name, lab, val, { type: f.t === 'number' ? 'number' : 'text', req, hint: f.hint, ph: f.ph, attrs });
+  }
+  function comboRowsHtml(pd, fields, i) {
+    let html = '', buf = [];
+    const flush = () => { if (buf.length) { html += buf.length === 2 ? `<div class="form-row two">${buf.join('')}</div>` : buf[0]; buf = []; } };
+    fields.forEach(f => {
+      if (f.show && !f.show(pd)) return;
+      const h = comboFieldHtml(pd, f, i);
+      if (f.t === 'area') { flush(); html += h; } else { buf.push(h); if (buf.length === 2) flush(); }
+    });
+    flush();
+    return html;
+  }
+  function comboItemHtml(d, it, i, allowed) {
+    const t = it.type, x = it.x || {}, pd = comboPd(it), fields = comboFieldsFor(t), reqExp = expiryRequired({ type: t });
+    const hasWeight = fields.some(f => f.k === 'weight') || t === 'medicine';
+    return `
+      <div class="batch-card" style="border:1px solid rgba(128,128,128,.28);border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="margin-bottom:8px"><b>Combo product ${i + 1}</b></div>
+        <div class="form-row two">
+          <label class="field"><span>Product type*</span>
+            <select name="c${i}.type" data-combo-type="${i}" required>${allowed.map(k => `<option value="${k}"${k === t ? ' selected' : ''}>${esc(PRODUCT_TYPE_CARDS[k].title)}</option>`).join('')}</select>
+          </label>
+          ${pSelect(`c${i}.category`, 'Category*', PRODUCT_CATEGORIES[t] || [], it.category, true)}
+        </div>
+        <div class="form-row two">
+          ${pField(`c${i}.name`, 'Product name*', x.name, { req: true })}
+          ${pField(`c${i}.brand`, 'Brand name*', x.brand, { req: true })}
+        </div>
+        ${comboRowsHtml(pd, fields, i)}
+        <div class="form-row two">
+          ${pField(`c${i}.mfd`, 'Manufacturing date', x.mfd, { type: 'date', hint: '(optional)' })}
+          ${pField(`c${i}.expiry`, reqExp ? 'Expiry / best before*' : 'Expiry / best before', x.expiry, { type: 'date', req: reqExp, hint: reqExp ? '' : '(if applicable)' })}
+        </div>
+        <div class="form-row two">
+          ${pField(`c${i}.qtyInCombo`, 'Quantity in combo*', x.qtyInCombo, { type: 'number', req: true, attrs: 'min="1" step="1" inputmode="numeric"' })}
+          ${hasWeight ? '' : pField(`c${i}.weight`, 'Weight (kg)', x.weight, { type: 'number', hint: '(optional)', attrs: 'min="0" step="0.001" inputmode="decimal"' })}
+        </div>
+      </div>`;
+  }
+  function comboStepHtml(d) {
+    const allowed = allowedProductTypes(state.merchant);
+    const on = !!d.isCombo;
+    let html = `<label class="field checkbox-field"><input type="checkbox" name="isCombo" id="pwCombo"${on ? ' checked' : ''}><span>This is a combo pack (2 products sold together)</span></label>`;
+    if (!on) return html + `<p class="cell-muted" style="font-size:12.5px;margin-top:10px">Optional. Skip this step if you are selling a single product. Turn it on to add each product’s own details (type, composition, expiry, weight, safety and more).</p>`;
+    if (!allowed.length) return html + `<p class="cell-muted">Choose your business category in KYC first.</p>`;
+    d.combo = [0, 1].map(i => (d.combo && d.combo[i]) || blankComboItem());
+    d.combo.forEach(it => { if (!it.type || !allowed.includes(it.type)) { it.type = allowed.includes(d.type) ? d.type : allowed[0]; it.category = ''; it.x = it.x || {}; } });
+    return html + `<p class="cell-muted" style="font-size:12.5px;margin:10px 0 12px">Fill in both products. The inputs change with each product’s type. Price, stock, images and return policy above apply to the whole combo.</p>`
+      + d.combo.map((it, i) => comboItemHtml(d, it, i, allowed)).join('');
+  }
+  function comboMissing(it) {
+    const x = it.x || {}, pd = comboPd(it), miss = [];
+    if (!it.type) miss.push('Product type');
+    if (!it.category) miss.push('Category');
+    if (!String(x.name || '').trim()) miss.push('Product name');
+    if (!String(x.brand || '').trim()) miss.push('Brand name');
+    if (!(Number(x.qtyInCombo) >= 1)) miss.push('Quantity in combo');
+    if (expiryRequired({ type: it.type }) && !x.expiry) miss.push('Expiry date');
+    comboFieldsFor(it.type).forEach(f => {
+      if ((f.show && !f.show(pd)) || !fieldReq(pd, f)) return;
+      const v = (pd.x || {})[f.k];
+      if (v == null || String(v).trim() === '') miss.push(f.l);
+    });
+    return miss;
+  }
+  function imageSlotHtml(i, label, src) {
+    return `<label class="img-slot${src ? ' filled' : ''}" data-slot="${i}">
+      <input type="file" accept="image/*" data-img-input="${i}">
+      ${src ? `<img src="${src}" alt="${esc(label)}"><span class="img-tag">${esc(label)}</span><button type="button" class="img-remove" data-img-remove="${i}" aria-label="Remove ${esc(label)}">${icon('close')}</button>`
+            : `${icon('camera')}<span>${esc(label)}${i === 0 ? '*' : ''}</span>`}
+    </label>`;
+  }
+  function docSlotHtml(i, label, doc) {
+    const has = doc && doc.url;
+    return `<label class="img-slot${has ? ' filled' : ''}" data-doc-slot="${i}" style="aspect-ratio:auto;min-height:76px;padding:10px;text-align:center">
+      <input type="file" accept="application/pdf,image/*" data-doc-input="${i}">
+      ${has ? `<span class="img-tag" style="position:static;display:block;word-break:break-all">${esc(doc.name || 'Document added')}</span><span class="cell-muted" style="font-size:11.5px">${esc(label)}</span><button type="button" class="img-remove" data-doc-remove="${i}" aria-label="Remove ${esc(label)}">${icon('close')}</button>`
+             : `${icon('plus')}<span>${esc(label)}</span>`}
+    </label>`;
+  }
+  function imagesHtml(d) {
+    const slots = IMAGE_SLOTS_BY_TYPE[d.type] || IMAGE_SLOTS_BY_TYPE._;
+    const docSlots = DOC_SLOTS_BY_TYPE[d.type] || [];
+    return `<div class="field" style="margin-bottom:6px"><span>Product images <span class="field-hint">(up to 4 · first photo required)</span></span></div>
+      <div class="img-grid">${slots.map((l, i) => imageSlotHtml(i, l, d.images[i])).join('')}</div>
+      ${docSlots.length ? `<div class="field" style="margin:16px 0 6px"><span>Documents <span class="field-hint">(optional · PDF or image · max 5 MB)</span></span></div>
+      <div class="img-grid">${docSlots.map((l, i) => docSlotHtml(i, l, d.docs[i] || {})).join('')}</div>` : ''}`;
+  }
+
+  function ensureType(d, editing) {
     const allowedTypes = allowedProductTypes(state.merchant);
     if (!d.type && allowedTypes.length === 1 && !editing) d.type = allowedTypes[0];
     if (d.type && !editing && allowedTypes.length && !allowedTypes.includes(d.type)) d.type = allowedTypes[0];
-    const isMed = d.type === 'medicine';
-    switch (PRODUCT_STEPS[step].key) {
+    return allowedTypes;
+  }
+  function productStepHtml(step, d, editing) {
+    const allowedTypes = ensureType(d, editing);
+    const steps = stepsFor(d.type);
+    const key = (steps[step] || steps[0]).key;
+    const note = STEP_NOTES[d.type + '.' + key];
+    const noteHtml = note ? `<p class="cell-muted" style="font-size:12.5px;margin-bottom:12px">${esc(note)}</p>` : '';
+    switch (key) {
       case 'type':
         if (!allowedTypes.length) return `<p class="cell-muted">Choose your business category in KYC first. Your account type decides which products you can list.</p><button type="button" class="btn btn-primary" data-route="kyc-wizard">Go to KYC</button>`;
         return `<p class="cell-muted" style="font-size:12.5px;margin-bottom:10px">Your account type (${esc(state.merchant.category)}) can list these products only.</p><div class="type-grid">${allowedTypes.map(t => `
           <button type="button" class="type-card${d.type === t ? ' sel' : ''}" data-ptype="${t}">
             <span class="type-card-ico">${icon(PRODUCT_TYPE_CARDS[t].ico)}</span><b>${PRODUCT_TYPE_CARDS[t].title}</b><span>${PRODUCT_TYPE_CARDS[t].sub}</span>
           </button>`).join('')}</div>`;
-      case 'basic':
-        return `
-          ${pField('name', 'Product name*', d.name, { req: true })}
-          <div class="form-row two">
-            ${pField('generic', 'Generic name', d.generic)}
-            ${pField('brand', 'Brand / Manufacturer*', d.brand, { req: true })}
-          </div>
-          <div class="form-row two">
-            ${pSelect('category', 'Category*', PRODUCT_CATEGORIES[d.type], d.category, true)}
-            ${pField('subCategory', 'Sub category', d.subCategory)}
-          </div>
-          ${pArea('description', 'Product description' + ' <span class="field-hint">(optional)</span>', d.description)}
-          <div class="field" style="margin-bottom:6px"><span>Product images <span class="field-hint">(up to 4 · main photo required)</span></span></div>
-          <div class="img-grid">${IMAGE_SLOTS.map((label, i) => imageSlotHtml(i, label, d.images[i])).join('')}</div>`;
-      case 'details':
-        return isMed ? `
-          <div class="form-row two">
-            ${pField('dosageForm', 'Dosage / Form', d.dosageForm, { ph: 'e.g. Film-coated tablet' })}
-            ${pField('strength', 'Strength', d.strength, { ph: 'e.g. 500 mg' })}
-          </div>
-          <div class="form-row two">
-            ${pField('packSize', 'Pack size', d.packSize, { ph: 'e.g. 10 tablets' })}
-            ${pSelect('unitType', 'Unit type', PRODUCT_UNITS.medicine, d.unitType)}
-          </div>` : d.type !== 'instrument' ? `
-          <div class="form-row two">
-            ${pField('packSize', 'Pack size', d.packSize, { ph: 'e.g. 500 ml / 6 pcs' })}
-            ${pSelect('unitType', 'Unit type', PRODUCT_UNITS[d.type] || PRODUCT_UNITS.general, d.unitType)}
-          </div>` : `
-          <div class="form-row two">
-            ${pField('modelNumber', 'Model number*', d.modelNumber, { req: true })}
-            ${pField('deviceType', 'Device type', d.deviceType)}
-          </div>
-          <div class="form-row two">
-            ${pField('color', 'Color', d.color)}
-            ${pField('display', 'Display', d.display, { ph: 'e.g. LCD / Digital' })}
-          </div>
-          <div class="form-row two">
-            ${pField('battery', 'Battery', d.battery, { ph: 'e.g. 2 × AAA' })}
-            ${pField('range', 'Measurement range', d.range)}
-          </div>
-          ${pSelect('unitType', 'Unit type', PRODUCT_UNITS.instrument, d.unitType)}`;
-      case 'price':
-        return `
-          <div class="form-row two">
-            ${pField('mrp', 'MRP (₹)*', d.mrp, { type: 'number', req: true, attrs: 'min="0" step="0.01" inputmode="decimal"' })}
-            ${pField('price', 'Selling price (₹)*', d.price, { type: 'number', req: true, attrs: 'min="0" step="0.01" inputmode="decimal"' })}
-          </div>
-          <div class="calc-box" id="pwDiscount">${discountLabel(d.mrp, d.price)}</div>
-          <div class="form-row two">
-            ${pField('stock', 'Stock quantity*', d.stock, { type: 'number', req: true, attrs: 'min="0" step="1" inputmode="numeric"' })}
-            ${pField('minStock', 'Minimum stock alert', d.minStock, { type: 'number', attrs: 'min="0" step="1" inputmode="numeric"' })}
-          </div>`;
-      case 'safety':
-        return isMed ? `
-          ${pField('composition', 'Composition / Salt', d.composition, { hint: '(optional)' })}
-          ${canSellRx(state.merchant) ? `<div class="field"><span>Prescription required?</span>
-            <div class="seg" role="radiogroup">
-              <label><input type="radio" name="rxRequired" value="yes"${d.rxRequired ? ' checked' : ''}><span>Yes</span></label>
-              <label><input type="radio" name="rxRequired" value="no"${d.rxRequired ? '' : ' checked'}><span>No</span></label>
-            </div>
-          </div>` : `<div class="field"><span>Prescription required?</span>
-            <div class="seg" role="radiogroup">
-              <label><input type="radio" name="rxRequired" value="no" checked><span>No — OTC only</span></label>
-            </div>
-            <span class="field-hint">Prescription medicines unlock after your Drug Licence is verified. Until then only OTC medicines can be listed.</span>
-          </div>`}
-          <div class="form-row two">
-            ${pField('batchNo', 'Batch number', d.batchNo, { hint: '(optional)' })}
-            ${pField('lotNo', 'Lot number', d.lotNo, { hint: '(optional)' })}
-          </div>
-          <div class="form-row two">
-            ${pField('mfd', 'MFD', d.mfd, { type: 'date', hint: '(optional)' })}
-            ${pField('expiry', 'Expiry*', d.expiry, { type: 'date', hint: '(needed to publish)' })}
-          </div>
-          ${pArea('storage', 'Storage instructions' + ' <span class="field-hint">(optional)</span>', d.storage, 'e.g. Store below 25 °C, away from sunlight')}` : d.type !== 'instrument' ? `
-          <div class="form-row two">
-            ${pField('batchNo', 'Batch number', d.batchNo, { hint: '(optional)' })}
-            ${pField('lotNo', 'Lot number', d.lotNo, { hint: '(optional)' })}
-          </div>
-          <div class="form-row two">
-            ${pField('mfd', 'MFD', d.mfd, { type: 'date', hint: '(optional)' })}
-            ${pField('expiry', 'Expiry' + (d.type === 'grocery' ? '*' : ''), d.expiry, { type: 'date', hint: d.type === 'grocery' ? '(needed to publish)' : '(if the product has one)' })}
-          </div>
-          ${pArea('storage', 'Storage / usage instructions' + ' <span class="field-hint">(optional)</span>', d.storage)}` : `
-          ${pSelect('warranty', 'Warranty period (optional)', WARRANTY_OPTIONS, d.warranty)}
-          ${pArea('care', 'Care / usage instructions' + ' <span class="field-hint">(optional)</span>', d.care)}`;
+      case 'basic': return noteHtml + renderFields(d, formFields(d, 'basic'));
+      case 'details': return noteHtml + renderFields(d, formFields(d, 'details'));
+      case 'batch': return noteHtml + batchHtml(d) + '<div style="margin-top:14px"></div>' + renderFields(d, formFields(d, 'batchExtra'));
+      case 'price': return priceHtml(d);
+      case 'combo': return comboStepHtml(d);
+      case 'compliance': return noteHtml + renderFields(d, formFields(d, 'compliance'));
+      case 'images': return imagesHtml(d);
       case 'review': return productReviewHtml(d, editing);
     }
     return '';
@@ -2412,37 +3006,57 @@ console.log("marchent.js v15 loaded");
     const pct = calcDiscount(mrp, price);
     return `<span>Discount (auto-calculated)</span><b>${pct}% off · customers save ${rupee(Number(mrp) - Number(price))}</b>`;
   }
-  function imageSlotHtml(i, label, src) {
-    return `<label class="img-slot${src ? ' filled' : ''}" data-slot="${i}">
-      <input type="file" accept="image/*" data-img-input="${i}">
-      ${src ? `<img src="${src}" alt="${esc(label)}"><span class="img-tag">${esc(label)}</span><button type="button" class="img-remove" data-img-remove="${i}" aria-label="Remove ${esc(label)}">${icon('close')}</button>`
-            : `${icon('camera')}<span>${esc(label)}${i === 0 ? '*' : ''}</span>`}
-    </label>`;
-  }
 
-  function productChecks(d) {
+  const CLAIM_RE = /\b(cures?|cured|curing|miracle|guaranteed (?:cure|result)s?|heals?)\b|\b(?:treats?|prevents?|reverses?)\s+(?:cancer|diabetes|covid|hiv|aids|arthritis|asthma|hypertension|heart disease)/i;
+  const GROCERY_RE = /\b(basmati|rice|lentils?|dal|atta|flour|cooking oil|mustard oil|sunflower oil|namkeen|chips|snacks?|biscuits?|cookies?|cakes?|noodles|maggi|chocolates?|candy|candies|soft drinks?|cola|pickles?|masala|spices?|sugar|salt|tea|coffee|ghee|jaggery)\b/i;
+  const HEALTH_PHRASE_RE = /sugar[\s-]*free|no added sugar|low sodium|salt substitute|diabetic|green tea extract/gi;
+  const NUTRITION_OK_RE = /protein|supplement|nutrition|vitamin|mineral|\bors\b|electrolyte|diabet|formula|infant|medical|health|whey|collagen|probiotic|omega|calcium|iron|zinc/i;
+
+  function productChecks(d, approvedEdit) {
     const priceOk = d.mrp !== '' && d.price !== '' && Number(d.price) > 0 && Number(d.price) <= Number(d.mrp);
-    return [
-      { label: 'Product information', ok: !!(d.name.trim() && d.brand.trim()), step: 1 },
-      { label: 'Category', ok: !!d.category, step: 1 },
-      { label: 'Price', ok: priceOk, step: 3 },
-      { label: 'Stock', ok: d.stock !== '' && Number(d.stock) >= 0, step: 3 },
-      { label: 'Images (main photo)', ok: !!d.images[0], step: 1 },
-      d.type === 'medicine'
-        ? { label: 'Medicine details (valid expiry date)', ok: !!d.expiry && d.expiry >= todayISO(), step: 4 }
-        : d.type === 'instrument'
-          ? { label: 'Item details (model number)', ok: !!d.modelNumber.trim(), step: 2 }
-          : d.type === 'grocery'
-            ? { label: 'Grocery details (valid expiry date)', ok: !!d.expiry && d.expiry >= todayISO(), step: 4 }
-            : { label: 'Product type', ok: !!d.type, step: 0 }
-    ];
+    const out = [{ label: 'Product information', ok: !!(String(d.name).trim() && String(d.brand).trim() && d.category), step: 'basic' }];
+    ['basic', 'details', 'compliance'].forEach(k => {
+      if (!stepsFor(d.type).some(s => s.key === k)) return;
+      const m = missingRequired(d, k);
+      if (m.length) out.push({ label: `${stepMeta(k, d.type).title}: ${m.slice(0, 2).join(', ')}${m.length > 2 ? ` +${m.length - 2} more` : ''}`, ok: false, step: k });
+    });
+    out.push({ label: 'Price', ok: priceOk, step: 'price' });
+    const bs = d.batches || [];
+    out.push({ label: 'Stock (quantity in every batch)', ok: bs.length > 0 && bs.every(b => b.qty !== '' && b.qty != null && Number(b.qty) >= 0), step: 'batch' });
+    if (expiryRequired(d)) out.push({ label: 'Expiry date on every batch', ok: bs.length > 0 && bs.every(b => !!b.expiry), step: 'batch' });
+    out.push({ label: 'No expired stock for sale', ok: !bs.some(b => Number(b.qty) > 0 && b.expiry && b.expiry < todayISO()), step: 'batch' });
+    if (d.isCombo) {
+      (d.combo || []).slice(0, 2).forEach((it, i) => {
+        const m = comboMissing(it);
+        out.push({ label: m.length ? `Combo product ${i + 1}: ${m.slice(0, 2).join(', ')}${m.length > 2 ? ` +${m.length - 2} more` : ''}` : `Combo product ${i + 1} details`, ok: !m.length, step: 'combo' });
+      });
+      out.push({ label: 'Combo has no prescription medicine', ok: !(d.combo || []).some(it => it.type === 'medicine' && (it.x || {}).medicineType === 'Prescription'), step: 'combo' });
+      out.push({ label: 'No expired product in combo', ok: !(d.combo || []).some(it => (it.x || {}).expiry && it.x.expiry < todayISO()), step: 'combo' });
+    }
+    out.push({ label: 'Images (main photo)', ok: !!d.images[0], step: 'images' });
+    if (d.type === 'medicine' && !approvedEdit) out.push({ label: 'Drug licence verified (KYC)', ok: canSellRx(state.merchant), step: 'compliance' });
+    if (['personal_care', 'baby_mother', 'nutrition', 'grocery'].includes(d.type)) {
+      const x = d.x || {};
+      const txt = [d.name, d.description, x.usage, x.intendedUse, x.directions, x.warnings].filter(Boolean).join(' ');
+      out.push({ label: 'No unverified medical claims', ok: !CLAIM_RE.test(txt), step: 'basic' });
+    }
+    if (d.type === 'grocery') {
+      const t = [d.name, d.category, d.subCategory].filter(Boolean).join(' ').replace(HEALTH_PHRASE_RE, ' ');
+      out.push({ label: 'Health-related food only (no ordinary grocery or snacks)', ok: !GROCERY_RE.test(t), step: 'basic' });
+    }
+    if (d.type === 'nutrition') {
+      const t = [d.name, d.category, d.subCategory].filter(Boolean).join(' ');
+      out.push({ label: 'Medical nutrition only (no ordinary grocery)', ok: !(GROCERY_RE.test(t) && !NUTRITION_OK_RE.test(t)), step: 'basic' });
+    }
+    return out;
   }
 
   function productReviewHtml(d, editing) {
-    const checks = productChecks(d);
+    const goLive = editing && d.status === 'approved';
+    const checks = productChecks(d, goLive);
     const unit = d.unitType ? ' ' + esc(d.unitType) : '';
     const disc = calcDiscount(d.mrp, d.price);
-    const goLive = editing && d.status === 'approved';
+    const exp = (d.batches || []).filter(b => b.expiry).map(b => b.expiry).sort()[0];
     return `
       <div class="pv-card">
         <div class="pv-img">${d.images[0] ? `<img src="${d.images[0]}" alt="">` : icon('box')}</div>
@@ -2452,41 +3066,41 @@ console.log("marchent.js v15 loaded");
           <div class="pv-tags">
             <span class="pill pill-gray">${esc(d.category) || 'No category'}</span>
             <span class="pill pill-teal">${esc((PRODUCT_TYPE_CARDS[d.type] || PRODUCT_TYPE_CARDS.medicine).title)}</span>
-            ${d.type === 'medicine' ? (d.rxRequired ? '<span class="pill pill-red">Prescription required</span>' : '<span class="pill pill-gray">No prescription</span>') : ''}
+            ${d.type === 'medicine' ? (d.rxRequired ? '<span class="pill pill-red">Prescription required</span>' : '<span class="pill pill-gray">OTC</span>') : ''}
           </div>
           <div class="pv-price"><b>${d.price !== '' ? rupee(d.price) : '—'}</b>${d.mrp !== '' && disc > 0 ? ` <s>${rupee(d.mrp)}</s> <span class="pill pill-green">${disc}% off</span>` : (d.mrp !== '' ? ` <span class="cell-muted">MRP ${rupee(d.mrp)}</span>` : '')}</div>
-          <div class="pv-stock">Stock: <b>${d.stock !== '' ? esc(d.stock) + unit : '—'}</b></div>
+          <div class="pv-stock">Stock: <b>${d.stock !== '' ? esc(d.stock) + unit : '—'}</b> · ${(d.batches || []).length} batch${(d.batches || []).length === 1 ? '' : 'es'}${exp ? ` · earliest expiry ${esc(exp)}` : ''}</div>
+          ${d.isCombo ? `<div class="pv-stock">Combo: <b>${(d.combo || []).slice(0, 2).map(it => esc((it.x || {}).name || '—') + ' × ' + esc((it.x || {}).qtyInCombo || 1)).join(' + ')}</b></div>` : ''}
         </div>
       </div>
       <div class="pv-checks">
         ${checks.map(c => `<div class="pv-check ${c.ok ? 'ok' : 'bad'}">
-          <span class="pv-check-ico">${icon(c.ok ? 'check' : 'close')}</span><span>${c.label}</span>
+          <span class="pv-check-ico">${icon(c.ok ? 'check' : 'close')}</span><span>${esc(c.label)}</span>
           ${c.ok ? '' : `<button type="button" class="pv-fix" data-goto-step="${c.step}">Fix</button>`}
         </div>`).join('')}
       </div>
       ${editing ? `<label class="field checkbox-field" style="margin-top:14px"><input type="checkbox" id="pwActive"${d.active ? ' checked' : ''}><span>Active (visible to customers)</span></label>` : ''}
       <p class="pv-note">${goLive ? 'Changes to an approved product apply straight away.'
-        : 'After you publish, the product is validated and shows as <b>Pending approval</b> in Inventory. Once approved it goes live in the store. Drafts stay private.'}</p>`;
+        : 'After you publish, the product goes for admin review and shows as <b>Pending approval</b> in Inventory. Product approval is separate from your KYC approval. Once approved it goes live. Drafts stay private.'}</p>`;
   }
 
   function renderProductPage() {
     const P = state.product;
     if (P.done) return renderProductDone();
     const step = P.step, d = P.draft, editing = !!P.editingId;
-    const s = PRODUCT_STEPS[step];
-    const desc = s.key === 'details' ? (d.type === 'medicine' ? 'Form, strength and pack information.' : d.type === 'instrument' ? 'Model and technical specifications.' : 'Pack size and unit.')
-      : s.key === 'safety' ? (d.type === 'medicine' ? 'All optional except the expiry date. Add batch, MFD and notes if you have them.' : d.type === 'instrument' ? 'Warranty and care notes are optional.' : 'Batch, MFD and notes are optional.')
-      : s.desc;
-    const last = step === PRODUCT_STEPS.length - 1;
+    ensureType(d, editing);
+    const steps = stepsFor(d.type);
+    const s = stepMeta((steps[step] || steps[0]).key, d.type);
+    const last = step === steps.length - 1;
     const firstStep = editing ? 1 : 0;
     const approvedEdit = editing && d.status === 'approved';
     return `
     <button class="detail-back" id="pwExit">${icon('chevronL')}<span>Inventory</span></button>
     <div class="page-head"><div><h1>${editing ? 'Edit product' : 'Add product'}</h1>
-      <p class="page-sub">Step ${step + 1} of ${PRODUCT_STEPS.length} · ${s.title}</p></div></div>
-    <div class="wizard-head pw-head"><div class="wizard-steps">${PRODUCT_STEPS.map((x, i) => `<div class="wizard-step-dot${i < step ? ' done' : i === step ? ' current' : ''}" title="${x.title}"></div>`).join('')}</div></div>
+      <p class="page-sub">Step ${step + 1} of ${steps.length} · ${s.title}</p></div></div>
+    <div class="wizard-head pw-head"><div class="wizard-steps">${steps.map((x, i) => `<div class="wizard-step-dot${i < step ? ' done' : i === step ? ' current' : ''}" title="${stepMeta(x.key, d.type).title}"></div>`).join('')}</div></div>
     <div class="card pw-card" id="pwBody">
-      <h2>${s.title}</h2><p class="wizard-desc">${desc}</p>
+      <h2>${s.title}</h2><p class="wizard-desc">${s.desc}</p>
       ${editing && step === 1 ? `<p class="pw-lock">${icon('lock')}<span>${esc((PRODUCT_TYPE_CARDS[d.type] || PRODUCT_TYPE_CARDS.medicine).title)} · product type can’t be changed after creation</span></p>` : ''}
       <form id="pwForm" novalidate>${productStepHtml(step, d, editing)}</form>
     </div>
@@ -2496,8 +3110,8 @@ console.log("marchent.js v15 loaded");
         ${last ? (approvedEdit
           ? `<button class="btn btn-primary" id="pwSubmit" data-mode="update">Save changes</button>`
           : `<button class="btn btn-outline" id="pwDraft" data-mode="draft">Save as draft</button>
-             <button class="btn btn-primary" id="pwSubmit" data-mode="publish"${productChecks(d).some(c => !c.ok) ? ' disabled' : ''}>Publish product</button>`)
-          : `<button class="btn btn-primary" id="pwNext">Continue</button>`}
+             <button class="btn btn-primary" id="pwSubmit" data-mode="publish"${productChecks(d, false).some(c => !c.ok) ? ' disabled' : ''}>Publish product</button>`)
+          : `${step >= 1 && !approvedEdit ? `<button class="btn btn-outline" id="pwDraft" data-mode="draft">Save draft</button>` : ''}<button class="btn btn-primary" id="pwNext">Continue</button>`}
       </div>
     </div>`;
   }
@@ -2523,19 +3137,54 @@ console.log("marchent.js v15 loaded");
     const form = document.getElementById('pwForm');
     if (!form) return;
     const d = state.product.draft;
-    new FormData(form).forEach((v, k) => { if (k in d && k !== 'images' && k !== 'rxRequired') d[k] = v; });
-    if (form.elements.rxRequired) d.rxRequired = form.elements.rxRequired.value === 'yes';
+    const bmap = {}, cmap = {};
+    d.x = d.x || {};
+    new FormData(form).forEach((v, k) => {
+      let m;
+      if (k.startsWith('x.')) d.x[k.slice(2)] = v;
+      else if ((m = /^b(\d+)\.(\w+)$/.exec(k))) (bmap[m[1]] = bmap[m[1]] || {})[m[2]] = v;
+      else if ((m = /^c(\d+)\.(\w+)$/.exec(k))) (cmap[m[1]] = cmap[m[1]] || {})[m[2]] = v;
+      else if (k in d && k !== 'images' && k !== 'docs' && k !== 'batches' && k !== 'x' && k !== 'rxRequired' && k !== 'returnable' && k !== 'exchangeable' && k !== 'isCombo' && k !== 'combo') d[k] = v;
+    });
+    if (form.elements.isCombo) d.isCombo = form.elements.isCombo.checked;
+    Object.keys(cmap).forEach(i => {
+      const it = (d.combo || [])[Number(i)]; if (!it) return;
+      it.x = it.x || {};
+      Object.keys(cmap[i]).forEach(k => { if (k === 'type') it.type = cmap[i][k]; else if (k === 'category') it.category = cmap[i][k]; else it.x[k] = cmap[i][k]; });
+    });
+    if (form.elements.returnable) d.returnable = form.elements.returnable.checked;
+    if (form.elements.exchangeable) d.exchangeable = form.elements.exchangeable.checked;
+    const idx = Object.keys(bmap).map(Number).sort((a, b) => a - b);
+    if (idx.length) d.batches = idx.map(i => ({ ...blankBatch(), ...(d.batches[i] || {}), ...bmap[i] }));
+    if (d.type === 'medicine' && d.x.medicineType) d.rxRequired = d.x.medicineType === 'Prescription';
+    syncFromBatches(d);
   }
   function validateProductStep() {
-    const P = state.product, key = PRODUCT_STEPS[P.step].key;
+    const P = state.product, d0 = P.draft;
+    const key = stepsFor(d0.type)[P.step].key;
     const form = document.getElementById('pwForm');
     if (form && !form.reportValidity()) return false;
     collectProductStep();
     const d = P.draft;
-    if (key === 'type' && !d.type) { showToast('Choose Medicine or Medical Instrument', 'error'); return false; }
-    if (key === 'basic' && !d.images[0]) { showToast('Add a main photo to continue', 'error'); return false; }
+    if (key === 'type' && !d.type) { showToast('Choose a product type', 'error'); return false; }
+    if (key === 'basic' && d.type === 'medicine' && d.rxRequired && !canSellRx(state.merchant)) { showToast('Prescription medicines unlock after your Drug Licence is verified', 'error'); return false; }
+    if (key === 'batch') {
+      const bad = d.batches.find(b => b.mfd && b.expiry && b.expiry <= b.mfd);
+      if (bad) { showToast('Expiry must be after the manufacturing date', 'error'); return false; }
+    }
     if (key === 'price' && Number(d.price) > Number(d.mrp)) { showToast('Selling price can’t be higher than MRP', 'error'); return false; }
-    if (key === 'safety' && d.mfd && d.expiry && d.expiry <= d.mfd) { showToast('Expiry must be after the manufacturing date', 'error'); return false; }
+    if (key === 'price' && d.returnable && !(Number(d.returnDays) >= 1)) { showToast('Enter the return window in days', 'error'); return false; }
+    if (key === 'price' && d.exchangeable && !(Number(d.exchangeDays) >= 1)) { showToast('Enter the replacement window in days', 'error'); return false; }
+    if (key === 'combo' && d.isCombo) {
+      for (let i = 0; i < 2; i++) {
+        const it = d.combo[i], m = comboMissing(it), x = it.x || {};
+        if (m.length) { showToast(`Combo product ${i + 1}: fill ${m[0]}`, 'error'); return false; }
+        if (it.type === 'medicine' && x.medicineType === 'Prescription') { showToast('A combo cannot include a prescription medicine', 'error'); return false; }
+        if (x.mfd && x.expiry && x.expiry <= x.mfd) { showToast(`Combo product ${i + 1}: expiry must be after the manufacturing date`, 'error'); return false; }
+        if (x.expiry && x.expiry < todayISO()) { showToast(`Combo product ${i + 1} is expired`, 'error'); return false; }
+      }
+    }
+    if (key === 'images' && !d.images[0]) { showToast('Add a main photo to continue', 'error'); return false; }
     return true;
   }
   function rerenderProduct(keepScroll) {
@@ -2556,7 +3205,7 @@ console.log("marchent.js v15 loaded");
   async function exitProduct() {
     const P = state.product;
     if (P.dirty && !P.done) {
-      const ok = await confirmDialog('Discard this product?', 'Anything you entered on this page will be lost. Use “Save as draft” on the last step to keep it.');
+      const ok = await confirmDialog('Discard this product?', 'Anything you entered on this page will be lost. Use “Save draft” to keep it.');
       if (!ok) return;
     }
     navigate('inventory');
@@ -2565,20 +3214,25 @@ console.log("marchent.js v15 loaded");
     const P = state.product, d = P.draft;
     collectProductStep();
     if (mode === 'draft' && !d.name.trim()) { showToast('Enter a product name to save a draft', 'error'); return; }
-    if (mode !== 'draft' && productChecks(d).some(c => !c.ok)) { showToast('Complete the highlighted items first', 'error'); return; }
+    if (mode !== 'draft' && productChecks(d, !!P.editingId && d.status === 'approved').some(c => !c.ok)) { showToast('Complete the highlighted items first', 'error'); return; }
     const status = mode === 'draft' ? 'draft' : mode === 'publish' ? 'pending' : d.status;
     const btns = document.querySelectorAll('#pwActions .btn');
+    const main = document.getElementById(mode === 'draft' ? 'pwDraft' : 'pwSubmit');
     btns.forEach(b => b.disabled = true);
+    BtnState.start(main, mode === 'draft' ? 'Saving draft…' : mode === 'publish' ? 'Submitting…' : 'Saving…');
     try {
-      await DB.saveProduct(draftToProduct(d, status));
+      const saved = await DB.saveProduct(draftToProduct(d, status));
+      await BtnState.ok(main, mode === 'publish' ? 'Submitted Successfully' : mode === 'draft' ? 'Draft Saved' : 'Saved Successfully');
       P.done = { mode, name: d.name, editing: !!P.editingId };
       P.dirty = false;
       rerenderProduct();
+      if (saved && saved.privateFailed) showToast('Saved, but purchase prices could not be stored', 'error');
     } catch (err) {
       console.error('PRODUCT SAVE ERROR:', err && err.message, err && err.details, err && err.hint, err && err.code, err);
       const why = err && err.message ? String(err.message).slice(0, 140) : '';
       showToast('Could not save the product' + (why ? ': ' + why : '. Please try again.'), 'error');
       btns.forEach(b => b.disabled = false);
+      BtnState.fail(main, mode === 'draft' ? 'Save Failed — Retry' : mode === 'publish' ? 'Submit Failed — Retry' : 'Save Failed — Retry');
     }
   }
 
@@ -2609,12 +3263,54 @@ console.log("marchent.js v15 loaded");
     // product type cards
     document.querySelectorAll('[data-ptype]').forEach(b => b.addEventListener('click', () => {
       const t = b.dataset.ptype;
-      if (P.draft.type !== t) { P.draft.type = t; P.draft.category = ''; P.draft.unitType = ''; P.dirty = true; }
+      if (P.draft.type !== t) {
+        P.draft.type = t; P.draft.category = ''; P.draft.unitType = ''; P.draft.x = {}; P.draft.batches = [blankBatch()]; P.draft.stock = ''; P.dirty = true;
+        if (t === 'nutrition' || t === 'grocery') { const f = state.merchant && state.merchant.docs && state.merchant.docs.fssai; if (f && f.number) P.draft.x.fssai = f.number; }
+      }
       rerenderProduct(true);
     }));
+    // combo pack: toggle + per-product type change
+    document.getElementById('pwCombo')?.addEventListener('change', () => {
+      collectProductStep(); P.dirty = true;
+      if (P.draft.isCombo && !P.draft.unitType) P.draft.unitType = 'Combo';
+      rerenderProduct(true);
+    });
+    document.querySelectorAll('[data-combo-type]').forEach(sel => sel.addEventListener('change', () => {
+      const it = P.draft.combo[Number(sel.dataset.comboType)], old = it.type;
+      collectProductStep();
+      if (it.type !== old) {                       // new type → new inputs; keep the common ones already typed
+        const x0 = it.x || {}, keep = {};
+        ['name', 'brand', 'qtyInCombo', 'mfd', 'expiry'].forEach(k => { if (x0[k] != null && x0[k] !== '') keep[k] = x0[k]; });
+        it.category = ''; it.x = keep;
+      }
+      P.dirty = true; rerenderProduct(true);
+    }));
     // jump-to-step links in the review checklist
-    document.querySelectorAll('[data-goto-step]').forEach(b => b.addEventListener('click', () => { P.step = Number(b.dataset.gotoStep); rerenderProduct(); }));
+    document.querySelectorAll('[data-goto-step]').forEach(b => b.addEventListener('click', () => { const i = stepsFor(P.draft.type).findIndex(x => x.key === b.dataset.gotoStep); P.step = Math.max(P.editingId ? 1 : 0, i); rerenderProduct(); }));
 
+    // batches
+    document.querySelector('[data-add-batch]')?.addEventListener('click', () => { collectProductStep(); P.draft.batches.push(blankBatch()); P.dirty = true; rerenderProduct(true); });
+    document.querySelectorAll('[data-del-batch]').forEach(b => b.addEventListener('click', () => {
+      collectProductStep(); P.draft.batches.splice(Number(b.dataset.delBatch), 1);
+      if (!P.draft.batches.length) P.draft.batches.push(blankBatch());
+      syncFromBatches(P.draft); P.dirty = true; rerenderProduct(true);
+    }));
+    // documents (PDF or image)
+    document.querySelectorAll('[data-doc-input]').forEach(inp => inp.addEventListener('change', async () => {
+      const file = inp.files && inp.files[0]; if (!file) return;
+      try {
+        if (!(file.type === 'application/pdf' || file.type.startsWith('image/'))) throw new Error('Please choose a PDF or an image');
+        if (file.size > 5 * 1024 * 1024) throw new Error('Document must be under 5 MB');
+        const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error('Could not read the file')); r.readAsDataURL(file); });
+        collectProductStep();
+        P.draft.docs[Number(inp.dataset.docInput)] = { url, name: file.name };
+        P.dirty = true; rerenderProduct(true);
+      } catch (err) { showToast(err.message, 'error'); inp.value = ''; }
+    }));
+    document.querySelectorAll('[data-doc-remove]').forEach(b => b.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation(); collectProductStep();
+      P.draft.docs[Number(b.dataset.docRemove)] = { url: '', name: '' }; P.dirty = true; rerenderProduct(true);
+    }));
     // images
     document.querySelectorAll('[data-img-input]').forEach(inp => inp.addEventListener('change', async () => {
       const file = inp.files && inp.files[0]; if (!file) return;
@@ -2709,7 +3405,7 @@ console.log("marchent.js v15 loaded");
   const valueLabel = (type, v) => type === 'fixed' || type === 'flat' ? money(v) + ' off' : v + '% off';
   const productNames = (ids, products) => { const m = new Map(products.map(p => [Number(p.id), p.name])); const names = ids.map(i => m.get(i)).filter(Boolean); return names.length ? (names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2} more` : '')) : (ids.length ? `${ids.length} products` : 'All products'); };
 
-  const PROMO_TABS = [['discounts', 'Discounts'], ['coupons', 'Coupons'], ['flash', 'Flash sales'], ['price', 'Price management'], ['featured', 'Featured'], ['analytics', 'Analytics'], ['how', 'How it works']];
+  const PROMO_TABS = [['offers', '🔥 Offers'], ['discounts', 'Discounts'], ['coupons', 'Coupons'], ['flash', 'Flash sales'], ['price', 'Price management'], ['featured', 'Featured'], ['analytics', 'Analytics'], ['how', 'How it works']];
   const PROMO_TAB = {};
 
   PAGES.promotions = async (param) => {
@@ -2791,11 +3487,11 @@ console.log("marchent.js v15 loaded");
           const chosen = products.filter(x => ids.includes(Number(x.id)));
           if (type === 'fixed' && chosen.some(x => val >= x.price)) return showToast('Amount off must be lower than every selected product’s price', 'error');
           if (form.end.value && form.end.value < form.start.value) return showToast('End date must be after the start date', 'error');
-          const btn = form.querySelector('#discGo'); btn.disabled = true;
+          const btn = form.querySelector('#discGo'); BtnState.start(btn);
           try {
             await DB.savePromotion({ type: 'discount', title: form.ttl.value.trim(), discountType: type, value: val, products: ids, start: new Date(form.start.value + 'T00:00:00').toISOString(), end: form.end.value ? new Date(form.end.value + 'T23:59:59').toISOString() : null, status: p && p.status === 'paused' ? 'paused' : 'active' }, p ? p.id : null);
-            sh.close(); showToast(p ? 'Discount updated' : 'Discount created'); reloadPromo();
-          } catch (err) { console.error(err); btn.disabled = false; showToast('Could not save the discount', 'error'); }
+            await BtnState.ok(btn); sh.close(); showToast(p ? 'Discount updated' : 'Discount created'); reloadPromo();
+          } catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save the discount', 'error'); }
         });
       }
     });
@@ -2861,11 +3557,11 @@ console.log("marchent.js v15 loaded");
           const val = Number(form.value.value), type = form.dtype.value;
           if (type === 'percentage' && (val < 1 || val > 90)) return showToast('Percentage must be between 1 and 90', 'error');
           if (form.end.value && form.end.value < form.start.value) return showToast('Expiry must be after the start date', 'error');
-          const btn = form.querySelector('#coupGo'); btn.disabled = true;
+          const btn = form.querySelector('#coupGo'); BtnState.start(btn);
           try {
             await DB.saveCoupon({ code: form.code.value.trim(), description: form.description.value.trim(), discountType: type, value: val, minOrder: Number(form.min.value) || 0, maxDiscount: Number(form.max.value) || 0, limit: Number(form.limit.value) || 0, products: pickerValues(form), start: new Date(form.start.value + 'T00:00:00').toISOString(), end: form.end.value ? new Date(form.end.value + 'T23:59:59').toISOString() : null }, c ? c.id : null);
-            sh.close(); showToast(c ? 'Coupon updated' : 'Coupon created'); reloadPromo();
-          } catch (err) { console.error(err); btn.disabled = false; showToast(err.code === 'DUPLICATE' ? err.message : 'Could not save the coupon', 'error'); }
+            await BtnState.ok(btn); sh.close(); showToast(c ? 'Coupon updated' : 'Coupon created'); reloadPromo();
+          } catch (err) { console.error(err); BtnState.fail(btn); showToast(err.code === 'DUPLICATE' ? err.message : 'Could not save the coupon', 'error'); }
         });
       }
     });
@@ -2920,11 +3616,11 @@ console.log("marchent.js v15 loaded");
           if (!ids.length) return showToast('Select at least one product', 'error');
           if (!(val >= 1 && val <= 90)) return showToast('Discount must be between 1 and 90%', 'error');
           if (!(en > s)) return showToast('End time must be after the start time', 'error');
-          const btn = form.querySelector('#flashGo'); btn.disabled = true;
+          const btn = form.querySelector('#flashGo'); BtnState.start(btn);
           try {
             await DB.savePromotion({ type: 'flash_sale', title: form.ttl.value.trim(), discountType: 'percentage', value: val, products: ids, start: s.toISOString(), end: en.toISOString(), budget: Number(form.budget.value) || 0, status: p && p.status === 'paused' ? 'paused' : 'active' }, p ? p.id : null);
-            sh.close(); showToast(p ? 'Flash sale updated' : 'Flash sale created'); reloadPromo();
-          } catch (err) { console.error(err); btn.disabled = false; showToast('Could not save the flash sale', 'error'); }
+            await BtnState.ok(btn); sh.close(); showToast(p ? 'Flash sale updated' : 'Flash sale created'); reloadPromo();
+          } catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save the flash sale', 'error'); }
         });
       }
     });
@@ -2989,13 +3685,13 @@ console.log("marchent.js v15 loaded");
         const eff = form.eff.value, future = eff > localDate();
         const ok = await confirmDialog(future ? 'Schedule price change?' : 'Apply price changes?', `${pl.length} product${pl.length === 1 ? '' : 's'} will be updated${future ? ' on ' + fmtDate(eff) : ' now'}. Customers will see the new prices.`);
         if (!ok) return;
-        const btn = document.getElementById('priceBtnApply'); btn.disabled = true;
+        const btn = document.getElementById('priceBtnApply'); BtnState.start(btn, 'Applying…');
         const meta = { changeType: form.ctype.value, changeValue: Number(form.cval.value), effective: eff, scope: form.scope.value };
         try {
           if (future) { const n = await DB.schedulePriceChange(pl.map(i => i.id), meta); showToast(`${n} price change${n === 1 ? '' : 's'} scheduled`); }
           else { const r = await DB.applyPriceChange(pl, meta); showToast(`${r.done} price${r.done === 1 ? '' : 's'} updated${r.capped ? ` (${r.capped} capped at MRP)` : ''}${r.skipped ? `, ${r.skipped} skipped` : ''}`); }
-          reloadPromo();
-        } catch (err) { console.error(err); btn.disabled = false; showToast('Could not apply the price changes', 'error'); }
+          await BtnState.ok(btn, 'Applied Successfully'); reloadPromo();
+        } catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not apply the price changes', 'error'); }
       });
     }
   };
@@ -3024,9 +3720,9 @@ console.log("marchent.js v15 loaded");
         sh.el.querySelector('#payUpiBtn')?.addEventListener('click', () => setTimeout(arm, 600));
         sh.el.querySelector('#payQrBtn').addEventListener('click', () => { sh.el.querySelector('#payQrBox').hidden = false; arm(); });
         done.addEventListener('click', async () => {
-          done.disabled = true;
-          try { await DB.activateFeatured(promo.id, 'UPI'); sh.close(); showToast('Payment confirmed — your products are featured'); reloadPromo(); }
-          catch (err) { console.error(err); done.disabled = false; showToast(err.message || 'Could not confirm payment', 'error'); }
+          BtnState.start(done, 'Confirming…');
+          try { await DB.activateFeatured(promo.id, 'UPI'); await BtnState.ok(done, 'Payment Confirmed'); sh.close(); showToast('Payment confirmed — your products are featured'); reloadPromo(); }
+          catch (err) { console.error(err); BtnState.fail(done, 'Failed — Retry'); showToast(err.message || 'Could not confirm payment', 'error'); }
         });
       }
     });
@@ -3066,16 +3762,60 @@ console.log("marchent.js v15 loaded");
           if (!ids.length) return showToast('Select at least one product', 'error');
           if (!(days >= 1 && days <= 90)) return showToast('Choose between 1 and 90 days', 'error');
           const total = ids.length * days * RATE_PER_DAY;
-          const btn = document.getElementById('featGo'); btn.disabled = true;
+          const btn = document.getElementById('featGo'); BtnState.start(btn, 'Preparing…');
           try {
             const start = new Date(), end = new Date(Date.now() + days * 86400000);
             const promo = await DB.savePromotion({ type: 'featured', title: `Featured · ${ids.length} product${ids.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}`, discountType: 'percentage', value: 0, products: ids, start: start.toISOString(), end: end.toISOString(), budget: total, status: 'pending_payment' }, null);
-            btn.disabled = false; payForFeatured(promo); reloadPromo();
-          } catch (err) { console.error(err); btn.disabled = false; showToast('Could not start the payment', 'error'); }
+            BtnState.reset(btn); payForFeatured(promo); reloadPromo();
+          } catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not start the payment', 'error'); }
         });
       }
       document.querySelectorAll('[data-pay-featured]').forEach(b => b.addEventListener('click', () => payForFeatured(featuredCache.find(p => p.id === b.dataset.payFeatured))));
       wireListActions('promo', reloadPromo, () => {});
+    }
+  };
+
+  /* ---- Offers: join an admin-run offer (e.g. Durga Puja Offer) with your products ---- */
+  PROMO_TAB.offers = {
+    render: async () => {
+      const [camps, products, mine] = await Promise.all([DB.getOpenCampaigns(), liveProducts(), DB.getMyCampaignProducts()]);
+      const now = Date.now();
+      if (!camps.length) return `<div class="card panel">${emptyBlock('zap', 'No offer is running right now', 'When MediFinder India starts an offer (like a festival sale), it appears here and you can add your products to it.')}</div>`;
+      return `<p class="cell-muted" style="font-size:13px;margin:0 0 12px">Add your products to an offer — customers see them on that offer's Deals page, grouped by category. Prices stay the same; run a discount or flash sale to make them cheaper.</p>` +
+        camps.map(c => {
+          const picked = mine.filter(m => m.campaign_id === c.id && m.status === 'approved').map(m => m.medicine_id);
+          const removed = mine.filter(m => m.campaign_id === c.id && m.status === 'removed').length;
+          const live = new Date(c.start_at).getTime() <= now;
+          return `<form class="card panel offer-join" data-offer="${esc(c.id)}">
+            <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">
+              ${c.image_url ? `<img src="${esc(c.image_url)}" alt="" style="width:84px;height:58px;object-fit:cover;border-radius:10px;flex:none">` : ''}
+              <div style="min-width:0;flex:1"><div class="cell-strong">${esc(c.title)}</div>
+                <div class="cell-muted list-sub">${esc(c.discount_text || '')}</div>
+                <div class="cell-muted list-sub">${fmtDateTime(c.start_at)} → ${fmtDateTime(c.end_at)}</div></div>
+              <span class="pill ${live ? 'pill-green' : 'pill-teal'}">${live ? 'Live' : 'Starts soon'}</span>
+            </div>
+            <div class="field"><span>Your products in this offer</span>${pickerHtml(products, picked, 'offer_' + c.id)}</div>
+            ${removed ? `<p class="cell-muted" style="font-size:12px;margin:6px 0">${removed} of your product${removed === 1 ? ' was' : 's were'} removed by MediFinder India and cannot be added again.</p>` : ''}
+            <button class="btn btn-primary" data-offer-save="${esc(c.id)}" style="width:100%;margin-top:10px">Save products for this offer</button>
+          </form>`;
+        }).join('');
+    },
+    after: () => {
+      document.querySelectorAll('form.offer-join').forEach(form => {
+        wirePicker(form.querySelector('.picker'), null);
+        const id = form.dataset.offer;
+        form.addEventListener('submit', (e) => e.preventDefault());
+        form.querySelector('[data-offer-save]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget, chosen = pickerValues(form);
+          BtnState.start(btn, 'Saving…');
+          try {
+            const mine = (await DB.getMyCampaignProducts()).filter(m => m.campaign_id === id && m.status === 'approved').map(m => Number(m.medicine_id));
+            const add = chosen.filter(x => !mine.includes(x)), remove = mine.filter(x => !chosen.includes(x));
+            await DB.saveCampaignProducts(id, add, remove);
+            BtnState.reset(btn); showToast(chosen.length ? `${chosen.length} product${chosen.length === 1 ? '' : 's'} in this offer` : 'Removed from offer');
+          } catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast(err.message || 'Could not save', 'error'); }
+        });
+      });
     }
   };
 
@@ -3096,6 +3836,7 @@ console.log("marchent.js v15 loaded");
   PROMO_TAB.how = {
     render: async () => {
       const steps = [
+        ['zap', 'Offers', 'Join an offer run by MediFinder India (festival sales etc.) by adding your products. Customers see them on the offer\'s Deals page, grouped by category.'],
         ['percent', 'Discounts', 'Pick products and reduce their price by a % or a flat ₹ amount. Pause or resume any time.'],
         ['tag', 'Coupons', 'Create a code (e.g. SAVE10). Customers enter it at checkout. Set a minimum order, a cap and a usage limit.'],
         ['zap', 'Flash sales', 'A time-boxed sale. Set start/end time, discount % and a budget — the sale stops when the budget is used up.'],
@@ -3204,13 +3945,13 @@ console.log("marchent.js v15 loaded");
         if (!targets.length) return showToast('No customers in this segment', 'error');
         const ok = await confirmDialog('Send message?', `This will be sent to ${targets.length} customer${targets.length === 1 ? '' : 's'}.`);
         if (!ok) return;
-        const btn = document.getElementById('bulkGo'); btn.disabled = true;
+        const btn = document.getElementById('bulkGo'); BtnState.start(btn, 'Sending…');
         try {
           const r = await DB.sendBulkMessage(targets, bulk.subject.value.trim(), bulk.message.value.trim());
           showToast(`Sent to ${r.logged} customer${r.logged === 1 ? '' : 's'}${r.delivered < r.logged ? ` (${r.delivered} have the app inbox)` : ''}`);
           bulk.reset(); document.getElementById('bulkCount').textContent = '0 / 300';
-        } catch (err) { console.error(err); showToast('Could not send the message', 'error'); }
-        btn.disabled = false;
+          BtnState.ok(btn, 'Sent Successfully');
+        } catch (err) { console.error(err); BtnState.fail(btn, 'Send Failed — Retry'); showToast('Could not send the message', 'error'); }
       });
     }
   };
@@ -3354,17 +4095,20 @@ console.log("marchent.js v15 loaded");
         const fee = Math.max(0, Number(refundForm.fee.value) || 0), amt = Math.max(0, r.originalAmount - fee);
         const ok = await confirmDialog('Process refund?', `${money(amt)} will be refunded via "${refundForm.rmethod.value}".`);
         if (!ok) return;
+        const rbtn = submitBtn(e, refundForm); BtnState.start(rbtn, 'Processing…');
         try {
           await DB.updateReturn(r.id, { status: 'refunded', refund_status: 'processed', refund_amount: amt, restocking_fee: fee, refund_method: refundForm.rmethod.value, refund_processed_at: new Date().toISOString() });
           await note('Refund processed', `Your refund of ${money(amt)} for ${r.product} (order ${r.orderCode}) has been processed via ${refundForm.rmethod.value}.`);
+          await BtnState.ok(rbtn, 'Refund Processed');
           done('Refund processed');
-        } catch (err) { fail(err); }
+        } catch (err) { BtnState.fail(rbtn, 'Failed — Retry'); fail(err); }
       });
     }
     document.querySelectorAll('[data-ret-act]').forEach(b => b.addEventListener('click', async () => {
       const act = b.dataset.retAct;
       try {
         if (act === 'approve') {
+          BtnState.start(b, 'Approving…');
           await DB.updateReturn(r.id, { status: 'approved' });
           let msg = 'Return approved';
           try {
@@ -3373,14 +4117,15 @@ console.log("marchent.js v15 loaded");
             if (bk && bk.awb_code) { msg = `Return approved · pickup booked with ${bk.courier_name} (AWB ${bk.awb_code})`; await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. ${bk.courier_name} will pick it up (AWB ${bk.awb_code}).`); }
             else await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. A pickup will be scheduled.`);
           } catch (e) { console.error(e); msg = 'Return approved, but courier pickup could not be booked — schedule it manually'; await note('Return approved', `Your return for ${r.product} (order ${r.orderCode}) was approved. A pickup will be scheduled.`); }
+          await BtnState.ok(b, 'Return Approved', 500);
           done(msg);
         }
         else if (act === 'reject') {
           openSheet('Reject return', `<form id="rejForm"><label class="field"><span>Reason for rejection</span><textarea name="reason" rows="3" required maxlength="200"></textarea></label><div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Back</button><button class="btn btn-danger">Reject return</button></div></form>`, {
             onOpen: (sh) => sh.el.querySelector('#rejForm').addEventListener('submit', async (e) => {
               e.preventDefault();
-              const reason = e.target.reason.value.trim();
-              try { await DB.updateReturn(r.id, { status: 'rejected', merchant_notes: reason }); await note('Return rejected', `Your return for ${r.product} (order ${r.orderCode}) was rejected. Reason: ${reason}`); sh.close(); done('Return rejected'); } catch (err) { fail(err); }
+              const reason = e.target.reason.value.trim(), xbtn = submitBtn(e, e.target); BtnState.start(xbtn, 'Rejecting…');
+              try { await DB.updateReturn(r.id, { status: 'rejected', merchant_notes: reason }); await note('Return rejected', `Your return for ${r.product} (order ${r.orderCode}) was rejected. Reason: ${reason}`); await BtnState.ok(xbtn, 'Return Rejected'); sh.close(); done('Return rejected'); } catch (err) { BtnState.fail(xbtn, 'Failed — Retry'); fail(err); }
             })
           });
         }
@@ -3394,13 +4139,14 @@ console.log("marchent.js v15 loaded");
               e.preventDefault();
               const f = e.target, hour = (SLOTS.find(s => s[0] === f.tslot.value) || SLOTS[0])[1];
               const when = new Date(f.date.value + 'T' + String(hour).padStart(2, '0') + ':00:00');
-              try { await DB.updateReturn(r.id, { return_pickup_date: when.toISOString(), pickup_slot: f.tslot.value, pickup_address: f.addr.value.trim() }); await note('Pickup scheduled', `Pickup for your return (order ${r.orderCode}) is scheduled on ${fmtDate(when)}, ${f.tslot.value}.`); sh.close(); done('Pickup scheduled'); } catch (err) { fail(err); }
+              const pbtn = submitBtn(e, f); BtnState.start(pbtn, 'Scheduling…');
+              try { await DB.updateReturn(r.id, { return_pickup_date: when.toISOString(), pickup_slot: f.tslot.value, pickup_address: f.addr.value.trim() }); await note('Pickup scheduled', `Pickup for your return (order ${r.orderCode}) is scheduled on ${fmtDate(when)}, ${f.tslot.value}.`); await BtnState.ok(pbtn, 'Pickup Scheduled'); sh.close(); done('Pickup scheduled'); } catch (err) { BtnState.fail(pbtn, 'Failed — Retry'); fail(err); }
             })
           });
         }
-        else if (act === 'received') { await DB.updateReturn(r.id, { return_received_date: new Date().toISOString() }); done('Marked as received'); }
-        else if (act === 'complete') { await DB.updateReturn(r.id, { status: 'completed' }); await note('Return completed', `Your return for order ${r.orderCode} is complete.`); done('Return completed'); }
-      } catch (err) { fail(err); }
+        else if (act === 'received') { BtnState.start(b); await DB.updateReturn(r.id, { return_received_date: new Date().toISOString() }); await BtnState.ok(b, 'Marked Received', 500); done('Marked as received'); }
+        else if (act === 'complete') { BtnState.start(b); await DB.updateReturn(r.id, { status: 'completed' }); await note('Return completed', `Your return for order ${r.orderCode} is complete.`); await BtnState.ok(b, 'Completed', 500); done('Return completed'); }
+      } catch (err) { BtnState.fail(b, 'Failed — Retry'); fail(err); }
     }));
   }
 
@@ -3570,7 +4316,7 @@ console.log("marchent.js v15 loaded");
     </div>`;
   };
 
-  const SUPPORT_EMAILS = ['support@medifinderindia.com', 'medifinderindia@gmail.com'];
+  const SUPPORT_EMAILS = ['support@medifinderindia.com'];
   const FAQ_GROUPS = [
     ['Getting started & KYC', [
       ['Why do I need to complete KYC?', 'KYC (store details, address, drug licence, ID and bank details) lets our team verify your pharmacy before you start selling. Until it is verified, some features stay locked.'],
@@ -3632,9 +4378,9 @@ console.log("marchent.js v15 loaded");
   function wireTicketForm(root, reload) {
     root.querySelector('#ticketForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const f = e.target, btn = root.querySelector('#ticketGo'); btn.disabled = true;
-      try { await DB.createTicket(f.category.value, f.subject.value.trim(), f.message.value.trim()); showToast('Ticket submitted'); reload(); }
-      catch (err) { console.error(err); btn.disabled = false; showToast('Could not submit the ticket', 'error'); }
+      const f = e.target, btn = root.querySelector('#ticketGo'); BtnState.start(btn, 'Submitting…');
+      try { await DB.createTicket(f.category.value, f.subject.value.trim(), f.message.value.trim()); await BtnState.ok(btn, 'Ticket Submitted'); showToast('Ticket submitted'); reload(); }
+      catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not submit the ticket', 'error'); }
     });
   }
   PAGES.support = async () => `<div class="page-head"><div><h1>Support</h1></div></div><div class="card panel support-page">${supportHtml(await DB.getTickets())}</div>`;
@@ -3670,11 +4416,11 @@ console.log("marchent.js v15 loaded");
       <div class="settings-row"><div class="settings-row-label">Language</div>${languageSelect(s.language)}</div>
       <div class="settings-row"><div class="settings-row-label">Theme</div>${themeOptsHtml()}</div>
     </div>
-    <div class="card panel">
+    ${COURIER_AUTO ? `<div class="card panel">
       <div class="panel-head"><h3>Courier pickup</h3></div>
       <div class="settings-row-sub" style="margin-bottom:10px">Register your shop as a NimbusPost pickup point so orders can ship with the cheaper courier.</div>
       <button class="btn btn-outline" id="nimbusWhBtn" style="width:100%;justify-content:flex-start">${icon('truck')}<span>NimbusPost pickup setup</span></button>
-    </div>
+    </div>` : ''}
     <div class="card panel">
       <div class="panel-head"><h3>Security</h3></div>
       <button class="btn btn-outline" id="changePwBtn" style="width:100%;justify-content:flex-start">${icon('lock')}<span>Change password</span></button>
@@ -3757,12 +4503,19 @@ console.log("marchent.js v15 loaded");
             <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary" id="nbWhGo">Send OTP</button></div></form>`;
           const f = body().querySelector('#nbWhForm'), go = body().querySelector('#nbWhGo'); let sent = false;
           f.addEventListener('submit', async (e) => {
-            e.preventDefault(); go.disabled = true;
+            e.preventDefault();
+            const wasSent = sent;
+            if (wasSent && !String(f.otp.value || '').trim()) { showToast('Enter the OTP first', 'error'); return; }
+            BtnState.start(go, wasSent ? 'Connecting…' : 'Sending OTP…');
             try {
-              if (!sent) { await nimbusWh({ action: 'send_otp' }); sent = true; f.querySelector('#nbOtpRow').style.display = ''; go.textContent = 'Verify & create'; showToast('OTP sent'); }
-              else { const r = await nimbusWh({ action: 'create', otp: f.otp.value }); showToast('Pickup point connected'); done(r.warehouse_id); }
-            } catch (err) { showToast(err.message || 'Failed', 'error'); }
-            go.disabled = false;
+              if (!sent) {
+                await nimbusWh({ action: 'send_otp' }); sent = true; f.querySelector('#nbOtpRow').style.display = '';
+                await BtnState.ok(go, 'OTP Sent', 700); BtnState.reset(go); go.textContent = 'Verify & create'; showToast('OTP sent');
+              } else {
+                const r = await nimbusWh({ action: 'create', otp: f.otp.value });
+                await BtnState.ok(go, 'Pickup Connected', 700); showToast('Pickup point connected'); done(r.warehouse_id);
+              }
+            } catch (err) { BtnState.fail(go, wasSent ? 'Verify Failed — Retry' : 'OTP Failed — Retry'); showToast(err.message || 'Failed', 'error'); }
           });
         } catch (err) { body().innerHTML = `<p class="cell-muted">${esc(err.message || 'Could not load')}</p>`; }
       }
@@ -3877,8 +4630,9 @@ console.log("marchent.js v15 loaded");
       <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary">Save</button></div></form>`, {
       onOpen: (sh) => sh.el.querySelector('#persForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        try { state.merchant = await DB.updateMerchant({ owner_name: e.target.owner.value.trim(), about_shop: e.target.about.value.trim() }); refreshMerchantChrome(); sh.close(); showToast('Saved'); render(true); }
-        catch (err) { console.error(err); showToast('Could not save', 'error'); }
+        const btn = submitBtn(e, e.target); BtnState.start(btn);
+        try { state.merchant = await DB.updateMerchant({ owner_name: e.target.owner.value.trim(), about_shop: e.target.about.value.trim() }); refreshMerchantChrome(); await BtnState.ok(btn); sh.close(); showToast('Saved'); render(true); }
+        catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save', 'error'); }
       })
     });
   }
@@ -3890,8 +4644,9 @@ console.log("marchent.js v15 loaded");
       <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary">Save</button></div></form>`, {
       onOpen: (sh) => sh.el.querySelector('#contForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        try { state.merchant = await DB.updateMerchant({ phone: e.target.phone.value.trim() }); sh.close(); showToast('Saved'); render(true); }
-        catch (err) { console.error(err); showToast('Could not save', 'error'); }
+        const btn = submitBtn(e, e.target); BtnState.start(btn);
+        try { state.merchant = await DB.updateMerchant({ phone: e.target.phone.value.trim() }); await BtnState.ok(btn); sh.close(); showToast('Saved'); render(true); }
+        catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save', 'error'); }
       })
     });
   }
@@ -3924,9 +4679,9 @@ console.log("marchent.js v15 loaded");
           e.preventDefault();
           const f = form.sig.files && form.sig.files[0];
           if (!f) { showToast('Choose a signature image first', 'error'); return; }
-          const btn = sh.el.querySelector('#sigSave'); btn.disabled = true; btn.textContent = 'Saving…';
-          try { state.merchant = await DB.uploadSignature(f); sh.close(); showToast('Signature saved'); render(true); }
-          catch (err) { console.error(err); btn.disabled = false; btn.textContent = 'Save'; showToast(err.message || 'Could not save the signature', 'error'); }
+          const btn = sh.el.querySelector('#sigSave'); BtnState.start(btn);
+          try { state.merchant = await DB.uploadSignature(f); await BtnState.ok(btn); sh.close(); showToast('Signature saved'); render(true); }
+          catch (err) { console.error(err); BtnState.fail(btn); showToast(err.message || 'Could not save the signature', 'error'); }
         });
       }
     });
@@ -4234,7 +4989,8 @@ console.log("marchent.js v15 loaded");
       <div class="review-block"><h4>Bank &amp; Payment</h4>
         <div class="review-row"><span>Account / IFSC</span><span>${esc(d.bank.accountNumber)} / ${esc(d.bank.ifsc)}</span></div>${docRow('Document', 'bank', d.bank.doc)}
       </div>
-      <p style="font-size:12.5px;color:var(--ink-500)">By submitting, your business details are locked until our team completes verification.</p>`;
+      <p style="font-size:12.5px;color:var(--ink-500)">By submitting, your business details are locked until our team completes verification.</p>
+      <p style="font-size:12.5px;color:var(--ink-500);margin-top:6px">By submitting you agree to our <a href="${esc(TERMS_URL)}" target="_blank" rel="noopener" style="color:var(--red-600);font-weight:700">Terms &amp; Conditions</a> and <a href="${esc(PRIVACY_URL)}" target="_blank" rel="noopener" style="color:var(--red-600);font-weight:700">Privacy Policy</a>.</p>`;
   }
 
   function validateIdNumber(type, num) {
@@ -4367,42 +5123,49 @@ console.log("marchent.js v15 loaded");
       saveStepIntoDraftSilently();
       state.wizard.step -= 1; redraw();
     });
-    document.getElementById('wizardNext')?.addEventListener('click', () => {
+    document.getElementById('wizardNext')?.addEventListener('click', async (e) => {
+      const nb = e.currentTarget;
       if (!saveStepIntoDraft(state.wizard.step, state.wizard.draft)) return;
+      BtnState.start(nb, 'Saving…'); await BtnState.ok(nb, 'Saved', 350);
       state.wizard.step += 1; redraw();
     });
     initShopPinMap();
-    document.getElementById('detectGps')?.addEventListener('click', () => {
+    document.getElementById('detectGps')?.addEventListener('click', (e) => {
+      const gbtn = e.currentTarget;
       if (!navigator.geolocation) return showToast('Location is not available on this device', 'error');
+      BtnState.start(gbtn, 'Locating…');
       navigator.geolocation.getCurrentPosition((p) => {
+        BtnState.ok(gbtn, 'Location Set', 600);
         if (window.__setShopPin) window.__setShopPin(p.coords.latitude, p.coords.longitude, 18);
         else document.querySelector('#wizardForm [name=gps]').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
         if (p.coords.accuracy && p.coords.accuracy > 100) showToast(`GPS accuracy is only ±${Math.round(p.coords.accuracy)} m — drag the pin to your shop door`, 'error');
-      }, () => showToast('Could not get your location', 'error'), { enableHighAccuracy: true, timeout: 10000 });
+      }, () => { BtnState.fail(gbtn, 'Failed — Retry'); showToast('Could not get your location', 'error'); }, { enableHighAccuracy: true, timeout: 10000 });
     });
-    document.getElementById('pinFindAddr')?.addEventListener('click', async () => {
+    document.getElementById('pinFindAddr')?.addEventListener('click', async (e) => {
       const f = document.getElementById('wizardForm'); if (!f) return;
+      const fbtn = e.currentTarget; BtnState.start(fbtn, 'Searching…');
       const g = (n) => ((f.querySelector(`[name=${n}]`) || {}).value || '').trim();
       const q = [g('fullAddress'), g('city'), g('district'), g('state'), g('pincode'), 'India'].filter(Boolean).join(', ');
       try {
         const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=' + encodeURIComponent(q));
         const j = await r.json();
-        if (j && j[0] && window.__setShopPin) window.__setShopPin(parseFloat(j[0].lat), parseFloat(j[0].lon), 17);
-        else showToast('Address not found on the map — use GPS or tap the map', 'error');
-      } catch (e) { showToast('Could not search the address right now', 'error'); }
+        if (j && j[0] && window.__setShopPin) { window.__setShopPin(parseFloat(j[0].lat), parseFloat(j[0].lon), 17); BtnState.ok(fbtn, 'Address Found', 700); }
+        else { BtnState.fail(fbtn, 'Not Found — Retry'); showToast('Address not found on the map — use GPS or tap the map', 'error'); }
+      } catch (e2) { BtnState.fail(fbtn, 'Failed — Retry'); showToast('Could not search the address right now', 'error'); }
     });
     document.getElementById('wizardSubmit')?.addEventListener('click', async (e) => {
       const d = state.wizard.draft, btn = e.currentTarget;
       const missing = WIZARD_STEPS.findIndex(s => s.key !== 'review' && !stepComplete(s.key, d));
       if (missing !== -1) { showToast(`Complete "${WIZARD_STEPS[missing].title}" first`, 'error'); state.wizard.step = missing; redraw(); return; }
-      btn.disabled = true; btn.textContent = 'Submitting…';
+      BtnState.start(btn, 'Submitting…');
       try {
         state.merchant = await DB.submitKyc(d, state.wizard.files);
+        await BtnState.ok(btn, 'Submitted Successfully');
         state.wizard.draft = null; state.wizard.step = 0; state.wizard.files = {};
         refreshMerchantChrome();
         showToast('KYC submitted for verification');
         navigate('profile');
-      } catch (err) { console.error(err); btn.disabled = false; btn.textContent = 'Submit for verification'; showToast(err.message || 'Could not submit KYC', 'error'); }
+      } catch (err) { console.error(err); BtnState.fail(btn, 'Submit Failed — Retry'); showToast(err.message || 'Could not submit KYC', 'error'); }
     });
   }
   function saveStepIntoDraftSilently() {

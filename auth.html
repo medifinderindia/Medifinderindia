@@ -30,14 +30,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="theme-color" content="#e02020">
+<meta name="theme-color" content="#D6334A">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://rnpbglinkpsikeszcjcl.supabase.co">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="session-guard.js?v=b85e8247"></script>
     <script src="permission-every.js?v=ce3004a5"></script>
@@ -45,9 +45,9 @@
 <script src="supabase-constants.js"></script>
 <style>
 :root{
-    --navy:#10286f; --blue:#1565d8; --blue-2:#2a8cf2; --red:#e8212c; --red-2:#ff4a52;
-    --muted:#5d6f94; --line:#d9e5f6; --field:#f6f9ff; --soft:#eaf3ff;
-    --primary-color:#e8212c; --text-main:#10286f; --text-muted:#5d6f94; --border-color:#d9e5f6;
+    --navy:#1a1a2e; --blue:#1c82aa; --blue-2:#2a9bc7; --red:#D6334A; --red-2:#ff4d4d;
+    --muted:#5f6577; --line:#e4e7eb; --field:#f7f9fb; --soft:#e8f4f9;
+    --primary-color:#D6334A; --text-main:#1a1a2e; --text-muted:#5f6577; --border-color:#e4e7eb;
     /* viewport-driven sizing so everything fits the screen height */
     --vh:1vh;
     --g:12px; --fh:50px; --btn:52px; --logo:56px;
@@ -58,12 +58,12 @@
 html,body{min-height:100%}
 html{-webkit-text-size-adjust:100%}
 body{
-    font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    font-family:'Plus Jakarta Sans','Noto Sans Bengali','Noto Sans Devanagari',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     color:var(--navy);
     background:
-        radial-gradient(700px 360px at 12% -8%,#ffe6ea 0,transparent 62%),
-        radial-gradient(760px 480px at 100% 0,#dfecff 0,transparent 58%),
-        linear-gradient(#f2f7ff,#fff 62%);
+        radial-gradient(700px 360px at 12% -8%,#ffe9e9 0,transparent 62%),
+        radial-gradient(760px 480px at 100% 0,#e3f3f9 0,transparent 58%),
+        linear-gradient(#f7fafc,#fff 62%);
 }
 body.mf-view-auth{overflow-x:hidden}
 button,input,select{font-family:inherit}
@@ -77,11 +77,11 @@ a{color:var(--blue)}
 .auth-view{display:none;min-height:calc(var(--vh)*100);justify-content:center;overflow-x:hidden}
 .auth-shell{
     width:100%;max-width:440px;min-height:calc(var(--vh)*100);position:relative;overflow:hidden;
-    display:flex;flex-direction:column;background:#f6faff;
+    display:flex;flex-direction:column;background:#fafcfd;
 }
 @media(min-width:560px) and (max-width:899px){
     .auth-view{align-items:center}
-    .auth-shell{min-height:calc(var(--vh)*100 - 40px);border-radius:28px;border:1px solid #e3ecfa;box-shadow:0 22px 60px rgba(16,40,111,.14)}
+    .auth-shell{min-height:calc(var(--vh)*100 - 40px);border-radius:28px;border:1px solid #e8edf1;box-shadow:0 22px 60px rgba(16,40,111,.14)}
 }
 
 .auth-top{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--g)*1.2) 18px 0;position:relative;z-index:3}
@@ -115,7 +115,7 @@ a{color:var(--blue)}
 
 .card{
     position:relative;z-index:3;margin:0 14px;padding:calc(var(--g)*1.3) 16px calc(var(--g)*1.4);background:#fff;border-radius:22px;
-    border:1px solid #edf2fb;box-shadow:0 10px 30px rgba(16,40,111,.10);
+    border:1px solid #eef1f4;box-shadow:0 14px 40px rgba(26,26,46,.10);
 }
 .card-label{font-size:clamp(15px,calc(var(--vh)*2.4),17px);font-weight:800;color:var(--navy);margin-bottom:calc(var(--g)*.8)}
 
@@ -133,12 +133,12 @@ a{color:var(--blue)}
 .role-content small{font-size:10.5px;line-height:1.2;font-weight:500;color:var(--muted)}
 .role-card input:checked + .role-content{
     border-color:var(--blue-2);background:var(--soft);
-    box-shadow:inset 0 0 0 1px var(--blue-2),0 6px 14px rgba(21,101,216,.14);
+    box-shadow:inset 0 0 0 1px var(--blue-2),0 6px 14px rgba(28,130,170,.16);
 }
 .role-card input:checked + .role-content .ic{color:var(--blue)}
 .role-card input:focus-visible + .role-content{outline:2px solid var(--blue-2);outline-offset:2px}
 
-.ems-active-badge{align-items:center;gap:10px;padding:10px 12px;margin-bottom:var(--g);border:1.5px solid #bcd6fb;background:var(--soft);border-radius:14px}
+.ems-active-badge{align-items:center;gap:10px;padding:10px 12px;margin-bottom:var(--g);border:1.5px solid #bfe0ed;background:var(--soft);border-radius:14px}
 .ems-badge-icon{width:34px;height:34px;border-radius:11px;background:var(--blue);color:#fff;display:grid;place-items:center;flex:none;font-size:19px}
 .ems-badge-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
 .ems-badge-text strong{font-size:13px;color:var(--navy)}
@@ -155,7 +155,7 @@ a{color:var(--blue)}
     transition:border-color .15s,box-shadow .15s,background .15s;
 }
 .input-group input::placeholder{color:#8fa0c0}
-.input-group input:focus{border-color:var(--blue-2);background:#fff;box-shadow:0 0 0 4px rgba(42,140,242,.14)}
+.input-group input:focus{border-color:var(--blue-2);background:#fff;box-shadow:0 0 0 4px rgba(28,130,170,.15)}
 .input-group.has-toggle input{padding-right:46px}
 .toggle-password-btn{
     position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:50%;
@@ -168,13 +168,38 @@ a{color:var(--blue)}
 .field-row .input-group.has-toggle input{padding-right:40px}
 .field-row .toggle-password-btn{width:32px;right:2px}
 .referral-group input{padding-right:90px}
-.btn-verify{
+.btn-verify{letter-spacing:.2px;
     position:absolute;right:6px;top:50%;transform:translateY(-50%);height:calc(var(--fh) - 12px);padding:0 16px;border:0;border-radius:11px;
-    background:#e3efff;color:var(--blue);font-size:14px;font-weight:800;cursor:pointer;
+    background:var(--soft);color:var(--blue);font-size:14px;font-weight:800;cursor:pointer;
 }
 .btn-verify:disabled{opacity:.6}
 .referral-message{display:block;margin:-4px 4px var(--g);font-size:12px;font-weight:600}
 .referral-message:empty{display:none}
+
+
+/* +91 phone field */
+.phone-group .input-icon{display:none}
+.phone-group .cc{
+    position:absolute;left:1.5px;top:1.5px;bottom:1.5px;display:flex;align-items:center;gap:7px;padding:0 10px 0 12px;
+    border-right:1.5px solid var(--line);border-radius:12.5px 0 0 12.5px;background:#fff;pointer-events:none;
+    font-size:15px;font-weight:700;color:var(--navy);
+}
+.phone-group .cc svg{width:22px;height:15px;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.12);flex:none}
+.phone-group input{padding-left:92px !important;letter-spacing:.4px}
+.field-row .phone-group input{padding-left:92px}
+
+
+/* language switcher */
+.lang-pill{position:relative;cursor:pointer}
+.lang-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:150px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 36px rgba(26,26,46,.16);display:none;z-index:20}
+.lang-menu.open{display:block}
+.lang-menu button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-radius:11px;background:none;font-size:14px;font-weight:700;color:var(--navy);cursor:pointer;text-align:left}
+.lang-menu button:hover{background:var(--soft)}
+.lang-menu button.on{background:var(--soft);color:var(--blue)}
+.lang-menu button.on::after{content:"\2713";font-weight:800}
+html[lang="bn"] .hero h1,html[lang="hi"] .hero h1{font-size:clamp(19px,5.4vw,24px);line-height:1.25;letter-spacing:0}
+html[lang="bn"] .hero-signup h1,html[lang="hi"] .hero-signup h1{white-space:normal;max-width:62%}
+html[lang="bn"] .brand-tag,html[lang="hi"] .brand-tag{letter-spacing:.5px}
 
 /* checkbox rows */
 .row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 var(--g)}
@@ -192,13 +217,13 @@ a{color:var(--blue)}
 /* buttons */
 .btn-premium{
     width:100%;height:var(--btn);border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:10px;
-    background:linear-gradient(90deg,#0a5cd6,#2688f0);color:#fff;font-size:clamp(15px,calc(var(--vh)*2.4),17px);font-weight:700;cursor:pointer;
-    box-shadow:0 10px 22px rgba(21,101,216,.32);transition:transform .12s,box-shadow .12s;
+    background:linear-gradient(90deg,#D6334A,#ff4d4d);color:#fff;font-size:clamp(15px,calc(var(--vh)*2.4),17px);font-weight:700;cursor:pointer;letter-spacing:.2px;
+    box-shadow:0 10px 24px rgba(214,51,74,.30),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .12s,box-shadow .12s;
 }
 .btn-premium:active{transform:scale(.985)}
 .btn-premium:disabled{opacity:.7;cursor:not-allowed}
-.btn-premium.red{background:linear-gradient(90deg,#e11d2a,#ff4a52);box-shadow:0 10px 22px rgba(232,33,44,.30)}
-.btn-premium.secondary{height:46px;margin-top:2px;font-size:15px;background:#fff;color:var(--blue);border:1.5px solid var(--blue-2);box-shadow:none}
+.btn-premium.red{background:linear-gradient(90deg,#D6334A,#ff4d4d);box-shadow:0 10px 24px rgba(214,51,74,.30),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn-premium.secondary{height:46px;margin-top:2px;font-size:15px;background:#fff;color:var(--blue);border:1.5px solid var(--blue);box-shadow:none}
 
 .divider{display:flex;align-items:center;gap:12px;margin:calc(var(--g)*1.2) 0 var(--g);font-size:13px;font-weight:600;color:#31487f}
 .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -209,16 +234,16 @@ a{color:var(--blue)}
     font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(16,40,111,.05);padding:0 4px;
 }
 .btn-social .ic{font-size:20px}
-.btn-social.btn-phone{color:var(--blue);border-color:#bcd6fb;background:var(--soft)}
+.btn-social.btn-phone{color:var(--blue);border-color:#bfe0ed;background:var(--soft)}
 
 .btn-truecaller{
     width:100%;margin-top:10px;height:var(--fh);display:flex;align-items:center;gap:12px;padding:0 14px 0 8px;
-    border:1.5px solid #bcd6fb;border-radius:14px;background:#fff;color:var(--navy);cursor:pointer;
+    border:1.5px solid #bfe0ed;border-radius:14px;background:#fff;color:var(--navy);cursor:pointer;
     font-weight:600;box-shadow:0 3px 10px rgba(16,40,111,.06);text-align:left;
 }
-.btn-truecaller .tc-ico{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#2a8cf2,#0a5cd6);color:#fff;display:grid;place-items:center;flex:none;font-size:19px}
+.btn-truecaller .tc-ico{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#2a9bc7,#1c82aa);color:#fff;display:grid;place-items:center;flex:none;font-size:19px}
 .btn-truecaller .tc-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
-.btn-truecaller .tc-brand{font-size:12.5px;font-weight:800;font-style:italic;letter-spacing:-.3px;color:#0a5cd6}
+.btn-truecaller .tc-brand{font-size:12.5px;font-weight:800;font-style:italic;letter-spacing:-.3px;color:#1c82aa}
 .btn-truecaller .tc-arrow{font-size:16px;color:#17306f}
 .policy-role{display:none}
 .card:has(input[name="signup-role"][value="merchant"]:checked) .policy-role,
@@ -386,6 +411,7 @@ a{color:var(--blue)}
 }
 
 </style>
+<link rel="stylesheet" href="design-system.css?v=ds1">
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false"><defs>
@@ -450,7 +476,7 @@ a{color:var(--blue)}
 
     <section class="hero">
         <h1>Welcome Back<br>to <em>MediFinder India</em></h1>
-        <p>Your health, our priority — find trusted pharmacies, doctors, hospitals and healthcare services all in one place.</p>
+        <p>Your health in safe hands — find trusted pharmacies, doctors, hospitals and healthcare services all in one place.</p>
         <img class="hero-img" src="Drimg.png" alt="" onerror="this.style.display='none'">
     </section>
 
@@ -508,10 +534,10 @@ a{color:var(--blue)}
 
         <div id="phone-section" class="hidden-section" role="dialog" aria-label="Login with phone OTP">
             <div class="sheet-head"><b>Login with Phone OTP</b><button type="button" class="sheet-close" aria-label="Close" onclick="mfCloseSheet('phone-section')"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-            <p class="sub-note">Enter your mobile number with country code. We will send a 6-digit code by SMS.</p>
-            <div class="input-group">
-                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
-                <input type="tel" id="phone-number" placeholder="+919593XXXXXX" aria-label="Mobile number with country code" autocomplete="tel">
+            <p class="sub-note">Enter your 10-digit mobile number. We will send a 6-digit code by SMS.</p>
+            <div class="input-group phone-group">
+                <span class="cc" aria-hidden="true"><svg viewBox="0 0 22 15"><rect width="22" height="5" fill="#FF9933"/><rect y="5" width="22" height="5" fill="#fff"/><rect y="10" width="22" height="5" fill="#138808"/><circle cx="11" cy="7.5" r="1.9" fill="none" stroke="#000080" stroke-width=".7"/></svg>+91</span>
+                <input type="tel" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" data-mf-phone="1" autocomplete="tel-national" id="phone-number" placeholder="10-digit mobile number" aria-label="Mobile number (10 digits, +91)">
             </div>
             <button type="button" class="btn-premium secondary" id="send-otp-btn">Send OTP</button>
 
@@ -623,9 +649,9 @@ a{color:var(--blue)}
                 <svg class="ic input-icon" aria-hidden="true"><use href="#i-mail-f"/></svg>
                 <input type="email" id="signup-email" placeholder="Email Address" aria-label="Email address" autocomplete="email" required>
             </div>
-            <div class="input-group">
-                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
-                <input type="tel" id="signup-phone" placeholder="Phone Number" aria-label="Phone number" autocomplete="tel" required>
+            <div class="input-group phone-group">
+                <span class="cc" aria-hidden="true"><svg viewBox="0 0 22 15"><rect width="22" height="5" fill="#FF9933"/><rect y="5" width="22" height="5" fill="#fff"/><rect y="10" width="22" height="5" fill="#138808"/><circle cx="11" cy="7.5" r="1.9" fill="none" stroke="#000080" stroke-width=".7"/></svg>+91</span>
+                <input type="tel" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" data-mf-phone="1" autocomplete="tel-national" id="signup-phone" placeholder="10-digit mobile number" aria-label="Mobile number (10 digits, +91)" required>
             </div>
             <div class="input-group has-toggle">
                     <svg class="ic input-icon" aria-hidden="true"><use href="#i-lock-f"/></svg>
@@ -641,7 +667,7 @@ a{color:var(--blue)}
             <div class="referral-section">
                 <div class="input-group referral-group">
                     <svg class="ic input-icon" aria-hidden="true"><use href="#i-gift-f"/></svg>
-                    <input type="text" id="referral-code" placeholder="Referral Code (Optional)" aria-label="Referral code (optional)">
+                    <input type="text" id="referral-code" placeholder="Referral Code (Optional)" aria-label="Referral code (optional)" autocapitalize="characters" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
                     <button type="button" id="verify-referral-btn" class="btn-verify">Apply</button>
                 </div>
                 <span id="referral-msg" class="referral-message"></span>
@@ -667,14 +693,14 @@ a{color:var(--blue)}
 
         <div id="phone-signup-section" class="hidden-section" role="dialog" aria-label="Register with phone OTP">
             <div class="sheet-head"><b>Register with Phone OTP</b><button type="button" class="sheet-close" aria-label="Close" onclick="mfCloseSheet('phone-signup-section')"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-            <p class="sub-note">Enter phone with country code to get OTP.</p>
+            <p class="sub-note">Enter your 10-digit mobile number to get an OTP.</p>
             <div class="input-group">
                 <svg class="ic input-icon" aria-hidden="true"><use href="#i-user-f"/></svg>
                 <input type="text" id="otp-name" placeholder="Your Full Name" aria-label="Your full name" autocomplete="name">
             </div>
-            <div class="input-group">
-                <svg class="ic input-icon" aria-hidden="true"><use href="#i-handset-f"/></svg>
-                <input type="tel" id="phone-signup-number" placeholder="+9195936XXXXX" aria-label="Mobile number with country code" autocomplete="tel">
+            <div class="input-group phone-group">
+                <span class="cc" aria-hidden="true"><svg viewBox="0 0 22 15"><rect width="22" height="5" fill="#FF9933"/><rect y="5" width="22" height="5" fill="#fff"/><rect y="10" width="22" height="5" fill="#138808"/><circle cx="11" cy="7.5" r="1.9" fill="none" stroke="#000080" stroke-width=".7"/></svg>+91</span>
+                <input type="tel" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" data-mf-phone="1" autocomplete="tel-national" id="phone-signup-number" placeholder="10-digit mobile number" aria-label="Mobile number (10 digits, +91)">
             </div>
             <button type="button" class="btn-premium secondary" id="send-signup-otp-btn">Send Verification OTP</button>
 
@@ -710,6 +736,26 @@ a{color:var(--blue)}
 
   </div>
 </div>
+
+<script>
+/* 10-digit Indian mobile fields: digits only, max 10, pasted +91 / 91 / 0 prefix is stripped */
+(function(){
+    function clean(v){
+        var d=String(v||'').replace(/\D/g,'');
+        if(d.length>10 && d.indexOf('91')===0) d=d.slice(2);
+        if(d.length>10 && d.charAt(0)==='0') d=d.slice(1);
+        return d.slice(0,10);
+    }
+    document.addEventListener('input',function(e){
+        var t=e.target;
+        if(t && t.getAttribute && t.getAttribute('data-mf-phone')){
+            var c=clean(t.value); if(t.value!==c) t.value=c;
+        }
+    },true);
+    window.mfCleanPhone=clean;
+    window.mfValidIndianPhone=function(v){return /^[6-9]\d{9}$/.test(clean(v));};
+})();
+</script>
 
 <!-- Helpers: Apple / Facebook placeholder + closing the phone OTP sheet -->
 <script>
@@ -761,7 +807,7 @@ document.addEventListener('keydown', function(e){
                 </div>
                 </form>
                 <button type="button" class="btn-premium" id="admin-btn-step-1" style="margin-top: 10px; width: 100%;">Verify Password</button>
-                <p style="text-align:center; margin-top:12px; font-size:13px;"><a href="#" id="admin-switch-invited" style="color:#e02020; font-weight:600; text-decoration:none;">Invited admin? Sign in with your email</a></p>
+                <p style="text-align:center; margin-top:12px; font-size:13px;"><a href="#" id="admin-switch-invited" style="color:#D6334A; font-weight:600; text-decoration:none;">Invited admin? Sign in with your email</a></p>
             </div>
 
             <div id="admin-step-1b" class="admin-step hidden-section">
@@ -852,7 +898,7 @@ if (mfMenuToggle) {
             var cv = document.createElement('div');
             cv.id = 'mf-auth-cover';
             cv.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fff;display:flex;align-items:center;justify-content:center;';
-            cv.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#e02020;border-radius:50%;animation:mfspin .8s linear infinite"></div><style>@keyframes mfspin{to{transform:rotate(360deg)}}</style>';
+            cv.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#D6334A;border-radius:50%;animation:mfspin .8s linear infinite"></div><style>@keyframes mfspin{to{transform:rotate(360deg)}}</style>';
             document.body.appendChild(cv);
             // safety net: never leave the cover up forever
             setTimeout(function(){ var c = document.getElementById('mf-auth-cover'); if (c) { c.remove(); showView('login'); } }, 15000);
@@ -1100,6 +1146,127 @@ function mfShowAuthReason(){
     function run() { mfApplyPartnerParam(); mfShowAuthReason(); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
     else run();
+})();
+</script>
+<script>
+/* Language switcher: English / বাংলা / हिन्दी (works on login + signup, saved in this browser) */
+(function(){
+    var T = {
+      "Search • Connect • Care":{bn:"খুঁজুন • যুক্ত হন • যত্ন নিন",hi:"खोजें • जुड़ें • देखभाल"},
+      "Welcome Back":{bn:"আবার স্বাগতম",hi:"फिर से स्वागत है"},
+      "to":{bn:"",hi:""},
+      "Your health in safe hands — find trusted pharmacies, doctors, hospitals and healthcare services all in one place.":{bn:"আপনার স্বাস্থ্য নিরাপদ হাতে — বিশ্বস্ত ফার্মেসি, ডাক্তার, হাসপাতাল ও স্বাস্থ্যসেবা সব এক জায়গায়।",hi:"आपकी सेहत सुरक्षित हाथों में — भरोसेमंद फार्मेसी, डॉक्टर, अस्पताल और हेल्थकेयर सेवाएँ एक ही जगह।"},
+      "Login As":{bn:"এই ভূমিকায় লগইন করুন",hi:"इस रूप में लॉगिन करें"},
+      "Register As":{bn:"এই ভূমিকায় রেজিস্টার করুন",hi:"इस रूप में रजिस्टर करें"},
+      "User":{bn:"ইউজার",hi:"यूज़र"},"(Patient)":{bn:"(রোগী)",hi:"(मरीज़)"},
+      "Merchant":{bn:"মার্চেন্ট",hi:"मर्चेंट"},"(Pharmacy/Shop)":{bn:"(ফার্মেসি/দোকান)",hi:"(फार्मेसी/दुकान)"},
+      "Delivery":{bn:"ডেলিভারি",hi:"डिलीवरी"},"(Delivery Partner)":{bn:"(ডেলিভারি পার্টনার)",hi:"(डिलीवरी पार्टनर)"},
+      "Email Address":{bn:"ইমেইল ঠিকানা",hi:"ईमेल पता"},
+      "Password":{bn:"পাসওয়ার্ড",hi:"पासवर्ड"},
+      "Confirm Password":{bn:"পাসওয়ার্ড নিশ্চিত করুন",hi:"पासवर्ड की पुष्टि करें"},
+      "Remember me":{bn:"আমাকে মনে রাখুন",hi:"मुझे याद रखें"},
+      "Forgot Password?":{bn:"পাসওয়ার্ড ভুলে গেছেন?",hi:"पासवर्ड भूल गए?"},
+      "Log In":{bn:"লগইন",hi:"लॉगिन"},
+      "Or Login With":{bn:"অথবা এর মাধ্যমে লগইন করুন",hi:"या इनसे लॉगिन करें"},
+      "Or Register With":{bn:"অথবা এর মাধ্যমে রেজিস্টার করুন",hi:"या इनसे रजिस्टर करें"},
+      "Phone (Truecaller)":{bn:"ফোন (Truecaller)",hi:"फ़ोन (Truecaller)"},
+      "Login with Phone OTP":{bn:"ফোন OTP দিয়ে লগইন",hi:"फ़ोन OTP से लॉगिन"},
+      "Register with Phone OTP":{bn:"ফোন OTP দিয়ে রেজিস্টার",hi:"फ़ोन OTP से रजिस्टर"},
+      "Enter your 10-digit mobile number. We will send a 6-digit code by SMS.":{bn:"আপনার ১০ সংখ্যার মোবাইল নম্বর দিন। আমরা SMS-এ ৬ সংখ্যার কোড পাঠাব।",hi:"अपना 10 अंकों का मोबाइल नंबर डालें। हम SMS से 6 अंकों का कोड भेजेंगे।"},
+      "Enter your 10-digit mobile number to get an OTP.":{bn:"OTP পেতে আপনার ১০ সংখ্যার মোবাইল নম্বর দিন।",hi:"OTP पाने के लिए अपना 10 अंकों का मोबाइल नंबर डालें।"},
+      "10-digit mobile number":{bn:"১০ সংখ্যার মোবাইল নম্বর",hi:"10 अंकों का मोबाइल नंबर"},
+      "Send OTP":{bn:"OTP পাঠান",hi:"OTP भेजें"},
+      "Enter 6-digit code":{bn:"৬ সংখ্যার কোড দিন",hi:"6 अंकों का कोड डालें"},
+      "Verify & Login":{bn:"ভেরিফাই করে লগইন",hi:"वेरिफ़ाई करें और लॉगिन"},
+      "Verified":{bn:"ভেরিফায়েড",hi:"वेरिफ़ाइड"},"Pharmacies":{bn:"ফার্মেসি",hi:"फार्मेसी"},
+      "Trusted":{bn:"বিশ্বস্ত",hi:"भरोसेमंद"},"Doctors":{bn:"ডাক্তার",hi:"डॉक्टर"},"Fast":{bn:"দ্রুত",hi:"तेज़"},
+      "Need help?":{bn:"সাহায্য লাগবে?",hi:"मदद चाहिए?"},"I'm here!":{bn:"আমি আছি!",hi:"मैं यहाँ हूँ!"},
+      "Don't have an account?":{bn:"অ্যাকাউন্ট নেই?",hi:"खाता नहीं है?"},
+      "Already have an account?":{bn:"আগে থেকে অ্যাকাউন্ট আছে?",hi:"पहले से खाता है?"},
+      "Create Account":{bn:"অ্যাকাউন্ট খুলুন",hi:"खाता बनाएँ"},
+      "By continuing, you agree to our":{bn:"চালিয়ে গেলে আপনি এগুলোতে সম্মত হচ্ছেন:",hi:"जारी रखने पर आप इनसे सहमत होते हैं:"},
+      "I agree to the":{bn:"আমি সম্মত:",hi:"मैं सहमत हूँ:"},
+      "Terms & Conditions":{bn:"শর্তাবলী",hi:"नियम और शर्तें"},
+      "and":{bn:"ও",hi:"और"},
+      "Privacy Policy":{bn:"গোপনীয়তা নীতি",hi:"गोपनीयता नीति"},
+      "User Policy":{bn:"ইউজার পলিসি",hi:"यूज़र पॉलिसी"},
+      "Merchant Policy":{bn:"মার্চেন্ট পলিসি",hi:"मर्चेंट पॉलिसी"},
+      "Delivery Partner Policy":{bn:"ডেলিভারি পার্টনার পলিসি",hi:"डिलीवरी पार्टनर पॉलिसी"},
+      "Join MediFinder India":{bn:"MediFinder India-তে যোগ দিন",hi:"MediFinder India से जुड़ें"},
+      "Create your account and get access to trusted healthcare services, offers and more.":{bn:"অ্যাকাউন্ট খুলুন এবং বিশ্বস্ত স্বাস্থ্যসেবা, অফার ও আরও অনেক কিছু পান।",hi:"अपना खाता बनाएँ और भरोसेमंद हेल्थकेयर सेवाओं, ऑफ़र और बहुत कुछ पाएँ।"},
+      "Full Name":{bn:"পুরো নাম",hi:"पूरा नाम"},
+      "Your Full Name":{bn:"আপনার পুরো নাম",hi:"आपका पूरा नाम"},
+      "Referral Code (Optional)":{bn:"রেফারাল কোড (ঐচ্ছিক)",hi:"रेफ़रल कोड (वैकल्पिक)"},
+      "Apply":{bn:"প্রয়োগ করুন",hi:"लागू करें"},
+      "Send Verification OTP":{bn:"ভেরিফিকেশন OTP পাঠান",hi:"वेरिफ़िकेशन OTP भेजें"},
+      "Resend available in:":{bn:"আবার পাঠানো যাবে:",hi:"दोबारा भेजने में:"},
+      "Resend OTP":{bn:"OTP আবার পাঠান",hi:"OTP दोबारा भेजें"},
+      "Verify & Create Account":{bn:"ভেরিফাই করে অ্যাকাউন্ট খুলুন",hi:"वेरिफ़ाई करें और खाता बनाएँ"}
+    };
+    var LABEL={en:'EN',bn:'বাং',hi:'हिं'}, NAMES={en:'English',bn:'বাংলা',hi:'हिन्दी'};
+    var lang='en', busy=false, queued=false;
+    try{ var s=localStorage.getItem('mf_lang'); if(s && NAMES[s]) lang=s; }catch(e){}
+
+    function tr(orig){ var m=T[orig]; return (lang!=='en' && m && m[lang]!==undefined) ? m[lang] : orig; }
+    function node(n){
+        var v=n.nodeValue, st=n.__mf, o=(st && st.t===v) ? st.o : v;
+        var m=/^(\s*)([\s\S]*?)(\s*)$/.exec(o);
+        if(!m[2] || !T[m[2]]){ if(st) n.__mf=null; return; }
+        var out=m[1]+tr(m[2])+m[3];
+        n.__mf={o:o,t:out};
+        if(n.nodeValue!==out) n.nodeValue=out;
+    }
+    function attrs(el){
+        ['placeholder','aria-label'].forEach(function(a){
+            var cur=el.getAttribute(a); if(cur===null) return;
+            var k='data-mf-o-'+a, o=el.getAttribute(k), last=el.getAttribute(k+'-t');
+            if(o===null || last!==cur){ o=cur; el.setAttribute(k,o); }
+            var out=T[o]?tr(o):o;
+            if(cur!==out) el.setAttribute(a,out);
+            if(last!==out) el.setAttribute(k+'-t',out);
+        });
+    }
+    function apply(){
+        busy=true;
+        ['view-login','view-signup'].forEach(function(id){
+            var root=document.getElementById(id); if(!root) return;
+            var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), n;
+            while((n=w.nextNode())){ var p=n.parentNode&&n.parentNode.nodeName; if(p==='SCRIPT'||p==='STYLE'||(n.parentNode.closest&&n.parentNode.closest('.lang-pill'))) continue; node(n); }
+            root.querySelectorAll('[placeholder],[aria-label]').forEach(function(el){ if(!el.closest('.lang-pill')) attrs(el); });
+        });
+        document.documentElement.setAttribute('lang',lang);
+        document.querySelectorAll('.lang-pill').forEach(function(p){
+            var l=p.querySelector('.lang-label'); if(l) l.textContent=LABEL[lang];
+            p.setAttribute('aria-label','Language: '+NAMES[lang]);
+            p.querySelectorAll('.lang-menu button').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-l')===lang); });
+        });
+        busy=false;
+    }
+    function schedule(){ if(queued) return; queued=true; requestAnimationFrame(function(){ queued=false; apply(); }); }
+    function setLang(l){ lang=l; try{localStorage.setItem('mf_lang',l);}catch(e){} apply(); }
+    window.mfSetLang=setLang;
+
+    function build(){
+        document.querySelectorAll('.lang-pill').forEach(function(p){
+            p.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> <span class="lang-label">EN</span> <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg>'+
+              '<div class="lang-menu" role="menu"><button type="button" data-l="en">English</button><button type="button" data-l="bn">বাংলা</button><button type="button" data-l="hi">हिन्दी</button></div>';
+            p.setAttribute('role','button'); p.setAttribute('tabindex','0');
+            var menu=p.querySelector('.lang-menu');
+            p.addEventListener('click',function(e){
+                var b=e.target.closest('button[data-l]');
+                if(b){ setLang(b.getAttribute('data-l')); menu.classList.remove('open'); e.stopPropagation(); return; }
+                var wasOpen=menu.classList.contains('open');
+                document.querySelectorAll('.lang-menu.open').forEach(function(m){m.classList.remove('open');});
+                if(!wasOpen) menu.classList.add('open');
+            });
+            p.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); p.click(); } });
+        });
+        document.addEventListener('click',function(e){ if(!e.target.closest('.lang-pill')) document.querySelectorAll('.lang-menu.open').forEach(function(m){m.classList.remove('open');}); });
+        apply();
+        var mo=new MutationObserver(function(){ if(!busy) schedule(); });
+        ['view-login','view-signup'].forEach(function(id){ var r=document.getElementById(id); if(r) mo.observe(r,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','aria-label']}); });
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',build); else build();
 })();
 </script>
 <script src="push-notifications.js?v=5f2a2897" defer></script>

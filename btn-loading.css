@@ -1,5 +1,5 @@
 /* btn-loading.css v2 — button states, skeleton loader, toast. Uses your existing CSS variables. */
-:root{ --bl-ok:#2e7d4f; --bl-err:#b83f2c; }
+:root{ --bl-ok:#1E9E6B; --bl-err:#D92D20; }
 
 /* ---------- Button states: Saving… / Saved / Failed — Retry ---------- */
 .btn.bl-busy, .btn.bl-ok, .btn.bl-err, button.bl-busy, button.bl-ok, button.bl-err{

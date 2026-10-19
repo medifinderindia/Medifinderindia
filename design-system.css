@@ -1,0 +1,79 @@
+/* design-system.css — MediFinder India shared motion and interaction layer.
+   Loaded by every portal. All rules use :where() (zero specificity), so any page-specific
+   stylesheet always wins; this file only fills gaps and keeps timings consistent.
+   Do not put page layout or component styling here. */
+
+:root {
+  /* Brand and status tokens (from the Final UI/UX Design System). Prefixed --ds- so they
+     never collide with existing page variables. Pages still use their own colours until
+     they are migrated page by page. */
+  --ds-red: #D6334A;
+  --ds-bg: #F5F6F8;
+  --ds-text: #14181F;
+  --ds-text-2: #667085;
+  --ds-border: #E5E7EB;
+  --ds-ok: #1E9E6B;
+  --ds-warn: #C77B12;
+  --ds-err: #D92D20;
+
+  /* Motion timings */
+  --ds-dur-tap: 120ms;
+  --ds-dur-hover: 180ms;
+  --ds-dur-page: 200ms;
+  --ds-dur-panel: 240ms;
+  --ds-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Page entrance: opacity only. A transform on <body> would turn it into the containing
+   block for position:fixed bars (bottom nav, sticky checkout) and break them. */
+@keyframes ds-page-in { from { opacity: 0; } to { opacity: 1; } }
+:where(body) { animation: ds-page-in var(--ds-dur-page) ease-out backwards; }
+@media print { :where(body) { animation: none; } }
+
+/* Tap feedback on every real button. */
+:where(button, [role="button"], .btn, input[type="button"], input[type="submit"]):where(:not(:disabled)) {
+  transition:
+    transform var(--ds-dur-tap) var(--ds-ease),
+    box-shadow var(--ds-dur-hover) ease,
+    background-color var(--ds-dur-hover) ease,
+    border-color var(--ds-dur-hover) ease,
+    color var(--ds-dur-hover) ease,
+    opacity var(--ds-dur-hover) ease;
+}
+:where(button, [role="button"], .btn, input[type="button"], input[type="submit"]):where(:not(:disabled)):where(:active) {
+  transform: scale(.97);
+}
+
+/* Visible keyboard focus. */
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):where(:focus-visible) {
+  outline: 2px solid rgba(214, 51, 74, .6);
+  outline-offset: 2px;
+}
+
+/* Opt-in helpers for new panels and loading states. */
+@keyframes ds-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ds-slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes ds-shimmer { to { transform: translateX(100%); } }
+.ds-fade-in { animation: ds-fade var(--ds-dur-page) ease-out both; }
+.ds-slide-up { animation: ds-slide-up var(--ds-dur-panel) var(--ds-ease) both; }
+.ds-skeleton { position: relative; overflow: hidden; border-radius: 12px; background: #E9EDF2; }
+.ds-skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  animation: ds-shimmer 1.3s ease-in-out infinite;
+}
+
+/* Reduced motion: stop decorative animation everywhere, but keep progress spinners turning
+   so people can still see that something is loading. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spinner, .bl-spin, .bs-spin, .is-busy::after, .mf-boot-loader-ring, [style*="mfspin"] {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

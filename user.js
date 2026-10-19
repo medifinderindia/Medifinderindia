@@ -113,13 +113,13 @@ if (typeof window.showConfirmationModal !== 'function') {
         modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
         modal.innerHTML = `
             <div style="background:#fff;border-radius:18px;padding:22px 20px;width:100%;max-width:340px;box-sizing:border-box;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.25);animation:slideUpView 0.2s ease;">
-                <div style="width:44px;height:44px;border-radius:50%;background:#fdecec;color:#e02020;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:1.2rem;">
+                <div style="width:44px;height:44px;border-radius:50%;background:#fdecec;color:#D6334A;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:1.2rem;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
                 <p style="font-size:0.9rem;color:#2f3542;font-weight:600;margin:0 0 18px;line-height:1.4;">${message}</p>
                 <div style="display:flex;gap:10px;">
                     <button type="button" id="mf-confirm-cancel-btn" style="flex:1;padding:11px;border-radius:10px;border:1px solid #e4e7eb;background:#fff;color:#57606f;font-weight:700;font-size:0.85rem;cursor:pointer;">${options.cancelText || 'Cancel'}</button>
-                    <button type="button" id="mf-confirm-ok-btn" style="flex:1;padding:11px;border-radius:10px;border:none;background:#e02020;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;">${options.confirmText || 'Confirm'}</button>
+                    <button type="button" id="mf-confirm-ok-btn" style="flex:1;padding:11px;border-radius:10px;border:none;background:#D6334A;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;">${options.confirmText || 'Confirm'}</button>
                 </div>
             </div>`;
         document.body.appendChild(modal);
@@ -1085,7 +1085,7 @@ async function renderShopInfoCard(m, merchantId) {
             <div><p style="margin:0;font-size:0.68rem;color:#a4b0be;">Total Orders</p><p style="margin:2px 0 0;font-size:0.95rem;font-weight:700;color:#2f3542;">${totalOrders !== null ? totalOrders : 'Not available'}</p></div>
             <div><p style="margin:0;font-size:0.68rem;color:#a4b0be;">With MediFinder India</p><p style="margin:2px 0 0;font-size:0.95rem;font-weight:700;color:#2f3542;">${joinedLabel}</p></div>
         </div>
-        <p style="margin:0 0 6px;font-size:0.8rem;color:#57606f;"><i class="fa-solid fa-location-dot" style="color:#e02020;"></i> ${mfEsc(m.address || m.city || 'Address not available')}
+        <p style="margin:0 0 6px;font-size:0.8rem;color:#57606f;"><i class="fa-solid fa-location-dot" style="color:#D6334A;"></i> ${mfEsc(m.address || m.city || 'Address not available')}
             ${isVerified ? '<span style="color:#28a745;font-weight:600;margin-left:8px;"><i class="fa-solid fa-circle-check"></i> License Verified</span>' : '<span style="color:#a4b0be;font-weight:600;margin-left:8px;">Not yet verified</span>'}
         </p>
         ${hasRxField ? `<p style="margin:0 0 10px;font-size:0.8rem;color:${rxAllowed ? '#28a745' : '#a4b0be'};font-weight:600;"><i class="fa-solid fa-file-prescription"></i> ${rxAllowed ? 'Prescription Allowed' : 'Prescription orders not supported here'}</p>` : ''}
@@ -1331,7 +1331,7 @@ function applyInstrumentModeUI(active) {
         if (!backBar) {
             const bar = document.createElement('div');
             bar.id = 'instrument-mode-back-bar';
-            bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
+            bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#D6334A;font-weight:600;cursor:pointer;';
             bar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder India Home';
             bar.addEventListener('click', () => { setInstrumentMode(false); });
             const productsSection = document.querySelector('.products-showcase-section');
@@ -1353,6 +1353,142 @@ async function setInstrumentMode(active) {
     if (mainScroll) mainScroll.scrollTop = 0;
 }
 
+
+/* ===== Category catalogue (same lists the merchant app uses for product input) ===== */
+const MF_CATALOG = [
+  { type: 'medicine', title: 'Medicines', icon: 'fa-pills', cats: ['Tablet', 'Capsule', 'Syrup', 'Insulin', 'Injection', 'Cream', 'Ointment', 'Gel', 'Drops', 'Powder', 'Sachet', 'Inhaler', 'Spray', 'Lotion', 'Soap', 'Other'] },
+  { type: 'instrument', title: 'Medical Devices & Instruments', icon: 'fa-stethoscope', cats: ['Bandage & Gauze', 'Medical Gloves', 'Mask', 'Diagnostic Equipment', 'BP Monitor', 'Glucometer', 'Thermometer', 'Pulse Oximeter', 'Nebulizer', 'Weighing Scale', 'Stethoscope', 'Surgical Instrument', 'Walking Stick / Crutches', 'First Aid & Dressing', 'Syringe & Needle', 'Hearing Aid', 'Other Medical Equipment'] },
+  { type: 'personal_care', title: 'Personal Care & Hygiene', icon: 'fa-pump-soap', cats: ['Toothpaste', 'Toothbrush', 'Soap', 'Shampoo', 'Hair Oil', 'Moisturizer', 'Sanitary Products', 'Other'] },
+  { type: 'baby_mother', title: 'Baby & Mother Care', icon: 'fa-baby', cats: ['Diapers', 'Baby Wipes', 'Baby Lotion', 'Baby Shampoo', 'Baby Soap', 'Maternity Pads', 'Other'] },
+  { type: 'nutrition', title: 'Medical Nutrition & Supplements', icon: 'fa-leaf', cats: ['Health Supplement', 'Protein Powder', 'Vitamin & Mineral Supplement', 'ORS', 'Electrolyte Powder', 'Medical Nutrition', 'Diabetic Nutrition', 'Infant Nutrition', 'Nutrition Drink', 'Other'] },
+  { type: 'grocery', title: 'Health Food', icon: 'fa-bowl-food', cats: ['Protein Powder', 'Health Drinks', 'Vitamins & Supplements', 'Diabetic Food', 'Energy & Nutrition Bars'] },
+  { type: 'general', title: 'Daily Essentials', icon: 'fa-basket-shopping', cats: ['Tissue & Paper', 'Detergent & Laundry', 'Cleaning Supplies', 'Household Items', 'Other Daily Essentials'] }
+];
+// The 8 tiles shown on the home page (View all opens every category above)
+const MF_HOME_TILES = [
+  { type: 'medicine', cat: 'Tablet', icon: 'fa-tablets', cls: 'cat-tablet' },
+  { type: 'medicine', cat: 'Capsule', icon: 'fa-capsules', cls: 'cat-capsule' },
+  { type: 'medicine', cat: 'Syrup', icon: 'fa-bottle-droplet', cls: 'cat-syrup' },
+  { type: 'medicine', cat: 'Injection', icon: 'fa-syringe', cls: 'cat-medicine' },
+  { type: 'medicine', cat: 'Insulin', icon: 'fa-droplet', cls: 'cat-insulin' },
+  { type: 'medicine', cat: 'Cream', icon: 'fa-pump-soap', cls: 'cat-personal' },
+  { type: 'medicine', cat: 'Drops', icon: 'fa-eye-dropper', cls: 'cat-supplies' },
+  { type: 'instrument', cat: '', icon: 'fa-stethoscope', cls: 'cat-general', label: 'Medical Devices' }
+];
+// Quick chips on the shop page (All + 6 + Other = 8)
+const MF_SD_QUICK = {
+  tablet: { type: 'medicine', cat: 'Tablet' }, capsule: { type: 'medicine', cat: 'Capsule' }, syrup: { type: 'medicine', cat: 'Syrup' },
+  injection: { type: 'medicine', cat: 'Injection' }, cream: { type: 'medicine', cat: 'Cream' }, drops: { type: 'medicine', cat: 'Drops' }
+};
+function mfTypeKey(t) {
+  const x = String(t || '').toLowerCase();
+  return /instrument/.test(x) ? 'instrument' : /baby|mother/.test(x) ? 'baby_mother' : /nutrition|supplement/.test(x) ? 'nutrition' : /personal/.test(x) ? 'personal_care' : /general/.test(x) ? 'general' : /grocery|food/.test(x) ? 'grocery' : 'medicine';
+}
+function mfCatNorm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+// sel: null = everything | { type, cat } | { other: true } (anything the 6 quick chips don't cover)
+function mfMatchSel(productType, category, sel) {
+  if (!sel) return true;
+  if (sel.other) return !Object.keys(MF_SD_QUICK).some(k => mfMatchSel(productType, category, MF_SD_QUICK[k]));
+  if (sel.type && mfTypeKey(productType) !== sel.type) return false;
+  if (!sel.cat) return true;
+  const g = MF_CATALOG.find(c => c.type === sel.type);
+  const c = mfCatNorm(category), s = mfCatNorm(sel.cat);
+  if (/^other/.test(s)) return !g || !g.cats.some(k => !/^other/i.test(k) && (mfCatNorm(k) === c || (c && c.startsWith(mfCatNorm(k)))));
+  return c === s || c.startsWith(s) || (c.length > 2 && s.startsWith(c));
+}
+function mfSelTitle(sel) {
+  if (!sel) return 'Available Products';
+  if (sel.other) return 'Other Products';
+  const g = MF_CATALOG.find(c => c.type === sel.type);
+  return sel.cat ? sel.cat : (g ? g.title : 'Products');
+}
+// Full-page list of every category. onPick(sel|null) — null means "show everything".
+function mfOpenCategorySheet(opts) {
+  opts = opts || {};
+  const old = document.getElementById('mf-cat-sheet'); if (old) old.remove();
+  const count = (sel) => { if (typeof opts.count !== 'function') return ''; const n = opts.count(sel); return n > 0 ? `<em>${n}</em>` : ''; };
+  const el = document.createElement('div');
+  el.id = 'mf-cat-sheet'; el.className = 'mf-cat-sheet';
+  el.innerHTML = `
+    <div class="mf-cat-sheet-head"><button type="button" class="mf-cat-back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button><h3>All Categories</h3></div>
+    <div class="mf-cat-sheet-body">
+      <button type="button" class="mf-cat-showall" data-all="1"><i class="fa-solid fa-border-all"></i> Show all products</button>
+      ${MF_CATALOG.map(g => `
+        <section class="mf-cat-group">
+          <h4><i class="fa-solid ${g.icon}"></i> ${mfEsc(g.title)}</h4>
+          <div class="mf-cat-chips">
+            <button type="button" class="mf-cat-chip mf-cat-chip-all" data-type="${g.type}" data-cat="">All ${mfEsc(g.title)}${count({ type: g.type, cat: '' })}</button>
+            ${g.cats.map(c => `<button type="button" class="mf-cat-chip" data-type="${g.type}" data-cat="${mfEsc(c)}">${mfEsc(c)}${count({ type: g.type, cat: c })}</button>`).join('')}
+          </div>
+        </section>`).join('')}
+    </div>`;
+  document.body.appendChild(el);
+  const close = () => { el.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  el.querySelector('.mf-cat-back').addEventListener('click', close);
+  el.addEventListener('click', (e) => {
+    const all = e.target.closest('.mf-cat-showall');
+    const chip = e.target.closest('.mf-cat-chip');
+    if (all) { close(); if (opts.onPick) opts.onPick(null); }
+    else if (chip) { close(); if (opts.onPick) opts.onPick({ type: chip.dataset.type, cat: chip.dataset.cat || '' }); }
+  });
+}
+window.mfOpenCategorySheet = mfOpenCategorySheet;
+
+/* Generic full-screen photo viewer (pinch / double-tap zoom, swipe) with a caption per photo */
+function mfOpenImageViewer(items, startIdx) {
+  items = (items || []).filter(i => i && i.url);
+  if (!items.length) return;
+  const old = document.getElementById('pd-lightbox'); if (old) old.remove();
+  const lb = document.createElement('div');
+  lb.id = 'pd-lightbox'; lb.className = 'pd-lightbox';
+  lb.innerHTML = `
+    <div class="pd-lb-top"><span class="pd-lb-counter"></span><button type="button" class="pd-lb-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="pd-lb-stage"><img class="pd-lb-img" alt="Product photo" draggable="false">
+      ${items.length > 1 ? '<button type="button" class="pd-lb-nav prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button><button type="button" class="pd-lb-nav next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' : ''}
+    </div>
+    <div class="pd-lb-caption"><p class="pd-lb-text mf-lb-label"></p></div>`;
+  document.body.appendChild(lb);
+  const stage = lb.querySelector('.pd-lb-stage'), img = lb.querySelector('.pd-lb-img'), counter = lb.querySelector('.pd-lb-counter'), cap = lb.querySelector('.mf-lb-label');
+  let idx = Math.min(Math.max(startIdx || 0, 0), items.length - 1), scale = 1, tx = 0, ty = 0;
+  const apply = () => { img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
+  const show = (i) => { idx = (i + items.length) % items.length; scale = 1; tx = 0; ty = 0; img.src = items[idx].url; counter.textContent = `${idx + 1} / ${items.length}`; cap.textContent = items[idx].label || ''; apply(); };
+  const close = () => { lb.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && items.length > 1) show(idx + 1); else if (e.key === 'ArrowLeft' && items.length > 1) show(idx - 1); };
+  document.addEventListener('keydown', onKey);
+  lb.querySelector('.pd-lb-close').addEventListener('click', close);
+  const prev = lb.querySelector('.pd-lb-nav.prev'), next = lb.querySelector('.pd-lb-nav.next');
+  if (prev) prev.addEventListener('click', (e) => { e.stopPropagation(); show(idx - 1); });
+  if (next) next.addEventListener('click', (e) => { e.stopPropagation(); show(idx + 1); });
+  const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  let t0 = null, pinch = null, lastTap = 0;
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) pinch = { d: dist(e.touches), s: scale };
+    else if (e.touches.length === 1) t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty, time: Date.now() };
+  }, { passive: true });
+  stage.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinch) { scale = Math.min(5, Math.max(1, pinch.s * dist(e.touches) / pinch.d)); apply(); e.preventDefault(); }
+    else if (e.touches.length === 1 && t0 && scale > 1) { tx = t0.tx + e.touches[0].clientX - t0.x; ty = t0.ty + e.touches[0].clientY - t0.y; apply(); e.preventDefault(); }
+  }, { passive: false });
+  stage.addEventListener('touchend', (e) => {
+    if (pinch && e.touches.length < 2) { pinch = null; if (scale < 1.05) { scale = 1; tx = 0; ty = 0; apply(); } return; }
+    if (t0 && e.changedTouches.length) {
+      const dx = e.changedTouches[0].clientX - t0.x, dy = e.changedTouches[0].clientY - t0.y, dt = Date.now() - t0.time;
+      if (scale === 1 && items.length > 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) show(idx + (dx < 0 ? 1 : -1));
+      else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 250) {
+        const now = Date.now();
+        if (now - lastTap < 300) { scale = scale > 1 ? 1 : 2.5; tx = 0; ty = 0; apply(); lastTap = 0; } else lastTap = now;
+      }
+    }
+    t0 = null;
+  });
+  img.addEventListener('dblclick', () => { scale = scale > 1 ? 1 : 2.5; tx = 0; ty = 0; apply(); });
+  stage.addEventListener('wheel', (e) => { e.preventDefault(); scale = Math.min(5, Math.max(1, scale + (e.deltaY < 0 ? 0.3 : -0.3))); if (scale === 1) { tx = 0; ty = 0; } apply(); }, { passive: false });
+  show(idx);
+}
+window.mfOpenImageViewer = mfOpenImageViewer;
+
 async function setupHomePageModules() {
     if (!document.getElementById('family-health-banner') && !document.getElementById('main-products-grid')) return;
 
@@ -1360,6 +1496,9 @@ async function setupHomePageModules() {
         const c = String(raw || '').toLowerCase().trim();
         if (!c) return 'others';
         if (c.includes('insulin')) return 'insulin';
+        if (c.includes('injection') || c.includes('syringe')) return 'injection';
+        if (/cream|ointment|\bgel\b|lotion/.test(c)) return 'cream';
+        if (c.includes('drop')) return 'drops';
         if (c.includes('capsule')) return 'capsule';
         if (c.includes('syrup')) return 'syrup';
         if (c.includes('tablet') || c.includes('pill')) return 'tablet';
@@ -1394,7 +1533,7 @@ async function setupHomePageModules() {
         if (!document.getElementById('seller-store-back-bar')) {
             const backBar = document.createElement('div');
             backBar.id = 'seller-store-back-bar';
-            backBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#e02020;font-weight:600;cursor:pointer;';
+            backBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;font-size:0.85rem;color:#D6334A;font-weight:600;cursor:pointer;';
             backBar.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to MediFinder India Home';
             backBar.addEventListener('click', () => { navigateTo('home'); });
             const productsSection = document.querySelector('.products-showcase-section');
@@ -1583,11 +1722,7 @@ async function setupHomePageModules() {
 
             const productCards = productsGrid.querySelectorAll('.product-card');
             let matchedCount = 0;
-            const categoryItems = document.querySelectorAll('.category-item');
-            if (categoryItems.length > 0) {
-                categoryItems.forEach(i => i.classList.remove('active'));
-                categoryItems[0].classList.add('active');
-            }
+            if (typeof window.mfResetHomeCategory === 'function') window.mfResetHomeCategory();
 
             // Relevance ranking: the product TYPE the shopper searched for
             // (tablet / baby / food ...) is pushed to the top. Cards are
@@ -1682,53 +1817,60 @@ async function setupHomePageModules() {
         }, 2600);
     })();
 
-    // Shop-by-category: maps each card's merchant product type (medicines.product_type)
-    // to the category chips: medicine / supplies / personal / general / grocery.
-    // 'baby' keeps using the keyword-based key; legacy keys (tablet, capsule...) still work.
-    function mfCardGroup(card) {
-        const t = String(card.getAttribute('data-product-type') || '').toLowerCase();
-        if (t.includes('instrument')) return 'supplies';
-        if (t.includes('personal')) return 'personal';
-        if (t.includes('general')) return 'general';
-        if (t.includes('grocery')) return 'grocery';
-        return 'medicine';
+    // Shop-by-category: 8 quick tiles + "View all" (every merchant category). Filters the product cards below.
+    let mfHomeSel = null;
+    const catGrid = document.getElementById('home-cat-grid');
+    const cardMatches = (card, sel) => mfMatchSel(card.getAttribute('data-product-type'), card.getAttribute('data-category-raw'), sel);
+    function mfHomeCount(sel) { return productsGrid ? Array.prototype.filter.call(productsGrid.querySelectorAll('.product-card'), c => cardMatches(c, sel)).length : 0; }
+    function mfRenderHomeTiles() {
+        if (!catGrid) return;
+        catGrid.innerHTML = MF_HOME_TILES.map((t, i) => `
+            <div class="category-item" data-i="${i}" title="${mfEsc(t.label || t.cat)}">
+                <div class="cat-icon-wrapper ${t.cls}"><i class="fa-solid ${t.icon}"></i></div>
+                <span>${mfEsc(t.label || t.cat)}</span>
+            </div>`).join('');
+        catGrid.querySelectorAll('.category-item').forEach(item => item.addEventListener('click', () => {
+            const t = MF_HOME_TILES[+item.dataset.i];
+            const same = mfHomeSel && mfHomeSel.type === t.type && (mfHomeSel.cat || '') === (t.cat || '');
+            mfApplyHomeFilter(same ? null : { type: t.type, cat: t.cat || '' });
+        }));
     }
-    function mfCardMatchesCategory(card, target) {
-        if (target === 'baby') return card.getAttribute('data-category') === 'baby';
-        if (['medicine','supplies','personal','general','grocery'].includes(target)) return mfCardGroup(card) === target;
-        return card.getAttribute('data-category') === target;
-    }
-
-    const categoryItems = document.querySelectorAll('.category-item');
-    if (categoryItems.length > 0) {
-        categoryItems.forEach(item => {
-            item.addEventListener('click', () => {
-                categoryItems.forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
-                const searchInput = document.getElementById('home-medicine-search');
-                if (searchInput) { searchInput.value = ""; if (clearSearchBtn) clearSearchBtn.style.display = "none"; }
-                toggleSearchIconState(false);
-                const catCountBadge = document.getElementById('product-count-badge');
-                if (catCountBadge) catCountBadge.style.display = 'none';
-                const targetCategory = item.getAttribute('data-category');
-                const catHeading = document.getElementById('products-section-heading');
-                if (catHeading) catHeading.textContent = targetCategory === 'all' ? 'Available Products' : (item.getAttribute('title') || 'Products').split(' — ')[0];
-                const productCards = productsGrid.querySelectorAll('.product-card');
-                let visibleCount = 0;
-                productCards.forEach(card => {
-                    card.style.order = '';
-                    if (targetCategory === 'all' || mfCardMatchesCategory(card, targetCategory)) {
-                        card.style.display = 'block'; visibleCount++;
-                    } else {
-                        card.style.display = 'none';
-                    }
-                });
-                if (noProductsMsg) noProductsMsg.style.display = visibleCount === 0 ? "block" : "none";
-                const countBadge = document.getElementById('product-count-badge');
-                if (countBadge) countBadge.textContent = `${visibleCount} items`;
-            });
+    function mfApplyHomeFilter(sel) {
+        mfHomeSel = sel;
+        const searchInput = document.getElementById('home-medicine-search');
+        if (searchInput) { searchInput.value = ""; if (typeof clearSearchBtn !== 'undefined' && clearSearchBtn) clearSearchBtn.style.display = "none"; }
+        if (typeof toggleSearchIconState === 'function') toggleSearchIconState(false);
+        const catCountBadge = document.getElementById('product-count-badge');
+        if (catCountBadge) catCountBadge.style.display = 'none';
+        const catHeading = document.getElementById('products-section-heading');
+        if (catHeading) catHeading.textContent = mfSelTitle(sel);
+        let visibleCount = 0;
+        (productsGrid ? productsGrid.querySelectorAll('.product-card') : []).forEach(card => {
+            card.style.order = '';
+            if (cardMatches(card, sel)) { card.style.display = 'block'; visibleCount++; } else card.style.display = 'none';
         });
+        if (noProductsMsg) noProductsMsg.style.display = visibleCount === 0 ? "block" : "none";
+        const countBadge = document.getElementById('product-count-badge');
+        if (countBadge) countBadge.textContent = `${visibleCount} items`;
+        // highlight the matching quick tile (if any) and show a clear button while a filter is on
+        catGrid && catGrid.querySelectorAll('.category-item').forEach(el => {
+            const t = MF_HOME_TILES[+el.dataset.i];
+            el.classList.toggle('active', !!sel && sel.type === t.type && (sel.cat || '') === (t.cat || ''));
+        });
+        let clr = document.getElementById('cat-clear-btn');
+        if (sel && !clr && catHeading && catHeading.parentNode) {
+            clr = document.createElement('button'); clr.type = 'button'; clr.id = 'cat-clear-btn'; clr.className = 'cat-clear-btn';
+            clr.innerHTML = '<i class="fa-solid fa-xmark"></i> Clear';
+            clr.addEventListener('click', () => mfApplyHomeFilter(null));
+            catHeading.parentNode.insertBefore(clr, catHeading.nextSibling);
+        }
+        if (clr) clr.style.display = sel ? '' : 'none';
+        if (sel && catHeading) { try { catHeading.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ } }
     }
+    window.mfApplyHomeCategory = mfApplyHomeFilter;
+    window.mfResetHomeCategory = () => { mfHomeSel = null; catGrid && catGrid.querySelectorAll('.category-item').forEach(el => el.classList.remove('active')); const c = document.getElementById('cat-clear-btn'); if (c) c.style.display = 'none'; };
+    mfRenderHomeTiles();
+    document.getElementById('cat-viewall-btn')?.addEventListener('click', () => mfOpenCategorySheet({ count: mfHomeCount, onPick: mfApplyHomeFilter }));
 
     async function handlePrescriptionFile(file) {
         if (!file) return;
@@ -2049,7 +2191,7 @@ async function openPrescriptionPhoneConfirmSheet(prescriptionUrl) {
             ${rxState.hasAddr ? '' : rxAddressFieldsHTML()}
             <div style="display:flex;gap:10px;margin-top:15px;">
                 <button id="cancel-presc" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
-                <button id="submit-presc-phone" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Send to Nearby Pharmacies</button>
+                <button id="submit-presc-phone" style="flex:1;padding:10px;border-radius:8px;border:none;background:#1E9E6B;color:#fff;cursor:pointer;font-weight:600;">Send to Nearby Pharmacies</button>
             </div>
         </div>
     `;
@@ -2301,10 +2443,10 @@ function paintProductDetail(data) {
     const productType = data.productType || data['data-product-type'] || data.product_type || 'Medicine';
     const ptLower = String(productType).toLowerCase();
     const isInstrument = /instrument/.test(ptLower);
-    const isGeneral = !isInstrument && /(general|personal|grocery)/.test(ptLower);
+    const isGeneral = !isInstrument && /(general|personal|grocery|baby|mother|nutrition|supplement)/.test(ptLower);
     const isMedicine = !isInstrument && !isGeneral;
-    const genTitle = /personal/.test(ptLower) ? 'Personal Care Details' : /grocery/.test(ptLower) ? 'Grocery Details' : 'Product Details';
-    const genTypeLabel = /personal/.test(ptLower) ? 'Personal Care & Hygiene' : /grocery/.test(ptLower) ? 'Grocery & Packaged Food' : 'Daily Essentials';
+    const genTitle = /personal/.test(ptLower) ? 'Personal Care Details' : /baby|mother/.test(ptLower) ? 'Baby & Mother Care Details' : /nutrition|supplement/.test(ptLower) ? 'Nutrition & Supplement Details' : /grocery|food/.test(ptLower) ? 'Health Food Details' : 'Product Details';
+    const genTypeLabel = /personal/.test(ptLower) ? 'Personal Care & Hygiene' : /baby|mother/.test(ptLower) ? 'Baby & Mother Care' : /nutrition|supplement/.test(ptLower) ? 'Medical Nutrition & Supplements' : /grocery|food/.test(ptLower) ? 'Health Food' : 'Daily Essentials';
 
     const setText = (id, val, fallback) => {
         const el = document.getElementById(id);
@@ -2456,7 +2598,7 @@ function paintProductDetail(data) {
     const stockText = document.getElementById('pd-stock-text');
     const stockTag = document.getElementById('pd-stock-tag');
     if (stockText) {
-        if (!inStock) { stockText.textContent = 'Currently unavailable'; if (stockTag) stockTag.style.color = '#e02020'; }
+        if (!inStock) { stockText.textContent = 'Currently unavailable'; if (stockTag) stockTag.style.color = '#D6334A'; }
         else if (!isNaN(stockQty) && stockQty > 0 && stockQty <= 5) { stockText.textContent = `Only ${stockQty} left`; if (stockTag) stockTag.style.color = '#e67e22'; }
         else { stockText.textContent = 'In Stock'; if (stockTag) stockTag.style.color = ''; }
     }
@@ -2512,6 +2654,93 @@ function paintProductDetail(data) {
 
     renderPdGallery(data);
     renderPdBreadcrumb(data);
+    try { mfRenderPdExtra(data, isInstrument ? 'instrument' : mfTypeKey(productType)); } catch (e) { console.warn('extra details', e); }
+}
+
+
+/* ===== Product details: everything the merchant typed in the product form + labelled photos ===== */
+const MF_X_LABELS = {
+  medicineType: 'Medicine Type', marketer: 'Marketer', schedule: 'Schedule / Classification', specialStorage: 'Special Storage',
+  importer: 'Importer', country: 'Country of Origin', intendedUse: 'Intended Use', shortDesc: 'Short Description', keyFeatures: 'Key Features', techSpecs: 'Technical Specifications',
+  accuracy: 'Accuracy', powerSource: 'Power Source', connectivity: 'Connectivity', dimensions: 'Dimensions', weight: 'Weight', material: 'Material',
+  accessories: 'Compatible Accessories', packageContents: 'Package Contents', usage: 'How to Use', installation: 'Installation Required',
+  warrantyProvider: 'Warranty Provider', serviceCentre: 'Service Centre', afterSales: 'After-sales Support', replacementTerms: 'Replacement Terms',
+  deviceClass: 'Device Classification', regNumber: 'Licence / Registration', regMarking: 'Regulatory Marking', instructionsForUse: 'Instructions for Use', safetyWarnings: 'Safety Warnings',
+  variant: 'Variant / Flavour', netQty: 'Net Quantity', skinType: 'Skin / Hair Type', warnings: 'Safety Warnings',
+  diaperType: 'Diaper Type', size: 'Size', weightRange: 'Recommended Weight Range', piecesPerPack: 'Pieces per Pack', dayNight: 'Day / Night Use', wipesCount: 'Wipes Count',
+  fragranceType: 'Fragrance', fragrance: 'Fragrance / Variant', ageSuitability: 'Age Suitability', absorbency: 'Absorbency',
+  unitsPerPack: 'Units per Pack', composition: 'Ingredients / Composition', nutritionInfo: 'Nutritional Information', allergens: 'Allergen Information',
+  ageGroup: 'Recommended Age Group', directions: 'Directions for Use', regCategory: 'Regulatory Category', fssai: 'FSSAI Licence No.', drugApproval: 'Drug Licence / Approval',
+  mfrDetails: 'Manufacturer / Importer Details', vegType: 'Veg / Non-veg', shelfLife: 'Shelf Life', netUnit: 'Unit'
+};
+// never shown to customers (internal / compliance-only / merchant-only)
+const MF_X_HIDE = new Set(['name', 'brand', 'generic', 'category', 'subCategory', 'description', 'manufacturer', 'pharmacist', 'licenceType', 'mfrCode', 'sku', 'barcode', 'cost', 'costPrice', 'purchasePrice', 'purchase', 'netUnit']);
+// already printed by the standard cards of that product type
+const MF_X_DATES = ['mfd', 'expiry', 'batchNo', 'lotNo', 'batch', 'lot'];
+const MF_X_SHOWN = {
+  medicine: ['composition', 'strength', 'dosageForm', 'packSize', 'storage', 'sideEffects'].concat(MF_X_DATES),
+  instrument: ['care', 'warranty', 'color', 'battery', 'display', 'range', 'modelNumber', 'deviceType'].concat(MF_X_DATES),
+  general: ['packSize', 'storage', 'dosageForm'].concat(MF_X_DATES)
+};
+const MF_IMAGE_SLOTS = {
+  medicine: ['Front packaging', 'Back label', 'Composition / ingredient label', 'Other label / packaging'],
+  instrument: ['Front product image', 'Back / label image', 'Model / serial label', 'Package contents'],
+  personal_care: ['Front product image', 'Back label', 'Ingredients label', 'Packaging'],
+  baby_mother: ['Front product image', 'Back label', 'Ingredients / materials label', 'Packaging'],
+  nutrition: ['Front pack', 'Back label', 'Ingredients / nutrition label', 'Batch / expiry label'],
+  _: ['Main photo', 'Side / back photo', 'Composition / detail photo', 'MRP / price photo']
+};
+function mfRenderPdExtra(data, typeKey) {
+  const card = document.getElementById('pd-extra-card'), body = document.getElementById('pd-extra-body');
+  const lcard = document.getElementById('pd-labels-card'), lgrid = document.getElementById('pd-labels-grid');
+  let extra = data.extra || data.extra_details || null;
+  if (typeof extra === 'string') { try { extra = JSON.parse(extra); } catch (e) { extra = null; } }
+  const x = (extra && typeof extra.x === 'object' && extra.x) ? extra.x : {};
+  if (card && body) {
+    const group = typeKey === 'medicine' ? 'medicine' : typeKey === 'instrument' ? 'instrument' : 'general';
+    const shown = new Set(MF_X_SHOWN[group] || []);
+    const fmtDate = (v) => { const d = new Date(v); return isNaN(d.getTime()) ? v : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
+    const fmt = (k, v) => {
+      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return v.map(i => String(i == null ? '' : i).trim()).filter(Boolean).join(', ');
+      if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+      if (typeof v === 'object') return '';
+      let s = String(v).trim();
+      if (!s) return '';
+      if (/^\d{4}-\d{2}-\d{2}/.test(s) && /date|mfd|expiry/i.test(k)) s = fmtDate(s);
+      if (k === 'weight' && /^[\d.]+$/.test(s)) s += ' kg';
+      return s;
+    };
+    const human = (k) => k.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase());
+    const keys = Object.keys(x).filter(k => !MF_X_HIDE.has(k) && !shown.has(k));
+    const known = Object.keys(MF_X_LABELS).filter(k => keys.includes(k));
+    const unknown = keys.filter(k => !MF_X_LABELS[k]).sort();
+    const rows = [];
+    known.concat(unknown).forEach(k => {
+      let v = fmt(k, x[k]);
+      if (!v) return;
+      if (k === 'netQty' && fmt('netUnit', x.netUnit)) v += ' ' + fmt('netUnit', x.netUnit);
+      const label = MF_X_LABELS[k] || human(k);
+      const long = v.length > 46 || v.indexOf('\n') > -1;
+      rows.push(`<div class="detail-item${long ? ' pd-stack' : ''}"><span class="detail-label">${pdEsc(label)}</span><span class="detail-value pd-extra-val">${pdEsc(v)}</span></div>`);
+    });
+    // weight stored as a real column for non-medicine products
+    if (!x.weight && data.weightKg && Number(data.weightKg) > 0 && group !== 'medicine') rows.push(`<div class="detail-item"><span class="detail-label">Weight</span><span class="detail-value">${pdEsc(Number(data.weightKg))} kg</span></div>`);
+    body.innerHTML = rows.join('');
+    card.style.display = rows.length ? '' : 'none';
+    if (rows.length) card.dataset.pdPruned = '';
+  }
+  if (lcard && lgrid) {
+    const urls = [data.img || data.image_url, data.img2 || data.image_url_2, data.img3 || data.image_url_3, data.img4 || data.image_url_4].map(u => (u || '').trim());
+    const slots = MF_IMAGE_SLOTS[typeKey] || MF_IMAGE_SLOTS._;
+    const items = [];
+    urls.forEach((u, i) => { if (u) items.push({ url: u, label: slots[i] || ('Photo ' + (i + 1)) }); });
+    if (items.length >= 2) {
+      lgrid.innerHTML = items.map((it, i) => `<button type="button" class="pd-label-tile" data-i="${i}"><img src="${pdEsc(it.url)}" alt="${pdEsc(it.label)}" loading="lazy"><span>${pdEsc(it.label)}</span></button>`).join('');
+      lgrid.querySelectorAll('.pd-label-tile').forEach(b => b.addEventListener('click', () => mfOpenImageViewer(items, parseInt(b.dataset.i, 10) || 0)));
+      lcard.style.display = '';
+    } else { lgrid.innerHTML = ''; lcard.style.display = 'none'; }
+  }
 }
 
 function renderPdGallery(data) {
@@ -2626,6 +2855,7 @@ async function loadPdAuthoritativeData(originalData) {
             isExchangeable: row.is_exchangeable === true,
             exchangeDays: Number(row.exchange_window_days || 0),
             weightKg: row.weight_kg,
+            extra: row.extra_details || null,
         };
         __pdCurrentData = merged;
         localStorage.setItem('currentProduct', JSON.stringify(merged));
@@ -3370,12 +3600,14 @@ let __sdCurrentMerchantId = null;
 let __sdReturnPage = 'shops';
 let __sdAllProducts = [];   // full product list for the open shop
 let __sdActiveCategory = 'all';
+let __sdActiveSel = null;   // set when a category is picked from "View all"
 let __sdSortMode = 'popular';
 
 function navigateToShopDetail(merchantId) {
     if (!merchantId) return;
     __sdCurrentMerchantId = merchantId;
     __sdActiveCategory = 'all';
+    __sdActiveSel = null;
     __sdSortMode = 'popular';
     const searchInput = document.getElementById('sd-search-input');
     if (searchInput) searchInput.value = '';
@@ -3607,9 +3839,11 @@ function renderShopProducts() {
     const q = (document.getElementById('sd-search-input')?.value || '').trim().toLowerCase();
 
     let list = __sdAllProducts.filter(prod => {
-        if (__sdActiveCategory !== 'all') {
-            const catKey = typeof normalizeCategoryKey === 'function' ? normalizeCategoryKey(prod.category || prod.dosage_form) : 'others';
-            if (catKey !== __sdActiveCategory) return false;
+        if (__sdActiveSel) {
+            if (!mfMatchSel(prod.product_type, prod.category || prod.dosage_form, __sdActiveSel)) return false;
+        } else if (__sdActiveCategory !== 'all') {
+            const sel = __sdActiveCategory === 'others' ? { other: true } : MF_SD_QUICK[__sdActiveCategory];
+            if (sel && !mfMatchSel(prod.product_type, prod.category || prod.dosage_form, sel)) return false;
         }
         if (q) {
             const name = String(prod.name || prod.product_name || '').toLowerCase();
@@ -3725,6 +3959,20 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('sd-categories-scroll')?.addEventListener('click', (e) => {
         const chip = e.target.closest('.sd-cat-chip');
         if (!chip) return;
+        if (chip.dataset.cat === 'viewall') {
+            mfOpenCategorySheet({
+                count: (sel) => (__sdAllProducts || []).filter(p => mfMatchSel(p.product_type, p.category || p.dosage_form, sel)).length,
+                onPick: (sel) => {
+                    __sdActiveSel = sel; __sdActiveCategory = sel ? 'picked' : 'all';
+                    document.querySelectorAll('#sd-categories-scroll .sd-cat-chip').forEach(c => c.classList.toggle('active', sel ? c === chip : c.dataset.cat === 'all'));
+                    const lbl = chip.querySelector('span'); if (lbl) lbl.textContent = sel ? mfSelTitle(sel) : 'View all';
+                    renderShopProducts();
+                }
+            });
+            return;
+        }
+        __sdActiveSel = null;
+        const vaLbl = document.querySelector('#sd-categories-scroll .sd-cat-chip[data-cat="viewall"] span'); if (vaLbl) vaLbl.textContent = 'View all';
         __sdActiveCategory = chip.dataset.cat;
         document.querySelectorAll('#sd-categories-scroll .sd-cat-chip').forEach(c => c.classList.toggle('active', c === chip));
         renderShopProducts();
@@ -4212,7 +4460,7 @@ async function saveDeliveryAddress() {
     localStorage.setItem('medi_delivery_address', JSON.stringify(addr));
     localStorage.setItem('medi_verified_address', `${house}, ${area}, ${city} - ${pincode}${landmark ? ', Near ' + landmark : ''}`);
     isPincodeVerified = true;
-    if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = '✓ Address saved!'; }
+    if (statusMsg) { statusMsg.style.color = '#1E9E6B'; statusMsg.innerText = '✓ Address saved!'; }
     const editingIdAtSave = document.getElementById('cart-editing-address-id')?.value || '';
     showSavedAddress(addr);
     recalculateBill();
@@ -4223,7 +4471,7 @@ async function saveDeliveryAddress() {
         try {
             const zoneCheck = await withTimeout(checkPincodeServiceability(pincode), 6000);
             if (zoneCheck && statusMsg) {
-                statusMsg.style.color = zoneCheck.available ? '#2ed573' : '#747d8c';
+                statusMsg.style.color = zoneCheck.available ? '#1E9E6B' : '#747d8c';
                 statusMsg.innerText = zoneCheck.available
                     ? '✓ Address saved! 30 Min & Same Day are available here too!'
                     : "✓ Address saved! Standard delivery (5-7 days) is available; 30 Min/Same Day aren't launched here yet.";
@@ -4261,7 +4509,7 @@ async function handleCouponApplication() {
     const couponCode = couponInput.value.trim().toUpperCase();
     const statusMsg = document.getElementById('coupon-status-msg');
     function setMsg(text, ok) {
-        if (statusMsg) { statusMsg.style.color = ok ? '#2ed573' : '#ff4d4d'; statusMsg.innerText = text; }
+        if (statusMsg) { statusMsg.style.color = ok ? '#1E9E6B' : '#ff4d4d'; statusMsg.innerText = text; }
     }
     if (!couponCode) { setMsg('Enter a coupon code.', false); return; }
     if (!supabase) { setMsg("Coupons aren't available right now.", false); discountAmount = 0; appliedCouponInfo = null; recalculateBill(); return; }
@@ -4359,9 +4607,9 @@ function renderCartPage() {
         const rxBadge = isRxItem
             ? (rxBlocked
                 ? '<span class="cart-item-rx" style="background:#fff0f0;color:#ff4d4d;border:1px solid #ff4d4d;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-triangle-exclamation"></i> Rx</span>'
-                : '<span class="cart-item-rx" style="background:#f0fff5;color:#2ed573;border:1px solid #2ed573;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Rx Verified</span>')
+                : '<span class="cart-item-rx" style="background:#f0fff5;color:#1E9E6B;border:1px solid #1E9E6B;border-radius:6px;padding:2px 6px;font-size:0.7rem;margin-left:6px;"><i class="fa-solid fa-circle-check"></i> Rx Verified</span>')
             : '';
-        const rxTick = (isRxItem && item.rxVerified) ? '<span class="cart-item-rx-tick" style="position:absolute;bottom:-4px;right:-4px;background:#2ed573;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;border:2px solid #fff;"><i class="fa-solid fa-check"></i></span>' : '';
+        const rxTick = (isRxItem && item.rxVerified) ? '<span class="cart-item-rx-tick" style="position:absolute;bottom:-4px;right:-4px;background:#1E9E6B;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;border:2px solid #fff;"><i class="fa-solid fa-check"></i></span>' : '';
         const uploadRow = rxBlocked ? `
                     <div class="cart-rx-upload-row" style="display:flex;gap:8px;margin-top:6px;">
                         <button type="button" class="cart-rx-upload-btn" data-cart-id="${item.id}" data-mode="camera" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;border-radius:8px;border:1px solid #ff4d4d;background:#fff;color:#ff4d4d;font-size:0.72rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-camera"></i> Camera</button>
@@ -5347,7 +5595,7 @@ function createConfetti() {
     const container = document.getElementById('confettiCanvas');
     if (!container) return;
     container.innerHTML = '';
-    const colors = ['#e02020', '#2ed573', '#ffa502', '#3742fa', '#ff6b81', '#1e90ff', '#ffd32a'];
+    const colors = ['#D6334A', '#1E9E6B', '#ffa502', '#3742fa', '#ff6b81', '#1e90ff', '#ffd32a'];
     for (let i = 0; i < 60; i++) {
         const p = document.createElement('div');
         p.className = 'confetti-particle';
@@ -5823,9 +6071,9 @@ function renderOrdersUI() {
         const s = (order.status || '').toLowerCase();
         const displayStatus = getOrderDisplayStatus(order);
         const statusColors = {
-            'Accepted': 'background:#e3faf2;color:#2ed573;',
+            'Accepted': 'background:#e3faf2;color:#1E9E6B;',
             'Delivered': 'background:#fff1e0;color:#e8590c;',
-            'Cancelled': 'background:#ffe3e3;color:#e02020;',
+            'Cancelled': 'background:#ffe3e3;color:#D6334A;',
             'Pending': 'background:#fff9db;color:#f59f00;'
         };
         const statusStyle = statusColors[displayStatus] || 'background:#e7f4fb;color:#1c82aa;';
@@ -6149,9 +6397,9 @@ window.openOrderDetailModal = async function (orderId) {
         // Same exact color mapping as the order list card — Accepted=green,
         // Rejected/Cancelled=red, Pending=yellow, Delivered=orange.
         const detailStatusColors = {
-            'Accepted': 'background:#e3faf2;color:#2ed573;',
+            'Accepted': 'background:#e3faf2;color:#1E9E6B;',
             'Delivered': 'background:#fff1e0;color:#e8590c;',
-            'Cancelled': 'background:#ffe3e3;color:#e02020;',
+            'Cancelled': 'background:#ffe3e3;color:#D6334A;',
             'Pending': 'background:#fff9db;color:#f59f00;'
         };
         const detailStatusStyle = detailStatusColors[displayStatus] || 'background:#e7f4fb;color:#1c82aa;';
@@ -6197,15 +6445,15 @@ window.openOrderDetailModal = async function (orderId) {
         const showFeedback = s === 'delivered';
 
         const timelineHtml = timeline.map((t, idx) => {
-            const dotColor = t.isCancelled ? '#e02020' : (t.done ? '#2ed573' : '#ccd3da');
+            const dotColor = t.isCancelled ? '#D6334A' : (t.done ? '#1E9E6B' : '#ccd3da');
             const nextDone = timeline[idx + 1] && timeline[idx + 1].done;
             return `<div style="display:flex;align-items:flex-start;gap:10px;">
                 <div style="display:flex;flex-direction:column;align-items:center;">
                     <div style="width:13px;height:13px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:2px;"></div>
-                    ${idx < timeline.length - 1 ? `<div style="width:2px;flex:1;min-height:20px;background:${t.done && nextDone ? '#2ed573' : '#e2e6ea'};"></div>` : ''}
+                    ${idx < timeline.length - 1 ? `<div style="width:2px;flex:1;min-height:20px;background:${t.done && nextDone ? '#1E9E6B' : '#e2e6ea'};"></div>` : ''}
                 </div>
                 <div style="padding-bottom:16px;">
-                    <p style="margin:0;font-size:0.82rem;font-weight:${t.done ? '700' : '500'};color:${t.isCancelled ? '#e02020' : (t.done ? '#2f3542' : '#a4b0be')};">${t.label}</p>
+                    <p style="margin:0;font-size:0.82rem;font-weight:${t.done ? '700' : '500'};color:${t.isCancelled ? '#D6334A' : (t.done ? '#2f3542' : '#a4b0be')};">${t.label}</p>
                 </div>
             </div>`;
         }).join('');
@@ -6230,27 +6478,27 @@ window.openOrderDetailModal = async function (orderId) {
 
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
             ${showTrack ? `<button type="button" id="od-track-btn" style="flex:1;min-width:100px;background:#1c82aa;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Track</button>` : ''}
-            ${(s === 'delivered' && !isRx) ? `<button type="button" id="od-reorder-btn" style="flex:1;min-width:100px;background:#e02020;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Buy Again</button>` : ''}
+            ${(s === 'delivered' && !isRx) ? `<button type="button" id="od-reorder-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Buy Again</button>` : ''}
             ${showInvoice ? `<button type="button" id="od-invoice-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ''}
-            ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#2ed573;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
+            ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#1E9E6B;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
             ${canCancel ? `<button type="button" id="od-cancel-btn" style="flex:1;min-width:100px;background:#ff4d4d;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancel</button>` : ''}
-            ${canReturnOrExchange && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#e02020;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> ${returnInfo.eligible && returnInfo.exchangeEligible ? 'Return / Exchange' : (returnInfo.eligible ? 'Return' : 'Exchange')}</button>` : ''}
+            ${canReturnOrExchange && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> ${returnInfo.eligible && returnInfo.exchangeEligible ? 'Return / Exchange' : (returnInfo.eligible ? 'Return' : 'Exchange')}</button>` : ''}
           </div>
 
-          ${s === 'cancelled' ? `<div style="background:#fff5f5;border:1px solid #ffd6d6;color:#e02020;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> This order was cancelled.</div>` : ''}
+          ${s === 'cancelled' ? `<div style="background:#fff5f5;border:1px solid #ffd6d6;color:#D6334A;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> This order was cancelled.</div>` : ''}
 
           ${existingReturn ? (() => {
               const retTimeline = buildReturnStatusTimeline(existingReturn);
               const retTimelineHtml = retTimeline.map((t, idx) => {
-                  const dotColor = t.isCancelled ? '#e02020' : (t.done ? '#2ed573' : '#ccd3da');
+                  const dotColor = t.isCancelled ? '#D6334A' : (t.done ? '#1E9E6B' : '#ccd3da');
                   const nextDone = retTimeline[idx + 1] && retTimeline[idx + 1].done;
                   return `<div style="display:flex;align-items:flex-start;gap:10px;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
                           <div style="width:13px;height:13px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:2px;"></div>
-                          ${idx < retTimeline.length - 1 ? `<div style="width:2px;flex:1;min-height:20px;background:${t.done && nextDone ? '#2ed573' : '#e2e6ea'};"></div>` : ''}
+                          ${idx < retTimeline.length - 1 ? `<div style="width:2px;flex:1;min-height:20px;background:${t.done && nextDone ? '#1E9E6B' : '#e2e6ea'};"></div>` : ''}
                       </div>
                       <div style="padding-bottom:16px;">
-                          <p style="margin:0;font-size:0.82rem;font-weight:${t.done ? '700' : '500'};color:${t.isCancelled ? '#e02020' : (t.done ? '#2f3542' : '#a4b0be')};">${t.label}</p>
+                          <p style="margin:0;font-size:0.82rem;font-weight:${t.done ? '700' : '500'};color:${t.isCancelled ? '#D6334A' : (t.done ? '#2f3542' : '#a4b0be')};">${t.label}</p>
                       </div>
                   </div>`;
               }).join('');
@@ -6520,7 +6768,7 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
-        const shopIcon = L.divIcon({ html: '<div style="background:#e02020;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(224,32,32,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:12px;"></i></div>', className: 'custom-div-icon', iconSize: [26, 26] });
+        const shopIcon = L.divIcon({ html: '<div style="background:#D6334A;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(214,51,74,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:12px;"></i></div>', className: 'custom-div-icon', iconSize: [26, 26] });
         window._trackingMapState.map = map;
         window._trackingMapState.shopMarker = L.marker([shopLat, shopLng], { icon: shopIcon }).addTo(map).bindPopup('Pharmacy');
         map.invalidateSize();
@@ -6533,7 +6781,7 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
             if (st.userPos) pts.push(st.userPos);
             if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 15 });
         }
-        const userIconHtml = '<div style="background:#16a34a;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(22,163,74,0.5);"><i class="fa-solid fa-house-user" style="color:#fff;font-size:13px;"></i></div>';
+        const userIconHtml = '<div style="background:#1E9E6B;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(22,163,74,0.5);"><i class="fa-solid fa-house-user" style="color:#fff;font-size:13px;"></i></div>';
         if (opts && isFinite(opts.userLat) && isFinite(opts.userLng)) {
             // real delivery location saved on the order
             const userPos = [opts.userLat, opts.userLng];
@@ -6581,7 +6829,7 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
                 if (st.userPos) {
                     // rider -> you (dashed). The solid line is the shop -> you road route.
                     if (st.riderLine) { st.riderLine.setLatLngs([pos, st.userPos]); }
-                    else { st.riderLine = L.polyline([pos, st.userPos], { color: '#e02020', weight: 3, dashArray: '6,8', opacity: 0.85 }).addTo(map); }
+                    else { st.riderLine = L.polyline([pos, st.userPos], { color: '#D6334A', weight: 3, dashArray: '6,8', opacity: 0.85 }).addTo(map); }
                 }
                 fitTrackingBounds();
             } catch (e) { /* silent — network hiccup এ map ভেঙে না যাক */ }
@@ -6629,14 +6877,14 @@ function buildOrderReceiptHtml(order) {
 <style>
   body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;margin:0;padding:24px;color:#2f3542;}
   .invoice-box{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:hidden;}
-  .invoice-header{background:linear-gradient(135deg,#e02020,#ff4d4d);color:#fff;padding:26px 30px;}
+  .invoice-header{background:linear-gradient(135deg,#D6334A,#ff4d4d);color:#fff;padding:26px 30px;}
   .invoice-header h1{margin:0;font-size:1.4rem;letter-spacing:0.5px;}
   .invoice-header p{margin:4px 0 0;opacity:0.9;font-size:0.8rem;}
   .invoice-body{padding:26px 30px;}
   .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;font-size:0.82rem;color:#57606f;}
   .badge{display:inline-block;background:#eef7fb;color:#1c82aa;padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;}
   .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f2f6;font-size:0.86rem;}
-  .row.total{font-weight:800;font-size:1.02rem;color:#e02020;border-bottom:none;border-top:2px solid #2f3542;margin-top:8px;padding-top:14px;}
+  .row.total{font-weight:800;font-size:1.02rem;color:#D6334A;border-bottom:none;border-top:2px solid #2f3542;margin-top:8px;padding-top:14px;}
   .footer{text-align:center;padding:16px;font-size:0.72rem;color:#a4b0be;}
   @media print { body{background:#fff;padding:0;} .invoice-box{box-shadow:none;border-radius:0;} }
 </style>
@@ -6738,16 +6986,16 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
             teardownTrackingMap();
             mapContainer.innerHTML = `
                 <div style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:center;border:1px solid #bbf7d0;">
-                    <i class="fa-solid fa-circle-check" style="font-size:2rem;color:#16a34a;margin-bottom:8px;display:block;"></i>
-                    <p style="font-size:0.95rem;font-weight:700;color:#16a34a;margin:0;">Delivered successfully</p>
+                    <i class="fa-solid fa-circle-check" style="font-size:2rem;color:#1E9E6B;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.95rem;font-weight:700;color:#1E9E6B;margin:0;">Delivered successfully</p>
                 </div>
             `;
         } else if (status === "cancelled") {
             teardownTrackingMap();
             mapContainer.innerHTML = `
                 <div style="background:#fef2f2;padding:16px;border-radius:12px;text-align:center;border:1px solid #fecaca;">
-                    <i class="fa-solid fa-circle-xmark" style="font-size:2rem;color:#dc2626;margin-bottom:8px;display:block;"></i>
-                    <p style="font-size:0.95rem;font-weight:700;color:#dc2626;margin:0;">Order was cancelled</p>
+                    <i class="fa-solid fa-circle-xmark" style="font-size:2rem;color:#D92D20;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.95rem;font-weight:700;color:#D92D20;margin:0;">Order was cancelled</p>
                 </div>
             `;
         } else if (typeof L !== 'undefined') {
@@ -6757,8 +7005,8 @@ window.openLiveTrackingModal = function(orderId, forceVehicle = "Bike", shopLat 
         } else {
             mapContainer.innerHTML = `
                 <div style="background:#fff3f3;padding:16px;border-radius:12px;text-align:center;border:1px solid #ffe4e4;">
-                    <i class="fa-solid fa-clock" style="font-size:2rem;color:#e02020;margin-bottom:8px;display:block;"></i>
-                    <p style="font-size:0.85rem;font-weight:700;color:#e02020;margin:0 0 4px 0;">Estimated Delivery</p>
+                    <i class="fa-solid fa-clock" style="font-size:2rem;color:#D6334A;margin-bottom:8px;display:block;"></i>
+                    <p style="font-size:0.85rem;font-weight:700;color:#D6334A;margin:0 0 4px 0;">Estimated Delivery</p>
                     <p style="font-size:1.5rem;font-weight:800;color:#2f3542;margin:0;"><span id="live-countdown-val">${Math.max(30, parseInt(baseEta) || 30)}+</span> mins</p>
                 </div>
             `;
@@ -6800,7 +7048,7 @@ window.openRxOrderTrackingModal = function(rxId, status) {
             <div style="display:flex;flex-direction:column;gap:14px;">
                 ${steps.map((st, i) => `
                     <div style="display:flex;align-items:center;gap:12px;opacity:${i <= activeIndex ? '1' : '0.4'};">
-                        <div style="width:32px;height:32px;border-radius:50%;background:${i <= activeIndex ? (st.key === 'cancelled' ? '#ff4d4d' : '#2ed573') : '#f1f2f6'};color:${i <= activeIndex ? '#fff' : '#999'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:${i <= activeIndex ? (st.key === 'cancelled' ? '#ff4d4d' : '#1E9E6B') : '#f1f2f6'};color:${i <= activeIndex ? '#fff' : '#999'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                             <i class="fa-solid ${st.icon}"></i>
                         </div>
                         <span style="font-size:0.85rem;font-weight:600;color:#2f3542;">${st.label}</span>
@@ -6928,8 +7176,8 @@ async function setupMapPageModules() {
     setTimeout(() => map.invalidateSize(), 100);
 
     const userIcon = L.divIcon({ html: '<i class="fa-solid fa-street-view" style="color:#ff4d4d;font-size:30px;"></i>', className: 'custom-div-icon', iconSize: [30,30] });
-    const shopIcon = L.divIcon({ html: '<i class="fa-solid fa-shop" style="color:#e02020;font-size:24px;"></i>', className: 'custom-div-icon', iconSize: [24,24] });
-    const shopIconActive = L.divIcon({ html: '<div style="background:#e02020;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(224,32,32,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:14px;"></i></div>', className: 'custom-div-icon', iconSize: [28,28] });
+    const shopIcon = L.divIcon({ html: '<i class="fa-solid fa-shop" style="color:#D6334A;font-size:24px;"></i>', className: 'custom-div-icon', iconSize: [24,24] });
+    const shopIconActive = L.divIcon({ html: '<div style="background:#D6334A;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(214,51,74,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:14px;"></i></div>', className: 'custom-div-icon', iconSize: [28,28] });
 
     let humanMarker = L.marker([userLiveLat, userLiveLng], { icon: userIcon }).addTo(map).bindPopup("<b>You Are Here</b>").openPopup();
     let operationalRoutingControl = null;
@@ -6949,7 +7197,7 @@ async function setupMapPageModules() {
         allShopMarkers = [];
         list.forEach(shop => {
             const marker = L.marker([shop.lat, shop.lng], { icon: shopIconActive }).addTo(map)
-                .bindPopup(`<b style="color:#e02020;">${mfEsc(shop.name)}</b><br><span style="font-size:12px;">${mfEsc(shop.address || shop.city || '')}</span>`);
+                .bindPopup(`<b style="color:#D6334A;">${mfEsc(shop.name)}</b><br><span style="font-size:12px;">${mfEsc(shop.address || shop.city || '')}</span>`);
             allShopMarkers.push(marker);
         });
     }
@@ -7090,15 +7338,15 @@ async function setupMapPageModules() {
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                                <i class="fa-solid fa-shop" style="color:#e02020;font-size:0.85rem;"></i>
-                                <h4 style="color:#e02020;margin:0;font-size:0.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${mfEsc(shop.name)}</h4>
+                                <i class="fa-solid fa-shop" style="color:#D6334A;font-size:0.85rem;"></i>
+                                <h4 style="color:#D6334A;margin:0;font-size:0.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${mfEsc(shop.name)}</h4>
                             </div>
                             <p style="margin:2px 0;font-size:0.75rem;color:#747d8c;"><i class="fa-solid fa-location-dot"></i> ${mfEsc(shop.address || shop.city || 'Location set')}${shop.pincode ? ' · ' + shop.pincode : ''}</p>
                             ${shop._match ? `<p style="margin:3px 0;font-size:0.76rem;color:#1f9d55;font-weight:700;"><i class="fa-solid fa-pills"></i> ${String(shop._match.name).replace(/</g,'&lt;')} · ₹${shop._match.price} · ${shop._match.stock} in stock</p>` : ''}
                             ${sameTownPin(shop) ? '<span style="display:inline-block;margin-top:2px;font-size:0.66rem;font-weight:800;color:#b91c1c;background:#fee2e2;border-radius:10px;padding:2px 8px;">SAME PINCODE AREA</span>' : ''}
                             <div style="display:flex;gap:12px;margin-top:6px;">
                                 <span class="shop-dist-label" data-shop-dist="${shop.id}" style="font-size:0.73rem;color:#1c82aa;font-weight:600;"><i class="fa-solid fa-route"></i> ${distLabel}</span>
-                                <span class="shop-eta-label" data-shop-eta="${shop.id}" style="font-size:0.73rem;color:#2ed573;font-weight:600;"><i class="fa-solid fa-clock"></i> <i class="fa-solid fa-spinner fa-spin"></i></span>
+                                <span class="shop-eta-label" data-shop-eta="${shop.id}" style="font-size:0.73rem;color:#1E9E6B;font-weight:600;"><i class="fa-solid fa-clock"></i> <i class="fa-solid fa-spinner fa-spin"></i></span>
                                 ${shop.license === 'Verified' ? '<span style="font-size:0.7rem;color:#28a745;font-weight:600;"><i class="fa-solid fa-circle-check"></i> Verified</span>' : ''}
                             </div>
                         </div>
@@ -7193,7 +7441,7 @@ async function setupMapPageModules() {
                 }
                 mapSuggestBox.innerHTML =
                     medicines.map(m => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="medicine" data-val="${mfEsc(m)}"><span style="font-size:0.62rem;font-weight:700;color:#1c82aa;background:#eef7fb;padding:2px 6px;border-radius:6px;">MEDICINE</span> ${mfEsc(m)}</div>`).join('') +
-                    shops.map(s => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="shop" data-val="${mfEsc(s.name)}" data-id="${mfEsc(s.id)}"><span style="font-size:0.62rem;font-weight:700;color:#e02020;background:#fdecec;padding:2px 6px;border-radius:6px;">SHOP</span> ${mfEsc(s.name)}</div>`).join('');
+                    shops.map(s => `<div style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#2f3542;border-bottom:1px solid #f8f9fa;display:flex;align-items:center;gap:8px;" class="map-sug-item" data-kind="shop" data-val="${mfEsc(s.name)}" data-id="${mfEsc(s.id)}"><span style="font-size:0.62rem;font-weight:700;color:#D6334A;background:#fdecec;padding:2px 6px;border-radius:6px;">SHOP</span> ${mfEsc(s.name)}</div>`).join('');
                 mapSuggestBox.style.display = 'block';
                 mapSuggestBox.querySelectorAll('.map-sug-item').forEach(item => {
                     item.addEventListener('mousedown', (ev) => {
@@ -7448,7 +7696,7 @@ function setupProfilePageModules() {
             rows.map(r => `<div style="background:#fff;border:1px solid #eef2f5;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
                 <div><strong style="font-size:0.85rem;color:#2f3542;">${mfEsc(maskName(r))}</strong>
                 <div style="font-size:0.7rem;color:#a4b0be;">${r.created_at || r.used_at ? new Date(r.created_at || r.used_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div></div>
-                <span style="font-size:0.7rem;font-weight:800;color:#16a34a;background:#e3faf2;padding:3px 9px;border-radius:20px;">USED</span></div>`).join('');
+                <span style="font-size:0.7rem;font-weight:800;color:#1E9E6B;background:#e3faf2;padding:3px 9px;border-radius:20px;">USED</span></div>`).join('');
     }
     loadMyReferralState().then(loadReferralUsers);
 
@@ -7578,7 +7826,7 @@ function setupProfilePageModules() {
         wrap.innerHTML = `
             <input type="text" id="inline-name-input" placeholder="Enter your full name"
                 style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #ced4da;font-size:0.9rem;">
-            <p id="inline-name-error" style="margin:0;font-size:0.72rem;font-weight:600;color:#e02020;min-height:14px;"></p>
+            <p id="inline-name-error" style="margin:0;font-size:0.72rem;font-weight:600;color:#D6334A;min-height:14px;"></p>
             <div style="display:flex;gap:8px;">
                 <button type="button" id="inline-name-cancel" style="flex:1;padding:9px;border-radius:8px;border:1px solid #ccc;background:#f8f9fa;cursor:pointer;font-weight:600;font-size:0.82rem;">Cancel</button>
                 <button type="button" id="inline-name-save" style="flex:1;padding:9px;border-radius:8px;border:none;background:#ff4d4d;color:#fff;cursor:pointer;font-weight:600;font-size:0.82rem;">Save</button>
@@ -7836,7 +8084,7 @@ function setupProfilePageModules() {
             if (statusMsg) { statusMsg.style.color = '#747d8c'; statusMsg.innerText = 'Checking fast-delivery availability...'; }
             const zoneCheck = await checkPincodeServiceability(pincode);
             if (statusMsg) {
-                statusMsg.style.color = zoneCheck.available ? '#2ed573' : '#747d8c';
+                statusMsg.style.color = zoneCheck.available ? '#1E9E6B' : '#747d8c';
                 statusMsg.innerText = zoneCheck.available
                     ? '✅ 30 Min & Same Day are available here too!'
                     : 'ℹ️ Standard delivery (5-7 days) is available here.';
@@ -7863,7 +8111,7 @@ function setupProfilePageModules() {
                 return;
             }
 
-            if (statusMsg) { statusMsg.style.color = '#2ed573'; statusMsg.innerText = '✓ Address saved!'; }
+            if (statusMsg) { statusMsg.style.color = '#1E9E6B'; statusMsg.innerText = '✓ Address saved!'; }
             resetAddressForm();
             await loadSavedAddresses();
             showToast(editingId ? "Address updated!" : "Address saved!", "success");
@@ -8011,7 +8259,7 @@ async function renderComplaintHistory() {
             const reply = complaintReplyOf(c);
             return `
             <div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid #eef2f5;">
-                <div style="display:flex;justify-content:space-between;align-items:center;"><strong style="font-size:0.8rem;">${mfEsc(c.token)}</strong><span style="font-size:0.68rem;font-weight:800;padding:3px 9px;border-radius:20px;background:${done ? '#e3faf2' : '#fff4e0'};color:${done ? '#16a34a' : '#f59f00'};">${done ? 'CLOSED' : (c.status || 'open').toUpperCase()}</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;"><strong style="font-size:0.8rem;">${mfEsc(c.token)}</strong><span style="font-size:0.68rem;font-weight:800;padding:3px 9px;border-radius:20px;background:${done ? '#e3faf2' : '#fff4e0'};color:${done ? '#1E9E6B' : '#f59f00'};">${done ? 'CLOSED' : (c.status || 'open').toUpperCase()}</span></div>
                 <p style="margin:6px 0 0;font-size:0.8rem;color:#57606f;font-weight:600;">${mfEsc(c.category)} — ${mfEsc(c.subject)}</p>
                 ${c.message ? `<p style="margin:4px 0 0;font-size:0.76rem;color:#747d8c;">${mfEsc(c.message)}</p>` : ''}
                 ${reply ? `<div style="margin-top:10px;background:#e7f4fb;border-left:3px solid #1c82aa;border-radius:8px;padding:9px 11px;"><div style="font-size:0.68rem;font-weight:800;color:#1c82aa;margin-bottom:3px;"><i class="fa-solid fa-headset"></i> MediFinder Support replied</div><div style="font-size:0.8rem;color:#2f3542;white-space:pre-wrap;">${mfEsc(reply)}</div></div>` : (done ? '' : '<div style="margin-top:8px;font-size:0.72rem;color:#a4b0be;">Waiting for admin reply…</div>')}
@@ -8029,7 +8277,7 @@ function openDeleteAccountModal() {
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
     modal.innerHTML = `
         <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;text-align:center;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#e02020;margin-bottom:10px;"></i>
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#D6334A;margin-bottom:10px;"></i>
             <h3 style="margin:0 0 10px;font-size:1rem;color:#2f3542;">Why do you want to delete your account?</h3>
             <select id="da-reason" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;font-size:0.85rem;">
                 <option value="">Select a reason...</option>
@@ -8037,7 +8285,7 @@ function openDeleteAccountModal() {
             </select>
             <div style="display:flex;gap:10px;">
                 <button type="button" id="da-cancel" style="flex:1;padding:11px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer;">Cancel</button>
-                <button type="button" id="da-continue" style="flex:1;padding:11px;border-radius:10px;border:none;background:#e02020;color:#fff;font-weight:700;cursor:pointer;">Delete</button>
+                <button type="button" id="da-continue" style="flex:1;padding:11px;border-radius:10px;border:none;background:#D6334A;color:#fff;font-weight:700;cursor:pointer;">Delete</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -8057,12 +8305,12 @@ function openDeleteAccountConfirmModal(reason) {
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
     modal.innerHTML = `
         <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;text-align:center;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#e02020;margin-bottom:10px;"></i>
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;color:#D6334A;margin-bottom:10px;"></i>
             <h3 style="margin:0 0 10px;font-size:1rem;color:#2f3542;">Are you sure you want to delete your account?</h3>
             <p style="margin:0 0 18px;font-size:0.8rem;color:#747d8c;">After deletion, you will not be able to log in to this account. You will need to create a new account to use MediFinder India again.</p>
             <div style="display:flex;gap:10px;">
                 <button type="button" id="da-no" style="flex:1;padding:11px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:600;cursor:pointer;">No</button>
-                <button type="button" id="da-confirm" style="flex:1;padding:11px;border-radius:10px;border:none;background:#e02020;color:#fff;font-weight:700;cursor:pointer;">Yes, Delete</button>
+                <button type="button" id="da-confirm" style="flex:1;padding:11px;border-radius:10px;border:none;background:#D6334A;color:#fff;font-weight:700;cursor:pointer;">Yes, Delete</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -8286,7 +8534,7 @@ function openRxContactSheet(state) {
                 ${state.hasAddr ? '' : rxAddressFieldsHTML()}
                 <div style="display:flex;gap:10px;margin-top:15px;">
                     <button id="rxc-cancel" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;">Cancel</button>
-                    <button id="rxc-submit" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2ed573;color:#fff;cursor:pointer;font-weight:600;">Send to Pharmacies</button>
+                    <button id="rxc-submit" style="flex:1;padding:10px;border-radius:8px;border:none;background:#1E9E6B;color:#fff;cursor:pointer;font-weight:600;">Send to Pharmacies</button>
                 </div>
             </div>`;
         document.body.appendChild(popup);
@@ -9089,17 +9337,17 @@ async function openSponsoredOfferModal(sponsorItem, linkedProduct) {
     overlay.innerHTML = `
         <div style="background:#fff;border-radius:18px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.25);">
             <div style="position:relative;background:#f8fafc;">
-                <div style="padding:12px 52px 0 12px;"><span style="display:inline-block;background:#e02020;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:20px;">${pct}% OFF — SPONSORED</span></div>
+                <div style="padding:12px 52px 0 12px;"><span style="display:inline-block;background:#D6334A;color:#fff;font-weight:800;font-size:12px;padding:5px 12px;border-radius:20px;">${pct}% OFF — SPONSORED</span></div>
                 <div style="padding:10px 12px 12px;display:flex;align-items:center;justify-content:center;height:250px;box-sizing:border-box;"><img src="${mfEsc(img)}" alt="${name}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border-radius:8px;"></div>
                 <button id="sponsoredOfferCloseBtn" style="position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(15,23,42,0.55);color:#fff;font-size:16px;cursor:pointer;">✕</button>
             </div>
             <div style="padding:20px;">
                 <h3 style="font-size:17px;font-weight:800;color:#1a1a2e;margin-bottom:6px;">${name}</h3>
                 <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px;">
-                    <span style="font-size:22px;font-weight:800;color:#e02020;">₹${discountedPrice}</span>
+                    <span style="font-size:22px;font-weight:800;color:#D6334A;">₹${discountedPrice}</span>
                     ${originalPrice > discountedPrice ? `<span style="font-size:14px;color:#94a3b8;text-decoration:line-through;">₹${originalPrice}</span>` : ''}
                 </div>
-                <button id="sponsoredOfferAddBtn" style="width:100%;padding:13px;border:none;border-radius:10px;background:#e02020;color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <button id="sponsoredOfferAddBtn" style="width:100%;padding:13px;border:none;border-radius:10px;background:#D6334A;color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
                     <i class="fa-solid fa-cart-plus"></i> Add to Cart at Offer Price
                 </button>
                 <button id="sponsoredOfferViewBtn" style="width:100%;padding:11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#475569;font-weight:600;font-size:13px;margin-top:8px;cursor:pointer;">
@@ -9419,7 +9667,7 @@ async function initWishlistButtons() {
 async function renderProfileWishlist() {
     const body = document.getElementById('wishlist-modal-body');
     if (!body) return;
-    body.innerHTML = `<div style="text-align:center;padding:30px;color:#ccc;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.8rem;color:#e02020;"></i></div>`;
+    body.innerHTML = `<div style="text-align:center;padding:30px;color:#ccc;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.8rem;color:#D6334A;"></i></div>`;
 
     let ids = JSON.parse(localStorage.getItem('medi_wishlist') || '[]');
     const uid = await getCurrentAuthUserId();
@@ -9452,7 +9700,7 @@ async function renderProfileWishlist() {
             <div class="wishlist-card-item" onclick='navigateToProductDetail(${JSON.stringify(payload).replace(/'/g, "&#39;")})' style="background:#fff;border:1px solid #eef2f5;border-radius:12px;padding:8px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);">
                 <img src="${mfEsc(img)}" alt="${mfEsc(productName)}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px;">
                 <div style="font-size:0.78rem;font-weight:700;color:#2f3542;line-height:1.2;">${mfEsc(productName)}</div>
-                <div style="font-size:0.75rem;color:#e02020;font-weight:700;margin-top:4px;">₹${sellingPrice.toFixed(0)}</div>
+                <div style="font-size:0.75rem;color:#D6334A;font-weight:700;margin-top:4px;">₹${sellingPrice.toFixed(0)}</div>
             </div>`;
         }).join('')}</div>`;
     } catch (e) {
@@ -9479,11 +9727,11 @@ function initVoiceSearch() {
         const style = document.createElement('style');
         style.id = 'voice-search-inline-style';
         style.textContent = `
-            .truemads-mic-btn.listening { color: #e02020 !important; animation: mediMicPulse 1s ease-in-out infinite; }
+            .truemads-mic-btn.listening { color: #D6334A !important; animation: mediMicPulse 1s ease-in-out infinite; }
             @keyframes mediMicPulse {
-                0% { box-shadow: 0 0 0 0 rgba(224,32,32,0.45); }
-                70% { box-shadow: 0 0 0 12px rgba(224,32,32,0); }
-                100% { box-shadow: 0 0 0 0 rgba(224,32,32,0); }
+                0% { box-shadow: 0 0 0 0 rgba(214,51,74,0.45); }
+                70% { box-shadow: 0 0 0 12px rgba(214,51,74,0); }
+                100% { box-shadow: 0 0 0 0 rgba(214,51,74,0); }
             }
             .truemeds-search-bar { position: relative; }
             .truemeds-search-bar .truemads-mic-btn,
@@ -9653,7 +9901,7 @@ async function renderOffersPageBody() {
     try {
         const { data } = await supabase.from('platform_offers').select('*').eq('is_active', true).order('created_at', { ascending: false });
         const po = (data || []).filter(__offerIsRunning);
-        if (po.length) sections.push(['MediFinder India offers', po.map(o => __offerCard(o, 'MEDIFINDER INDIA', '#16a34a')).join('')]);
+        if (po.length) sections.push(['MediFinder India offers', po.map(o => __offerCard(o, 'MEDIFINDER INDIA', '#1E9E6B')).join('')]);
     } catch (e) {}
     body.innerHTML = sections.length
         ? sections.map(s => `<h4 style="margin:16px 0 8px;font-size:0.85rem;color:#2f3542;">${s[0]}</h4>${s[1]}`).join('')
@@ -11375,7 +11623,7 @@ function maybeShowPayment(booking){
     <img src="medifinderqr.jpeg" alt="UPI QR" style="width:170px;max-width:60%;border-radius:10px;">
     <div style="font-size:13px;margin:4px 0 10px;">9593625498@ibl</div>
     <input id="ab_utrInput" inputmode="numeric" maxlength="12" placeholder="12-digit UTR / Ref. No." style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #dcdde1;border-radius:10px;text-align:center;letter-spacing:2px;margin-bottom:10px;">
-    <button id="ab_utrSubmit" style="width:100%;padding:12px;border:none;border-radius:10px;background:#2ed573;color:#fff;font-weight:800;cursor:pointer;margin-bottom:8px;">Payment Completed</button>
+    <button id="ab_utrSubmit" style="width:100%;padding:12px;border:none;border-radius:10px;background:#1E9E6B;color:#fff;font-weight:800;cursor:pointer;margin-bottom:8px;">Payment Completed</button>
     <button id="ab_utrLater" style="width:100%;padding:10px;border:1px solid #dcdde1;border-radius:10px;background:#fff;cursor:pointer;">Pay later</button>
   </div>`;
   document.body.appendChild(o);
@@ -11767,8 +12015,7 @@ document.getElementById("tc_openRedeem").addEventListener("click", ()=>{
   try { localStorage.setItem('mf_coin_mode','1'); } catch(e) {}
   if (typeof navigateTo === 'function') navigateTo('home');
   setTimeout(()=>{
-    const baby = document.querySelector('.category-item[data-category="baby"]');
-    if (baby) { baby.click(); baby.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); }
+    if (typeof window.mfApplyHomeCategory === 'function') window.mfApplyHomeCategory({ type: 'baby_mother', cat: '' });
     if (typeof showToast === 'function') showToast('Baby essentials: your Tablet Coins apply automatically at checkout');
   }, 350);
 });
@@ -12117,7 +12364,7 @@ async function nurseDownloadReceipt(b) {
     if (hist) hist.innerHTML = list.innerHTML;
     if (live) {
       var running = data.filter(function(b){ return b.status !== 'Completed' && b.status !== 'Cancelled'; })[0];
-      live.innerHTML = running ? '<div style="background:linear-gradient(135deg,#e02020,#ff6b6b);color:#fff;border-radius:16px;padding:14px 16px;margin:10px 0;box-shadow:0 6px 18px rgba(224,32,32,.25)">' +
+      live.innerHTML = running ? '<div style="background:linear-gradient(135deg,#D6334A,#ff6b6b);color:#fff;border-radius:16px;padding:14px 16px;margin:10px 0;box-shadow:0 6px 18px rgba(214,51,74,.25)">' +
         '<div style="font-size:.72rem;font-weight:700;opacity:.9">Live booking</div>' +
         '<div style="font-weight:800;font-size:1rem;margin:4px 0">' + String(running.test_name || '').replace(/[<>&]/g,'') + '</div>' +
         '<div style="font-size:.85rem">Status: <b>' + String(running.status || '').replace(/[<>&]/g,'') + '</b> &middot; ' + (running.book_date || '') + ' ' + (running.book_time || '') + '</div></div>' : '';
@@ -12333,6 +12580,8 @@ document.addEventListener('click', function (e) {
 function mfFitSponsoredSlide() {
     const cont = document.querySelector('.slider-container');
     if (!cont) return;
+    // Page hidden / not laid out yet (width 0) -> measuring now would pin the card to the 150px minimum. Wait for a real width.
+    if (!cont.clientWidth) return;
     const slides = cont.querySelectorAll('.slide');
     const desktop = window.innerWidth >= 768;
     slides.forEach(s => {
@@ -12366,6 +12615,21 @@ function mfFitSponsoredSlide() {
     } else { cont.style.height = ''; cont.classList.remove('mf-sp-clamped'); }
 }
 window.addEventListener('resize', function () { try { mfFitSponsoredSlide(); } catch (e) {} });
+// Re-fit whenever the banner gets (or changes) its real width: first paint, returning to Home, rotation.
+(function () {
+    var lastW = 0;
+    function run() { try { mfFitSponsoredSlide(); } catch (e) {} }
+    function bind() {
+        var sec = document.querySelector('.auto-slider-section');
+        if (!sec) return;
+        if (window.ResizeObserver) new ResizeObserver(function () { var w = sec.clientWidth; if (w && w !== lastW) { lastW = w; run(); } }).observe(sec);
+        else setTimeout(run, 400);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+    window.addEventListener('load', function () { setTimeout(run, 150); });
+    window.addEventListener('orientationchange', function () { setTimeout(run, 250); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(run, 100); });
+})();
 
 
 (function () {

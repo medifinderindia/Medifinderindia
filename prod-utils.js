@@ -66,7 +66,7 @@ const MedUtils = {
     // the same hue, instead of a flat white card with just a colored icon.
     const theme = {
       success: { accent: '#1fb872', tint: '#e9fbf3' },
-      error:   { accent: '#e02020', tint: '#fdecec' },
+      error:   { accent: '#D6334A', tint: '#fdecec' },
       info:    { accent: '#1c82aa', tint: '#e9f6fb' },
       warning: { accent: '#f0a500', tint: '#fef6e6' }
     }[type] || { accent: '#1c82aa', tint: '#e9f6fb' };
@@ -279,7 +279,7 @@ window.showToast = function (message, type = 'info', duration) {
   style.textContent = `
     .mf-spinner {
       width: 40px; height: 40px; border: 3px solid #f1f2f6;
-      border-top-color: #e02020; border-radius: 50%;
+      border-top-color: #D6334A; border-radius: 50%;
       animation: mfSpin 0.8s linear infinite;
     }
     @keyframes mfSpin { to { transform: rotate(360deg); } }

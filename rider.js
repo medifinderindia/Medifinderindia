@@ -1078,7 +1078,7 @@ function renderDeliveryStatusStep(order) {
         lockOtpButton(otpBtn, true);
     } else if (stage === 'picked_up') {
         stepBar.innerHTML = `
-            <div style="background:#dcfce7; color:#16a34a; padding:10px; border-radius:8px; text-align:center; font-weight:600;">
+            <div style="background:#dcfce7; color:#1E9E6B; padding:10px; border-radius:8px; text-align:center; font-weight:600;">
                 <i class="fa-solid fa-circle-check"></i> Picked Up — Heading to Customer
             </div>`;
         lockOtpButton(otpBtn, false);
@@ -2504,7 +2504,7 @@ async function triggerProfileNameEdit() {
             <input type="text" id="modalPromptInput" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Type new name...">
             <div style="display:flex;gap:10px;">
                 <button onclick="this.closest('.modal').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
-                <button id="modalPromptOk" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+                <button id="modalPromptOk" style="flex:1;padding:10px;border:none;border-radius:8px;background:#D6334A;color:#fff;cursor:pointer;font-weight:600;">OK</button>
             </div>
         </div>`;
         document.body.appendChild(modal);
@@ -2531,7 +2531,7 @@ function showConfirmationModal(message, onConfirm) {
         + '<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:18px" id="riderConfirmMsg"></div>'
         + '<div style="display:flex;gap:10px">'
         + '<button type="button" id="riderConfirmNo" style="flex:1;padding:12px;border-radius:12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:700;color:#374151">Cancel</button>'
-        + '<button type="button" id="riderConfirmYes" style="flex:1;padding:12px;border-radius:12px;border:0;background:#e02020;color:#fff;font-weight:700">Yes, Logout</button>'
+        + '<button type="button" id="riderConfirmYes" style="flex:1;padding:12px;border-radius:12px;border:0;background:#D6334A;color:#fff;font-weight:700">Yes, Logout</button>'
         + '</div></div>';
     document.body.appendChild(o);
     document.getElementById('riderConfirmMsg').textContent = message || 'Are you sure?';
@@ -3500,7 +3500,7 @@ function openKycReadonly(section) {
     const pillClass = app.status === 'approved' ? 'approved' : (app.status === 'rejected' ? 'rejected' : 'pending');
     const pillText = app.status === 'approved' ? 'Verified' : (app.status === 'rejected' ? 'Rejected' : 'Pending Review');
     let html = `<span class="kyc-readonly-status-pill ${pillClass}">${pillText}</span>`;
-    if (app.rejection_reason) html += `<p style="color:#dc2626; font-size:0.82rem; margin:8px 0 14px;">Reason: ${escapeHtml(app.rejection_reason)}</p>`;
+    if (app.rejection_reason) html += `<p style="color:#D92D20; font-size:0.82rem; margin:8px 0 14px;">Reason: ${escapeHtml(app.rejection_reason)}</p>`;
 
     const skipDoc = (app.vehicle_type === 'bicycle' || app.vehicle_type === 'ev');
 
@@ -3781,7 +3781,7 @@ async function drawRoute(fit) {
     const rt = await roadRoute(pos, tgt);
     const pts = rt ? rt.pts : [[pos.lat, pos.lon], [tgt.lat, tgt.lon]];
     L.polyline(pts, { color: '#fff', weight: 9, opacity: .9, lineCap: 'round' }).addTo(mf.rl);
-    const line = L.polyline(pts, { color: toCust ? '#2563eb' : '#e02020', weight: 5, opacity: .95, lineCap: 'round', lineJoin: 'round' }).addTo(mf.rl);
+    const line = L.polyline(pts, { color: toCust ? '#2563eb' : '#D6334A', weight: 5, opacity: .95, lineCap: 'round', lineJoin: 'round' }).addTo(mf.rl);
     mf.km = rt ? rt.km : haversineKm(pos.lat, pos.lon, tgt.lat, tgt.lon);
     mf.min = rt ? rt.min : null;
     mf.from = { lat: pos.lat, lon: pos.lon }; mf.last = Date.now();

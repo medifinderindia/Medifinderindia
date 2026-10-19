@@ -160,7 +160,7 @@
             '<div style="font-size:42px;line-height:1;margin-bottom:12px">🔔</div>' +
             '<div style="font-size:19px;font-weight:700;color:#1a1a1a;margin-bottom:8px">Stay updated with MediFinder India</div>' +
             '<div style="font-size:14px;color:#666;line-height:1.5;margin-bottom:20px">Turn on notifications to get order updates, delivery alerts and offers, even when the app is closed.</div>' +
-            '<button id="mf-push-yes" style="display:block;width:100%;padding:14px;border:0;border-radius:12px;background:#e02020;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px">Allow notifications</button>' +
+            '<button id="mf-push-yes" style="display:block;width:100%;padding:14px;border:0;border-radius:12px;background:#D6334A;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px">Allow notifications</button>' +
             '<button id="mf-push-no" style="display:block;width:100%;padding:14px;border:0;border-radius:12px;background:#f4f4f4;color:#555;font-size:15px;font-weight:600;cursor:pointer">Not now</button>' +
             '</div>';
         document.body.appendChild(wrap);
@@ -195,7 +195,7 @@
             '<span style="font-size:20px">🔔</span>' +
             '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:#1a1a1a">Push notifications</div>' +
             '<div data-mf-push-line style="font-size:12.5px;color:#666;line-height:1.4;margin-top:2px">' + line + '</div></div>' +
-            (supported ? '<button type="button" data-mf-push-btn role="switch" aria-checked="' + on + '" aria-label="Push notifications" style="flex:none;width:46px;height:26px;border-radius:13px;border:0;padding:3px;cursor:pointer;background:' + (on ? '#e02020' : '#cfcfcf') + ';transition:background .2s">' +
+            (supported ? '<button type="button" data-mf-push-btn role="switch" aria-checked="' + on + '" aria-label="Push notifications" style="flex:none;width:46px;height:26px;border-radius:13px;border:0;padding:3px;cursor:pointer;background:' + (on ? '#D6334A' : '#cfcfcf') + ';transition:background .2s">' +
             '<span style="display:block;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:' + knob + ';transition:transform .2s"></span></button>' : '') +
             '</div>';
     }

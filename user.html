@@ -27,7 +27,7 @@
     <meta name="twitter:image" content="https://medifinderindia.com/og-image.png">
     <meta name="color-scheme" content="light only">
     <script>try{if(localStorage.getItem('mf_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
-    <meta name="theme-color" content="#e02020">
+    <meta name="theme-color" content="#D6334A">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -42,7 +42,7 @@
     #mf-boot-loader{position:fixed;inset:0;z-index:999999;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease}
     #mf-boot-loader.mf-loader-hidden{opacity:0;pointer-events:none}
     .mf-boot-loader-ring-wrap{position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center}
-    .mf-boot-loader-ring{position:absolute;inset:0;border-radius:50%;border:5px solid #f8d7d7;border-top-color:#e02020;animation:mfBootSpin .9s linear infinite}
+    .mf-boot-loader-ring{position:absolute;inset:0;border-radius:50%;border:5px solid #f8d7d7;border-top-color:#D6334A;animation:mfBootSpin .9s linear infinite}
     .mf-boot-loader-logo{width:88px;height:88px;object-fit:contain;border-radius:50%;position:relative;z-index:1}
     @keyframes mfBootSpin{to{transform:rotate(360deg)}}
     </style>
@@ -53,14 +53,14 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-regular-400.woff2">
     <!-- stylesheets load without blocking first paint; the boot loader covers the page until the 2 big ones are applied -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
-    <link rel="stylesheet" href="user.min.css?v=cd20a64a" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
-    <link rel="stylesheet" href="offer.css?v=951ffa15" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="user.min.css?v=aa453c84" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
+    <link rel="stylesheet" href="offer.css?v=deal1" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="ux-final.css?v=6476ed2e" media="print" onload="this.media='all'">
     <noscript>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-        <link rel="stylesheet" href="user.min.css?v=cd20a64a">
-        <link rel="stylesheet" href="offer.css?v=951ffa15">
+        <link rel="stylesheet" href="user.min.css?v=aa453c84">
+        <link rel="stylesheet" href="offer.css?v=deal1">
         <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
         <link rel="stylesheet" href="ux-final.css?v=6476ed2e">
     </noscript>
@@ -69,6 +69,7 @@
     <script src="permission-every.js?v=ce3004a5"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js" defer></script>
     <script src="supabase-constants.js" defer></script>
+<link rel="stylesheet" href="design-system.css?v=ds1">
 </head>
 <body>
     <div id="mf-boot-loader">
@@ -218,37 +219,11 @@
 
 
         <section class="categories-section">
-            <h3 class="section-title"><i class="fa-solid fa-table-cells-large" style="color:var(--primary-color);"></i> Shop by Category</h3>
-            <div class="categories-grid-scroll">
-                <div class="category-item active" data-category="all" title="All Items">
-                    <div class="cat-icon-wrapper cat-all"><i class="fa-solid fa-border-all"></i></div>
-                    <span>All Items</span>
-                </div>
-                <div class="category-item" data-category="medicine" title="Medicines — tablets, capsules, syrups, insulin">
-                    <div class="cat-icon-wrapper cat-medicine"><i class="fa-solid fa-pills"></i></div>
-                    <span>Medicines</span>
-                </div>
-                <div class="category-item" data-category="supplies" title="Medical Supplies &amp; Devices">
-                    <div class="cat-icon-wrapper cat-supplies"><i class="fa-solid fa-kit-medical"></i></div>
-                    <span>Medical Supplies</span>
-                </div>
-                <div class="category-item" data-category="personal" title="Personal Care &amp; Hygiene">
-                    <div class="cat-icon-wrapper cat-personal"><i class="fa-solid fa-pump-soap"></i></div>
-                    <span>Personal Care</span>
-                </div>
-                <div class="category-item" data-category="general" title="Daily Essentials">
-                    <div class="cat-icon-wrapper cat-general"><i class="fa-solid fa-basket-shopping"></i></div>
-                    <span>Daily Essentials</span>
-                </div>
-                <div class="category-item" data-category="grocery" title="Grocery &amp; Packaged Food">
-                    <div class="cat-icon-wrapper cat-grocery"><i class="fa-solid fa-cookie-bite"></i></div>
-                    <span>Grocery &amp; Food</span>
-                </div>
-                <div class="category-item" data-category="baby" title="Baby care & diapers">
-                    <div class="cat-icon-wrapper cat-baby"><i class="fa-solid fa-baby"></i></div>
-                    <span>Baby</span>
-                </div>
+            <div class="cat-head">
+                <h3 class="section-title"><i class="fa-solid fa-table-cells-large" style="color:var(--primary-color);"></i> Shop by Category</h3>
+                <button type="button" class="cat-viewall-btn" id="cat-viewall-btn">View all <i class="fa-solid fa-chevron-right"></i></button>
             </div>
+            <div class="categories-grid-scroll" id="home-cat-grid"></div>
         </section>
 
         <section class="products-showcase-section">
@@ -566,6 +541,17 @@
                             </div>
                         </section>
 
+                        <section class="pd-modern-card pd-accordion-item" id="pd-extra-card" style="display:none;">
+                            <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-clipboard-list"></i></span> Complete Product Information</h4>
+                            <div class="pd-pane on" id="pd-extra-body"></div>
+                        </section>
+
+                        <section class="pd-modern-card pd-accordion-item" id="pd-labels-card" style="display:none;">
+                            <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-images"></i></span> Product Photos &amp; Labels</h4>
+                            <div class="pd-labels-grid" id="pd-labels-grid"></div>
+                            <p class="pd-labels-hint">Tap a photo to zoom.</p>
+                        </section>
+
                         <section class="pd-modern-card pd-accordion-item" id="pd-safety-item">
                             <h4 class="pd-mc-title"><span class="pd-mc-ico"><i class="fa-solid fa-shield-heart"></i></span> Safety Information</h4>
                             <div class="pd-pane on">
@@ -765,6 +751,7 @@
                     <button type="button" class="sd-cat-chip" data-cat="cream">Cream</button>
                     <button type="button" class="sd-cat-chip" data-cat="drops">Drops</button>
                     <button type="button" class="sd-cat-chip" data-cat="others">Other</button>
+                    <button type="button" class="sd-cat-chip sd-cat-viewall" data-cat="viewall"><span>View all</span> <i class="fa-solid fa-chevron-right"></i></button>
                 </div>
 
                 <h3 class="sd-products-heading"><i class="fa-solid fa-capsules"></i> Products <span id="sd-products-count"></span></h3>
@@ -831,7 +818,7 @@
             </div>
             
             <div id="search-results" class="pharmacy-grid-layout">
-                <div style="text-align:center;padding:20px;color:#747d8c;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;color:#e02020;margin-bottom:8px;display:block;"></i><p style="font-size:0.82rem;">Loading nearby pharmacies...</p></div>
+                <div style="text-align:center;padding:20px;color:#747d8c;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;color:#D6334A;margin-bottom:8px;display:block;"></i><p style="font-size:0.82rem;">Loading nearby pharmacies...</p></div>
             </div>
         </div>
     </main>
@@ -958,7 +945,7 @@
                     <button class="save-address-btn" id="save-address-btn"><i class="fa-solid fa-bookmark"></i> Save Address</button>
                     <p id="addr-status-msg"></p>
                 </div>
-                <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #e02020;background:#fff8f8;color:#e02020;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
+                <button type="button" id="add-now-address-btn" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px dashed #D6334A;background:#fff8f8;color:#D6334A;font-weight:600;cursor:pointer;"><i class="fa-solid fa-plus"></i> Add Now</button>
             </div>
 
             <div class="verification-box" id="delivery-speed-box">
@@ -1005,7 +992,7 @@
                 <div class="coupon-row" style="align-items:center;">
                     <div style="flex:1;font-size:.85rem;line-height:1.4;">
                         <div>Available: <b id="coin-balance-txt">0</b> coins</div>
-                        <div id="coin-save-txt" style="color:#2ed573;font-weight:700;"></div>
+                        <div id="coin-save-txt" style="color:#1E9E6B;font-weight:700;"></div>
                     </div>
                     <button type="button" id="coin-use-btn">Use</button>
                 </div>
@@ -1037,8 +1024,8 @@
                                 </div>
 
                                 <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
-                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-mobile-screen-button" style="color:#2ed573;"></i> Pay via UPI App</p>
-                                    <button type="button" id="pay-with-upi-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-mobile-screen-button" style="color:#1E9E6B;"></i> Pay via UPI App</p>
+                                    <button type="button" id="pay-with-upi-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#1E9E6B;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         <i class="fa-solid fa-bolt"></i> PAY NOW
                                     </button>
                                     <p id="upi-pay-status-msg" style="font-size:0.72rem;margin:8px 0 0;display:none;"></p>
@@ -1051,12 +1038,12 @@
                                 </div>
 
                                 <div style="border:1px solid #eef2f5;border-radius:12px;padding:14px;background:#fafbfc;text-align:center;">
-                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-qrcode" style="color:#e02020;"></i> Pay via QR Code</p>
+                                    <p style="font-size:0.8rem;font-weight:700;color:#1a1a2e;margin-bottom:10px;"><i class="fa-solid fa-qrcode" style="color:#D6334A;"></i> Pay via QR Code</p>
                                     <img src="medifinderqr.jpeg" alt="MediFinder India UPI QR Code" style="width:100%;max-width:220px;height:auto;border-radius:10px;border:1px solid #eef2f5;margin:0 auto;display:block;">
                                     <p style="font-size:0.72rem;color:#6c757d;margin:10px 0 0;">UPI ID</p>
                                     <p style="font-size:0.85rem;font-weight:700;color:#1a1a2e;margin:2px 0 8px;">9593625498@ibl</p>
                                     <p style="font-size:0.72rem;color:#6c757d;margin-bottom:12px;">Scan this QR code using any UPI app</p>
-                                    <button type="button" id="paid-via-qr-btn" style="width:100%;padding:11px;border-radius:10px;border:1px solid #e02020;background:#fff8f8;color:#e02020;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                    <button type="button" id="paid-via-qr-btn" style="width:100%;padding:11px;border-radius:10px;border:1px solid #D6334A;background:#fff8f8;color:#D6334A;font-weight:700;font-size:0.8rem;cursor:pointer;">
                                         <i class="fa-solid fa-check"></i> I've Completed the Payment
                                     </button>
                                 </div>
@@ -1068,7 +1055,7 @@
                                 <input type="text" id="upi-utr-input" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="Enter 12-digit UTR / Ref. No." style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #dcdde1;border-radius:10px;font-size:15px;letter-spacing:2px;text-align:center;margin:0 0 10px;">
                                 <p style="font-size:11px;color:#64748b;margin:-4px 0 10px;">You will find the UTR / UPI Ref. No. in your payment app after paying. Admin verifies it before your order/booking is accepted.</p>
                                 
-                                <button type="button" id="upi-payment-completed-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2ed573;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;margin-bottom:8px;">
+                                <button type="button" id="upi-payment-completed-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#1E9E6B;color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;margin-bottom:8px;">
                                     <i class="fa-solid fa-check"></i> Payment Completed
                                 </button>
                                 <button type="button" id="upi-payment-goback-btn" style="width:100%;padding:10px;border-radius:10px;border:1px solid #dcdde1;background:#fff;color:#475569;font-weight:600;font-size:0.8rem;cursor:pointer;">
@@ -1116,7 +1103,7 @@
                     <div class="truck-parcel-box"><i class="fa-solid fa-box"></i></div>
                     <div class="truck-wrap">
                         <svg class="truck-svg" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" width="120" height="60">
-                            <rect x="4" y="18" width="60" height="28" rx="3" fill="#e02020"/>
+                            <rect x="4" y="18" width="60" height="28" rx="3" fill="#D6334A"/>
                             <rect x="64" y="26" width="30" height="20" rx="2" fill="#c4c4c4"/>
                             <rect x="70" y="30" width="16" height="10" fill="#aee1f9"/>
                             <circle cx="24" cy="48" r="7" fill="#222"/>
@@ -1395,7 +1382,7 @@
             </div>
 
             <div class="menu-card-item premium-menu-item" id="open-delete-account-btn">
-                <div class="menu-icon" style="background:#fff0f0;color:#e02020;"><i class="fa-solid fa-user-slash"></i></div>
+                <div class="menu-icon" style="background:#fff0f0;color:#D6334A;"><i class="fa-solid fa-user-slash"></i></div>
                 <div class="menu-text">
                     <h3>Delete Account <span class="premium-tag"><i class="fa-solid fa-crown"></i> PREMIUM</span></h3>
                     <p>Permanently delete your account and data</p>
@@ -2310,9 +2297,9 @@
     </nav>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
     <script src="prod-utils.js?v=3321430c" defer></script>
-    <script src="user.min.js?v=pl1" defer></script>
+    <script src="user.min.js?v=pl3" defer></script>
     <script src="ux-final.js?v=346553eb" defer></script>
-<script src="offer.js?v=745a7be5" defer></script>
+<script src="offer.js?v=deal1" defer></script>
 <script src="push-notifications.js?v=5f2a2897" defer></script>
 </body>
 </html>

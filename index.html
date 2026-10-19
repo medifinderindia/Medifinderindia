@@ -60,9 +60,9 @@
     </script>
     <style>
 :root {
-    --mf-red: #e02020;
+    --mf-red: #D6334A;
     --mf-red-dark: #b81717;
-    --mf-red-soft: rgba(224, 32, 32, 0.10);
+    --mf-red-soft: rgba(214,51,74, 0.10);
     --mf-text: #2f3542;
     --mf-muted: #8a8f98;
     --mf-gold: #c9a24b;
@@ -114,7 +114,7 @@ html.mf-fast .splash-screen {
     width: min(520px, 140vw);
     height: min(520px, 140vw);
     transform: translate(-50%, -50%) scale(0.85);
-    background: radial-gradient(circle, var(--mf-red-soft) 0%, rgba(224, 32, 32, 0) 70%);
+    background: radial-gradient(circle, var(--mf-red-soft) 0%, rgba(214,51,74, 0) 70%);
     opacity: 0;
     animation: glowBloom 1.6s ease-out 0.1s both;
     pointer-events: none;
@@ -175,7 +175,7 @@ html.mf-fast .splash-screen {
     border-radius: 50%;
     padding: 6px;
     background: linear-gradient(145deg, var(--mf-red) 0%, var(--mf-red-dark) 55%, var(--mf-gold) 100%);
-    box-shadow: 0 10px 30px rgba(224, 32, 32, 0.16), 0 2px 8px rgba(201, 162, 75, 0.20);
+    box-shadow: 0 10px 30px rgba(214,51,74, 0.16), 0 2px 8px rgba(201, 162, 75, 0.20);
     animation: fadeZoomIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
     margin-bottom: 22px;
     position: relative;
@@ -191,7 +191,7 @@ html.mf-fast .splash-screen {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(224, 32, 32, 0.18);
+    box-shadow: 0 8px 24px rgba(214,51,74, 0.18);
 }
 
 .splash-logo {
@@ -636,7 +636,7 @@ html.mf-fast .splash-screen {
             var link = document.createElement("a");
             link.href = path;
             link.textContent = "Tap to continue";
-            link.style.cssText = "display:inline-block;margin-top:16px;color:#e02020;font-weight:700;font-size:0.85rem;text-decoration:underline;";
+            link.style.cssText = "display:inline-block;margin-top:16px;color:#D6334A;font-weight:700;font-size:0.85rem;text-decoration:underline;";
             track.parentNode.insertBefore(link, track.nextSibling);
         }
     }

@@ -9,7 +9,7 @@
 /* ---- bottom navigation (definitive) ---- */
 .bottom-nav{contain:layout style}
 .bottom-nav .nav-item{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;touch-action:manipulation;outline:none}
-.bottom-nav .nav-item:focus-visible{box-shadow:0 0 0 2px #e02020 inset}
+.bottom-nav .nav-item:focus-visible{box-shadow:0 0 0 2px #D6334A inset}
 .bottom-nav .nav-item .nav-icon{transition:background .2s ease,transform .22s cubic-bezier(.3,1.4,.5,1)}
 .bottom-nav .nav-item.active .nav-icon{transform:translateY(-1px) scale(1.06)}
 .bottom-nav .nav-item:active .nav-icon{transform:scale(.88)}
@@ -30,8 +30,8 @@
 
 /* ---- product page: "What you get in this order" ---- */
 .pd-pack-box{margin:12px 0;padding:12px 14px;border:1px solid #ffe0e0;background:#fff8f8;border-radius:14px;display:flex;flex-direction:column;gap:8px}
-.pd-pack-head{font-size:.78rem;font-weight:800;color:#e02020;display:flex;align-items:center;gap:6px}
+.pd-pack-head{font-size:.78rem;font-weight:800;color:#D6334A;display:flex;align-items:center;gap:6px}
 .pd-pack-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:.85rem;color:#4b5563}
 .pd-pack-row b{color:#1f2937;font-weight:700;text-align:right;min-width:0;overflow-wrap:anywhere}
 .pd-pack-total{padding-top:8px;border-top:1px dashed #f3c4c4}
-.pd-pack-total b{color:#e02020}
+.pd-pack-total b{color:#D6334A}

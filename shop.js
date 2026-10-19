@@ -21,8 +21,8 @@ async function q(path) {
 }
 const listAll = () => q('medicines?select=' + COLS + '&is_visible=eq.true&order=updated_at.desc&limit=1000');
 
-const CSS = `:root{--red:#e02020;--red-d:#b71c1c;--ink:#111827;--mut:#6b7280;--line:#e8ecf2;--bg:#f5f7fb}*{box-sizing:border-box}html,body{margin:0}body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:#1f2937;line-height:1.6}a{color:var(--red)}
-.top{background:linear-gradient(90deg,#9f1515,#e02020,#9f1515);color:#fff;text-align:center;font-size:11.5px;font-weight:700;padding:7px 12px}
+const CSS = `:root{--red:#D6334A;--red-d:#b71c1c;--ink:#111827;--mut:#6b7280;--line:#e8ecf2;--bg:#f5f7fb}*{box-sizing:border-box}html,body{margin:0}body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:#1f2937;line-height:1.6}a{color:var(--red)}
+.top{background:linear-gradient(90deg,#9f1515,#D6334A,#9f1515);color:#fff;text-align:center;font-size:11.5px;font-weight:700;padding:7px 12px}
 .head{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);font-weight:800}.brand img{width:34px;height:34px}.brand b{color:var(--red)}
 .nav{display:flex;gap:6px;flex-wrap:wrap}.nav a{text-decoration:none;color:#4b5563;font-weight:700;font-size:13px;padding:8px 12px;border-radius:12px}.nav a:hover,.nav a.on{background:#fff4f4;color:var(--red)}
@@ -38,7 +38,7 @@ const CSS = `:root{--red:#e02020;--red-d:#b71c1c;--ink:#111827;--mut:#6b7280;--l
 .pd .pic{background:#f3f4f6;border-radius:14px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center}.pd .pic img{width:100%;height:100%;object-fit:contain}
 .pd .big{font-size:26px;font-weight:800;margin:6px 0}.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:#ecfdf3;color:#0a7d3b}.tag.no{background:#fff1f1;color:var(--red)}
 table.spec{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}.spec td{padding:7px 0;border-bottom:1px solid var(--line)}.spec td:first-child{color:var(--mut);width:38%}
-.btn{display:inline-block;background:linear-gradient(135deg,#e02020,#ff5a5a);color:#fff;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:14px;margin-top:6px}
+.btn{display:inline-block;background:linear-gradient(135deg,#D6334A,#ff5a5a);color:#fff;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:14px;margin-top:6px}
 .note{font-size:12.5px;color:var(--mut);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:16px}
 .foot{background:#111827;color:#cbd5e1;font-size:13px;padding:22px 14px;text-align:center}.foot a{color:#fff;margin:0 8px;text-decoration:none}
 .empty{background:#fff;border:1px dashed var(--line);border-radius:16px;padding:30px;text-align:center;color:var(--mut)}
@@ -63,7 +63,7 @@ function layout({ title, desc, path, body, ld = [], robots = 'index, follow, max
 <link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.json">
 <meta property="og:type" content="website"><meta property="og:site_name" content="MediFinder India"><meta property="og:locale" content="en_IN"><meta property="og:url" content="${url}"><meta property="og:title" content="${esc(full)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(img)}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(full)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${esc(img)}">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#e02020">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#D6334A">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 ${ld.map(o => '<script type="application/ld+json" data-ld="1">' + JSON.stringify(o).replace(/</g, '\\u003c') + '</script>').join('\n')}
 <style>${CSS}</style></head><body>

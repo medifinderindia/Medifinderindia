@@ -2597,7 +2597,13 @@ function hydrateKycDocs(){
 }
 
 Object.assign(Actions, {
-  "logout": async ()=>{ try{ await supabase.auth.signOut(); }catch(e){} location.reload(); },
+  "logout": async ()=>{
+    // close the mobile drawer first so the confirm page is not hidden behind it
+    try{ $("#sidebar").classList.remove("open"); $("#drawerOverlay").classList.remove("open"); }catch(e){}
+    if(!(await askConfirm("Log out?", "Are you sure you want to log out of the admin panel?", {danger:true, ok:"Yes, log out"}))) return;
+    try{ await supabase.auth.signOut(); }catch(e){}
+    location.reload();
+  },
 
   /* ----- ZONES (service_zones: pin / dist / ps / muni / state / status / outage_message) ----- */
   "zone-toggle": async (el)=>{
@@ -2795,7 +2801,7 @@ function renderBottomNav(){
 }
 let _fleetMapInstance = null;
 let _ridersMiniMapInstance = null;
-const FLEET_MAP_COLOR = {"active-order":"#e02020", idle:"#d4a017", "zone-suspended":"#c0392b", offline:"#2563eb"};
+const FLEET_MAP_COLOR = {"active-order":"#D6334A", idle:"#d4a017", "zone-suspended":"#c0392b", offline:"#2563eb"};
 
 function renderRidersLiveMiniMap(){
   const el = document.getElementById("ridersLiveMiniMap");
@@ -2805,7 +2811,7 @@ function renderRidersLiveMiniMap(){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(_ridersMiniMapInstance);
   const pts = [];
   rows.forEach(r=>{
-    L.circleMarker([r.lat, r.lon], {radius:7, color:"#e02020", fillColor:"#e02020", fillOpacity:0.85, weight:2})
+    L.circleMarker([r.lat, r.lon], {radius:7, color:"#D6334A", fillColor:"#D6334A", fillOpacity:0.85, weight:2})
       .addTo(_ridersMiniMapInstance)
       .bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.vehicle)} · ${esc(r.phone)}`);
     pts.push([r.lat, r.lon]);
@@ -3684,12 +3690,12 @@ renderRidersLiveMiniMap = function(){
   const el = document.getElementById("ridersLiveMiniMap"); if(!el || typeof L==="undefined") return;
   _ridersMiniMapInstance = makeMap(el, "riders"); const pts = [];
   DATA.riders.filter(r=>r.online && r._hasLocation).forEach(r=>{
-    L.circleMarker([r.lat,r.lon],{radius:7,color:"#e02020",fillColor:"#e02020",fillOpacity:.85,weight:2}).addTo(_ridersMiniMapInstance).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.vehicle)} · ${esc(r.phone)}`);
+    L.circleMarker([r.lat,r.lon],{radius:7,color:"#D6334A",fillColor:"#D6334A",fillOpacity:.85,weight:2}).addTo(_ridersMiniMapInstance).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.vehicle)} · ${esc(r.phone)}`);
     pts.push([r.lat,r.lon]);
   });
   fitFirst(_ridersMiniMapInstance, "riders", pts);
 };
-const AMB_COLOR = { available:"#7c3aed", busy:"#e02020", offline:"#6b7280" };
+const AMB_COLOR = { available:"#7c3aed", busy:"#D6334A", offline:"#6b7280" };
 function ambMarker(d, map){
   const st = d.is_on_ride ? "busy" : d.is_online ? "available" : "offline";
   const icon = L.divIcon({ html:`<div class="amb-pin" style="background:${AMB_COLOR[st]}">🚑</div>`, className:"amb-wrap", iconSize:[30,30], iconAnchor:[15,15] });
@@ -3719,7 +3725,7 @@ function initAmbMap(){
   fitFirst(_ambMap, "amb", pts);
   if(!pts.length) el.insertAdjacentHTML("afterend", `<div class="hint" style="margin-top:8px">No ambulance driver is sharing a live location right now.</div>`);
 }
-ambulanceFleetMap = function(){ return `<div class="fleet-legend"><span><i style="background:#7c3aed"></i>Available</span><span><i style="background:#e02020"></i>On ride</span><span><i style="background:#6b7280"></i>Offline</span></div><div id="ambLeafletMap" class="leaflet-box"></div>`; };
+ambulanceFleetMap = function(){ return `<div class="fleet-legend"><span><i style="background:#7c3aed"></i>Available</span><span><i style="background:#D6334A"></i>On ride</span><span><i style="background:#6b7280"></i>Offline</span></div><div id="ambLeafletMap" class="leaflet-box"></div>`; };
 function distKm(a,b,c,d){ const R=6371, rad=x=>x*Math.PI/180, dLat=rad(c-a), dLon=rad(d-b); const h=Math.sin(dLat/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
 function zoneCenter(z){
   if(z._lat!=null && z._lng!=null && isFinite(+z._lat) && isFinite(+z._lng)) return [+z._lat,+z._lng];
@@ -3761,7 +3767,7 @@ async function initZoneMap(){
     L.marker([+m.lat,+m.lng],{ icon:pin("🏪", m.status==="active"?"#0d5c4f":"#6b7280") }).addTo(map).bindPopup(`<b>${esc(m.name)}</b><br>PIN ${esc(m.pincode)} · ${esc(m.status)}<br>${m.orders} orders · ${money(m.earnings)} delivered`); pts.push([+m.lat,+m.lng]);
   });
   DATA.riders.filter(r=>r.online && r._hasLocation).forEach(r=>{
-    L.marker([r.lat,r.lon],{ icon:pin("🏍", r.hasOrder?"#e02020":"#7c3aed") }).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.zone)} · ${r.hasOrder?"On delivery":"Idle"}<br>${esc(r.phone)}`); pts.push([r.lat,r.lon]);
+    L.marker([r.lat,r.lon],{ icon:pin("🏍", r.hasOrder?"#D6334A":"#7c3aed") }).addTo(map).bindPopup(`<b>${esc(r.name)}</b><br>${esc(r.zone)} · ${r.hasOrder?"On delivery":"Idle"}<br>${esc(r.phone)}`); pts.push([r.lat,r.lon]);
   });
   for(const z of DATA.zones){
     if(token!==_zoneMapToken) return;
@@ -3803,7 +3809,7 @@ VIEWS.fleet = () => {
     <button class="btn" style="margin-left:auto" data-act="fleet-refresh">↻ Refresh map</button>
   </div>
   <div class="card"><div class="card-head"><h3>Fleet map</h3><span class="sub">Live GPS positions</span></div><div class="card-body">
-    <div class="fleet-legend"><span><i style="background:#e02020"></i>Rider with order</span><span><i style="background:#d4a017"></i>Rider idle</span><span><i style="background:#c0392b"></i>Zone suspended</span><span><i style="background:#7c3aed"></i>Ambulance</span></div>
+    <div class="fleet-legend"><span><i style="background:#D6334A"></i>Rider with order</span><span><i style="background:#d4a017"></i>Rider idle</span><span><i style="background:#c0392b"></i>Zone suspended</span><span><i style="background:#7c3aed"></i>Ambulance</span></div>
     <div id="fleetLeafletMap" class="leaflet-box"></div>
     ${visible.filter(r=>!r._hasLocation).length ? `<div class="hint" style="margin-top:8px">${visible.filter(r=>!r._hasLocation).length} online rider(s) have no GPS fix yet and aren't plotted.</div>` : ""}
   </div></div>
@@ -4429,7 +4435,17 @@ async function loadCampaigns(){
   const { data, error } = await supabase.from("campaigns").select("*").order("start_at",{ascending:false}).limit(200);
   DATA.campaignsError = error ? error.message : "";
   DATA.campaigns = data || []; DATA._campLoaded = true;
+  await loadCampaignProducts();
 }
+async function loadCampaignProducts(){
+  if(!supabase) return;
+  const { data, error } = await supabase.from("campaign_products")
+    .select("id,status,created_at,campaign_id,medicine_id,merchant_id,medicines(name,product_name,image_url,selling_price,mrp,category,stock_qty),merchants(shop_name)")
+    .order("created_at",{ascending:false}).limit(3000);
+  DATA.campProdsError = error ? error.message : "";
+  DATA.campProds = data || [];
+}
+const campProdCount = (id)=> (DATA.campProds||[]).filter(x=>x.campaign_id===id && x.status==="approved").length;
 function campStatus(c){
   const t = Date.now(), s = new Date(c.start_at).getTime(), e = new Date(c.end_at).getTime();
   if(c.ended_early || t >= e) return "ended";
@@ -4446,17 +4462,19 @@ VIEWS.campaigns = () => {
   const card = (c)=>{ const st = campStatus(c);
     return `<div class="card" style="margin-bottom:12px"><div class="card-body">
       <div class="row-flex" style="align-items:flex-start;gap:12px">
-        ${c.image_url ? `<img src="${esc(c.image_url)}" alt="" style="width:92px;height:64px;object-fit:cover;border-radius:8px;flex:none">` : `<div style="width:92px;height:64px;border-radius:8px;flex:none;background:linear-gradient(135deg,#e02020,#ffb347)"></div>`}
+        ${c.image_url ? `<img src="${esc(c.image_url)}" alt="" style="width:92px;height:64px;object-fit:cover;border-radius:8px;flex:none">` : `<div style="width:92px;height:64px;border-radius:8px;flex:none;background:linear-gradient(135deg,#D6334A,#ffb347)"></div>`}
         <div style="flex:1;min-width:0"><div class="cell-strong">${esc(c.title)}</div>
           <div class="cell-sub">${esc(c.discount_text||"")}</div>
           <div class="cell-sub">${campFmt(c.start_at)} → ${campFmt(c.end_at)}</div>
+          <div class="cell-sub">🛍 ${campProdCount(c.id)} merchant product${campProdCount(c.id)===1?"":"s"} added</div>
           <div class="cell-sub">${pushTxt(c)}${c.send_push && c.send_ending_push ? " · ending-soon reminder on" : ""}${c.show_countdown?" · countdown":""}${c.show_homepage?" · homepage":""}</div></div>
         ${badge(st==="live"?"Live":st==="scheduled"?"Scheduled":"Ended", st==="live"?"green":st==="scheduled"?"gold":"gray")}</div>
       ${st!=="ended" ? `<div class="actions-cell" style="margin-top:10px;flex-wrap:wrap">
         <button class="btn sm" data-act="camp-edit" data-id="${esc(c.id)}">Edit</button>
+        <button class="btn sm" data-act="camp-products" data-id="${esc(c.id)}">Products (${campProdCount(c.id)})</button>
         ${c.send_push ? `<button class="btn sm primary" data-act="camp-push" data-id="${esc(c.id)}">Send push now</button>` : ""}
         <button class="btn sm danger" data-act="camp-end" data-id="${esc(c.id)}">End now</button></div>`
-        : `<div class="actions-cell" style="margin-top:10px"><button class="btn sm danger" data-act="camp-del" data-id="${esc(c.id)}">Delete</button></div>`}
+        : `<div class="actions-cell" style="margin-top:10px"><button class="btn sm" data-act="camp-products" data-id="${esc(c.id)}">Products (${campProdCount(c.id)})</button><button class="btn sm danger" data-act="camp-del" data-id="${esc(c.id)}">Delete</button></div>`}
     </div></div>`; };
   return `
   <div class="view-head"><h1>Offers / Campaigns</h1><p>Publish an offer once — it appears on the customer home page with a server-time countdown and a push notification goes out automatically.</p></div>
@@ -4483,8 +4501,8 @@ function campForm(c){
   </details>
   <div class="field-row"><div class="field"><label>Starts *</label><input id="cmpStart" type="datetime-local" value="${toLocalInput(s)}"></div>
   <div class="field"><label>Ends *</label><input id="cmpEnd" type="datetime-local" value="${toLocalInput(e)}"></div></div>
-  <div class="field"><label>Shop Now opens (page)</label><input id="cmpUrl" value="${esc(c?c.target_url||"":"/user.html")}" placeholder="/user.html"></div>
-  <div class="hint" style="font-weight:600;margin:6px 0">Push notification text (optional — defaults to title & description)</div>
+  <div class="field"><label>Shop Now opens (page)</label><input id="cmpUrl" value="${esc(c?c.target_url||"":"/user.html")}" placeholder="/user.html"><div class="hint">Keep <b>/user.html</b> → opens this offer's Deals page (products merchants added, grouped by category). Only change it to send people to a different page.</div></div>
+  <div class="hint" style="font-weight:600;margin:6px 0">Push notification text (optional — defaults to title & description). A push cannot tick live, so the exact end date &amp; time is added to the message and printed on the notification picture when “Show countdown” is on.</div>
   <div class="field"><label>Notification title</label><input id="cmpNTitle" value="${esc(c?c.notification_title||"":"")}" placeholder="🔥 Epic Health Deals!"></div>
   <div class="field"><label>Notification message</label><input id="cmpNBody" value="${esc(c?c.notification_body||"":"")}" placeholder="Grab top medicines & healthcare products at special prices."></div>
   ${ck("cmpPush","Send push notification when it starts",c?c.send_push:true)}
@@ -4492,7 +4510,26 @@ function campForm(c){
   ${ck("cmpHome","Show on home page",c?c.show_homepage:true)}
   ${ck("cmpCount","Show countdown",c?c.show_countdown:true)}`;
 }
-async function readCampForm(){
+async function makePushImage(url, endAt){
+  const im = await loadImg(url); if(!im) return null;
+  const W = 1200, H = 630, BAR = 110, AH = H - BAR;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#f4f4f6"; ctx.fillRect(0,0,W,H);
+  try{ ctx.filter = "blur(22px)"; const rc = Math.max(W/im.width, AH/im.height); ctx.drawImage(im,(W-im.width*rc)/2,(AH-im.height*rc)/2,im.width*rc,im.height*rc); ctx.filter = "none"; }catch(e){ ctx.filter = "none"; }
+  const r = Math.min(W/im.width, AH/im.height), w = im.width*r, h = im.height*r; ctx.drawImage(im,(W-w)/2,(AH-h)/2,w,h);
+  const g = ctx.createLinearGradient(0,AH,W,AH); g.addColorStop(0,"#c2185b"); g.addColorStop(1,"#7b1fa2");
+  ctx.fillStyle = g; ctx.fillRect(0,AH,W,BAR);
+  const t = new Date(endAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",hour12:true}).toUpperCase();
+  ctx.fillStyle = "#fff"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  ctx.font = "700 30px Arial, sans-serif"; ctx.fillText("OFFER ENDS", 40, AH+BAR/2);
+  ctx.textAlign = "right"; ctx.font = "800 46px Arial, sans-serif"; ctx.fillText(t, W-40, AH+BAR/2);
+  let blob; try{ blob = await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("empty")),"image/jpeg",0.88)); }catch(e){ return null; }
+  const path = `banners/push-${Date.now()}.jpg`;
+  const up = await supabase.storage.from("campaign-banners").upload(path, blob, { contentType:"image/jpeg" });
+  if(up.error) return null;
+  return supabase.storage.from("campaign-banners").getPublicUrl(path).data.publicUrl;
+}
+async function readCampForm(prev){
   const title = $("#cmpTitle").value.trim(), s = new Date($("#cmpStart").value), e = new Date($("#cmpEnd").value);
   if(!title){ toast("Offer title is required","danger"); return null; }
   if(isNaN(s) || isNaN(e)){ toast("Set start and end date/time","danger"); return null; }
@@ -4506,7 +4543,13 @@ async function readCampForm(){
     if(up.error){ toast("Banner upload failed: "+up.error.message,"danger"); return null; }
     image = supabase.storage.from("campaign-banners").getPublicUrl(path).data.publicUrl;
   }
-  return { title, description:$("#cmpDesc").value.trim()||null, discount_text:$("#cmpDisc").value.trim()||null, image_url:image,
+  const wantPush = $("#cmpPush").checked, wantCount = $("#cmpCount").checked;
+  let pushImg = null;
+  if(image && wantPush && wantCount){
+    if(prev && prev.push_image_url && prev.image_url===image && new Date(prev.end_at).getTime()===e.getTime()) pushImg = prev.push_image_url;
+    else { pushImg = await makePushImage(image, e); if(!pushImg) toast("Could not print the end time on the push picture — the normal banner will be used","danger"); }
+  }
+  return { title, description:$("#cmpDesc").value.trim()||null, discount_text:$("#cmpDisc").value.trim()||null, image_url:image, push_image_url:pushImg,
     start_at:s.toISOString(), end_at:e.toISOString(), target_url:$("#cmpUrl").value.trim()||"/user.html",
     notification_title:$("#cmpNTitle").value.trim()||null, notification_body:$("#cmpNBody").value.trim()||null,
     send_push:$("#cmpPush").checked, send_ending_push:$("#cmpEnding").checked, show_homepage:$("#cmpHome").checked, show_countdown:$("#cmpCount").checked };
@@ -4544,7 +4587,7 @@ Actions["camp-compose"] = async ()=>{
 };
 Actions["camp-new"] = ()=> openModal("Create offer", campForm(null), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="camp-save">Publish offer</button>`);
 Actions["camp-save"] = async ()=>{
-  const f = await readCampForm(); if(!f) return;
+  const f = await readCampForm(null); if(!f) return;
   const { error } = await supabase.from("campaigns").insert({ ...f, is_published:true, created_by:DATA.me.email||null });
   if(error){ toast("Failed: "+error.message+(/campaigns/.test(error.message)?" — run medifinder_campaigns.sql":""),"danger"); return; }
   await logAdminAction(`Published offer “${f.title}”`); closeModal(); await loadCampaigns(); render();
@@ -4554,10 +4597,38 @@ Actions["camp-edit"] = (el)=>{ const c = DATA.campaigns.find(x=>x.id===el.datase
   openModal("Edit offer", campForm(c), `<button class="btn" data-close-modal>Cancel</button><button class="btn primary" data-act="camp-edit-save" data-id="${esc(c.id)}">Save</button>`); };
 Actions["camp-edit-save"] = async (el)=>{
   const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c) return;
-  const f = await readCampForm(); if(!f) return;
+  const f = await readCampForm(c); if(!f) return;
   const { error } = await supabase.from("campaigns").update(f).eq("id", c.id);
   if(error){ toast("Failed: "+error.message,"danger"); return; }
   await logAdminAction(`Edited offer “${f.title}”`); closeModal(); await loadCampaigns(); render(); toast("Offer updated");
+};
+function campProdsHtml(cid){
+  const rows = (DATA.campProds||[]).filter(x=>x.campaign_id===cid);
+  if(DATA.campProdsError) return `<div class="notice-bad">Cannot load products: ${esc(DATA.campProdsError)}</div>`;
+  if(!rows.length) return `<div class="empty"><div class="ic">🛍</div><h4>No products yet</h4><p>Merchants add their own products from the merchant panel → Offers. They show up here and on the customer Deals page.</p></div>`;
+  const by = {}; rows.forEach(r=>{ const k = (r.merchants&&r.merchants.shop_name)||("Merchant #"+r.merchant_id); (by[k]=by[k]||[]).push(r); });
+  return `<div class="hint" style="margin-bottom:8px">${rows.filter(r=>r.status==="approved").length} live · ${Object.keys(by).length} merchant(s)</div>` + Object.keys(by).map(k=>`
+    <div class="card" style="margin-bottom:10px"><div class="card-body">
+      <div class="cell-strong" style="margin-bottom:6px">${esc(k)} <span class="cell-sub">· ${by[k].length} product${by[k].length===1?"":"s"}</span></div>
+      ${by[k].map(r=>{ const m = r.medicines||{}; const nm = m.name||m.product_name||("Medicine #"+r.medicine_id);
+        return `<div class="row-flex" style="justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line,#eee)">
+          <div class="row-flex" style="gap:10px;min-width:0">${m.image_url?`<img src="${esc(m.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:none">`:`<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-alt,#eee);flex:none"></div>`}
+            <div style="min-width:0"><div class="cell-strong" style="white-space:normal">${esc(nm)}</div><div class="cell-sub">${esc(m.category||"")} · ₹${esc(m.selling_price??"—")}${m.mrp?` (MRP ₹${esc(m.mrp)})`:""} · stock ${esc(m.stock_qty??0)}</div></div></div>
+          ${r.status==="approved" ? `<button class="btn sm danger" data-act="camp-prod-remove" data-id="${esc(r.id)}" data-cid="${esc(cid)}">Remove</button>` : badge("Removed","gray")}
+        </div>`; }).join("")}
+    </div></div>`).join("");
+}
+Actions["camp-products"] = (el)=>{ const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c) return;
+  openModal("Offer products — "+c.title, campProdsHtml(c.id), `<button class="btn" data-close-modal>Close</button>`); };
+Actions["camp-prod-remove"] = async (el)=>{
+  if(!(await askConfirm("Remove product?", "This product will disappear from the offer's Deals page. The merchant cannot add it back.", {danger:true, ok:"Remove"}))) return;
+  const { error } = await supabase.from("campaign_products").update({ status:"removed" }).eq("id", el.dataset.id);
+  if(error){ toast("Failed: "+error.message,"danger"); return; }
+  await logAdminAction("Removed a product from an offer"); await loadCampaignProducts();
+  const c = DATA.campaigns.find(x=>x.id===el.dataset.cid);
+  render(); toast("Product removed from offer","danger");
+  // wait for the confirm page's history.back() to finish, otherwise it would close the list we re-open
+  if(c) setTimeout(()=> openModal("Offer products — "+c.title, campProdsHtml(c.id), `<button class="btn" data-close-modal>Close</button>`), 300);
 };
 Actions["camp-end"] = async (el)=>{
   const c = DATA.campaigns.find(x=>x.id===el.dataset.id); if(!c || !(await askConfirm("End offer now?", `“${c.title}” will disappear from the home page immediately.`, {danger:true, ok:"End offer"}))) return;

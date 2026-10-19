@@ -807,3 +807,22 @@ tbody td:has(.empty), tbody td[colspan]{ white-space:normal; max-width:none; }
 .main-col{ min-height:0; }
 .content{ min-height:0; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; touch-action:pan-y; }
 .table-wrap, .card-body.pad0, .tabs, .roles-scroll{ overscroll-behavior-x:contain; touch-action:pan-x pan-y; }
+
+/* ===== Mobile scroll fix =====
+   Root cause: .app-shell (grid) had an auto row and .main-col/.content (flex column children) had no min-height:0,
+   so on a phone the content grew taller than the screen and was clipped by overflow:hidden instead of scrolling. */
+.app-shell{ grid-template-rows:minmax(0,1fr); }
+.sidebar{ min-height:0; }
+.sidebar-scroll{ min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.main-col{ min-height:0; overflow:hidden; }
+.content{ min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; touch-action:pan-y; scroll-behavior:auto; }
+.fp-scroll{ min-height:0; touch-action:pan-y; }
+.table-wrap, .card-body.pad0{ touch-action:pan-x pan-y; overscroll-behavior-x:contain; }
+@media (max-width:980px), (pointer:coarse) and (max-width:1200px){
+  html, body{ height:100%; }
+  .app-shell{ height:100vh; height:100dvh; }
+  .content{ padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)); }
+  .bottom-nav{ position:relative; z-index:6; }
+  /* a map must not swallow the swipe that scrolls the page */
+  .leaflet-box, .map-box{ touch-action:pan-y; }
+}
