@@ -4426,7 +4426,7 @@ Actions["invoice-dl"] = async (el)=>{ const r = await buildReceiptFull(el.datase
 
 (function(){
   const g = NAV.find(gr=>gr.items.some(i=>i.id==="notifications"));
-  const it = {id:"campaigns", icon:"📢", label:"Offers / Campaigns", children:[{key:"live",label:"Live"},{key:"scheduled",label:"Scheduled"},{key:"ended",label:"Ended"},{key:"all",label:"All"}]};
+  const it = {id:"campaigns", icon:"📢", label:"Offers / Campaigns", children:[{key:"live",label:"Live"},{key:"scheduled",label:"Scheduled"},{key:"draft",label:"Drafts"},{key:"ended",label:"Ended"},{key:"all",label:"All"}]};
   g.items.splice(g.items.findIndex(i=>i.id==="notifications")+1, 0, it); NAV_FLAT.push(it);
 })();
 DATA.campaigns = []; DATA._campLoaded = false;
@@ -4448,6 +4448,7 @@ async function loadCampaignProducts(){
 const campProdCount = (id)=> (DATA.campProds||[]).filter(x=>x.campaign_id===id && x.status==="approved").length;
 function campStatus(c){
   const t = Date.now(), s = new Date(c.start_at).getTime(), e = new Date(c.end_at).getTime();
+  if(c.is_published === false) return "draft";
   if(c.ended_early || t >= e) return "ended";
   return t < s ? "scheduled" : "live";
 }
@@ -4468,7 +4469,7 @@ VIEWS.campaigns = () => {
           <div class="cell-sub">${campFmt(c.start_at)} → ${campFmt(c.end_at)}</div>
           <div class="cell-sub">🛍 ${campProdCount(c.id)} merchant product${campProdCount(c.id)===1?"":"s"} added</div>
           <div class="cell-sub">${pushTxt(c)}${c.send_push && c.send_ending_push ? " · ending-soon reminder on" : ""}${c.show_countdown?" · countdown":""}${c.show_homepage?" · homepage":""}</div></div>
-        ${badge(st==="live"?"Live":st==="scheduled"?"Scheduled":"Ended", st==="live"?"green":st==="scheduled"?"gold":"gray")}</div>
+        ${badge(st==="live"?"Live":st==="scheduled"?"Scheduled":st==="draft"?"Draft":"Ended", st==="live"?"green":st==="scheduled"||st==="draft"?"gold":"gray")}</div>
       ${st!=="ended" ? `<div class="actions-cell" style="margin-top:10px;flex-wrap:wrap">
         <button class="btn sm" data-act="camp-edit" data-id="${esc(c.id)}">Edit</button>
         <button class="btn sm" data-act="camp-products" data-id="${esc(c.id)}">Products (${campProdCount(c.id)})</button>
@@ -4481,8 +4482,9 @@ VIEWS.campaigns = () => {
   ${DATA.campaignsError ? `<div class="notice-bad">Campaigns cannot load: ${esc(DATA.campaignsError)} — run medifinder_campaigns.sql first</div>` : ""}
   <div class="stat-grid"><div class="stat-card"><div class="lbl">Live now</div><div class="val" style="color:#1f9d55">${cnt("live")}</div></div>
     <div class="stat-card"><div class="lbl">Scheduled</div><div class="val">${cnt("scheduled")}</div></div>
+    <div class="stat-card"><div class="lbl">Drafts</div><div class="val">${cnt("draft")}</div></div>
     <div class="stat-card"><div class="lbl">Ended</div><div class="val">${cnt("ended")}</div></div></div>
-  <div class="view-toolbar"><button class="btn primary" data-act="camp-new">+ Create offer</button></div>
+  <div class="view-toolbar"><button class="btn primary" data-act="camp-new">+ New campaign</button></div>
   ${rows.map(card).join("") || `<div class="empty"><div class="ic">📢</div><h4>No offers here</h4><p>Tap “Create offer” to publish one.</p></div>`}`;
 };
 function campForm(c){

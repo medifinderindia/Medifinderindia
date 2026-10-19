@@ -1026,7 +1026,7 @@ console.log("marchent.js v15 loaded");
     saveCampaignProducts: async (campaignId, add, remove) => {
       const mid = await requireMerchantId();
       if (add.length) {
-        const rows = add.map(id => ({ campaign_id: campaignId, medicine_id: Number(id), merchant_id: mid, status: 'approved' }));
+        const rows = add.map(id => ({ campaign_id: campaignId, medicine_id: Number(id), merchant_id: mid, status: 'pending' }));   // admin approval is enforced by the database trigger, not by this UI
         const { error } = await sb.from('campaign_products').upsert(rows, { onConflict: 'campaign_id,medicine_id', ignoreDuplicates: true });
         if (error) throw error;
       }
@@ -3781,9 +3781,11 @@ console.log("marchent.js v15 loaded");
       const [camps, products, mine] = await Promise.all([DB.getOpenCampaigns(), liveProducts(), DB.getMyCampaignProducts()]);
       const now = Date.now();
       if (!camps.length) return `<div class="card panel">${emptyBlock('zap', 'No offer is running right now', 'When MediFinder India starts an offer (like a festival sale), it appears here and you can add your products to it.')}</div>`;
-      return `<p class="cell-muted" style="font-size:13px;margin:0 0 12px">Add your products to an offer — customers see them on that offer's Deals page, grouped by category. Prices stay the same; run a discount or flash sale to make them cheaper.</p>` +
+      return `<p class="cell-muted" style="font-size:13px;margin:0 0 12px">Add your products to an offer — after MediFinder India approves them, customers see them on that offer's page. Prices stay the same; run a discount or flash sale to make them cheaper.</p>` +
         camps.map(c => {
-          const picked = mine.filter(m => m.campaign_id === c.id && m.status === 'approved').map(m => m.medicine_id);
+          const mineHere = mine.filter(m => m.campaign_id === c.id);
+          const picked = mineHere.filter(m => m.status === 'approved' || m.status === 'pending').map(m => m.medicine_id);
+          const nA = mineHere.filter(m => m.status === 'approved').length, nP = mineHere.filter(m => m.status === 'pending').length, nR = mineHere.filter(m => m.status === 'rejected').length;
           const removed = mine.filter(m => m.campaign_id === c.id && m.status === 'removed').length;
           const live = new Date(c.start_at).getTime() <= now;
           return `<form class="card panel offer-join" data-offer="${esc(c.id)}">
@@ -3795,6 +3797,7 @@ console.log("marchent.js v15 loaded");
               <span class="pill ${live ? 'pill-green' : 'pill-teal'}">${live ? 'Live' : 'Starts soon'}</span>
             </div>
             <div class="field"><span>Your products in this offer</span>${pickerHtml(products, picked, 'offer_' + c.id)}</div>
+            ${(nA || nP || nR) ? `<p class="cell-muted" style="font-size:12px;margin:6px 0">${nA} live in the offer · ${nP} waiting for MediFinder India approval${nR ? ' · ' + nR + ' rejected' : ''}</p>` : ''}
             ${removed ? `<p class="cell-muted" style="font-size:12px;margin:6px 0">${removed} of your product${removed === 1 ? ' was' : 's were'} removed by MediFinder India and cannot be added again.</p>` : ''}
             <button class="btn btn-primary" data-offer-save="${esc(c.id)}" style="width:100%;margin-top:10px">Save products for this offer</button>
           </form>`;
@@ -3809,10 +3812,10 @@ console.log("marchent.js v15 loaded");
           const btn = e.currentTarget, chosen = pickerValues(form);
           BtnState.start(btn, 'Saving…');
           try {
-            const mine = (await DB.getMyCampaignProducts()).filter(m => m.campaign_id === id && m.status === 'approved').map(m => Number(m.medicine_id));
+            const mine = (await DB.getMyCampaignProducts()).filter(m => m.campaign_id === id && (m.status === 'approved' || m.status === 'pending')).map(m => Number(m.medicine_id));
             const add = chosen.filter(x => !mine.includes(x)), remove = mine.filter(x => !chosen.includes(x));
             await DB.saveCampaignProducts(id, add, remove);
-            BtnState.reset(btn); showToast(chosen.length ? `${chosen.length} product${chosen.length === 1 ? '' : 's'} in this offer` : 'Removed from offer');
+            BtnState.reset(btn); showToast(chosen.length ? `${chosen.length} product${chosen.length === 1 ? '' : 's'} sent — live after MediFinder India approves` : 'Removed from offer');
           } catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast(err.message || 'Could not save', 'error'); }
         });
       });

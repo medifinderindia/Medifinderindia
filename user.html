@@ -55,6 +55,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
     <link rel="stylesheet" href="user.min.css?v=aa453c84" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
     <link rel="stylesheet" href="offer.css?v=deal1" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="campaign-page.css?v=cp1">
     <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="ux-final.css?v=6476ed2e" media="print" onload="this.media='all'">
     <noscript>
@@ -645,6 +646,17 @@
             <button class="pd-add-to-cart-btn" id="pd-add-to-cart-btn"><i class="fa-solid fa-cart-plus"></i> ADD TO CART</button>
             <button class="pd-buy-now-btn" id="pd-buy-now-btn">BUY NOW</button>
         </div>
+    </div>
+
+    <div id="page-campaign" class="app-page" data-page="campaign">
+        <header class="cp-header">
+            <button type="button" class="cp-ib" data-cp="back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <span class="cp-title" id="cp-title">Offer</span>
+            <button type="button" class="cp-ib" data-cp="search" aria-label="Search this offer"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <button type="button" class="cp-ib" data-cp="cart" aria-label="Open cart"><i class="fa-solid fa-cart-shopping"></i><span class="cp-badge" id="cp-cart-badge" style="display:none">0</span></button>
+        </header>
+        <div class="cp-search" id="cp-search"><input id="cp-q" type="search" placeholder="Search products in this offer" aria-label="Search products in this offer" autocomplete="off"></div>
+        <main class="main-content-scrollable" id="cp-root" aria-live="polite"></main>
     </div>
 
     <div id="page-shop-detail" class="app-page" data-page="shop-detail">
@@ -2300,6 +2312,7 @@
     <script src="user.min.js?v=pl3" defer></script>
     <script src="ux-final.js?v=346553eb" defer></script>
 <script src="offer.js?v=deal1" defer></script>
+<script src="campaign-page.js?v=cp1" defer></script>
 <script src="push-notifications.js?v=5f2a2897" defer></script>
 </body>
 </html>

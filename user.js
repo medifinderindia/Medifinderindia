@@ -9997,7 +9997,7 @@ async function loadMyCouponsAndOffers() {
         home: 'page-home', shops: 'page-shops', order: 'page-order', cart: 'page-cart', profile: 'page-profile', notification: 'page-notification',
         'lab-test': 'page-lab-test', 'nurse-booking': 'page-nurse-booking', 'ambulance': 'page-ambulance', 'tablet-coin': 'page-tablet-coin',
         'product-detail': 'page-product-detail', 'shop-detail': 'page-shop-detail',
-        'prescriptions': 'page-prescriptions'
+        'prescriptions': 'page-prescriptions', 'campaign': 'page-campaign'
     };
 
     function setActiveNavIcon(page) {
@@ -10022,7 +10022,7 @@ async function loadMyCouponsAndOffers() {
         const target = document.getElementById(PAGE_IDS[targetPage]);
         if (target) target.classList.add('active');
 
-        setActiveNavIcon(targetPage === 'prescriptions' ? 'profile' : targetPage);
+        setActiveNavIcon(targetPage === 'prescriptions' ? 'profile' : (targetPage === 'campaign' ? 'home' : targetPage));
 
         // Home-only header: shown only when navigating to Home, hidden on
         // Shops/Cart/Orders/Profile. Also refreshes the "Hi, [Name]" /
@@ -10055,7 +10055,7 @@ async function loadMyCouponsAndOffers() {
         if (scrollEl) scrollEl.scrollTop = 0;
 
         window.scrollTo(0, 0);
-        try { history.replaceState(null, '', '#' + page); } catch (e) {}
+        try { if (page === 'campaign' && window.MFCampaign) { var __cr = (location.hash.match(/^#campaign\/.+/) || [])[0]; if (__cr) history.replaceState(history.state, '', __cr); } else { history.replaceState(null, '', '#' + page); } } catch (e) {}
         // Every page re-syncs with Supabase each time it is opened (SPA: nothing reloads on its own)
         try { window.dispatchEvent(new CustomEvent('mf:page-enter', { detail: { page: targetPage } })); } catch (e) {}
 
