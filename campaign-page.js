@@ -90,10 +90,14 @@
   function status(c) { var t = now(), s = Date.parse(c.start_at), e = Date.parse(c.end_at); if (c.ended_early || t >= e) return 'ended'; return t < s ? 'scheduled' : 'live'; }
   function fmt(d) { return new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); }
   function pct(p) { var m = Number(p.mrp), s = Number(p.price); return m > s && s > 0 ? Math.round((m - s) / m * 100) : 0; }   // only from real prices
-  function cats() { var set = {}; (st.data.products || []).forEach(function (p) { if (p.category) set[p.category] = 1; }); return Object.keys(set).sort(); }
+  // Health-only campaign: hides grocery / household / fashion style categories even if a merchant listed them.
+  var NON_HEALTH = /(detergent|laundry|household|tissue|paper|grocer|kitchen|cookware|dress|cloth|fashion|apparel|footwear|shoe|electronic|mobile|toy|furniture|snack|beverage|decor|cleaning)/i;
+  function healthy(p) { return !(window.MF_HEALTH_ONLY === true && NON_HEALTH.test(String(p.category || ''))); }   // off by default: set window.MF_HEALTH_ONLY = true to hide non-health categories
+  function healthList() { return (st.data.products || []).filter(healthy); }
+  function cats() { var set = {}; healthList().forEach(function (p) { if (p.category) set[p.category] = 1; }); return Object.keys(set).sort(); }
   function filtered(extraCat) {
     var q = st.q.trim().toLowerCase(), cat = extraCat || st.cat;
-    return (st.data.products || []).filter(function (p) { return (cat === 'all' || p.category === cat) && (!q || String(p.name || '').toLowerCase().indexOf(q) > -1); });
+    return healthList().filter(function (p) { return (cat === 'all' || p.category === cat) && (!q || String(p.name || '').toLowerCase().indexOf(q) > -1); });
   }
 
   /* ---------- rendering ---------- */
@@ -116,14 +120,14 @@
   }
   function productCard(p) {
     var d = pct(p), out = Number(p.stock) <= 0;
-    return '<div class="cp-card" role="button" tabindex="0" data-cp="prod" data-id="' + esc(p.id) + '">' + (p.isRx ? '<span class="cp-rx">Rx</span>' : '') +
+    return '<div class="cp-card" role="button" tabindex="0" data-cp="prod" data-id="' + esc(p.id) + '">' + (p.isRx ? '<span class="cp-rx">Rx</span>' : '') + (d ? '<span class="cp-off">' + d + '% OFF</span>' : '') +
       '<div class="pic">' + (safeImg(p.img) ? '<img src="' + esc(p.img) + '" alt="" loading="lazy" decoding="async">' : '<i class="fa-solid fa-capsules" style="color:#c9ccd3;font-size:1.8rem"></i>') + '</div>' +
-      '<div class="nm">' + esc(p.name) + '</div><div class="sh">' + esc(p.shop || '') + '</div>' +
+      '<div class="nm">' + esc(p.name) + '</div><div class="sh">' + esc(p.shop || '') + '</div>' + (!out && Number(p.stock) <= 5 ? '<div class="cp-low">Only ' + Number(p.stock) + ' left</div>' : '') +
       '<div class="cp-price"><b>' + inr(p.price) + '</b>' + (d ? '<s>' + inr(p.mrp) + '</s><em>' + d + '% off</em>' : '') + '</div>' +
       '<button type="button" class="cp-btn" data-cp="add" data-id="' + esc(p.id) + '"' + (out ? ' disabled' : '') + '>' + (out ? 'Out of stock' : (p.isRx ? 'Add (Rx needed)' : 'Add to cart')) + '</button></div>';
   }
   function section(s) {
-    var cfg = s.config || {}, imgs = s.images || [], css = secStyle(cfg), theme = cfg.theme && /^(red|gold|white)$/.test(cfg.theme) ? ' cp-themed cp-theme-' + cfg.theme : '';
+    var cfg = s.config || {}, imgs = s.images || [], css = secStyle(cfg), theme = cfg.theme && /^(red|gold|white|pink|orange|royal|brand|teal)$/.test(cfg.theme) ? ' cp-themed cp-theme-' + cfg.theme : '';
     var wrap = function (inner) { return '<section class="cp-sec' + theme + '" id="cp-s-' + esc(s.id) + '" style="' + css + '">' + inner + '</section>'; };
     switch (s.type) {
       case 'hero_carousel': case 'single_banner':
@@ -172,15 +176,51 @@
     var cs = cats(); if (cs.length < 2) return '';
     return '<div class="cp-chips" id="cp-chips" role="tablist">' + ['all'].concat(cs).map(function (c) { return '<button class="cp-chip' + (st.cat === c ? ' on' : '') + '" role="tab" aria-selected="' + (st.cat === c) + '" data-cp="chip" data-cat="' + esc(c) + '">' + (c === 'all' ? 'All' : esc(c)) + '</button>'; }).join('') + '</div>';
   }
+  /* ---------- Rich automatic layout (real data only) ----------
+     Used when the campaign has no product section of its own: category tiles, biggest savings,
+     per-category festive carousels, under-₹99 picks. Everything comes from the approved products. */
+  function wrapSec(id, theme, headHtml, inner) { return '<section class="cp-sec cp-themed cp-theme-' + theme + '" id="' + id + '">' + headHtml + inner + '</section>'; }
+  function minPrice(list) { var n = list.map(function (p) { return Number(p.price) || 0; }).filter(Boolean); return n.length ? Math.min.apply(null, n) : 0; }
+  function maxPct(list) { return Math.max.apply(null, list.map(pct).concat([0])); }
+  function autoLayout() {
+    var all = healthList(); if (!all.length) return '';
+    var by = {}; all.forEach(function (p) { var c = p.category || 'Health essentials'; (by[c] = by[c] || []).push(p); });
+    var names = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length; });
+    var out = '', th = ['teal', 'brand', 'royal'];
+    if (names.length > 1) {
+      out += wrapSec('cp-a-cats', 'brand', head({ title: 'Shop by health need', subtitle: 'Tap a category to see all deals' }),
+        '<div class="cp-tiles">' + names.slice(0, 9).map(function (c) {
+          var l = by[c], im = l.filter(function (p) { return safeImg(p.img); })[0], mp = minPrice(l);
+          return '<button type="button" class="cp-tile" data-cp="viewall" data-cat="' + esc(c) + '"><span class="ph">' + (im ? '<img src="' + esc(im.img) + '" alt="" loading="lazy">' : '<i class="fa-solid fa-capsules"></i>') + '</span>' +
+            (mp ? '<span class="pr">From ' + inr(mp) + '</span>' : '') + '<span class="nm">' + esc(c) + '</span></button>'; }).join('') + '</div>');
+    }
+    var disc = all.filter(function (p) { return pct(p) > 0; }).sort(function (a, b) { return pct(b) - pct(a); }).slice(0, 6);
+    if (disc.length >= 2) out += wrapSec('cp-a-top', 'royal', head({ title: 'Biggest savings', subtitle: 'Up to ' + maxPct(all) + '% off on health essentials' }), '<div class="cp-pgrid">' + disc.map(productCard).join('') + '</div>');
+    var big = names.filter(function (c) { return by[c].length >= 3; });
+    if (!big.length && all.length >= 2) out += wrapSec('cp-a-all', 'teal', head({ title: 'Top health deals', subtitle: 'Hand-picked offers for you' }), '<div class="cp-prow">' + all.slice(0, 12).map(productCard).join('') + '</div>');
+    big.slice(0, 4).forEach(function (c, i) {
+      var l = by[c], m = maxPct(l), mp = minPrice(l);
+      out += section({ id: 'a-cat-' + i, type: 'product_carousel', title: 'Deals on ' + c, subtitle: (mp ? 'From ' + inr(mp) : '') + (m ? (mp ? ' · ' : '') + 'up to ' + m + '% off' : ''), config: { category: c, theme: th[i % 3] }, images: [] });
+    });
+    var cheap = all.filter(function (p) { return Number(p.price) > 0 && Number(p.price) <= 99; }).slice(0, 10);
+    if (cheap.length >= 3) out += wrapSec('cp-a-cheap', 'brand', head({ title: 'Everyday care under ₹99', subtitle: 'Pocket-friendly picks' }), '<div class="cp-prow">' + cheap.map(productCard).join('') + '</div>');
+    return out;
+  }
   function buildHTML() {
     var d = st.data, c = d.campaign, h = infoCard(c), secs = (d.sections || []).map(section).join('');
     var hasProdSec = (d.sections || []).some(function (s) { return s.type === 'product_carousel' || s.type === 'product_grid'; });
-    var prods = d.products || [];
-    var fallback = !hasProdSec && prods.length ? '<section class="cp-sec" id="cp-prods"><div class="cp-sec-h"><h2>Deals for you</h2></div><div class="cp-pgrid" id="cp-pg">' + filtered().map(productCard).join('') + '</div></section>' : '';
+    var prods = (d.products || []).filter(healthy);
+    var auto = !hasProdSec ? autoLayout() : '';
+    var hasSvSec = (d.sections || []).some(function (s) { return s.type === 'service_collection'; });
+    var autoSv = !hasSvSec && (d.services || []).length ? section({ id: 'a-svc', type: 'service_collection', title: 'Healthcare services', subtitle: 'Book in a few taps', config: {}, images: [] }) : '';
+    var fallback = !hasProdSec && prods.length ? '<section class="cp-sec" id="cp-prods"><div class="cp-sec-h"><h2>' + (auto ? 'All deals' : 'Deals for you') + '</h2></div><div class="cp-pgrid" id="cp-pg">' + filtered().map(productCard).join('') + '</div></section>' : '';
     var hero = !(d.sections || []).some(function (s) { return s.type === 'hero_carousel' || s.type === 'single_banner'; }) && safeImg(c.image_url)
       ? '<div class="cp-sec" style="--cp-img-r:16px;--cp-fit:contain"><div class="cp-img-btn"><div class="cp-img-box auto"><img src="' + esc(c.image_url) + '" alt="' + esc(c.title) + '" fetchpriority="high" decoding="async"></div></div></div>' : '';
-    var empty = !secs && !fallback && !hero ? '<div class="cp-state"><i class="fa-regular fa-clock"></i><h3>Nothing here yet</h3><p>' + (status(c) === 'scheduled' ? 'Deals appear when the offer starts.' : 'No eligible products or services are available right now.') + '</p></div>' : '';
-    return hero + h + chips() + secs + fallback + empty;
+    var empty = !secs && !fallback && !hero && !((d.sponsors || []).length) ? '<div class="cp-state"><i class="fa-regular fa-clock"></i><h3>Nothing here yet</h3><p>' + (status(c) === 'scheduled' ? 'Deals appear when the offer starts.' : 'No eligible products or services are available right now.') + '</p></div>' : '';
+    var hasSpSec = (d.sections || []).some(function (s) { return s.type === 'sponsor_tiers' || s.type === 'sponsor_strip'; });
+    var autoSp = !hasSpSec && (d.sponsors || []).length ? section({ id: 'auto-sponsors', type: 'sponsor_tiers', title: '', config: {}, images: [] }) : '';
+    var trust = '<div class="cp-trust"><span><i class="fa-solid fa-shield-halved"></i>Verified pharmacy partners</span><span><i class="fa-solid fa-truck-fast"></i>Fast home delivery</span><span><i class="fa-solid fa-file-prescription"></i>Prescription-safe ordering</span></div>';
+    return hero + h + trust + (auto ? '' : chips()) + secs + autoSv + auto + fallback + autoSp + empty;
   }
   function render() { $('cp-root').innerHTML = buildHTML(); bindTracks(); startTimer(); paintCart(); }
   // Admin live preview: same renderer, no page state touched. Returns HTML only.

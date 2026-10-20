@@ -134,3 +134,102 @@ body.mf-cp-home #mf-offers{display:none!important}
 .hm-more{flex:1 1 0;min-width:0;border-radius:14px;background:#fde8ec;color:#D6334A;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1/1.25}
 .hm-more b{font-size:1.5rem}.hm-more span{font-size:.9rem;font-weight:600}
 @media(min-width:700px){#mf-home-campaigns{max-width:720px;margin-left:auto;margin-right:auto}}
+
+/* ---- Festive themes (Flipkart-style sale sections) ---- */
+.cp-theme-pink,.cp-theme-orange,.cp-theme-royal{position:relative;color:#fff;border-radius:20px;padding:14px 12px 16px;box-shadow:0 6px 18px #0000001f;overflow:hidden}
+.cp-theme-pink{background:linear-gradient(160deg,#e6197f,#a4126a)}
+.cp-theme-orange{background:linear-gradient(160deg,#ff8a1f,#ff5a00)}
+.cp-theme-royal{background:linear-gradient(160deg,#1d3fbf,#0c1f73)}
+.cp-theme-pink::before,.cp-theme-orange::before,.cp-theme-royal::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:radial-gradient(circle at 8px 4px,#ffe27a 2.5px,transparent 3px) 0 0/16px 8px repeat-x;opacity:.9}
+.cp-theme-pink .cp-sec-h,.cp-theme-orange .cp-sec-h,.cp-theme-royal .cp-sec-h{margin-top:8px}
+.cp-theme-pink .cp-sec-h h2,.cp-theme-orange .cp-sec-h h2,.cp-theme-royal .cp-sec-h h2{color:#fff;font-size:1.15rem;text-shadow:0 1px 2px #0003}
+.cp-theme-pink .cp-sec-h p,.cp-theme-orange .cp-sec-h p,.cp-theme-royal .cp-sec-h p{color:#ffffffd9}
+.cp-theme-pink .cp-link,.cp-theme-orange .cp-link,.cp-theme-royal .cp-link{color:#fff;text-decoration:underline}
+.cp-theme-pink .cp-img-box,.cp-theme-orange .cp-img-box,.cp-theme-royal .cp-img-box{background:#fff3d6;border:2px solid #f3c64f;box-shadow:0 2px 8px #0002}
+.cp-theme-pink .cp-card,.cp-theme-orange .cp-card,.cp-theme-royal .cp-card{color:var(--cp-ink)}
+.cp-theme-pink .cp-grid>div,.cp-theme-orange .cp-grid>div,.cp-theme-royal .cp-grid>div{color:#fff}
+
+/* ---- Sponsor block: Powered by / Co-powered by / Associate ---- */
+.cp-theme-gold .cp-sp,.cp-sp{background:linear-gradient(180deg,#ffe27a,#f7b81d);border:0;border-radius:18px;padding:14px 12px 16px;text-align:center;box-shadow:0 4px 14px #e9a82b55}
+.cp-sp h3{margin:2px 0 8px;font-size:.86rem;font-weight:800;color:#5a3b00;letter-spacing:.2px}
+.cp-sp-row{justify-content:center;gap:10px;margin-bottom:14px}
+.cp-sp-row.t-powered_by .cp-logo,.cp-sp-row.t-co_powered_by .cp-logo{flex:1 1 calc(50% - 10px);max-width:calc(50% - 5px);height:64px;background:linear-gradient(135deg,#d6334a,#a8203a);border:0;box-shadow:0 3px 8px #0003}
+.cp-sp-row.t-powered_by .cp-logo img,.cp-sp-row.t-co_powered_by .cp-logo img{max-height:44px;max-width:100%;background:#fff;border-radius:8px;padding:4px 8px}
+.cp-sp-row.t-associate{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+.cp-sp-row.t-associate::-webkit-scrollbar{display:none}
+.cp-sp-row.t-associate .cp-logo{flex:0 0 84px;min-width:0;height:56px;background:linear-gradient(135deg,#d6334a,#a8203a);border:0;padding:6px}
+.cp-sp-row.t-associate .cp-logo img{max-height:38px;max-width:100%;background:#fff;border-radius:6px;padding:3px 5px}
+.cp-sp-row.t-presented_by .cp-logo{background:#fff;border:0;box-shadow:0 3px 8px #0003;flex:1 1 100%;max-width:100%}
+.cp-sp-row.t-presented_by{margin-bottom:14px}
+
+/* ---- Health look: brand + teal themes, arch image frames, trust strip, light countdown ---- */
+.cp-theme-brand,.cp-theme-teal{position:relative;color:#fff;border-radius:20px;padding:14px 12px 16px;box-shadow:0 6px 18px #0000001f;overflow:hidden}
+.cp-theme-brand{background:linear-gradient(160deg,#e0405a,#a8203a)}
+.cp-theme-teal{background:linear-gradient(160deg,#12a594,#0b6b73)}
+.cp-theme-brand::before,.cp-theme-teal::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:radial-gradient(circle at 8px 4px,#ffe27a 2.5px,transparent 3px) 0 0/16px 8px repeat-x;opacity:.9}
+.cp-theme-brand .cp-sec-h,.cp-theme-teal .cp-sec-h{margin-top:8px}
+.cp-theme-brand .cp-sec-h h2,.cp-theme-teal .cp-sec-h h2{color:#fff;font-size:1.15rem}
+.cp-theme-brand .cp-sec-h p,.cp-theme-teal .cp-sec-h p{color:#ffffffd9}
+.cp-theme-brand .cp-link,.cp-theme-teal .cp-link{color:#fff;text-decoration:underline}
+.cp-theme-brand .cp-grid>div,.cp-theme-teal .cp-grid>div{color:#fff}
+/* arch frames like festive sale tiles */
+.cp-themed .cp-grid .cp-img-btn,.cp-themed .cp-grid .cp-img-box{border-radius:48px 48px 14px 14px!important}
+.cp-themed .cp-grid .cp-img-box{background:#fff8e6;border:2px solid #f3c64f;box-shadow:0 2px 8px #0002}
+/* trust strip */
+.cp-trust{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 0 14px}
+.cp-trust::-webkit-scrollbar{display:none}
+.cp-trust span{flex:1 0 auto;display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--cp-line);border-radius:999px;padding:8px 13px;font-size:.76rem;font-weight:700;color:#2b3a42;white-space:nowrap}
+.cp-trust i{color:#0e8f82;font-size:.9rem}
+/* countdown: light pill with brand boxes (Sale starts in 03 : 56 : 57) */
+.cp-count{background:#fff1f3;border:1px solid #f6c6cf;color:var(--cp-ink)}
+.cp-count b{color:#5a1f2b;opacity:1;font-size:.84rem;font-weight:800}
+.cp-count .u{background:var(--cp-red);border:0;color:#fff;border-radius:10px}
+/* cleaner modern product cards */
+.cp-card{border-radius:16px;box-shadow:0 1px 3px #0000000d}
+.cp-card .pic{background:#f6f8f9}
+.cp-price em{background:#e8f7ee;padding:1px 6px;border-radius:6px}
+.cp-info{border-radius:18px;background:linear-gradient(135deg,#fff,#fff6f7)}
+
+/* ---- Colour + motion fixes ---- */
+/* white cards sitting inside dark themed sections must keep dark text */
+.cp-themed .cp-card,.cp-themed .cp-svc,.cp-themed .cp-sp,.cp-themed .cp-state{color:var(--cp-ink)}
+.cp-themed .cp-svc .tx span,.cp-themed .cp-card .sh{color:var(--cp-mute)}
+.cp-theme-gold .cp-sec-h h2,.cp-theme-red .cp-sec-h h2,.cp-theme-white .cp-sec-h h2{color:var(--cp-ink)}
+/* soft entrance, twinkling lights, ticking seconds */
+@keyframes cpUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes cpTw{from{opacity:.45}to{opacity:1}}
+@keyframes cpTick{0%{transform:scale(1.12)}100%{transform:scale(1)}}
+#cp-root>.cp-sec,#cp-root>.cp-info,#cp-root>.cp-trust{animation:cpUp .4s ease both}
+#cp-root>*:nth-child(2){animation-delay:.04s}#cp-root>*:nth-child(3){animation-delay:.08s}#cp-root>*:nth-child(4){animation-delay:.12s}#cp-root>*:nth-child(n+5){animation-delay:.16s}
+.cp-themed::before{animation:cpTw 1.8s ease-in-out infinite alternate}
+.cp-count .u:last-child{animation:cpTick .35s ease-out}
+@media(prefers-reduced-motion:reduce){#cp-root>*,.cp-themed::before,.cp-count .u:last-child{animation:none!important}}
+
+/* ---- Flipkart-style product cards ---- */
+.cp-card{padding:0 0 10px;overflow:hidden;border:1px solid #e9ebef;border-radius:14px}
+.cp-card .pic{border-radius:0;aspect-ratio:1/1;background:#fff;padding:10px}
+.cp-card .nm,.cp-card .sh,.cp-card .cp-price,.cp-card .cp-low{padding:0 10px}
+.cp-card .cp-btn{margin:0 10px;margin-top:auto;border-radius:10px;min-height:38px}
+.cp-card .nm{margin-top:4px;font-size:.86rem}
+.cp-price b{font-size:1.08rem}
+.cp-off{position:absolute;top:0;left:0;z-index:2;background:linear-gradient(135deg,#1f9d55,#17803f);color:#fff;font-size:.68rem;font-weight:800;padding:4px 9px 4px 8px;border-radius:14px 0 12px 0;letter-spacing:.2px}
+.cp-rx{left:auto;right:8px;z-index:2}
+.cp-low{font-size:.7rem;font-weight:700;color:#c2410c;margin-top:2px}
+/* inside festive sections: arch frame, gold border like sale tiles */
+.cp-themed .cp-prow .cp-card{border:2px solid #f3c64f;background:#fff8e6;border-radius:46px 46px 14px 14px;box-shadow:0 2px 8px #0002}
+.cp-themed .cp-prow .cp-card .pic{background:transparent;border-radius:46px 46px 0 0}
+.cp-themed .cp-prow .cp-card .cp-off{border-radius:0 0 12px 0;left:50%;transform:translateX(-50%);border-radius:0 0 12px 12px;top:0}
+.cp-themed .cp-pgrid .cp-card{border:2px solid #f3c64f}
+.cp-prow .cp-card{flex:0 0 158px}
+
+/* ---- Category tiles (Shop by health need) ---- */
+.cp-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(min-width:700px){.cp-tiles{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.cp-tile{border:0;background:none;padding:0;cursor:pointer;display:flex;flex-direction:column;text-align:center;color:#fff;font:inherit;min-width:0}
+.cp-tile .ph{aspect-ratio:1/1.1;background:#fff8e6;border:2px solid #f3c64f;border-bottom:0;border-radius:46px 46px 0 0;display:grid;place-items:center;overflow:hidden;padding:8px;transition:transform .14s}
+.cp-tile:active .ph{transform:scale(.97)}
+.cp-tile .ph img{width:100%;height:100%;object-fit:contain}
+.cp-tile .ph i{font-size:2rem;color:#c9a14a}
+.cp-tile .pr{background:linear-gradient(#ffe27a,#f7b81d);color:#5a3b00;font-weight:800;font-size:.8rem;padding:6px 4px;border-radius:0 0 14px 14px;border:2px solid #f3c64f;border-top:0}
+.cp-tile .nm{margin-top:6px;font-size:.78rem;font-weight:700;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cp-themed .cp-pgrid{gap:10px}

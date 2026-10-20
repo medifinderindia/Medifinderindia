@@ -23,7 +23,9 @@
     '.cb-card{border:1px solid var(--line,#ddd);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--surface,#fff)}.cb-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.cb-grow{flex:1;min-width:140px}' +
     '.cb-img{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line,#eee)}.cb-img .th{flex:none;width:84px;height:64px;border-radius:8px;background:#e8e8ec center/contain no-repeat;border:1px solid var(--line,#ddd)}.cb-err{color:#c0392b;font-size:12px;margin-top:4px}' +
     '.cb-dev{display:flex;gap:6px;margin-bottom:10px}.cb-frame{display:block;margin:0 auto;border:1px solid var(--line,#ccc);border-radius:14px;background:#fff;max-width:100%;height:70vh}.cb-spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:cbs .7s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes cbs{to{transform:rotate(360deg)}}' +
-    '.cb-warn{background:#fff6e0;border:1px solid #f0cf80;color:#6b4a00;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}';
+    '.cb-warn{background:#fff6e0;border:1px solid #f0cf80;color:#6b4a00;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}' +
+    '#cbProg:empty{display:none}.fp-foot .fp-foot-in>.cb-row{flex-wrap:nowrap;gap:14px;align-items:center}#cbFoot{flex:1;display:flex;flex-wrap:nowrap;justify-content:space-between;gap:16px;min-width:0}#cbFoot .btn{min-width:130px;justify-content:center;white-space:nowrap}#cbFoot .btn:only-child{margin-left:auto}' +
+    '@media(max-width:640px){.fp-foot .fp-foot-in{flex-direction:column-reverse;gap:8px}.fp-foot .fp-foot-in>.cb-row{flex-direction:column;align-items:stretch;gap:8px}#cbProg{text-align:center}#cbFoot{width:100%;gap:12px}#cbFoot .btn{flex:1 1 0;width:auto;min-width:0;padding:12px 8px}}';
   document.head.appendChild(css);
 
   /* ---------- load / model ---------- */
@@ -49,7 +51,7 @@
 
   /* ---------- open ---------- */
   function shell() {
-    openModal(B.id ? 'Edit campaign' : 'New campaign', '<div id="cbRoot"></div>', '<div class="cb-row" style="width:100%;justify-content:space-between"><span id="cbProg" class="cell-sub"></span><span class="cb-row" id="cbFoot"></span></div>');
+    openModal(B.id ? 'Edit campaign' : 'New campaign', '<div id="cbRoot"></div>', '<div class="cb-row" style="width:100%;justify-content:space-between"><span id="cbProg" class="cell-sub"></span><span class="cb-row" id="cbFoot" style="flex:1;display:flex;flex-wrap:nowrap;justify-content:space-between;gap:12px;min-width:0"></span></div>');
     bindRoot(); paint();
   }
   Actions['camp-new'] = function () { B = blank(); shell(); };
@@ -66,8 +68,8 @@
     var err = B.errors.length ? '<div class="cb-warn"><b>Fix before saving:</b><ul style="margin:6px 0 0 18px">' + B.errors.map(function (e) { return '<li>' + esc(e.msg) + '</li>'; }).join('') + '</ul></div>' : '';
     root.innerHTML = mig + err + '<div class="cb-tabs" role="tablist">' + TABS.map(function (t) { return '<button type="button" role="tab" class="' + (B.tab === t[0] ? 'on' : '') + '" data-cb="tab" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div><div id="cbBody">' + ({ details: tDetails, sections: tSections, sponsors: tSponsors, items: tItems, preview: tPreview }[B.tab])() + '</div>';
     var p = B.c.is_published, dis = B.saving ? ' disabled' : '';
-    q('#cbFoot').innerHTML = (p ? '<button class="btn"' + dis + ' data-cb="unpublish">Unpublish</button>' : '<button class="btn"' + dis + ' data-cb="draft">Save draft</button>') +
-      '<button class="btn primary"' + dis + ' data-cb="' + (p ? 'draft' : 'publish') + '">' + (B.saving ? '<span class="cb-spin"></span>Saving…' : (p ? 'Save changes' : 'Publish')) + '</button>';
+    q('#cbFoot').innerHTML = (p ? '<button class="btn" style="flex:1 1 0;max-width:240px;min-width:0;width:auto;justify-content:center;white-space:nowrap"' + dis + ' data-cb="unpublish">Unpublish</button>' : '<button class="btn" style="flex:1 1 0;max-width:240px;min-width:0;width:auto;justify-content:center;white-space:nowrap"' + dis + ' data-cb="draft">Save draft</button>') +
+      '<button class="btn primary" style="flex:1 1 0;max-width:240px;min-width:0;width:auto;justify-content:center;white-space:nowrap"' + dis + ' data-cb="' + (p ? 'draft' : 'publish') + '">' + (B.saving ? '<span class="cb-spin"></span>Saving…' : (p ? 'Save changes' : 'Publish')) + '</button>';
     if (sc) sc.scrollTop = top;
     if (B.tab === 'preview') drawPreview();
   }
@@ -90,7 +92,7 @@
     var cfg = s.config || {}, img = IMGT.indexOf(s.section_type) > -1, k = s._k;
     var layout = img ? '<div class="field-row">' + F('Aspect ratio', sel('s:' + k + '.config.aspect', cfg.aspect || '16/9', { '16/9': '16:9', '21/9': '21:9', '3/1': '3:1', '4/3': '4:3', '1/1': '1:1', 'auto': 'Original (no crop)' })) + F('Image fit', sel('s:' + k + '.config.fit', cfg.fit || 'cover', { cover: 'Fill (may trim edges)', contain: 'Contain (never cropped)' })) + '</div>' +
       (s.section_type.indexOf('grid') > -1 || s.section_type === 'category_tiles' ? '<div class="field-row">' + F('Columns · phone', sel('s:' + k + '.config.cols_m', cfg.cols_m || 2, { 1: '1', 2: '2', 3: '3' })) + F('tablet', sel('s:' + k + '.config.cols_t', cfg.cols_t || 3, { 1: '1', 2: '2', 3: '3', 4: '4' })) + F('desktop', sel('s:' + k + '.config.cols_d', cfg.cols_d || 4, { 2: '2', 3: '3', 4: '4', 5: '5', 6: '6' })) + '</div>' : '') +
-      '<div class="field-row">' + F('Spacing (4–20 px)', inp('s:' + k + '.config.gap', cfg.gap == null ? 10 : cfg.gap, '', 'number', 'min="4" max="20"')) + F('Corner radius (0–24 px)', inp('s:' + k + '.config.radius', cfg.radius == null ? 16 : cfg.radius, '', 'number', 'min="0" max="24"')) + F('Background', sel('s:' + k + '.config.theme', cfg.theme || 'white', { white: 'White', red: 'Soft red', gold: 'Soft gold' })) + '</div>' : '';
+      '<div class="field-row">' + F('Spacing (4–20 px)', inp('s:' + k + '.config.gap', cfg.gap == null ? 10 : cfg.gap, '', 'number', 'min="4" max="20"')) + F('Corner radius (0–24 px)', inp('s:' + k + '.config.radius', cfg.radius == null ? 16 : cfg.radius, '', 'number', 'min="0" max="24"')) + F('Background', sel('s:' + k + '.config.theme', cfg.theme || 'white', { white: 'White', red: 'Soft red', gold: 'Soft gold', brand: 'Brand red (festive)', teal: 'Medical teal', royal: 'Royal blue' })) + '</div>' : '';
     var extra = '';
     if (s.section_type === 'product_carousel' || s.section_type === 'product_grid') extra = F('Only this category (optional)', inp('s:' + k + '.config.category', cfg.category || '', 'All categories'), 'Exact category name from your products.') + (s.section_type === 'product_grid' ? F('Products to show', inp('s:' + k + '.config.limit', cfg.limit || 8, '', 'number', 'min="2" max="24"')) : '');
     if (s.section_type === 'service_collection') extra = F('Service', sel('s:' + k + '.config.service_type', cfg.service_type || 'all', { all: 'All services added in “Products & services”', nurse: 'Nurse booking', lab: 'Lab tests', ambulance: 'Ambulance' }));
@@ -119,7 +121,7 @@
   function tSponsors() {
     var rows = B.sponsors.map(function (p, i) {
       var k = p._k;
-      return '<div class="cb-card"><div class="cb-row"><div class="th" style="width:84px;height:56px;border:1px solid var(--line,#ddd);border-radius:8px;background:#fff center/contain no-repeat url(\'' + attr(p.logo_url || '') + '\')"></div><b class="cb-grow">' + esc(p.brand_name || 'New sponsor') + '</b>' +
+      return '<div class="cb-card"><div class="cb-row"><div class="th" style="width:84px;height:56px;border:1px solid var(--line,#ddd);border-radius:8px;background:#fff center/contain no-repeat url(\'' + attr(p.logo_url || '') + '\')"></div><b class="cb-grow">' + esc(p.brand_name || 'New sponsor') + '</b>' + ((p.is_active && p.logo_url && p.authorization_confirmed) ? '<span class="cell-sub" style="color:#1f9d55;font-weight:700">● Visible to customers</span>' : '<span class="cell-sub" style="color:#b26a00;font-weight:700">● Hidden: ' + (!p.logo_url ? 'upload logo' : !p.authorization_confirmed ? 'tick authorization' : 'turned off') + '</span>') +
         '<button class="btn sm" data-cb="p-up" data-k="' + k + '"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm" data-cb="p-dn" data-k="' + k + '"' + (i < B.sponsors.length - 1 ? '' : ' disabled') + '>↓</button><button class="btn sm danger" data-cb="p-del" data-k="' + k + '">Remove</button></div>' +
         '<div class="field-row" style="margin-top:8px">' + F('Brand name *', inp('p:' + k + '.brand_name', p.brand_name, '')) + F('Tier', sel('p:' + k + '.tier', p.tier, TIERS)) + '</div>' + F('Website (optional, https)', inp('p:' + k + '.website_url', p.website_url, 'https://')) +
         '<div class="cb-row"><label class="btn sm" style="cursor:pointer">' + (p.logo_url ? 'Replace logo' : 'Upload logo *') + '<input type="file" accept="image/jpeg,image/png,image/webp" data-cb-logo="' + k + '" hidden></label>' + chk('p:' + k + '.is_active', p.is_active, 'Show on page') + '</div>' +
