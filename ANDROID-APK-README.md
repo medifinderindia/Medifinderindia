@@ -1,26 +1,31 @@
-# MediFinder India Android APK
+# MediFinder India Android app
 
-This Android app wraps the existing MediFinder India website in an Android WebView. It keeps the web service as the source of truth and supports JavaScript, local web storage, Android back navigation, and file selection for website upload forms.
+The Android app currently opens the existing website at https://www.medifinderindia.com/ inside a WebView. It is an initial wrapper, not a fully native rewrite. Test all website-dependent features and healthcare workflows before release.
 
-## Build an APK with GitHub Actions
+## Test APK
 
-1. Open the repository's **Actions** tab.
-2. Select **Build MediFinder India APK**.
-3. Select **Run workflow** on branch `android-apk` (or push a change to that branch).
-4. Wait for the workflow to finish successfully.
-5. Open the successful run and download the `medifinder-india-debug-apk` artifact.
-6. Extract the ZIP; it contains `app-debug.apk`. Transfer it to your Android phone and install it. Android may ask you to allow installs from that source.
+The GitHub Actions workflow always builds a debug APK for device testing. It is not the production Play Store upload.
 
-## Build locally
+## Google Play release bundle
 
-Install JDK 17 and Android SDK, then run:
+Google Play expects a signed Android App Bundle (.aab) for a new app. The workflow creates the signed bundle only after the following GitHub Actions repository secrets are configured:
 
-```bash
-gradle assembleDebug
-```
+- `ANDROID_KEYSTORE_BASE64`: the release/upload keystore file encoded as Base64
+- `ANDROID_KEYSTORE_PASSWORD`: keystore password
+- `ANDROID_KEY_ALIAS`: key alias
+- `ANDROID_KEY_PASSWORD`: key password
 
-The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+Never commit the keystore, passwords, or private keys to the repository. Keep a secure offline backup of the keystore and credentials. If the upload key is lost, release updates can become difficult; use Google Play App Signing when setting up the app.
 
-## Important
+After adding secrets, open Actions, choose **Build MediFinder India Android**, run it on `android-apk`, then download `medifinder-india-play-release-aab` from a successful run.
 
-This is a **debug APK**, intended for testing, not a Play Store release. It loads `https://www.medifinderindia.com/`; most service behavior remains dependent on the website and its backend. Test sign-in, medicine orders, payments, prescription upload, and all healthcare flows on a test account before distributing. A signed release build and privacy/security review are still required before public release.
+## Before publishing
+
+- Test login, navigation, order, payment, prescription upload/file picker, and external links on real devices.
+- Provide a publicly accessible privacy policy URL both in Play Console and within the app.
+- Complete the Health apps declaration, Data safety, content rating, and all applicable policy declarations truthfully.
+- Prepare store icon, screenshots, description, support contact, and account deletion flow if users can create accounts.
+- New Google Play apps must target API 36 or higher as of August 31, 2026.
+- Some new personal developer accounts must complete a closed test with at least 12 opted-in testers for 14 continuous days before requesting production access.
+
+A successful build does not guarantee Google Play approval. The owner must complete Play Console setup and submit the app for review.
