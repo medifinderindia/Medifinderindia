@@ -34,6 +34,18 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Generate launcher icons from MediFinder India website logo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do mkdir -p "app/src/main/res/mipmap-$density"; done
+          for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $spec
+            density="$1"
+            size="$2"
+            convert apple-touch-icon.png -background white -alpha remove -alpha off -resize "${size}x${size}" "app/src/main/res/mipmap-$density/ic_launcher.png"
+            convert apple-touch-icon.png -background white -alpha remove -alpha off -resize "${size}x${size}" "app/src/main/res/mipmap-$density/ic_launcher_round.png"
+          done
       - name: Build debug APK for device testing
         run: gradle assembleDebug --stacktrace
       - name: Upload test APK
