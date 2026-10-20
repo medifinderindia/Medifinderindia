@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android test APK and Play bundle
+    name: Build Android test APK and signed release files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -63,13 +63,21 @@ jobs:
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/medifinder-release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/medifinder-release.jks" >> "$GITHUB_ENV"
-      - name: Build signed Play Store App Bundle
+      - name: Build signed release APK and Play Store AAB
         if: steps.signing.outputs.configured == 'true'
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: gradle bundleRelease --stacktrace
+        run: gradle assembleRelease bundleRelease --stacktrace
+      - name: Upload signed Release APK
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medifinder-india-signed-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload signed Play Store AAB
         if: steps.signing.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
@@ -80,4 +88,4 @@ jobs:
           retention-days: 14
       - name: Explain signing setup required
         if: steps.signing.outputs.configured != 'true'
-        run: echo "Debug APK built. To produce the signed Play Store AAB, configure all four Android signing secrets in GitHub repository settings."
+        run: echo "Debug APK built. Configure all four Android signing secrets in GitHub repository settings to build the signed Release APK and Play Store AAB."
