@@ -465,7 +465,7 @@ function mfHideBootLoader(force) {
     if (!loader || loader.classList.contains('mf-loader-hidden')) return;
     // stylesheets are loaded without blocking first paint -> keep the loader up until
     // they are applied (never longer than the safety timer below), so no unstyled flash.
-    if (force !== true && (window.__mfCssN || 0) < 2) { setTimeout(mfHideBootLoader, 50); return; }
+    if (force !== true && document.querySelector('link[rel="stylesheet"][media="print"][onload]')) { setTimeout(mfHideBootLoader, 50); return; }
     loader.classList.add('mf-loader-hidden');
     setTimeout(() => { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 300);
 }

@@ -16,6 +16,42 @@
   --ds-warn: #C77B12;
   --ds-err: #D92D20;
 
+  /* Interaction colours. --ds-red-pressed is the pressed/active shade of --ds-red. */
+  --ds-red-pressed: #B8283C;
+  --ds-red-soft: #FFF0F2;
+  --ds-surface: #FFFFFF;
+  --ds-focus-ring: 0 0 0 3px rgba(214, 51, 74, .35);
+
+  /* Shape, spacing and sizing scale (use these in new code instead of magic numbers). */
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-pill: 999px;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+  --ds-btn-h-sm: 36px;
+  --ds-btn-h: 44px;
+  --ds-btn-h-lg: 48px;
+  --ds-icon-sm: 16px;
+  --ds-icon-md: 20px;
+  --ds-icon-lg: 24px;
+  --ds-shadow-sm: 0 1px 2px rgba(20, 24, 31, .06);
+  --ds-shadow-md: 0 4px 14px rgba(20, 24, 31, .08);
+  --ds-shadow-lg: 0 12px 32px rgba(20, 24, 31, .14);
+
+  /* Z-index layers. Existing pages keep their own values until migrated. */
+  --ds-z-sticky: 900;
+  --ds-z-drawer: 1000;
+  --ds-z-modal: 1100;
+  --ds-z-toast: 1200;
+
+  /* Breakpoints (documentation only, custom properties cannot be used inside @media):
+     phone <= 480px, tablet 481-900px, desktop >= 901px. */
+
   /* Motion timings */
   --ds-dur-tap: 120ms;
   --ds-dur-hover: 180ms;
@@ -50,6 +86,34 @@
   outline-offset: 2px;
 }
 
+/* Tap highlight. Android Chrome / WebView paint a translucent blue-grey flash on any tapped
+   link or button unless the page opts out. Several portals (merchant, ambulance, nurse,
+   order-receipt) never did. The property is inherited, so one rule on <html> covers every
+   element. Text selection and scrolling are not touched. The pressed state below gives the
+   tap its feedback instead. */
+:where(html) { -webkit-tap-highlight-color: transparent; }
+
+/* Removes the 300 ms tap delay and double-tap-zoom on controls only. Pinch zoom and
+   scrolling still work. */
+:where(a, button, [role="button"], [role="tab"], summary, label, select, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"]) {
+  touch-action: manipulation;
+}
+
+/* A mouse or finger click should not leave a native focus ring behind (that ring is the
+   other source of a "stuck blue" control). Keyboard focus keeps its ring through
+   :focus-visible above, so keyboard users are unaffected. Text fields keep their ring on
+   every focus because the ring there tells people where they are typing. */
+:where(a, button, [role="button"], [role="tab"], summary, select):where(:focus:not(:focus-visible)) { outline: none; }
+
+/* Disabled controls look and behave disabled. */
+:where(button, input[type="button"], input[type="submit"], .btn):where(:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
+/* Opt-in helpers. */
+.ds-tap { min-height: var(--ds-btn-h); min-width: var(--ds-btn-h); }
+.ds-safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
 /* Opt-in helpers for new panels and loading states. */
 @keyframes ds-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ds-slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -62,6 +126,9 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
   animation: ds-shimmer 1.3s ease-in-out infinite;
 }
+.ds-skeleton-line { height: 12px; border-radius: 6px; margin: 8px 0; }
+.ds-skeleton-line.is-short { width: 55%; }
+.ds-skeleton-block { height: 92px; border-radius: var(--ds-radius-lg); }
 
 /* Reduced motion: stop decorative animation everywhere, but keep progress spinners turning
    so people can still see that something is loading. */
@@ -72,8 +139,30 @@
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
-  .spinner, .bl-spin, .bs-spin, .is-busy::after, .mf-boot-loader-ring, [style*="mfspin"] {
+  .spinner, .bl-spin, .bs-spin, .is-busy::after, [style*="mfspin"] {
     animation-duration: 1.2s !important;
     animation-iteration-count: infinite !important;
   }
 }
+
+/* Boot cover: grey skeleton of the home screen (search, tiles, product cards, bottom nav),
+   shown by #mf-boot-loader until styles and the first paint are ready. */
+#mf-boot-loader { align-items: flex-start; justify-content: center; }
+.mf-sk-screen { position: relative; width: 100%; max-width: 480px; height: 100%; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 0; box-sizing: border-box; overflow: hidden; }
+.mf-sk { position: relative; overflow: hidden; background: #E9EDF2; border-radius: 14px; display: block; }
+.mf-sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: ds-shimmer 1.3s ease-in-out infinite; }
+.mf-sk-search { height: 44px; border-radius: 22px; }
+.mf-sk-row { display: flex; gap: 10px; margin: 14px 0 18px; }
+.mf-sk-tile { flex: 1 1 0; height: 84px; }
+.mf-sk-title { width: 34%; height: 12px; border-radius: 6px; margin-bottom: 12px; }
+.mf-sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mf-sk-card { height: clamp(120px, 26vh, 190px); }
+.mf-sk-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.mf-sk-line { width: 48%; height: 10px; border-radius: 5px; }
+.mf-sk-dot { width: 14px; height: 14px; border-radius: 50%; }
+.mf-sk-nav { position: absolute; left: 0; right: 0; bottom: 0; height: calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: space-around; background: #fff; border-top: 1px solid #EEF1F5; padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* App vs website. app-env.js adds class "mf-app" on <html> inside the Android APK. */
+.mf-app-only { display: none !important; }
+html.mf-app .mf-app-only { display: block !important; }
+html.mf-app .mf-web-only { display: none !important; }

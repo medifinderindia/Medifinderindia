@@ -38,8 +38,8 @@
         if (__mfp) sessionStorage.setItem('mf_pending_product', JSON.stringify({ id: __mfp, t: Date.now() }));
     } catch (e) {}
     </script>
-    <script src="session-guard.js?v=pl1"></script>
-    <script src="permission-every.js?v=ce3004a5"></script>
+    <script src="session-guard.js?v=6706fd2b"></script>
+    <script src="permission-every.js?v=c0db5117"></script>
     <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://medifinderindia.com/#org","name":"MediFinder India","url":"https://medifinderindia.com/","logo":"https://medifinderindia.com/favicon.png","image":"https://medifinderindia.com/og-image.png","description":"MediFinder India is a technology-driven healthcare and fast-delivery platform connecting customers with participating pharmacies, healthcare service providers and delivery partners.","foundingDate":"2026","founder":{"@id":"https://medifinderindia.com/#rejoyan-sarkar"},"email":"support@medifinderindia.com","telephone":"+919593625498","address":{"@type":"PostalAddress","streetAddress":"Banihari, Janchi, Gangarampur","addressLocality":"Dakshin Dinajpur","addressRegion":"West Bengal","postalCode":"733140","addressCountry":"IN"},"areaServed":{"@type":"AdministrativeArea","name":"West Bengal, India"},"contactPoint":{"@type":"ContactPoint","telephone":"+919593625498","email":"support@medifinderindia.com","contactType":"customer support","areaServed":"IN","availableLanguage":["English","Bengali","Hindi"]},"sameAs":["https://www.facebook.com/profile.php?id=61590844315430","https://www.youtube.com/@medifinderindia","https://www.instagram.com/medifinderindia.com_/","https://wa.me/919382262825"],"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"Person","@id":"https://medifinderindia.com/#rejoyan-sarkar","name":"Rejoyan Sarkar","url":"https://medifinderindia.com/info.html#founder","jobTitle":"Founder","worksFor":{"@id":"https://medifinderindia.com/#org"}},{"@type":"WebSite","@id":"https://medifinderindia.com/#website","url":"https://medifinderindia.com/","name":"MediFinder India","publisher":{"@id":"https://medifinderindia.com/#org"},"about":{"@id":"https://medifinderindia.com/#org"},"alternateName":["MediFinder","Medifinder India","medifinderindia.com"]},{"@type":"ItemList","name":"MediFinder India main pages","itemListElement":[{"@type":"SiteNavigationElement","position":1,"name":"About Us","url":"https://medifinderindia.com/info.html#about"},{"@type":"SiteNavigationElement","position":2,"name":"Contact Us","url":"https://medifinderindia.com/info.html#contact"}]}]}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,7 +49,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="user.min.css?v=cd20a64a">
+    <link rel="stylesheet" href="user.min.css?v=cf1c1307">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <script src="supabase-constants.js"></script>
     <style id="mf-public-extra-css">
@@ -179,15 +179,24 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 .mf-faq-list details[open] summary{color:#D6334A}
 .mf-faq-actions{max-width:900px;margin:14px auto 0;display:flex;flex-direction:column;align-items:center;gap:4px}
 </style>
-<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
-<script src="btn-loading.js?v=3e075ab0"></script>
-<link rel="stylesheet" href="design-system.css?v=ds1">
+<link rel="stylesheet" href="btn-loading.css?v=dddee0db">
+<script src="btn-loading.js?v=135bec08"></script>
+<script src="app-env.js?v=b38a28fb"></script>
+<link rel="stylesheet" href="design-system.css?v=4a936fd9">
 </head>
 <body>
-    <div id="mf-boot-loader">
-        <div class="mf-boot-loader-ring-wrap">
-            <div class="mf-boot-loader-ring"></div>
-            <img src="favicon.png" alt="MediFinder India" class="mf-boot-loader-logo">
+    <div id="mf-boot-loader" role="status" aria-label="Loading">
+        <div class="mf-sk-screen" aria-hidden="true">
+            <div class="mf-sk mf-sk-search"></div>
+            <div class="mf-sk-row"><div class="mf-sk mf-sk-tile"></div><div class="mf-sk mf-sk-tile"></div><div class="mf-sk mf-sk-tile"></div></div>
+            <div class="mf-sk mf-sk-title"></div>
+            <div class="mf-sk-grid">
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+            </div>
+            <div class="mf-sk-nav"><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i></div>
         </div>
     </div>
 
@@ -2551,10 +2560,10 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
             <span id="lang-nav-profile">PROFILE</span>
         </button>
     </nav>
-<script src="push-notifications.js?v=5f2a2897" defer></script>
+<script src="push-notifications.js?v=81cb258c" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script src="prod-utils.js?v=3321430c"></script>
-    <script src="user.min.js?v=pl1"></script>
+    <script src="prod-utils.js?v=00ded7fb"></script>
+    <script src="user.min.js?v=e88773c1"></script>
     <script>
     function mfScrollToSection(id) {
         var el = document.getElementById(id);

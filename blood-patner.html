@@ -374,9 +374,10 @@ html[data-theme=dark] [style*="rgb(232, 247, 241)"]{background:#12382c!important
 html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="color:#111"],html[data-theme=dark] [style*="color:#000"]{color:#e6efeb!important}
 html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="color: rgb(113, 128, 120)"]{color:#93a69d!important}
 </style>
-<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
-<script src="btn-loading.js?v=3e075ab0"></script>
-<link rel="stylesheet" href="design-system.css?v=ds1">
+<link rel="stylesheet" href="btn-loading.css?v=dddee0db">
+<script src="btn-loading.js?v=135bec08"></script>
+<script src="app-env.js?v=b38a28fb"></script>
+<link rel="stylesheet" href="design-system.css?v=4a936fd9">
 </head>
 <body>
 <div class="app">
@@ -434,7 +435,7 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
 <nav class="bnav" id="bnav" aria-label="Quick navigation"><button type="button" data-p="dashboard" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button type="button" data-p="new" onclick="navigate('new')"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg><span>Requests</span></button><button type="button" data-p="today" onclick="navigate('today')"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Today</span></button><button type="button" data-p="reports" onclick="navigate('reports')"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg><span>Reports</span></button><button type="button" onclick="toggleSide()"><svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg><span>More</span></button></nav>
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="modal-head"><h3 id="modalTitle">Booking Details</h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody"></div><div class="modal-foot"><button class="btn light" onclick="closeModal()">Close</button><button class="btn primary" id="modalAction">Close</button></div></div></div>
 <div class="overlay" id="formOverlay"><div class="modal sheet"><div class="modal-head"><h3 id="formTitle">Form</h3><button class="close" onclick="closeForm()" aria-label="Close">✕</button></div><div id="formBody"></div></div></div>
-<script src="permission-every.js?v=ce3004a5"></script>
+<script src="permission-every.js?v=c0db5117"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script>
@@ -665,7 +666,7 @@ html[data-theme=dark] [style*="color:#718078"],html[data-theme=dark] [style*="co
 })();
 
 </script>
-<script src="prod-utils.js?v=3321430c"></script>
+<script src="prod-utils.js?v=00ded7fb"></script>
 <script>
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 const sb=supabaseClient;
@@ -1239,7 +1240,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)try{pushSt
 window.addEventListener('resize',()=>{if(window.innerWidth>760)closeSide()});
 
 </script>
-<script src="push-notifications.js?v=5f2a2897" defer></script>
+<script src="push-notifications.js?v=81cb258c" defer></script>
 <script>
 /* ===== Language (English / বাংলা / हिन्दी) + dark/light toggle + Profile settings + bottom nav ===== */
 (function(){

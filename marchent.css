@@ -715,8 +715,14 @@ body.kb-open .pw-actions{bottom:var(--kb-offset);}
 .topbar-shop-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .topbar-actions{flex-shrink:0;}
 .sidebar-merchant-status{overflow-wrap:anywhere;}
-.bnav-item{min-width:0;padding:0 2px;}
-.bnav-item span:not(.nav-badge){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Six equal columns leave about 60px per tab on a 360px phone. The label scales with the
+   viewport so "Dashboard" fits whole instead of being cut with an ellipsis. */
+.bnav-item{min-width:0;padding:0 1px;}
+.bnav-item span:not(.nav-badge){max-width:100%;white-space:nowrap;font-size:clamp(9.5px,2.85vw,11px);letter-spacing:-.1px;line-height:1.15;}
+/* Persistent red indicator for the current tab, plus a visible keyboard focus ring. */
+.bnav-item::before{content:"";position:absolute;top:0;left:50%;width:22px;height:3px;border-radius:0 0 3px 3px;background:var(--red-500);transform:translateX(-50%) scaleX(0);transition:transform .18s ease;}
+.bnav-item.active::before{transform:translateX(-50%) scaleX(1);}
+.bnav-item:focus-visible,.nav-item:focus-visible{outline:2px solid var(--red-500);outline-offset:-2px;border-radius:8px;}
 .wrap{overflow-wrap:anywhere;white-space:normal;text-align:left;}
 .rank-label{width:82px;flex-shrink:0;font-size:12.5px;font-weight:600;color:var(--ink-700);}
 .rank-name{width:120px;font-size:12.5px;flex-shrink:0;overflow-wrap:anywhere;}

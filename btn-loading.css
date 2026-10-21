@@ -6,7 +6,7 @@
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
   opacity:1 !important; transition:background .25s ease, border-color .25s ease, color .25s ease, transform .15s ease;
 }
-.bl-busy{ pointer-events:none; cursor:progress; }
+.bl-busy{ pointer-events:none; cursor:progress; filter:saturate(.7) brightness(.93); }
 .bl-busy:disabled, .bl-ok:disabled, .bl-err:disabled{ opacity:1 !important; }
 .bl-lbl{ white-space:nowrap; }
 

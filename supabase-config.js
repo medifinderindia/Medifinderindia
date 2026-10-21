@@ -154,7 +154,14 @@ function setButtonRetryState(btn, retryLabel) {
 }
 
 function formatPhoneToE164(phone) {
-    let formatted = phone.trim();
+    let formatted = String(phone || '').trim();
+    if (!formatted.startsWith('+')) {
+        // plain digits from the +91 field: strip anything that is not a digit, drop a leading 91 / 0
+        let d = formatted.replace(/\D/g, '');
+        if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+        if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
+        formatted = d;
+    }
     if (!formatted.startsWith('+')) {
         if (formatted.startsWith('0')) {
             formatted = '+91' + formatted.slice(1);
@@ -187,7 +194,7 @@ function showAuthCover() {
     const c = document.createElement('div');
     c.id = 'mf-auth-cover';
     c.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fff;display:flex;align-items:center;justify-content:center;';
-    c.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#e02020;border-radius:50%;animation:mfspin .8s linear infinite"></div>' +
+    c.innerHTML = '<div style="width:46px;height:46px;border:4px solid #fde2e2;border-top-color:#D6334A;border-radius:50%;animation:mfspin .8s linear infinite"></div>' +
         '<style>@keyframes mfspin{to{transform:rotate(360deg)}}</style>';
     (document.body || document.documentElement).appendChild(c);
 }
@@ -292,7 +299,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 <input type="password" id="_pi" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;margin-bottom:14px;outline:none;" placeholder="Enter your new secure password">
                 <div style="display:flex;gap:10px;">
                     <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
-                    <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e02020;color:#fff;cursor:pointer;font-weight:600;">OK</button>
+                    <button id="_po" style="flex:1;padding:10px;border:none;border-radius:8px;background:#D6334A;color:#fff;cursor:pointer;font-weight:600;">OK</button>
                 </div>
             </div>`;
             document.body.appendChild(m);
@@ -569,6 +576,13 @@ if (signupForm) {
         const role = document.querySelector('input[name="signup-role"]:checked').value;
         const serviceType = role === 'service' ? getPendingServiceType() : '';
 
+        // phone: exactly 10 digits (Indian mobile, +91 is fixed in the field)
+        if (!(window.mfValidIndianPhone ? window.mfValidIndianPhone(phone) : /^[6-9]\d{9}$/.test(phone))) {
+            showToast("Signup Failed: Please enter a valid 10-digit mobile number.", "error");
+            const _pi = document.getElementById('signup-phone'); if (_pi) _pi.focus();
+            return;
+        }
+
         if (password !== confirmPassword) {
             showToast("Signup Failed: Passwords do not match! Please check your typing.", "error");
             return;
@@ -599,6 +613,7 @@ if (signupForm) {
             showToast(_owner === role
                 ? 'This email or phone is already registered. Please log in instead.'
                 : `This email or phone is already registered as "${_owner}". One email/phone can only have one role. Please log in with the "${_owner}" role.`, 'error');
+            window._mfLoginInFlight = false;
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -609,6 +624,7 @@ if (signupForm) {
         const _gate = await mfSignupGate(email);
         if (_gate && _gate.allowed === false) {
             showToast(_gate.message || 'Signup is not possible right now.', 'error');
+            window._mfLoginInFlight = false;
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -616,17 +632,44 @@ if (signupForm) {
             return;
         }
 
+        // Referral code: if typed but not yet applied, verify it now so it is never silently lost
+        const _refCode = ((document.getElementById('referral-code') || {}).value || '').trim().toUpperCase();
+        if (_refCode) {
+            if (localStorage.getItem('applied_referral_code') !== _refCode) {
+                try {
+                    const { data: _refOk, error: _refErr } = await withTimeout(supabaseClient.rpc('verify_referral_code', { p_code: _refCode }), 15000);
+                    if (!_refErr && _refOk) {
+                        localStorage.setItem('applied_referral_code', _refCode);
+                    } else if (!_refErr && !_refOk) {
+                        localStorage.removeItem('applied_referral_code');
+                        showToast('Invalid or already-used referral code. Fix it or clear the field to continue.', 'error');
+                        if (signupBtn) { signupBtn.disabled = false; signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up'; }
+                        return;
+                    }
+                } catch (_e) { /* offline check: continue, the code stays saved below */ }
+            }
+            if (!localStorage.getItem('applied_referral_code')) localStorage.setItem('applied_referral_code', _refCode);
+        } else {
+            localStorage.removeItem('applied_referral_code');
+        }
+
+        // Stop the auth listener from racing us: this handler sends the person to THEIR role page itself
+        window._mfLoginInFlight = true;
+
         const { data, error } = await withTimeout(supabaseClient.auth.signUp({
             email: email,
             password: password,
             options: {
-                data: { full_name: name, phone_number: phone, role: role }
+                data: Object.assign({ full_name: name, phone_number: phone, role: role }, _refCode ? { referral_code: _refCode } : {}),
+                // confirmation mail opens the login panel (not home) so the person lands on their role page after sign-in
+                emailRedirectTo: window.location.origin + '/auth.html?panel=login'
             }
         }));
 
         if (error) {
             if (error.message === '__TIMEOUT__') {
                 showToast("Signup is taking too long. Please check your connection and tap Retry.", "error");
+                window._mfLoginInFlight = false;
                 setButtonRetryState(signupBtn, '<i class="fas fa-redo"></i> Retry Signup');
                 return;
             }
@@ -635,6 +678,7 @@ if (signupForm) {
             } else {
                 showToast("Signup Failed! Reason: " + error.message, "error");
             }
+            window._mfLoginInFlight = false;
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -643,6 +687,7 @@ if (signupForm) {
             // Supabase hides "email already exists" by returning a fake user with no identities.
             // Never write a profile for it.
             showToast('This email is already registered. Please log in with the role you originally signed up with.', 'error');
+            window._mfLoginInFlight = false;
             if (signupBtn) {
                 signupBtn.disabled = false;
                 signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Sign Up';
@@ -688,9 +733,13 @@ if (signupForm) {
             showToast("Signup Successful!", "success");
 
             if (data.session) {
-                // Email confirmation off (or auto-confirmed) — session is live, send them straight in
-                setTimeout(() => redirectUserBasedOnRole(data.user), 700);
+                // Email confirmation off (or auto-confirmed) — session is live, send them straight to their OWN role page
+                localStorage.setItem('selected_role', role);
+                if (serviceType) localStorage.setItem('selected_service_type', serviceType);
+                const _roleUser = Object.assign({}, data.user, { user_metadata: Object.assign({}, data.user.user_metadata || {}, { role: role }) });
+                setTimeout(() => redirectUserBasedOnRole(_roleUser), 500);
             } else {
+                window._mfLoginInFlight = false;
                 // Supabase requires email confirmation before a session exists
                 showToast("Please check your email to verify your account, then log in.", "success");
                 setTimeout(() => {
@@ -745,6 +794,10 @@ if (sendSignupOtpBtn) {
 
         if (!phone || !name) {
             showToast("Signup Failed: Please enter Name and Phone number first!", "error");
+            return;
+        }
+        if (window.mfValidIndianPhone && !window.mfValidIndianPhone(phone)) {
+            showToast("Please enter a valid 10-digit mobile number.", "error");
             return;
         }
 
@@ -1143,6 +1196,10 @@ if (sendOtpBtn) {
             showToast("Login Failed: Please enter Phone number!", "error");
             return;
         }
+        if (window.mfValidIndianPhone && !window.mfValidIndianPhone(phone)) {
+            showToast("Please enter a valid 10-digit mobile number.", "error");
+            return;
+        }
 
         // Format phone to E.164 if not already
         let formattedPhone = formatPhoneToE164(phone);
@@ -1500,6 +1557,10 @@ if (loginResendOtp) {
             showToast("Please enter your phone number first!", "error");
             return;
         }
+        if (window.mfValidIndianPhone && !window.mfValidIndianPhone(phone)) {
+            showToast("Please enter a valid 10-digit mobile number.", "error");
+            return;
+        }
 
         let formattedPhone = formatPhoneToE164(phone);
 
@@ -1521,7 +1582,7 @@ if (verifyReferralBtn && referralInput) {
     verifyReferralBtn.addEventListener('click', async () => {
         const code = referralInput.value.trim();
         if (!code) {
-            if (referralMsg) { referralMsg.textContent = 'Please enter a referral code first.'; referralMsg.style.color = '#e02020'; }
+            if (referralMsg) { referralMsg.textContent = 'Please enter a referral code first.'; referralMsg.style.color = '#D6334A'; }
             return;
         }
 
@@ -1535,20 +1596,20 @@ if (verifyReferralBtn && referralInput) {
             );
 
             if (error && error.message === '__TIMEOUT__') {
-                if (referralMsg) { referralMsg.textContent = 'Verification timed out — tap Verify to retry.'; referralMsg.style.color = '#e02020'; }
+                if (referralMsg) { referralMsg.textContent = 'Verification timed out — tap Verify to retry.'; referralMsg.style.color = '#D6334A'; }
             } else if (error) {
-                if (referralMsg) { referralMsg.textContent = 'Could not verify code right now. Please try again.'; referralMsg.style.color = '#e02020'; }
+                if (referralMsg) { referralMsg.textContent = 'Could not verify code right now. Please try again.'; referralMsg.style.color = '#D6334A'; }
             } else if (data === true || data === 'valid') {
                 localStorage.setItem('applied_referral_code', code);
-                if (referralMsg) { referralMsg.textContent = '✔ Referral code applied!'; referralMsg.style.color = '#2ed573'; }
+                if (referralMsg) { referralMsg.textContent = '✔ Referral code applied!'; referralMsg.style.color = '#1E9E6B'; }
                 showToast("Referral code verified successfully!", "success");
             } else {
                 localStorage.removeItem('applied_referral_code');
-                if (referralMsg) { referralMsg.textContent = '✘ Invalid or already-used referral code.'; referralMsg.style.color = '#e02020'; }
+                if (referralMsg) { referralMsg.textContent = '✘ Invalid or already-used referral code.'; referralMsg.style.color = '#D6334A'; }
                 showToast("Invalid referral code.", "error");
             }
         } catch (e) {
-            if (referralMsg) { referralMsg.textContent = 'Could not verify code right now. Please try again.'; referralMsg.style.color = '#e02020'; }
+            if (referralMsg) { referralMsg.textContent = 'Could not verify code right now. Please try again.'; referralMsg.style.color = '#D6334A'; }
         } finally {
             verifyReferralBtn.disabled = false;
             verifyReferralBtn.textContent = originalLabel;

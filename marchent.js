@@ -1268,7 +1268,8 @@ console.log("marchent.js v15 loaded");
     },
     getPendingPayout: async () => {
       const mid = await requireMerchantId();
-      const { data } = await sb.from('merchant_payouts').select('amount,status,payment_mode').eq('shop_id', String(mid));
+      const { data, error } = await sb.from('merchant_payouts').select('amount,status,payment_mode').eq('shop_id', String(mid));
+      if (error) throw error;
       return (data || []).filter(p => !/cod|cash/i.test(String(p.payment_mode || '')) && !/paid|settled|complete/i.test(String(p.status || ''))).reduce((s, p) => s + num(p.amount), 0);
     },
     getAnalytics: async () => {
@@ -1596,12 +1597,40 @@ console.log("marchent.js v15 loaded");
   }
 
   const LOADING_HTML = `<div class="state-block"><div class="spinner"></div><p>Loading…</p></div>`;
+  // Skeleton shaped like the real page, so content does not jump when data arrives.
+  function loadingHtml(route) {
+    const sk = (h, css) => `<div class="skeleton" style="height:${h}px;${css || ''}"></div>`;
+    const sr = '<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading…</span>';
+    if (route === 'dashboard') {
+      const stat = `<div class="card stat-card">${sk(12, 'width:60%')}${sk(26, 'width:45%;margin-top:10px')}${sk(10, 'width:55%;margin-top:8px')}</div>`;
+      return `<div role="status" aria-busy="true">${sr}
+        <div class="page-head"><div>${sk(22, 'width:150px')}${sk(12, 'width:190px;margin-top:8px')}</div></div>
+        <div class="stat-grid">${stat.repeat(4)}</div>
+        <div class="card panel">${sk(14, 'width:34%;margin-bottom:14px')}${sk(44, 'margin:10px 0')}${sk(44, 'margin:10px 0')}${sk(44, 'margin:10px 0')}</div>
+      </div>`;
+    }
+    if (['orders', 'inventory', 'customers', 'returns', 'payments', 'notifications', 'prescription'].includes(route)) {
+      return `<div role="status" aria-busy="true">${sr}
+        <div class="page-head"><div>${sk(22, 'width:150px')}</div></div>
+        <div class="card panel">${[1, 2, 3, 4, 5].map(() => sk(52, 'margin:10px 0')).join('')}</div>
+      </div>`;
+    }
+    return LOADING_HTML;
+  }
   function errorBlock(retryRoute) {
     return `<div class="state-block error">
       <div class="state-icon">${icon('close')}</div>
       <h4>Couldn't load this page</h4>
       <p>Something went wrong while fetching data. Please try again.</p>
-      <button class="btn btn-outline btn-sm" data-route="${retryRoute}">Retry</button>
+      <button class="btn btn-outline btn-sm" data-retry="${retryRoute}">Retry</button>
+    </div>`;
+  }
+  // Compact error for one failed panel, so a failed secondary query never shows fake zeros.
+  function inlineError(message) {
+    return `<div class="state-block error" style="padding:20px 12px">
+      <h4>Couldn't load this section</h4>
+      <p>${esc(message)}</p>
+      <button class="btn btn-outline btn-sm" data-retry="1">Retry</button>
     </div>`;
   }
   function emptyBlock(iconName, title, sub, actionHtml) {
@@ -1620,7 +1649,7 @@ console.log("marchent.js v15 loaded");
     setActiveNav(route, param);
     document.body.classList.toggle('wizard-mode', route === 'add-product');
     const outlet = document.getElementById('pageOutlet');
-    if (!silent) outlet.innerHTML = LOADING_HTML;
+    if (!silent) outlet.innerHTML = loadingHtml(route);
     const scrollY = window.scrollY;
     if (!state.merchant) {
       try { state.merchant = await DB.getMerchant(); refreshMerchantChrome(); } catch (e) { /* the page renderer surfaces auth errors */ }
@@ -1689,7 +1718,14 @@ console.log("marchent.js v15 loaded");
   const isToday = (d, offset) => { const t = new Date(); t.setDate(t.getDate() - (offset || 0)); return localDate(new Date(d)) === localDate(t); };
 
   PAGES.dashboard = async () => {
-    const [orders, products, pendingPayout] = await Promise.all([DB.getOrders(), DB.getProducts(), DB.getPendingPayout().catch(() => 0)]);
+    // Orders and products are required: if either fails the router shows the full error page
+    // with Retry. Payout and analytics are secondary: if they fail we say so in place instead
+    // of showing 0 as if it were a confirmed value.
+    let payoutFailed = false, weekFailed = false;
+    const [orders, products, pendingPayout] = await Promise.all([
+      DB.getOrders(), DB.getProducts(),
+      DB.getPendingPayout().catch(err => { console.error('payout load failed', err); payoutFailed = true; return null; })
+    ]);
     const m = state.merchant;
     const todayOrders = orders.filter(o => isToday(o.createdAt));
     const yOrders = orders.filter(o => isToday(o.createdAt, 1));
@@ -1699,7 +1735,7 @@ console.log("marchent.js v15 loaded");
     const pending = orders.filter(o => o.status === 'pending');
     const lowStock = products.filter(p => p.status === 'approved' && p.stock <= p.minStock);
     const rxPending = state.badges.rx;
-    const week = await DB.getAnalytics().catch(() => null);
+    const week = await DB.getAnalytics().catch(err => { console.error('analytics load failed', err); weekFailed = true; return null; });
 
     const recent = orders.slice(0, 5);
     const recentRows = recent.map(o => `
@@ -1719,7 +1755,7 @@ console.log("marchent.js v15 loaded");
           <div class="item-card-meta">${statusPill(o.status)}<span class="cell-muted" style="font-size:12px">${timeAgo(o.createdAt)}</span></div>
         </div>
       </div>`).join('');
-    const os = week ? week.orderStatus : { completed: 0, cancelled: 0, pending: 0, preparing: 0 };
+    const os = week ? week.orderStatus : null;
 
     const notVerifiedBanner = (m && m.kyc.status !== 'verified') ? `
     <div class="card" style="border-left:4px solid var(--amber-500,#f59e0b);margin-bottom:14px">
@@ -1740,7 +1776,7 @@ console.log("marchent.js v15 loaded");
       <div class="card stat-card"><div class="stat-label">Today's orders</div><div class="stat-value">${todayOrders.length}</div>${delta(todayOrders.length, yOrders.length)}</div>
       <div class="card stat-card"><div class="stat-label">New orders</div><div class="stat-value">${pending.length}</div><div class="stat-delta">${pending.length ? 'Needs action' : 'All caught up'}</div></div>
       <div class="card stat-card accent"><div class="stat-label">Today's sales</div><div class="stat-value">${money(sum(todayOrders))}</div>${delta(sum(todayOrders), sum(yOrders))}</div>
-      <div class="card stat-card"><div class="stat-label">Pending payout</div><div class="stat-value">${money(pendingPayout)}</div><div class="stat-delta">Settled to your bank</div></div>
+      <div class="card stat-card"><div class="stat-label">Pending payout</div><div class="stat-value">${payoutFailed ? '—' : money(pendingPayout)}</div><div class="stat-delta${payoutFailed ? ' down' : ''}">${payoutFailed ? "Couldn't load" : 'Settled to your bank'}</div></div>
     </div>
 
     <div class="section-grid">
@@ -1752,7 +1788,7 @@ console.log("marchent.js v15 loaded");
         </div>
         <div class="card panel">
           <div class="panel-head"><h3>Sales overview — last 7 days</h3></div>
-          ${week ? barChart(week.salesByDay, week.dayLabels) : ''}
+          ${week ? barChart(week.salesByDay, week.dayLabels) : inlineError(weekFailed ? 'Sales data could not be loaded.' : 'No sales data is available yet.')}
         </div>
       </div>
       <div>
@@ -1774,12 +1810,12 @@ console.log("marchent.js v15 loaded");
         </div>
         <div class="card panel">
           <div class="panel-head"><h3>Order statistics <span class="cell-muted" style="font-weight:600;font-size:12px">· 7 days</span></h3></div>
-          <div class="ranked-list">
+          ${os ? `<div class="ranked-list">
             ${orderStatRow('Delivered', os.completed, '#1e9e6b', os)}
             ${orderStatRow('Cancelled', os.cancelled, '#d6334a', os)}
             ${orderStatRow('Pending', os.pending, '#c77b12', os)}
             ${orderStatRow('In delivery', os.preparing, '#0e7c86', os)}
-          </div>
+          </div>` : inlineError(weekFailed ? 'Order statistics could not be loaded.' : 'No order statistics are available yet.')}
         </div>
       </div>
     </div>`;
@@ -5227,6 +5263,15 @@ console.log("marchent.js v15 loaded");
       const moreBtn = e.target.closest('#moreBtn');
       if (moreBtn) { openDrawer(); return; }
 
+      const retryEl = e.target.closest('[data-retry]');
+      if (retryEl) {
+        // Setting location.hash to the current value fires no hashchange, so Retry must
+        // clear the caches and render again directly.
+        productsCache = null; invalidateOrders();
+        render();
+        return;
+      }
+
       const routeEl = e.target.closest('[data-route]');
       if (routeEl) {
         closeSheet();
@@ -5250,6 +5295,9 @@ console.log("marchent.js v15 loaded");
     if (sb) sb.auth.onAuthStateChange((evt) => {
       if (evt === 'SIGNED_OUT') { stopRealtime(); state.merchant = null; goHome(); }
     });
+    // Show the page-shaped skeleton right away; bootSession (session, merchant, badges) can take
+    // a while on slow networks and the outlet would otherwise be blank. render() replaces it.
+    document.getElementById('pageOutlet').innerHTML = loadingHtml(parseHash()[0]);
     try { await bootSession(); } catch (e) { console.warn('Not signed in yet or merchant not found', e && e.message); }
     if (!location.hash) location.hash = '#/dashboard';
     else render();

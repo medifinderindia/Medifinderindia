@@ -37,14 +37,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <style id="mf-critical">
-    /* critical CSS: the boot loader paints at once, before the big stylesheets arrive */
+    /* critical CSS: the skeleton cover paints at once (its shapes live in design-system.css) */
     html,body{margin:0;background:#fff}
     #mf-boot-loader{position:fixed;inset:0;z-index:999999;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .3s ease}
     #mf-boot-loader.mf-loader-hidden{opacity:0;pointer-events:none}
-    .mf-boot-loader-ring-wrap{position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center}
-    .mf-boot-loader-ring{position:absolute;inset:0;border-radius:50%;border:5px solid #f8d7d7;border-top-color:#D6334A;animation:mfBootSpin .9s linear infinite}
-    .mf-boot-loader-logo{width:88px;height:88px;object-fit:contain;border-radius:50%;position:relative;z-index:1}
-    @keyframes mfBootSpin{to{transform:rotate(360deg)}}
     </style>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -53,30 +49,39 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-regular-400.woff2">
     <!-- stylesheets load without blocking first paint; the boot loader covers the page until the 2 big ones are applied -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
-    <link rel="stylesheet" href="user.min.css?v=aa453c84" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
-    <link rel="stylesheet" href="offer.css?v=deal1" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="campaign-page.css?v=cp5">
-    <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="ux-final.css?v=6476ed2e" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="user.min.css?v=cf1c1307" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
+    <link rel="stylesheet" href="offer.css?v=bc7fa165" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="campaign-page.css?v=1f620f89">
+    <link rel="stylesheet" href="btn-loading.css?v=dddee0db" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="ux-final.css?v=482f4e74" media="print" onload="this.media='all'">
     <noscript>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-        <link rel="stylesheet" href="user.min.css?v=aa453c84">
-        <link rel="stylesheet" href="offer.css?v=deal1">
-        <link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
-        <link rel="stylesheet" href="ux-final.css?v=6476ed2e">
+        <link rel="stylesheet" href="user.min.css?v=cf1c1307">
+        <link rel="stylesheet" href="offer.css?v=bc7fa165">
+        <link rel="stylesheet" href="btn-loading.css?v=dddee0db">
+        <link rel="stylesheet" href="ux-final.css?v=482f4e74">
     </noscript>
-    <script src="btn-loading.js?v=3e075ab0"></script>
+    <script src="btn-loading.js?v=135bec08"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
-    <script src="permission-every.js?v=ce3004a5"></script>
+    <script src="permission-every.js?v=c0db5117"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js" defer></script>
     <script src="supabase-constants.js" defer></script>
-<link rel="stylesheet" href="design-system.css?v=ds1">
+<script src="app-env.js?v=b38a28fb"></script>
+<link rel="stylesheet" href="design-system.css?v=4a936fd9">
 </head>
 <body>
-    <div id="mf-boot-loader">
-        <div class="mf-boot-loader-ring-wrap">
-            <div class="mf-boot-loader-ring"></div>
-            <img src="favicon.png" alt="MediFinder India" class="mf-boot-loader-logo">
+    <div id="mf-boot-loader" role="status" aria-label="Loading">
+        <div class="mf-sk-screen" aria-hidden="true">
+            <div class="mf-sk mf-sk-search"></div>
+            <div class="mf-sk-row"><div class="mf-sk mf-sk-tile"></div><div class="mf-sk mf-sk-tile"></div><div class="mf-sk mf-sk-tile"></div></div>
+            <div class="mf-sk mf-sk-title"></div>
+            <div class="mf-sk-grid">
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+                <div><div class="mf-sk mf-sk-card"></div><div class="mf-sk-meta"><span class="mf-sk mf-sk-line"></span><span class="mf-sk mf-sk-dot"></span></div></div>
+            </div>
+            <div class="mf-sk-nav"><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i><i class="mf-sk mf-sk-dot"></i></div>
         </div>
     </div>
 
@@ -1394,6 +1399,8 @@
                 <label class="mf-theme-switch"><input type="checkbox" id="theme-toggle-input" aria-label="Dark mode"><span class="mf-track"></span></label>
             </div>
 
+            <div id="mf-app-settings" class="mf-app-only"></div>
+
             <div class="menu-card-item premium-menu-item" id="open-delete-account-btn">
                 <div class="menu-icon" style="background:#fff0f0;color:#D6334A;"><i class="fa-solid fa-user-slash"></i></div>
                 <div class="menu-text">
@@ -2309,11 +2316,12 @@
         </button>
     </nav>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
-    <script src="prod-utils.js?v=3321430c" defer></script>
-    <script src="user.min.js?v=pl3" defer></script>
+    <script src="prod-utils.js?v=00ded7fb" defer></script>
+    <script src="user.min.js?v=e88773c1" defer></script>
     <script src="ux-final.js?v=346553eb" defer></script>
-<script src="offer.js?v=deal1" defer></script>
-<script src="campaign-page.js?v=cp5" defer></script>
-<script src="push-notifications.js?v=5f2a2897" defer></script>
+<script src="offer.js?v=ee17ca87" defer></script>
+<script src="campaign-page.js?v=78f5e57d" defer></script>
+<script src="app-settings.js?v=dfe01d34" defer></script>
+<script src="push-notifications.js?v=81cb258c" defer></script>
 </body>
 </html>

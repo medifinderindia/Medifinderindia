@@ -121,9 +121,10 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 .icon#themeBtn{font-size:17px;line-height:1}
 @media(max-width:760px){.set-card{padding:16px}}
 </style>
-<link rel="stylesheet" href="btn-loading.css?v=a38cc2fb">
-<script src="btn-loading.js?v=3e075ab0"></script>
-<link rel="stylesheet" href="design-system.css?v=ds1">
+<link rel="stylesheet" href="btn-loading.css?v=dddee0db">
+<script src="btn-loading.js?v=135bec08"></script>
+<script src="app-env.js?v=b38a28fb"></script>
+<link rel="stylesheet" href="design-system.css?v=4a936fd9">
 </head>
 <body>
 <div class="app">
@@ -247,7 +248,7 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 <button data-p="more" onclick="toggleSide()"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button>
 </nav>
 <div class="toast" id="toast"></div>
-<script src="permission-every.js?v=ce3004a5"></script>
+<script src="permission-every.js?v=c0db5117"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
 <script src="supabase-constants.js"></script>
 <script>
@@ -478,7 +479,7 @@ html[data-theme=dark] [style*="color:#17211d"],html[data-theme=dark] [style*="co
 })();
 
 </script>
-<script src="prod-utils.js?v=3321430c"></script>
+<script src="prod-utils.js?v=00ded7fb"></script>
 <script>
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
 let currentUser=null,nurseRow=null,myVisits=[],openVisits=[],visitsById={},realtimeChannel=null,currentPage='dashboard';
@@ -919,7 +920,7 @@ $('supportForm').addEventListener('submit',async e=>{
 document.addEventListener('DOMContentLoaded',init);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSide()}});
 </script>
-<script src="push-notifications.js?v=5f2a2897" defer></script>
+<script src="push-notifications.js?v=81cb258c" defer></script>
 <script>
 /* ===== Premium upgrade: hero, settings, bottom nav ===== */
 (function(){

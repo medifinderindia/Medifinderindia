@@ -172,6 +172,7 @@
         wrap.querySelector('#mf-push-yes').onclick = async () => { close(); try { await enable(); } catch (e) {} refreshSwitches(); };
     }
     function maybeShowHomePrompt() {
+        if (inApp()) return;
         if (!supported || !isHomePage() || !hasLocalSession()) return;
         if (Notification.permission !== 'default' || promptSnoozed()) return;
         if (document.getElementById('mf-perm-overlay')) return;
@@ -182,7 +183,11 @@
     // MFPush.mountSwitch('#mf-push-switch') draws: a status line + a switch.
     // Status line makes it clear that in-app notifications still arrive when push is off.
     function pushIsOn() { return supported && Notification.permission === 'granted' && !prefOff(); }
+    // Inside the APK the browser push banner is meaningless (the WebView has no web push), so it is
+    // not drawn at all. The website still shows it. App notification state lives in Profile > App settings.
+    function inApp() { return !!window.MF_IS_APP || /MediFinderApp/i.test(navigator.userAgent || ''); }
     function switchHtml() {
+        if (inApp()) return '';
         const on = pushIsOn();
         const blocked = supported && Notification.permission === 'denied';
         let line;

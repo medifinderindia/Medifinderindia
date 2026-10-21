@@ -535,7 +535,7 @@ header {
     font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 0.5px;
-    backdrop-filter: blur(4px);
+    
 }
 .slide-content h3 {
     margin: 8px 0 4px 0;
@@ -975,7 +975,7 @@ header {
     width: 100vw;
     height: 100vh;
     background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(8px);
+    
     z-index: 2000;
     display: flex;
     justify-content: center;
@@ -1364,7 +1364,7 @@ header {
 
 @media screen and (min-width: 768px) {
     .products-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
     }
     .product-view-sheet {
         border-radius: 24px;
@@ -2000,7 +2000,7 @@ header {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(47, 53, 66, 0.5);
-    backdrop-filter: blur(4px);
+    
     z-index: 2000;
     display: none;
     justify-content: center;
@@ -3391,7 +3391,7 @@ header {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(47, 53, 66, 0.5);
-    backdrop-filter: blur(4px);
+    
     display: none;
     align-items: flex-end; /* Mobile Bottom Sheet Architecture constraint rules mapping anchor points */
     justify-content: center;
@@ -3665,7 +3665,7 @@ header {
 .upi-pay-drawer [style*="background:#fafbfc"]{background:#fff!important;border-color:#f0dede!important;box-shadow:0 4px 14px rgba(31,41,55,.04)}
 .price-row{min-height:30px;font-size:.8rem}.total-row{margin-top:5px;padding-top:13px;border-top:1px solid #eceff2;font-size:1.02rem}.total-row span:last-child{color:#D6334A!important;font-size:1.18rem}
 .main-order-btn,.sticky-checkout-btn{background:linear-gradient(135deg,#D6334A,#ff4747)!important;color:#fff!important;border:0!important;border-radius:15px!important;box-shadow:0 9px 22px rgba(214,51,74,.22);font-weight:800}
-.sticky-checkout-bar{left:10px;right:10px;bottom:calc(68px + env(safe-area-inset-bottom,0px));border:1px solid #f0dada;border-radius:18px;background:rgba(255,255,255,.96);box-shadow:0 10px 32px rgba(31,41,55,.16);backdrop-filter:blur(14px);padding:9px}
+.sticky-checkout-bar{left:10px;right:10px;bottom:calc(68px + env(safe-area-inset-bottom,0px));border:1px solid #f0dada;border-radius:18px;background:rgba(255,255,255,.96);box-shadow:0 10px 32px rgba(31,41,55,.16);padding:9px}
 .sticky-total-price{color:#D6334A!important;font-weight:900}
 
 /* ===== Premium 5-button nav ===== */
@@ -3684,7 +3684,7 @@ header {
 .order-detail-modal-content{max-height:92vh;overflow-y:auto;padding:16px}.order-detail-hero{display:flex;align-items:center;gap:12px;padding:5px 0 14px}.order-detail-hero img{width:76px;height:76px;border-radius:17px;object-fit:contain;background:#f7f8fa;padding:6px}.order-detail-id{font-size:1rem;font-weight:800;margin:0 0 3px}.order-detail-small{font-size:.7rem;color:#7c8590;margin:0}.detail-action-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.detail-btn{border:0;border-radius:11px;padding:9px 12px;font-size:.7rem;font-weight:800;cursor:pointer}.detail-btn.track{background:#eaf7ff;color:#1676a0}.detail-btn.cancel{background:#fff0f0;color:#d62828}.detail-btn.return{background:#D6334A;color:#fff}.detail-btn.otp{background:#eafaf1;color:#138a42}.detail-section{background:#fff;border:1px solid #edf0f3;border-radius:15px;padding:13px;margin-top:10px}.detail-section h4{font-size:.8rem;margin:0 0 10px;color:#222;font-weight:800}.detail-row{display:flex;justify-content:space-between;gap:12px;font-size:.72rem;padding:5px 0}.detail-row span:first-child{color:#7c8590}.detail-row span:last-child{text-align:right;font-weight:700;color:#333}.status-timeline{display:flex;flex-direction:column;gap:9px}.status-line{display:flex;align-items:center;gap:9px;font-size:.72rem}.status-dot{width:10px;height:10px;border-radius:50%;background:#d7dce1}.status-line.done .status-dot{background:#1E9E6B}.status-line.current .status-dot{background:#D6334A;box-shadow:0 0 0 5px rgba(214,51,74,.1)}.bill-box{background:#f9fafb;border:1px dashed #dfe4e8;border-radius:13px;padding:10px}.bill-row{display:flex;justify-content:space-between;font-size:.72rem;padding:4px 0}.bill-row strong{font-size:.82rem}.feedback-box{background:linear-gradient(135deg,#fff8f8,#fff);border:1px solid #ffd9d9;border-radius:14px;padding:13px}.feedback-box h4{margin-bottom:5px}.feedback-box p{font-size:.68rem;color:#747d8c;margin:0 0 9px}.feedback-btn{border:0;border-radius:10px;background:#D6334A;color:#fff;padding:9px 12px;font-size:.7rem;font-weight:800}.address-box{font-size:.72rem;line-height:1.45;color:#444}.help-modal-card{background:#fff;border-radius:18px;padding:20px;width:92%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,.2)}.help-link{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #eee;border-radius:12px;margin-top:9px;text-decoration:none;color:#222;font-size:.78rem;font-weight:700}.help-link i{width:25px;text-align:center;color:#D6334A}
 @media(max-width:520px){.orders-main-title{font-size:1.4rem}.order-feed-card{border-radius:18px}.order-detail-modal-content{padding:14px}.detail-btn{flex:1;min-width:105px}.order-feed-img{width:54px;height:54px}}
 
-/* ===== Full-page boot loader (matches the app icon + spinning ring look) ===== */
+/* ===== Boot cover: skeleton of the home screen (shapes in design-system.css) ===== */
 #mf-boot-loader {
     position: fixed;
     inset: 0;
@@ -3696,32 +3696,6 @@ header {
     transition: opacity 0.4s ease;
 }
 #mf-boot-loader.mf-loader-hidden { opacity: 0; pointer-events: none; }
-.mf-boot-loader-ring-wrap {
-    position: relative;
-    width: 132px;
-    height: 132px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.mf-boot-loader-ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 5px solid #f8d7d7;
-    border-top-color: #D6334A;
-    animation: mfBootSpin 0.9s linear infinite;
-}
-.mf-boot-loader-logo {
-    width: 88px;
-    height: 88px;
-    object-fit: contain;
-    border-radius: 50%;
-    position: relative;
-    z-index: 1;
-}
-@keyframes mfBootSpin { to { transform: rotate(360deg); } }
-
 /* Subtle pulse on the favicon placeholder while a product/list image is
    still loading in the background (see mfApplySmartImage in user.js). */
 .mf-smart-img:not(.mf-img-ready) {
@@ -6147,7 +6121,7 @@ body {
 /* ===== Orders + Profile popups -> full pages =====
    Bottom-sheet modals now fill the screen like normal pages with a sticky header. */
 #tracking-modal,#order-detail-modal,#wishlist-modal,#edit-modal,#address-modal,#patient-modal,#reminder-modal,#referral-modal,#help-modal{
-  background:#f4f6f9!important;backdrop-filter:none!important;align-items:stretch!important;justify-content:stretch!important;z-index:3000!important;
+  background:#f4f6f9!important;align-items:stretch!important;justify-content:stretch!important;z-index:3000!important;
 }
 #tracking-modal>.modal-content,#order-detail-modal>.modal-content,#wishlist-modal>.modal-content,#edit-modal>.modal-content,#address-modal>.modal-content,#patient-modal>.modal-content,#reminder-modal>.modal-content,#referral-modal>.modal-content,#help-modal>.modal-content,
 #tracking-modal>.modal-content-large,#wishlist-modal>.modal-content-large,#address-modal>.modal-content-large,#patient-modal>.modal-content-large,#reminder-modal>.modal-content-large,#referral-modal>.modal-content-large,#help-modal>.modal-content-large{
@@ -6223,7 +6197,7 @@ body {
 
 :is(#edit-modal,#address-modal,#patient-modal,#reminder-modal,#referral-modal,#help-modal,#wishlist-modal,#tracking-modal) {
     background: #f8f9fb !important;
-    backdrop-filter: none !important;
+    
     align-items: stretch !important;
     justify-content: stretch !important;
     padding: 0 !important;
@@ -6411,8 +6385,8 @@ body {
 /* ---- Popups: backdrop fades in, sheet glides up ---- */
 .modal {
     background: rgba(24, 28, 38, 0.5);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    
+    
 }
 .modal.active { animation: mfBackdropIn 0.28s ease both; }
 @keyframes mfBackdropIn { from { opacity: 0; } to { opacity: 1; } }
@@ -6455,8 +6429,8 @@ body {
     padding: 12px 16px;
     box-shadow: var(--shadow-lift);
     background: rgba(255, 255, 255, 0.97);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    
+    
     animation: toastSlideIn 0.45s var(--ease-spring) both;
 }
 
@@ -6689,7 +6663,7 @@ input:focus, select:focus, textarea:focus {
 /* Book / History switch: segmented bar that sits cleanly above the bottom nav */
 .svc-tabs {
     left: 12px !important; right: 12px !important; bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
-    padding: 5px !important; gap: 4px !important; background: rgba(255,255,255,.96) !important; backdrop-filter: blur(10px);
+    padding: 5px !important; gap: 4px !important; background: rgba(255,255,255,.96) !important; 
     border: 1px solid var(--pv-line) !important; border-radius: 18px; box-shadow: 0 10px 28px rgba(16,24,40,.14) !important;
 }
 .svc-tab { background: transparent !important; color: var(--pv-sub) !important; padding: 11px 6px !important; border-radius: 14px !important; font-size: 13.5px !important; box-shadow: none; }
@@ -6816,7 +6790,7 @@ input:focus, select:focus, textarea:focus {
 
 .pg-lab .overlay, .pg-nurse .overlay {
     position: fixed !important; inset: 0 !important; z-index: 100000 !important;
-    background: var(--pv-surface) !important; backdrop-filter: none !important;
+    background: var(--pv-surface) !important; 
     align-items: stretch !important; justify-content: stretch !important; padding: 0 !important;
 }
 .pg-lab .overlay.active, .pg-nurse .overlay.active { display: flex !important; }
@@ -7229,7 +7203,7 @@ html body #page-notification .noti-item:last-child { margin-bottom: 0; }
 #page-product-detail .pd-more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 #page-product-detail .pd-more-grid .pd-mini-card { flex: none; width: auto; padding: 10px; border-radius: 14px; box-shadow: 0 2px 8px rgba(31,41,55,.05); }
 #page-product-detail .pd-more-grid .pd-mini-card img { height: 110px; object-fit: contain; background: #f8fafc; border-radius: 10px; }
-#page-product-detail .pd-more-grid .pd-mini-card-name { font-size: .78rem; min-height: 2.4em; }
+#page-product-detail .pd-more-grid .pd-mini-card-name { font-size: .78rem; min-height: 2.4em; -webkit-line-clamp: 3; overflow-wrap: anywhere; }
 #page-product-detail .pd-more-grid .pd-mini-card-price { font-size: .86rem; }
 #page-product-detail .pd-more-load { display: block; margin: 12px auto 0; border: 0; background: none; color: #94a3b8; font-weight: 800; font-size: .76rem; }
 
@@ -7266,7 +7240,7 @@ html body #page-notification .noti-item:last-child { margin-bottom: 0; }
 .cart-screen { padding-bottom: calc(var(--mf-nav-h) + 118px) !important; }
 .sticky-checkout-bar {
     left: 12px !important; right: 12px !important; bottom: calc(var(--mf-nav-h) + 8px) !important;
-    background: rgba(255,255,255,.96) !important; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    background: rgba(255,255,255,.96) !important;  
     border: 1px solid #f3dede !important; border-radius: 22px !important;
     box-shadow: 0 14px 34px rgba(31,41,55,.18), 0 2px 8px rgba(214,51,74,.08) !important; z-index: 900;
 }
@@ -7447,6 +7421,60 @@ html[data-theme="dark"] picture {
 }
 
 
+
+/* =====================================================================================
+   DESKTOP LAYOUT (>= 1024px)
+   The app was built as a phone column, so on a wide screen every page stretched edge to edge
+   (search bar 1400px wide, categories hugging the left, 5 nav icons spread over the screen).
+   --mf-gutter centres page content in a --mf-page-max wide column. The scrollbars stay at the
+   window edge because the padding is applied inside each scroller. Nothing here applies below
+   1024px, so the phone layout and the APK are untouched.
+   ===================================================================================== */
+@media (min-width: 1024px) {
+    :root {
+        --mf-page-max: 1240px;
+        --mf-gutter: max(24px, calc((100vw - var(--mf-page-max)) / 2));
+    }
+
+    /* page content */
+    .app-page .main-content-scrollable,
+    .app-page .pd-scroll-body,
+    #page-product-detail .pd-scroll-body {
+        padding-left: var(--mf-gutter) !important;
+        padding-right: var(--mf-gutter) !important;
+        box-sizing: border-box;
+    }
+    /* page headers that sit outside the scroller line up with the content column */
+    .app-page > header,
+    .app-page > .site-header {
+        padding-left: var(--mf-gutter) !important;
+        padding-right: var(--mf-gutter) !important;
+        box-sizing: border-box;
+    }
+    /* the red delivery strip stays full width */
+    .top-bar { margin-left: calc(var(--mf-gutter) * -1); margin-right: calc(var(--mf-gutter) * -1); }
+
+    /* mobile tab bar becomes a centred bar instead of five icons spread over 1440px */
+    .bottom-nav {
+        left: 50%; right: auto;
+        width: min(640px, 100%);
+        transform: translateX(-50%);
+        border-radius: 20px 20px 0 0;
+        border-left: 1px solid #e4e7eb; border-right: 1px solid #e4e7eb;
+    }
+    /* the 7 quick-service icons spread across the column instead of hugging the left edge */
+    #home-cat-grid.categories-grid-scroll { justify-content: space-between; }
+
+    /* floating purchase bars follow the same column */
+    .sticky-checkout-bar,
+    #page-product-detail .pd-sticky-actions {
+        left: 0 !important; right: 0 !important;
+        margin-left: auto; margin-right: auto;
+        width: 100%; max-width: 720px;
+    }
+    .sticky-checkout-bar { width: calc(100% - 24px); }
+}
+
 .products-grid { gap: 10px; }
 
 .products-grid .product-card {
@@ -7622,10 +7650,8 @@ html[data-theme="dark"] picture {
 #page-product-detail .pd-labels-hint { margin: 10px 2px 0; font-size: .72rem; color: #9ca3af; }
 .pd-lb-text.mf-lb-label { margin: 0; font-weight: 800; text-align: center; }
 
-/* Glass: floating elements only (floating nav, notification panel, sticky action bar).
-   Where backdrop-filter is unsupported the solid backgrounds above stay in place. */
-@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
-  .bottom-nav{background:rgba(255,255,255,.86);-webkit-backdrop-filter:saturate(1.4) blur(16px);backdrop-filter:saturate(1.4) blur(16px)}
-  .notification-dropdown{background:rgba(255,255,255,.9);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
-  #page-product-detail .pd-sticky-actions{background:rgba(255,255,255,.88);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
-}
+/* Floating bars: solid near-opaque backgrounds. A live backdrop blur here is recomputed on every
+   scroll frame and made the Android app lag, so it was removed. */
+.bottom-nav{background:rgba(255,255,255,.98)}
+.notification-dropdown{background:rgba(255,255,255,.99)}
+#page-product-detail .pd-sticky-actions{background:rgba(255,255,255,.98)}
