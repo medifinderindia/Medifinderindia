@@ -10,6 +10,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.webkit.GeolocationPermissions
+import android.webkit.JavascriptInterface
+import androidx.browser.customtabs.CustomTabsIntent
+import org.json.JSONObject
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -29,6 +32,10 @@ class MainActivity : Activity() {
     private var pendingGeoOrigin: String? = null
     private var pendingGeoCallback: GeolocationPermissions.Callback? = null
     private val homeUrl = "https://www.medifinderindia.com/"
+    private val oauthScheme = "com.medifinderindia.app"
+    private val oauthHost = "auth-callback"
+    private val supabaseHost = "rnpbglinkpsikeszcjcl.supabase.co"
+    @Volatile private var pendingOAuthJson: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,7 +48,18 @@ class MainActivity : Activity() {
         webView.settings.allowFileAccess = false
         webView.settings.javaScriptCanOpenWindowsAutomatically = false
         webView.settings.setGeolocationEnabled(true)
+        webView.addJavascriptInterface(MFAndroidBridge(), "MFAndroid")
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String?) {
+                super.onPageFinished(view, url)
+                val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
+                if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
+                    view.evaluateJavascript("window.MF_IS_APP=true;", null)
+                    if (pendingOAuthJson != null && Uri.parse(url ?: "").path == "/auth.html") {
+                        view.evaluateJavascript("window.MF_IS_APP=true; window.mfOnAppOAuth&&window.mfOnAppOAuth();", null)
+                    }
+                }
+            }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
                 val scheme = uri.scheme ?: return true
@@ -124,7 +142,76 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notificationRequestCode)
         }
-        if (savedInstanceState == null) webView.loadUrl(homeUrl) else webView.restoreState(savedInstanceState)
+        val coldOAuth = parseOAuthIntent(intent)
+        if (coldOAuth != null) {
+            pendingOAuthJson = coldOAuth
+            setIntent(Intent(Intent.ACTION_MAIN))
+            webView.loadUrl("https://www.medifinderindia.com/auth.html?oauth=app")
+        } else if (savedInstanceState == null) webView.loadUrl(homeUrl) else webView.restoreState(savedInstanceState)
+    }
+
+
+    private inner class MFAndroidBridge {
+        @JavascriptInterface
+        fun openOAuth(url: String?): Boolean {
+            if (url == null || !isOurPage()) return false
+            val u = try { Uri.parse(url) } catch (_: Exception) { return false }
+            if (u.scheme != "https" || u.host != supabaseHost ||
+                u.path?.startsWith("/auth/v1/authorize") != true ||
+                u.getQueryParameter("redirect_to") != "$oauthScheme://$oauthHost") return false
+            return try {
+                runOnUiThread { CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, u) }
+                true
+            } catch (_: Exception) { false }
+        }
+
+        @JavascriptInterface
+        fun consumeOAuthResult(): String {
+            if (!isOurPage()) return ""
+            val result = pendingOAuthJson
+            pendingOAuthJson = null
+            return result ?: ""
+        }
+    }
+
+    private fun isOurPage(): Boolean {
+        val host = try { Uri.parse(webView.url ?: "").host } catch (_: Exception) { null }
+        return host == "medifinderindia.com" || host == "www.medifinderindia.com"
+    }
+
+    private fun parseOAuthIntent(i: Intent?): String? {
+        val d = i?.data ?: return null
+        if (i.action != Intent.ACTION_VIEW || d.scheme != oauthScheme || d.host != oauthHost) return null
+        val fragmentParams = d.fragment?.let { Uri.parse("https://callback.invalid/?$it") }
+        fun param(key: String): String? = d.getQueryParameter(key) ?: fragmentParams?.getQueryParameter(key)
+        val result = JSONObject()
+        val error = param("error")
+        val code = param("code")
+        when {
+            error != null -> {
+                result.put("error", error.take(64))
+                result.put("description", (param("error_description") ?: "").take(300))
+            }
+            code != null && Regex("[A-Za-z0-9._~-]{8,256}").matches(code) -> result.put("code", code)
+            else -> result.put("error", "invalid_callback")
+        }
+        return result.toString()
+    }
+
+    private fun handleOAuthIntent(i: Intent?) {
+        val result = parseOAuthIntent(i) ?: return
+        pendingOAuthJson = result
+        setIntent(Intent(Intent.ACTION_MAIN))
+        if (isOurPage() && Uri.parse(webView.url ?: "").path == "/auth.html") {
+            webView.evaluateJavascript("window.MF_IS_APP=true; window.mfOnAppOAuth&&window.mfOnAppOAuth();", null)
+        } else {
+            webView.loadUrl("https://www.medifinderindia.com/auth.html?oauth=app")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthIntent(intent)
     }
 
     private fun isTrustedOrigin(uri: Uri): Boolean {
