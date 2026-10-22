@@ -22,7 +22,7 @@ class MediFinderMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         val title = message.notification?.title ?: message.data["title"] ?: "MediFinder India"
         val body = message.notification?.body ?: message.data["body"] ?: "You have a new notification."
-        val channelId = "medifinder_updates"
+        val channelId = "medifinder_notifications"
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
