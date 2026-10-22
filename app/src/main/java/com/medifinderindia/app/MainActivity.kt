@@ -157,10 +157,20 @@ class MainActivity : Activity() {
             if (url == null || !isOurPage()) return false
             val u = try { Uri.parse(url) } catch (_: Exception) { return false }
             if (u.scheme != "https" || u.host != supabaseHost ||
-                u.path?.startsWith("/auth/v1/authorize") != true ||
-                u.getQueryParameter("redirect_to") != "$oauthScheme://$oauthHost") return false
+                u.path?.startsWith("/auth/v1/authorize") != true) return false
+            val redirect = try { Uri.parse(u.getQueryParameter("redirect_to") ?: "") } catch (_: Exception) { Uri.EMPTY }
+            if (redirect.scheme != oauthScheme || redirect.host != oauthHost) return false
             return try {
-                runOnUiThread { CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, u) }
+                runOnUiThread {
+                    try {
+                        CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, u)
+                    } catch (_: Exception) {
+                        try { startActivity(Intent(Intent.ACTION_VIEW, u)) }
+                        catch (_: Exception) {
+                            Toast.makeText(this@MainActivity, "Could not open Google sign-in. Check your browser and try again.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
                 true
             } catch (_: Exception) { false }
         }
