@@ -1392,6 +1392,11 @@ async function loginWithGoogle(roleValue) {
     // role + mismatch BEFORE showing anything.
     try { sessionStorage.setItem('mf_oauth_pending', '1'); } catch (e) {}
 
+    // Android APK: Google blocks sign-in inside an embedded WebView, so the APK opens it in a
+    // Chrome Custom Tab and comes back through its deep link (see mfLoginWithGoogleInApp below).
+    // Old APKs without the bridge method, and every normal browser, keep the original flow.
+    if (mfAppOAuthAvailable()) { return mfLoginWithGoogleInApp(); }
+
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -1400,6 +1405,140 @@ async function loginWithGoogle(roleValue) {
     });
     if (error) showToast("Google Auth Error: " + error.message, "error");
 }
+
+// ---------------------------------------------------------------------------------------
+// Android APK Google login: Chrome Custom Tab + PKCE + deep link.
+// Only runs inside the APK when it exposes MFAndroid.openOAuth / consumeOAuthResult.
+// A dedicated PKCE client starts and finishes the OAuth round-trip; the resulting tokens are
+// then handed to the normal supabaseClient with setSession(), so every other flow
+// (email/password, reset links, role redirects) keeps using the unchanged client.
+// The dedicated client's storage key must NOT look like "sb-*-auth-token": the session guard
+// wipes login traces whenever such a key is removed.
+// ---------------------------------------------------------------------------------------
+const MF_APP_OAUTH_REDIRECT = 'com.medifinderindia.app://auth-callback';
+const MF_APP_OAUTH_KEY = 'mf-app-oauth';
+const MF_APP_OAUTH_TS = 'mf_app_oauth_ts';
+const MF_APP_OAUTH_MAX_AGE = 10 * 60 * 1000;
+let _mfAppOAuthClient = null;
+let _mfAppOAuthBusy = false;
+
+function mfAppOAuthAvailable() {
+    return !!(window.MF_IS_APP && window.MFAndroid &&
+        typeof window.MFAndroid.openOAuth === 'function' &&
+        typeof window.MFAndroid.consumeOAuthResult === 'function');
+}
+
+function mfGetAppOAuthClient() {
+    if (!_mfAppOAuthClient) {
+        _mfAppOAuthClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: false, detectSessionInUrl: false, storageKey: MF_APP_OAUTH_KEY }
+        });
+    }
+    return _mfAppOAuthClient;
+}
+
+function mfClearAppOAuthState() {
+    try {
+        localStorage.removeItem(MF_APP_OAUTH_KEY);
+        localStorage.removeItem(MF_APP_OAUTH_KEY + '-code-verifier');
+        localStorage.removeItem(MF_APP_OAUTH_TS);
+    } catch (e) {}
+    try { sessionStorage.removeItem('mf_oauth_pending'); } catch (e) {}
+}
+
+async function mfLoginWithGoogleInApp() {
+    try {
+        const { data, error } = await mfGetAppOAuthClient().auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: MF_APP_OAUTH_REDIRECT, skipBrowserRedirect: true }
+        });
+        if (error || !data || !data.url) {
+            mfClearAppOAuthState();
+            showToast('Google Auth Error: ' + ((error && error.message) || 'could not start sign-in'), 'error');
+            return;
+        }
+        try { localStorage.setItem(MF_APP_OAUTH_TS, String(Date.now())); } catch (e) {}
+        const opened = window.MFAndroid.openOAuth(data.url);
+        if (!opened) {
+            mfClearAppOAuthState();
+            showToast('Could not open Google sign-in. Please try again.', 'error');
+        }
+        // Success: the Custom Tab is now open. Cancelling it simply leaves the user on this page.
+    } catch (e) {
+        console.error('[MediFinder] in-app Google login failed', e);
+        mfClearAppOAuthState();
+        showToast('Google sign-in could not be started. Please try again.', 'error');
+    }
+}
+
+// Called by the APK (and once on auth.html load) after the deep link delivered a result.
+window.mfOnAppOAuth = async function () {
+    if (_mfAppOAuthBusy || !mfAppOAuthAvailable()) return;
+    let res = null;
+    try {
+        const raw = window.MFAndroid.consumeOAuthResult();   // returns the pending result once, then clears it
+        res = raw ? JSON.parse(raw) : null;
+    } catch (e) { res = null; }
+    if (!res) return;
+
+    _mfAppOAuthBusy = true;
+    try {
+        // Only accept a result for a sign-in this page actually started in the last 10 minutes.
+        let started = 0;
+        try { started = Number(localStorage.getItem(MF_APP_OAUTH_TS) || 0); } catch (e) {}
+        if (!started || Date.now() - started > MF_APP_OAUTH_MAX_AGE) {
+            mfClearAppOAuthState();
+            hideAuthCover();
+            showToast('Google sign-in expired. Please try again.', 'error');
+            return;
+        }
+
+        if (res.error || !res.code) {
+            mfClearAppOAuthState();
+            hideAuthCover();
+            const txt = (String(res.error || '') + ' ' + String(res.description || '')).toLowerCase();
+            if (res.error === 'access_denied') {
+                showToast('Google sign-in was cancelled.', 'info');
+            } else if (txt.includes('provider_conflict') || txt.includes('error saving') || txt.includes('unable to link') || txt.includes('linking')) {
+                showToast('This email is already registered with email & password. Please log in with your email and password, not Google.', 'error');
+            } else {
+                showToast('Google sign-in failed. Please try again.', 'error');
+            }
+            return;
+        }
+
+        showAuthCover();
+        const { data, error } = await withTimeout(mfGetAppOAuthClient().auth.exchangeCodeForSession(res.code), 20000);
+        const s = data && data.session;
+        if (error || !s) {
+            mfClearAppOAuthState();
+            hideAuthCover();
+            showToast('Google sign-in could not be completed. Please try again.', 'error');
+            return;
+        }
+
+        // Same flag the website callback uses, so onAuthStateChange stays out of the way while
+        // handleGoogleOAuthCallback() resolves role + redirect.
+        window._mfGoogleOAuthPending = true;
+        const { error: setErr } = await supabaseClient.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
+        mfClearAppOAuthState();   // drop the dedicated client's copy (no server sign-out: the session lives on)
+        if (setErr) {
+            window._mfGoogleOAuthPending = false;
+            hideAuthCover();
+            showToast('Could not save your login. Please try again.', 'error');
+            return;
+        }
+        await handleGoogleOAuthCallback();
+    } catch (e) {
+        console.error('[MediFinder] in-app Google callback failed', e);
+        mfClearAppOAuthState();
+        window._mfGoogleOAuthPending = false;
+        hideAuthCover();
+        showToast('Google sign-in failed. Please try again.', 'error');
+    } finally {
+        _mfAppOAuthBusy = false;
+    }
+};
 
 async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Google OAuth callback detected');
@@ -1493,6 +1632,11 @@ async function handleGoogleOAuthCallback() {
 
 if (window._mfGoogleOAuthPending === true) {
     handleGoogleOAuthCallback();
+}
+
+// Inside the APK, pick up a result delivered by the deep link (auth.html only).
+if (window.MF_IS_APP && /auth\.html/i.test(window.location.pathname)) {
+    setTimeout(function () { if (window.mfOnAppOAuth) window.mfOnAppOAuth(); }, 0);
 }
 
 ['login-role', 'signup-role'].forEach(function (name) {

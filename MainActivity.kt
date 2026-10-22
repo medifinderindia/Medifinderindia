@@ -17,6 +17,7 @@ import androidx.core.app.NotificationManagerCompat
 import org.json.JSONObject
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import java.io.File
@@ -30,6 +31,13 @@ class MainActivity : AppCompatActivity() {
 
     private val START_URL = "https://medifinderindia.com/"
     private val HOST = "medifinderindia.com"
+
+    // Google login return (Custom Tab -> Supabase -> com.medifinderindia.app://auth-callback)
+    private val OAUTH_SCHEME = "com.medifinderindia.app"
+    private val OAUTH_HOST = "auth-callback"
+    private val SUPABASE_HOST = "rnpbglinkpsikeszcjcl.supabase.co"
+    @Volatile private var pendingOAuthJson: String? = null
+    @Volatile private var pageHost: String? = null
 
     private lateinit var web: WebView
 
@@ -140,6 +148,29 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun openSettings() = runOnUiThread { openAppSettings() }
+
+        /** Opens our Supabase Google authorize URL in a Chrome Custom Tab (Google refuses embedded WebViews). */
+        @JavascriptInterface
+        fun openOAuth(url: String?): Boolean {
+            if (url == null || !isOurPage()) return false
+            val u = try { Uri.parse(url) } catch (e: Exception) { return false }
+            if (u.scheme != "https" || u.host != SUPABASE_HOST || u.path?.startsWith("/auth/v1/authorize") != true) return false
+            if (u.getQueryParameter("redirect_to") != "$OAUTH_SCHEME://$OAUTH_HOST") return false
+            runOnUiThread {
+                try { CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, u) }
+                catch (e: Exception) { try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (e2: Exception) { /* no browser */ } }
+            }
+            return true
+        }
+
+        /** Returns the pending Google-login result ({"code":..} or {"error":..}) once, then clears it. */
+        @JavascriptInterface
+        fun consumeOAuthResult(): String {
+            if (!isOurPage()) return ""
+            val r = pendingOAuthJson
+            pendingOAuthJson = null
+            return r ?: ""
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -183,6 +214,11 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
 
         web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(v: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(v, url, favicon)
+                pageHost = try { Uri.parse(url ?: "").host } catch (e: Exception) { null }
+            }
+
             override fun shouldOverrideUrlLoading(v: WebView, req: WebResourceRequest): Boolean {
                 val u = req.url
                 val scheme = u.scheme ?: return false
@@ -274,7 +310,53 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (savedInstanceState == null) web.loadUrl(START_URL) else web.restoreState(savedInstanceState)
+        // Cold start straight from the Google-login deep link (app was killed while the Custom Tab was open)
+        val coldOAuth = parseOAuthIntent(intent)
+        if (coldOAuth != null) {
+            pendingOAuthJson = coldOAuth
+            setIntent(Intent(Intent.ACTION_MAIN))
+            web.loadUrl("https://$HOST/auth.html?oauth=app")
+        } else if (savedInstanceState == null) web.loadUrl(START_URL) else web.restoreState(savedInstanceState)
+    }
+
+    private fun isOurPage(): Boolean {
+        val h = pageHost ?: return false
+        return h == HOST || h.endsWith(".$HOST")
+    }
+
+    /**
+     * Validates the Google-login deep link and turns it into a small JSON result for the page.
+     * Only the one-time authorization code (or an error) is passed on; the page exchanges it with its
+     * PKCE verifier, which never leaves the WebView. Returns null if the intent is not our callback.
+     */
+    private fun parseOAuthIntent(i: Intent?): String? {
+        val d = i?.data ?: return null
+        if (i.action != Intent.ACTION_VIEW || d.scheme != OAUTH_SCHEME || d.host != OAUTH_HOST) return null
+        val frag = d.fragment?.let { Uri.parse("x://x?$it") }
+        fun p(k: String): String? = d.getQueryParameter(k) ?: frag?.getQueryParameter(k)
+        val o = JSONObject()
+        val err = p("error")
+        val code = p("code")
+        when {
+            err != null -> { o.put("error", err.take(64)); o.put("description", (p("error_description") ?: "").take(300)) }
+            code != null && Regex("[A-Za-z0-9._~-]{8,256}").matches(code) -> o.put("code", code)
+            else -> o.put("error", "invalid_callback")
+        }
+        return o.toString()
+    }
+
+    private fun handleOAuthIntent(i: Intent?) {
+        val json = parseOAuthIntent(i) ?: return
+        pendingOAuthJson = json
+        setIntent(Intent(Intent.ACTION_MAIN))      // never replay the callback
+        val onAuthPage = isOurPage() && Uri.parse(web.url ?: "").path == "/auth.html"
+        if (onAuthPage) web.evaluateJavascript("window.mfOnAppOAuth&&window.mfOnAppOAuth()", null)
+        else web.loadUrl("https://${if (isOurPage()) pageHost else HOST}/auth.html?oauth=app")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthIntent(intent)
     }
 
     private fun has(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

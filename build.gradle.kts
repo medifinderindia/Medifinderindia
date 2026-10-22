@@ -52,4 +52,5 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.9.2")
+    implementation("androidx.browser:browser:1.8.0")   // Chrome Custom Tab for Google sign-in
 }
