@@ -350,10 +350,23 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == cameraRequestCode) {
-            val result = if (resultCode == RESULT_OK) pendingCameraUri?.let { arrayOf(it) } else null
-            fileCallback?.onReceiveValue(result)
+            // Some camera apps return the captured URI only through EXTRA_OUTPUT; others also
+            // return a thumbnail/data URI. Prefer our full-resolution output file.
+            val outputUri = pendingCameraUri
+            val resultUri = if (resultCode == RESULT_OK) {
+                val outputHasImage = outputUri?.let { uri ->
+                    try {
+                        contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize > 0L } ?: false
+                    } catch (_: Exception) { false }
+                } ?: false
+                if (outputHasImage) outputUri else data?.data
+            } else null
+            val callback = fileCallback
             fileCallback = null
             pendingCameraUri = null
+            if (callback != null) {
+                callback.onReceiveValue(resultUri?.let { arrayOf(it) })
+            }
         } else if (requestCode == filePickerRequest) {
             val result = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
             fileCallback?.onReceiveValue(result)
