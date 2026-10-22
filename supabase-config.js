@@ -1335,6 +1335,30 @@ async function loginWithGoogle(roleValue) {
     // role + mismatch BEFORE showing anything.
     try { sessionStorage.setItem('mf_oauth_pending', '1'); } catch (e) {}
 
+    // Native Android WebView: keep the PKCE verifier in this WebView's storage,
+    // open Google's authorize URL in a Custom Tab, then exchange the returned code
+    // here after Android routes com.medifinderindia.app://auth-callback back to us.
+    if (window.MF_IS_APP === true && window.MFAndroid && typeof window.MFAndroid.openOAuth === 'function') {
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: 'com.medifinderindia.app://auth-callback',
+                    skipBrowserRedirect: true
+                }
+            });
+            if (error) throw error;
+            if (!data || !data.url || window.MFAndroid.openOAuth(data.url) !== true) {
+                throw new Error('Could not open secure Google sign-in window. Please try again.');
+            }
+            return;
+        } catch (e) {
+            showToast("Google Auth Error: " + (e && e.message ? e.message : String(e)), "error");
+            return;
+        }
+    }
+
+    // Regular website login remains unchanged.
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -1433,6 +1457,29 @@ async function handleGoogleOAuthCallback() {
     console.log('[MediFinder] Redirecting to:', target);
     window.location.replace(target);
 }
+
+// Called by MainActivity after the native deep-link callback reaches auth.html.
+window.mfOnAppOAuth = async function () {
+    if (!(window.MF_IS_APP === true && window.MFAndroid &&
+          typeof window.MFAndroid.consumeOAuthResult === 'function')) return;
+    let payload = '';
+    try { payload = window.MFAndroid.consumeOAuthResult(); } catch (e) {}
+    if (!payload) return;
+    try {
+        const result = JSON.parse(payload);
+        if (result.error) {
+            showToast(result.description || result.error || 'Google sign-in was cancelled.', 'error');
+            return;
+        }
+        if (!result.code) throw new Error('Google did not return an authorization code.');
+        const { error } = await supabaseClient.auth.exchangeCodeForSession(result.code);
+        if (error) throw error;
+        window._mfGoogleOAuthPending = true;
+        await handleGoogleOAuthCallback();
+    } catch (e) {
+        showToast('Google Auth Error: ' + (e && e.message ? e.message : String(e)), 'error');
+    }
+};
 
 if (window._mfGoogleOAuthPending === true) {
     handleGoogleOAuthCallback();
