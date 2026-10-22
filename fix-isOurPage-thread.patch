@@ -1,0 +1,41 @@
+diff --git a/app/src/main/java/com/medifinderindia/app/MainActivity.kt b/app/src/main/java/com/medifinderindia/app/MainActivity.kt
+index b99e2ea..afe66b1 100644
+--- a/app/src/main/java/com/medifinderindia/app/MainActivity.kt
++++ b/app/src/main/java/com/medifinderindia/app/MainActivity.kt
+@@ -36,6 +36,9 @@ class MainActivity : Activity() {
+     private val oauthHost = "auth-callback"
+     private val supabaseHost = "rnpbglinkpsikeszcjcl.supabase.co"
+     @Volatile private var pendingOAuthJson: String? = null
++    // WebView.getUrl() may only be called on the UI thread, but @JavascriptInterface methods run on the
++    // "JavaBridge" thread. The host is therefore cached here from WebViewClient callbacks (UI thread).
++    @Volatile private var currentPageHost: String? = null
+ 
+     @SuppressLint("SetJavaScriptEnabled")
+     override fun onCreate(savedInstanceState: Bundle?) {
+@@ -50,8 +53,17 @@ class MainActivity : Activity() {
+         webView.settings.setGeolocationEnabled(true)
+         webView.addJavascriptInterface(MFAndroidBridge(), "MFAndroid")
+         webView.webViewClient = object : WebViewClient() {
++            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
++                super.onPageStarted(view, url, favicon)
++                currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
++            }
++            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
++                super.doUpdateVisitedHistory(view, url, isReload)
++                currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
++            }
+             override fun onPageFinished(view: WebView, url: String?) {
+                 super.onPageFinished(view, url)
++                currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
+                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
+                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
+                     view.evaluateJavascript("window.MF_IS_APP=true;", null)
+@@ -186,7 +198,7 @@ class MainActivity : Activity() {
+     }
+ 
+     private fun isOurPage(): Boolean {
+-        val host = try { Uri.parse(webView.url ?: "").host } catch (_: Exception) { null }
++        val host = currentPageHost
+         return host == "medifinderindia.com" || host == "www.medifinderindia.com"
+     }
+ 
