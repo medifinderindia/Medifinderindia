@@ -6,6 +6,9 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import java.io.File
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +31,8 @@ class MainActivity : Activity() {
     private val webPermissionRequestCode = 1002
     private val locationRequestCode = 1003
     private val notificationRequestCode = 1004
+    private var pendingCameraUri: Uri? = null
+    private val cameraRequestCode = 1005
     private var pendingWebPermission: PermissionRequest? = null
     private var pendingGeoOrigin: String? = null
     private var pendingGeoCallback: GeolocationPermissions.Callback? = null
@@ -99,11 +104,31 @@ class MainActivity : Activity() {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = filePathCallback
                 return try {
-                    startActivityForResult(fileChooserParams.createIntent(), filePickerRequest)
+                    // Inputs explicitly marked capture (the Camera button) must launch the camera,
+                    // not the generic document picker. Gallery/PDF inputs keep the system picker.
+                    if (fileChooserParams.isCaptureEnabled && fileChooserParams.acceptTypes.any {
+                            it.contains("image", ignoreCase = true)
+                        }) {
+                        val camera = Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+                        val dir = File(cacheDir, "camera").apply { mkdirs() }
+                        val photo = File.createTempFile("medifinder_capture_", ".jpg", dir)
+                        val uri = FileProvider.getUriForFile(
+                            this@MainActivity, "$packageName.fileprovider", photo
+                        )
+                        pendingCameraUri = uri
+                        camera.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
+                        camera.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                        camera.clipData = android.content.ClipData.newUri(contentResolver, "Prescription photo", uri)
+                        startActivityForResult(camera, cameraRequestCode)
+                    } else {
+                        startActivityForResult(fileChooserParams.createIntent(), filePickerRequest)
+                    }
                     true
-                } catch (_: ActivityNotFoundException) {
+                } catch (_: Exception) {
+                    fileCallback?.onReceiveValue(null)
                     fileCallback = null
-                    Toast.makeText(this@MainActivity, "No file picker available", Toast.LENGTH_SHORT).show()
+                    pendingCameraUri = null
+                    Toast.makeText(this@MainActivity, "Could not open camera or file picker", Toast.LENGTH_SHORT).show()
                     false
                 }
             }
@@ -164,6 +189,60 @@ class MainActivity : Activity() {
 
 
     private inner class MFAndroidBridge {
+        @JavascriptInterface
+        fun status(): String {
+            val out = JSONObject()
+            out.put("notifications", if (Build.VERSION.SDK_INT < 33 ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) "granted" else "denied")
+            out.put("location", if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) "granted" else "denied")
+            out.put("camera", if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) "granted" else "denied")
+            out.put("microphone", if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) "granted" else "denied")
+            return out.toString()
+        }
+
+        @JavascriptInterface
+        fun request(key: String) {
+            runOnUiThread {
+                val permission = when (key) {
+                    "notifications" -> if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null
+                    "location" -> if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                        checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) Manifest.permission.ACCESS_FINE_LOCATION else null
+                    "camera" -> Manifest.permission.CAMERA
+                    "microphone" -> Manifest.permission.RECORD_AUDIO
+                    else -> null
+                }
+                if (permission == null) {
+                    webView.evaluateJavascript("window.MFApp&&window.MFApp.refresh&&window.MFApp.refresh()", null)
+                } else if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+                    webView.evaluateJavascript("window.MFApp&&window.MFApp.refresh&&window.MFApp.refresh()", null)
+                } else {
+                    val code = when (key) {
+                        "notifications" -> notificationRequestCode
+                        "location" -> locationRequestCode
+                        else -> webPermissionRequestCode + 10
+                    }
+                    if (key == "location") {
+                        pendingGeoOrigin = "https://www.medifinderindia.com"
+                        requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
+                    } else {
+                        requestPermissions(arrayOf(permission), code)
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun openSettings() {
+            runOnUiThread {
+                try {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "Could not open app settings", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
         @JavascriptInterface
         fun openOAuth(url: String?): Boolean {
             if (url == null || !isOurPage()) return false
@@ -259,6 +338,10 @@ class MainActivity : Activity() {
                 pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
                 pendingGeoCallback = null
                 pendingGeoOrigin = null
+                webView.evaluateJavascript("window.MFApp&&window.MFApp.refresh&&window.MFApp.refresh()", null)
+            }
+            notificationRequestCode, webPermissionRequestCode + 10 -> {
+                webView.evaluateJavascript("window.MFApp&&window.MFApp.refresh&&window.MFApp.refresh()", null)
             }
         }
     }
@@ -266,7 +349,12 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API but supported for broad device compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == filePickerRequest) {
+        if (requestCode == cameraRequestCode) {
+            val result = if (resultCode == RESULT_OK) pendingCameraUri?.let { arrayOf(it) } else null
+            fileCallback?.onReceiveValue(result)
+            fileCallback = null
+            pendingCameraUri = null
+        } else if (requestCode == filePickerRequest) {
             val result = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
             fileCallback?.onReceiveValue(result)
             fileCallback = null
