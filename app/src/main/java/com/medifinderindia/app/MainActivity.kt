@@ -158,6 +158,8 @@ class MainActivity : Activity() {
             val u = try { Uri.parse(url) } catch (_: Exception) { return false }
             if (u.scheme != "https" || u.host != supabaseHost ||
                 u.path?.startsWith("/auth/v1/authorize") != true) return false
+            // Supabase may encode or normalize redirect_to; validate its parsed scheme/host,
+            // rather than comparing the raw query parameter text.
             val redirect = try { Uri.parse(u.getQueryParameter("redirect_to") ?: "") } catch (_: Exception) { Uri.EMPTY }
             if (redirect.scheme != oauthScheme || redirect.host != oauthHost) return false
             return try {
@@ -167,12 +169,17 @@ class MainActivity : Activity() {
                     } catch (_: Exception) {
                         try { startActivity(Intent(Intent.ACTION_VIEW, u)) }
                         catch (_: Exception) {
-                            Toast.makeText(this@MainActivity, "Could not open Google sign-in. Check your browser and try again.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@MainActivity, "No browser available for Google sign-in.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
                 true
-            } catch (_: Exception) { false }
+            } catch (_: Exception) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, u))
+                    true
+                } catch (_: Exception) { false }
+            }
         }
 
         @JavascriptInterface
