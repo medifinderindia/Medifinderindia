@@ -158,27 +158,25 @@ class MainActivity : Activity() {
             val u = try { Uri.parse(url) } catch (_: Exception) { return false }
             if (u.scheme != "https" || u.host != supabaseHost ||
                 u.path?.startsWith("/auth/v1/authorize") != true) return false
-            // Supabase may encode or normalize redirect_to; validate its parsed scheme/host,
-            // rather than comparing the raw query parameter text.
-            val redirect = try { Uri.parse(u.getQueryParameter("redirect_to") ?: "") } catch (_: Exception) { Uri.EMPTY }
-            if (redirect.scheme != oauthScheme || redirect.host != oauthHost) return false
+            // Only allow the project's own Supabase authorize endpoint. Do not reject
+            // the URL based on redirect_to text: Android Uri decoding can normalize
+            // custom-scheme redirects differently, which previously made the bridge
+            // return false before the browser was opened.
             return try {
                 runOnUiThread {
                     try {
                         CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, u)
                     } catch (_: Exception) {
-                        try { startActivity(Intent(Intent.ACTION_VIEW, u)) }
-                        catch (_: Exception) {
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, u))
+                        } catch (_: Exception) {
                             Toast.makeText(this@MainActivity, "No browser available for Google sign-in.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
                 true
             } catch (_: Exception) {
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, u))
-                    true
-                } catch (_: Exception) { false }
+                false
             }
         }
 
