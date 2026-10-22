@@ -23,6 +23,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
@@ -189,6 +190,19 @@ class MainActivity : Activity() {
 
 
     private inner class MFAndroidBridge {
+        @JavascriptInterface
+        fun getFcmToken(callbackName: String) {
+            if (!callbackName.matches(Regex("[A-Za-z_$][A-Za-z0-9_$]*"))) return
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                val safeToken = JSONObject.quote(token)
+                runOnUiThread {
+                    if (::webView.isInitialized && !isFinishing) {
+                        webView.evaluateJavascript("$callbackName($safeToken)", null)
+                    }
+                }
+            }
+        }
+
         @JavascriptInterface
         fun status(): String {
             val out = JSONObject()
