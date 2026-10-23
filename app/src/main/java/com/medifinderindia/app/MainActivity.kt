@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -287,12 +288,11 @@ class MainActivity : Activity() {
                 setPadding(36, 40, 36, 40)
                 setBackgroundColor(Color.rgb(247, 248, 255))
             }
-            val symbol = TextView(this).apply {
-                text = "⚠"
-                gravity = Gravity.CENTER
-                textSize = 72f
-                setTextColor(Color.rgb(79, 103, 205))
-                typeface = Typeface.DEFAULT_BOLD
+            val illustration = ImageView(this).apply {
+                setImageResource(R.drawable.illustration_no_connection)
+                contentDescription = "No internet connection"
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                adjustViewBounds = true
             }
             val title = TextView(this).apply {
                 text = "NO CONNECTION"
@@ -320,7 +320,7 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            panel.addView(symbol, LinearLayout.LayoutParams(-1, -2))
+            panel.addView(illustration, LinearLayout.LayoutParams(-1, 440).apply { bottomMargin = 8 })
             panel.addView(title, LinearLayout.LayoutParams(-1, -2))
             panel.addView(message, LinearLayout.LayoutParams(-1, -2))
             panel.addView(retry, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 24 })
