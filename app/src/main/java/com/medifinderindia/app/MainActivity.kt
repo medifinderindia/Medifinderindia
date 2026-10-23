@@ -132,21 +132,12 @@ class MainActivity : Activity() {
                 }
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val uri = request.url
-                val scheme = uri.scheme ?: return true
-                if (scheme == "https" && (uri.host == "medifinderindia.com" || uri.host == "www.medifinderindia.com")) {
-                    return false
-                }
-                if (scheme == "http" || scheme == "https" || scheme == "tel" || scheme == "mailto") {
-                    return try {
-                        startActivity(Intent(Intent.ACTION_VIEW, uri))
-                        true
-                    } catch (_: ActivityNotFoundException) {
-                        Toast.makeText(this@MainActivity, "No app available to open this link", Toast.LENGTH_SHORT).show()
-                        true
-                    }
-                }
-                return true
+                return handleExternalUrl(request.url)
+            }
+
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                return handleExternalUrl(Uri.parse(url))
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -242,6 +233,42 @@ class MainActivity : Activity() {
     }
 
 
+
+    private fun handleExternalUrl(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return true
+        if (scheme == "https" && (uri.host == "medifinderindia.com" || uri.host == "www.medifinderindia.com")) {
+            return false
+        }
+        // Payment providers commonly launch UPI apps through these custom schemes or intent:// URLs.
+        if (scheme == "http" || scheme == "https" || scheme == "tel" || scheme == "mailto" ||
+            scheme == "upi" || scheme == "upiintent" || scheme == "tez" || scheme == "phonepe" ||
+            scheme == "paytmmp" || scheme == "bhim" || scheme == "gpay" || scheme == "intent") {
+            return try {
+                val intent = if (scheme == "intent") {
+                    Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                } else {
+                    Intent(Intent.ACTION_VIEW, uri)
+                }
+                startActivity(intent)
+                true
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(
+                    this,
+                    if (scheme in setOf("upi", "upiintent", "tez", "phonepe", "paytmmp", "bhim", "gpay", "intent"))
+                        "No compatible UPI app found. Please use the QR Code option."
+                    else "No app available to open this link",
+                    Toast.LENGTH_LONG
+                ).show()
+                true
+            } catch (_: Exception) {
+                Toast.makeText(this, "Unable to open payment app. Please use the QR Code option.", Toast.LENGTH_LONG).show()
+                true
+            }
+        }
+        return true
+    }
 
     private fun hasInternetConnection(): Boolean {
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
