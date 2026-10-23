@@ -6,6 +6,17 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.graphics.Color
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ImageView
+import android.widget.TextView
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
@@ -27,6 +38,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private var offlineView: View? = null
+    private var lastGoodUrl: String = "https://www.medifinderindia.com/"
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val filePickerRequest = 1001
     private val webPermissionRequestCode = 1002
@@ -67,8 +80,24 @@ class MainActivity : Activity() {
                 super.doUpdateVisitedHistory(view, url, isReload)
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
             }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) {
+                    val failed = request.url?.toString()
+                    if (!failed.isNullOrBlank()) lastGoodUrl = failed
+                    showOfflineScreen()
+                }
+            }
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                // HTTP errors and failed subresources do not replace the whole app.
+            }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                if (url != null && (url.startsWith("https://www.medifinderindia.com") || url.startsWith("https://medifinderindia.com"))) {
+                    lastGoodUrl = url
+                    hideOfflineScreen()
+                }
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
@@ -104,21 +133,12 @@ class MainActivity : Activity() {
                 }
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val uri = request.url
-                val scheme = uri.scheme ?: return true
-                if (scheme == "https" && (uri.host == "medifinderindia.com" || uri.host == "www.medifinderindia.com")) {
-                    return false
-                }
-                if (scheme == "http" || scheme == "https" || scheme == "tel" || scheme == "mailto") {
-                    return try {
-                        startActivity(Intent(Intent.ACTION_VIEW, uri))
-                        true
-                    } catch (_: ActivityNotFoundException) {
-                        Toast.makeText(this@MainActivity, "No app available to open this link", Toast.LENGTH_SHORT).show()
-                        true
-                    }
-                }
-                return true
+                return handleExternalUrl(request.url)
+            }
+
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                return handleExternalUrl(Uri.parse(url))
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -213,6 +233,110 @@ class MainActivity : Activity() {
         } else if (savedInstanceState == null) webView.loadUrl(homeUrl) else webView.restoreState(savedInstanceState)
     }
 
+
+
+    private fun handleExternalUrl(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return true
+        if (scheme == "https" && (uri.host == "medifinderindia.com" || uri.host == "www.medifinderindia.com")) {
+            return false
+        }
+        // Payment providers commonly launch UPI apps through these custom schemes or intent:// URLs.
+        if (scheme == "http" || scheme == "https" || scheme == "tel" || scheme == "mailto" ||
+            scheme == "upi" || scheme == "upiintent" || scheme == "tez" || scheme == "phonepe" ||
+            scheme == "paytmmp" || scheme == "bhim" || scheme == "gpay" || scheme == "intent") {
+            return try {
+                val intent = if (scheme == "intent") {
+                    Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                } else {
+                    Intent(Intent.ACTION_VIEW, uri)
+                }
+                startActivity(intent)
+                true
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(
+                    this,
+                    if (scheme in setOf("upi", "upiintent", "tez", "phonepe", "paytmmp", "bhim", "gpay", "intent"))
+                        "No compatible UPI app found. Please use the QR Code option."
+                    else "No app available to open this link",
+                    Toast.LENGTH_LONG
+                ).show()
+                true
+            } catch (_: Exception) {
+                Toast.makeText(this, "Unable to open payment app. Please use the QR Code option.", Toast.LENGTH_LONG).show()
+                true
+            }
+        }
+        return true
+    }
+
+    private fun hasInternetConnection(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun showOfflineScreen() {
+        runOnUiThread {
+            if (isFinishing || offlineView != null) return@runOnUiThread
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(36, 40, 36, 40)
+                setBackgroundColor(Color.rgb(247, 248, 255))
+            }
+            val illustration = ImageView(this).apply {
+                setImageResource(R.drawable.illustration_no_connection)
+                contentDescription = "No internet connection"
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                adjustViewBounds = true
+            }
+            val title = TextView(this).apply {
+                text = "NO CONNECTION"
+                gravity = Gravity.CENTER
+                textSize = 24f
+                setTextColor(Color.rgb(22, 32, 91))
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 18, 0, 10)
+            }
+            val message = TextView(this).apply {
+                text = "Please check your internet connection and try again."
+                gravity = Gravity.CENTER
+                textSize = 16f
+                setTextColor(Color.rgb(91, 99, 125))
+            }
+            val retry = Button(this).apply {
+                text = "Retry"
+                isAllCaps = false
+                setOnClickListener {
+                    if (!hasInternetConnection()) {
+                        Toast.makeText(this@MainActivity, "Internet is still unavailable. Please try again.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        hideOfflineScreen()
+                        webView.loadUrl(lastGoodUrl.ifBlank { homeUrl })
+                    }
+                }
+            }
+            panel.addView(illustration, LinearLayout.LayoutParams(-1, 440).apply { bottomMargin = 8 })
+            panel.addView(title, LinearLayout.LayoutParams(-1, -2))
+            panel.addView(message, LinearLayout.LayoutParams(-1, -2))
+            panel.addView(retry, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 24 })
+            offlineView = panel
+            setContentView(panel)
+        }
+    }
+
+    private fun hideOfflineScreen() {
+        runOnUiThread {
+            if (offlineView != null) {
+                offlineView = null
+                if (::webView.isInitialized) setContentView(webView)
+            }
+        }
+    }
 
     private inner class MFAndroidBridge {
         @JavascriptInterface
