@@ -23,6 +23,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
@@ -72,6 +73,31 @@ class MainActivity : Activity() {
                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
                     view.evaluateJavascript("window.MF_IS_APP=true;", null)
+                    // Register this installation's FCM token against the signed-in Supabase user.
+                    // The website's own Supabase session is used; no service-role key enters the app.
+                    view.evaluateJavascript(
+                        """
+                        (function(){
+                          if (!window.MFAndroid || window.__mfFcmBridgeInstalled) return;
+                          window.__mfFcmBridgeInstalled = true;
+                          window.__mfRegisterAndroidFcmToken = async function(token) {
+                            try {
+                              if (!token || typeof supabaseClient === 'undefined' || !supabaseClient || !supabaseClient.auth) return;
+                              var sessionResult = await supabaseClient.auth.getSession();
+                              var session = sessionResult && sessionResult.data && sessionResult.data.session;
+                              if (!session) return;
+                              await supabaseClient.functions.invoke('register-android-fcm-token', { body: { token: token } });
+                            } catch (e) { console.warn('MediFinder Android push token registration deferred:', e && e.message); }
+                          };
+                          window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
+                          if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+                            supabaseClient.auth.onAuthStateChange(function(event, session) {
+                              if (session && window.MFAndroid) window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
+                            });
+                          }
+                        })();
+                        """.trimIndent(), null
+                    )
                     if (pendingOAuthJson != null && Uri.parse(url ?: "").path == "/auth.html") {
                         view.evaluateJavascript("window.MF_IS_APP=true; window.mfOnAppOAuth&&window.mfOnAppOAuth();", null)
                     }
@@ -189,6 +215,19 @@ class MainActivity : Activity() {
 
 
     private inner class MFAndroidBridge {
+        @JavascriptInterface
+        fun getFcmToken(callbackName: String) {
+            if (!callbackName.matches(Regex("[A-Za-z_$][A-Za-z0-9_$]*"))) return
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                val safeToken = JSONObject.quote(token)
+                runOnUiThread {
+                    if (::webView.isInitialized && !isFinishing) {
+                        webView.evaluateJavascript("$callbackName($safeToken)", null)
+                    }
+                }
+            }
+        }
+
         @JavascriptInterface
         fun status(): String {
             val out = JSONObject()
