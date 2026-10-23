@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "517996944028",
+    "project_id": "medifinderindia-66bac",
+    "storage_bucket": "medifinderindia-66bac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:517996944028:android:d7c49f40f0b96e8fb3eb59",
+        "android_client_info": {
+          "package_name": "com.medifinderindia.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnBWYfZ_-Kr1RnnC-lL-nbILcLJwA-hg4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

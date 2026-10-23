@@ -314,8 +314,26 @@
       var fresh = await fetchAll(cid), orph = B.orphans.slice(), tab = B.tab, dev = B.dev; B = fresh; B.tab = tab; B.dev = dev;
       if (orph.length) { try { await supabase.storage.from(BUCKET).remove(orph); } catch (x) { console.warn('orphan cleanup', x); } }
       await logAdminAction((mode === 'publish' ? 'Published' : mode === 'unpublish' ? 'Unpublished' : 'Saved') + ' campaign “' + row.title + '”');
+      // On first publish, send the campaign immediately through the existing server-side sender.
+      // The sender delivers both Web Push and native Android FCM; never expose secrets in this client.
+      var pushWarning = '';
+      if (mode === 'publish') {
+        try {
+          var pushResult = await supabase.functions.invoke('send-campaign-push', { body: { campaign_id: cid, kind: 'offer' } });
+          if (pushResult.error) {
+            console.warn('Campaign saved, but push invocation failed:', pushResult.error);
+            pushWarning = ' Offer published, but push could not be sent. Check campaign-push logs.';
+          } else if (pushResult.data && Number(pushResult.data.fcm_failed || 0) > 0) {
+            console.warn('Campaign push result:', pushResult.data);
+            pushWarning = ' Offer published; Android push needs configuration/log review.';
+          }
+        } catch (pushErr) {
+          console.warn('Campaign saved, but push invocation failed:', pushErr);
+          pushWarning = ' Offer published, but push could not be sent. Check campaign-push logs.';
+        }
+      }
       B.saving = false; await loadCampaigns(); render(); paint();
-      toast(mode === 'publish' ? 'Campaign published' : mode === 'unpublish' ? 'Campaign unpublished' : 'Saved');
+      toast((mode === 'publish' ? 'Campaign published' : mode === 'unpublish' ? 'Campaign unpublished' : 'Saved') + pushWarning, pushWarning ? 'danger' : undefined);
     } catch (er) { B.saving = false; paint(); if (/campaign_(sections|images|sponsors|services)|schema cache|does not exist/i.test(er.message)) { B.migrationMissing = true; paint(); } toast(er.message, 'danger'); }
   }
 })();
