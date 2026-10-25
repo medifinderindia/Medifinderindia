@@ -19,6 +19,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import java.io.File
 import android.net.Uri
 import android.os.Build
@@ -38,6 +39,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private var offlineView: View? = null
     private var lastGoodUrl: String = "https://www.medifinderindia.com/"
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -63,7 +65,22 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
-        setContentView(webView)
+        swipeRefreshLayout = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(Color.rgb(205, 45, 78), Color.rgb(30, 150, 125))
+            setOnRefreshListener {
+                if (hasInternetConnection()) {
+                    webView.reload()
+                } else {
+                    isRefreshing = false
+                    showOfflineScreen()
+                }
+            }
+        }
+        swipeRefreshLayout.addView(webView, android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        setContentView(swipeRefreshLayout)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -74,6 +91,7 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                swipeRefreshLayout.isRefreshing = false
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -82,6 +100,9 @@ class MainActivity : Activity() {
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
                 super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) {
+                    swipeRefreshLayout.isRefreshing = false
+                }
                 if (request.isForMainFrame) {
                     val failed = request.url?.toString()
                     if (!failed.isNullOrBlank()) lastGoodUrl = failed
@@ -333,7 +354,7 @@ class MainActivity : Activity() {
         runOnUiThread {
             if (offlineView != null) {
                 offlineView = null
-                if (::webView.isInitialized) setContentView(webView)
+                if (::webView.isInitialized) setContentView(swipeRefreshLayout)
             }
         }
     }
