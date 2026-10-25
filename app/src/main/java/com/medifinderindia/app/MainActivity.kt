@@ -67,6 +67,7 @@ class MainActivity : Activity() {
         webView = WebView(this)
         swipeRefreshLayout = SwipeRefreshLayout(this).apply {
             setColorSchemeColors(Color.rgb(205, 45, 78), Color.rgb(30, 150, 125))
+            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
             setOnRefreshListener {
                 if (hasInternetConnection()) {
                     webView.reload()
@@ -102,8 +103,6 @@ class MainActivity : Activity() {
                 super.onReceivedError(view, request, error)
                 if (request.isForMainFrame) {
                     swipeRefreshLayout.isRefreshing = false
-                }
-                if (request.isForMainFrame) {
                     val failed = request.url?.toString()
                     if (!failed.isNullOrBlank()) lastGoodUrl = failed
                     showOfflineScreen()
@@ -115,6 +114,7 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                swipeRefreshLayout.isRefreshing = false
                 if (url != null && (url.startsWith("https://www.medifinderindia.com") || url.startsWith("https://medifinderindia.com"))) {
                     lastGoodUrl = url
                     hideOfflineScreen()
