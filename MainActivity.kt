@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import org.json.JSONObject
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
@@ -23,6 +24,7 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val filePickerRequest = 1001
     private val webPermissionRequestCode = 1002
@@ -44,7 +46,23 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
-        setContentView(webView)
+        swipeRefresh = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(android.graphics.Color.rgb(214, 51, 74), android.graphics.Color.rgb(31, 157, 125))
+            setProgressBackgroundColorSchemeColor(android.graphics.Color.WHITE)
+            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
+            setOnRefreshListener {
+                // Native refresh gesture only activates at the actual top of the WebView.
+                webView.reload()
+            }
+        }
+        swipeRefresh.addView(
+            webView,
+            android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        setContentView(swipeRefresh)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -63,6 +81,7 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                swipeRefresh.isRefreshing = false
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
