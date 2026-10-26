@@ -41,6 +41,8 @@ class MainActivity : Activity() {
     // WebView.getUrl() may only be called on the UI thread, but @JavascriptInterface methods run on the
     // "JavaBridge" thread. The host is therefore cached here from WebViewClient callbacks (UI thread).
     @Volatile private var currentPageHost: String? = null
+    @Volatile private var lastHttpUrl: String = homeUrl
+    @Volatile private var showingOfflinePage: Boolean = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,7 +75,33 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
+                val parsed = try { Uri.parse(url ?: "") } catch (_: Exception) { null }
+                currentPageHost = parsed?.host
+                if (parsed != null && (parsed.scheme == "https" || parsed.scheme == "http") &&
+                    (parsed.host == "medifinderindia.com" || parsed.host == "www.medifinderindia.com")) {
+                    lastHttpUrl = parsed.toString()
+                    showingOfflinePage = false
+                }
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                super.onReceivedError(view, request, error)
+                if (!request.isForMainFrame) return
+                val failed = request.url
+                if (failed.scheme != "https" && failed.scheme != "http") return
+                if (failed.host != "medifinderindia.com" && failed.host != "www.medifinderindia.com") return
+                lastHttpUrl = failed.toString()
+                showingOfflinePage = true
+                swipeRefresh.isRefreshing = false
+                val offlineHtml = """
+                    <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+                    <style>body{margin:0;background:#f5f6fa;color:#202433;font:16px system-ui;display:flex;min-height:90vh;align-items:center;justify-content:center;text-align:center}
+                    main{padding:30px;max-width:360px} .icon{font-size:54px}h2{font-size:23px;margin:16px 0 8px}p{color:#727887;line-height:1.5}
+                    button{border:0;border-radius:14px;background:#d6334a;color:white;font-weight:700;font-size:16px;padding:14px 24px;margin-top:14px;box-shadow:0 6px 18px #d6334a33}</style></head>
+                    <body><main><div class="icon">📶</div><h2>You’re offline</h2><p>MediFinder India couldn’t connect. Check your internet connection and try again.</p>
+                    <button onclick="window.MFAndroid&&window.MFAndroid.retryLoad()">Try Again</button></main></body></html>
+                """.trimIndent()
+                view.post { view.loadDataWithBaseURL("https://www.medifinderindia.com/", offlineHtml, "text/html", "UTF-8", null) }
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                 super.doUpdateVisitedHistory(view, url, isReload)
@@ -213,6 +241,16 @@ class MainActivity : Activity() {
             val result = pendingOAuthJson
             pendingOAuthJson = null
             return result ?: ""
+        }
+
+        @JavascriptInterface
+        fun retryLoad(): Boolean {
+            if (!isOurPage()) return false
+            runOnUiThread {
+                showingOfflinePage = false
+                webView.loadUrl(lastHttpUrl.ifBlank { homeUrl })
+            }
+            return true
         }
 
         @JavascriptInterface
