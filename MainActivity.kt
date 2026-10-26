@@ -217,6 +217,23 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun openUpiPayment(url: String?): Boolean {
+            if (!isOurPage() || url.isNullOrBlank()) return false
+            val uri = try { Uri.parse(url) } catch (_: Exception) { return false }
+            if (uri.scheme != "upi" || uri.host != "pay") return false
+            return try {
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                if (intent.resolveActivity(packageManager) == null) {
+                    Toast.makeText(this@MainActivity, "No UPI app found. Please use the QR Code option.", Toast.LENGTH_LONG).show()
+                    false
+                } else {
+                    runOnUiThread { startActivity(Intent.createChooser(intent, "Pay with UPI")) }
+                    true
+                }
+            } catch (_: Exception) { false }
+        }
+
+        @JavascriptInterface
         fun copyText(text: String?): Boolean {
             if (!isOurPage() || text.isNullOrEmpty()) return false
             runOnUiThread {
