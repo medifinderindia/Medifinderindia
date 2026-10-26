@@ -195,6 +195,41 @@ class MainActivity : Activity() {
             pendingOAuthJson = null
             return result ?: ""
         }
+
+        @JavascriptInterface
+        fun shareContent(title: String?, text: String?, url: String?): Boolean {
+            if (!isOurPage()) return false
+            val payload = listOf(text, url).filterNot { it.isNullOrBlank() }.joinToString("\\n")
+            if (payload.isBlank()) return false
+            runOnUiThread {
+                try {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, title?.take(160) ?: "MediFinder India")
+                        putExtra(Intent.EXTRA_TEXT, payload)
+                    }
+                    startActivity(Intent.createChooser(send, "Share with"))
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "Unable to open sharing apps", Toast.LENGTH_SHORT).show()
+                }
+            }
+            return true
+        }
+
+        @JavascriptInterface
+        fun copyText(text: String?): Boolean {
+            if (!isOurPage() || text.isNullOrEmpty()) return false
+            runOnUiThread {
+                try {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MediFinder India", text))
+                    Toast.makeText(this@MainActivity, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "Could not copy text", Toast.LENGTH_SHORT).show()
+                }
+            }
+            return true
+        }
     }
 
     private fun isOurPage(): Boolean {
