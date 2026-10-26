@@ -13,15 +13,6 @@ function mfEsc(v) {
       try { if (!navigator.clipboard) Object.defineProperty(navigator,'clipboard',{configurable:true,value:{}}); Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:function(value){ return bridge.copyText(String(value==null?'':value))?Promise.resolve():Promise.reject(new Error('Native clipboard unavailable')); }}); } catch (_) {}
     }
   } catch (_) {}
-  if (window.__mfPullRefreshBound) return; window.__mfPullRefreshBound=true;
-  var startY=0,startX=0,active=false,busy=false,indicator=null;
-  function makeIndicator(){ if(indicator)return; indicator=document.createElement('div'); indicator.id='mf-pull-refresh-indicator'; indicator.textContent='↓  Pull to refresh'; indicator.style.cssText='position:fixed;z-index:99999;top:env(safe-area-inset-top,0px);left:50%;transform:translate(-50%,-130%);opacity:0;background:rgba(255,255,255,.96);color:#D6334A;border:1px solid #f3cbd1;border-radius:999px;padding:9px 16px;font:600 13px system-ui;box-shadow:0 6px 24px #0001;transition:transform .18s ease,opacity .18s ease;pointer-events:none'; document.body.appendChild(indicator); }
-  function nestedCanScroll(target){ var el=target&&target.nodeType===1?target:target&&target.parentElement; while(el&&el!==document.body&&el!==document.documentElement){var cs=getComputedStyle(el);var oy=cs.overflowY; if(/(auto|scroll|overlay)/.test(oy)&&el.scrollHeight>el.clientHeight+4)return true; el=el.parentElement;} return false; }
-  document.addEventListener('touchstart',function(e){if(busy||!e.touches||e.touches.length!==1){active=false;return;}var t=e.touches[0],sc=document.scrollingElement||document.documentElement;active=window.scrollY<=2&&sc.scrollTop<=2&&!nestedCanScroll(e.target);startY=t.clientY;startX=t.clientX;},{passive:true});
-  document.addEventListener('touchmove',function(e){if(!active||busy||!e.touches||e.touches.length!==1)return;var t=e.touches[0],dy=t.clientY-startY,dx=Math.abs(t.clientX-startX);if(dy<0||dx>Math.abs(dy)||window.scrollY>2){active=false;return;}if(dy>12){makeIndicator();indicator.textContent=dy>82?'↑  Release to refresh':'↓  Pull to refresh';indicator.style.transform='translate(-50%,'+Math.min(12,dy*.18)+'px)';indicator.style.opacity='1';}},{passive:true});
-  document.addEventListener('touchend',function(e){if(!active||busy){active=false;return;}active=false;var t=e.changedTouches&&e.changedTouches[0];if(!t)return;var dy=t.clientY-startY,dx=Math.abs(t.clientX-startX);if(dy<82||dx>Math.abs(dy)||window.scrollY>2){if(indicator){indicator.style.transform='translate(-50%,-130%)';indicator.style.opacity='0';}return;}busy=true;makeIndicator();indicator.textContent='⟳  Refreshing…';indicator.style.transform='translate(-50%,8px)';indicator.style.opacity='1';window.setTimeout(function(){location.reload();},180);},{passive:true});
-  document.addEventListener('touchcancel',function(){active=false;if(indicator){indicator.style.transform='translate(-50%,-130%)';indicator.style.opacity='0';}},{passive:true});
-})();
 
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 window.supabaseClient = supabase; // shared with offer.js
@@ -313,11 +304,9 @@ function handleGeolocationError(err) {
 // call site in this file gets the same options + friendly error handling +
 // "browser unsupported" guard, without duplicating that boilerplate everywhere.
 function safeWatchPosition(onSuccess, options) {
-    if (!navigator.geolocation) {
-        handleGeolocationError({ code: 0 });
-        return null;
-    }
-    return navigator.geolocation.watchPosition(onSuccess, handleGeolocationError, options || GEO_OPTIONS_WATCH);
+    if (!navigator.geolocation) return null;
+    // Automatic background location checks must not interrupt normal browsing or checkout.
+    return navigator.geolocation.watchPosition(onSuccess, function () {}, options || GEO_OPTIONS_WATCH);
 }
 function safeGetCurrentPosition(onSuccess, options, silent) {
     if (!navigator.geolocation) {
@@ -5155,18 +5144,23 @@ function handlePayWithUpiClick() {
     document.addEventListener('visibilitychange', markOpened, { once: true });
     window.addEventListener('blur', markOpened, { once: true });
 
-    window.location.href = upiLink;
+    let launchRequested = false;
+    const hasNativeUpiBridge = !!(window.MFAndroid && typeof window.MFAndroid.openUpiPayment === 'function');
+    try {
+        if (hasNativeUpiBridge) launchRequested = !!window.MFAndroid.openUpiPayment(upiLink);
+        else { window.location.href = upiLink; launchRequested = true; }
+    } catch (_) {}
 
     setTimeout(() => {
         document.removeEventListener('visibilitychange', markOpened);
         window.removeEventListener('blur', markOpened);
-        if (!appOpened) {
-            showStatus('Unable to open UPI app? Please use the QR Code option below.', '#ff4d4d');
-        } else {
+        if (appOpened || launchRequested) {
             selectedOnlinePaymentMethod = 'UPI';
             showUpiPaymentConfirmStep();
+        } else {
+            showStatus('No UPI app could be opened. Please use the QR Code option below.', '#ff4d4d');
         }
-    }, 2000);
+    }, 900);
 }
 
 async function handlePlaceOrderClick() {
