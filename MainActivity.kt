@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     @Volatile private var currentPageHost: String? = null
     @Volatile private var lastHttpUrl: String = homeUrl
     @Volatile private var showingOfflinePage: Boolean = false
+    @Volatile private var pageCanScrollUp: Boolean = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +52,7 @@ class MainActivity : Activity() {
         swipeRefresh = SwipeRefreshLayout(this).apply {
             setColorSchemeColors(android.graphics.Color.rgb(214, 51, 74), android.graphics.Color.rgb(31, 157, 125))
             setProgressBackgroundColorSchemeColor(android.graphics.Color.WHITE)
-            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
+            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 || pageCanScrollUp }
             setOnRefreshListener {
                 // Native refresh gesture only activates at the actual top of the WebView.
                 webView.reload()
@@ -114,6 +115,27 @@ class MainActivity : Activity() {
                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
                     view.evaluateJavascript("window.MF_IS_APP=true;", null)
+                    view.evaluateJavascript("""(function(){
+                      if(window.__mfNativeRefreshScrollBound)return;window.__mfNativeRefreshScrollBound=true;
+                      function canScrollUp(target){
+                        if(window.scrollY>1 || document.documentElement.scrollTop>1 || document.body.scrollTop>1)return true;
+                        var el=target;
+                        while(el && el!==document.body && el!==document.documentElement){
+                          try { var s=getComputedStyle(el); if((s.overflowY==='auto'||s.overflowY==='scroll') && el.scrollTop>1)return true; } catch(e){}
+                          el=el.parentElement;
+                        }
+                        var all=document.querySelectorAll('*');
+                        for(var i=0;i<all.length;i++){var e=all[i];try{var s=getComputedStyle(e);if((s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollTop>1&&e.contains(target))return true;}catch(x){}}
+                        return false;
+                      }
+                      var last=false;
+                      function update(target){var v=canScrollUp(target||document.activeElement);if(v!==last){last=v;try{if(window.MFAndroid)window.MFAndroid.setPageCanScrollUp(v)}catch(e){}}}
+                      document.addEventListener('touchstart',function(e){update(e.target)},{passive:true,capture:true});
+                      document.addEventListener('touchmove',function(e){update(e.target)},{passive:true,capture:true});
+                      window.addEventListener('scroll',function(){update(document.activeElement)},{passive:true,capture:true});
+                      document.addEventListener('scroll',function(e){update(e.target)},{passive:true,capture:true});
+                      update(document.activeElement);
+                    })();""", null)
                     if (pendingOAuthJson != null && Uri.parse(url ?: "").path == "/auth.html") {
                         view.evaluateJavascript("window.MF_IS_APP=true; window.mfOnAppOAuth&&window.mfOnAppOAuth();", null)
                     }
@@ -241,6 +263,11 @@ class MainActivity : Activity() {
             val result = pendingOAuthJson
             pendingOAuthJson = null
             return result ?: ""
+        }
+
+        @JavascriptInterface
+        fun setPageCanScrollUp(canScroll: Boolean) {
+            pageCanScrollUp = canScroll
         }
 
         @JavascriptInterface
