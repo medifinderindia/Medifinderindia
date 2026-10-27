@@ -334,7 +334,7 @@ class MainActivity : Activity() {
             pendingGeoCallback = null
             pendingGeoOrigin = null
         } else {
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            android.app.AlertDialog.Builder(this)
                 .setTitle("Turn on location")
                 .setMessage("MediFinder needs your device location to find nearby services. Turn on Location, then return to the app.")
                 .setPositiveButton("Location settings") { _, _ ->
