@@ -12,7 +12,6 @@ import android.os.Bundle
 import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import org.json.JSONObject
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
@@ -24,7 +23,6 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
-    private lateinit var swipeRefresh: SwipeRefreshLayout
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val filePickerRequest = 1001
     private val webPermissionRequestCode = 1002
@@ -43,29 +41,20 @@ class MainActivity : Activity() {
     @Volatile private var currentPageHost: String? = null
     @Volatile private var lastHttpUrl: String = homeUrl
     @Volatile private var showingOfflinePage: Boolean = false
-    @Volatile private var pageCanScrollUp: Boolean = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
-        swipeRefresh = SwipeRefreshLayout(this).apply {
-            setColorSchemeColors(android.graphics.Color.rgb(214, 51, 74), android.graphics.Color.rgb(31, 157, 125))
-            setProgressBackgroundColorSchemeColor(android.graphics.Color.WHITE)
-            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 || pageCanScrollUp }
-            setOnRefreshListener {
-                // Native refresh gesture only activates at the actual top of the WebView.
-                webView.reload()
-            }
-        }
-        swipeRefresh.addView(
+        // Pull-to-refresh is intentionally disabled. The WebView is the root view,
+        // so downward swipes only scroll the page and never trigger a reload.
+        setContentView(
             webView,
             android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
-        setContentView(swipeRefresh)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -93,7 +82,6 @@ class MainActivity : Activity() {
                 if (failed.host != "medifinderindia.com" && failed.host != "www.medifinderindia.com") return
                 lastHttpUrl = failed.toString()
                 showingOfflinePage = true
-                swipeRefresh.isRefreshing = false
                 val offlineHtml = """
                     <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
                     <style>body{margin:0;background:#f5f6fa;color:#202433;font:16px system-ui;display:flex;min-height:90vh;align-items:center;justify-content:center;text-align:center}
@@ -110,32 +98,10 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
-                swipeRefresh.isRefreshing = false
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 val host = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
                 if (host == "medifinderindia.com" || host == "www.medifinderindia.com") {
                     view.evaluateJavascript("window.MF_IS_APP=true;", null)
-                    view.evaluateJavascript("""(function(){
-                      if(window.__mfNativeRefreshScrollBound)return;window.__mfNativeRefreshScrollBound=true;
-                      function canScrollUp(target){
-                        if(window.scrollY>1 || document.documentElement.scrollTop>1 || document.body.scrollTop>1)return true;
-                        var el=target;
-                        while(el && el!==document.body && el!==document.documentElement){
-                          try { var s=getComputedStyle(el); if((s.overflowY==='auto'||s.overflowY==='scroll') && el.scrollTop>1)return true; } catch(e){}
-                          el=el.parentElement;
-                        }
-                        var all=document.querySelectorAll('*');
-                        for(var i=0;i<all.length;i++){var e=all[i];try{var s=getComputedStyle(e);if((s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollTop>1&&e.contains(target))return true;}catch(x){}}
-                        return false;
-                      }
-                      var last=false;
-                      function update(target){var v=canScrollUp(target||document.activeElement);if(v!==last){last=v;try{if(window.MFAndroid)window.MFAndroid.setPageCanScrollUp(v)}catch(e){}}}
-                      document.addEventListener('touchstart',function(e){update(e.target)},{passive:true,capture:true});
-                      document.addEventListener('touchmove',function(e){update(e.target)},{passive:true,capture:true});
-                      window.addEventListener('scroll',function(){update(document.activeElement)},{passive:true,capture:true});
-                      document.addEventListener('scroll',function(e){update(e.target)},{passive:true,capture:true});
-                      update(document.activeElement);
-                    })();""", null)
                     if (pendingOAuthJson != null && Uri.parse(url ?: "").path == "/auth.html") {
                         view.evaluateJavascript("window.MF_IS_APP=true; window.mfOnAppOAuth&&window.mfOnAppOAuth();", null)
                     }
@@ -263,11 +229,6 @@ class MainActivity : Activity() {
             val result = pendingOAuthJson
             pendingOAuthJson = null
             return result ?: ""
-        }
-
-        @JavascriptInterface
-        fun setPageCanScrollUp(canScroll: Boolean) {
-            pageCanScrollUp = canScroll
         }
 
         @JavascriptInterface
