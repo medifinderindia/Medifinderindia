@@ -39,22 +39,12 @@ class MainActivity : Activity() {
     // WebView.getUrl() may only be called on the UI thread, but @JavascriptInterface methods run on the
     // "JavaBridge" thread. The host is therefore cached here from WebViewClient callbacks (UI thread).
     @Volatile private var currentPageHost: String? = null
-    @Volatile private var lastHttpUrl: String = homeUrl
-    @Volatile private var showingOfflinePage: Boolean = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
-        // Pull-to-refresh is intentionally disabled. The WebView is the root view,
-        // so downward swipes only scroll the page and never trigger a reload.
-        setContentView(
-            webView,
-            android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
+        setContentView(webView)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -65,32 +55,7 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                val parsed = try { Uri.parse(url ?: "") } catch (_: Exception) { null }
-                currentPageHost = parsed?.host
-                if (parsed != null && (parsed.scheme == "https" || parsed.scheme == "http") &&
-                    (parsed.host == "medifinderindia.com" || parsed.host == "www.medifinderindia.com")) {
-                    lastHttpUrl = parsed.toString()
-                    showingOfflinePage = false
-                }
-            }
-
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
-                super.onReceivedError(view, request, error)
-                if (!request.isForMainFrame) return
-                val failed = request.url
-                if (failed.scheme != "https" && failed.scheme != "http") return
-                if (failed.host != "medifinderindia.com" && failed.host != "www.medifinderindia.com") return
-                lastHttpUrl = failed.toString()
-                showingOfflinePage = true
-                val offlineHtml = """
-                    <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-                    <style>body{margin:0;background:#f5f6fa;color:#202433;font:16px system-ui;display:flex;min-height:90vh;align-items:center;justify-content:center;text-align:center}
-                    main{padding:30px;max-width:360px} .icon{font-size:54px}h2{font-size:23px;margin:16px 0 8px}p{color:#727887;line-height:1.5}
-                    button{border:0;border-radius:14px;background:#d6334a;color:white;font-weight:700;font-size:16px;padding:14px 24px;margin-top:14px;box-shadow:0 6px 18px #d6334a33}</style></head>
-                    <body><main><div class="icon">📶</div><h2>You’re offline</h2><p>MediFinder India couldn’t connect. Check your internet connection and try again.</p>
-                    <button onclick="window.MFAndroid&&window.MFAndroid.retryLoad()">Try Again</button></main></body></html>
-                """.trimIndent()
-                view.post { view.loadDataWithBaseURL("https://www.medifinderindia.com/", offlineHtml, "text/html", "UTF-8", null) }
+                currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                 super.doUpdateVisitedHistory(view, url, isReload)
@@ -169,33 +134,21 @@ class MainActivity : Activity() {
             }
 
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
-                // Never grant geolocation to origins outside the HTTPS MediFinder website.
                 if (!isTrustedOrigin(Uri.parse(origin))) {
                     callback.invoke(origin, false, false)
                     return
                 }
-
-                // Keep the callback alive across Android's asynchronous permission prompt.
-                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
-                pendingGeoOrigin = origin
-                pendingGeoCallback = callback
-
-                if (hasLocationPermission()) {
-                    continueGeolocationRequest()
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    callback.invoke(origin, true, false)
                 } else {
+                    pendingGeoOrigin = origin
+                    pendingGeoCallback = callback
                     requestPermissions(
                         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                         locationRequestCode
                     )
                 }
-            }
-
-            override fun onGeolocationPermissionsHidePrompt() {
-                // WebView can hide its prompt while navigating away. Resolve any still-pending
-                // request instead of leaving the JavaScript geolocation call hanging forever.
-                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
-                pendingGeoCallback = null
-                pendingGeoOrigin = null
             }
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -241,129 +194,6 @@ class MainActivity : Activity() {
             val result = pendingOAuthJson
             pendingOAuthJson = null
             return result ?: ""
-        }
-
-        @JavascriptInterface
-        fun retryLoad(): Boolean {
-            if (!isOurPage()) return false
-            runOnUiThread {
-                showingOfflinePage = false
-                webView.loadUrl(lastHttpUrl.ifBlank { homeUrl })
-            }
-            return true
-        }
-
-        @JavascriptInterface
-        fun shareContent(title: String?, text: String?, url: String?): Boolean {
-            if (!isOurPage()) return false
-            val payload = listOf(text, url).filterNot { it.isNullOrBlank() }.joinToString("\\n")
-            if (payload.isBlank()) return false
-            runOnUiThread {
-                try {
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, title?.take(160) ?: "MediFinder India")
-                        putExtra(Intent.EXTRA_TEXT, payload)
-                    }
-                    startActivity(Intent.createChooser(send, "Share with"))
-                } catch (_: Exception) {
-                    Toast.makeText(this@MainActivity, "Unable to open sharing apps", Toast.LENGTH_SHORT).show()
-                }
-            }
-            return true
-        }
-
-        @JavascriptInterface
-        fun openUpiPayment(url: String?): Boolean {
-            if (!isOurPage() || url.isNullOrBlank()) return false
-            val uri = try { Uri.parse(url) } catch (_: Exception) { return false }
-            if (uri.scheme != "upi" || uri.host != "pay") return false
-            return try {
-                val intent = Intent(Intent.ACTION_VIEW, uri)
-                if (intent.resolveActivity(packageManager) == null) {
-                    Toast.makeText(this@MainActivity, "No UPI app found. Please use the QR Code option.", Toast.LENGTH_LONG).show()
-                    false
-                } else {
-                    runOnUiThread { startActivity(Intent.createChooser(intent, "Pay with UPI")) }
-                    true
-                }
-            } catch (_: Exception) { false }
-        }
-
-        @JavascriptInterface
-        fun copyText(text: String?): Boolean {
-            if (!isOurPage() || text.isNullOrEmpty()) return false
-            runOnUiThread {
-                try {
-                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MediFinder India", text))
-                    Toast.makeText(this@MainActivity, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                } catch (_: Exception) {
-                    Toast.makeText(this@MainActivity, "Could not copy text", Toast.LENGTH_SHORT).show()
-                }
-            }
-            return true
-        }
-    }
-
-    private fun hasLocationPermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun continueGeolocationRequest() {
-        val origin = pendingGeoOrigin ?: return
-        val callback = pendingGeoCallback ?: return
-        if (!isTrustedOrigin(Uri.parse(origin)) || !hasLocationPermission()) {
-            callback.invoke(origin, false, false)
-            pendingGeoCallback = null
-            pendingGeoOrigin = null
-            return
-        }
-
-        val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
-        val locationEnabled = try {
-            locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
-        } catch (_: Exception) {
-            false
-        }
-
-        if (locationEnabled) {
-            callback.invoke(origin, true, false)
-            pendingGeoCallback = null
-            pendingGeoOrigin = null
-        } else {
-            android.app.AlertDialog.Builder(this)
-                .setTitle("Turn on location")
-                .setMessage("MediFinder needs your device location to find nearby services. Turn on Location, then return to the app.")
-                .setPositiveButton("Location settings") { _, _ ->
-                    try {
-                        startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                    } catch (_: Exception) {
-                        Toast.makeText(this, "Please turn on Location in Settings", Toast.LENGTH_LONG).show()
-                    }
-                    // Keep the callback until the user returns; onResume will resolve it.
-                }
-                .setNegativeButton("Not now") { _, _ ->
-                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
-                    pendingGeoCallback = null
-                    pendingGeoOrigin = null
-                }
-                .setOnCancelListener {
-                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
-                    pendingGeoCallback = null
-                    pendingGeoOrigin = null
-                }
-                .show()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // The user may have enabled Location in Android Settings while the web request was waiting.
-        if (pendingGeoCallback != null && hasLocationPermission()) {
-            continueGeolocationRequest()
         }
     }
 
@@ -424,14 +254,11 @@ class MainActivity : Activity() {
                 }
             }
             locationRequestCode -> {
-                if (hasLocationPermission()) {
-                    continueGeolocationRequest()
-                } else {
-                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
-                    pendingGeoCallback = null
-                    pendingGeoOrigin = null
-                    Toast.makeText(this, "Location permission is needed to find nearby services.", Toast.LENGTH_LONG).show()
-                }
+                val granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+                pendingGeoCallback = null
+                pendingGeoOrigin = null
             }
         }
     }
