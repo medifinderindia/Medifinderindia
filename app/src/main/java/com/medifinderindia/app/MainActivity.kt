@@ -69,11 +69,41 @@ class MainActivity : Activity() {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
         ))
 
+        // Configure WebView as the rendering surface of the Android app, not as a browser tab.
+        // Keep native scrolling/touch physics and avoid accidental zoom/overscroll gestures.
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
         webView.settings.javaScriptCanOpenWindowsAutomatically = false
+        webView.settings.loadsImagesAutomatically = true
+        webView.settings.mediaPlaybackRequiresUserGesture = true
+        webView.settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+        webView.settings.textZoom = 100
+        webView.settings.setSupportZoom(false)
+        webView.settings.builtInZoomControls = false
+        webView.settings.displayZoomControls = false
         webView.settings.setGeolocationEnabled(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.settings.safeBrowsingEnabled = true
+        }
+        webView.isVerticalScrollBarEnabled = false
+        webView.isHorizontalScrollBarEnabled = false
+        webView.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        window.statusBarColor = Color.rgb(247, 248, 255)
+        window.navigationBarColor = Color.rgb(247, 248, 255)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            window.decorView.systemUiVisibility =
+                window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
         webView.addJavascriptInterface(MFAndroidBridge(), "MFAndroid")
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
@@ -236,7 +266,12 @@ class MainActivity : Activity() {
             pendingOAuthJson = coldOAuth
             setIntent(Intent(Intent.ACTION_MAIN))
             webView.loadUrl("https://www.medifinderindia.com/auth.html?oauth=app")
-        } else if (savedInstanceState == null) webView.loadUrl(homeUrl) else webView.restoreState(savedInstanceState)
+        } else {
+            // Restore the existing page/history after Activity recreation. Only open home when
+            // Android has no usable WebView state; never reload the page just to redraw the UI.
+            val restored = if (savedInstanceState != null) webView.restoreState(savedInstanceState) else null
+            if (restored == null) webView.loadUrl(homeUrl)
+        }
     }
 
 
