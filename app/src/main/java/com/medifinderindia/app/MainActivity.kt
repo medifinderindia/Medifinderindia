@@ -19,7 +19,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import java.io.File
 import android.net.Uri
 import android.os.Build
@@ -39,7 +38,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
-    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private var offlineView: View? = null
     private var lastGoodUrl: String = "https://www.medifinderindia.com/"
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -65,23 +63,11 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
-        swipeRefreshLayout = SwipeRefreshLayout(this).apply {
-            setColorSchemeColors(Color.rgb(205, 45, 78), Color.rgb(30, 150, 125))
-            setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
-            setOnRefreshListener {
-                if (hasInternetConnection()) {
-                    webView.reload()
-                } else {
-                    isRefreshing = false
-                    showOfflineScreen()
-                }
-            }
-        }
-        swipeRefreshLayout.addView(webView, android.view.ViewGroup.LayoutParams(
+        webView.setBackgroundColor(Color.rgb(247, 248, 255))
+        setContentView(webView, android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
         ))
-        setContentView(swipeRefreshLayout)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -92,7 +78,6 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                swipeRefreshLayout.isRefreshing = false
                 currentPageHost = try { Uri.parse(url ?: "").host } catch (_: Exception) { null }
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -102,7 +87,6 @@ class MainActivity : Activity() {
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
                 super.onReceivedError(view, request, error)
                 if (request.isForMainFrame) {
-                    swipeRefreshLayout.isRefreshing = false
                     val failed = request.url?.toString()
                     if (!failed.isNullOrBlank()) lastGoodUrl = failed
                     showOfflineScreen()
@@ -114,7 +98,6 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
-                swipeRefreshLayout.isRefreshing = false
                 if (url != null && (url.startsWith("https://www.medifinderindia.com") || url.startsWith("https://medifinderindia.com"))) {
                     lastGoodUrl = url
                     hideOfflineScreen()
@@ -230,17 +213,19 @@ class MainActivity : Activity() {
                     callback.invoke(origin, false, false)
                     return
                 }
-                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    callback.invoke(origin, true, false)
-                } else {
-                    pendingGeoOrigin = origin
-                    pendingGeoCallback = callback
-                    requestPermissions(
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                        locationRequestCode
-                    )
-                }
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoOrigin = origin
+                pendingGeoCallback = callback
+                if (hasLocationPermission()) continueGeolocationRequest() else requestPermissions(
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                    locationRequestCode
+                )
+            }
+
+            override fun onGeolocationPermissionsHidePrompt() {
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoCallback = null
+                pendingGeoOrigin = null
             }
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -354,7 +339,7 @@ class MainActivity : Activity() {
         runOnUiThread {
             if (offlineView != null) {
                 offlineView = null
-                if (::webView.isInitialized) setContentView(swipeRefreshLayout)
+                if (::webView.isInitialized) setContentView(webView)
             }
         }
     }
@@ -460,6 +445,45 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun hasLocationPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun continueGeolocationRequest() {
+        val origin = pendingGeoOrigin ?: return
+        val callback = pendingGeoCallback ?: return
+        if (!isTrustedOrigin(Uri.parse(origin)) || !hasLocationPermission()) {
+            callback.invoke(origin, false, false); pendingGeoCallback = null; pendingGeoOrigin = null; return
+        }
+        val manager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
+        val enabled = try {
+            manager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
+                manager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) { false }
+        if (enabled) {
+            callback.invoke(origin, true, false); pendingGeoCallback = null; pendingGeoOrigin = null
+        } else {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Turn on location")
+                .setMessage("MediFinder needs your device location to find nearby services. Turn on Location, then return to the app.")
+                .setPositiveButton("Location settings") { _, _ ->
+                    try { startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
+                    catch (_: Exception) { Toast.makeText(this, "Please turn on Location in Settings", Toast.LENGTH_LONG).show() }
+                }
+                .setNegativeButton("Not now") { _, _ ->
+                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false); pendingGeoCallback = null; pendingGeoOrigin = null
+                }
+                .setOnCancelListener {
+                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false); pendingGeoCallback = null; pendingGeoOrigin = null
+                }.show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingGeoCallback != null && hasLocationPermission()) continueGeolocationRequest()
+    }
+
     private fun isOurPage(): Boolean {
         val host = currentPageHost
         return host == "medifinderindia.com" || host == "www.medifinderindia.com"
@@ -517,11 +541,13 @@ class MainActivity : Activity() {
                 }
             }
             locationRequestCode -> {
-                val granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
-                pendingGeoCallback = null
-                pendingGeoOrigin = null
+                if (pendingGeoCallback != null) {
+                    if (hasLocationPermission()) continueGeolocationRequest() else {
+                        pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                        pendingGeoCallback = null; pendingGeoOrigin = null
+                        Toast.makeText(this, "Location permission is needed to find nearby services.", Toast.LENGTH_LONG).show()
+                    }
+                }
                 webView.evaluateJavascript("window.MFApp&&window.MFApp.refresh&&window.MFApp.refresh()", null)
             }
             notificationRequestCode, webPermissionRequestCode + 10 -> {
