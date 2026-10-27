@@ -169,21 +169,33 @@ class MainActivity : Activity() {
             }
 
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                // Never grant geolocation to origins outside the HTTPS MediFinder website.
                 if (!isTrustedOrigin(Uri.parse(origin))) {
                     callback.invoke(origin, false, false)
                     return
                 }
-                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    callback.invoke(origin, true, false)
+
+                // Keep the callback alive across Android's asynchronous permission prompt.
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoOrigin = origin
+                pendingGeoCallback = callback
+
+                if (hasLocationPermission()) {
+                    continueGeolocationRequest()
                 } else {
-                    pendingGeoOrigin = origin
-                    pendingGeoCallback = callback
                     requestPermissions(
                         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                         locationRequestCode
                     )
                 }
+            }
+
+            override fun onGeolocationPermissionsHidePrompt() {
+                // WebView can hide its prompt while navigating away. Resolve any still-pending
+                // request instead of leaving the JavaScript geolocation call hanging forever.
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoCallback = null
+                pendingGeoOrigin = null
             }
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -294,6 +306,67 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun hasLocationPermission(): Boolean {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun continueGeolocationRequest() {
+        val origin = pendingGeoOrigin ?: return
+        val callback = pendingGeoCallback ?: return
+        if (!isTrustedOrigin(Uri.parse(origin)) || !hasLocationPermission()) {
+            callback.invoke(origin, false, false)
+            pendingGeoCallback = null
+            pendingGeoOrigin = null
+            return
+        }
+
+        val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
+        val locationEnabled = try {
+            locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
+
+        if (locationEnabled) {
+            callback.invoke(origin, true, false)
+            pendingGeoCallback = null
+            pendingGeoOrigin = null
+        } else {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Turn on location")
+                .setMessage("MediFinder needs your device location to find nearby services. Turn on Location, then return to the app.")
+                .setPositiveButton("Location settings") { _, _ ->
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "Please turn on Location in Settings", Toast.LENGTH_LONG).show()
+                    }
+                    // Keep the callback until the user returns; onResume will resolve it.
+                }
+                .setNegativeButton("Not now") { _, _ ->
+                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                    pendingGeoCallback = null
+                    pendingGeoOrigin = null
+                }
+                .setOnCancelListener {
+                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                    pendingGeoCallback = null
+                    pendingGeoOrigin = null
+                }
+                .show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The user may have enabled Location in Android Settings while the web request was waiting.
+        if (pendingGeoCallback != null && hasLocationPermission()) {
+            continueGeolocationRequest()
+        }
+    }
+
     private fun isOurPage(): Boolean {
         val host = currentPageHost
         return host == "medifinderindia.com" || host == "www.medifinderindia.com"
@@ -351,11 +424,14 @@ class MainActivity : Activity() {
                 }
             }
             locationRequestCode -> {
-                val granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
-                pendingGeoCallback = null
-                pendingGeoOrigin = null
+                if (hasLocationPermission()) {
+                    continueGeolocationRequest()
+                } else {
+                    pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                    pendingGeoCallback = null
+                    pendingGeoOrigin = null
+                    Toast.makeText(this, "Location permission is needed to find nearby services.", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
