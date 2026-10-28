@@ -34,10 +34,12 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
     private var offlineView: View? = null
     private var lastGoodUrl: String = "https://www.medifinderindia.com/"
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -64,7 +66,31 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         webView = WebView(this)
         webView.setBackgroundColor(Color.rgb(247, 248, 255))
-        setContentView(webView, android.view.ViewGroup.LayoutParams(
+        swipeRefresh = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(Color.rgb(205, 40, 70))
+            setDistanceToTriggerSync((120 * resources.displayMetrics.density).toInt())
+            setOnChildScrollUpCallback { _, _ ->
+                webView.scrollY > 0 || webView.canScrollVertically(-1)
+            }
+            setOnRefreshListener {
+                val url = webView.url.orEmpty().lowercase()
+                val blocked = offlineView != null ||
+                    url.contains("checkout") || url.contains("payment") ||
+                    url.contains("upi") || url.contains("oauth") ||
+                    url.contains("auth.html") || url.contains("login")
+                if (blocked || webView.scrollY > 0 || webView.canScrollVertically(-1)) {
+                    isRefreshing = false
+                } else {
+                    webView.reload()
+                    webView.postDelayed({ isRefreshing = false }, 15_000)
+                }
+            }
+            addView(webView, android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+        }
+        setContentView(swipeRefresh, android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
         ))
@@ -116,6 +142,7 @@ class MainActivity : Activity() {
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
                 super.onReceivedError(view, request, error)
+                if (::swipeRefresh.isInitialized) swipeRefresh.isRefreshing = false
                 if (request.isForMainFrame) {
                     val failed = request.url?.toString()
                     if (!failed.isNullOrBlank()) lastGoodUrl = failed
@@ -128,6 +155,7 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                if (::swipeRefresh.isInitialized) swipeRefresh.isRefreshing = false
                 if (url != null && (url.startsWith("https://www.medifinderindia.com") || url.startsWith("https://medifinderindia.com"))) {
                     lastGoodUrl = url
                     hideOfflineScreen()
@@ -374,7 +402,7 @@ class MainActivity : Activity() {
         runOnUiThread {
             if (offlineView != null) {
                 offlineView = null
-                if (::webView.isInitialized) setContentView(webView)
+                if (::webView.isInitialized) setContentView(if (::swipeRefresh.isInitialized) swipeRefresh else webView)
             }
         }
     }
