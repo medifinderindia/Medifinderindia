@@ -382,6 +382,42 @@ class MainActivity : Activity() {
     private inner class MFAndroidBridge {
         @JavascriptInterface
         fun shareContent(title: String?, text: String?, url: String?): Boolean {
+            val parts = listOf(text?.trim().orEmpty(), url?.trim().orEmpty())
+                .filter { it.isNotBlank() }
+                .distinct()
+            val shareText = parts.joinToString("\n")
+            if (shareText.isBlank()) return false
+            runOnUiThread {
+                try {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                    }
+                    startActivity(Intent.createChooser(sendIntent, title?.takeIf { it.isNotBlank() } ?: "Share with"))
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "No sharing apps available", Toast.LENGTH_SHORT).show()
+                }
+            }
+            return true
+        }
+
+        @JavascriptInterface
+        fun copyText(value: String?): Boolean {
+            val text = value.orEmpty()
+            if (text.isBlank()) return false
+            runOnUiThread {
+                try {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MediFinder India link", text))
+                    Toast.makeText(this@MainActivity, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "Could not copy link", Toast.LENGTH_SHORT).show()
+                }
+            }
+            return true
+        }
+        @JavascriptInterface
+        fun shareContent(title: String?, text: String?, url: String?): Boolean {
             val shareText = listOf(text?.trim().orEmpty(), url?.trim().orEmpty())
                 .filter { it.isNotBlank() }
                 .distinct()
