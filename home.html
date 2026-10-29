@@ -235,7 +235,7 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         <div class="header-actions">
             <button type="button" class="mf-guest-login-btn" data-mf-guest-only onclick="mfOpenLogin()"><i class="fa-solid fa-user"></i><span class="mf-lbl-long">Login / Sign up</span><span class="mf-lbl-short">Login</span></button>
             <div class="notification-container" style="position:relative;">
-                <button class="action-btn pulse-btn" id="notiBtn">
+                <button type="button" class="action-btn pulse-btn" id="notiBtn" data-no-spin aria-label="Open notifications">
                     <i class="fas fa-bell"></i>
                     <span class="badge" id="noti-badge" style="display:none;">0</span>
                 </button>
@@ -561,6 +561,29 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
             <button type="button" class="mf-svc-toggle" id="mf-faq-toggle" style="display:none">Show all questions</button>
             <a class="mf-readmore" href="info.html#faq">Open full FAQ page <i class="fa-solid fa-arrow-right"></i></a>
         </div>
+    </section>
+
+    <section class="mf-app-download" aria-labelledby="mf-app-download-title">
+        <style>
+            .mf-app-download{margin:24px auto 0;padding:28px 18px;max-width:1080px;border-radius:22px;background:linear-gradient(135deg,#fff5f6,#f3f6ff);border:1px solid #f1dfe3;text-align:center;color:#20283a}
+            .mf-app-download h2{margin:0 0 8px;font-size:clamp(20px,3vw,28px);font-weight:800}
+            .mf-app-download p{margin:0 auto 18px;max-width:620px;color:#687184;line-height:1.6;font-size:14px}
+            .mf-app-download-actions{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px}
+            .mf-app-download-badge{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:48px;padding:10px 16px;border-radius:13px;font-weight:800;font-size:13px;text-decoration:none}
+            .mf-app-download-badge.mf-apk{background:#d6334a;color:#fff;box-shadow:0 8px 20px #d6334a30}
+            .mf-app-download-badge.mf-coming{background:#fff;color:#737b8a;border:1px solid #e2e5eb;cursor:default}
+            .mf-app-download-note{display:block!important;margin:12px auto 0!important;font-size:11px!important;color:#7c8492!important}
+        </style>
+        <h2 id="mf-app-download-title">Get the MediFinder India App</h2>
+        <p>Install our latest Android APK directly. Google Play Store and Apple App Store versions are coming soon.</p>
+        <div class="mf-app-download-actions">
+            <a class="mf-app-download-badge mf-apk" href="https://github.com/medifinderindia/Medifinderindia/actions" target="_blank" rel="noopener">
+                <i class="fa-brands fa-android" aria-hidden="true"></i> Download Latest APK
+            </a>
+            <span class="mf-app-download-badge mf-coming"><i class="fa-brands fa-google-play" aria-hidden="true"></i> Play Store · Coming Soon</span>
+            <span class="mf-app-download-badge mf-coming"><i class="fa-brands fa-apple" aria-hidden="true"></i> App Store · Coming Soon</span>
+        </div>
+        <p class="mf-app-download-note">APK download opens GitHub Actions. Choose the latest successful build and download the “medifinder-android-debug-apk” artifact ZIP.</p>
     </section>
 
     <footer class="mf-public-footer">
