@@ -8,7 +8,7 @@
   var GRACE        = 250;   // chained requests keep the same spinner
   var MAX_MS       = 20000; // safety: never spin longer than this
   var OK_MS = 1100, ERR_MS = 2200;
-  var SKIP   = 'nav, .bottom-nav, .nav-bar, [role="tablist"], .tabs, .sidebar, .icon-btn, .hamburger, #notiBtn, #pd-share-btn, .share-btn, [data-no-spin], [data-nav], [data-tab], [data-nav-child], [data-close-modal]';
+  var SKIP   = 'nav, .bottom-nav, .nav-bar, [role="tablist"], .tabs, .sidebar, .icon-btn, .hamburger, .notification-container, #notiBtn, #pd-share-btn, .share-btn, [data-no-spin], [data-nav], [data-tab], [data-nav-child], [data-close-modal]';
   var TARGET = 'button, .btn, [role="button"], input[type="submit"]';
   var current = null;
 
