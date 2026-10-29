@@ -662,7 +662,41 @@ class MainActivity : Activity() {
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (!::webView.isInitialized) {
+            super.onBackPressed()
+            return
+        }
+
+        val currentUrl = webView.url.orEmpty()
+        val currentPath = runCatching { Uri.parse(currentUrl).path.orEmpty().lowercase() }.getOrDefault("")
+        val isLoginPage = currentPath.contains("login") ||
+            currentPath.contains("auth") ||
+            currentUrl.contains("signin", ignoreCase = true) ||
+            currentUrl.contains("signup", ignoreCase = true)
+
+        if (webView.canGoBack()) {
+            // Never return from an authenticated role home page to a stale login/signup entry.
+            if (isLoginPage) {
+                var stepsBack = 0
+                while (webView.canGoBack() && stepsBack < 12) {
+                    webView.goBack()
+                    stepsBack++
+                    val targetPath = runCatching { Uri.parse(webView.url.orEmpty()).path.orEmpty().lowercase() }.getOrDefault("")
+                    if (!targetPath.contains("login") && !targetPath.contains("auth") &&
+                        !webView.url.orEmpty().contains("signin", ignoreCase = true) &&
+                        !webView.url.orEmpty().contains("signup", ignoreCase = true)) {
+                        return
+                    }
+                }
+                // If the remaining history only contains auth pages, close the app instead.
+                finish()
+                return
+            }
+            webView.goBack()
+        } else {
+            // No in-app page history: close the activity rather than forcing a login/home redirect.
+            finish()
+        }
     }
 
     override fun onDestroy() {
