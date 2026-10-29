@@ -2281,8 +2281,15 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
         var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
         (async function () {
             try {
-                if (navigator.share) await navigator.share(data);
-                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
+                // Prefer Android's native chooser directly in the WebView; never silently
+                // turn a Share tap into a clipboard-copy action on Android.
+                if (window.MFAndroid && typeof window.MFAndroid.shareContent === 'function') {
+                    window.MFAndroid.shareContent(data.title, data.text, data.url);
+                } else if (navigator.share) {
+                    await navigator.share(data);
+                } else {
+                    toast('Sharing is not available on this device', 'warning');
+                }
             } catch (err) { /* cancelled */ }
         })();
     }, true);
