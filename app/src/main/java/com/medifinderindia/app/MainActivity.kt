@@ -667,36 +667,27 @@ class MainActivity : Activity() {
             return
         }
 
-        val currentUrl = webView.url.orEmpty()
-        val currentPath = runCatching { Uri.parse(currentUrl).path.orEmpty().lowercase() }.getOrDefault("")
-        val isLoginPage = currentPath.contains("login") ||
-            currentPath.contains("auth") ||
-            currentUrl.contains("signin", ignoreCase = true) ||
-            currentUrl.contains("signup", ignoreCase = true)
+        val history = webView.copyBackForwardList()
+        val currentIndex = history.currentIndex
+        fun isAuthUrl(url: String): Boolean {
+            val lower = url.lowercase()
+            val path = runCatching { Uri.parse(url).path.orEmpty().lowercase() }.getOrDefault("")
+            return path.contains("login") || path.contains("signin") ||
+                path.contains("signup") || path.contains("auth") ||
+                lower.contains("signin") || lower.contains("signup")
+        }
 
-        if (webView.canGoBack()) {
-            // Never return from an authenticated role home page to a stale login/signup entry.
-            if (isLoginPage) {
-                var stepsBack = 0
-                while (webView.canGoBack() && stepsBack < 12) {
-                    webView.goBack()
-                    stepsBack++
-                    val targetPath = runCatching { Uri.parse(webView.url.orEmpty()).path.orEmpty().lowercase() }.getOrDefault("")
-                    if (!targetPath.contains("login") && !targetPath.contains("auth") &&
-                        !webView.url.orEmpty().contains("signin", ignoreCase = true) &&
-                        !webView.url.orEmpty().contains("signup", ignoreCase = true)) {
-                        return
-                    }
-                }
-                // If the remaining history only contains auth pages, close the app instead.
-                finish()
+        // Skip stale login/signup pages in WebView history after role-based login.
+        for (index in currentIndex - 1 downTo 0) {
+            val itemUrl = history.getItemAtIndex(index)?.url.orEmpty()
+            if (itemUrl.isNotBlank() && !isAuthUrl(itemUrl)) {
+                webView.goBackOrForward(index - currentIndex)
                 return
             }
-            webView.goBack()
-        } else {
-            // No in-app page history: close the activity rather than forcing a login/home redirect.
-            finish()
         }
+
+        // No safe in-app history remains: close the app instead of returning to login.
+        finish()
     }
 
     override fun onDestroy() {
