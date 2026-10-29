@@ -563,6 +563,37 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
         </div>
     </section>
 
+    <style id="mf-app-download-css">
+        /* Website-only Android app download panel; hidden in the native WebView app */
+        .mf-app-download{background:linear-gradient(135deg,#172033,#263650);padding:28px 16px;color:#fff;border-top:1px solid rgba(255,255,255,.08)}
+        .mf-app-download-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+        .mf-app-download-copy{min-width:0;flex:1}
+        .mf-app-download-kicker{font-size:11px;letter-spacing:1.2px;font-weight:800;color:#ffb7c0;display:flex;align-items:center;gap:8px}
+        .mf-app-download h3{font-size:clamp(20px,3vw,28px);line-height:1.2;margin:9px 0 7px;color:#fff}
+        .mf-app-download p{font-size:13px;line-height:1.6;color:#c8d0df;margin:0}
+        .mf-store-badges{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+        .mf-store-badge{display:inline-flex;align-items:center;gap:10px;border:1px solid #536076;background:#202c40;border-radius:10px;padding:9px 12px}
+        .mf-store-badge>i{font-size:21px;color:#fff}.mf-store-badge span{display:flex;flex-direction:column;gap:2px}.mf-store-badge small{font-size:8px;letter-spacing:.5px;color:#c8d0df}.mf-store-badge b{font-size:11px;color:#fff}
+        .mf-apk-download-btn{display:inline-flex;align-items:center;gap:12px;background:#D6334A;color:#fff!important;text-decoration:none!important;padding:15px 18px;border-radius:14px;box-shadow:0 8px 22px rgba(214,51,74,.28);transition:transform .18s ease,background .18s ease;flex-shrink:0}
+        .mf-apk-download-btn:hover{background:#bf263c;transform:translateY(-2px)}.mf-apk-download-btn>i:first-child{font-size:25px}.mf-apk-download-btn span{display:flex;flex-direction:column;gap:4px}.mf-apk-download-btn b{font-size:14px}.mf-apk-download-btn small{font-size:11px;color:#ffe1e5}.mf-apk-arrow{font-size:15px;margin-left:4px}
+        @media(max-width:600px){.mf-app-download-inner{align-items:stretch}.mf-apk-download-btn{justify-content:center}.mf-store-badges{display:grid;grid-template-columns:1fr}.mf-store-badge{min-width:0}}
+</style>
+<section id="mf-app-download" class="mf-app-download" aria-label="Get the MediFinder India app">
+            <div class="mf-app-download-inner">
+                <div class="mf-app-download-copy">
+                    <span class="mf-app-download-kicker"><i class="fa-solid fa-mobile-screen-button"></i> MEDIFINDER INDIA APP</span>
+                    <h3>Healthcare, right at your fingertips</h3>
+                    <p>Google Play Store and Apple App Store versions are coming soon.</p>
+                    <div class="mf-store-badges" aria-label="App stores coming soon">
+                        <span class="mf-store-badge"><i class="fa-brands fa-google-play"></i><span><small>GET IT ON</small><b>Google Play · Coming Soon</b></span></span>
+                        <span class="mf-store-badge"><i class="fa-brands fa-apple"></i><span><small>AVAILABLE ON THE</small><b>App Store · Coming Soon</b></span></span>
+                    </div>
+                </div>
+                <a class="mf-apk-download-btn" href="https://github.com/medifinderindia/Medifinderindia/releases/download/latest-apk/medifinder-india-latest.apk" download>
+                    <i class="fa-brands fa-android"></i><span><b>Download Latest APK</b><small>Direct download · Android</small></span><i class="fa-solid fa-download mf-apk-arrow"></i>
+                </a>
+            </div>
+        </section>
     <footer class="mf-public-footer">
         <div class="mf-sub">
             <h4>Subscribe</h4>
@@ -2869,6 +2900,16 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
     };
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init();
+})();
+</script>
+<script>
+/* Show the APK promotion on the public website, not inside the Android WebView app. */
+(function(){
+  var panel=document.getElementById('mf-app-download');
+  if(!panel) return;
+  var ua=navigator.userAgent||'';
+  var nativeApp=!!window.MFAndroid || /; wv\)/i.test(ua) || (/Android/i.test(ua) && /Version\/4\.0/i.test(ua));
+  if(nativeApp){panel.hidden=true;panel.setAttribute('aria-hidden','true');}
 })();
 </script>
 </body>
