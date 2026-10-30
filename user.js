@@ -4,6 +4,16 @@ function mfEsc(v) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
 }
+/* Android bridge compatibility: native share sheet and clipboard for WebView. */
+(function mfNativeShareAndRefresh(){
+  try {
+    var bridge = window.MFAndroid;
+    if (bridge && typeof bridge.shareContent === 'function') {
+      try { Object.defineProperty(navigator, 'share', { configurable:true, value:function(data){ data=data||{}; var ok=bridge.shareContent(String(data.title||'MediFinder India'),String(data.text||''),String(data.url||location.href)); return ok?Promise.resolve():Promise.reject(new Error('Native share unavailable')); }}); } catch (_) {}
+      try { if (!navigator.clipboard) Object.defineProperty(navigator,'clipboard',{configurable:true,value:{}}); Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:function(value){ return bridge.copyText(String(value==null?'':value))?Promise.resolve():Promise.reject(new Error('Native clipboard unavailable')); }}); } catch (_) {}
+    }
+  } catch (_) {}
+
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 window.supabaseClient = supabase; // shared with offer.js
 
@@ -294,11 +304,9 @@ function handleGeolocationError(err) {
 // call site in this file gets the same options + friendly error handling +
 // "browser unsupported" guard, without duplicating that boilerplate everywhere.
 function safeWatchPosition(onSuccess, options) {
-    if (!navigator.geolocation) {
-        handleGeolocationError({ code: 0 });
-        return null;
-    }
-    return navigator.geolocation.watchPosition(onSuccess, handleGeolocationError, options || GEO_OPTIONS_WATCH);
+    if (!navigator.geolocation) return null;
+    // Automatic background location checks must not interrupt normal browsing or checkout.
+    return navigator.geolocation.watchPosition(onSuccess, function () {}, options || GEO_OPTIONS_WATCH);
 }
 function safeGetCurrentPosition(onSuccess, options, silent) {
     if (!navigator.geolocation) {
@@ -2273,8 +2281,15 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
         var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
         (async function () {
             try {
-                if (navigator.share) await navigator.share(data);
-                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
+                // Prefer Android's native chooser directly in the WebView; never silently
+                // turn a Share tap into a clipboard-copy action on Android.
+                if (window.MFAndroid && typeof window.MFAndroid.shareContent === 'function') {
+                    window.MFAndroid.shareContent(data.title, data.text, data.url);
+                } else if (navigator.share) {
+                    await navigator.share(data);
+                } else {
+                    toast('Sharing is not available on this device', 'warning');
+                }
             } catch (err) { /* cancelled */ }
         })();
     }, true);
@@ -5136,18 +5151,23 @@ function handlePayWithUpiClick() {
     document.addEventListener('visibilitychange', markOpened, { once: true });
     window.addEventListener('blur', markOpened, { once: true });
 
-    window.location.href = upiLink;
+    let launchRequested = false;
+    const hasNativeUpiBridge = !!(window.MFAndroid && typeof window.MFAndroid.openUpiPayment === 'function');
+    try {
+        if (hasNativeUpiBridge) launchRequested = !!window.MFAndroid.openUpiPayment(upiLink);
+        else { window.location.href = upiLink; launchRequested = true; }
+    } catch (_) {}
 
     setTimeout(() => {
         document.removeEventListener('visibilitychange', markOpened);
         window.removeEventListener('blur', markOpened);
-        if (!appOpened) {
-            showStatus('Unable to open UPI app? Please use the QR Code option below.', '#ff4d4d');
-        } else {
+        if (appOpened || launchRequested) {
             selectedOnlinePaymentMethod = 'UPI';
             showUpiPaymentConfirmStep();
+        } else {
+            showStatus('No UPI app could be opened. Please use the QR Code option below.', '#ff4d4d');
         }
-    }, 2000);
+    }, 900);
 }
 
 async function handlePlaceOrderClick() {
