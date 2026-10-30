@@ -564,36 +564,81 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
     </section>
 
     <style id="mf-app-download-css">
-        /* Website-only Android app download panel; hidden in the native WebView app */
-        .mf-app-download{background:linear-gradient(135deg,#172033,#263650);padding:28px 16px;color:#fff;border-top:1px solid rgba(255,255,255,.08)}
-        .mf-app-download-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
-        .mf-app-download-copy{min-width:0;flex:1}
-        .mf-app-download-kicker{font-size:11px;letter-spacing:1.2px;font-weight:800;color:#ffb7c0;display:flex;align-items:center;gap:8px}
-        .mf-app-download h3{font-size:clamp(20px,3vw,28px);line-height:1.2;margin:9px 0 7px;color:#fff}
-        .mf-app-download p{font-size:13px;line-height:1.6;color:#c8d0df;margin:0}
-        .mf-store-badges{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
-        .mf-store-badge{display:inline-flex;align-items:center;gap:10px;border:1px solid #536076;background:#202c40;border-radius:10px;padding:9px 12px}
-        .mf-store-badge>i{font-size:21px;color:#fff}.mf-store-badge span{display:flex;flex-direction:column;gap:2px}.mf-store-badge small{font-size:8px;letter-spacing:.5px;color:#c8d0df}.mf-store-badge b{font-size:11px;color:#fff}
-        .mf-apk-download-btn{display:inline-flex;align-items:center;gap:12px;background:#D6334A;color:#fff!important;text-decoration:none!important;padding:15px 18px;border-radius:14px;box-shadow:0 8px 22px rgba(214,51,74,.28);transition:transform .18s ease,background .18s ease;flex-shrink:0}
-        .mf-apk-download-btn:hover{background:#bf263c;transform:translateY(-2px)}.mf-apk-download-btn>i:first-child{font-size:25px}.mf-apk-download-btn span{display:flex;flex-direction:column;gap:4px}.mf-apk-download-btn b{font-size:14px}.mf-apk-download-btn small{font-size:11px;color:#ffe1e5}.mf-apk-arrow{font-size:15px;margin-left:4px}
-        @media(max-width:600px){.mf-app-download-inner{align-items:stretch}.mf-apk-download-btn{justify-content:center}.mf-store-badges{display:grid;grid-template-columns:1fr}.mf-store-badge{min-width:0}}
+/* Premium responsive MediFinder India app download banner — public website only */
+#mf-app-download{display:block;position:relative;isolation:isolate;overflow:hidden;padding:clamp(24px,4vw,54px) clamp(14px,3vw,30px);background:#07152f;color:#fff;border-top:1px solid rgba(255,255,255,.1)}
+#mf-app-download:before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 85% 45%,rgba(224,35,74,.22),transparent 42%),radial-gradient(ellipse at 8% 0%,rgba(37,99,180,.24),transparent 38%)}
+#mf-app-download *{box-sizing:border-box}
+.mf-app-download-inner{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);align-items:stretch;gap:clamp(18px,3vw,38px)}
+.mf-app-download-copy{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;min-width:0;padding:clamp(0px,1vw,12px) 0}
+.mf-app-download-brand{display:flex;align-items:center;gap:12px;margin-bottom:clamp(18px,3vw,30px)}
+.mf-app-download-brand img{width:48px;height:48px;object-fit:contain;border-radius:13px;background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.mf-app-download-brand span{display:flex;flex-direction:column;gap:3px;font-weight:850;line-height:1.1;letter-spacing:.8px;font-size:clamp(13px,1.5vw,17px)}
+.mf-app-download-brand strong{color:#ff6b87}
+.mf-app-download-brand small{color:#e6edf8;font-size:.9em}
+.mf-app-download-copy h2{font-size:clamp(29px,4.2vw,54px);line-height:1.06;letter-spacing:-1.3px;color:#fff;margin:0 0 16px;font-weight:850}
+.mf-app-download-copy h2 span{display:block;color:#ff4768}
+.mf-app-download-copy>p{font-size:clamp(14px,1.5vw,18px);line-height:1.65;color:#c7d3e7;max-width:440px;margin:0 0 22px}
+.mf-app-tagline{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#fff;margin:0 0 20px}
+.mf-app-tagline b{color:#ff6b87}
+.mf-store-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:480px}
+.mf-store-badge{min-width:0;display:flex;align-items:center;gap:10px;padding:12px;border:1px solid rgba(173,199,235,.34);border-radius:13px;background:rgba(22,43,77,.75);color:#fff}
+.mf-store-badge>i{font-size:24px;flex-shrink:0}
+.mf-store-badge span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mf-store-badge small{font-size:9px;letter-spacing:.6px;color:#b9c9df}
+.mf-store-badge b{font-size:clamp(10px,1.05vw,13px);line-height:1.3;color:#fff}
+.mf-app-download-card{position:relative;min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;gap:22px;padding:clamp(20px,3.5vw,42px);border:1px solid rgba(255,130,155,.65);border-radius:clamp(20px,3vw,34px);background:linear-gradient(145deg,#b71f48 0%,#4b1238 48%,#111b3b 100%);box-shadow:0 14px 48px rgba(228,32,74,.18),inset 0 1px rgba(255,255,255,.16)}
+.mf-app-download-card:after{content:"";position:absolute;width:260px;height:260px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:-100px;top:-110px;box-shadow:0 0 0 28px rgba(255,255,255,.025),0 0 0 56px rgba(255,255,255,.02);pointer-events:none}
+.mf-apk-new{align-self:flex-start;padding:7px 14px;border-radius:99px;background:#ff4768;color:#fff;font-size:11px;font-weight:900;letter-spacing:1px}
+.mf-app-download-card h3{font-size:clamp(24px,3.1vw,39px);line-height:1.12;letter-spacing:-.7px;color:#fff;margin:14px 0 10px;font-weight:850}
+.mf-app-download-card h3 span{color:#ff6681}
+.mf-app-download-card p{font-size:clamp(13px,1.4vw,16px);line-height:1.6;color:#f0dce7;max-width:390px;margin:0}
+.mf-apk-preview{position:relative;display:flex;align-items:center;justify-content:center;gap:16px;min-height:100px;padding:16px 18px;border:1px solid rgba(255,255,255,.2);border-radius:20px;background:rgba(15,18,43,.45);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.mf-apk-preview img{width:62px;height:62px;object-fit:contain;border-radius:17px;background:#fff;padding:3px;flex-shrink:0}
+.mf-apk-preview-copy{display:flex;flex:1;flex-direction:column;gap:6px;min-width:0}
+.mf-apk-preview-copy strong{font-size:clamp(14px,1.5vw,18px);color:#fff}
+.mf-apk-preview-copy small{font-size:12px;color:#ead8e5;line-height:1.4}
+.mf-apk-preview>i{font-size:26px;color:#fff;flex-shrink:0}
+.mf-apk-download-btn{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:64px;padding:17px 22px;border-radius:999px;background:linear-gradient(100deg,#ff4167,#e80d43);color:#fff!important;text-decoration:none!important;font-size:clamp(16px,1.7vw,20px);font-weight:850;box-shadow:0 9px 24px rgba(0,0,0,.22);transition:transform .18s ease,filter .18s ease}
+.mf-apk-download-btn:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.mf-apk-download-btn:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.mf-apk-download-btn i{font-size:22px}
+.mf-apk-download-btn .mf-apk-arrow{margin-left:auto}
+@media(max-width:760px){#mf-app-download{padding:24px 14px 28px}.mf-app-download-inner{grid-template-columns:minmax(0,1fr);gap:22px}.mf-app-download-brand{margin-bottom:18px}.mf-app-download-brand img{width:44px;height:44px}.mf-app-download-copy h2{font-size:clamp(31px,8.5vw,44px);letter-spacing:-.8px}.mf-app-download-copy>p{font-size:15px;margin-bottom:17px}.mf-app-tagline{margin-bottom:17px}.mf-store-badges{max-width:none}.mf-app-download-card{padding:22px;gap:18px;border-radius:24px}.mf-app-download-card h3{font-size:clamp(27px,7vw,35px)}.mf-apk-preview{min-height:88px;padding:13px}.mf-apk-preview img{width:52px;height:52px}.mf-apk-download-btn{min-height:58px}}
+@media(max-width:390px){.mf-store-badges{grid-template-columns:minmax(0,1fr)}.mf-store-badge{padding:11px 13px}.mf-app-download-card{padding:18px}.mf-apk-preview{gap:10px}.mf-apk-preview img{width:46px;height:46px}.mf-apk-preview>i{font-size:21px}.mf-apk-download-btn{gap:8px;padding:15px 12px;font-size:15px}}
+@media(prefers-reduced-motion:reduce){.mf-apk-download-btn{transition:none}}
 </style>
-<section id="mf-app-download" class="mf-app-download" aria-label="Get the MediFinder India app">
-            <div class="mf-app-download-inner">
-                <div class="mf-app-download-copy">
-                    <span class="mf-app-download-kicker"><i class="fa-solid fa-mobile-screen-button"></i> MEDIFINDER INDIA APP</span>
-                    <h3>Healthcare, right at your fingertips</h3>
-                    <p>Google Play Store and Apple App Store versions are coming soon.</p>
-                    <div class="mf-store-badges" aria-label="App stores coming soon">
-                        <span class="mf-store-badge"><i class="fa-brands fa-google-play"></i><span><small>GET IT ON</small><b>Google Play · Coming Soon</b></span></span>
-                        <span class="mf-store-badge"><i class="fa-brands fa-apple"></i><span><small>AVAILABLE ON THE</small><b>App Store · Coming Soon</b></span></span>
-                    </div>
-                </div>
-                <a class="mf-apk-download-btn" href="https://github.com/medifinderindia/Medifinderindia/releases/download/latest-apk/medifinder-india-latest.apk" download>
-                    <i class="fa-brands fa-android"></i><span><b>Download Latest APK</b><small>Direct download · Android</small></span><i class="fa-solid fa-download mf-apk-arrow"></i>
-                </a>
-            </div>
-        </section>
+<section id="mf-app-download" aria-label="Download the MediFinder India Android app">
+  <div class="mf-app-download-inner">
+    <div class="mf-app-download-copy">
+      <div class="mf-app-download-brand">
+        <img src="favicon.png" alt="MediFinder India logo" width="48" height="48" loading="lazy">
+        <span><strong>MEDIFINDER</strong><small>INDIA APP</small></span>
+      </div>
+      <h2>Your health <span>in safe hands.</span></h2>
+      <p>Get the MediFinder India app directly on your Android device. Find healthcare services in one place.</p>
+      <div class="mf-app-tagline"><b>Search</b> · <b>Connect</b> · <b>Care</b></div>
+      <div class="mf-store-badges" aria-label="App store availability">
+        <div class="mf-store-badge"><i class="fa-brands fa-google-play" aria-hidden="true"></i><span><small>GET IT ON</small><b>Google Play · Coming Soon</b></span></div>
+        <div class="mf-store-badge"><i class="fa-brands fa-apple" aria-hidden="true"></i><span><small>AVAILABLE ON THE</small><b>App Store · Coming Soon</b></span></div>
+      </div>
+    </div>
+    <div class="mf-app-download-card">
+      <div>
+        <span class="mf-apk-new">ANDROID APP · NEW</span>
+        <h3>Download Latest <span>APK</span></h3>
+        <p>Install the latest MediFinder India app version on your phone.</p>
+      </div>
+      <div class="mf-apk-preview">
+        <img src="favicon.png" alt="MediFinder India app icon" width="62" height="62" loading="lazy">
+        <div class="mf-apk-preview-copy"><strong>MediFinder India</strong><small>Search · Connect · Care</small></div>
+        <i class="fa-brands fa-android" aria-hidden="true"></i>
+      </div>
+      <a class="mf-apk-download-btn" href="https://github.com/medifinderindia/Medifinderindia/releases/download/latest-apk/medifinder-india-latest.apk" download>
+        <i class="fa-solid fa-download" aria-hidden="true"></i><span>Download APK</span><i class="fa-solid fa-arrow-right mf-apk-arrow" aria-hidden="true"></i>
+      </a>
+    </div>
+  </div>
+</section>
     <footer class="mf-public-footer">
         <div class="mf-sub">
             <h4>Subscribe</h4>
