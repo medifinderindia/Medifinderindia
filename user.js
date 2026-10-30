@@ -11928,7 +11928,7 @@ const earnTasks = [
   { id:"prescription_order",icon:"💊", title:"Prescription Order",       desc:"Order medicines by uploading a doctor's prescription.",          reward:5,  auto:true },
   { id:"review",            icon:"⭐", title:"Rate & Review",            desc:"Leave a review on a delivered product or service.",             reward:5,  auto:true },
   { id:"milestone_5",       icon:"🏆", title:"Loyalty Milestone",        desc:"One-time bonus on your 5th delivered order.",                   reward:30, auto:true },
-  { id:"daily_checkin",     icon:"📅", title:"Daily Check-in",           desc:"Tap once a day to collect a small bonus.",                       reward:2,  auto:false },
+  { id:"daily_checkin",     icon:"📅", title:"Daily Check-in",           desc:"Tap once a day to collect a small bonus.",                       reward:1,  auto:false },
   { id:"profile_complete",  icon:"✅", title:"Complete Your Profile",    desc:"One-time bonus for adding your address and verified phone.",    reward:10, auto:false },
 ];
 
