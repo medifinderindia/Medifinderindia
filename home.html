@@ -583,6 +583,9 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
 .mf-store-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:480px}
 .mf-store-badge{min-width:0;display:flex;align-items:center;gap:10px;padding:12px;border:1px solid rgba(173,199,235,.34);border-radius:13px;background:rgba(22,43,77,.75);color:#fff}
 .mf-store-badge>i{font-size:24px;flex-shrink:0}
+.mf-store-badge .mf-google-play-icon{font-size:27px;background:conic-gradient(from 210deg,#34a853 0 27%,#4285f4 27% 52%,#fbbc04 52% 75%,#ea4335 75% 100%);background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12))}
+.mf-store-badge .mf-apple-icon{font-size:29px;background:linear-gradient(145deg,#fff 0%,#d6e3f4 45%,#8ea6c5 100%);background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
+
 .mf-store-badge span{display:flex;flex-direction:column;gap:3px;min-width:0}
 .mf-store-badge small{font-size:9px;letter-spacing:.6px;color:#b9c9df}
 .mf-store-badge b{font-size:clamp(10px,1.05vw,13px);line-height:1.3;color:#fff}
@@ -618,8 +621,8 @@ body:not(.mf-logged-in) #page-notification{display:none!important}
       <p>Get the MediFinder India app directly on your Android device. Find healthcare services in one place.</p>
       <div class="mf-app-tagline"><b>Search</b> · <b>Connect</b> · <b>Care</b></div>
       <div class="mf-store-badges" aria-label="App store availability">
-        <div class="mf-store-badge"><i class="fa-brands fa-google-play" aria-hidden="true"></i><span><small>GET IT ON</small><b>Google Play · Coming Soon</b></span></div>
-        <div class="mf-store-badge"><i class="fa-brands fa-apple" aria-hidden="true"></i><span><small>AVAILABLE ON THE</small><b>App Store · Coming Soon</b></span></div>
+        <div class="mf-store-badge"><i class="fa-brands fa-google-play mf-google-play-icon" aria-hidden="true"></i><span><small>GET IT ON</small><b>Google Play · Coming Soon</b></span></div>
+        <div class="mf-store-badge"><i class="fa-brands fa-apple mf-apple-icon" aria-hidden="true"></i><span><small>AVAILABLE ON THE</small><b>App Store · Coming Soon</b></span></div>
       </div>
     </div>
     <div class="mf-app-download-card">
