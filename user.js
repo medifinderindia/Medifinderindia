@@ -7273,13 +7273,18 @@ async function setupMapPageModules() {
 
     window.__mfRefreshShops = (force) => {
         if (!allPharmaciesCache.length || activeSearchToken) return;
-        if (!force && lastRankLat !== null && haversineKm(lastRankLat, lastRankLng, userLiveLat, userLiveLng) < 0.3) return;
+        const movedKm = lastRankLat === null ? Infinity : haversineKm(lastRankLat, lastRankLng, userLiveLat, userLiveLng);
+        if (!force && movedKm < 0.3) return;
         rankNearby();
         plotShopMarkers(pharmacyDatabaseHub);
-        if (pharmacyDatabaseHub.length) {
+        // IMPORTANT: live GPS updates may refresh nearby shop ranking, but must
+        // never call fitBounds automatically. Doing so repeatedly zoomed the map
+        // out every time the device moved. Only an explicit forced refresh
+        // (initial accurate GPS fix) may frame the user and nearby pharmacies.
+        if (force && pharmacyDatabaseHub.length) {
             const bounds = L.latLngBounds(pharmacyDatabaseHub.map(s => [s.lat, s.lng]));
             bounds.extend([userLiveLat, userLiveLng]);
-            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+            map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15, animate: true });
         }
         renderAllShops(pharmacyDatabaseHub);
     };
@@ -7335,6 +7340,8 @@ async function setupMapPageModules() {
         userLiveLng = pos.coords.longitude;
         renderGPSAccuracyIndicator(pos.coords.accuracy);
         humanMarker.setLatLng([userLiveLat, userLiveLng]);
+        // Keep the map's current zoom/center while GPS streams. Do not auto-fit
+        // the user and shops on every watchPosition callback.
         try { window.__mfRefreshShops && window.__mfRefreshShops(false); } catch (e) {}
         if (operationalRoutingControl && activeShopMarker) {
             const dest = activeShopMarker.getLatLng();
@@ -7349,7 +7356,8 @@ async function setupMapPageModules() {
     const liveLocBtn = document.getElementById('live-location-btn');
     if (liveLocBtn) {
         liveLocBtn.addEventListener('click', () => {
-            map.setView([userLiveLat, userLiveLng], 16);
+            // Explicit user action: center on current location and zoom in.
+            map.setView([userLiveLat, userLiveLng], 16, { animate: true });
             humanMarker.setLatLng([userLiveLat, userLiveLng]);
             humanMarker.openPopup();
         });
