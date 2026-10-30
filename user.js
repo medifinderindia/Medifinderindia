@@ -2260,22 +2260,81 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
         try { history.replaceState(null, '', location.pathname + '#home'); } catch (e) {}
     }
 
-    // 1) Share button: link carries the product id (old link had only #product-detail => blank page)
+    // 1) Share product through the native Android share chooser, or Web Share on browsers.
     document.addEventListener('click', function (e) {
         var btn = e.target.closest && e.target.closest('#pd-share-btn');
         if (!btn) return;
-        e.stopImmediatePropagation();
         e.preventDefault();
+        e.stopImmediatePropagation();
+
         var d = null;
         try { d = JSON.parse(localStorage.getItem('currentProduct') || 'null'); } catch (x) {}
         if (!d || !d.id) { toast('Product not ready to share yet', 'warning'); return; }
+
         var url = location.origin + '/home.html?product=' + encodeURIComponent(d.id);
-        var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
+        var name = d.name || d.product_name || document.querySelector('#pd-crumb-name')?.textContent?.trim() || 'MediFinder product';
+        var price = d.price ?? d.selling_price ?? d.unit_price;
+        var description = d.description || d.product_description || d.short_description || '';
+        var rating = d.rating || d.average_rating || '';
+        var reviews = d.review_count || d.total_reviews || d.reviews_count || '';
+        var merchant = d.merchant_name || d.store_name || d.shop_name || '';
+        var category = d.category || '';
+        // Use visible detail text as fallback for fields that are loaded after the product object.
+        var detailText = '';
+        try {
+            var main = document.querySelector('#page-product-detail');
+            detailText = main ? main.innerText : '';
+            if (!merchant) {
+                var sold = detailText.match(/Sold by\\s+([^\\n]+)/i);
+                if (sold) merchant = sold[1].replace(/Verified.*/i, '').trim();
+            }
+            if (!rating) {
+                var rate = detailText.match(/([0-5](?:\\.\\d)?)\\s*\\(\\s*\\d+\\s*\\)/);
+                if (rate) rating = rate[1];
+            }
+        } catch (x) {}
+        var image = d.img || d.image_url || d.product_image || '';
+        if (image && image.startsWith('//')) image = location.protocol + image;
+        if (image && image.startsWith('/')) image = location.origin + image;
+        var lines = ['🩺 ' + name, 'MediFinder India · Search · Connect · Care'];
+        if (price !== undefined && price !== null && price !== '') lines.push('Price: ₹' + price);
+        if (category) lines.push('Category: ' + category);
+        if (merchant) lines.push('Seller: ' + merchant);
+        if (rating) lines.push('Rating: ⭐ ' + rating + (reviews ? ' (' + reviews + ' reviews)' : ''));
+        if (description) lines.push(description.toString().slice(0, 450));
+        lines.push('View product: ' + url);
+        var text = lines.join('\\n');
+        var title = name + ' | MediFinder India';
+
+        // Native Android app: force the Android system share drawer instead of copying the URL.
+        if (window.MFAndroid && typeof window.MFAndroid.shareText === 'function') {
+            try {
+                window.MFAndroid.shareText(title, text, url);
+                return;
+            } catch (x) {}
+        }
+
+        // Browsers that support file sharing: attach the product image along with the product details.
         (async function () {
             try {
-                if (navigator.share) await navigator.share(data);
-                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
-            } catch (err) { /* cancelled */ }
+                if (navigator.share) {
+                    if (image && navigator.canShare && window.File && window.fetch) {
+                        try {
+                            var response = await fetch(image, { mode: 'cors', credentials: 'omit' });
+                            if (response.ok) {
+                                var blob = await response.blob();
+                                var ext = (blob.type || '').includes('png') ? 'png' : 'jpg';
+                                var file = new File([blob], 'medifinder-product.' + ext, { type: blob.type || 'image/jpeg' });
+                                var payload = { title: title, text: text, url: url, files: [file] };
+                                if (navigator.canShare({ files: [file] })) { await navigator.share(payload); return; }
+                            }
+                        } catch (x) {}
+                    }
+                    await navigator.share({ title: title, text: text, url: url });
+                } else {
+                    toast('Sharing is not supported on this browser. Open the product in the MediFinder app to share.', 'warning');
+                }
+            } catch (err) { /* User cancelled the share drawer. */ }
         })();
     }, true);
 
