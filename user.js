@@ -3738,7 +3738,7 @@ function renderShopLocationMap(lat, lng, name, addr) {
     if (!el || typeof L === 'undefined') return;
     if (__sdMap) { try { __sdMap.remove(); } catch (e) {} __sdMap = null; }
     __sdMap = L.map(el, { scrollWheelZoom: false }).setView([lat, lng], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(__sdMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(__sdMap);
     L.marker([lat, lng]).addTo(__sdMap).bindPopup(`<b>${pdEsc(name)}</b><br>${pdEsc(addr)}`).openPopup();
     if (typeof userLiveLat !== 'undefined' && userLiveLat && typeof userLiveLng !== 'undefined' && userLiveLng) {
         L.circleMarker([userLiveLat, userLiveLng], { radius: 8, color: '#1e90ff', fillColor: '#1e90ff', fillOpacity: 0.9 }).addTo(__sdMap).bindTooltip('You');
@@ -6823,9 +6823,9 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
         // Same fix as the main map page — CartoDB's free tiles now need an
         // API key and were rendering as a blank "API KEY REQUIRED" tile.
         // OpenStreetMap's standard tile server is free, keyless, and real.
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'
+            attribution: '&copy; OpenStreetMap contributors · HOT style'
         }).addTo(map);
         const shopIcon = L.divIcon({ html: '<div style="background:#D6334A;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(214,51,74,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:12px;"></i></div>', className: 'custom-div-icon', iconSize: [26, 26] });
         window._trackingMapState.map = map;
@@ -7228,9 +7228,9 @@ async function setupMapPageModules() {
 
     let map = L.map('map', { zoomControl: false }).setView([userLiveLat, userLiveLng], 13);
     window.__shopsLeafletMap = map; // exposed for SPA tab-switch invalidateSize()
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap contributors · HOT style'
     }).addTo(map);
     setTimeout(() => map.invalidateSize(), 100);
 
@@ -11635,7 +11635,7 @@ function initTrackMap(){
   const el = $("ab_trackMap");
   if (!el || !userLiveLat) return;
   trackMapObj = L.map(el, { zoomControl:false, attributionControl:false }).setView([userLiveLat, userLiveLng], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(trackMapObj);
+  L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(trackMapObj);
   const pickupIcon = L.divIcon({ className:'', html:'<div style="background:#0E9A8B;width:14px;height:14px;border-radius:50%;border:2px solid #fff;"></div>' });
   trackPickupMarker = L.marker([userLiveLat, userLiveLng], { icon: pickupIcon }).addTo(trackMapObj).bindPopup("Pickup (You)");
 }
@@ -11834,7 +11834,7 @@ async function initLive(b){
   if (!livePickup) { el.innerHTML = '<div class="mb-map-empty">Map not available for this address</div>'; $("ab_lvEtaTrip").textContent = "—"; }
   else {
     liveMap = L.map(el, { zoomControl:false, attributionControl:false }).setView(livePickup, 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(liveMap);
+    L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png").addTo(liveMap);
     L.marker(livePickup, { icon: L.divIcon({ className:"", html:'<div class="mb-pin pickup"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
     if (liveDrop) {
       L.marker(liveDrop, { icon: L.divIcon({ className:"", html:'<div class="mb-pin drop"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
