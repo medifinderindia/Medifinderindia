@@ -1229,7 +1229,12 @@
             </div>
         </div>
 
-        <div class="profile-menu-list">
+        <div class="menu-card-item mf-complete-info-card" id="mf-complete-info-card" role="button" tabindex="0" aria-label="Complete your information">
+  <div class="menu-icon" style="background:#ffe6eb;color:#d6334a;"><i class="fa-solid fa-user-pen"></i></div>
+  <div class="menu-text"><h3>Complete Your Information</h3><p id="mf-complete-info-subtitle">Add your name, phone number and date of birth to complete your profile.</p></div>
+  <i class="fa-solid fa-chevron-right" style="color:#d6334a;"></i>
+</div>
+<div class="profile-menu-list">
 
             <!-- MY BOX - Prescription History -->
             <div class="menu-card-item" id="my-box-btn" style="background: linear-gradient(135deg, #fff5f5, #ffe8e8); border: 1px solid #ffcdd2;">
@@ -2204,6 +2209,26 @@
 
 
 
+</div>
+
+<div id="page-my-information" class="app-page mf-info-page" data-page="my-information">
+  <main class="mf-info-main">
+    <header class="mf-info-header"><button type="button" id="mf-info-back" aria-label="Back to profile"><i class="fa-solid fa-arrow-left"></i></button><div><h1>My Information</h1><p>Complete your profile securely</p></div></header>
+    <section class="mf-info-card">
+      <div class="mf-info-avatar-row"><img id="mf-info-avatar" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile photo"><div><h2>Personal details</h2><p>Keep your information up to date.</p></div><button type="button" id="mf-info-photo-btn" aria-label="Change profile photo"><i class="fa-solid fa-camera"></i></button></div>
+      <form id="mf-info-form" novalidate>
+        <label for="mf-info-name">Full name <span>*</span></label><input id="mf-info-name" name="full_name" type="text" autocomplete="name" maxlength="100" required placeholder="Enter your full name">
+        <label for="mf-info-phone">Phone number <span>*</span></label><input id="mf-info-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" required placeholder="10-digit mobile number">
+        <label for="mf-info-dob">Date of birth <span>*</span></label><input id="mf-info-dob" name="date_of_birth" type="date" required>
+        <div class="mf-info-age" id="mf-info-age" aria-live="polite">Your age will appear here.</div>
+        <label for="mf-info-email">Email address</label><input id="mf-info-email" type="email" readonly placeholder="Your account email">
+        <label class="mf-info-terms"><input id="mf-info-terms" type="checkbox" required><span>I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a> and Privacy Policy. <b>*</b></span></label>
+        <p class="mf-info-note">Your date of birth is used to calculate your age. Only enter accurate information.</p>
+        <button type="submit" id="mf-info-save"><i class="fa-solid fa-check"></i> Save Information</button>
+        <p id="mf-info-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
 </div>
 
 <div id="page-tablet-coin" class="app-page pg-coin">
