@@ -165,6 +165,28 @@ class MainActivity : Activity() {
 
     private inner class MFAndroidBridge {
         @JavascriptInterface
+        fun shareText(title: String?, message: String?, url: String?): Boolean {
+            if (!isOurPage()) return false
+            val safeTitle = (title ?: "MediFinder India").take(160)
+            val safeMessage = (message ?: url ?: "MediFinder India").take(3500)
+            return try {
+                runOnUiThread {
+                    try {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, safeTitle)
+                            putExtra(Intent.EXTRA_TEXT, safeMessage)
+                        }
+                        startActivity(Intent.createChooser(sendIntent, "Share product via"))
+                    } catch (_: Exception) {
+                        Toast.makeText(this@MainActivity, "Unable to open sharing apps. Please try again.", Toast.LENGTH_LONG).show()
+                    }
+                }
+                true
+            } catch (_: Exception) { false }
+        }
+
+        @JavascriptInterface
         fun openOAuth(url: String?): Boolean {
             if (url == null || !isOurPage()) return false
             val u = try { Uri.parse(url) } catch (_: Exception) { return false }
