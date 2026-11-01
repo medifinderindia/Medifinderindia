@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
@@ -39,6 +40,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private var offlineView: View? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var connectivityManager: ConnectivityManager? = null
     private var lastGoodUrl: String = "https://www.medifinderindia.com/"
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val filePickerRequest = 1001
@@ -105,6 +108,7 @@ class MainActivity : Activity() {
                 window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         }
         webView.addJavascriptInterface(MFAndroidBridge(), "MFAndroid")
+        registerNetworkMonitor()
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
@@ -143,21 +147,38 @@ class MainActivity : Activity() {
                         (function(){
                           if (!window.MFAndroid || window.__mfFcmBridgeInstalled) return;
                           window.__mfFcmBridgeInstalled = true;
+                          var attempts = 0;
+                          var authListenerInstalled = false;
+                          function registerWhenReady() {
+                            var client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+                            if (!client || !client.auth) {
+                              if (++attempts < 40) setTimeout(registerWhenReady, 500);
+                              return;
+                            }
+                            if (!authListenerInstalled) {
+                              authListenerInstalled = true;
+                              client.auth.onAuthStateChange(function(event, session) {
+                                if (session && window.MFAndroid) window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
+                              });
+                            }
+                            client.auth.getSession().then(function(result) {
+                              if (result && result.data && result.data.session && window.MFAndroid) {
+                                window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
+                              }
+                            }).catch(function(){});
+                          }
                           window.__mfRegisterAndroidFcmToken = async function(token) {
                             try {
-                              if (!token || typeof supabaseClient === 'undefined' || !supabaseClient || !supabaseClient.auth) return;
-                              var sessionResult = await supabaseClient.auth.getSession();
+                              var client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+                              if (!token || !client || !client.auth) return;
+                              var sessionResult = await client.auth.getSession();
                               var session = sessionResult && sessionResult.data && sessionResult.data.session;
                               if (!session) return;
-                              await supabaseClient.functions.invoke('register-android-fcm-token', { body: { token: token } });
+                              var result = await client.functions.invoke('register-android-fcm-token', { body: { token: token } });
+                              if (result && result.error) console.warn('MediFinder FCM token registration failed:', result.error.message);
                             } catch (e) { console.warn('MediFinder Android push token registration deferred:', e && e.message); }
                           };
-                          window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
-                          if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
-                            supabaseClient.auth.onAuthStateChange(function(event, session) {
-                              if (session && window.MFAndroid) window.MFAndroid.getFcmToken('__mfRegisterAndroidFcmToken');
-                            });
-                          }
+                          registerWhenReady();
                         })();
                         """.trimIndent(), null
                     )
@@ -310,6 +331,37 @@ class MainActivity : Activity() {
             }
         }
         return true
+    }
+
+    private fun registerNetworkMonitor() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivityManager = cm
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onLost(network: android.net.Network) {
+                runOnUiThread {
+                    if (!hasInternetConnection()) showOfflineScreen()
+                }
+            }
+
+            override fun onCapabilitiesChanged(network: android.net.Network, capabilities: NetworkCapabilities) {
+                if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                    runOnUiThread { hideOfflineScreen() }
+                }
+            }
+        }
+        networkCallback = callback
+        try {
+            cm.registerNetworkCallback(
+                NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build(),
+                callback
+            )
+        } catch (_: Exception) {
+            networkCallback = null
+        }
+        if (!hasInternetConnection()) showOfflineScreen()
     }
 
     private fun hasInternetConnection(): Boolean {
@@ -691,6 +743,9 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        try { networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) } } catch (_: Exception) {}
+        networkCallback = null
+        connectivityManager = null
         fileCallback?.onReceiveValue(null)
         pendingWebPermission?.deny()
         webView.destroy()
