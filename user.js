@@ -1264,7 +1264,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                     productsGrid.dataset.mfSig = ''; // first visit: the existing skeleton cards stay until real data arrives
                 }
             } catch (e) {}
-            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 120 : 60); // PERF: never pull the whole catalogue in one request
+            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
             if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
             if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
             const { data: dbProducts, error: dbError } = await medQuery;
