@@ -3696,12 +3696,7 @@ header {
     transition: opacity 0.4s ease;
 }
 #mf-boot-loader.mf-loader-hidden { opacity: 0; pointer-events: none; }
-/* Subtle pulse on the favicon placeholder while a product/list image is
-   still loading in the background (see mfApplySmartImage in user.js). */
-.mf-smart-img:not(.mf-img-ready) {
-    animation: mfImgPulse 1.1s ease-in-out infinite;
-}
-@keyframes mfImgPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* Removed animated placeholder pulse to reduce continuous WebView paint work. */ 50% { opacity: 1; } }
 
 :root{
   --maroon-deep:#b71c1c; --maroon:#D6334A; --maroon-bright:#ff4747;
