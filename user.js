@@ -514,17 +514,11 @@ function mfScanForSmartImages(root) {
 }
 
 function initMfSmartImageSystem() {
-    mfScanForSmartImages(document);
-    const mfImgObserver = new MutationObserver((mutations) => {
-        mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-                if (node.nodeType !== 1) return;
-                if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) mfApplySmartImage(node);
-                if (node.querySelectorAll) mfScanForSmartImages(node);
-            });
-        });
-    });
-    mfImgObserver.observe(document.body, { childList: true, subtree: true });
+    // Intentionally disabled on the user app page.
+    // Product cards already use native loading="lazy" and decoding="async".
+    // The old observer created a new Image() for every product image, forcing
+    // all catalogue images to download eagerly and competing with WebView UI.
+    // Let Chromium load images only when they approach the viewport.
 }
 
 document.addEventListener("DOMContentLoaded", () => {
