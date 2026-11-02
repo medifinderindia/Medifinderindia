@@ -520,56 +520,34 @@ function initMfSmartImageSystem() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-
     function runInitStep(label, fn) {
         try { fn(); } catch (err) { console.error(`[init] ${label} failed:`, err); }
     }
+    function scheduleInitStep(label, fn, delay = 1200) {
+        const task = () => runInitStep(label, fn);
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(task, { timeout: delay });
+        } else {
+            window.setTimeout(task, delay);
+        }
+    }
 
+    // Keep essential account, navigation and action handlers responsive first.
     runInitStep('renderPrescriptionWidgetState', renderPrescriptionWidgetState);
-
-    // Resume the "waiting for pharmacy" live status if the user left and came
-    // back while a broadcast prescription order is still pending acceptance.
     runInitStep('watchPendingPrescriptionOrder', () => {
-        const _pendingRxId = localStorage.getItem('medi_pending_rx_id');
-        if (_pendingRxId) watchPendingPrescriptionOrder(_pendingRxId);
+        const pendingRxId = localStorage.getItem('medi_pending_rx_id');
+        if (pendingRxId) watchPendingPrescriptionOrder(pendingRxId);
     });
-
-    runInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates);
     runInitStep('autoFillSavedUserDataOnAuth', autoFillSavedUserDataOnAuth);
-    runInitStep('retryPendingOrderSync', retryPendingOrderSync);
     runInitStep('setupGlobalNotificationHub', setupGlobalNotificationHub);
-    runInitStep('setupHomePageModules', setupHomePageModules);
     runInitStep('setupCartPageModules', setupCartPageModules);
     runInitStep('setupOrdersPageModules', setupOrdersPageModules);
     runInitStep('setupProfilePageModules', setupProfilePageModules);
-    runInitStep('setupMapPageModules', () => { if (document.getElementById('map')) setupMapPageModules(); });
-
+    runInitStep('setupMapPageModules', () => {
+        if (document.getElementById('map')) setupMapPageModules();
+    });
     runInitStep('setupGlobalCloseButtonListeners', setupGlobalCloseButtonListeners);
-    runInitStep('runBackgroundPillAlarmEngine interval', () => setInterval(runBackgroundPillAlarmEngine, 10000));
     runInitStep('setupServiceWorkerNotifications', setupServiceWorkerNotifications);
-
-    runInitStep('initLiveOfferAndBroadcastStream', () => {
-        if (supabase && document.getElementById('user-app-banner')) {
-            initLiveOfferAndBroadcastStream();
-        }
-    });
-
-    runInitStep('language init', () => {
-        const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
-        triggerGlobalAppLanguageTranslation(savedLang);
-        updateSearchPlaceholder(savedLang);
-    });
-
-    runInitStep('initAutoSlider', initAutoSlider);
-    runInitStep('loadSponsoredProducts', () => {
-        loadSponsoredProducts().then(() => {
-            const newSlides = document.querySelectorAll('#home-slider .slide');
-            if (newSlides.length > 0) initAutoSlider();
-        }).catch(() => {});
-        if (supabase && document.getElementById('home-slider')) {
-            initSponsoredRealtime();
-        }
-    });
     runInitStep('initModalRatingStars', initModalRatingStars);
     runInitStep('initScrollToTop', initScrollToTop);
     runInitStep('initHomeStickyScroll', initHomeStickyScroll);
@@ -577,24 +555,39 @@ document.addEventListener("DOMContentLoaded", () => {
     runInitStep('initVoiceSearch', initVoiceSearch);
     runInitStep('initServicesMenu', initServicesMenu);
     runInitStep('updateProductCount', updateProductCount);
-
-    // Live "Cart (N)" bottom-nav badge — synced with the cart on every load.
     runInitStep('updateCartNavBadge', updateCartNavBadge);
-
     runInitStep('home header greeting', () => {
         renderHomeHeaderGreeting();
         updateHomeHeaderVisibility((window.location.hash || '').replace('#', '') || 'home');
         setInterval(renderHomeHeaderGreeting, 5 * 60 * 1000);
     });
+    runInitStep('mfHideBootLoader', () => mfHideBootLoader(true));
 
-    // Prefetch adjacent pages for instant tab switching
-    runInitStep('setupPagePrefetch', setupPagePrefetch);
-
-    // Smart loading system: scan existing product images + watch for
-    // dynamically-inserted ones; hide the boot loader now that the page's
-    // own setup is done (window 'load' above still covers slower assets).
-    runInitStep('initMfSmartImageSystem', initMfSmartImageSystem);
-    runInitStep('mfHideBootLoader', mfHideBootLoader);
+    // Defer heavier home, location, media and background work until after first paint.
+    scheduleInitStep('setupHomePageModules', setupHomePageModules, 1200);
+    scheduleInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates, 2200);
+    scheduleInitStep('retryPendingOrderSync', retryPendingOrderSync, 2500);
+    scheduleInitStep('runBackgroundPillAlarmEngine interval', () => {
+        runBackgroundPillAlarmEngine();
+        setInterval(runBackgroundPillAlarmEngine, 30000);
+    }, 3000);
+    scheduleInitStep('live offer and broadcast stream', () => {
+        if (supabase && document.getElementById('user-app-banner')) initLiveOfferAndBroadcastStream();
+    }, 1800);
+    scheduleInitStep('language init', () => {
+        const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
+        triggerGlobalAppLanguageTranslation(savedLang);
+        updateSearchPlaceholder(savedLang);
+    }, 1600);
+    scheduleInitStep('initAutoSlider', initAutoSlider, 1600);
+    scheduleInitStep('loadSponsoredProducts', () => {
+        loadSponsoredProducts().then(() => {
+            if (document.querySelectorAll('#home-slider .slide').length > 0) initAutoSlider();
+        }).catch(() => {});
+        if (supabase && document.getElementById('home-slider')) initSponsoredRealtime();
+    }, 2500);
+    scheduleInitStep('setupPagePrefetch', setupPagePrefetch, 3500);
+    scheduleInitStep('initMfSmartImageSystem', initMfSmartImageSystem, 2500);
 });
 
 window.addEventListener('pageshow', (event) => {
