@@ -478,27 +478,15 @@ function mfApplySmartImage(img) {
     if (!realSrc || realSrc.indexOf(MF_IMG_PLACEHOLDER) !== -1) return;
     img.dataset.mfSmart = '1';
     img.classList.add('mf-smart-img');
-
+    // Let Chromium/WebView perform one native image request only.
+    if (!img.hasAttribute('loading')) img.loading = 'lazy';
+    img.decoding = 'async';
     if (img.complete && img.naturalWidth > 0) {
-        img.classList.add('mf-img-ready'); // already cached/instant — no placeholder flash
-        return;
-    }
-
-    img.src = MF_IMG_PLACEHOLDER;
-    const preloader = new Image();
-    preloader.onload = () => {
-        img.style.opacity = '0';
-        setTimeout(() => {
-            img.src = realSrc;
-            img.classList.add('mf-img-ready');
-            requestAnimationFrame(() => { img.style.opacity = '1'; });
-        }, 140);
-    };
-    preloader.onerror = () => {
-        img.src = MF_IMG_PLACEHOLDER;
         img.classList.add('mf-img-ready');
-    };
-    preloader.src = realSrc;
+    } else {
+        img.addEventListener('load', () => img.classList.add('mf-img-ready'), { once: true });
+        img.addEventListener('error', () => img.classList.add('mf-img-ready'), { once: true });
+    }
 }
 
 let mfSmartImageObserver = null;
