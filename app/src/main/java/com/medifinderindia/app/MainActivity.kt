@@ -86,6 +86,12 @@ class MainActivity : Activity() {
         webView.settings.builtInZoomControls = false
         webView.settings.displayZoomControls = false
         webView.settings.setGeolocationEnabled(true)
+        // Keep the visible WebView renderer at foreground importance on Android 8+.
+        // This reduces the chance of the renderer being reclaimed while the user is
+        // actively using the app; it does not change website data or authentication.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         }
