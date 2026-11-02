@@ -501,20 +501,35 @@ function mfApplySmartImage(img) {
     preloader.src = realSrc;
 }
 
+let mfSmartImageObserver = null;
 function mfScanForSmartImages(root) {
-    (root || document).querySelectorAll(MF_SMART_IMG_SELECTORS).forEach(mfApplySmartImage);
+    (root || document).querySelectorAll(MF_SMART_IMG_SELECTORS).forEach(img => {
+        if (img.dataset.mfSmart === '1') return;
+        if (mfSmartImageObserver) mfSmartImageObserver.observe(img);
+        else mfApplySmartImage(img);
+    });
 }
 
 function initMfSmartImageSystem() {
-    mfScanForSmartImages(document);
-    const mfImgObserver = new MutationObserver((mutations) => {
-        mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-                if (node.nodeType !== 1) return;
-                if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) mfApplySmartImage(node);
-                if (node.querySelectorAll) mfScanForSmartImages(node);
+    if ('IntersectionObserver' in window) {
+        mfSmartImageObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                mfSmartImageObserver.unobserve(entry.target);
+                mfApplySmartImage(entry.target);
             });
-        });
+        }, { root: null, rootMargin: '280px 0px', threshold: 0.01 });
+    }
+    mfScanForSmartImages(document);
+    const mfImgObserver = new MutationObserver(mutations => {
+        mutations.forEach(m => m.addedNodes.forEach(node => {
+            if (node.nodeType !== 1) return;
+            if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) {
+                if (mfSmartImageObserver) mfSmartImageObserver.observe(node);
+                else mfApplySmartImage(node);
+            }
+            if (node.querySelectorAll) mfScanForSmartImages(node);
+        }));
     });
     mfImgObserver.observe(document.body, { childList: true, subtree: true });
 }
@@ -1249,7 +1264,7 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
                     productsGrid.dataset.mfSig = ''; // first visit: the existing skeleton cards stay until real data arrives
                 }
             } catch (e) {}
-            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
+            let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 120 : 60); // PERF: never pull the whole catalogue in one request
             if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
             if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
             const { data: dbProducts, error: dbError } = await medQuery;
