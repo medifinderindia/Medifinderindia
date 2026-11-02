@@ -714,18 +714,13 @@ function detectLiveUserGPSCoordinates() {
         userLiveLng = pos.coords.longitude;
         renderGPSAccuracyIndicator(pos.coords.accuracy);
 
-        if (document.getElementById('order-list')) {
-            setupOrdersPageModules();
-        }
-        // Real GPS fix just landed — recompute the cart's distance-based
-        // delivery fee against it instead of the fallback coordinates.
-        if (document.getElementById('cart-items-container') && typeof refreshDeliveryDistanceAndBill === 'function') {
+        const activePage = document.querySelector('.app-page.active')?.dataset?.page || 'home';
+        // Hidden SPA tabs must not trigger their data refresh work.
+        if (activePage === 'cart' && document.getElementById('cart-items-container') && typeof refreshDeliveryDistanceAndBill === 'function') {
             refreshDeliveryDistanceAndBill();
             if (typeof refreshShiprocketRateAndBill === 'function') refreshShiprocketRateAndBill();
         }
-        // Same idea for the home page's "20 Min" express badges — they were
-        // first computed against the fallback coords, so recheck them now.
-        if (document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
+        if (activePage === 'home' && document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
             refreshExpressDeliveryBadges();
         }
     }, GEO_OPTIONS_ONE_SHOT, true); // true = silent: no "location denied" toast on page load
