@@ -7650,3 +7650,13 @@ html[data-theme="dark"] picture {
 .bottom-nav{background:rgba(255,255,255,.98)}
 .notification-dropdown{background:rgba(255,255,255,.99)}
 #page-product-detail .pd-sticky-actions{background:rgba(255,255,255,.98)}
+
+
+/* Low-end Android WebView paint-cost override for Home product thumbnails. */
+.product-card .img-container img {
+    filter: none !important;
+    transition: none !important;
+}
+.product-card:hover .img-container img {
+    transform: none !important;
+}
