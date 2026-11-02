@@ -521,7 +521,12 @@ function initMfSmartImageSystem() {
 
 document.addEventListener("DOMContentLoaded", () => {
     function runInitStep(label, fn) {
-        try { fn(); } catch (err) { console.error(`[init] ${label} failed:`, err); }
+        try {
+            const result = fn();
+            if (result && typeof result.catch === 'function') {
+                result.catch(err => console.error(`[init] ${label} failed:`, err));
+            }
+        } catch (err) { console.error(`[init] ${label} failed:`, err); }
     }
     function scheduleInitStep(label, fn, delay = 1200) {
         const task = () => runInitStep(label, fn);
@@ -532,7 +537,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Keep essential account, navigation and action handlers responsive first.
+    // Initialize only the visible section. Hidden tabs must not perform
+    // database reads, DOM scans or realtime setup while Home is opening.
+    const initializedPages = new Set();
+    function initPageModules(page) {
+        if (!page || initializedPages.has(page)) return;
+        initializedPages.add(page);
+        if (page === 'cart') runInitStep('setupCartPageModules', setupCartPageModules);
+        else if (page === 'order') runInitStep('setupOrdersPageModules', setupOrdersPageModules);
+        else if (page === 'profile') runInitStep('setupProfilePageModules', setupProfilePageModules);
+        else if (page === 'shops') runInitStep('setupMapPageModules', setupMapPageModules);
+    }
+    document.addEventListener('mf:page-enter', event => {
+        initPageModules(event.detail && event.detail.page);
+    });
+
+    // Essential Home and global controls first.
     runInitStep('renderPrescriptionWidgetState', renderPrescriptionWidgetState);
     runInitStep('watchPendingPrescriptionOrder', () => {
         const pendingRxId = localStorage.getItem('medi_pending_rx_id');
@@ -540,12 +560,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     runInitStep('autoFillSavedUserDataOnAuth', autoFillSavedUserDataOnAuth);
     runInitStep('setupGlobalNotificationHub', setupGlobalNotificationHub);
-    runInitStep('setupCartPageModules', setupCartPageModules);
-    runInitStep('setupOrdersPageModules', setupOrdersPageModules);
-    runInitStep('setupProfilePageModules', setupProfilePageModules);
-    runInitStep('setupMapPageModules', () => {
-        if (document.getElementById('map')) setupMapPageModules();
-    });
     runInitStep('setupGlobalCloseButtonListeners', setupGlobalCloseButtonListeners);
     runInitStep('setupServiceWorkerNotifications', setupServiceWorkerNotifications);
     runInitStep('initModalRatingStars', initModalRatingStars);
@@ -563,31 +577,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     runInitStep('mfHideBootLoader', () => mfHideBootLoader(true));
 
-    // Defer heavier home, location, media and background work until after first paint.
+    // Keep first paint interactive; run heavier Home work after it is visible.
     scheduleInitStep('setupHomePageModules', setupHomePageModules, 1200);
-    scheduleInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates, 2200);
-    scheduleInitStep('retryPendingOrderSync', retryPendingOrderSync, 2500);
+    scheduleInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates, 3000);
+    scheduleInitStep('retryPendingOrderSync', retryPendingOrderSync, 3500);
     scheduleInitStep('runBackgroundPillAlarmEngine interval', () => {
         runBackgroundPillAlarmEngine();
         setInterval(runBackgroundPillAlarmEngine, 30000);
-    }, 3000);
+    }, 4000);
     scheduleInitStep('live offer and broadcast stream', () => {
         if (supabase && document.getElementById('user-app-banner')) initLiveOfferAndBroadcastStream();
-    }, 1800);
+    }, 2500);
     scheduleInitStep('language init', () => {
         const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
         triggerGlobalAppLanguageTranslation(savedLang);
         updateSearchPlaceholder(savedLang);
-    }, 1600);
-    scheduleInitStep('initAutoSlider', initAutoSlider, 1600);
+    }, 2200);
+    scheduleInitStep('initAutoSlider', initAutoSlider, 2200);
     scheduleInitStep('loadSponsoredProducts', () => {
         loadSponsoredProducts().then(() => {
             if (document.querySelectorAll('#home-slider .slide').length > 0) initAutoSlider();
         }).catch(() => {});
         if (supabase && document.getElementById('home-slider')) initSponsoredRealtime();
-    }, 2500);
-    scheduleInitStep('setupPagePrefetch', setupPagePrefetch, 3500);
-    scheduleInitStep('initMfSmartImageSystem', initMfSmartImageSystem, 2500);
+    }, 3500);
+    scheduleInitStep('setupPagePrefetch', setupPagePrefetch, 4500);
+    scheduleInitStep('initMfSmartImageSystem', initMfSmartImageSystem, 3500);
+    initPageModules((document.querySelector('.app-page.active') || {}).dataset?.page || 'home');
 });
 
 window.addEventListener('pageshow', (event) => {
