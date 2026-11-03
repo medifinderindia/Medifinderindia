@@ -13,6 +13,7 @@ function mfEsc(v) {
       try { if (!navigator.clipboard) Object.defineProperty(navigator,'clipboard',{configurable:true,value:{}}); Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:function(value){ return bridge.copyText(String(value==null?'':value))?Promise.resolve():Promise.reject(new Error('Native clipboard unavailable')); }}); } catch (_) {}
     }
   } catch (_) {}
+})();
 
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 window.supabaseClient = supabase; // shared with offer.js
