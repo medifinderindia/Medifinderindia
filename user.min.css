@@ -5,3 +5,15 @@
 #page-home #home-cat-grid .category-item{display:flex!important;visibility:visible!important;opacity:1!important;flex:0 0 72px!important;min-height:70px!important;}
 #page-home #main-scroll{padding-bottom:170px!important;scroll-padding-bottom:170px!important;}
 .bottom-nav{background:#fff!important;opacity:1!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+
+/* MF_ANDROID_WEBVIEW_SCROLL_LAYOUT_FIX_20261103 */
+html,body{height:100%!important;height:100dvh!important;min-height:0!important;overflow:hidden!important}
+body{position:fixed!important;inset:0!important;width:100%!important;display:flex!important;flex-direction:column!important}
+.app-page.active{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;width:100%!important;height:auto!important;height:calc(100dvh - 60px - env(safe-area-inset-bottom,0px))!important;min-height:0!important;max-height:calc(100dvh - 60px - env(safe-area-inset-bottom,0px))!important;overflow:hidden!important}
+#page-home #main-scroll{display:block!important;flex:1 1 0!important;width:100%!important;height:0!important;min-height:0!important;max-height:100%!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;touch-action:pan-y!important;position:relative!important}
+.app-page.active:not(#page-home){flex:1 1 auto!important;height:auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;touch-action:pan-y!important}
+#bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:10000!important;min-height:60px!important;pointer-events:auto!important;touch-action:manipulation!important}
+#bottom-nav .nav-item{pointer-events:auto!important;touch-action:manipulation!important}
+.categories-section{display:block!important;visibility:visible!important}
+#home-cat-grid{display:flex!important;visibility:visible!important;min-height:74px!important;opacity:1!important;pointer-events:auto!important}
+#home-cat-grid .category-item{flex:0 0 auto!important}
