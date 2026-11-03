@@ -8972,16 +8972,16 @@ function mfTranslateAsync(text, lang) {
         nodes.forEach(n => { if (n.isConnected !== false) __mfTranslateNode(n, __mfLang); });
     };
     const start = () => {
+        // Translate only newly inserted DOM. A recurring full-document sweep every
+        // 5 seconds forced a recursive walk of the entire app while users scrolled
+        // or navigated, causing long main-thread stalls in Android WebView.
         new MutationObserver((muts) => {
             if (__mfLang === 'en') return;
             muts.forEach(m => {
                 if (m.type === 'childList') m.addedNodes.forEach(n => queue.add(n));
-                else queue.add(m.target); // characterData / attributes
             });
             if (!scheduled && queue.size) { scheduled = true; requestAnimationFrame(flush); }
-        }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: __MF_ATTRS.concat(['value']) });
-        // safety sweep: catches anything rendered by code paths the observer can miss
-        setInterval(() => { if (__mfLang !== 'en' && !document.hidden) { try { mfApplyGenericTranslation(__mfLang); } catch (e) {} } }, 5000);
+        }).observe(document.body, { childList: true, subtree: true });
     };
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
