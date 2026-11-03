@@ -1574,6 +1574,17 @@ async function setupHomePageModules() {
         document.head.appendChild(shimmerCSS);
     }
 
+    // Paint the fixed home category tiles before any network request is awaited.
+    // The full category setup below will attach the click handlers after page setup.
+    const earlyHomeCatGrid = document.getElementById('home-cat-grid');
+    if (earlyHomeCatGrid && typeof MF_HOME_TILES !== 'undefined') {
+        earlyHomeCatGrid.innerHTML = MF_HOME_TILES.map((tile, index) => `
+            <div class="category-item" data-i="${index}" title="${mfEsc(tile.label || tile.cat)}">
+                <div class="cat-icon-wrapper ${tile.cls}"><i class="fa-solid ${tile.icon}"></i></div>
+                <span>${mfEsc(tile.label || tile.cat)}</span>
+            </div>`).join('');
+    }
+
     allProductNames = await loadHomeProductGrid(isInstrumentMode, merchantFilterId);
 
     if (supabase) {
