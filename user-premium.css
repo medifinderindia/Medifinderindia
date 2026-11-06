@@ -1,0 +1,180 @@
+/* MediFinder India — premium user app layer
+   Scoped to the customer app. Presentation-only: no data, auth, navigation or event logic. */
+:root {
+  --mf-premium-bg: #f5f7fb;
+  --mf-premium-surface: #fff;
+  --mf-premium-ink: #202938;
+  --mf-premium-muted: #748094;
+  --mf-premium-line: #e9edf3;
+  --mf-premium-red: #d6334a;
+  --mf-premium-soft: #fff1f3;
+  --mf-premium-shadow: 0 5px 20px rgba(31, 45, 61, .055);
+}
+body { background: var(--mf-premium-bg); color: var(--mf-premium-ink); }
+#page-home { background: var(--mf-premium-bg); }
+#page-home .main-content-scrollable {
+  background: var(--mf-premium-bg);
+  padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+  scrollbar-width: thin;
+  scrollbar-color: #d9dee8 transparent;
+}
+#page-home .top-bar {
+  background: linear-gradient(100deg, #9f1d32, #d6334a 52%, #a91f37);
+  color: #fff3d6;
+  font-size: 10px;
+  letter-spacing: .35px;
+}
+#page-home .top-bar-scroll { animation-duration: 34s; }
+#page-home .top-bar-scroll span { margin-right: 42px; }
+#page-home #home-only-header {
+  min-height: 66px;
+  height: auto;
+  padding: 10px 18px;
+  background: rgba(255,255,255,.98);
+  border-bottom: 1px solid var(--mf-premium-line);
+  box-shadow: 0 2px 10px rgba(25,35,50,.035);
+}
+#page-home .home-greeting-name {
+  color: var(--mf-premium-ink);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.35px;
+}
+#page-home .home-greeting-time {
+  margin-top: 2px;
+  color: var(--mf-premium-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+#page-home .action-btn {
+  width: 42px; height: 42px;
+  background: var(--mf-premium-soft);
+  border: 1px solid #ffe0e5;
+  color: var(--mf-premium-red);
+  box-shadow: none;
+}
+#page-home .pulse-btn { animation: none; }
+#page-home .truemeds-search-section {
+  padding: 13px 16px 9px;
+  background: var(--mf-premium-bg);
+}
+#page-home .truemeds-search-bar {
+  min-height: 54px;
+  border: 1px solid #e5e9f0;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(30,45,65,.055);
+}
+#page-home .truemeds-search-bar:focus-within {
+  border-color: rgba(214,51,74,.55);
+  box-shadow: 0 0 0 3px rgba(214,51,74,.08);
+}
+#page-home .quick-services-menu { padding-top: 7px; }
+#page-home .services-scroll { gap: 12px; padding-bottom: 12px; }
+#page-home .service-item { width: 76px; gap: 7px; }
+#page-home .service-icon-wrapper {
+  width: 50px; height: 50px; min-width: 50px; min-height: 50px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(35,48,65,.10);
+}
+#page-home .service-item span {
+  color: #5e6878; font-size: 10px; font-weight: 700; line-height: 1.3;
+}
+#page-home .prescription-upload-section,
+#page-home .categories-section,
+#page-home .products-showcase-section,
+#page-home .auto-slider-section { padding-left: 16px; padding-right: 16px; }
+#page-home .presc-card {
+  border-radius: 19px;
+  box-shadow: 0 8px 22px rgba(181,35,57,.15);
+}
+#page-home .categories-section { margin-top: 5px; }
+#page-home .cat-head,
+#page-home .section-header-row { margin-bottom: 12px; }
+#page-home .section-title {
+  color: var(--mf-premium-ink);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.25px;
+}
+#page-home .cat-viewall-btn {
+  border: 1px solid #f5d9de;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #fff;
+  color: var(--mf-premium-red);
+  font-size: 11px;
+  font-weight: 800;
+}
+#page-home .categories-grid-scroll {
+  gap: 11px;
+  padding: 3px 1px 13px;
+}
+#page-home .category-item {
+  min-width: 76px;
+  padding: 10px 6px;
+  border: 1px solid var(--mf-premium-line);
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(30,45,65,.035);
+}
+#page-home .cat-icon-wrapper {
+  width: 43px; height: 43px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+#page-home .category-item span {
+  color: #536073;
+  font-size: 10px;
+  font-weight: 700;
+}
+#page-home .products-showcase-section { padding-top: 13px; }
+#page-home .product-card {
+  overflow: hidden;
+  border: 1px solid var(--mf-premium-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--mf-premium-shadow);
+}
+#page-home .product-card img { background: #f7f8fa; }
+#page-home .bottom-nav {
+  min-height: 64px;
+  height: auto;
+  padding: 7px 7px calc(7px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255,255,255,.98);
+  border-top: 1px solid #e9edf3;
+  box-shadow: 0 -5px 20px rgba(31,45,61,.055);
+}
+#bottom-nav .nav-item {
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 13px;
+  color: #8993a2;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .25px;
+}
+#bottom-nav .nav-item .nav-icon { font-size: 18px; }
+#bottom-nav .nav-item.active {
+  color: var(--mf-premium-red);
+  background: var(--mf-premium-soft);
+}
+#bottom-nav .nav-item.active .nav-icon { color: var(--mf-premium-red); }
+#page-home button:focus-visible,
+#page-home [role="button"]:focus-visible {
+  outline: 2px solid rgba(214,51,74,.55);
+  outline-offset: 2px;
+}
+@media (min-width: 700px) {
+  #page-home .main-content-scrollable { max-width: 900px; margin: 0 auto; }
+  #page-home .quick-services-menu,
+  #page-home .prescription-upload-section,
+  #page-home .categories-section,
+  #page-home .products-showcase-section { padding-left: 24px; padding-right: 24px; }
+  #page-home .truemeds-search-section { padding-left: 24px; padding-right: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #page-home .top-bar-scroll,
+  #page-home .animate-flash,
+  #page-home .pulse-btn { animation: none !important; }
+}
