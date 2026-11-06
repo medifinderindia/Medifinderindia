@@ -4,6 +4,17 @@ function mfEsc(v) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
 }
+/* Android bridge compatibility: native share sheet and clipboard for WebView. */
+(function mfNativeShareAndRefresh(){
+  try {
+    var bridge = window.MFAndroid;
+    if (bridge && typeof bridge.shareContent === 'function') {
+      try { Object.defineProperty(navigator, 'share', { configurable:true, value:function(data){ data=data||{}; var ok=bridge.shareContent(String(data.title||'MediFinder India'),String(data.text||''),String(data.url||location.href)); return ok?Promise.resolve():Promise.reject(new Error('Native share unavailable')); }}); } catch (_) {}
+      try { if (!navigator.clipboard) Object.defineProperty(navigator,'clipboard',{configurable:true,value:{}}); Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:function(value){ return bridge.copyText(String(value==null?'':value))?Promise.resolve():Promise.reject(new Error('Native clipboard unavailable')); }}); } catch (_) {}
+    }
+  } catch (_) {}
+})();
+
 const supabase = (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 window.supabaseClient = supabase; // shared with offer.js
 
@@ -294,11 +305,9 @@ function handleGeolocationError(err) {
 // call site in this file gets the same options + friendly error handling +
 // "browser unsupported" guard, without duplicating that boilerplate everywhere.
 function safeWatchPosition(onSuccess, options) {
-    if (!navigator.geolocation) {
-        handleGeolocationError({ code: 0 });
-        return null;
-    }
-    return navigator.geolocation.watchPosition(onSuccess, handleGeolocationError, options || GEO_OPTIONS_WATCH);
+    if (!navigator.geolocation) return null;
+    // Automatic background location checks must not interrupt normal browsing or checkout.
+    return navigator.geolocation.watchPosition(onSuccess, function () {}, options || GEO_OPTIONS_WATCH);
 }
 function safeGetCurrentPosition(onSuccess, options, silent) {
     if (!navigator.geolocation) {
@@ -506,17 +515,11 @@ function mfScanForSmartImages(root) {
 }
 
 function initMfSmartImageSystem() {
-    mfScanForSmartImages(document);
-    const mfImgObserver = new MutationObserver((mutations) => {
-        mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-                if (node.nodeType !== 1) return;
-                if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) mfApplySmartImage(node);
-                if (node.querySelectorAll) mfScanForSmartImages(node);
-            });
-        });
-    });
-    mfImgObserver.observe(document.body, { childList: true, subtree: true });
+    // Intentionally disabled on the user app page.
+    // Product cards already use native loading="lazy" and decoding="async".
+    // The old observer created a new Image() for every product image, forcing
+    // all catalogue images to download eagerly and competing with WebView UI.
+    // Let Chromium load images only when they approach the viewport.
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1572,6 +1575,17 @@ async function setupHomePageModules() {
         document.head.appendChild(shimmerCSS);
     }
 
+    // Paint the fixed home category tiles before any network request is awaited.
+    // The full category setup below will attach the click handlers after page setup.
+    const earlyHomeCatGrid = document.getElementById('home-cat-grid');
+    if (earlyHomeCatGrid && typeof MF_HOME_TILES !== 'undefined') {
+        earlyHomeCatGrid.innerHTML = MF_HOME_TILES.map((tile, index) => `
+            <div class="category-item" data-i="${index}" title="${mfEsc(tile.label || tile.cat)}">
+                <div class="cat-icon-wrapper ${tile.cls}"><i class="fa-solid ${tile.icon}"></i></div>
+                <span>${mfEsc(tile.label || tile.cat)}</span>
+            </div>`).join('');
+    }
+
     allProductNames = await loadHomeProductGrid(isInstrumentMode, merchantFilterId);
 
     if (supabase) {
@@ -2273,8 +2287,15 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
         var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
         (async function () {
             try {
-                if (navigator.share) await navigator.share(data);
-                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
+                // Prefer Android's native chooser directly in the WebView; never silently
+                // turn a Share tap into a clipboard-copy action on Android.
+                if (window.MFAndroid && typeof window.MFAndroid.shareContent === 'function') {
+                    window.MFAndroid.shareContent(data.title, data.text, data.url);
+                } else if (navigator.share) {
+                    await navigator.share(data);
+                } else {
+                    toast('Sharing is not available on this device', 'warning');
+                }
             } catch (err) { /* cancelled */ }
         })();
     }, true);
@@ -5136,18 +5157,23 @@ function handlePayWithUpiClick() {
     document.addEventListener('visibilitychange', markOpened, { once: true });
     window.addEventListener('blur', markOpened, { once: true });
 
-    window.location.href = upiLink;
+    let launchRequested = false;
+    const hasNativeUpiBridge = !!(window.MFAndroid && typeof window.MFAndroid.openUpiPayment === 'function');
+    try {
+        if (hasNativeUpiBridge) launchRequested = !!window.MFAndroid.openUpiPayment(upiLink);
+        else { window.location.href = upiLink; launchRequested = true; }
+    } catch (_) {}
 
     setTimeout(() => {
         document.removeEventListener('visibilitychange', markOpened);
         window.removeEventListener('blur', markOpened);
-        if (!appOpened) {
-            showStatus('Unable to open UPI app? Please use the QR Code option below.', '#ff4d4d');
-        } else {
+        if (appOpened || launchRequested) {
             selectedOnlinePaymentMethod = 'UPI';
             showUpiPaymentConfirmStep();
+        } else {
+            showStatus('No UPI app could be opened. Please use the QR Code option below.', '#ff4d4d');
         }
-    }, 2000);
+    }, 900);
 }
 
 async function handlePlaceOrderClick() {
@@ -8947,16 +8973,16 @@ function mfTranslateAsync(text, lang) {
         nodes.forEach(n => { if (n.isConnected !== false) __mfTranslateNode(n, __mfLang); });
     };
     const start = () => {
+        // Translate only newly inserted DOM. A recurring full-document sweep every
+        // 5 seconds forced a recursive walk of the entire app while users scrolled
+        // or navigated, causing long main-thread stalls in Android WebView.
         new MutationObserver((muts) => {
             if (__mfLang === 'en') return;
             muts.forEach(m => {
                 if (m.type === 'childList') m.addedNodes.forEach(n => queue.add(n));
-                else queue.add(m.target); // characterData / attributes
             });
             if (!scheduled && queue.size) { scheduled = true; requestAnimationFrame(flush); }
-        }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: __MF_ATTRS.concat(['value']) });
-        // safety sweep: catches anything rendered by code paths the observer can miss
-        setInterval(() => { if (__mfLang !== 'en' && !document.hidden) { try { mfApplyGenericTranslation(__mfLang); } catch (e) {} } }, 5000);
+        }).observe(document.body, { childList: true, subtree: true });
     };
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();

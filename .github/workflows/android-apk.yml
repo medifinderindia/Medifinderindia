@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -37,10 +37,31 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK artifact (for build diagnostics)
         uses: actions/upload-artifact@v4
         with:
           name: medifinder-android-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Prepare stable direct-download APK
+        if: github.event_name != 'pull_request'
+        run: cp app/build/outputs/apk/debug/app-debug.apk medifinder-india-latest.apk
+
+      - name: Publish or update stable APK download
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: MediFinder India — Latest Android APK
+          body: |
+            Latest automated Android APK build for MediFinder India.
+            Download **medifinder-india-latest.apk** and install it on your Android device.
+            This rolling release is updated after each successful push/workflow run.
+          files: medifinder-india-latest.apk
+          overwrite_files: true
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

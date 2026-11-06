@@ -8,9 +8,18 @@
   var GRACE        = 250;   // chained requests keep the same spinner
   var MAX_MS       = 20000; // safety: never spin longer than this
   var OK_MS = 1100, ERR_MS = 2200;
-  var SKIP   = 'nav, .bottom-nav, .nav-bar, [role="tablist"], .tabs, .sidebar, .icon-btn, .hamburger, [data-no-spin], [data-nav], [data-tab], [data-nav-child], [data-close-modal]';
+  var SKIP   = 'nav, .bottom-nav, .nav-bar, [role="tablist"], .tabs, .sidebar, .icon-btn, .hamburger, .notification-container, #notiBtn, #pd-share-btn, .share-btn, [data-no-spin], [data-nav], [data-tab], [data-nav-child], [data-close-modal]';
   var TARGET = 'button, .btn, [role="button"], input[type="submit"]';
   var current = null;
+
+  // Navigation/favourite controls must never be rewritten as Save/Please wait.
+  function skipButton(b) {
+    if (!b) return true;
+    if (b.closest(SKIP)) return true;
+    var meta = [b.id, b.className, b.getAttribute('aria-label'), b.getAttribute('title'), b.getAttribute('data-page'), b.getAttribute('data-nav')].join(' ').toLowerCase();
+    var label = (b.textContent || '').toLowerCase();
+    return /wishlist|notification|notifications|noti-close|pd-wishlist-heart/.test(meta + ' ' + label);
+  }
 
   function esc(s){ return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
@@ -119,7 +128,7 @@
   document.addEventListener('click', function (e) {
     var t = e.target;
     var b = t && t.closest ? t.closest(TARGET) : null;
-    if (!b || b.closest(SKIP)) return;
+    if (!b || skipButton(b)) return;
     if (b.__bl && b.classList.contains('bl-err')) restore(b.__bl);        // tapping "Retry" resets it, the click then runs normally
     if (b.disabled || b.classList.contains('bl-busy')) return;
     var c = { btn: b, t0: Date.now(), pending: 0, on: false };
