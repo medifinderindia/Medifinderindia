@@ -95,7 +95,7 @@
     const actions = element("div", "v2-product-actions");
     const buy = element("button", "v2-product-buy", stock > 0 ? "View details" : "Unavailable");
     buy.type = "button";
-    buy.disabled = stock <= 0;
+    buy.disabled = stock <= 0 || !(window.MFCustomerV2Actions && typeof window.MFCustomerV2Actions.onProductOpen === "function");
     buy.addEventListener("click", (event) => {
       event.stopPropagation();
       const bridge = window.MFCustomerV2Actions;
@@ -103,7 +103,7 @@
     });
     const add = element("button", "v2-product-add", "Add to cart");
     add.type = "button";
-    add.disabled = stock <= 0;
+    add.disabled = stock <= 0 || !(window.MFCustomerV2Actions && typeof window.MFCustomerV2Actions.onAddToCart === "function");
     add.addEventListener("click", (event) => {
       event.stopPropagation();
       const bridge = window.MFCustomerV2Actions;
