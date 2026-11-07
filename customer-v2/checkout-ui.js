@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   const root=document.querySelector('[data-view="checkout"]'); if(!root)return;
-  const $=s=>root.querySelector(s), patientsHost=$("[data-checkout-patients]"), addressesHost=$("[data-checkout-addresses]"), status=$("[data-checkout-status]"), summary=$("[data-checkout-summary]"), pin=$("[data-checkout-pincode"), pinResult=$("[data-pincode-result]"), couponInput=$("[data-checkout-coupon]"), couponResult=$("[data-coupon-result]"), coinBalanceText=$("[data-coin-balance]"), coinToggle=$("[data-use-coins]"), coinResult=$("[data-coin-result]");
+  const $=s=>root.querySelector(s), patientsHost=$("[data-checkout-patients]"), addressesHost=$("[data-checkout-addresses]"), status=$("[data-checkout-status]"), summary=$("[data-checkout-summary]"), pin=$("[data-checkout-pincode]"), pinResult=$("[data-pincode-result]"), couponInput=$("[data-checkout-coupon]"), couponResult=$("[data-coupon-result]"), coinBalanceText=$("[data-coin-balance]"), coinToggle=$("[data-use-coins]"), coinResult=$("[data-coin-result]");
   let rules=null,selectedPatient="self",selectedAddress="",addresses=[],coupon=null,coinBalance=0,coinApplied=0,serviceability=null,deliveryEstimate=null,selectedSpeed="manual",loading=false;
   const money=n=>"₹"+(Number(n)||0).toFixed(2), cart=()=>window.MFCustomerV2Cart?window.MFCustomerV2Cart.createCartStore().snapshot():{items:[],subtotal:0};
   function msg(el,text,error=false){el.textContent=text;el.dataset.error=String(error);}
