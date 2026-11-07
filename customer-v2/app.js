@@ -25,7 +25,7 @@
   function openView(key) {
     const selected = modules[key] ? key : "home";
     const isHome = selected === "home";
-    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : "module");
+    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : "module"));
     views.forEach(view => view.classList.toggle("active", view.dataset.view === targetView));
     navItems.forEach(item => item.classList.toggle("active", item.dataset.go === selected || (!isHome && item.dataset.go === ({
       shops: "shops", cart: "cart", orders: "orders", profile: "profile"
