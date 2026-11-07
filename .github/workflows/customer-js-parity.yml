@@ -29,6 +29,12 @@ jobs:
       - name: Syntax and source/bundle parity audit
         run: node customer-v2/tools/js-parity-audit.js user.js user.min.js > customer-v2/js-parity-report.json
 
+      - name: Check V2 people adapter syntax
+        run: node --check customer-v2/people-adapter.js
+
+      - name: Check V2 people UI syntax
+        run: node --check customer-v2/people-ui.js
+
       - name: Check V2 prescription UI syntax
         run: node --check customer-v2/prescriptions-ui.js
 
