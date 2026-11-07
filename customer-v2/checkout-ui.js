@@ -1,81 +1,17 @@
 (() => {
   "use strict";
-  const root=document.querySelector('[data-view="checkout"]');
-  if(!root)return;
-  const patientsHost=root.querySelector("[data-checkout-patients]");
-  const addressesHost=root.querySelector("[data-checkout-addresses]");
-  const status=root.querySelector("[data-checkout-status]");
-  const summary=root.querySelector("[data-checkout-summary]");
-  let adapter=null, rules=null, selectedPatient="self", selectedAddress="", selectedCoupon=null, coinBalance=0, useCoins=false, pincodeVerified=false;
-  const money=n=>"₹"+(Number(n)||0).toFixed(2);
-  function setStatus(message,error=false){status.textContent=message;status.dataset.error=String(error);}
-  function option(host,name,value,label,checked,onChange){
-    const row=document.createElement("label");row.className="v2-checkout-option";
-    const input=document.createElement("input");input.type="radio";input.name=name;input.value=value;input.checked=checked;input.addEventListener("change",()=>onChange(value));
-    const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);
-  }
-  function renderSummary(){
-    const store=window.MFCustomerV2Cart&&window.MFCustomerV2Cart.createCartStore();
-    const state=store&&store.snapshot();
-    summary.replaceChildren();
-    if(!state||!state.items.length){summary.textContent="Your cart is empty.";return;}
-    state.items.forEach(item=>{
-      const line=document.createElement("div");line.className="v2-checkout-summary-line";
-      const name=document.createElement("span");name.textContent=(item.name||"Product")+" × "+item.qty;
-      const price=document.createElement("strong");price.textContent=money(item.price*item.qty);line.append(name,price);summary.append(line);
-    });
-    const total=document.createElement("div");total.className="v2-checkout-summary-total";
-    const label=document.createElement("span");label.textContent="Items subtotal";
-    const value=document.createElement("strong");value.textContent=money(state.subtotal);total.append(label,value);summary.append(total);
-  }
-  async function load(){
-    patientsHost.replaceChildren();addressesHost.replaceChildren();
-    try{
-      const client=window.supabaseClient;
-      if(!client||!window.MFCustomerV2Auth||!window.MFCustomerV2People)throw new Error("Account services are not connected in this preview.");
-      const auth=await window.MFCustomerV2Auth.requireAuthenticatedUser(client);
-      if(!auth.authenticated)throw new Error("Please sign in to choose a patient and delivery address.");
-      adapter=window.MFCustomerV2People.create(client,auth.user);
-      rules=window.MFCustomerV2CheckoutRules.create(client,auth.user);
-      const [patients,addresses,balance]=await Promise.all([adapter.listPatients(),adapter.listAddresses(),rules.getCoinBalance()]);
-      coinBalance=balance;
-      option(patientsHost,"checkout-patient","self","Myself",selectedPatient==="self",v=>selectedPatient=v);
-      patients.forEach(p=>option(patientsHost,"checkout-patient",String(p.id),p.name+" · "+p.age+" years",selectedPatient===String(p.id),v=>selectedPatient=v));
-      if(!patients.length){const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="No family patients saved. You can continue with Myself.";patientsHost.append(hint);}
-      addresses.forEach(a=>option(addressesHost,"checkout-address",String(a.id),(a.tag||"Address")+" — "+[a.address1,a.address2,a.city,a.pincode].filter(Boolean).join(", "),selectedAddress===String(a.id)||(!selectedAddress&&!!a.is_default),v=>selectedAddress=v));
-      if(!selectedAddress){const preferred=addresses.find(a=>a.is_default)||addresses[0];if(preferred)selectedAddress=String(preferred.id);}
-      if(!addresses.length){const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Add a saved address from Patients & Addresses before proceeding.";addressesHost.append(hint);}
-      // Re-render after resolving default address so radio selection is correct.
-      if(addresses.length){addressesHost.replaceChildren();addresses.forEach(a=>option(addressesHost,"checkout-address",String(a.id),(a.tag||"Address")+" — "+[a.address1,a.address2,a.city,a.pincode].filter(Boolean).join(", "),selectedAddress===String(a.id),v=>selectedAddress=v));}
-      root.querySelector("[data-coin-balance]").textContent="Available balance: "+coinBalance+" coins";
-      root.querySelector("[data-coin-result]").textContent="Coin use is preview-only; no redemption is submitted.";
-      setStatus("Saved details loaded. Verify your PIN code and coupon before continuing.");
-    }catch(e){setStatus(e.message||"Could not load delivery details.",true);}
-    renderSummary();
-  }
-  const pin=root.querySelector("[data-checkout-pincode]");
-  const pinResult=root.querySelector("[data-pincode-result]");
-  pin.addEventListener("input",()=>{pin.value=pin.value.replace(/[^0-9]/g,"").slice(0,6);pincodeVerified=false;pinResult.textContent="PIN changed. Verify it again.";});
-  root.querySelector("[data-check-pincode]").addEventListener("click",async()=>{
-    if(!rules){pinResult.textContent="Sign in to verify delivery.";return;}
-    try{pinResult.textContent="Checking…";const result=await rules.checkPincode(pin.value);pincodeVerified=result.available;
-      pinResult.textContent=result.available?"Approved delivery zone. Distance: "+(result.distanceKm==null?"not provided":result.distanceKm+" km"):"Not serviceable yet for this PIN code.";
-      pinResult.dataset.available=String(result.available);
-    }catch(e){pincodeVerified=false;pinResult.textContent=e.message||"Could not verify PIN.";pinResult.dataset.available="false";}
-  });
-  root.querySelector("[data-apply-coupon]").addEventListener("click",async()=>{
-    const out=root.querySelector("[data-coupon-result]");
-    if(!rules){out.textContent="Sign in to validate a coupon.";return;}
-    const cart=window.MFCustomerV2Cart.createCartStore().snapshot();
-    try{out.textContent="Validating…";selectedCoupon=await rules.validateCoupon(root.querySelector("[data-checkout-coupon]").value,cart.subtotal);out.textContent="Coupon applied: "+selectedCoupon.code+" — saved "+money(selectedCoupon.discount);renderSummary();}
-    catch(e){selectedCoupon=null;out.textContent=e.message||"Coupon could not be validated.";renderSummary();}
-  });
-  root.querySelector("[data-use-coins]").addEventListener("change",e=>{
-    useCoins=e.target.checked;const subtotal=window.MFCustomerV2Cart.createCartStore().snapshot().subtotal;
-    const discount=selectedCoupon?selectedCoupon.discount:0;
-    const applied=useCoins?Math.min(coinBalance,Math.floor(Math.max(0,subtotal-discount))):0;
-    root.querySelector("[data-coin-result]").textContent=applied?"Preview saving: "+money(applied):"No coins selected.";renderSummary();
-  });
-  window.MFCustomerV2Checkout=Object.freeze({load,getSelection:()=>({patient:selectedPatient,address:selectedAddress,pincode:pin.value,pincodeVerified,coupon:selectedCoupon,coins:useCoins?coinBalance:0})});
-  load();
+  const root=document.querySelector('[data-view="checkout"]'); if(!root)return;
+  const $=s=>root.querySelector(s), patientsHost=$("[data-checkout-patients]"), addressesHost=$("[data-checkout-addresses]"), status=$("[data-checkout-status]"), summary=$("[data-checkout-summary]"), pin=$("[data-checkout-pincode"), pinResult=$("[data-pincode-result]"), couponInput=$("[data-checkout-coupon]"), couponResult=$("[data-coupon-result]"), coinBalanceText=$("[data-coin-balance]"), coinToggle=$("[data-use-coins]"), coinResult=$("[data-coin-result]");
+  let rules=null,selectedPatient="self",selectedAddress="",addresses=[],coupon=null,coinBalance=0,coinApplied=0,serviceability=null,loading=false;
+  const money=n=>"₹"+(Number(n)||0).toFixed(2), cart=()=>window.MFCustomerV2Cart?window.MFCustomerV2Cart.createCartStore().snapshot():{items:[],subtotal:0};
+  function msg(el,text,error=false){el.textContent=text;el.dataset.error=String(error);}
+  function option(host,name,value,label,checked,change){const row=document.createElement("label");row.className="v2-checkout-option";const input=document.createElement("input");input.type="radio";input.name=name;input.value=value;input.checked=checked;input.addEventListener("change",()=>change(value));const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);}
+  function renderSummary(){const state=cart(),subtotal=Number(state.subtotal)||0;summary.replaceChildren();if(!state.items.length){summary.textContent="Your cart is empty.";return;}state.items.forEach(item=>{const line=document.createElement("div");line.className="v2-checkout-summary-line";const n=document.createElement("span");n.textContent=(item.name||"Product")+" × "+item.qty;const v=document.createElement("strong");v.textContent=money(item.price*item.qty);line.append(n,v);summary.append(line);});const row=(label,value)=>{const line=document.createElement("div");line.className="v2-checkout-summary-line";const a=document.createElement("span"),b=document.createElement("strong");a.textContent=label;b.textContent=value;line.append(a,b);summary.append(line);};row("Items subtotal",money(subtotal));row("Coupon discount",coupon?"-"+money(Math.min(coupon.discount,subtotal)):money(0));row("Tablet Coin discount",coinApplied?"-"+money(coinApplied):money(0));row("Estimated payable before delivery / taxes",money(Math.max(0,subtotal-(coupon?coupon.discount:0)-coinApplied)));}
+  async function checkPin(){serviceability=null;pin.value=pin.value.replace(/\D/g,"").slice(0,6);if(!rules){msg(pinResult,"Account services are not connected. Delivery cannot be verified.",true);return;}if(!/^[1-9]\d{5}$/.test(pin.value)){msg(pinResult,"Enter a valid 6-digit PIN code.",true);return;}const btn=$("[data-check-pincode]");btn.disabled=true;btn.textContent="Checking…";try{serviceability=await rules.checkPincode(pin.value);msg(pinResult,serviceability.available?(serviceability.distanceKm==null?"Approved service zone found. Final delivery fee is calculated later.":"Approved zone. Recorded distance: "+serviceability.distanceKm+" km. Final delivery fee is calculated later."):"This PIN code is not in an approved delivery zone.",!serviceability.available);}catch(e){msg(pinResult,e.message||"Could not verify PIN code. Please retry.",true);}finally{btn.disabled=false;btn.textContent="Check delivery availability";}}
+  async function applyCoupon(){if(!rules){msg(couponResult,"Account services are not connected.",true);return;}const btn=$("[data-apply-coupon]");btn.disabled=true;btn.textContent="Checking…";try{coupon=await rules.validateCoupon(couponInput.value,Number(cart().subtotal)||0);msg(couponResult,"Coupon applied — saving "+money(coupon.discount)+".");}catch(e){coupon=null;msg(couponResult,e.message||"Could not apply coupon.",true);}finally{btn.disabled=false;btn.textContent="Apply";renderSummary();}}
+  async function load(){if(loading)return;loading=true;patientsHost.replaceChildren();addressesHost.replaceChildren();try{const client=window.supabaseClient;if(!client||!window.MFCustomerV2Auth||!window.MFCustomerV2People||!window.MFCustomerV2CheckoutRules)throw new Error("Account services are not connected in this preview.");const auth=await window.MFCustomerV2Auth.requireAuthenticatedUser(client);if(!auth.authenticated)throw new Error("Please sign in to choose a patient and delivery address.");const people=window.MFCustomerV2People.create(client,auth.user);rules=window.MFCustomerV2CheckoutRules.create(client,auth.user);const [patients,a,balance]=await Promise.all([people.listPatients(),people.listAddresses(),rules.getCoinBalance()]);addresses=a;coinBalance=balance;option(patientsHost,"checkout-patient","self","Myself",selectedPatient==="self",v=>selectedPatient=v);patients.forEach(p=>option(patientsHost,"checkout-patient",String(p.id),p.name+" · "+p.age+" years",selectedPatient===String(p.id),v=>selectedPatient=v));if(!patients.length){const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="No family patients saved. You can continue with Myself.";patientsHost.append(hint);}if(!selectedAddress){const preferred=a.find(x=>x.is_default)||a[0];if(preferred)selectedAddress=String(preferred.id);}a.forEach(x=>option(addressesHost,"checkout-address",String(x.id),(x.tag||"Address")+" — "+[x.address1,x.address2,x.city,x.pincode].filter(Boolean).join(", "),selectedAddress===String(x.id),v=>{selectedAddress=v;const chosen=addresses.find(y=>String(y.id)===v);if(chosen&&chosen.pincode){pin.value=String(chosen.pincode);serviceability=null;msg(pinResult,"Saved address PIN loaded. Verify it before continuing.");}}));if(!a.length){const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Add a saved address before proceeding.";addressesHost.append(hint);}const selected=a.find(x=>String(x.id)===selectedAddress);if(selected&&selected.pincode){pin.value=String(selected.pincode);msg(pinResult,"Saved address PIN loaded. Verify serviceability before continuing.");}coinBalanceText.textContent="Available balance: "+coinBalance+" coins";coinToggle.disabled=coinBalance<=0;coinToggle.checked=false;coinApplied=0;msg(status,"Saved details loaded. Verify delivery PIN and review discounts. No order can be placed from this preview.");}catch(e){rules=null;msg(status,e.message||"Could not load delivery details.",true);coinBalanceText.textContent="Coin balance unavailable.";coinToggle.disabled=true;}finally{loading=false;renderSummary();}}
+  pin.addEventListener("input",()=>{pin.value=pin.value.replace(/\D/g,"").slice(0,6);serviceability=null;msg(pinResult,"PIN changed. Verify delivery availability again.");});
+  $("[data-check-pincode]").addEventListener("click",checkPin);$("[data-apply-coupon]").addEventListener("click",applyCoupon);
+  coinToggle.addEventListener("change",()=>{const subtotal=Number(cart().subtotal)||0,after=Math.max(0,subtotal-(coupon?coupon.discount:0));coinApplied=coinToggle.checked?Math.min(coinBalance,Math.floor(after)):0;msg(coinResult,coinApplied?"Using "+coinApplied+" coins — saving "+money(coinApplied)+".":"No coins applied.");renderSummary();});
+  window.MFCustomerV2Checkout=Object.freeze({load,getSelection:()=>({patient:selectedPatient,address:selectedAddress,pincode:pin.value,serviceability,coupon,coinApplied})});load();
 })();
