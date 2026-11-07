@@ -27,8 +27,27 @@
     if (retry) retry.disabled = true;
     try {
       const provider = window.MFCustomerV2Catalogue.createHomeCatalogueProvider(client);
+      const wishlist = window.MFCustomerV2Wishlist
+        ? window.MFCustomerV2Wishlist.createWishlistAdapter({
+            supabase: client,
+            getUserId: async () => {
+              const result = await client.auth.getSession();
+              return result && result.data && result.data.session
+                ? result.data.session.user.id : "";
+            }
+          })
+        : null;
+      if (window.MFCustomerV2LegacyActions &&
+          typeof window.addToCart === "function" &&
+          typeof window.navigateToProductDetail === "function") {
+        window.MFCustomerV2Actions = window.MFCustomerV2LegacyActions.createLegacyActions({
+          addToCart: window.addToCart,
+          navigateToProductDetail: window.navigateToProductDetail,
+          wishlist
+        });
+      }
       const products = await provider({ signal: controller && controller.signal });
-      await window.MFCustomerV2ProductCards.render(root, products);
+      await window.MFCustomerV2ProductCards.render(root, products, { wishlist });
       if (status) {
         status.hidden = !products.length;
         status.textContent = products.length ? "" : "No approved products are available right now.";
