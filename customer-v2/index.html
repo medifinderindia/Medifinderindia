@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./cart-ui.css">
   <link rel="stylesheet" href="./prescriptions-ui.css">
   <link rel="stylesheet" href="./people-ui.css">
-  <link rel="stylesheet" href="./checkout-ui.css">\n  <link rel="stylesheet" href="./checkout-ui.css">
+  <link rel="stylesheet" href="./checkout-ui.css">
 </head>
 <body>
   <div class="app-shell">
@@ -71,8 +71,10 @@
         <section class="v2-checkout-panel"><h2>Delivery address</h2><div data-checkout-addresses class="v2-checkout-options"></div></section>
         <section class="v2-checkout-panel"><h2>PIN code serviceability</h2>
           <label class="v2-checkout-pin">Delivery PIN code<input data-checkout-pincode inputmode="numeric" maxlength="6" pattern="[1-9][0-9]{5}" placeholder="Enter 6-digit PIN"></label>
-          <p class="v2-checkout-hint">Serviceability and delivery charges are not calculated in this preview. No availability is assumed.</p>
+          <button type="button" class="v2-checkout-continue" data-check-pincode>Check delivery availability</button><p class="v2-checkout-hint" data-pincode-result>Enter a PIN code and verify it. Errors will not be treated as available.</p>
         </section>
+        <section class="v2-checkout-panel"><h2>Coupon code</h2><div class="v2-checkout-coupon"><input data-checkout-coupon placeholder="Enter coupon code" maxlength="40" autocomplete="off"><button type="button" data-apply-coupon>Apply</button></div><p class="v2-checkout-hint" data-coupon-result role="status"></p></section>
+        <section class="v2-checkout-panel"><h2>Tablet Coin</h2><p data-coin-balance>Loading balance…</p><label class="v2-people-check"><input type="checkbox" data-use-coins> Use available coins (1 coin = ₹1)</label><p class="v2-checkout-hint" data-coin-result></p></section>
         <section class="v2-checkout-panel"><h2>Order summary</h2><div data-checkout-summary></div></section>
         <p class="v2-checkout-hint">Preview only: no coupon, Tablet Coin, payment, order creation or delivery promise is enabled.</p>
         <button class="v2-checkout-disabled" type="button" disabled>Place order unavailable in preview</button>
@@ -171,6 +173,7 @@
   <script src="./prescriptions-ui.js"></script>
   <script src="./people-adapter.js"></script>
   <script src="./people-ui.js"></script>
+  <script src="./checkout-rules.js"></script>
   <script src="./checkout-ui.js"></script>\n  <script src="./checkout-ui.js"></script>
   <script src="./integration.js"></script>
 </body>
