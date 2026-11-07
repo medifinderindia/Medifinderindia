@@ -63,7 +63,19 @@
           wishlist
         });
       } else {
-        delete window.MFCustomerV2Actions;
+        const cartStore = window.MFCustomerV2Cart
+          ? window.MFCustomerV2Cart.createCartStore() : null;
+        window.MFCustomerV2Actions = cartStore ? Object.freeze({
+          onAddToCart(product) {
+            const result = cartStore.add(product);
+            if (window.MFCustomerV2CartUI) window.MFCustomerV2CartUI.refresh();
+            return result;
+          },
+          onProductOpen() {
+            if (status) status.textContent = "Product details will be connected to the existing verified product-detail flow during migration.";
+          },
+          onWishlist: wishlist ? (product) => wishlist.toggle(product.id) : null
+        }) : undefined;
       }
       const products = await provider({ signal: controller && controller.signal });
       if (sequence !== loadSequence) return;
