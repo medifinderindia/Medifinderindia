@@ -29,6 +29,12 @@ jobs:
       - name: Syntax and source/bundle parity audit
         run: node customer-v2/tools/js-parity-audit.js user.js user.min.js > customer-v2/js-parity-report.json
 
+      - name: Check V2 cart UI syntax
+        run: node --check customer-v2/cart-ui.js
+
+      - name: Check V2 integration syntax
+        run: node --check customer-v2/integration.js
+
       - name: Test V2 cart store
         run: node customer-v2/tools/test-cart-store.js
 
