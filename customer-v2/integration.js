@@ -19,22 +19,25 @@
     if (controller) controller.abort();
     controller = typeof AbortController === "function" ? new AbortController() : null;
     const client = window.supabaseClient;
-    if (!client || !window.MFCustomerV2Catalogue || !window.MFCustomerV2ProductCards) {
+    if (!client || !window.MFCustomerV2Auth ||
+        !window.MFCustomerV2Catalogue || !window.MFCustomerV2ProductCards) {
       showDisconnected();
       return;
     }
 
     if (retry) retry.disabled = true;
     try {
+      const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(client);
+      if (!auth.authenticated) {
+        showDisconnected();
+        if (status) status.textContent = "Please sign in to view your MediFinder products.";
+        return;
+      }
       const provider = window.MFCustomerV2Catalogue.createHomeCatalogueProvider(client);
       const wishlist = window.MFCustomerV2Wishlist
         ? window.MFCustomerV2Wishlist.createWishlistAdapter({
             supabase: client,
-            getUserId: async () => {
-              const result = await client.auth.getSession();
-              return result && result.data && result.data.session
-                ? result.data.session.user.id : "";
-            }
+            getUserId: async () => auth.user.id
           })
         : null;
       const addToCart = typeof window.addToCart === "function" ? window.addToCart : null;
@@ -68,7 +71,22 @@
   }
 
   retry && retry.addEventListener("click", load);
-  window.MFCustomerV2Integration = Object.freeze({ load });
+  let authSubscription = null;
+  if (window.supabaseClient && window.supabaseClient.auth &&
+      typeof window.supabaseClient.auth.onAuthStateChange === "function") {
+    const result = window.supabaseClient.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") load();
+    });
+    authSubscription = result && result.data && result.data.subscription;
+  }
+  window.MFCustomerV2Integration = Object.freeze({
+    load,
+    destroy() {
+      if (controller) controller.abort();
+      if (authSubscription && typeof authSubscription.unsubscribe === "function") authSubscription.unsubscribe();
+      window.MFCustomerV2ProductCards && window.MFCustomerV2ProductCards.cancel();
+    }
+  });
   showDisconnected();
   if (window.supabaseClient) load();
 })();
