@@ -58,5 +58,6 @@
     openView(key);
   });
 
+  window.MFCustomerV2App = Object.freeze({ openView });
   openView(modules[location.hash.slice(1)] ? location.hash.slice(1) : "home");
 })();
