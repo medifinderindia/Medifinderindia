@@ -24,6 +24,24 @@
     return rows.filter(product => fields(product).some(value => value.includes(term)));
   }
 
+  function editDistance(a, b) {
+    const previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let diagonal = previous[0];
+      previous[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const above = previous[j];
+        previous[j] = Math.min(
+          previous[j] + 1,
+          previous[j - 1] + 1,
+          diagonal + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+        diagonal = above;
+      }
+    }
+    return previous[b.length];
+  }
+
   function suggest(products, query, limit = 4) {
     const rows = Array.isArray(products) ? products : [];
     const term = normalize(query);
@@ -36,6 +54,12 @@
         if (values.some(value => value === token)) score += 8;
         else if (values.some(value => value.startsWith(token))) score += 5;
         else if (values.some(value => value.includes(token))) score += 3;
+        else {
+          const words = values.flatMap(value => value.split(/\\s+/));
+          const closest = words.reduce((best, word) => Math.min(best, editDistance(token, word)), Infinity);
+          const tolerance = token.length >= 7 ? 2 : token.length >= 4 ? 1 : 0;
+          if (closest <= tolerance) score += (tolerance - closest + 1) * 2;
+        }
       }
       // Prefer products from the same product type/category family when text is a near match.
       const family = normalize(product.product_type || product.category || "");
