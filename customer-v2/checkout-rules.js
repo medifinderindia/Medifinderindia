@@ -4,8 +4,8 @@
   function create(client,user){
     if(!client||!user||!user.id)throw new Error("Sign in is required.");
     async function checkPincode(pin){
-      const p=String(pin||"").replace(/\\D/g,"");
-      if(!/^[1-9]\\d{5}$/.test(p))throw new Error("Enter a valid 6-digit PIN code.");
+      const p=String(pin||"").replace(/\D/g,"");
+      if(!/^[1-9]\d{5}$/.test(p))throw new Error("Enter a valid 6-digit PIN code.");
       const {data,error}=await client.from("service_zones").select("pin, dist, status").eq("pin",p).maybeSingle();
       if(error)throw new Error("Could not verify delivery serviceability. Please retry.");
       if(!data||String(data.status||"").toLowerCase()!=="approved")return {available:false,pincode:p};
