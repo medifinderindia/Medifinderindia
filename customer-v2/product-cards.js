@@ -70,7 +70,10 @@
       event.stopPropagation();
       const bridge = window.MFCustomerV2Actions;
       if (bridge && typeof bridge.onWishlist === "function") {
-        Promise.resolve(bridge.onWishlist(product, favorite)).catch(() => {});
+        favorite.disabled = true;
+        Promise.resolve(bridge.onWishlist(product, favorite))
+          .catch(() => { favorite.classList.toggle("active"); })
+          .finally(() => { favorite.disabled = false; });
       } else {
         favorite.disabled = true;
         favorite.title = "Wishlist will be connected with the existing account feature during migration.";
@@ -145,6 +148,23 @@
     if (!rows.length) {
       const empty = element("p", "v2-products-empty", "No approved products are available right now.");
       grid.append(empty);
+    }
+    if (options.wishlist && typeof options.wishlist.getSavedIds === "function") {
+      try {
+        const saved = new Set(await options.wishlist.getSavedIds());
+        if (current === generation && root.isConnected) {
+          grid.querySelectorAll(".v2-product-card").forEach(card => {
+            const button = card.querySelector(".v2-product-save");
+            const active = saved.has(String(card.dataset.id));
+            if (button) {
+              button.classList.toggle("active", active);
+              button.textContent = active ? "♥" : "♡";
+              button.setAttribute("aria-pressed", String(active));
+              button.disabled = false;
+            }
+          });
+        }
+      } catch (_) {}
     }
     options.onRendered?.(rows.length);
   }
