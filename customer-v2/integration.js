@@ -6,6 +6,7 @@
   const status = root.querySelector("[data-home-status]");
   const retry = root.querySelector("[data-catalogue-retry]");
   let controller = null;
+  let loadSequence = 0;
 
   function showDisconnected() {
     if (status) {
@@ -16,6 +17,7 @@
   }
 
   async function load() {
+    const sequence = ++loadSequence;
     if (controller) controller.abort();
     controller = typeof AbortController === "function" ? new AbortController() : null;
     const client = window.supabaseClient;
@@ -28,7 +30,12 @@
     if (retry) retry.disabled = true;
     try {
       const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(client);
+      if (sequence !== loadSequence) return;
       if (!auth.authenticated) {
+        window.MFCustomerV2ProductCards.cancel();
+        const grid = root.querySelector("[data-home-products]");
+        if (grid) grid.replaceChildren();
+        delete window.MFCustomerV2Actions;
         showDisconnected();
         if (status) status.textContent = "Please sign in to view your MediFinder products.";
         return;
@@ -53,13 +60,15 @@
         delete window.MFCustomerV2Actions;
       }
       const products = await provider({ signal: controller && controller.signal });
+      if (sequence !== loadSequence) return;
       await window.MFCustomerV2ProductCards.render(root, products, { wishlist });
+      if (sequence !== loadSequence) return;
       if (status) {
         status.hidden = !products.length;
         status.textContent = products.length ? "" : "No approved products are available right now.";
       }
     } catch (error) {
-      if (error && error.name === "AbortError") return;
+      if (sequence !== loadSequence || (error && error.name === "AbortError")) return;
       if (status) {
         status.hidden = false;
         status.dataset.state = "error";
@@ -82,6 +91,7 @@
   window.MFCustomerV2Integration = Object.freeze({
     load,
     destroy() {
+      loadSequence++;
       if (controller) controller.abort();
       if (authSubscription && typeof authSubscription.unsubscribe === "function") authSubscription.unsubscribe();
       window.MFCustomerV2ProductCards && window.MFCustomerV2ProductCards.cancel();
