@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#d52f49">
   <title>MediFinder India — Customer Panel V2 Preview</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./product-cards.css">
 </head>
 <body>
   <div class="app-shell">
@@ -39,7 +40,10 @@
           <button data-go="cart"><span class="shortcut-icon">🛒</span><span><b>Cart & checkout</b><small>Review items and delivery details</small></span><strong>›</strong></button>
           <button data-go="profile"><span class="shortcut-icon">◉</span><span><b>My profile</b><small>Personal details and preferences</small></span><strong>›</strong></button>
         </div>
-        <p class="preview-note">V2 interface foundation preview. Existing customer features and live account data are not connected in this preview yet.</p>
+        <div class="section-heading"><div><span class="eyebrow">HEALTHCARE CATALOGUE</span><h2>Available products</h2></div><button type="button" data-catalogue-retry>Retry</button></div>
+        <p class="catalogue-status" data-home-status role="status" aria-live="polite">Live products are not connected in this preview.</p>
+        <div class="v2-products-grid" data-home-products aria-live="polite"></div>
+        <p class="preview-note">Preview only — live cart, wishlist, checkout, bookings and account actions are not enabled here.</p>
       </section>
 
       <section class="view" id="view-module" data-view="module" aria-live="polite">
@@ -61,5 +65,8 @@
     </nav>
   </div>
   <script src="./app.js"></script>
+  <script src="./catalogue-adapter.js"></script>
+  <script src="./product-cards.js"></script>
+  <script src="./integration.js"></script>
 </body>
 </html>
