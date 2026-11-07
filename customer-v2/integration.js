@@ -8,6 +8,7 @@
   let controller = null;
   let loadSequence = 0;
   let catalogueRows = [];
+  let activeWishlist = null;
 
   function showDisconnected() {
     if (status) {
@@ -37,6 +38,8 @@
         const grid = root.querySelector("[data-home-products]");
         if (grid) grid.replaceChildren();
         delete window.MFCustomerV2Actions;
+        catalogueRows = [];
+        activeWishlist = null;
         showDisconnected();
         if (status) status.textContent = "Please sign in to view your MediFinder products.";
         return;
@@ -48,6 +51,7 @@
             getUserId: async () => auth.user.id
           })
         : null;
+      activeWishlist = wishlist;
       const addToCart = typeof window.addToCart === "function" ? window.addToCart : null;
       const navigateToProductDetail = typeof window.navigateToProductDetail === "function"
         ? window.navigateToProductDetail : null;
@@ -91,7 +95,7 @@
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
       const visibleRows = window.MFCustomerV2Search.filter(catalogueRows, searchInput.value);
-      window.MFCustomerV2ProductCards.render(root, visibleRows);
+      window.MFCustomerV2ProductCards.render(root, visibleRows, { wishlist: activeWishlist });
       if (status) {
         status.hidden = visibleRows.length > 0;
         status.textContent = visibleRows.length ? '' : 'No matching products found.';
@@ -113,6 +117,7 @@
       if (controller) controller.abort();
       if (searchTimer) clearTimeout(searchTimer);
       catalogueRows = [];
+      activeWishlist = null;
       if (authSubscription && typeof authSubscription.unsubscribe === "function") authSubscription.unsubscribe();
       window.MFCustomerV2ProductCards && window.MFCustomerV2ProductCards.cancel();
     }
