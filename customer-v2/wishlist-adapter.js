@@ -45,16 +45,21 @@
       const uid = await getUserId();
       if (!uid) return { localOnly: true, saved: shouldSave };
 
-      if (shouldSave) {
-        const { error } = await client.from("user_wishlist")
-          .upsert({ user_id: uid, medicine_id: id }, { onConflict: "user_id,medicine_id" });
-        if (error) throw error;
-      } else {
-        const { error } = await client.from("user_wishlist")
-          .delete().eq("user_id", uid).eq("medicine_id", id);
-        if (error) throw error;
+      try {
+        if (shouldSave) {
+          const { error } = await client.from("user_wishlist")
+            .upsert({ user_id: uid, medicine_id: id }, { onConflict: "user_id,medicine_id" });
+          if (error) throw error;
+        } else {
+          const { error } = await client.from("user_wishlist")
+            .delete().eq("user_id", uid).eq("medicine_id", id);
+          if (error) throw error;
+        }
+        return { localOnly: false, saved: shouldSave };
+      } catch (error) {
+        storage.setItem(STORAGE_KEY, JSON.stringify(ids));
+        throw error;
       }
-      return { localOnly: false, saved: shouldSave };
     }
 
     return Object.freeze({ getSavedIds, setSaved });
