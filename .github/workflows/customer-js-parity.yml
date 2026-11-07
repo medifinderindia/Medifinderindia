@@ -1,0 +1,38 @@
+name: Customer JavaScript Parity Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feat/customer-panel-v2-foundation"
+    paths:
+      - "user.js"
+      - "user.min.js"
+      - "customer-v2/**"
+      - ".github/workflows/customer-js-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parity-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax and source/bundle parity audit
+        run: node customer-v2/tools/js-parity-audit.js user.js user.min.js > customer-v2/js-parity-report.json
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-js-parity-report
+          path: customer-v2/js-parity-report.json
+          if-no-files-found: error
+          retention-days: 14
