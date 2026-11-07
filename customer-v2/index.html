@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#d52f49">
+  <title>MediFinder India — Customer Panel V2 Preview</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="MediFinder India home">
+        <span class="brand-mark">M</span>
+        <span><b>MediFinder</b><small>INDIA · SEARCH CONNECT CARE</small></span>
+      </a>
+      <button class="icon-button" type="button" data-go="notifications" aria-label="Notifications">♧<i class="dot"></i></button>
+    </header>
+
+    <main id="main-content">
+      <section class="view active" id="view-home" data-view="home">
+        <div class="welcome">
+          <div><span class="eyebrow">YOUR HEALTH, IN SAFE HANDS</span><h1>Hello there <span>✦</span></h1><p>What healthcare service do you need today?</p></div>
+          <div class="welcome-art" aria-hidden="true">✚</div>
+        </div>
+        <label class="searchbar"><span>⌕</span><input type="search" placeholder="Search medicines, products, services..." aria-label="Search medicines, products, services"><kbd>⌘ K</kbd></label>
+        <div class="section-heading"><div><span class="eyebrow">QUICK ACCESS</span><h2>Healthcare services</h2></div><span class="muted">Explore</span></div>
+        <div class="service-grid">
+          <button class="service-card" data-go="lab"><span class="service-icon lilac">⌁</span><b>Lab tests</b><small>Book a test</small></button>
+          <button class="service-card" data-go="nurse"><span class="service-icon mint">✚</span><b>Nurse booking</b><small>Care at home</small></button>
+          <button class="service-card" data-go="ambulance"><span class="service-icon rose">✣</span><b>Ambulance</b><small>Find nearby service</small></button>
+          <button class="service-card" data-go="shops"><span class="service-icon sky">⌖</span><b>Nearby shops</b><small>Find pharmacies</small></button>
+          <button class="service-card" data-go="prescriptions"><span class="service-icon amber">▤</span><b>Prescription</b><small>Upload & manage</small></button>
+          <button class="service-card" data-go="coins"><span class="service-icon gold">◇</span><b>Tablet Coin</b><small>Rewards & history</small></button>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow">YOUR ACCOUNT</span><h2>Keep everything together</h2></div></div>
+        <div class="shortcut-list">
+          <button data-go="orders"><span class="shortcut-icon">▣</span><span><b>My orders</b><small>Order details and tracking</small></span><strong>›</strong></button>
+          <button data-go="cart"><span class="shortcut-icon">🛒</span><span><b>Cart & checkout</b><small>Review items and delivery details</small></span><strong>›</strong></button>
+          <button data-go="profile"><span class="shortcut-icon">◉</span><span><b>My profile</b><small>Personal details and preferences</small></span><strong>›</strong></button>
+        </div>
+        <p class="preview-note">V2 interface foundation preview. Existing customer features and live account data are not connected in this preview yet.</p>
+      </section>
+
+      <section class="view" id="view-module" data-view="module" aria-live="polite">
+        <button class="back-link" data-go="home">‹ Back to Home</button>
+        <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
+        <p id="module-description" class="module-description">This module is part of the V2 migration plan.</p>
+        <div class="module-panel"><span class="module-symbol">✚</span><h2 id="module-status">Feature migration in progress</h2><p>All existing functionality will be connected to the current secure backend before this panel can replace the live customer page.</p></div>
+        <div class="module-links" id="module-links"></div>
+        <p class="preview-note">Preview only — do not use this page to place real orders, make payments, or book services.</p>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item active" data-go="home"><span>⌂</span><small>Home</small></button>
+      <button class="nav-item" data-go="shops"><span>⌕</span><small>Explore</small></button>
+      <button class="nav-item" data-go="cart"><span>▢</span><small>Cart</small></button>
+      <button class="nav-item" data-go="orders"><span>▤</span><small>Orders</small></button>
+      <button class="nav-item" data-go="profile"><span>◉</span><small>Profile</small></button>
+    </nav>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
