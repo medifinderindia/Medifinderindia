@@ -72,7 +72,7 @@
       if (bridge && typeof bridge.onWishlist === "function") {
         favorite.disabled = true;
         Promise.resolve(bridge.onWishlist(product, favorite))
-          .catch(() => { favorite.classList.toggle("active"); })
+          .catch(() => { favorite.title = "Wishlist could not be updated. Please try again."; })
           .finally(() => { favorite.disabled = false; });
       } else {
         favorite.disabled = true;
