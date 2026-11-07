@@ -5,6 +5,7 @@
 
   const status = root.querySelector("[data-home-status]");
   const retry = root.querySelector("[data-catalogue-retry]");
+  const suggestionsTitle = root.querySelector("[data-suggestions-title]");
   let controller = null;
   let loadSequence = 0;
   let catalogueRows = [];
@@ -68,12 +69,19 @@
       if (sequence !== loadSequence) return;
       catalogueRows = Array.isArray(products) ? products : [];
       const searchInput = root.querySelector('[data-catalogue-search]');
-      const visibleRows = window.MFCustomerV2Search ? window.MFCustomerV2Search.filter(catalogueRows, searchInput ? searchInput.value : '') : catalogueRows;
+      const matches = window.MFCustomerV2Search ? window.MFCustomerV2Search.filter(catalogueRows, searchInput ? searchInput.value : '') : catalogueRows;
+      const query = searchInput ? searchInput.value.trim() : "";
+      const suggestions = query && matches.length === 0 && window.MFCustomerV2Search
+        ? window.MFCustomerV2Search.suggest(catalogueRows, query, 4) : [];
+      const visibleRows = matches.length ? matches : suggestions;
       await window.MFCustomerV2ProductCards.render(root, visibleRows, { wishlist });
       if (sequence !== loadSequence) return;
+      if (suggestionsTitle) suggestionsTitle.hidden = suggestions.length === 0;
       if (status) {
-        status.hidden = !products.length;
-        status.textContent = products.length ? "" : "No approved products are available right now.";
+        status.hidden = matches.length > 0 || (catalogueRows.length > 0 && !query);
+        status.textContent = suggestions.length
+          ? "No matching products found. Here are some related products you may like."
+          : matches.length ? "" : (query ? "No matching products found." : "No approved products are available right now.");
       }
     } catch (error) {
       if (sequence !== loadSequence || (error && error.name === "AbortError")) return;
@@ -94,11 +102,18 @@
     if (!window.MFCustomerV2Search || !window.MFCustomerV2ProductCards) return;
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-      const visibleRows = window.MFCustomerV2Search.filter(catalogueRows, searchInput.value);
+      const matches = window.MFCustomerV2Search.filter(catalogueRows, searchInput.value);
+      const query = searchInput.value.trim();
+      const suggestions = query && matches.length === 0
+        ? window.MFCustomerV2Search.suggest(catalogueRows, query, 4) : [];
+      const visibleRows = matches.length ? matches : suggestions;
       window.MFCustomerV2ProductCards.render(root, visibleRows, { wishlist: activeWishlist });
+      if (suggestionsTitle) suggestionsTitle.hidden = suggestions.length === 0;
       if (status) {
-        status.hidden = visibleRows.length > 0;
-        status.textContent = visibleRows.length ? '' : 'No matching products found.';
+        status.hidden = matches.length > 0 || (catalogueRows.length > 0 && !query);
+        status.textContent = suggestions.length
+          ? 'No matching products found. Here are some related products you may like.'
+          : matches.length ? '' : 'No matching products found.';
       }
     }, 120);
   });
@@ -118,6 +133,7 @@
       if (searchTimer) clearTimeout(searchTimer);
       catalogueRows = [];
       activeWishlist = null;
+      if (suggestionsTitle) suggestionsTitle.hidden = true;
       if (authSubscription && typeof authSubscription.unsubscribe === "function") authSubscription.unsubscribe();
       window.MFCustomerV2ProductCards && window.MFCustomerV2ProductCards.cancel();
     }
