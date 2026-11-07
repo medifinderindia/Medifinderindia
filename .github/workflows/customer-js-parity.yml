@@ -35,6 +35,9 @@ jobs:
       - name: Check V2 checkout UI syntax
         run: node --check customer-v2/checkout-ui.js
 
+      - name: Test V2 checkout DOM selector contract
+        run: node customer-v2/tools/test-checkout-ui-contract.js
+
       - name: Check V2 people adapter syntax
         run: node --check customer-v2/people-adapter.js
 
