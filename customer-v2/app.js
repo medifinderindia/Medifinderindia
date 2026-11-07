@@ -12,6 +12,7 @@
     notifications: ["Notifications", "Account notifications and push notification preferences."],
     orders: ["My Orders", "Order list, order details, delivery timeline, live tracking and support."],
     cart: ["Cart & Checkout", "Cart items, patient, saved addresses, delivery options, coupon, Tablet Coin and payment verification."],
+    checkout: ["Delivery details", "Choose patient, saved delivery address and PIN code."],
     profile: ["My Profile", "Personal information, photo, language, addresses, patients, reminders, wishlist, referrals, policies and support."],
     people: ["Patients & Addresses", "Manage family members and saved delivery locations."],
     product: ["Product Details", "Product gallery, seller, reviews, variants, prescription requirements, delivery details and wishlist."],
@@ -26,12 +27,12 @@
   function openView(key) {
     const selected = modules[key] ? key : "home";
     const isHome = selected === "home";
-    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : "module")));
+    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : (selected === "checkout" ? "checkout" : "module"))));
     views.forEach(view => view.classList.toggle("active", view.dataset.view === targetView));
     navItems.forEach(item => item.classList.toggle("active", item.dataset.go === selected || (!isHome && item.dataset.go === ({
       shops: "shops", cart: "cart", orders: "orders", profile: "profile"
     }[selected] || ""))));
-    if (!isHome) {
+    if (!isHome && !["cart","prescriptions","people","checkout"].includes(selected)) {
       $("#module-title").textContent = modules[selected][0];
       $("#module-description").textContent = modules[selected][1];
       $("#module-status").textContent = "Feature migration in progress";
@@ -45,6 +46,7 @@
       }));
     }
     if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
+    if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
     window.scrollTo({ top: 0, behavior: "instant" });
     history.replaceState(null, "", selected === "home" ? "#home" : "#" + selected);
   }
