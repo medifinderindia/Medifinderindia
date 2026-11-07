@@ -29,6 +29,9 @@ jobs:
       - name: Syntax and source/bundle parity audit
         run: node customer-v2/tools/js-parity-audit.js user.js user.min.js > customer-v2/js-parity-report.json
 
+      - name: Test authenticated session gate
+        run: node customer-v2/tools/test-auth-session.js
+
       - name: Test real catalogue query contract
         run: node customer-v2/tools/test-catalogue-adapter.js
 
