@@ -85,6 +85,44 @@
         </section>
       </section>
 
+      <section class="view" id="view-people" data-view="people">
+        <button class="back-link" data-go="profile">‹ Back to Profile</button>
+        <span class="eyebrow">ACCOUNT DETAILS</span><h1>Patients & Addresses</h1>
+        <p class="cart-intro">Manage the people you order for and your saved delivery locations.</p>
+        <p class="v2-people-status" data-people-status role="status" aria-live="polite">Connecting to your secure account…</p>
+        <section class="v2-people-panel">
+          <h2>Family members / Patients</h2>
+          <form data-patient-form class="v2-people-form">
+            <label>Full name<input name="name" required maxlength="80" autocomplete="name" placeholder="Patient name"></label>
+            <div class="v2-people-form-row">
+              <label>Age<input name="age" type="number" min="0" max="120" required inputmode="numeric" placeholder="Age"></label>
+              <label>Gender<select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></label>
+            </div>
+            <button type="submit" class="v2-people-submit">Save patient</button>
+          </form>
+          <div data-patient-list class="v2-people-list"></div>
+        </section>
+        <section class="v2-people-panel">
+          <h2>Saved delivery addresses</h2>
+          <form data-address-form class="v2-people-form">
+            <label>Address label<select name="tag"><option>Home</option><option>Work</option><option>Other</option></select></label>
+            <label>Full name<input name="name" required maxlength="80" autocomplete="name"></label>
+            <label>Mobile number<input name="phone" type="tel" required inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" autocomplete="tel" placeholder="10-digit mobile number"></label>
+            <label>House / street / building<input name="address1" required maxlength="180" autocomplete="address-line1"></label>
+            <label>Area / locality<input name="address2" maxlength="120" autocomplete="address-line2"></label>
+            <label>Landmark (optional)<input name="landmark" maxlength="120"></label>
+            <div class="v2-people-form-row">
+              <label>City<input name="city" required maxlength="80" autocomplete="address-level2"></label>
+              <label>State<input name="state" maxlength="80" autocomplete="address-level1" value="West Bengal"></label>
+            </div>
+            <label>PIN code<input name="pincode" type="text" required inputmode="numeric" pattern="[1-9][0-9]{5}" maxlength="6" autocomplete="postal-code"></label>
+            <label class="v2-people-check"><input type="checkbox" name="is_default"> Set as default address</label>
+            <button type="submit" class="v2-people-submit">Save address</button>
+          </form>
+          <div data-address-list class="v2-people-list"></div>
+        </section>
+      </section>
+
       <section class="view" id="view-module" data-view="module" aria-live="polite">
         <button class="back-link" data-go="home">‹ Back to Home</button>
         <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
@@ -113,6 +151,8 @@
   <script src="./cart-store.js"></script>
   <script src="./cart-ui.js"></script>
   <script src="./prescriptions-ui.js"></script>
+  <script src="./people-adapter.js"></script>
+  <script src="./people-ui.js"></script>
   <script src="./integration.js"></script>
 </body>
 </html>
