@@ -48,6 +48,16 @@
         <p class="preview-note">Preview only — live cart, wishlist, checkout, bookings and account actions are not enabled here.</p>
       </section>
 
+      <section class="view" id="view-cart" data-view="cart">
+        <button class="back-link" data-go="home">‹ Continue shopping</button>
+        <span class="eyebrow">YOUR BASKET</span><h1>My Cart</h1>
+        <p class="cart-intro">Review your selected healthcare products.</p>
+        <div class="v2-cart-items" data-cart-items></div>
+        <section class="v2-cart-summary" data-cart-summary hidden></section>
+        <p class="v2-cart-notice" data-cart-notice role="status">Checkout is not enabled in this preview. Your existing live checkout remains unchanged.</p>
+        <button class="v2-checkout-disabled" type="button" disabled>Checkout unavailable in preview</button>
+      </section>
+
       <section class="view" id="view-module" data-view="module" aria-live="polite">
         <button class="back-link" data-go="home">‹ Back to Home</button>
         <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
@@ -73,6 +83,8 @@
   <script src="./catalogue-search.js"></script>
   <script src="./wishlist-adapter.js"></script>
   <script src="./legacy-actions.js"></script>
+  <script src="./cart-store.js"></script>
+  <script src="./cart-ui.js"></script>
   <script src="./integration.js"></script>
 </body>
 </html>
