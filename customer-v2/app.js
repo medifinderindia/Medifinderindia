@@ -13,6 +13,7 @@
     orders: ["My Orders", "Order list, order details, delivery timeline, live tracking and support."],
     cart: ["Cart & Checkout", "Cart items, patient, saved addresses, delivery options, coupon, Tablet Coin and payment verification."],
     profile: ["My Profile", "Personal information, photo, language, addresses, patients, reminders, wishlist, referrals, policies and support."],
+    people: ["Patients & Addresses", "Manage family members and saved delivery locations."],
     product: ["Product Details", "Product gallery, seller, reviews, variants, prescription requirements, delivery details and wishlist."],
     shop: ["Shop Details", "Verified shop profile, contact options, directions, location, offers and available products."],
     campaign: ["Offers & Campaigns", "Active campaigns, offers, coupons and campaign product discovery."]
@@ -25,7 +26,7 @@
   function openView(key) {
     const selected = modules[key] ? key : "home";
     const isHome = selected === "home";
-    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : "module"));
+    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : "module")));
     views.forEach(view => view.classList.toggle("active", view.dataset.view === targetView));
     navItems.forEach(item => item.classList.toggle("active", item.dataset.go === selected || (!isHome && item.dataset.go === ({
       shops: "shops", cart: "cart", orders: "orders", profile: "profile"
@@ -43,6 +44,7 @@
         return button;
       }));
     }
+    if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     window.scrollTo({ top: 0, behavior: "instant" });
     history.replaceState(null, "", selected === "home" ? "#home" : "#" + selected);
   }
