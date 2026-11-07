@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./catalogue-ui.css">
   <link rel="stylesheet" href="./cart-ui.css">
   <link rel="stylesheet" href="./prescriptions-ui.css">
-  <link rel="stylesheet" href="./people-ui.css">
+  <link rel="stylesheet" href="./people-ui.css">\n  <link rel="stylesheet" href="./checkout-ui.css">
 </head>
 <body>
   <div class="app-shell">
@@ -58,7 +58,23 @@
         <div class="v2-cart-items" data-cart-items></div>
         <section class="v2-cart-summary" data-cart-summary hidden></section>
         <p class="v2-cart-notice" data-cart-notice role="status">Checkout is not enabled in this preview. Your existing live checkout remains unchanged.</p>
-        <button class="v2-checkout-disabled" type="button" disabled>Checkout unavailable in preview</button>
+        <button class="v2-checkout-continue" type="button" data-go="checkout">Continue to delivery details</button>
+      </section>
+
+      <section class="view" id="view-checkout" data-view="checkout">
+        <button class="back-link" data-go="cart">‹ Back to Cart</button>
+        <span class="eyebrow">ORDER PREPARATION</span><h1>Delivery details</h1>
+        <p class="cart-intro">Choose who the order is for and where it should be delivered.</p>
+        <p class="v2-checkout-status" data-checkout-status role="status" aria-live="polite">Loading your saved details…</p>
+        <section class="v2-checkout-panel"><h2>Patient</h2><div data-checkout-patients class="v2-checkout-options"></div></section>
+        <section class="v2-checkout-panel"><h2>Delivery address</h2><div data-checkout-addresses class="v2-checkout-options"></div></section>
+        <section class="v2-checkout-panel"><h2>PIN code serviceability</h2>
+          <label class="v2-checkout-pin">Delivery PIN code<input data-checkout-pincode inputmode="numeric" maxlength="6" pattern="[1-9][0-9]{5}" placeholder="Enter 6-digit PIN"></label>
+          <p class="v2-checkout-hint">Serviceability and delivery charges are not calculated in this preview. No availability is assumed.</p>
+        </section>
+        <section class="v2-checkout-panel"><h2>Order summary</h2><div data-checkout-summary></div></section>
+        <p class="v2-checkout-hint">Preview only: no coupon, Tablet Coin, payment, order creation or delivery promise is enabled.</p>
+        <button class="v2-checkout-disabled" type="button" disabled>Place order unavailable in preview</button>
       </section>
 
       <section class="view" id="view-prescriptions" data-view="prescriptions">
@@ -153,7 +169,7 @@
   <script src="./cart-ui.js"></script>
   <script src="./prescriptions-ui.js"></script>
   <script src="./people-adapter.js"></script>
-  <script src="./people-ui.js"></script>
+  <script src="./people-ui.js"></script>\n  <script src="./checkout-ui.js"></script>
   <script src="./integration.js"></script>
 </body>
 </html>
