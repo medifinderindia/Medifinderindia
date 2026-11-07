@@ -68,7 +68,13 @@
     favorite.setAttribute("aria-label", "Save to wishlist");
     favorite.addEventListener("click", (event) => {
       event.stopPropagation();
-      toggleWishlist(product, favorite);
+      const bridge = window.MFCustomerV2Actions;
+      if (bridge && typeof bridge.onWishlist === "function") {
+        Promise.resolve(bridge.onWishlist(product, favorite)).catch(() => {});
+      } else {
+        favorite.disabled = true;
+        favorite.title = "Wishlist will be connected with the existing account feature during migration.";
+      }
     });
     media.append(favorite);
 
@@ -92,15 +98,20 @@
     buy.disabled = stock <= 0;
     buy.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (typeof window.navigateToProductDetail === "function") window.navigateToProductDetail(card.dataset);
+      const bridge = window.MFCustomerV2Actions;
+      if (bridge && typeof bridge.onProductOpen === "function") bridge.onProductOpen(card.dataset);
     });
     const add = element("button", "v2-product-add", "Add to cart");
     add.type = "button";
     add.disabled = stock <= 0;
     add.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (typeof window.handleQuickAddToCart === "function") window.handleQuickAddToCart(add);
-      else if (typeof window.addToCart === "function") window.addToCart(card.dataset);
+      const bridge = window.MFCustomerV2Actions;
+      if (bridge && typeof bridge.onAddToCart === "function") bridge.onAddToCart(card.dataset);
+      else {
+        add.disabled = true;
+        add.textContent = "Cart unavailable";
+      }
     });
     actions.append(buy, add);
     info.append(actions);
@@ -108,52 +119,14 @@
     if (stock <= 0) info.append(element("small", "v2-product-stock", "Currently unavailable"));
     card.append(media, info);
     card.addEventListener("click", () => {
-      if (stock > 0 && typeof window.navigateToProductDetail === "function") {
-        window.navigateToProductDetail(card.dataset);
+      const bridge = window.MFCustomerV2Actions;
+      if (stock > 0 && bridge && typeof bridge.onProductOpen === "function") {
+        bridge.onProductOpen(card.dataset);
       }
     });
     return card;
   }
 
-  async function toggleWishlist(product, button) {
-    const id = text(product.id);
-    if (!id) return;
-    let saved;
-    try { saved = JSON.parse(localStorage.getItem("medi_wishlist") || "[]"); }
-    catch (_) { saved = []; }
-    const exists = saved.map(String).includes(id);
-    saved = exists ? saved.filter(value => String(value) !== id) : [...saved, id];
-    localStorage.setItem("medi_wishlist", JSON.stringify(saved));
-    button.classList.toggle("active", !exists);
-    button.textContent = exists ? "♡" : "♥";
-
-    try {
-      const client = window.supabaseClient;
-      const uid = typeof window.getCurrentAuthUserId === "function"
-        ? await window.getCurrentAuthUserId() : null;
-      if (client && uid) {
-        if (exists) {
-          const { error } = await client.from("user_wishlist").delete()
-            .eq("user_id", uid).eq("medicine_id", id);
-          if (error) throw error;
-        } else {
-          const { error } = await client.from("user_wishlist").upsert(
-            { user_id: uid, medicine_id: id },
-            { onConflict: "user_id,medicine_id" }
-          );
-          if (error) throw error;
-        }
-      }
-      if (typeof window.showToast === "function") {
-        window.showToast(exists ? "Removed from wishlist" : "Added to wishlist", "info");
-      }
-    } catch (error) {
-      // Keep local wishlist usable; the existing account sync can reconcile later.
-      if (typeof window.showToast === "function") {
-        window.showToast("Saved on this device. Account sync is unavailable right now.", "info");
-      }
-    }
-  }
 
   async function render(root, products, options = {}) {
     const current = ++generation;
