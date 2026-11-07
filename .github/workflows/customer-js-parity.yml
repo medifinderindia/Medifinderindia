@@ -32,6 +32,9 @@ jobs:
       - name: Test real catalogue query contract
         run: node customer-v2/tools/test-catalogue-adapter.js
 
+      - name: Test legacy-compatible wishlist contract
+        run: node customer-v2/tools/test-wishlist-adapter.js
+
       - name: Upload audit report
         uses: actions/upload-artifact@v4
         with:
