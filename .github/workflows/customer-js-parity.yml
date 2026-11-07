@@ -35,6 +35,9 @@ jobs:
       - name: Test legacy-compatible wishlist contract
         run: node customer-v2/tools/test-wishlist-adapter.js
 
+      - name: Test V2 legacy action bridge
+        run: node customer-v2/tools/test-legacy-actions.js
+
       - name: Upload audit report
         uses: actions/upload-artifact@v4
         with:
