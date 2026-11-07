@@ -7,6 +7,7 @@
   const retry = root.querySelector("[data-catalogue-retry]");
   let controller = null;
   let loadSequence = 0;
+  let catalogueRows = [];
 
   function showDisconnected() {
     if (status) {
@@ -61,7 +62,10 @@
       }
       const products = await provider({ signal: controller && controller.signal });
       if (sequence !== loadSequence) return;
-      await window.MFCustomerV2ProductCards.render(root, products, { wishlist });
+      catalogueRows = Array.isArray(products) ? products : [];
+      const searchInput = root.querySelector('[data-catalogue-search]');
+      const visibleRows = window.MFCustomerV2Search ? window.MFCustomerV2Search.filter(catalogueRows, searchInput ? searchInput.value : '') : catalogueRows;
+      await window.MFCustomerV2ProductCards.render(root, visibleRows, { wishlist });
       if (sequence !== loadSequence) return;
       if (status) {
         status.hidden = !products.length;
@@ -79,7 +83,21 @@
     }
   }
 
-  retry && retry.addEventListener("click", load);
+  retry && retry.addEventListener('click', load);
+  const searchInput = root.querySelector('[data-catalogue-search]');
+  let searchTimer = null;
+  if (searchInput) searchInput.addEventListener('input', () => {
+    if (!window.MFCustomerV2Search || !window.MFCustomerV2ProductCards) return;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const visibleRows = window.MFCustomerV2Search.filter(catalogueRows, searchInput.value);
+      window.MFCustomerV2ProductCards.render(root, visibleRows);
+      if (status) {
+        status.hidden = visibleRows.length > 0;
+        status.textContent = visibleRows.length ? '' : 'No matching products found.';
+      }
+    }, 120);
+  });
   let authSubscription = null;
   if (window.supabaseClient && window.supabaseClient.auth &&
       typeof window.supabaseClient.auth.onAuthStateChange === "function") {
@@ -93,6 +111,8 @@
     destroy() {
       loadSequence++;
       if (controller) controller.abort();
+      if (searchTimer) clearTimeout(searchTimer);
+      catalogueRows = [];
       if (authSubscription && typeof authSubscription.unsubscribe === "function") authSubscription.unsubscribe();
       window.MFCustomerV2ProductCards && window.MFCustomerV2ProductCards.cancel();
     }
