@@ -37,14 +37,17 @@
             }
           })
         : null;
-      if (window.MFCustomerV2LegacyActions &&
-          typeof window.addToCart === "function" &&
-          typeof window.navigateToProductDetail === "function") {
+      const addToCart = typeof window.addToCart === "function" ? window.addToCart : null;
+      const navigateToProductDetail = typeof window.navigateToProductDetail === "function"
+        ? window.navigateToProductDetail : null;
+      if (window.MFCustomerV2LegacyActions && addToCart && navigateToProductDetail) {
         window.MFCustomerV2Actions = window.MFCustomerV2LegacyActions.createLegacyActions({
-          addToCart: window.addToCart,
-          navigateToProductDetail: window.navigateToProductDetail,
+          addToCart,
+          navigateToProductDetail,
           wishlist
         });
+      } else {
+        delete window.MFCustomerV2Actions;
       }
       const products = await provider({ signal: controller && controller.signal });
       await window.MFCustomerV2ProductCards.render(root, products, { wishlist });
