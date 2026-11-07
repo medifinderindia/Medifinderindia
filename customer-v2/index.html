@@ -59,6 +59,31 @@
         <button class="v2-checkout-disabled" type="button" disabled>Checkout unavailable in preview</button>
       </section>
 
+      <section class="view" id="view-prescriptions" data-view="prescriptions">
+        <button class="back-link" data-go="home">‹ Back to Home</button>
+        <span class="eyebrow">HEALTH RECORDS</span><h1>My Prescriptions</h1>
+        <p class="cart-intro">Keep prescription documents organised for your healthcare orders.</p>
+        <div class="v2-prescription-upload">
+          <div class="v2-prescription-symbol">▤</div>
+          <h2>Add a prescription</h2>
+          <p>Choose a clear photo or PDF. Make sure the doctor's details and medicine instructions are readable.</p>
+          <div class="v2-prescription-actions">
+            <label class="v2-prescription-picker">Take photo
+              <input type="file" accept="image/*" capture="environment" data-prescription-camera>
+            </label>
+            <label class="v2-prescription-picker secondary">Choose file
+              <input type="file" accept="image/*,application/pdf" data-prescription-file>
+            </label>
+          </div>
+          <p class="v2-prescription-file" data-prescription-file-name aria-live="polite">No file selected</p>
+          <p class="v2-prescription-note">Preview only: upload and secure storage will be enabled after the existing MediFinder prescription workflow and storage permissions are fully verified.</p>
+        </div>
+        <section class="v2-prescription-archive">
+          <h2>Saved prescriptions</h2>
+          <p>Saved prescription records will appear here after secure account-linked storage is connected.</p>
+        </section>
+      </section>
+
       <section class="view" id="view-module" data-view="module" aria-live="polite">
         <button class="back-link" data-go="home">‹ Back to Home</button>
         <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
