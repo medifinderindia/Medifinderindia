@@ -43,7 +43,23 @@
       if(error)throw new Error("Could not load Tablet Coin balance.");
       return Math.max(0,Number(data&&data.coins)||0);
     }
-    return Object.freeze({checkPincode,validateCoupon,getCoinBalance});
+
+    async function estimateDeliveryFees(distanceKm, subtotal) {
+      const amount = Number(subtotal) || 0;
+      if (amount <= 0) return { free: false, delivery: 0, shipping: 0, platform: 0, processing: 0, total: 0, distanceKm: null };
+      if (amount >= 499) return { free: true, delivery: 0, shipping: 0, platform: 0, processing: 0, total: 0, distanceKm: Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null };
+      const d = Number(distanceKm);
+      const band = !Number.isFinite(d) ? "far" : d <= 5 ? "near" : d <= 12 ? "mid" : "far";
+      const priceBand = amount < 150 ? "low" : "mid";
+      const fees = {
+        near: { low: { delivery: 5, shipping: 2, platform: 2, processing: 1.5 }, mid: { delivery: 5, shipping: 2, platform: 1, processing: 1 } },
+        mid: { low: { delivery: 20, shipping: 5, platform: 4, processing: 2 }, mid: { delivery: 15, shipping: 3, platform: 2.5, processing: 3 } },
+        far: { low: { delivery: 30, shipping: 7, platform: 4, processing: 2 }, mid: { delivery: 30, shipping: 4, platform: 3, processing: 2.5 } }
+      };
+      const selected = fees[band][priceBand];
+      return { free: false, ...selected, total: selected.delivery + selected.shipping + selected.platform + selected.processing, distanceKm: Number.isFinite(d) ? d : null, band };
+    }
+    return Object.freeze({checkPincode,validateCoupon,getCoinBalance,estimateDeliveryFees});
   }
   window.MFCustomerV2CheckoutRules=Object.freeze({create});
 })();
