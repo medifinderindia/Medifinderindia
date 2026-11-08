@@ -8,6 +8,7 @@
   const prescriptionSelect=$("[data-checkout-prescription]");
   const placeButton=$("[data-place-cod]");
   let rules=null,selectedPatient="self",selectedAddress="",addresses=[],patients=[],serviceability=null,loading=false,placing=false,requestId=null,authUser=null;
+  const liveWriteHost=["medifinderindia.com","www.medifinderindia.com"].includes(location.hostname);
   const money=n=>"₹"+(Number(n)||0).toFixed(2);
   const cart=()=>window.MFCustomerV2Cart?window.MFCustomerV2Cart.createCartStore().snapshot():{items:[],subtotal:0};
   function msg(el,text,error=false){if(!el)return;el.textContent=text;el.dataset.error=String(error);}
@@ -113,6 +114,7 @@
     finally{loading=false;renderSummary();}
   }
   async function placeOrder(){
+    if(!liveWriteHost){msg(status,"Demo preview is read-only. No live order has been created.",true);return;}
     if(placing)return;
     const state=cart();if(!state.items.length){msg(status,"Your cart is empty.",true);return;}
     if(!authUser||!rules||!window.supabaseClient){msg(status,"Please sign in again before checkout.",true);return;}
