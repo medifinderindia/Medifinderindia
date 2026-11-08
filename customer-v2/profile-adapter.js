@@ -14,10 +14,15 @@
       const phone = String(input.phone || "").replace(/\D/g, "").slice(-10);
       const date_of_birth = String(input.date_of_birth || "").trim();
       if (!full_name) throw new Error("Enter your full name.");
-      if (!/^[6-9]\d{9}$/.test(phone)) throw new Error("Enter a valid 10-digit Indian mobile number.");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth) || !Number.isFinite(Date.parse(date_of_birth)) || new Date(date_of_birth + "T00:00:00") > new Date()) {
-        throw new Error("Enter a valid date of birth.");
-      }
+      const dobMatch = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(date_of_birth);
+      const dobYear = dobMatch ? Number(dobMatch[1]) : 0;
+      const dobMonth = dobMatch ? Number(dobMatch[2]) : 0;
+      const dobDay = dobMatch ? Number(dobMatch[3]) : 0;
+      const dobDate = dobMatch ? new Date(dobYear, dobMonth - 1, dobDay) : null;
+      const validDob = !!dobMatch && dobMonth >= 1 && dobMonth <= 12 && dobDay >= 1 &&
+        dobDate.getFullYear() === dobYear && dobDate.getMonth() === dobMonth - 1 && dobDate.getDate() === dobDay;
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (!validDob || dobDate > today || dobYear < 1900) throw new Error("Enter a valid date of birth.");
       if (input.terms_accepted !== true) throw new Error("Please accept the Terms & Conditions.");
       const { data, error } = await client.from("profiles")
         .update({ full_name, phone, date_of_birth, terms_accepted: true, terms_accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })

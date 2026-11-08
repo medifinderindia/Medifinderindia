@@ -110,7 +110,32 @@
         };
         form.append(field("Full name","full_name","text",p.full_name || "",true));
         form.append(field("Mobile number","phone","tel",p.phone || "",true));
-        form.append(field("Date of birth","date_of_birth","date",p.date_of_birth || "",true));
+        const dobParts = String(p.date_of_birth || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+        const dobGroup = el("div", "v2-profile-field");
+        dobGroup.append(el("span", "", "Date of birth"));
+        const dobControls = el("div", "v2-dob-controls");
+        const makeDobSelect = (name, placeholder, options, selected) => {
+          const select = el("select"); select.name = name; select.required = true;
+          const first = el("option", "", placeholder); first.value = ""; first.disabled = true; first.selected = !selected; select.append(first);
+          options.forEach(([value,label]) => { const option = el("option", "", label); option.value = value; option.selected = value === selected; select.append(option); });
+          dobControls.append(select); return select;
+        };
+        const dayOptions = Array.from({length:31}, (_,i) => { const n=String(i+1).padStart(2,"0"); return [n,n]; });
+        const monthOptions = ["January","February","March","April","May","June","July","August","September","October","November","December"].map((m,i)=>[String(i+1).padStart(2,"0"),m]);
+        const currentYear = new Date().getFullYear();
+        const yearOptions = Array.from({length:currentYear-1900+1},(_,i)=>{const y=String(currentYear-i);return [y,y];});
+        const daySelect = makeDobSelect("dob_day","Date",dayOptions,dobParts ? dobParts[3] : "");
+        const monthSelect = makeDobSelect("dob_month","Month",monthOptions,dobParts ? dobParts[2] : "");
+        const yearSelect = makeDobSelect("dob_year","Year",yearOptions,dobParts ? dobParts[1] : "");
+        const syncDobDays = () => {
+          if (!monthSelect.value || !yearSelect.value) return;
+          const maxDay = new Date(Number(yearSelect.value), Number(monthSelect.value), 0).getDate();
+          const oldDay = daySelect.value;
+          Array.from(daySelect.options).slice(1).forEach(option => { option.disabled = Number(option.value) > maxDay; });
+          if (oldDay && Number(oldDay) > maxDay) daySelect.value = "";
+        };
+        monthSelect.addEventListener("change",syncDobDays); yearSelect.addEventListener("change",syncDobDays); syncDobDays();
+        dobGroup.append(dobControls); form.append(dobGroup);
         const terms = el("label","v2-profile-terms");
         const tick = el("input"); tick.type = "checkbox"; tick.name = "terms_accepted"; tick.checked = p.terms_accepted === true;
         terms.append(tick, document.createTextNode(" I accept the Terms & Conditions and Privacy Policy."));
@@ -127,7 +152,7 @@
         });
         form.addEventListener("submit", async event => {
           event.preventDefault(); save.disabled = true; save.textContent = "Saving…";
-          try { await profile.saveProfile({ full_name: form.elements.full_name.value, phone: form.elements.phone.value, date_of_birth: form.elements.date_of_birth.value, terms_accepted: tick.checked }); status.textContent = "Profile saved successfully."; await load("profile"); }
+          try { await profile.saveProfile({ full_name: form.elements.full_name.value, phone: form.elements.phone.value, date_of_birth: [form.elements.dob_year.value,form.elements.dob_month.value,form.elements.dob_day.value].every(Boolean) ? form.elements.dob_year.value + "-" + form.elements.dob_month.value + "-" + form.elements.dob_day.value : "", terms_accepted: tick.checked }); status.textContent = "Profile saved successfully."; await load("profile"); }
           catch (e) { status.textContent = e.message || "Could not save profile."; }
           finally { save.disabled = false; save.textContent = "Save profile"; }
         });

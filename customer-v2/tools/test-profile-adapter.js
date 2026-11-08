@@ -14,5 +14,6 @@ const client={from(t){assert.equal(t,"profiles");return query;}};
  await assert.rejects(()=>api.saveProfile({full_name:"Test",phone:"123",date_of_birth:"1995-04-02",terms_accepted:true}),/10-digit/);
  await assert.rejects(()=>api.saveProfile({full_name:"Test",phone:"9876543210",date_of_birth:"2099-01-01",terms_accepted:true}),/date of birth/);
  await assert.rejects(()=>api.saveProfile({full_name:"Test",phone:"9876543210",date_of_birth:"1995-04-02",terms_accepted:false}),/Terms/);
+ await assert.rejects(()=>api.saveProfile({full_name:"Test",phone:"9876543210",date_of_birth:"2023-02-29",terms_accepted:true}),/date of birth/);
  console.log("PASS: profile validation and save contract");
 })().catch(e=>{console.error(e);process.exitCode=1;});
