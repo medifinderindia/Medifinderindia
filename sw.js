@@ -1,6 +1,6 @@
-const STATIC_CACHE = 'medi-static-v19';
-const DYNAMIC_CACHE = 'medi-dynamic-v19';
-const IMAGE_CACHE = 'medi-images-v19';
+const STATIC_CACHE = 'medi-static-v20';
+const DYNAMIC_CACHE = 'medi-dynamic-v20';
+const IMAGE_CACHE = 'medi-images-v20';
 
 // Each URL is cached on its own (allSettled below), so one missing file never
 // breaks the whole precache. Adjust paths here if a file lives elsewhere.
@@ -102,16 +102,31 @@ async function cacheFirstVersioned(request, cacheName) {
   const cache = await caches.open(cacheName);
   const hit = await cache.match(request);
   if (hit) return hit;
-  const response = await fetch(request);
-  if (response.ok) {
-    cache.put(request, response.clone());
-    const u = new URL(request.url);
-    cache.keys().then(keys => keys.forEach(k => {
-      const ku = new URL(k.url);
-      if (ku.pathname === u.pathname && ku.search !== u.search) cache.delete(k);
-    })).catch(() => {});
-  }
-  return response;
+
+  const u = new URL(request.url);
+  // If this is a newly versioned file and the device is offline, use the last
+  // cached version of the same file instead of waiting forever or returning blank.
+  const oldKeys = await cache.keys();
+  const staleKey = oldKeys.find(k => new URL(k.url).pathname === u.pathname);
+  const stale = staleKey ? await cache.match(staleKey) : null;
+
+  const network = fetch(request).then(response => {
+    if (response.ok) {
+      cache.put(request, response.clone()).catch(() => {});
+      cache.keys().then(keys => keys.forEach(k => {
+        const ku = new URL(k.url);
+        if (ku.pathname === u.pathname && ku.search !== u.search) cache.delete(k);
+      })).catch(() => {});
+    }
+    return response;
+  });
+
+  return Promise.race([
+    network.catch(() => stale || new Response('', {status: 504, statusText: 'Offline'})),
+    new Promise(resolve => setTimeout(() => resolve(stale || new Response('', {
+      status: 504, statusText: 'Network timeout'
+    })), 4500))
+  ]);
 }
 
 // Network first, but if a saved copy exists and the network is slow (> ms), show the saved copy
@@ -124,17 +139,24 @@ async function networkFirstTimeout(request, cacheName, ms, ignoreQuery) {
   const cached = await cache.match(key, ignoreQuery ? { ignoreSearch: true } : undefined);
 
   const net = fetch(request).then(res => {
-    if (res.ok && (ignoreQuery || !u.search)) cache.put(key, res.clone());
+    if (res.ok && (ignoreQuery || !u.search)) cache.put(key, res.clone()).catch(() => {});
     return res;
   });
 
-  if (!cached) {
-    try { return await net; }
-    catch (e) { return (await caches.match('/home.html')) || Response.error(); }
-  }
+  // First visit / empty cache: still enforce a hard deadline.
+  const offlineFallback = () => {
+    if (cached) return cached;
+    if (request.mode === 'navigate' || request.destination === 'document' || /\\.html$/i.test(u.pathname)) {
+      return new Response('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MediFinder India</title><body style="font-family:system-ui;padding:24px;color:#303846"><h2>MediFinder India</h2><p>Network is slow or unavailable. Please check your connection and try again.</p><button onclick="location.reload()">Try again</button></body></html>', {
+        status: 503, headers: {'Content-Type':'text/html; charset=utf-8'}
+      });
+    }
+    return new Response('', {status: 504, statusText: 'Network timeout'});
+  };
+
   return Promise.race([
-    net.catch(() => cached),
-    new Promise(resolve => setTimeout(() => resolve(cached), ms))
+    net.catch(() => offlineFallback()),
+    new Promise(resolve => setTimeout(() => resolve(offlineFallback()), Math.max(1000, ms)))
   ]);
 }
 
