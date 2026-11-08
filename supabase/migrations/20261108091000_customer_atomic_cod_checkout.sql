@@ -199,7 +199,8 @@ begin
         '. Total: ₹'||to_char(v_grand_total,'FM999999990.00')||'. Address: '||v_full_address,
       'info','order',false,v_inserted.id,'order',
       'marchentorders.html?order_id='||v_order_id,v_prescription_order_id
-    from jsonb_array_elements(v_lines) as line(value);
+    from jsonb_array_elements(v_lines) as line(value)
+    where (line.value->>'merchant_id')::bigint <> v_primary_merchant_id;
 
     return jsonb_build_object('success',true,'already_processed',false,'order_id',v_order_id,'status','pending',
       'payment_method','COD','subtotal',v_subtotal,'delivery_fee',v_delivery_fee,'shipping_fee',v_shipping_fee,
