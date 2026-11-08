@@ -56,6 +56,9 @@ jobs:
       - name: Check V2 integration syntax
         run: node --check customer-v2/integration.js
 
+      - name: Check V2 account hub syntax
+        run: node --check customer-v2/account-hub.js
+
       - name: Test V2 cart store
         run: node customer-v2/tools/test-cart-store.js
 
