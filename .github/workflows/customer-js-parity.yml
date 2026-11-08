@@ -42,6 +42,9 @@ jobs:
       - name: Check V2 product detail syntax
         run: node --check customer-v2/product-detail-ui.js
 
+      - name: Test V2 product detail and cart interaction
+        run: node customer-v2/tools/test-product-detail-ui.js
+
       - name: Check V2 checkout UI syntax
         run: node --check customer-v2/checkout-ui.js
 
