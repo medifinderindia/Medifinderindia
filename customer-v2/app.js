@@ -41,7 +41,8 @@
     if (selected === "product") { /* Product view is painted by the verified catalogue action. */ }
     if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
-    if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
+    if (["lab","nurse","ambulance"].includes(selected) && window.MFCustomerV2Services) window.MFCustomerV2Services.load(selected);
+    else if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
     window.scrollTo({top:0,behavior:"instant"});
     history.replaceState(null,"",selected==="home"?"#home":"#"+selected);
   }
