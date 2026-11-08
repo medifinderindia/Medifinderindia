@@ -18,8 +18,7 @@
     const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);
   }
   function estimateFees(subtotal){
-    if(subtotal>=499)return {delivery:0,shipping:0,platform:0,processing:0,cod:10};
-    return subtotal<150?{delivery:30,shipping:7,platform:4,processing:2,cod:10}:{delivery:30,shipping:4,platform:3,processing:2.5,cod:10};
+    return {delivery:0,shipping:0,platform:0,processing:0,cod:0};
   }
   function renderSummary(){
     const state=cart(),subtotal=Number(state.subtotal)||0;summary.replaceChildren();
