@@ -288,6 +288,75 @@
             }catch(e){status.textContent=e.message||"Could not submit lab booking.";submit.disabled=false;submit.textContent="Submit lab booking request";}
           });
         }
+        if (key === "nurse") {
+          const form=el("form","v2-service-booking-form");
+          form.append(el("h3","","Request home nursing service"));
+          const field=(label,name,type,required,placeholder)=>{const w=el("label","v2-profile-field",label),i=el("input");i.name=name;i.type=type;i.required=!!required;if(placeholder)i.placeholder=placeholder;if(type==="date")i.min=new Date().toISOString().slice(0,10);w.append(i);return w;};
+          const rateLabel=el("label","v2-profile-field","Available verified nurse and rate");
+          const rateSelect=el("select");rateSelect.name="rate_id";rateSelect.required=true;
+          const initial=el("option","","Select a verified nurse and service");initial.value="";initial.disabled=true;initial.selected=true;rateSelect.append(initial);rateLabel.append(rateSelect);form.append(rateLabel);
+          form.append(field("Patient name","patient_name","text",true,"Full name"));
+          form.append(field("Patient age","patient_age","number",true,"Age"));
+          const gender=el("label","v2-profile-field","Patient gender"),g=el("select");g.name="gender";g.required=true;["Male","Female","Other"].forEach(v=>{const o=el("option","",v);o.value=v;g.append(o);});gender.append(g);form.append(gender);
+          form.append(field("Duration (number of selected rate units)","duration","number",true,"1"));form.querySelector('[name="duration"]').min="1";form.querySelector('[name="duration"]').max="90";form.querySelector('[name="duration"]').value="1";
+          form.append(field("Service date","book_date","date",true));form.append(field("Preferred time","book_time","time",true));
+          form.append(field("Care requirements","scope_of_work","text",false,"Describe the required care"));
+          form.append(field("House / flat","addr_house","text",true,"House / flat"));
+          form.append(field("Street / locality","addr_street","text",true,"Street / locality"));
+          form.append(field("Landmark","addr_landmark","text",false,"Landmark"));
+          form.append(field("City","addr_city","text",true,"City"));
+          form.append(field("PIN code","addr_pincode","text",true,"6-digit PIN"));
+          form.append(field("Contact number","contact_no","tel",true,"10-digit mobile"));
+          form.append(field("State","addr_state","text",true,"West Bengal"));
+          const total=el("p","v2-profile-address","The final amount is calculated from the active, admin-verified nurse rate.");form.append(total);
+          const submit=el("button","v2-profile-save","Request nurse booking");submit.type="submit";form.append(submit);panel.append(form);
+          try{
+            const rates=await client.from("nurse_service_rates").select("id,nurse_id,service_type,rate,rate_unit,service_charge,nurses!inner(name,qualification,is_online,service_types)").eq("is_active",true).eq("is_verified",true).eq("nurses.is_online",true).limit(100);
+            if(rates.error)throw rates.error;
+            (rates.data||[]).forEach(r=>{const nurseInfo=Array.isArray(r.nurses)?r.nurses[0]:r.nurses;const o=el("option","",(nurseInfo.name||"Nurse")+" · "+r.service_type+" · "+money(r.rate)+"/"+r.rate_unit+" + "+money(r.service_charge)+" service charge");o.value=r.id;o.dataset.nurse=r.nurse_id;o.dataset.service=r.service_type;o.dataset.unit=r.rate_unit;rateSelect.append(o);});
+            if(!rates.data||!rates.data.length)total.textContent="No verified nurse profiles and rates are currently active. Booking is unavailable until an approved nurse and rate are added by the admin.";
+          }catch(e){total.textContent=e.message||"Could not load verified nurse rates.";}
+          rateSelect.addEventListener("change",()=>{const opt=rateSelect.options[rateSelect.selectedIndex];total.textContent="Rate: "+opt.textContent+". Final total is calculated securely when you submit."});
+          form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";try{
+            const d=Object.fromEntries(new FormData(form).entries()),opt=rateSelect.options[rateSelect.selectedIndex];
+            if(!opt||!opt.value)throw new Error("Select an active verified nurse rate.");
+            if(!/^[6-9]\\d{9}$/.test(d.contact_no)||!/^[1-9]\\d{5}$/.test(d.addr_pincode))throw new Error("Enter a valid 10-digit mobile and 6-digit PIN.");
+            const result=await client.rpc("create_customer_nurse_booking",{p_nurse_id:opt.dataset.nurse,p_service_type:opt.dataset.service,p_patient_name:d.patient_name,p_patient_age:Number(d.patient_age),p_gender:d.gender,p_scope_of_work:d.scope_of_work,p_duration:Number(d.duration),p_book_date:d.book_date,p_book_time:d.book_time,p_addr_house:d.addr_house,p_addr_street:d.addr_street,p_addr_landmark:d.addr_landmark,p_addr_city:d.addr_city,p_addr_pincode:d.addr_pincode,p_addr_state:d.addr_state,p_contact_no:d.contact_no});
+            if(result.error)throw result.error;const data=result.data||{};if(!data.ok)throw new Error("Nurse booking was not confirmed by the server.");
+            status.textContent="Nurse request submitted. Booking reference: "+data.booking_id+". Estimated total: "+money(data.total)+". Payment remains pending until provider confirmation.";
+            form.reset();await load("nurse");
+          }catch(e){status.textContent=e.message||"Could not submit nurse booking.";submit.disabled=false;submit.textContent="Request nurse booking";}
+          });
+        }
+        if (key === "ambulance") {
+          const form=el("form","v2-service-booking-form");
+          form.append(el("h3","","Request an ambulance"));
+          const field=(label,name,type,required,placeholder)=>{const w=el("label","v2-profile-field",label),i=el("input");i.name=name;i.type=type;i.required=!!required;if(placeholder)i.placeholder=placeholder;w.append(i);return w;};
+          form.append(field("Patient name","patient_name","text",true,"Patient full name"));
+          form.append(field("Contact number","contact_phone","tel",true,"10-digit mobile"));
+          form.append(field("Pickup address","pickup_address","text",true,"Full pickup address"));
+          form.append(field("Pickup latitude","pickup_lat","number",true,"Tap Use current location"));form.querySelector('[name="pickup_lat"]').step="any";
+          form.append(field("Pickup longitude","pickup_lon","number",true,"Longitude"));form.querySelector('[name="pickup_lon"]').step="any";
+          const locate=el("button","v2-account-action","Use current location");locate.type="button";form.append(locate);
+          locate.addEventListener("click",()=>{if(!navigator.geolocation){status.textContent="Location is not supported on this device.";return;}locate.disabled=true;locate.textContent="Locating…";navigator.geolocation.getCurrentPosition(pos=>{form.querySelector('[name="pickup_lat"]').value=pos.coords.latitude;form.querySelector('[name="pickup_lon"]').value=pos.coords.longitude;locate.disabled=false;locate.textContent="Location captured";},err=>{status.textContent=err.message||"Could not get current location.";locate.disabled=false;locate.textContent="Try location again";},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});});
+          form.append(field("Destination address","drop_address","text",true,"Full destination address"));
+          form.append(field("Destination latitude","drop_lat","number",true,"Destination latitude"));form.querySelector('[name="drop_lat"]').step="any";
+          form.append(field("Destination longitude","drop_lon","number",true,"Destination longitude"));form.querySelector('[name="drop_lon"]').step="any";
+          const vehicle=el("label","v2-profile-field","Vehicle type"),select=el("select");select.name="vehicle_type";select.required=true;["non_ac","ac","icu"].forEach(v=>{const o=el("option","",v.replace("_"," ").toUpperCase());o.value=v;select.append(o);});vehicle.append(select);form.append(vehicle);
+          const quote=el("p","v2-profile-address","Fare requires a verified rate card and a nearby driver with a fresh location update.");form.append(quote);
+          const submit=el("button","v2-profile-save","Check fare and request ambulance");submit.type="submit";form.append(submit);panel.append(form);
+          form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Checking availability…";try{
+            const d=Object.fromEntries(new FormData(form).entries()),coords=["pickup_lat","pickup_lon","drop_lat","drop_lon"].map(k=>Number(d[k]));
+            if(!/^[6-9]\\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and all map coordinates.");
+            const result=await client.rpc("create_customer_ambulance_booking",{p_patient_name:d.patient_name,p_contact_phone:d.contact_phone,p_pickup_address:d.pickup_address,p_pickup_lat:coords[0],p_pickup_lon:coords[1],p_drop_address:d.drop_address,p_drop_lat:coords[2],p_drop_lon:coords[3],p_vehicle_type:d.vehicle_type});
+            if(result.error)throw result.error;const data=result.data||{};if(!data.ok)throw new Error("Ambulance request was not confirmed by the server.");
+            quote.textContent="Request sent. Reference: "+data.booking_id+". Estimated fare: "+money(data.fare_estimate)+". Final fare is confirmed by the assigned driver.";
+            status.textContent="Ambulance request submitted. Status: searching for a verified driver.";
+            submit.textContent="Request submitted";submit.disabled=true;
+            await load("ambulance");
+          }catch(e){quote.textContent=e.message||"Could not request an ambulance.";submit.disabled=false;submit.textContent="Check fare and request ambulance";}
+          });
+        }
         if (key === "coins") {
           panel.prepend(card("Available balance", currentCoinBalance + " coins", "1 coin = ₹1 where eligible"));
           const checkin = el("button", "v2-account-action", "Daily check-in · Claim 1 coin"); checkin.type = "button";
