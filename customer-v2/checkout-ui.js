@@ -84,7 +84,7 @@
     finally{btn.disabled=false;btn.textContent="Check delivery availability";renderSummary();}
   }
   async function load(){
-    if(loading)return;loading=true;patientsHost.replaceChildren();addressesHost.replaceChildren();
+    if(loading)return;loading=true;msg(status,"Loading saved details…");patientsHost.replaceChildren();addressesHost.replaceChildren();
     try{
       const client=window.supabaseClient;
       if(!client||!window.MFCustomerV2Auth||!window.MFCustomerV2People||!window.MFCustomerV2CheckoutRules)throw new Error("Secure account services are unavailable.");
