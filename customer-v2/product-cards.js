@@ -7,9 +7,8 @@
   const priceOf = (p) => Number(p.selling_price || p.unit_price || p.price || 0) || 0;
   const mrpOf = (p) => Number(p.mrp || 0) || 0;
   const stockOf = (p) => Number.parseInt(p.stock_qty || p.stock || 0, 10) || 0;
-  const isRx = (p) => p.prescription_req
-    ? p.prescription_req === "Yes"
-    : p.is_rx === true || p.is_rx === "true";
+  const isRx = (p) => String(p.prescription_req || "").trim().toLowerCase() === "yes"
+    || p.is_rx === true || String(p.is_rx).toLowerCase() === "true";
 
   function element(tag, className, value) {
     const node = document.createElement(tag);
