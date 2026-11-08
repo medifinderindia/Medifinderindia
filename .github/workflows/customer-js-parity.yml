@@ -10,6 +10,7 @@ on:
       - "user.js"
       - "user.min.js"
       - "customer-v2/**"
+      - "supabase/migrations/**"
       - ".github/workflows/customer-js-parity.yml"
 
 permissions:
@@ -47,6 +48,9 @@ jobs:
 
       - name: Test V2 atomic COD checkout client flow
         run: node customer-v2/tools/test-checkout-ui.js
+
+      - name: Test atomic COD database contract
+        run: node customer-v2/tools/test-cod-sql-contract.js
 
       - name: Test V2 product detail and cart interaction
         run: node customer-v2/tools/test-product-detail-ui.js
