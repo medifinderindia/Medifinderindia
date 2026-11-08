@@ -6,6 +6,7 @@
   const status = root.querySelector("[data-home-status]");
   const retry = root.querySelector("[data-catalogue-retry]");
   const suggestionsTitle = root.querySelector("[data-suggestions-title]");
+  const authLink = document.querySelector("[data-auth-link]");
   let controller = null;
   let loadSequence = 0;
   let catalogueRows = [];
@@ -35,6 +36,7 @@
       const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(client);
       if (sequence !== loadSequence) return;
       if (!auth.authenticated) {
+        if (authLink) authLink.hidden = false;
         window.MFCustomerV2ProductCards.cancel();
         const grid = root.querySelector("[data-home-products]");
         if (grid) grid.replaceChildren();
@@ -45,6 +47,7 @@
         if (status) status.textContent = "Please sign in to view your MediFinder products.";
         return;
       }
+      if (authLink) authLink.hidden = true;
       const provider = window.MFCustomerV2Catalogue.createHomeCatalogueProvider(client);
       const wishlist = window.MFCustomerV2Wishlist
         ? window.MFCustomerV2Wishlist.createWishlistAdapter({
