@@ -24,7 +24,7 @@ const requiredSignals = [
   ['Orders module', 'setupOrdersPageModules'],
   ['Profile module', 'setupProfilePageModules'],
   ['Map module', 'setupMapPageModules'],
-  ['Prescription upload flow', 'handlePrescriptionFile']
+  ['Prescription upload flow', 'prescription_orders']
 ];
 
 const sourceSyntax = syntaxCheck(sourcePath, source);
