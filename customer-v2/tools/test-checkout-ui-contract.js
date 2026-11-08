@@ -16,8 +16,10 @@ console.log("PASS: checkout PIN selector contract and JavaScript syntax");
 
 const rulesSource = fs.readFileSync("customer-v2/checkout-rules.js", "utf8");
 new vm.Script(rulesSource, { filename: "customer-v2/checkout-rules.js" });
-assert.ok(rulesSource.includes('status: "unconfirmed"'), "Delivery fee must remain unconfirmed without a verified rate source");
-assert.ok(rulesSource.includes('total: null'), "Unverified delivery fee must not produce a charge");
-assert.ok(!source.includes('deliveryEstimate.total'), "Checkout must not add an unverified delivery estimate to payable total");
-assert.ok(source.includes('row("Delivery fee","To be confirmed")'), "Checkout must disclose fee confirmation is pending");
+assert.ok(rulesSource.includes('status:"unconfirmed"'), "No fallback delivery fee may be treated as confirmed");
+assert.ok(rulesSource.includes('functions.invoke("shiprocket"'), "Checkout must request a live Shiprocket quote");
+assert.ok(rulesSource.includes('data.serviceable !== true'), "Unserviceable courier response must be rejected");
+assert.ok(rulesSource.includes('confirmed: false'), "Indicative courier quote must remain unconfirmed");
+assert.ok(!source.includes('deliveryEstimate.total'), "Checkout must not silently add an indicative rate to a payable total");
+assert.ok(source.includes('rateQuote?"₹"+rateQuote.total.toFixed(2):"To be confirmed"'), "Checkout may display only the clearly indicative quote or pending fee");
 console.log("PASS: delivery fee fail-closed contract");
