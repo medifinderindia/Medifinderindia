@@ -214,12 +214,31 @@
         };
         const rows = await config[key]();
         if (current !== request) return;
+        let currentCoinBalance = null;
         if (key === "coins") {
           const result = await client.from("profiles").select("coins").eq("id", uid).maybeSingle();
           if (result.error) throw result.error;
-          panel.append(card("Available balance", (Number(result.data && result.data.coins) || 0) + " coins", "1 coin = ₹1 where eligible"));
+          currentCoinBalance = Number(result.data && result.data.coins) || 0;
         }
         renderRows(panel, rows, key === "lab" || key === "nurse" || key === "ambulance" ? "bookings" : key);
+        if (key === "coins") {
+          panel.prepend(card("Available balance", currentCoinBalance + " coins", "1 coin = ₹1 where eligible"));
+          const checkin = el("button", "v2-account-action", "Daily check-in · Claim 1 coin"); checkin.type = "button";
+          checkin.addEventListener("click", async () => {
+            checkin.disabled = true; checkin.textContent = "Claiming…";
+            try {
+              const claim = await client.rpc("claim_daily_coin_bonus");
+              if (claim.error) throw claim.error;
+              if (!claim.data || claim.data.ok !== true) throw new Error("Daily check-in was not confirmed.");
+              status.textContent = "Daily check-in successful: 1 coin added.";
+              await load("coins");
+            } catch (e) {
+              status.textContent = /already claimed/i.test(e.message || "") ? "You have already claimed today's check-in coin." : (e.message || "Could not claim daily check-in.");
+              checkin.disabled = false; checkin.textContent = "Daily check-in · Retry";
+            }
+          });
+          panel.append(checkin);
+        }
       }
       if (current === request) status.textContent = "Live account data loaded from MediFinder.";
     } catch (error) {
