@@ -117,7 +117,7 @@
     }
   }
   $("[data-product-minus]").addEventListener("click",()=>{qty=Math.max(1,qty-1);qtyText.textContent=String(qty);});
-  $("[data-product-plus]").addEventListener("click",()=>{if(!current)return;qty=Math.min(20,current.stock,qty+1);qtyText.textContent=String(qty);});
+  $("[data-product-plus]").addEventListener("click",()=>{if(!current)return;qty=Math.max(1,Math.min(20,current.stock||1,qty+1));qtyText.textContent=String(qty);});
   $("[data-product-add]").addEventListener("click",()=>{
     if(!current||current.stock<=0||current.price<=0)return;
     try{
