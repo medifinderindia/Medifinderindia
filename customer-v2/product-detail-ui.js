@@ -8,7 +8,7 @@
   const money=n=>"₹"+(Number(n)||0).toFixed(2);
   const value=(...xs)=>{for(const x of xs)if(x!==undefined&&x!==null&&String(x).trim()!=="")return x;return "";};
   function normalize(p){
-    return {id:p.id,name:value(p.name,p.product_name,"Healthcare product"),price:Number(value(p.selling_price,p.unit_price,p.price,0))||0,mrp:Number(value(p.mrp,p.selling_price,p.price,0))||0,img:value(p.image_url,p.img),description:value(p.description,p.product_description),manufacturer:value(p.manufacturer,p.brand_name),category:value(p.category,p.dosage_form,p.product_type),stock:Number(value(p.stock_qty,p.stock,0))||0,isRx:p.is_rx===true||p.is_rx==="true"||p.prescription_req==="Yes"||p.isRx===true||p.isRx==="true",merchantId:value(p.merchant_id,p.merchantId),weightKg:Number(value(p.weight_kg,p.weightKg,0.5))||0.5,composition:value(p.composition),strength:value(p.strength),dosageForm:value(p.dosage_form)};
+    return {id:p.id,name:value(p.name,p.product_name,"Healthcare product"),price:Number(value(p.selling_price,p.unit_price,p.price,0))||0,mrp:Number(value(p.mrp,p.selling_price,p.price,0))||0,img:value(p.image_url,p.img),description:value(p.description,p.product_description,p.desc),manufacturer:value(p.manufacturer,p.brand_name),category:value(p.category,p.categoryRaw,p.dosage_form,p.product_type),stock:Number(value(p.stock_qty,p.stock,0))||0,isRx:p.is_rx===true||p.is_rx==="true"||p.prescription_req==="Yes"||p.isRx===true||p.isRx==="true",merchantId:value(p.merchant_id,p.merchantId),weightKg:Number(value(p.weight_kg,p.weightKg,0.5))||0.5,composition:value(p.composition),strength:value(p.strength),dosageForm:value(p.dosage_form)};
   }
   function paint(p){
     current=normalize(p);qty=1;title.textContent=current.name;price.textContent=money(current.price);
