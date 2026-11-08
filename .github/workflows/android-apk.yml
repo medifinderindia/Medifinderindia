@@ -29,10 +29,30 @@ jobs:
           accept-android-sdk-licenses: true
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+      - name: Install Gradle 8.9 (retry-safe download)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GRADLE_VERSION="8.9"
+          GRADLE_DIR="$RUNNER_TEMP/gradle-$GRADLE_VERSION"
+          ZIP="$RUNNER_TEMP/gradle-$GRADLE_VERSION-bin.zip"
+          mkdir -p "$GRADLE_DIR"
+          for attempt in 1 2 3 4 5; do
+            echo "Downloading Gradle $GRADLE_VERSION (attempt $attempt/5)"
+            if curl --fail --location --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 300 \
+              "https://downloads.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip" \
+              --output "$ZIP"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Unable to download Gradle after 5 attempts"
+              exit 1
+            fi
+            sleep 10
+          done
+          unzip -q "$ZIP" -d "$GRADLE_DIR"
+          echo "$GRADLE_DIR/gradle-$GRADLE_VERSION/bin" >> "$GITHUB_PATH"
+          "$GRADLE_DIR/gradle-$GRADLE_VERSION/bin/gradle" --version
 
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
