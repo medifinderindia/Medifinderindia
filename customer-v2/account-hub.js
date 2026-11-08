@@ -40,7 +40,9 @@
     rows.forEach(row => {
       if (kind === "orders") {
         const id = row.order_id || row.id || "Order";
-        host.append(card("Order " + id, "Status: " + (row.status || "Pending"), "Total: " + money(row.total_amount ?? row.total ?? row.grand_total) + " · " + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable")));
+        const kind = row._order_kind === "prescription" ? "Prescription order" : "Order";
+        const amount = row.total_amount ?? row.total ?? row.grand_total;
+        host.append(card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable")));
       } else if (kind === "notifications") {
         host.append(card(row.title || "MediFinder update", row.message || "No message", (row.is_read ? "Read" : "Unread") + " · " + (row.created_at ? new Date(row.created_at).toLocaleString() : "")));
       } else if (kind === "coins") {
@@ -84,17 +86,24 @@
       } else {
         const config = {
           orders: async () => {
-            // Match the production customer panel: legacy orders may be linked by phone/email.
+            // Match production ownership rules and include prescription-linked orders.
             const filters = ["user_id.eq." + uid];
             const phone = String(auth.user.phone || (auth.user.user_metadata && auth.user.user_metadata.phone) || "").replace(/[(),]/g, "");
             const userEmail = String(email || "").replace(/[(),]/g, "");
             if (phone) filters.push("customer_phone.eq." + phone);
             if (userEmail) filters.push("user_email.eq." + userEmail);
-            const result = await client.from("orders").select("*")
-              .or(filters.join(","))
-              .order("created_at", { ascending: false }).limit(30);
-            if (result.error) throw result.error;
-            return result.data || [];
+            const [regular, prescriptions] = await Promise.all([
+              client.from("orders").select("*").or(filters.join(","))
+                .order("created_at", { ascending: false }).limit(30),
+              client.from("prescription_orders").select("*").eq("user_id", uid)
+                .order("created_at", { ascending: false }).limit(30)
+            ]);
+            if (regular.error) throw regular.error;
+            if (prescriptions.error) throw prescriptions.error;
+            return (regular.data || []).map(row => ({ ...row, _order_kind: "standard" }))
+              .concat((prescriptions.data || []).map(row => ({ ...row, _order_kind: "prescription" })))
+              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+              .slice(0, 50);
           },
           notifications: () => client.from("notifications").select("*").or("user_id.eq." + uid + ",user_id.is.null").order("created_at", { ascending: false }).limit(50).then(r => { if (r.error) throw r.error; return r.data || []; }),
           coins: () => queryRows(client, "coin_transactions", uid),
