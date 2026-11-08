@@ -16,7 +16,7 @@ assert.match(sql,/merchant_may_show_type/i);
 assert.match(sql,/merchant_can_sell_rx/i);
 assert.match(sql,/service_zones[\s\S]*?status,''\)\)='approved'[\s\S]*?is_active/i,"Only active approved delivery zones are allowed");
 assert.match(sql,/create unique index if not exists idx_orders_order_id_unique/i);
-assert.match(sql,/revoke all on function public\.create_customer_cod_order[\s\S]*?from public,anon,authenticated/i);
+assert.match(sql,/revoke all on function public\.create_customer_cod_order[\s\S]*?from public,\s*anon,\s*authenticated/i);
 assert.match(sql,/grant execute on function public\.create_customer_cod_order[\s\S]*?to authenticated/i);
 assert.match(sql,/security invoker/i,"Public API wrapper must not itself run as definer");
 assert.match(sql,/mf_private\.create_customer_cod_order_internal/i);
