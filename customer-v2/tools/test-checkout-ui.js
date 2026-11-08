@@ -22,7 +22,7 @@ const store={
 };
 const address={id:10,tag:"Home",name:"Test Customer",phone:"9876543210",address1:"12 Test Road",address2:"Ward 2",landmark:"Near Park",city:"Test City",state:"West Bengal",pincode:"733140",is_default:true};
 const client={
- from(table){assert.equal(table,"prescription_orders");return {select(){return this;},eq(){return this;},in(){return this;},order(){return this;},limit(){return Promise.resolve({data:[],error:null});}};},
+ from(table){assert.equal(table,"prescription_orders");return {select(){return this;},eq(){return this;},ilike(){return this;},order(){return this;},limit(){return Promise.resolve({data:[],error:null});}};},
  async rpc(name,payload){assert.equal(name,"create_customer_cod_order");rpcPayload=payload;return {data:{success:true,order_id:"MF-TEST-ORDER",total_amount:123.5},error:null};}
 };
 const window={
@@ -36,7 +36,8 @@ const window={
  MFCustomerV2App:{openView(view){opened=view;}}
 };
 const document={querySelector(s){return s==='[data-view="checkout"]'?root:null;},createElement(){return new Element();}};
-const context={window,document,console,setTimeout(){return 1;},Date,Math};
+// The mocked test checkout represents the production host; all Supabase writes remain mocked.
+const context={window,document,location:{hostname:"medifinderindia.com"},console,setTimeout(){return 1;},Date,Math};
 vm.runInNewContext(fs.readFileSync("customer-v2/checkout-ui.js","utf8"),context);
 (async()=>{
   await new Promise(resolve=>setTimeout(resolve,0));
