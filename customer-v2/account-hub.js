@@ -221,6 +221,73 @@
           currentCoinBalance = Number(result.data && result.data.coins) || 0;
         }
         renderRows(panel, rows, key === "lab" || key === "nurse" || key === "ambulance" ? "bookings" : key);
+        if (key === "lab") {
+          const form = el("form", "v2-lab-booking-form");
+          form.append(el("h3", "", "Book a home collection"));
+          const field = (label,name,type,required,placeholder) => {
+            const wrap=el("label","v2-profile-field",label), input=el("input");
+            input.name=name;input.type=type;input.required=!!required;if(placeholder)input.placeholder=placeholder;
+            if(type==="date")input.min=new Date().toISOString().slice(0,10);
+            if(name==="patient_phone"){input.inputMode="numeric";input.maxLength=10;}
+            if(name==="patient_age"){input.min="0";input.max="120";}
+            wrap.append(input);return wrap;
+          };
+          const testWrap=el("label","v2-profile-field","Select an approved lab test");
+          const testSelect=el("select");testSelect.name="test_id";testSelect.required=true;
+          const choose=el("option","","Choose a test");choose.value="";choose.disabled=true;choose.selected=true;testSelect.append(choose);
+          testWrap.append(testSelect);form.append(testWrap);
+          form.append(field("Patient name","patient_name","text",true,"Full name"));
+          form.append(field("Patient phone","patient_phone","tel",true,"10-digit mobile number"));
+          form.append(field("Patient age","patient_age","number",true,"Age"));
+          const gender=el("label","v2-profile-field","Patient gender"),genderSelect=el("select");
+          genderSelect.name="patient_gender";genderSelect.required=true;
+          ["Male","Female","Other"].forEach(value=>{const o=el("option","",value);o.value=value;genderSelect.append(o);});gender.append(genderSelect);form.append(gender);
+          form.append(field("Collection date","booking_date","date",true));
+          form.append(field("Preferred time","booking_time","time",true));
+          form.append(field("House / street / locality","full_address","text",true,"Full collection address"));
+          form.append(field("City / district","city","text",true,"City or district"));
+          form.append(field("State","state","text",true,"State"));
+          form.append(field("PIN code","addr_pincode","text",true,"6-digit PIN"));
+          const submit=el("button","v2-profile-save","Submit lab booking request");submit.type="submit";form.append(submit);
+          const hint=el("p","v2-profile-address","Only active tests with an approved, verified collection partner and matching PIN code can be booked. Test price is confirmed by the server.");
+          form.append(hint);panel.append(form);
+          try {
+            const tests=await client.from("lab_tests").select("id,test_name,name,price,offer_price,home_collection,fasting_required,fasting_hours,pincodes,active,approval_status").eq("active",true).eq("approval_status","approved").order("test_name",{ascending:true}).limit(100);
+            if(tests.error)throw tests.error;
+            (tests.data||[]).forEach(test=>{
+              const label=(test.test_name||test.name||"Lab test")+(test.price==null?"":" · "+money(test.price))+(test.fasting_required?" · Fasting required":"");
+              const opt=el("option","",label);opt.value=test.id;opt.dataset.pincodes=JSON.stringify(test.pincodes||[]);testSelect.append(opt);
+            });
+            if(!tests.data||!tests.data.length)hint.textContent="No approved lab tests are currently available.";
+          } catch(e){hint.textContent=e.message||"Could not load approved lab tests.";}
+          form.addEventListener("submit",async event=>{
+            event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";
+            try{
+              const data=Object.fromEntries(new FormData(form).entries());
+              if(!/^[6-9]\\d{9}$/.test(String(data.patient_phone||"")))throw new Error("Enter a valid 10-digit Indian mobile number.");
+              if(!/^[1-9]\\d{5}$/.test(String(data.addr_pincode||"")))throw new Error("Enter a valid 6-digit PIN code.");
+              if(!data.test_id)throw new Error("Choose an approved lab test.");
+              const selected=testSelect.options[testSelect.selectedIndex], pins=JSON.parse(selected.dataset.pincodes||"[]");
+              if(!pins.includes(data.addr_pincode))throw new Error("This lab test is not available at the entered PIN code.");
+              const bookingId=await client.rpc("generate_lab_booking_id");
+              if(bookingId.error||!bookingId.data)throw bookingId.error||new Error("Could not generate a booking reference.");
+              const fullAddress=String(data.full_address).trim();
+              const result=await client.from("lab_bookings").insert({
+                booking_id:bookingId.data,patient_name:String(data.patient_name).trim(),patient_phone:String(data.patient_phone),
+                patient_age:Number(data.patient_age),patient_gender:data.patient_gender,test_id:data.test_id,
+                test_name:selected.textContent.split(" · ")[0],address:fullAddress,full_address:fullAddress,
+                city:String(data.city).trim(),district:String(data.city).trim(),state:String(data.state).trim(),
+                pincode:data.addr_pincode,addr_pincode:data.addr_pincode,addr_city:String(data.city).trim(),
+                addr_state:String(data.state).trim(),booking_date:data.booking_date,book_date:data.booking_date,
+                booking_time:data.booking_time,book_time:data.booking_time,user_id:uid,user_email:email,
+                booking_source:"customer_v2",payment_mode:"Cash",payment_status:"Pending",booking_status:"Pending",status:"Pending"
+              });
+              if(result.error)throw result.error;
+              status.textContent="Lab booking request submitted. Reference: "+bookingId.data;
+              await load("lab");
+            }catch(e){status.textContent=e.message||"Could not submit lab booking.";submit.disabled=false;submit.textContent="Submit lab booking request";}
+          });
+        }
         if (key === "coins") {
           panel.prepend(card("Available balance", currentCoinBalance + " coins", "1 coin = ₹1 where eligible"));
           const checkin = el("button", "v2-account-action", "Daily check-in · Claim 1 coin"); checkin.type = "button";
