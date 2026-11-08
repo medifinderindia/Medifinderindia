@@ -82,6 +82,12 @@ jobs:
       - name: Check V2 runtime status syntax
         run: node --check customer-v2/runtime-status.js
 
+      - name: Check V2 service booking syntax
+        run: node --check customer-v2/service-bookings.js
+
+      - name: Test V2 service booking integration contract
+        run: node customer-v2/tools/test-service-bookings.js
+
       - name: Check V2 integration syntax
         run: node --check customer-v2/integration.js
 
