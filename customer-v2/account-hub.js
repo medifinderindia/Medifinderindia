@@ -42,7 +42,31 @@
         const id = row.order_id || row.id || "Order";
         const kind = row._order_kind === "prescription" ? "Prescription order" : "Order";
         const amount = row.total_amount ?? row.total ?? row.grand_total;
-        host.append(card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable")));
+        const item = card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable"));
+        if (row._order_kind !== "prescription") {
+          const track = el("button", "v2-account-action", "Track delivery"); track.type = "button";
+          const timeline = el("div", "v2-order-timeline");
+          track.addEventListener("click", async () => {
+            track.disabled = true; track.textContent = "Checking tracking…"; timeline.replaceChildren();
+            try {
+              if (!row.order_id) throw new Error("Order reference is unavailable.");
+              if (row.courier_tracking) {
+                const response = await window.supabaseClient.functions.invoke("shiprocket", { body: { action: "track", order_id: row.order_id } });
+                if (response.error) throw response.error;
+                if (response.data && response.data.success === false) throw new Error(response.data.error || "Courier tracking is unavailable.");
+              }
+              const events = await window.supabaseClient.from("order_tracking_events").select("status,location,description,event_time,courier").eq("order_id", row.order_id).order("event_time", { ascending: false }).limit(20);
+              if (events.error) throw events.error;
+              timeline.replaceChildren();
+              if (!events.data || !events.data.length) timeline.append(el("p", "", row.courier_tracking ? "Courier has not published tracking updates yet." : "Courier tracking will appear after a delivery partner is assigned."));
+              else events.data.forEach(event => timeline.append(el("p", "", (event.status || "Update") + (event.location ? " · " + event.location : "") + (event.event_time ? " · " + new Date(event.event_time).toLocaleString() : ""))));
+              track.textContent = "Refresh tracking";
+            } catch (e) { timeline.replaceChildren(el("p", "", e.message || "Could not load tracking.")); track.textContent = "Retry tracking"; }
+            finally { track.disabled = false; }
+          });
+          item.append(track, timeline);
+        }
+        host.append(item);
       } else if (kind === "notifications") {
         const item = el("article", "v2-account-card");
         item.append(el("strong", "", row.title || "MediFinder update"), el("p", "", row.message || "No message"));
