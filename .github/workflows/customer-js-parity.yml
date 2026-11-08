@@ -36,6 +36,9 @@ jobs:
       - name: Check V2 customer app routing syntax
         run: node --check customer-v2/app.js
 
+      - name: Check V2 Supabase bootstrap syntax
+        run: node --check customer-v2/supabase-bootstrap.js
+
       - name: Check V2 product detail syntax
         run: node --check customer-v2/product-detail-ui.js
 
