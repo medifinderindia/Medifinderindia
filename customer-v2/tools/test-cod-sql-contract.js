@@ -1,0 +1,24 @@
+#!/usr/bin/env node
+"use strict";
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const sql=fs.readFileSync("supabase/migrations/20261108091000_customer_atomic_cod_checkout.sql","utf8");
+const ui=fs.readFileSync("customer-v2/checkout-ui.js","utf8");
+const rules=fs.readFileSync("customer-v2/checkout-rules.js","utf8");
+assert.match(sql,/create schema if not exists mf_private/i);
+assert.match(sql,/security definer/i);
+assert.match(sql,/for update/i,"Product rows must be locked before stock validation");
+assert.match(sql,/stock_qty\s*=\s*stock_qty\s*-\s*v_item\.quantity/i,"Stock decrement must happen in the same database transaction");
+assert.match(sql,/merchant_is_verified/i);
+assert.match(sql,/merchant_may_show_type/i);
+assert.match(sql,/merchant_can_sell_rx/i);
+assert.match(sql,/service_zones[\s\S]*?status,''\)\)='approved'[\s\S]*?is_active/i,"Only active approved delivery zones are allowed");
+assert.match(sql,/create unique index if not exists idx_orders_order_id_unique/i);
+assert.match(sql,/revoke all on function public\.create_customer_cod_order[\s\S]*?from public,anon,authenticated/i);
+assert.match(sql,/grant execute on function public\.create_customer_cod_order[\s\S]*?to authenticated/i);
+assert.match(sql,/security invoker/i,"Public API wrapper must not itself run as definer");
+assert.match(sql,/mf_private\.create_customer_cod_order_internal/i);
+assert.doesNotMatch(sql,/v_delivery_fee\s*:=\s*30|v_cod_fee numeric\(12,2\) := 10/i,"Do not add unconfigured delivery or COD charges");
+assert.match(ui,/return \{delivery:0,shipping:0,platform:0,processing:0,cod:0\}/);
+assert.match(rules,/\.or\("pin\.eq\."\+p\+",pincode\.eq\."\+p\)/);
+console.log("PASS: COD SQL security, seller/PIN validation, row locking, atomic stock decrement, idempotency and fee contract");
