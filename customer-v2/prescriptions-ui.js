@@ -69,11 +69,12 @@
       const userId = auth.user.id;
       const ext = selected.type === "application/pdf" ? "pdf" : ({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp" })[selected.type];
       if (!ext) throw new Error("Unsupported prescription format.");
-      const path = userId + "/" + Date.now() + "-" + crypto.randomUUID() + "." + ext;
+      const randomId = (window.crypto && typeof window.crypto.randomUUID === "function") ? window.crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 14));
+      const path = userId + "/" + Date.now() + "-" + randomId + "." + ext;
       const put = await supabase.storage.from("customer-prescriptions").upload(path,selected,{contentType:selected.type,cacheControl:"3600",upsert:false});
       if (put.error) throw put.error;
       const metadata = auth.user.user_metadata || {};
-      const profile = await supabase.from("profiles").select("full_name,phone,address").eq("email",auth.user.email).maybeSingle();
+      const profile = await supabase.from("profiles").select("full_name,phone,address").eq("id",userId).maybeSingle();
       if (profile.error) throw profile.error;
       const row = {
         user_id:userId,
@@ -91,7 +92,7 @@
         throw saved.error;
       }
       if (camera) camera.value = ""; if (file) file.value = "";
-      if (name) name.textContent = "Prescription uploaded securely.";
+      if (name) name.textContent = "Prescription uploaded securely.";\n      try { localStorage.setItem("medi_customer_v2_latest_prescription", JSON.stringify({ id: saved.data.id, path, status: "pending", createdAt: new Date().toISOString() })); } catch (_) {}
       status("Prescription submitted. A MediFinder partner must review it before any medicine order is confirmed.");
       await loadArchive();
     } catch (error) { status(error.message || "Could not upload prescription."); }
