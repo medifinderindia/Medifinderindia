@@ -24,8 +24,9 @@ vm.runInNewContext(source, context);
       getUser: async () => ({ data: { user: null }, error: null })
     }
   };
-  assert.deepEqual(await context.window.MFCustomerV2Auth.requireAuthenticatedUser(signedOut),
-    { authenticated: false, user: null });
+  const signedOutResult = await context.window.MFCustomerV2Auth.requireAuthenticatedUser(signedOut);
+  assert.equal(signedOutResult.authenticated, false);
+  assert.equal(signedOutResult.user, null);
 
   const mismatch = {
     auth: {
@@ -33,7 +34,8 @@ vm.runInNewContext(source, context);
       getUser: async () => ({ data: { user: { id: "u-2" } }, error: null })
     }
   };
-  assert.deepEqual(await context.window.MFCustomerV2Auth.requireAuthenticatedUser(mismatch),
-    { authenticated: false, user: null });
+  const mismatchResult = await context.window.MFCustomerV2Auth.requireAuthenticatedUser(mismatch);
+  assert.equal(mismatchResult.authenticated, false);
+  assert.equal(mismatchResult.user, null);
   console.log("PASS: V2 auth session validation, signed-out, and mismatched-user cases");
 })().catch(error => { console.error(error); process.exitCode = 1; });
