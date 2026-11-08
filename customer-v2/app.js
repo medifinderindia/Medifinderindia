@@ -38,7 +38,8 @@
         button.type = "button"; button.dataset.go = name; button.textContent = details[0]; return button;
       }));
     }
-    if (selected === "product") { /* Product view is painted by the verified catalogue action. */ }\n    if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
+    if (selected === "product") { /* Product view is painted by the verified catalogue action. */ }
+    if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
     if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
     window.scrollTo({top:0,behavior:"instant"});
