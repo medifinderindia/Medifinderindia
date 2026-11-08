@@ -73,6 +73,9 @@ jobs:
       - name: Check V2 prescription UI syntax
         run: node --check customer-v2/prescriptions-ui.js
 
+      - name: Test private prescription upload contract
+        run: node customer-v2/tools/test-prescription-upload-contract.js
+
       - name: Check V2 cart UI syntax
         run: node --check customer-v2/cart-ui.js
 
