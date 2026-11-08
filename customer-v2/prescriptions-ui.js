@@ -92,7 +92,8 @@
         throw saved.error;
       }
       if (camera) camera.value = ""; if (file) file.value = "";
-      if (name) name.textContent = "Prescription uploaded securely.";\n      try { localStorage.setItem("medi_customer_v2_latest_prescription", JSON.stringify({ id: saved.data.id, path, status: "pending", createdAt: new Date().toISOString() })); } catch (_) {}
+      if (name) name.textContent = "Prescription uploaded securely.";
+      try { localStorage.setItem("medi_customer_v2_latest_prescription", JSON.stringify({ id: saved.data.id, path, status: "pending", createdAt: new Date().toISOString() })); } catch (_) {}
       status("Prescription submitted. A MediFinder partner must review it before any medicine order is confirmed.");
       await loadArchive();
     } catch (error) { status(error.message || "Could not upload prescription."); }
