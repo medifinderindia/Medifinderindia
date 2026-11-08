@@ -291,7 +291,7 @@
             if(tests.error)throw tests.error;
             (tests.data||[]).forEach(test=>{
               const label=(test.test_name||test.name||"Lab test")+(test.price==null?"":" · "+money(test.price))+(test.fasting_required?" · Fasting required":"");
-              const opt=el("option","",label);opt.value=test.id;opt.dataset.pincodes=JSON.stringify(test.pincodes||[]);testSelect.append(opt);
+              const opt=el("option","",label);opt.value=test.id;opt.dataset.pincodes=JSON.stringify(test.pincodes||[]);opt.dataset.collectorId=test.collector_id||"";opt.dataset.price=String(test.offer_price??test.price??0);opt.dataset.testName=test.test_name||test.name||"Lab test";testSelect.append(opt);
             });
             if(!tests.data||!tests.data.length)hint.textContent="No approved lab tests are currently available.";
           } catch(e){hint.textContent=e.message||"Could not load approved lab tests.";}
@@ -310,7 +310,8 @@
               const result=await client.from("lab_bookings").insert({
                 booking_id:bookingId.data,patient_name:String(data.patient_name).trim(),patient_phone:String(data.patient_phone),
                 patient_age:Number(data.patient_age),patient_gender:data.patient_gender,test_id:data.test_id,
-                test_name:selected.textContent.split(" · ")[0],address:fullAddress,full_address:fullAddress,
+                collector_id:selected.dataset.collectorId||null,test_name:selected.dataset.testName||"Lab test",
+                test_price:Number(selected.dataset.price)||0,address:fullAddress,full_address:fullAddress,
                 city:String(data.city).trim(),district:String(data.city).trim(),state:String(data.state).trim(),
                 pincode:data.addr_pincode,addr_pincode:data.addr_pincode,addr_city:String(data.city).trim(),
                 addr_state:String(data.state).trim(),booking_date:data.booking_date,book_date:data.booking_date,
