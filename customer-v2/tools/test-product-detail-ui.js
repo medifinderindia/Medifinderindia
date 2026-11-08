@@ -24,7 +24,7 @@ const product={id:41,product_name:"Test Health Product",selling_price:42,mrp:50,
  description:"Verified catalogue description",merchant_id:7,prescription_req:"yes"};
 const client={
  from(table){
-  if(table==="medicines")return {select(){return this;},eq(){return this;},or(){return this;},async maybeSingle(){return {data:product,error:null};}};
+  if(table==="medicines")return {select(){return this;},eq(){return this;},ilike(){return this;},or(){return this;},async maybeSingle(){return {data:product,error:null};}};
   if(table==="merchants_public")return {select(){return this;},eq(){return this;},async maybeSingle(){return {data:{id:7,shop_name:"Verified Test Pharmacy",city:"Test City",state:"West Bengal",cod_available:true},error:null};}};
   if(table==="product_reviews")return {select(){return this;},eq(){return this;},order(){return this;},limit(){return Promise.resolve({data:[{id:"r1",user_name:"Customer",rating:5,review_text:"Helpful service",created_at:"2026-11-01T00:00:00Z"}],error:null});}};
   throw new Error("Unexpected table "+table);
