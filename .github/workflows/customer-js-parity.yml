@@ -41,6 +41,9 @@ jobs:
       - name: Check V2 people adapter syntax
         run: node --check customer-v2/people-adapter.js
 
+      - name: Test V2 address phone and PIN validation
+        run: node customer-v2/tools/test-people-address-validation.js
+
       - name: Check V2 people UI syntax
         run: node --check customer-v2/people-ui.js
 
