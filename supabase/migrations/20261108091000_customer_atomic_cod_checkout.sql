@@ -26,6 +26,7 @@ declare
   v_cod_fee numeric(12,2) := 0;
   v_grand_total numeric(12,2) := 0;
   v_has_rx boolean := false;
+  v_rx_merchant_id bigint := null;
   v_item_count integer := 0;
   v_primary_merchant_id bigint := null;
   v_items_text text := '';
@@ -105,6 +106,11 @@ begin
     end if;
     if coalesce(v_med.is_rx,false) or lower(coalesce(v_med.prescription_req,''))='yes' then
       v_has_rx:=true;
+      if v_rx_merchant_id is null then
+        v_rx_merchant_id:=v_med.merchant_id;
+      elsif v_rx_merchant_id<>v_med.merchant_id then
+        raise exception 'Please order prescription medicines from one pharmacy at a time.' using errcode = 'P0001';
+      end if;
       if not coalesce(public.merchant_can_sell_rx(v_med.merchant_id),false) then
         raise exception 'The seller is not authorised to fulfil prescription medicines.' using errcode = 'P0001';
       end if;
@@ -135,7 +141,8 @@ begin
     from storage.objects so
     join public.prescription_orders po on po.prescription_url=so.name and po.user_id=v_uid
     where so.bucket_id='customer-prescriptions' and so.name=p_prescription_path
-      and po.status in ('pending','Pending','accepted','Accepted')
+      and lower(coalesce(po.status,''))='accepted'
+      and po.accepted_by=v_rx_merchant_id
     limit 1;
     if not found then
       raise exception 'The selected prescription could not be verified for this account. Please upload it again.' using errcode = 'P0001';
