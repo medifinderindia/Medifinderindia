@@ -1252,7 +1252,12 @@ async function loadHomeProductGrid(isInstrumentMode, merchantFilterId) {
             let medQuery = supabase.from('medicines').select('*').eq('status', 'Approved').order('id', { ascending: false }).limit(merchantFilterId ? 300 : 120); // PERF: never pull the whole catalogue in one request
             if (merchantFilterId) medQuery = medQuery.eq('merchant_id', merchantFilterId);
             if (isInstrumentMode) medQuery = medQuery.eq('product_type', 'Instrument');
-            const { data: dbProducts, error: dbError } = await medQuery;
+            // Slow/offline networks must never hold home initialization indefinitely.
+            const _mfProductRequest = medQuery;
+            const _mfProductTimeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Product request timed out')), 6000)
+            );
+            const { data: dbProducts, error: dbError } = await Promise.race([_mfProductRequest, _mfProductTimeout]);
             
             if (!dbError && dbProducts && dbProducts.length > 0) {
                 allProductNames = dbProducts.map(p => p.name || p.product_name);
@@ -1590,7 +1595,8 @@ async function setupHomePageModules() {
 
     if (supabase) {
         try {
-            const { data } = await supabase.from('offers').select('*').eq('active', true).limit(1);
+            const _mfOfferRequest = supabase.from('offers').select('*').eq('active', true).limit(1);
+            const { data } = await Promise.race([_mfOfferRequest, new Promise(resolve => setTimeout(() => resolve({ data: null }), 2500))]);
             const bannerSection = document.getElementById('family-health-banner');
             if (data && data.length > 0) {
                 const banner = document.querySelector('#family-health-banner h2');
