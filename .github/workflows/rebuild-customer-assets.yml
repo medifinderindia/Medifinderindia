@@ -10,6 +10,7 @@ on:
       - "user.css"
       - "build.sh"
       - "customer-v2/tools/js-parity-audit.js"
+      - "customer-v2/profile-adapter.js"
       - ".github/workflows/rebuild-customer-assets.yml"
 
 permissions:
