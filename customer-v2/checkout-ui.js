@@ -38,7 +38,7 @@
     row("Processing fee",money(fees.processing));
     row("COD fee",money(fees.cod));
     row("Estimated payable",money(subtotal+fees.delivery+fees.shipping+fees.platform+fees.processing+fees.cod));
-    const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Final prices and stock are rechecked securely by MediFinder before the order is saved.";summary.append(hint);
+    const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Current approved zones have no additional delivery or COD fee configured. Final product prices and stock are rechecked securely before the order is saved.";summary.append(hint);
     placeButton.disabled=placing||!addresses.some(a=>String(a.id)===selectedAddress)||!serviceability||!serviceability.available;
   }
   async function loadPrescriptions(){
