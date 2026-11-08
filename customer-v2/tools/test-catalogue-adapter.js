@@ -11,6 +11,7 @@ const query = {
   from(table) { calls.push(["from", table]); return this; },
   select(columns) { calls.push(["select", columns]); return this; },
   eq(column, value) { calls.push(["eq", column, value]); return this; },
+  or(expression) { calls.push(["or", expression]); return this; },
   order(column, options) { calls.push(["order", column, options]); return this; },
   limit(value) { calls.push(["limit", value]); return this; },
   abortSignal(signal) { calls.push(["abortSignal", signal]); return this; },
@@ -31,17 +32,17 @@ const assertCalls = expected => {
   assert.equal(normal, rows);
   assertCalls([
     ["from", "medicines"], ["select", "*"], ["eq", "status", "Approved"],
-    ["order", "id", { ascending: false }], ["limit", 120]
+    ["or", "is_visible.eq.true,is_visible.is.null"], ["order", "id", { ascending: false }], ["limit", 120]
   ]);
   calls.length = 0;
   await provider({ merchantId: "merchant-uuid", instrumentMode: true });
   assertCalls([
     ["from", "medicines"], ["select", "*"], ["eq", "status", "Approved"],
-    ["order", "id", { ascending: false }], ["limit", 300],
+    ["or", "is_visible.eq.true,is_visible.is.null"], ["order", "id", { ascending: false }], ["limit", 300],
     ["eq", "merchant_id", "merchant-uuid"], ["eq", "product_type", "Instrument"]
   ]);
   const failing = context.window.MFCustomerV2Catalogue.createHomeCatalogueProvider({
-    from() { return { select() { return this; }, eq() { return this; }, order() { return this; },
+    from() { return { select() { return this; }, eq() { return this; }, or() { return this; }, order() { return this; },
       limit() { return Promise.resolve({ data: null, error: new Error("network failure") }); } }; }
   });
   await assert.rejects(() => failing({}), /network failure/);
