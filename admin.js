@@ -951,7 +951,7 @@ const NAV = [
   ]},
   {group:"Partners", items:[
     {id:"notifications", icon:"◔", label:"Notification",
-      children:[{key:"user-all",label:"User · All"},{key:"user-one",label:"User · Individual"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab Partner"},{key:"nurse",label:"Nurse Partner"},{key:"ambulance",label:"Ambulance"}]},
+      children:[{key:"user-all",label:"User · All"},{key:"user-one",label:"User · Individual"},{key:"provider",label:"All Providers"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab Partner"},{key:"nurse",label:"Nurse Partner"},{key:"ambulance",label:"Ambulance"}]},
     {id:"kyc", icon:"✔", label:"KYC", count:()=>kycAllRows().filter(r=>r.status==="pending").length,
       children:[{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"nurse",label:"Nurse"},{key:"lab",label:"Lab"},{key:"ambulance",label:"Ambulance"}]},
     {id:"fleet", icon:"🗺", label:"Live Fleet Map"},
@@ -2536,7 +2536,7 @@ VIEWS.system = () => {
   return (VIEWS[map[t]] || VIEWS.adminroles)();
 };
 
-const NTF_AUDIENCE = {"user-all":"All Users","user-one":"Individual User",merchant:"Merchants",rider:"Riders",lab:"Lab Partners",nurse:"Nurse Partners",ambulance:"Ambulance Partners"};
+const NTF_AUDIENCE = {"user-all":"All Users","user-one":"Individual User",provider:"All Service Providers",merchant:"Merchants",rider:"Riders",lab:"Lab Partners",nurse:"Nurse Partners",ambulance:"Ambulance Partners"};
 function ntfTargets(t){
   if(t==="merchant") return DATA.merchants.map(m=>({id:m.id,label:m.name}));
   if(t==="rider") return DATA.riders.map(r=>({id:r.id,label:`${r.name} · ${r.phone}`}));
@@ -2754,6 +2754,21 @@ Object.assign(Actions, {
     const sel = ($("#ntfTarget")||{}).value || "all"; const all = sel==="all";
     const extra = { image_url:image, deep_link:link }; let res, count = 0;
     if(t==="user-all"){ res = await supabase.from("notifications").insert({ user_id:null, type:"admin_broadcast", title, message, ...extra }); count = 1; }
+    else if(t==="provider"){
+      const nurses = DATA.nurses.filter(n=>n.authUserId);
+      const ambulances = DATA.ambulanceDrivers.filter(d=>d.id);
+      const labs = DATA.raw.collectors.filter(c=>c.auth_user_id);
+      const results = await Promise.all([
+        nurses.length ? supabase.from("nurse_notifications").insert(nurses.map(n=>({user_id:n.authUserId,type:"admin",title,message:message||title,...extra}))) : Promise.resolve({error:null}),
+        ambulances.length ? supabase.from("ambulance_notifications").insert(ambulances.map(d=>({driver_id:d.id,type:"admin",title,message:message||title,is_read:false,image_url:image,deep_link:link}))) : Promise.resolve({error:null}),
+        labs.length ? supabase.from("notifications").insert(labs.map(c=>({user_id:c.auth_user_id,type:"admin",title,message:message||title,...extra}))) : Promise.resolve({error:null})
+      ]);
+      const failed = results.find(x=>x.error);
+      if(failed){ toast("Provider notification failed: "+failed.error.message,"danger"); return; }
+      count = nurses.length + ambulances.length + labs.length;
+      if(!count){ toast("No linked provider accounts found","danger"); return; }
+      res = {error:null};
+    }
     else if(t==="user-one"){ if(!sel){ toast("Select a user","danger"); return; } res = await supabase.from("notifications").insert({ user_id:sel, type:"admin_broadcast", title, message, ...extra }); count = 1; }
     else if(t==="merchant"){
       const list = all ? DATA.merchants : DATA.merchants.filter(m=>String(m.id)===sel);
@@ -3514,6 +3529,7 @@ VIEWS.notifications = () => {
   const t = vs("notifications",{tab:"user-all"}).tab;
   let target;
   if(t==="user-all") target = `<div class="field"><label>Send to</label><input value="All users" disabled></div><input type="hidden" id="ntfTarget" value="all">`;
+  else if(t==="provider") target = `<div class="field"><label>Send to</label><input value="All linked Nurse, Ambulance and Lab partners" disabled></div><input type="hidden" id="ntfTarget" value="all">`;
   else {
     const one = t==="user-one", lbl = one ? "user" : NTF_AUDIENCE[t].toLowerCase().replace(/s$/,"");
     target = `<div class="field"><label>Send to</label>
@@ -3525,7 +3541,7 @@ VIEWS.notifications = () => {
   }
   return `
   <div class="view-head"><h1>Create Notification</h1><p>${esc(NTF_AUDIENCE[t])} · delivered in-app (stored in the app's own notification table).</p></div>
-  ${toolbarTabs("notifications", [{key:"user-all",label:"User · All"},{key:"user-one",label:"User · One"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab"},{key:"nurse",label:"Nurse"},{key:"ambulance",label:"Ambulance"}])}
+  ${toolbarTabs("notifications", [{key:"user-all",label:"User · All"},{key:"user-one",label:"User · One"},{key:"provider",label:"All Providers"},{key:"merchant",label:"Merchant"},{key:"rider",label:"Rider"},{key:"lab",label:"Lab"},{key:"nurse",label:"Nurse"},{key:"ambulance",label:"Ambulance"}])}
   <div class="card"><div class="card-body">
     ${target}
     <div class="field"><label>Title</label><input id="ntfTitle" placeholder="e.g. Monsoon health tips inside"></div>
