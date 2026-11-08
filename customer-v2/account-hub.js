@@ -134,7 +134,7 @@
         };
         form.append(field("Full name","full_name","text",p.full_name || "",true));
         form.append(field("Mobile number","phone","tel",p.phone || "",true));
-        const dobParts = String(p.date_of_birth || "").match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+        const dobParts = String(p.date_of_birth || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
         const dobGroup = el("div", "v2-profile-field");
         dobGroup.append(el("span", "", "Date of birth"));
         const dobControls = el("div", "v2-dob-controls");
@@ -264,8 +264,8 @@
             event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";
             try{
               const data=Object.fromEntries(new FormData(form).entries());
-              if(!/^[6-9]\\d{9}$/.test(String(data.patient_phone||"")))throw new Error("Enter a valid 10-digit Indian mobile number.");
-              if(!/^[1-9]\\d{5}$/.test(String(data.addr_pincode||"")))throw new Error("Enter a valid 6-digit PIN code.");
+              if(!/^[6-9]\d{9}$/.test(String(data.patient_phone||"")))throw new Error("Enter a valid 10-digit Indian mobile number.");
+              if(!/^[1-9]\d{5}$/.test(String(data.addr_pincode||"")))throw new Error("Enter a valid 6-digit PIN code.");
               if(!data.test_id)throw new Error("Choose an approved lab test.");
               const selected=testSelect.options[testSelect.selectedIndex], pins=JSON.parse(selected.dataset.pincodes||"[]");
               if(!pins.includes(data.addr_pincode))throw new Error("This lab test is not available at the entered PIN code.");
