@@ -71,8 +71,9 @@
             if (window.MFCustomerV2CartUI) window.MFCustomerV2CartUI.refresh();
             return result;
           },
-          onProductOpen() {
-            if (status) status.textContent = "Product details will be connected to the existing verified product-detail flow during migration.";
+          onProductOpen(product) {
+            if (window.MFCustomerV2ProductDetail) return window.MFCustomerV2ProductDetail.open(product);
+            if (status) status.textContent = "Product details are temporarily unavailable. Please retry.";
           },
           onWishlist: wishlist ? (product) => wishlist.toggle(product.id) : null
         }) : undefined;
