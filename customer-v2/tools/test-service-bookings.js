@@ -1,0 +1,14 @@
+"use strict";
+const fs=require("node:fs");
+const assert=require("node:assert/strict");
+const js=fs.readFileSync("customer-v2/service-bookings.js","utf8");
+const html=fs.readFileSync("customer-v2/index.html","utf8");
+const app=fs.readFileSync("customer-v2/app.js","utf8");
+for(const table of ["lab_tests","lab_bookings","nurse_service_rates","nurse_bookings","ambulance_bookings"]) assert.ok(js.includes('"' + table + '"'),"Missing Supabase table: "+table);
+for(const guard of ['eq("active",true)','eq("approval_status","approved")','eq("is_verified",true)','eq("is_active",true)','eq("nurses.is_online",true)','get_available_ambulances','user_id:user.id']) assert.ok(js.includes(guard),"Missing live service safety guard: "+guard);
+for(const kind of ["lab","nurse","ambulance"]) assert.ok(app.includes('window.MFCustomerV2Services.load(selected)'),"Service routing is missing");
+assert.ok(html.includes('./service-bookings.js'));
+assert.ok(html.includes('./service-bookings.css'));
+assert.ok(js.includes('status:"Pending"'));
+assert.ok(js.includes('status:"pending"'));
+console.log("Customer service booking contract: PASS");
