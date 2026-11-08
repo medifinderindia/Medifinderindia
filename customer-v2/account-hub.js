@@ -83,7 +83,19 @@
         panel.append(card("Address", p.address || "Manage saved addresses and patients", "Use Patients & Addresses from your account"));
       } else {
         const config = {
-          orders: () => queryRows(client, "orders", uid),
+          orders: async () => {
+            // Match the production customer panel: legacy orders may be linked by phone/email.
+            const filters = ["user_id.eq." + uid];
+            const phone = String(auth.user.phone || (auth.user.user_metadata && auth.user.user_metadata.phone) || "").replace(/[(),]/g, "");
+            const userEmail = String(email || "").replace(/[(),]/g, "");
+            if (phone) filters.push("customer_phone.eq." + phone);
+            if (userEmail) filters.push("user_email.eq." + userEmail);
+            const result = await client.from("orders").select("*")
+              .or(filters.join(","))
+              .order("created_at", { ascending: false }).limit(30);
+            if (result.error) throw result.error;
+            return result.data || [];
+          },
           notifications: () => client.from("notifications").select("*").or("user_id.eq." + uid + ",user_id.is.null").order("created_at", { ascending: false }).limit(50).then(r => { if (r.error) throw r.error; return r.data || []; }),
           coins: () => queryRows(client, "coin_transactions", uid),
           lab: () => queryRows(client, "lab_bookings", uid),
