@@ -32,7 +32,7 @@ jobs:
 
       - name: Check V2 checkout rules syntax
         run: node --check customer-v2/checkout-rules.js
-
+\n      - name: Check V2 customer app routing syntax\n        run: node --check customer-v2/app.js\n\n      - name: Check V2 product detail syntax\n        run: node --check customer-v2/product-detail-ui.js\n
       - name: Check V2 checkout UI syntax
         run: node --check customer-v2/checkout-ui.js
 
