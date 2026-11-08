@@ -46,7 +46,7 @@
         landmark: String(input.landmark || "").trim() || null,
         city: String(input.city || "").trim(),
         state: String(input.state || "").trim(),
-        pincode: String(input.pincode || "").replace(/\\D/g, "").slice(0, 6),
+        pincode: String(input.pincode || "").replace(/\D/g, "").slice(0, 6),
         is_default: input.is_default === true
       };
       if (!fields.name || !/^[6-9]\d{9}$/.test(fields.phone) || !fields.address1 || !fields.city || !/^[1-9]\d{5}$/.test(fields.pincode)) {
