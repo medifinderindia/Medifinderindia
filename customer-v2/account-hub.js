@@ -44,6 +44,41 @@
         const amount = row.total_amount ?? row.total ?? row.grand_total;
         const item = card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable"));
         if (row._order_kind !== "prescription") {
+          const detailsButton=el("button","v2-account-action","View order details");detailsButton.type="button";
+          const details=el("div","v2-order-details");details.hidden=true;
+          let detailsLoaded=false;
+          detailsButton.addEventListener("click",async()=>{
+            details.hidden=!details.hidden;
+            detailsButton.textContent=details.hidden?"View order details":"Hide order details";
+            if(details.hidden||detailsLoaded)return;
+            detailsLoaded=true;details.replaceChildren(el("p","","Loading order details…"));
+            try{
+              let lines=Array.isArray(row.items)?row.items:[];
+              if(!lines.length&&row.order_id&&window.supabaseClient){
+                const result=await window.supabaseClient.from("order_items")
+                  .select("product_name,name,quantity,unit_price,total_price,price,total")
+                  .eq("order_id",row.order_id).order("created_at",{ascending:true}).limit(30);
+                if(result.error)throw result.error;
+                lines=result.data||[];
+              }
+              details.replaceChildren();
+              const payment=el("p","","Payment: "+(row.payment_method||row.payment_mode||"Not specified"));
+              const address=el("p","","Delivery address: "+(row.delivery_address||row.customer_address||row.address||"Not available"));
+              details.append(payment,address);
+              if(lines.length){
+                const heading=el("strong","","Items");details.append(heading);
+                lines.forEach(line=>{
+                  const qty=Number(line.quantity)||1;
+                  const unit=Number(line.unit_price??line.price)||0;
+                  const total=Number(line.total_price??line.total)||unit*qty;
+                  details.append(el("p","v2-order-detail-line",(line.product_name||line.name||"Healthcare product")+" × "+qty+" · "+money(total)));
+                });
+              }else details.append(el("p","","Item details are not available for this order."));
+              details.append(el("p","","Delivery fee: "+money(row.delivery_fee||0)));
+              details.append(el("p","","Order total: "+money(row.total_amount??row.total??row.grand_total??0)));
+            }catch(error){detailsLoaded=false;details.replaceChildren(el("p","","Could not load order details: "+(error.message||"Please retry.")));}
+          });
+          item.append(detailsButton,details);
           const track = el("button", "v2-account-action", "Track delivery"); track.type = "button";
           const timeline = el("div", "v2-order-timeline");
           track.addEventListener("click", async () => {
