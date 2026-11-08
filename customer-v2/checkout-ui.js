@@ -56,14 +56,14 @@
   async function loadPrescriptions(){
     prescriptionSelect.replaceChildren();
     const first=document.createElement("option");first.value="";first.textContent="Select an uploaded prescription";prescriptionSelect.append(first);
-    const result=await window.supabaseClient.from("prescription_orders").select("id,prescription_url,status,created_at").eq("user_id",authUser.id).in("status",["pending","Pending","accepted","Accepted"]).order("created_at",{ascending:false}).limit(30);
+    const result=await window.supabaseClient.from("prescription_orders").select("id,prescription_url,status,created_at").eq("user_id",authUser.id).ilike("status","accepted").order("created_at",{ascending:false}).limit(30);
     if(result.error)throw result.error;
     (result.data||[]).forEach(row=>{
       const opt=document.createElement("option");opt.value=row.prescription_url;
       opt.textContent="Prescription · "+(row.status||"Pending")+" · "+(row.created_at?new Date(row.created_at).toLocaleDateString():"");
       prescriptionSelect.append(opt);
     });
-    if(!result.data||!result.data.length){const none=document.createElement("option");none.value="";none.textContent="No saved prescription — upload one first";prescriptionSelect.append(none);}
+    if(!result.data||!result.data.length){const none=document.createElement("option");none.value="";none.textContent="No pharmacy-approved prescription yet — upload one and wait for pharmacy review";prescriptionSelect.append(none);}
   }
   async function updateSpeedOptions(){
     const hint=$("[data-speed-result]");if(hint)hint.textContent="Standard delivery only. Same Day and 30-minute delivery are not enabled for this checkout yet.";
