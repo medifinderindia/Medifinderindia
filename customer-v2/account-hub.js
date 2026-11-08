@@ -371,19 +371,33 @@
           form.append(field("Patient name","patient_name","text",true,"Patient full name"));
           form.append(field("Contact number","contact_phone","tel",true,"10-digit mobile"));
           form.append(field("Pickup address","pickup_address","text",true,"Full pickup address"));
-          form.append(field("Pickup latitude","pickup_lat","number",true,"Tap Use current location"));form.querySelector('[name="pickup_lat"]').step="any";
-          form.append(field("Pickup longitude","pickup_lon","number",true,"Longitude"));form.querySelector('[name="pickup_lon"]').step="any";
+          form.append(field("Pickup latitude","pickup_lat","number",false,"Filled by GPS or address lookup"));form.querySelector('[name="pickup_lat"]').step="any";
+          form.append(field("Pickup longitude","pickup_lon","number",false,"Filled by GPS or address lookup"));form.querySelector('[name="pickup_lon"]').step="any";
           const locate=el("button","v2-account-action","Use current location");locate.type="button";form.append(locate);
           locate.addEventListener("click",()=>{if(!navigator.geolocation){status.textContent="Location is not supported on this device.";return;}locate.disabled=true;locate.textContent="Locating…";navigator.geolocation.getCurrentPosition(pos=>{form.querySelector('[name="pickup_lat"]').value=pos.coords.latitude;form.querySelector('[name="pickup_lon"]').value=pos.coords.longitude;locate.disabled=false;locate.textContent="Location captured";},err=>{status.textContent=err.message||"Could not get current location.";locate.disabled=false;locate.textContent="Try location again";},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});});
           form.append(field("Destination address","drop_address","text",true,"Full destination address"));
-          form.append(field("Destination latitude","drop_lat","number",true,"Destination latitude"));form.querySelector('[name="drop_lat"]').step="any";
-          form.append(field("Destination longitude","drop_lon","number",true,"Destination longitude"));form.querySelector('[name="drop_lon"]').step="any";
+          form.append(field("Destination latitude","drop_lat","number",false,"Filled by address lookup"));form.querySelector('[name="drop_lat"]').step="any";
+          form.append(field("Destination longitude","drop_lon","number",false,"Filled by address lookup"));form.querySelector('[name="drop_lon"]').step="any";
           const vehicle=el("label","v2-profile-field","Vehicle type"),select=el("select");select.name="vehicle_type";select.required=true;["non_ac","ac","icu"].forEach(v=>{const o=el("option","",v.replace("_"," ").toUpperCase());o.value=v;select.append(o);});vehicle.append(select);form.append(vehicle);
           const quote=el("p","v2-profile-address","Fare requires a verified rate card and a nearby driver with a fresh location update.");form.append(quote);
           const submit=el("button","v2-profile-save","Check fare and request ambulance");submit.type="submit";form.append(submit);panel.append(form);
+          async function geocodeAddress(address){
+            const endpoint="https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q="+encodeURIComponent(address);
+            const response=await fetch(endpoint,{headers:{"Accept":"application/json","Accept-Language":"en"}});
+            if(!response.ok)throw new Error("Map lookup is temporarily unavailable. Please enter coordinates manually.");
+            const rows=await response.json();if(!Array.isArray(rows)||!rows[0])throw new Error("Could not find coordinates for: "+address);
+            return [Number(rows[0].lat),Number(rows[0].lon)];
+          }
           form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Checking availability…";try{
-            const d=Object.fromEntries(new FormData(form).entries()),coords=["pickup_lat","pickup_lon","drop_lat","drop_lon"].map(k=>Number(d[k]));
-            if(!/^[6-9]\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and all map coordinates.");
+            const d=Object.fromEntries(new FormData(form).entries());
+            const needsPickup=!String(d.pickup_lat).trim()||!String(d.pickup_lon).trim();
+            const needsDrop=!String(d.drop_lat).trim()||!String(d.drop_lon).trim();
+            if(needsPickup){submit.textContent="Finding pickup location…";const point=await geocodeAddress(d.pickup_address);d.pickup_lat=point[0];d.pickup_lon=point[1];}
+            if(needsDrop){submit.textContent="Finding destination…";const point=await geocodeAddress(d.drop_address);d.drop_lat=point[0];d.drop_lon=point[1];}
+            const coords=["pickup_lat","pickup_lon","drop_lat","drop_lon"].map(k=>Number(d[k]));
+            if(!/^[6-9]\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and valid pickup/destination addresses.");
+            form.querySelector('[name="pickup_lat"]').value=d.pickup_lat;form.querySelector('[name="pickup_lon"]').value=d.pickup_lon;
+            form.querySelector('[name="drop_lat"]').value=d.drop_lat;form.querySelector('[name="drop_lon"]').value=d.drop_lon;
             const result=await client.rpc("create_customer_ambulance_booking",{p_patient_name:d.patient_name,p_contact_phone:d.contact_phone,p_pickup_address:d.pickup_address,p_pickup_lat:coords[0],p_pickup_lon:coords[1],p_drop_address:d.drop_address,p_drop_lat:coords[2],p_drop_lon:coords[3],p_vehicle_type:d.vehicle_type});
             if(result.error)throw result.error;const data=result.data||{};if(!data.ok)throw new Error("Ambulance request was not confirmed by the server.");
             quote.textContent="Request sent. Reference: "+data.booking_id+". Estimated fare: "+money(data.fare_estimate)+". Final fare is confirmed by the assigned driver.";
