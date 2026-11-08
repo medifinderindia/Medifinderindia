@@ -2,10 +2,10 @@
   "use strict";
   const PROFILE_FIELDS = "id,email,full_name,phone,date_of_birth,terms_accepted,terms_accepted_at,avatar_url";
   function create(client, user) {
-    if (!client || !user || !user.id || !user.email) throw new Error("Sign in is required to edit your profile.");
-    const uid = user.id, email = user.email;
+    if (!client || !user || !user.id) throw new Error("Sign in is required to edit your profile.");
+    const uid = user.id;
     async function getProfile() {
-      const { data, error } = await client.from("profiles").select(PROFILE_FIELDS).eq("email", email).maybeSingle();
+      const { data, error } = await client.from("profiles").select(PROFILE_FIELDS).eq("id", uid).maybeSingle();
       if (error) throw error;
       return data || null;
     }
@@ -26,7 +26,7 @@
       if (input.terms_accepted !== true) throw new Error("Please accept the Terms & Conditions.");
       const { data, error } = await client.from("profiles")
         .update({ full_name, phone, date_of_birth, terms_accepted: true, terms_accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("email", email).select(PROFILE_FIELDS).maybeSingle();
+        .eq("id", uid).select(PROFILE_FIELDS).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Your profile record could not be updated. Please contact support.");
       return data;
@@ -42,7 +42,7 @@
       const avatar_url = data && data.publicUrl;
       if (!avatar_url) throw new Error("Could not create the profile image URL.");
       const { data: updated, error } = await client.from("profiles").update({ avatar_url, updated_at: new Date().toISOString() })
-        .eq("email", email).select(PROFILE_FIELDS).maybeSingle();
+        .eq("id", uid).select(PROFILE_FIELDS).maybeSingle();
       if (error || !updated) {
         try { await client.storage.from("avatars").remove([path]); } catch (_) {}
         throw error || new Error("Profile image could not be linked to your account.");
