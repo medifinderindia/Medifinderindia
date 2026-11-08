@@ -1591,7 +1591,10 @@ async function setupHomePageModules() {
             </div>`).join('');
     }
 
-    allProductNames = await loadHomeProductGrid(isInstrumentMode, merchantFilterId);
+    // Never block home controls while the catalogue request is in flight.
+    loadHomeProductGrid(isInstrumentMode, merchantFilterId)
+        .then(names => { allProductNames = Array.isArray(names) ? names : []; })
+        .catch(() => { allProductNames = []; });
 
     if (supabase) {
         try {
