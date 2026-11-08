@@ -252,7 +252,7 @@
           const hint=el("p","v2-profile-address","Only active tests with an approved, verified collection partner and matching PIN code can be booked. Test price is confirmed by the server.");
           form.append(hint);panel.append(form);
           try {
-            const tests=await client.from("lab_tests").select("id,test_name,name,price,offer_price,home_collection,fasting_required,fasting_hours,pincodes,active,approval_status").eq("active",true).eq("approval_status","approved").order("test_name",{ascending:true}).limit(100);
+            const tests=await client.from("lab_tests").select("id,test_name,name,price,offer_price,home_collection,fasting_required,fasting_hours,pincodes,active,approval_status,collector_id").eq("active",true).eq("approval_status","approved").eq("home_collection",true).not("collector_id","is",null).order("test_name",{ascending:true}).limit(100);
             if(tests.error)throw tests.error;
             (tests.data||[]).forEach(test=>{
               const label=(test.test_name||test.name||"Lab test")+(test.price==null?"":" · "+money(test.price))+(test.fasting_required?" · Fasting required":"");
