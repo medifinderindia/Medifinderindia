@@ -1,12 +1,11 @@
 (() => {
   "use strict";
-  // PIN-zone approval is not proof of pharmacy stock, rider capacity or dispatch readiness.
-  // No verified partner-capacity endpoint/table is present in this V2 branch yet.
-  function resolve(pinServiceability) {
-    if (!pinServiceability || pinServiceability.available !== true) {
-      return Object.freeze({status:"unknown",available:false,reason:"An approved PIN zone alone cannot confirm a delivery partner."});
-    }
-    return Object.freeze({status:"unknown",available:false,reason:"No verified live partner-capacity service is configured for this PIN code."});
+  async function resolve(client,pincode) {
+    if(!client||!pincode)return Object.freeze({status:"unknown",sameday:false,express_30m:false,reason:"Verify a delivery PIN code first."});
+    const result=await client.rpc("get_customer_delivery_capability",{p_pincode:String(pincode)});
+    if(result.error)throw new Error("Live delivery partner capacity could not be checked.");
+    const data=result.data||{};
+    return Object.freeze({status:data.serviceable?"checked":"unavailable",available:data.serviceable===true,sameday:data.sameday===true,express_30m:data.express_30m===true,reason:data.reason||"Partner capacity is not available."});
   }
   window.MFCustomerV2DeliveryCapability=Object.freeze({resolve});
 })();

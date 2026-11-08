@@ -48,8 +48,8 @@
     // A quote is indicative only; server-side order creation must re-rate before charging.
     async function quoteShiprocketDelivery(items, deliveryPincode, cod = false) {
       const rows = Array.isArray(items) ? items : [];
-      const destination = String(deliveryPincode || "").replace(/\\D/g, "");
-      if (!/^[1-9]\\d{5}$/.test(destination)) throw new Error("Enter a valid delivery PIN code.");
+      const destination = String(deliveryPincode || "").replace(/\D/g, "");
+      if (!/^[1-9]\d{5}$/.test(destination)) throw new Error("Enter a valid delivery PIN code.");
       if (!rows.length) throw new Error("Your cart is empty.");
       const groups = new Map();
       for (const item of rows) {
@@ -67,10 +67,10 @@
       const quotes = [];
       for (const group of groups.values()) {
         const merchant = byId.get(group.merchantId);
-        const pickup = String(merchant && merchant.pincode || "").replace(/\\D/g, "");
-        if (!/^[1-9]\\d{5}$/.test(pickup)) throw new Error("A shop pickup PIN code is not verified. Delivery fee remains unconfirmed.");
+        const pickup = String(merchant && merchant.pincode || "").replace(/\D/g, "");
+        if (!/^[1-9]\d{5}$/.test(pickup)) throw new Error("A shop pickup PIN code is not verified. Delivery fee remains unconfirmed.");
         const response = await client.functions.invoke("shiprocket", {
-          body: { action: "rate", pickup_postcode: pickup, delivery_postcode: destination, weight: group.weight, cod: !!cod }
+          body: { action: "rate_verified", merchant_id: group.merchantId, delivery_postcode: destination, weight: group.weight, cod: !!cod }
         });
         if (response.error) throw new Error("Live courier rate could not be fetched. Please retry.");
         const data = response.data || {};
