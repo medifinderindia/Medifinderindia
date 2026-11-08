@@ -18,7 +18,7 @@
     const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);
   }
   function estimateFees(subtotal){
-    return {delivery:0,shipping:0,platform:0,processing:0,cod:0};
+    return {delivery:Math.max(0,Number(serviceability&&serviceability.baseFee)||0),shipping:0,platform:0,processing:0,cod:0};
   }
   function renderSummary(){
     const state=cart(),subtotal=Number(state.subtotal)||0;summary.replaceChildren();
@@ -37,7 +37,7 @@
     row("Processing fee",money(fees.processing));
     row("COD fee",money(fees.cod));
     row("Estimated payable",money(subtotal+fees.delivery+fees.shipping+fees.platform+fees.processing+fees.cod));
-    const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Current approved zones have no additional delivery or COD fee configured. Final product prices and stock are rechecked securely before the order is saved.";summary.append(hint);
+    const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Delivery fee follows the approved zone setting. No extra shipping, platform, processing or COD fee is added. Product prices and stock are rechecked securely before the order is saved.";summary.append(hint);
     placeButton.disabled=placing||!addresses.some(a=>String(a.id)===selectedAddress)||!serviceability||!serviceability.available;
   }
   async function loadPrescriptions(){
