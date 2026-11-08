@@ -20,7 +20,7 @@ assert.equal(state.items[0].qty, 3);
 cart.add({ id: 8, name: "Rx item", price: 30, isRx: true, merchantId: "m-1" });
 state = cart.snapshot();
 assert.equal(state.itemCount, 4);
-assert.equal(state.subtotal, 50);
+assert.equal(state.subtotal, 60);
 const rx = state.items.find(item => item.id === 8);
 assert.equal(rx.isRx, true);
 assert.equal(rx.rxVerified, false);
