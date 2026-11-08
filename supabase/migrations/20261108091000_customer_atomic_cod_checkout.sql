@@ -1,7 +1,6 @@
 -- MediFinder India: atomic customer COD checkout.
--- Run after the existing customer/order tables and seller-validation helpers exist.
 create schema if not exists mf_private authorization postgres;
-revoke all on schema mf_private from public, anon;
+revoke all on schema mf_private from public,anon;
 grant usage on schema mf_private to authenticated;
 create unique index if not exists idx_orders_order_id_unique on public.orders(order_id) where order_id is not null;
 CREATE OR REPLACE FUNCTION mf_private.create_customer_cod_order_internal(p_items jsonb, p_customer_name text, p_customer_phone text, p_address1 text, p_address2 text, p_landmark text, p_city text, p_state text, p_pincode text, p_patient_name text DEFAULT NULL::text, p_prescription_path text DEFAULT NULL::text, p_request_id uuid DEFAULT NULL::uuid, p_user_lat numeric DEFAULT NULL::numeric, p_user_lon numeric DEFAULT NULL::numeric)
@@ -62,12 +61,14 @@ begin
   v_full_address := concat_ws(', ',nullif(btrim(p_address1),''),nullif(btrim(p_address2),''),
     nullif(btrim(p_landmark),''),nullif(btrim(p_city),''),nullif(btrim(p_state),''),nullif(btrim(p_pincode),''));
 
-  if not exists (
-    select 1 from public.service_zones z
-    where (z.pin=p_pincode or z.pincode=p_pincode)
-      and lower(coalesce(z.status,''))='approved'
-      and coalesce(z.is_active,true)=true
-  ) then
+  select greatest(0,coalesce(z.base_fee,0)) into v_delivery_fee
+  from public.service_zones z
+  where (z.pin=p_pincode or z.pincode=p_pincode)
+    and lower(coalesce(z.status,''))='approved'
+    and coalesce(z.is_active,true)=true
+  order by z.created_at desc nulls last
+  limit 1;
+  if not found then
     raise exception 'This PIN code is not in an active approved MediFinder delivery zone.' using errcode = 'P0001';
   end if;
 
@@ -141,8 +142,8 @@ begin
     end if;
   end if;
 
-  -- No delivery or COD fee schedule is configured in the approved service zones yet.
-  -- Keep all additional charges at zero until an admin-approved tariff is available.
+  -- Delivery fee comes only from the admin-configured approved service-zone base_fee.
+  -- Shipping, platform, processing and COD surcharges remain zero until separately configured.
   v_grand_total:=round(v_subtotal+v_delivery_fee+v_shipping_fee+v_platform_fee+v_processing_fee+v_cod_fee,2);
   v_secure_code:=lpad((floor(random()*1000000))::integer::text,6,'0');
 
@@ -216,14 +217,13 @@ end;
 $function$
 
 create or replace function public.create_customer_cod_order(
-  p_items jsonb,p_customer_name text,p_customer_phone text,p_address1 text,p_address2 text,p_landmark text,
-  p_city text,p_state text,p_pincode text,p_patient_name text default null,p_prescription_path text default null,
-  p_request_id uuid default null,p_user_lat numeric default null,p_user_lon numeric default null
-) returns jsonb language sql security invoker set search_path = ''
+ p_items jsonb,p_customer_name text,p_customer_phone text,p_address1 text,p_address2 text,p_landmark text,
+ p_city text,p_state text,p_pincode text,p_patient_name text default null,p_prescription_path text default null,
+ p_request_id uuid default null,p_user_lat numeric default null,p_user_lon numeric default null
+) returns jsonb language sql security invoker set search_path=''
 as $function$ select mf_private.create_customer_cod_order_internal(
-  p_items,p_customer_name,p_customer_phone,p_address1,p_address2,p_landmark,p_city,p_state,p_pincode,
-  p_patient_name,p_prescription_path,p_request_id,p_user_lat,p_user_lon
-); $function$;
+ p_items,p_customer_name,p_customer_phone,p_address1,p_address2,p_landmark,p_city,p_state,p_pincode,
+ p_patient_name,p_prescription_path,p_request_id,p_user_lat,p_user_lon); $function$;
 revoke all on function mf_private.create_customer_cod_order_internal(jsonb,text,text,text,text,text,text,text,text,text,text,uuid,numeric,numeric) from public,anon,authenticated;
 grant execute on function mf_private.create_customer_cod_order_internal(jsonb,text,text,text,text,text,text,text,text,text,text,uuid,numeric,numeric) to authenticated;
 revoke all on function public.create_customer_cod_order(jsonb,text,text,text,text,text,text,text,text,text,text,uuid,numeric,numeric) from public,anon,authenticated;
