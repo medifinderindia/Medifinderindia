@@ -49,7 +49,7 @@
         pincode: String(input.pincode || "").replace(/\\D/g, "").slice(0, 6),
         is_default: input.is_default === true
       };
-      if (!fields.name || !/^[6-9]\\d{9}$/.test(fields.phone) || !fields.address1 || !fields.city || !/^[1-9]\\d{5}$/.test(fields.pincode)) {
+      if (!fields.name || !/^[6-9]\d{9}$/.test(fields.phone) || !fields.address1 || !fields.city || !/^[1-9]\d{5}$/.test(fields.pincode)) {
         throw new Error("Enter name, valid 10-digit Indian phone, address, city and 6-digit PIN code.");
       }
       if (fields.is_default) {
