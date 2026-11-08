@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="./people-ui.css">
   <link rel="stylesheet" href="./profile-ui.css">
   <link rel="stylesheet" href="./checkout-ui.css">
-  <link rel="stylesheet" href="./checkout-rules.css">
+  <link rel="stylesheet" href="./checkout-rules.css">\n  <link rel="stylesheet" href="./product-detail-ui.css">
 </head>
 <body>
   <div class="app-shell">
@@ -58,7 +58,24 @@
         <p class="preview-note">MediFinder India · Search · Connect · Care</p>
       </section>
 
-      <section class="view" id="view-cart" data-view="cart">
+      <section class="view" data-view="product">
+        <button class="back-link" type="button" data-product-back>‹ Back to products</button>
+        <div class="v2-detail-card">
+          <img data-product-image class="v2-detail-image" alt="" loading="lazy">
+          <div class="v2-detail-copy">
+            <span class="eyebrow">VERIFIED CATALOGUE PRODUCT</span>
+            <h1 data-product-title>Product details</h1>
+            <div class="v2-detail-meta" data-product-meta></div>
+            <div class="v2-detail-price"><strong data-product-price>₹0.00</strong><del data-product-mrp></del></div>
+            <p data-product-description></p>
+            <p class="v2-detail-rx" data-product-rx hidden>Prescription required — pharmacy review before confirmation.</p>
+            <div class="v2-detail-qty"><button type="button" data-product-minus aria-label="Decrease quantity">−</button><strong data-product-qty>1</strong><button type="button" data-product-plus aria-label="Increase quantity">+</button></div>
+            <button class="v2-product-add v2-detail-add" type="button" data-product-add>Add to cart</button>
+            <p class="v2-detail-status" data-product-status role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+\n      <section class="view" id="view-cart" data-view="cart">
         <button class="back-link" data-go="home">‹ Continue shopping</button>
         <span class="eyebrow">YOUR BASKET</span><h1>My Cart</h1>
         <p class="cart-intro">Review your selected healthcare products.</p>
@@ -178,7 +195,7 @@
   <script src="./runtime-status.js"></script>
   <script src="./auth-session.js"></script>
   <script src="./catalogue-adapter.js"></script>
-  <script src="./product-cards.js"></script>
+  <script src="./product-cards.js"></script>\n  <script src="./product-detail-ui.js"></script>
   <script src="./catalogue-search.js"></script>
   <script src="./wishlist-adapter.js"></script>
   <script src="./legacy-actions.js"></script>
