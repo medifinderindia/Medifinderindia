@@ -25,10 +25,10 @@
   function openView(key) {
     const selected = modules[key] ? key : "home";
     const isHome = selected === "home";
-    const targetView = isHome ? "home" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : (selected === "checkout" ? "checkout" : "module"))));
+    const targetView = isHome ? "home" : (["cart","prescriptions","people","checkout","product"].includes(selected) ? selected : "module");
     views.forEach(view => view.classList.toggle("active", view.dataset.view === targetView));
     navItems.forEach(item => item.classList.toggle("active", item.dataset.go === selected || (!isHome && item.dataset.go === ({shops:"shops",cart:"cart",orders:"orders",profile:"profile"}[selected] || ""))));
-    if (!isHome && !["cart","prescriptions","people","checkout"].includes(selected)) {
+    if (!isHome && !["cart","prescriptions","people","checkout","product"].includes(selected)) {
       $("#module-title").textContent = modules[selected][0];
       $("#module-description").textContent = modules[selected][1];
       $("#module-status").textContent = accountViews.has(selected) ? "Connecting to your secure account…" : "Feature migration in progress";
@@ -38,7 +38,7 @@
         button.type = "button"; button.dataset.go = name; button.textContent = details[0]; return button;
       }));
     }
-    if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
+    if (selected === "product") { /* Product view is painted by the verified catalogue action. */ }\n    if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
     if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
     window.scrollTo({top:0,behavior:"instant"});
