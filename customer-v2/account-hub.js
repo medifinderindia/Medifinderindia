@@ -44,7 +44,26 @@
         const amount = row.total_amount ?? row.total ?? row.grand_total;
         host.append(card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable")));
       } else if (kind === "notifications") {
-        host.append(card(row.title || "MediFinder update", row.message || "No message", (row.is_read ? "Read" : "Unread") + " · " + (row.created_at ? new Date(row.created_at).toLocaleString() : "")));
+        const item = el("article", "v2-account-card");
+        item.append(el("strong", "", row.title || "MediFinder update"), el("p", "", row.message || "No message"));
+        item.append(el("small", "", (row.is_read ? "Read" : "Unread") + " · " + (row.created_at ? new Date(row.created_at).toLocaleString() : "")));
+        if (!row.is_read && row.user_id) {
+          const mark = el("button", "v2-account-action", "Mark as read"); mark.type = "button";
+          mark.addEventListener("click", async () => {
+            mark.disabled = true;
+            try {
+              const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(window.supabaseClient);
+              if (!auth.authenticated || auth.user.id !== row.user_id) throw new Error("Notification ownership could not be confirmed.");
+              const result = await window.supabaseClient.from("notifications").update({ is_read: true }).eq("id", row.id).eq("user_id", auth.user.id).select("id").maybeSingle();
+              if (result.error) throw result.error;
+              if (!result.data) throw new Error("Notification was not updated.");
+              row.is_read = true; mark.remove();
+              item.querySelector("small").textContent = "Read · " + (row.created_at ? new Date(row.created_at).toLocaleString() : "");
+            } catch (e) { mark.disabled = false; status.textContent = e.message || "Could not update notification."; }
+          });
+          item.append(mark);
+        }
+        host.append(item);
       } else if (kind === "coins") {
         host.append(card(row.reason || row.type || "Coin activity", (Number(row.amount) || 0) + " coins", row.created_at ? new Date(row.created_at).toLocaleString() : ""));
       } else {
