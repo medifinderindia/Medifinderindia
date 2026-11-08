@@ -17,6 +17,19 @@
     input.addEventListener("change",()=>change(value));
     const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);
   }
+  function createRequestUuid(){
+    return window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,ch=>{const n=Math.random()*16|0;return (ch==="x"?n:(n&3|8)).toString(16);});
+  }
+  function stableRequestId(state){
+    const signature=JSON.stringify(state.items.map(item=>({id:String(item.id),qty:Number(item.qty)||1})).sort((a,b)=>a.id.localeCompare(b.id)));
+    try{
+      const saved=JSON.parse(window.localStorage.getItem("mf_cod_pending_request")||"null");
+      if(saved&&saved.signature===signature&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved.id))return saved.id;
+      const id=createRequestUuid();
+      window.localStorage.setItem("mf_cod_pending_request",JSON.stringify({signature,id}));
+      return id;
+    }catch(_){if(!requestId)requestId=createRequestUuid();return requestId;}
+  }
   function estimateFees(subtotal){
     return {delivery:Math.max(0,Number(serviceability&&serviceability.baseFee)||0),shipping:0,platform:0,processing:0,cod:0};
   }
@@ -108,8 +121,7 @@
     const prescriptionPath=prescriptionSelect.value||null;
     if(needsRx&&!prescriptionPath){msg(status,"This cart includes a prescription medicine. Upload and select your prescription before checkout.",true);return;}
     const patient=selectedPatient==="self"?null:patients.find(x=>String(x.id)===selectedPatient);
-    const request=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,ch=>{const n=Math.random()*16|0;return (ch==="x"?n:(n&3|8)).toString(16);});
-    if(!requestId)requestId=request;
+    requestId=stableRequestId(state);
     placing=true;placeButton.disabled=true;placeButton.textContent="Checking stock & placing order…";
     msg(status,"Securely checking current product prices, seller approval and stock…");
     try{
@@ -135,6 +147,7 @@
       if(data.success!==true||!data.order_id)throw new Error("The server did not confirm this order. Please retry.");
       const store=window.MFCustomerV2Cart.createCartStore();state.items.forEach(item=>store.remove(item.id));
       requestId=null;
+      try{window.localStorage.removeItem("mf_cod_pending_request");}catch(_){}
       if(window.MFCustomerV2CartUI)window.MFCustomerV2CartUI.refresh();
       msg(status,"Order "+data.order_id+" placed successfully. Pay "+money(data.total_amount)+" in cash on delivery.");
       const confirmation=$("[data-order-confirmation]");
