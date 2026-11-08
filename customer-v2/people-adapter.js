@@ -40,7 +40,7 @@
       const fields = {
         tag: String(input.tag || "Home").trim().slice(0, 24),
         name: String(input.name || "").trim(),
-        phone: String(input.phone || "").replace(/\\D/g, "").slice(-10),
+        phone: String(input.phone || "").replace(/\D/g, "").slice(-10),
         address1: String(input.address1 || "").trim(),
         address2: String(input.address2 || "").trim() || null,
         landmark: String(input.landmark || "").trim() || null,
