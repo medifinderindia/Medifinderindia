@@ -76,13 +76,46 @@
       const email = auth.user.email;
       panel.replaceChildren();
       if (key === "profile") {
-        const result = await client.from("profiles").select("*").eq("email", email).maybeSingle();
-        if (result.error) throw result.error;
-        const p = result.data || {};
+        if (!window.MFCustomerV2Profile) throw new Error("Profile editor is not connected.");
+        const profile = window.MFCustomerV2Profile.create(client, auth.user);
+        const p = await profile.getProfile() || {};
         const avatar = p.avatar_url || (auth.user.user_metadata && (auth.user.user_metadata.avatar_url || auth.user.user_metadata.picture));
-        if (avatar) { const img = el("img", "v2-account-avatar"); img.src = avatar; img.alt = "Profile photo"; img.loading = "lazy"; panel.append(img); }
-        panel.append(card(p.full_name || (auth.user.user_metadata && (auth.user.user_metadata.full_name || auth.user.user_metadata.name)) || "MediFinder customer", email, p.phone || "Phone number not added"));
-        panel.append(card("Address", p.address || "Manage saved addresses and patients", "Use Patients & Addresses from your account"));
+        const form = el("form", "v2-profile-form");
+        if (avatar) { const img = el("img", "v2-account-avatar"); img.src = avatar; img.alt = "Profile photo"; img.loading = "lazy"; form.append(img); }
+        const field = (label, name, type, value, required) => {
+          const wrap = el("label", "v2-profile-field", label);
+          const input = el("input"); input.name = name; input.type = type; input.value = value || ""; input.required = !!required;
+          if (name === "phone") { input.inputMode = "numeric"; input.maxLength = 10; input.placeholder = "10-digit mobile number"; }
+          if (name === "date_of_birth") input.max = new Date().toISOString().slice(0,10);
+          wrap.append(input); return wrap;
+        };
+        form.append(field("Full name","full_name","text",p.full_name || "",true));
+        form.append(field("Mobile number","phone","tel",p.phone || "",true));
+        form.append(field("Date of birth","date_of_birth","date",p.date_of_birth || "",true));
+        const terms = el("label","v2-profile-terms");
+        const tick = el("input"); tick.type = "checkbox"; tick.name = "terms_accepted"; tick.checked = p.terms_accepted === true;
+        terms.append(tick, document.createTextNode(" I accept the Terms & Conditions and Privacy Policy."));
+        form.append(terms);
+        const save = el("button","v2-profile-save","Save profile"); save.type = "submit"; form.append(save);
+        const photo = el("label","v2-profile-photo","Change profile photo");
+        const photoInput = el("input"); photoInput.type = "file"; photoInput.accept = "image/jpeg,image/png,image/webp,image/gif"; photo.append(photoInput); form.append(photo);
+        photoInput.addEventListener("change", async () => {
+          const file = photoInput.files && photoInput.files[0]; if (!file) return;
+          photoInput.disabled = true; status.textContent = "Uploading profile photo…";
+          try { const updated = await profile.uploadAvatar(file); status.textContent = "Profile photo updated."; await load("profile"); }
+          catch (e) { status.textContent = e.message || "Could not upload profile photo."; }
+          finally { photoInput.disabled = false; }
+        });
+        form.addEventListener("submit", async event => {
+          event.preventDefault(); save.disabled = true; save.textContent = "Saving…";
+          try { await profile.saveProfile({ full_name: form.elements.full_name.value, phone: form.elements.phone.value, date_of_birth: form.elements.date_of_birth.value, terms_accepted: tick.checked }); status.textContent = "Profile saved successfully."; await load("profile"); }
+          catch (e) { status.textContent = e.message || "Could not save profile."; }
+          finally { save.disabled = false; save.textContent = "Save profile"; }
+        });
+        panel.append(form);
+        const address = el("p","v2-profile-address","Address: " + (p.address || "Manage saved addresses and patients below."));
+        panel.append(address);
+        const manage = el("button","v2-profile-manage","Manage patients & addresses"); manage.type = "button"; manage.dataset.go = "people"; panel.append(manage);
       } else {
         const config = {
           orders: async () => {
