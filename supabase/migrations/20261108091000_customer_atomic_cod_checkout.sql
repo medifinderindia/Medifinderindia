@@ -1,5 +1,5 @@
 -- Atomic customer Cash-on-Delivery order creation.
--- Product prices, seller eligibility and stock are read from the database.
+-- Product prices, seller eligibility, service-zone approval and stock are checked server-side.
 -- Orders, line items and stock decrement commit or roll back together.
 
 create unique index if not exists idx_orders_order_id_unique
@@ -62,6 +62,15 @@ begin
 
   v_full_address := concat_ws(', ',nullif(btrim(p_address1),''),nullif(btrim(p_address2),''),
     nullif(btrim(p_landmark),''),nullif(btrim(p_city),''),nullif(btrim(p_state),''),nullif(btrim(p_pincode),''));
+
+  if not exists (
+    select 1 from public.service_zones z
+    where (z.pin=p_pincode or z.pincode=p_pincode)
+      and lower(coalesce(z.status,''))='approved'
+      and coalesce(z.is_active,true)=true
+  ) then
+    raise exception 'This PIN code is not in an active approved MediFinder delivery zone.' using errcode = 'P0001';
+  end if;
 
   for v_item in
     select x.medicine_id, sum(x.quantity)::integer as quantity
