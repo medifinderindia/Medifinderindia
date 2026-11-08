@@ -205,8 +205,7 @@ begin
     raise;
   end;
 end;
-$function$
-
+$function$;
 
 revoke all on function mf_private.create_customer_cod_order_internal(jsonb,text,text,text,text,text,text,text,text,text,text,uuid,numeric,numeric) from public, anon, authenticated;
 grant execute on function mf_private.create_customer_cod_order_internal(jsonb,text,text,text,text,text,text,text,text,text,text,uuid,numeric,numeric) to authenticated;
