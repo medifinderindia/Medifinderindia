@@ -12,11 +12,14 @@ const actions = context.window.MFCustomerV2LegacyActions.createLegacyActions({
   navigateToProductDetail: data => calls.push(["detail", data]),
   wishlist: { setSaved: async (id, save) => ({ id, save }) }
 });
+const assertJSONEqual = (actual, expected) =>
+  assert.equal(JSON.stringify(actual), JSON.stringify(expected));
+
 actions.onAddToCart({
   id: "42", name: "Test item", price: "19.5", mrp: "25", img: "image",
   isRx: "true", merchantId: "merchant-1", weightKg: "0.25"
 });
-assert.deepEqual(calls[0], ["cart", {
+assertJSONEqual(calls[0], ["cart", {
   id: "42", name: "Test item", price: "19.5", mrp: "25", img: "image",
   isRx: true, merchantId: "merchant-1", weightKg: "0.25"
 }]);
@@ -30,7 +33,7 @@ assert.equal(calls[1][1].id, "42");
     textContent: ""
   };
   const result = await actions.onWishlist({ id: 42 }, button);
-  assert.deepEqual(result, { id: "42", save: true });
+  assertJSONEqual(result, { id: "42", save: true });
   assert.equal(button.textContent, "♥");
   console.log("PASS: legacy Cart/Product Details action argument contract");
 })().catch(error => { console.error(error); process.exitCode = 1; });
