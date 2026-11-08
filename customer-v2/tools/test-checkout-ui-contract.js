@@ -6,20 +6,19 @@ const vm = require("node:vm");
 
 const html = fs.readFileSync("customer-v2/index.html", "utf8");
 const source = fs.readFileSync("customer-v2/checkout-ui.js", "utf8");
+const rules = fs.readFileSync("customer-v2/checkout-rules.js", "utf8");
 
-// Verify the selector matches a real input and cannot throw a selector syntax error.
-assert.ok(html.includes('data-checkout-pincode inputmode="numeric"'), "PIN input must exist in the checkout HTML");
+assert.ok(html.includes('data-checkout-pincode inputmode="numeric"'), "PIN input must exist in checkout HTML");
+assert.ok(html.includes('data-checkout-prescription'), "Prescription selector must exist");
+assert.ok(html.includes('data-place-cod'), "COD order button must exist");
+assert.ok(!html.includes("Place order unavailable in preview"), "Checkout must not remain disabled preview copy");
 assert.ok(source.includes('pin=$("[data-checkout-pincode]")'), "Checkout must use the complete PIN selector");
-assert.ok(!source.includes('pin=$("[data-checkout-pincode")'), "Malformed PIN selector must not return");
+assert.ok(source.includes('rpc("create_customer_cod_order"'), "Checkout must call the atomic server-side order RPC");
+assert.ok(source.includes('serviceability.available'), "Checkout must fail closed until an approved PIN is verified");
+assert.ok(source.includes('money(data.total_amount)'), "The confirmed amount must come from the server response");
+assert.ok(source.includes('state.items.forEach(item=>store.remove(item.id))'), "Cart must clear only after the server confirms an order");
+assert.ok(!source.includes("quoteShiprocketDelivery"), "An indicative browser courier quote must not be treated as final COD pricing");
 new vm.Script(source, { filename: "customer-v2/checkout-ui.js" });
-console.log("PASS: checkout PIN selector contract and JavaScript syntax");
-
-const rulesSource = fs.readFileSync("customer-v2/checkout-rules.js", "utf8");
-new vm.Script(rulesSource, { filename: "customer-v2/checkout-rules.js" });
-assert.ok(rulesSource.includes('status:"unconfirmed"'), "No fallback delivery fee may be treated as confirmed");
-assert.ok(rulesSource.includes('functions.invoke("shiprocket"'), "Checkout must request a live Shiprocket quote");
-assert.ok(rulesSource.includes('data.serviceable !== true'), "Unserviceable courier response must be rejected");
-assert.ok(rulesSource.includes('confirmed: false'), "Indicative courier quote must remain unconfirmed");
-assert.ok(!source.includes('deliveryEstimate.total'), "Checkout must not silently add an indicative rate to a payable total");
-assert.ok(source.includes('rateQuote?"₹"+rateQuote.total.toFixed(2):"To be confirmed"'), "Checkout may display only the clearly indicative quote or pending fee");
-console.log("PASS: delivery fee fail-closed contract");
+new vm.Script(rules, { filename: "customer-v2/checkout-rules.js" });
+assert.ok(rules.includes('.eq("is_active",true).eq("status","approved")'), "Only active approved zones can pass the PIN check");
+console.log("PASS: checkout PIN, prescription, COD RPC, server amount and success-only cart clear contract");
