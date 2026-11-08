@@ -20,6 +20,7 @@
         .from("medicines")
         .select("*")
         .eq("status", "Approved")
+        .or("is_visible.eq.true,is_visible.is.null")
         .order("id", { ascending: false })
         .limit(limit);
 
