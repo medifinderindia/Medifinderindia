@@ -105,8 +105,10 @@
       }));
       if(!a.length){const hint=document.createElement("p");hint.className="v2-checkout-hint";hint.textContent="Add a delivery address in Patients & Addresses before checkout.";addressesHost.append(hint);}
       const chosen=a.find(x=>String(x.id)===selectedAddress);if(chosen)pin.value=String(chosen.pincode||"");
-      await loadPrescriptions();await updateSpeedOptions();
-      msg(status,"Saved details loaded. Verify your PIN and review the COD total.");
+      try{await loadPrescriptions();}
+      catch(_){msg(status,"Saved prescriptions could not be loaded. OTC checkout remains available; prescription medicines need a saved prescription.",true);}
+      await updateSpeedOptions();
+      if(!status.dataset.error||status.dataset.error==="false")msg(status,"Saved details loaded. Verify your PIN and review the COD total.");
     }catch(e){rules=null;msg(status,e.message||"Could not load checkout details.",true);}
     finally{loading=false;renderSummary();}
   }
