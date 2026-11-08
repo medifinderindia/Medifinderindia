@@ -54,7 +54,7 @@ vm.runInNewContext(fs.readFileSync("customer-v2/product-detail-ui.js","utf8"),co
  elements.get("[data-product-plus]").click();
  elements.get("[data-product-add]").click();
  assert.equal(added.length,2,"quantity selector should add the selected quantity");
- assert.equal(added[0].id,41);
+ assert.equal(added[0].id,"41");
  assert.equal(refreshed,1);
  console.log("Product detail: immediate navigation, authoritative product, image gallery, seller, reviews, Rx flag and cart action passed.");
 })().catch(error=>{console.error(error);process.exit(1);});
