@@ -86,7 +86,7 @@
         <p class="cart-intro">Review your selected healthcare products.</p>
         <div class="v2-cart-items" data-cart-items></div>
         <section class="v2-cart-summary" data-cart-summary hidden></section>
-        <p class="v2-cart-notice" data-cart-notice role="status">Checkout is not enabled in this preview. Your existing live checkout remains unchanged.</p>
+        <p class="v2-cart-notice" data-cart-notice role="status">Your order will be checked against live seller approval, product prices and stock before it is confirmed.</p>
         <button class="v2-checkout-continue" type="button" data-go="checkout">Continue to delivery details</button>
       </section>
 
@@ -109,11 +109,12 @@
           </div>
           <p class="v2-checkout-hint" data-speed-result>Verify your PIN code to check whether faster delivery options can be selected. Availability is not guaranteed until the order is confirmed.</p>
         </section>
-        <section class="v2-checkout-panel"><h2>Coupon code</h2><div class="v2-checkout-coupon"><input data-checkout-coupon placeholder="Enter coupon code" maxlength="40" autocomplete="off"><button type="button" data-apply-coupon>Apply</button></div><p class="v2-checkout-hint" data-coupon-result role="status"></p></section>
-        <section class="v2-checkout-panel"><h2>Tablet Coin</h2><p data-coin-balance>Loading balance…</p><label class="v2-people-check"><input type="checkbox" data-use-coins> Use available coins (1 coin = ₹1)</label><p class="v2-checkout-hint" data-coin-result></p></section>
+        <section class="v2-checkout-panel" data-prescription-panel><h2>Prescription (if required)</h2><label class="v2-checkout-pin">Select an uploaded prescription<select data-checkout-prescription><option value="">Loading saved prescriptions…</option></select></label><p class="v2-checkout-hint">Prescription medicines are not dispensed until the pharmacy reviews the uploaded document.</p><a href="#prescriptions" class="text-action" data-go="prescriptions">Upload a prescription</a></section>
+        
         <section class="v2-checkout-panel"><h2>Order summary</h2><div data-checkout-summary></div></section>
-        <p class="v2-checkout-hint">Coupon and Tablet Coin values are preview calculations only. Delivery selection is not an order confirmation.</p>
-        <button class="v2-checkout-disabled" type="button" disabled>Place order unavailable in preview</button>
+        <p class="v2-checkout-hint">Cash on Delivery only. Coupons, Tablet Coin redemption and online payment will be connected separately after verification.</p>
+        <p class="v2-checkout-confirmation" data-order-confirmation hidden role="status" aria-live="polite"></p>
+        <button class="v2-checkout-place" type="button" data-place-cod disabled>Place order · Cash on Delivery</button>
       </section>
 
       <section class="view" id="view-prescriptions" data-view="prescriptions">
