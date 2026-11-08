@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "feat/customer-panel-v2-foundation"
+      - "feat/customer-panel-rebuild-20261108"
     paths:
       - "user.js"
       - "user.min.js"
@@ -52,6 +53,9 @@ jobs:
 
       - name: Check V2 cart UI syntax
         run: node --check customer-v2/cart-ui.js
+
+      - name: Check V2 runtime status syntax
+        run: node --check customer-v2/runtime-status.js
 
       - name: Check V2 integration syntax
         run: node --check customer-v2/integration.js
