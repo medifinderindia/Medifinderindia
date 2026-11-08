@@ -30,14 +30,21 @@ vm.runInNewContext(source, context);
 const adapter = context.window.MFCustomerV2Wishlist.createWishlistAdapter({
   supabase: client, getUserId: async () => "user-123", storage
 });
+const assertJSONEqual = (actual, expected) =>
+  assert.equal(JSON.stringify(actual), JSON.stringify(expected));
 
 (async () => {
-  assert.deepEqual(await adapter.getSavedIds(), ["7"]);
+  assertJSONEqual(await adapter.getSavedIds(), ["7"]);
   await adapter.setSaved("9", true);
-  assert.deepEqual(calls.at(-1), ["upsert", { user_id: "user-123", medicine_id: "9" }, { onConflict: "user_id,medicine_id" }]);
+  assertJSONEqual(calls.at(-1), [
+    "upsert", { user_id: "user-123", medicine_id: "9" },
+    { onConflict: "user_id,medicine_id" }
+  ]);
   await adapter.setSaved("7", false);
-  assert.deepEqual(calls.slice(-3), [["delete"], ["eq", "user_id", "user-123"], ["eq", "medicine_id", "7"]]);
+  assertJSONEqual(calls.slice(-3), [
+    ["delete"], ["eq", "user_id", "user-123"], ["eq", "medicine_id", "7"]
+  ]);
   const localOnly = context.window.MFCustomerV2Wishlist.createWishlistAdapter({ storage });
-  assert.deepEqual(await localOnly.setSaved("11", true), { localOnly: true, saved: true });
+  assertJSONEqual(await localOnly.setSaved("11", true), { localOnly: true, saved: true });
   console.log("PASS: legacy wishlist key, user_wishlist select/upsert/delete contract");
 })().catch(error => { console.error(error); process.exitCode = 1; });
