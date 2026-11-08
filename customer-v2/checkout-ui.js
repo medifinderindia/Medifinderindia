@@ -109,7 +109,7 @@
     const prescriptionPath=prescriptionSelect.value||null;
     if(needsRx&&!prescriptionPath){msg(status,"This cart includes a prescription medicine. Upload and select your prescription before checkout.",true);return;}
     const patient=selectedPatient==="self"?null:patients.find(x=>String(x.id)===selectedPatient);
-    const request=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():("mf-"+Date.now()+"-"+Math.random().toString(36).slice(2));
+    const request=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,ch=>{const n=Math.random()*16|0;return (ch==="x"?n:(n&3|8)).toString(16);});
     if(!requestId)requestId=request;
     placing=true;placeButton.disabled=true;placeButton.textContent="Checking stock & placing order…";
     msg(status,"Securely checking current product prices, seller approval and stock…");
