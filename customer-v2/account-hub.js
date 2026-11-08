@@ -320,7 +320,7 @@
           form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";try{
             const d=Object.fromEntries(new FormData(form).entries()),opt=rateSelect.options[rateSelect.selectedIndex];
             if(!opt||!opt.value)throw new Error("Select an active verified nurse rate.");
-            if(!/^[6-9]\\d{9}$/.test(d.contact_no)||!/^[1-9]\\d{5}$/.test(d.addr_pincode))throw new Error("Enter a valid 10-digit mobile and 6-digit PIN.");
+            if(!/^[6-9]\d{9}$/.test(d.contact_no)||!/^[1-9]\d{5}$/.test(d.addr_pincode))throw new Error("Enter a valid 10-digit mobile and 6-digit PIN.");
             const result=await client.rpc("create_customer_nurse_booking",{p_nurse_id:opt.dataset.nurse,p_service_type:opt.dataset.service,p_patient_name:d.patient_name,p_patient_age:Number(d.patient_age),p_gender:d.gender,p_scope_of_work:d.scope_of_work,p_duration:Number(d.duration),p_book_date:d.book_date,p_book_time:d.book_time,p_addr_house:d.addr_house,p_addr_street:d.addr_street,p_addr_landmark:d.addr_landmark,p_addr_city:d.addr_city,p_addr_pincode:d.addr_pincode,p_addr_state:d.addr_state,p_contact_no:d.contact_no});
             if(result.error)throw result.error;const data=result.data||{};if(!data.ok)throw new Error("Nurse booking was not confirmed by the server.");
             status.textContent="Nurse request submitted. Booking reference: "+data.booking_id+". Estimated total: "+money(data.total)+". Payment remains pending until provider confirmation.";
@@ -347,7 +347,7 @@
           const submit=el("button","v2-profile-save","Check fare and request ambulance");submit.type="submit";form.append(submit);panel.append(form);
           form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Checking availability…";try{
             const d=Object.fromEntries(new FormData(form).entries()),coords=["pickup_lat","pickup_lon","drop_lat","drop_lon"].map(k=>Number(d[k]));
-            if(!/^[6-9]\\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and all map coordinates.");
+            if(!/^[6-9]\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and all map coordinates.");
             const result=await client.rpc("create_customer_ambulance_booking",{p_patient_name:d.patient_name,p_contact_phone:d.contact_phone,p_pickup_address:d.pickup_address,p_pickup_lat:coords[0],p_pickup_lon:coords[1],p_drop_address:d.drop_address,p_drop_lat:coords[2],p_drop_lon:coords[3],p_vehicle_type:d.vehicle_type});
             if(result.error)throw result.error;const data=result.data||{};if(!data.ok)throw new Error("Ambulance request was not confirmed by the server.");
             quote.textContent="Request sent. Reference: "+data.booking_id+". Estimated fare: "+money(data.fare_estimate)+". Final fare is confirmed by the assigned driver.";

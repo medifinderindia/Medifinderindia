@@ -8,7 +8,7 @@
   function option(host,name,value,label,checked,change){const row=document.createElement("label");row.className="v2-checkout-option";const input=document.createElement("input");input.type="radio";input.name=name;input.value=value;input.checked=checked;input.addEventListener("change",()=>change(value));const text=document.createElement("span");text.textContent=label;row.append(input,text);host.append(row);}
   async function updateSpeedOptions(){
     let capability={sameday:false,express_30m:false,reason:"Live partner capacity is not verified."};
-    try{if(window.MFCustomerV2DeliveryCapability&&serviceability&&serviceability.available)capability=await window.MFCustomerV2DeliveryCapability.resolve(window.supabaseClient,pin.value);}catch(e){capability.reason=e.message||capability.reason;}
+    try{if(window.MFCustomerV2DeliveryCapability&&serviceability&&serviceability.available)capability=await window.MFCustomerV2DeliveryCapability.resolve(window.supabaseClient,pin.value,cart().items);}catch(e){capability.reason=e.message||capability.reason;}
     root.querySelectorAll('input[name="checkout-speed"]').forEach(input=>{
       if(input.value==="manual"){input.disabled=false;input.checked=true;}
       else if(input.value==="sameday"){input.disabled=!capability.sameday;}
