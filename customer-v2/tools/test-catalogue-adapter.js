@@ -20,16 +20,22 @@ const context = { window: {}, supabase: { from: (...args) => query.from(...args)
 vm.runInNewContext(source, context);
 const provider = context.window.MFCustomerV2Catalogue.createHomeCatalogueProvider(context.supabase);
 
+// Compare serialized call data so objects created in the VM realm are compared
+// by their values, not by cross-realm prototypes.
+const assertCalls = expected => {
+  assert.equal(JSON.stringify(calls), JSON.stringify(expected));
+};
+
 (async () => {
   const normal = await provider({});
   assert.equal(normal, rows);
-  assert.deepEqual(calls, [
+  assertCalls([
     ["from", "medicines"], ["select", "*"], ["eq", "status", "Approved"],
     ["order", "id", { ascending: false }], ["limit", 120]
   ]);
   calls.length = 0;
   await provider({ merchantId: "merchant-uuid", instrumentMode: true });
-  assert.deepEqual(calls, [
+  assertCalls([
     ["from", "medicines"], ["select", "*"], ["eq", "status", "Approved"],
     ["order", "id", { ascending: false }], ["limit", 300],
     ["eq", "merchant_id", "merchant-uuid"], ["eq", "product_type", "Instrument"]
