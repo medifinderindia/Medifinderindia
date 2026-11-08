@@ -44,24 +44,48 @@
       return Math.max(0,Number(data&&data.coins)||0);
     }
 
-    // No verified pricing source is connected. Never turn copied legacy fee bands into a customer charge.
-    async function estimateDeliveryFees(distanceKm, subtotal) {
-      const amount = Number(subtotal) || 0;
-      return Object.freeze({
-        status: "unconfirmed",
-        confirmed: false,
-        free: false,
-        delivery: null,
-        shipping: null,
-        platform: null,
-        processing: null,
-        total: null,
-        subtotal: amount,
-        distanceKm: Number.isFinite(Number(distanceKm)) ? Number(distanceKm) : null,
-        message: "Delivery fee will be confirmed from the verified server-side rate before order placement."
-      });
+    // Fetch live courier rates from the authenticated Shiprocket Edge Function.
+    // A quote is indicative only; server-side order creation must re-rate before charging.
+    async function quoteShiprocketDelivery(items, deliveryPincode, cod = false) {
+      const rows = Array.isArray(items) ? items : [];
+      const destination = String(deliveryPincode || "").replace(/\\D/g, "");
+      if (!/^[1-9]\\d{5}$/.test(destination)) throw new Error("Enter a valid delivery PIN code.");
+      if (!rows.length) throw new Error("Your cart is empty.");
+      const groups = new Map();
+      for (const item of rows) {
+        const merchantId = String(item.merchantId || item.merchant_id || "");
+        if (!merchantId) throw new Error("A cart item is missing its verified shop. Delivery rate cannot be quoted.");
+        const current = groups.get(merchantId) || { merchantId, weight: 0 };
+        current.weight += Math.max(0.1, Number(item.weight) || 0.5) * Math.max(1, Number(item.qty) || 1);
+        groups.set(merchantId, current);
+      }
+      const ids = [...groups.keys()];
+      const { data: merchants, error } = await client.from("merchants").select("id,pincode").in("id", ids);
+      if (error) throw new Error("Could not verify shop pickup PIN codes.");
+      const byId = new Map((merchants || []).map(row => [String(row.id), row]));
+      let total = 0;
+      const quotes = [];
+      for (const group of groups.values()) {
+        const merchant = byId.get(group.merchantId);
+        const pickup = String(merchant && merchant.pincode || "").replace(/\\D/g, "");
+        if (!/^[1-9]\\d{5}$/.test(pickup)) throw new Error("A shop pickup PIN code is not verified. Delivery fee remains unconfirmed.");
+        const response = await client.functions.invoke("shiprocket", {
+          body: { action: "rate", pickup_postcode: pickup, delivery_postcode: destination, weight: group.weight, cod: !!cod }
+        });
+        if (response.error) throw new Error("Live courier rate could not be fetched. Please retry.");
+        const data = response.data || {};
+        if (data.success !== true || data.serviceable !== true || !(Number(data.rate) >= 0)) {
+          throw new Error(data.error || "No courier rate is available for this shop and PIN code.");
+        }
+        total += Number(data.rate);
+        quotes.push({ merchantId: group.merchantId, pickupPincode: pickup, deliveryPincode: destination, weightKg: group.weight, rate: Number(data.rate), courier: data.courier_name || "Courier", etd: data.etd || null });
+      }
+      return Object.freeze({ status: "quoted", confirmed: false, source: "Shiprocket live rate API", currency: "INR", delivery: total, total, quotes, message: "Indicative live courier quote only. Final fee must be rechecked at server-side order placement." });
     }
-    return Object.freeze({checkPincode,validateCoupon,getCoinBalance,estimateDeliveryFees});
+    async function estimateDeliveryFees(distanceKm, subtotal) {
+      return Object.freeze({ status:"unconfirmed", confirmed:false, delivery:null, total:null, subtotal:Number(subtotal)||0, distanceKm:Number.isFinite(Number(distanceKm))?Number(distanceKm):null, message:"Use a live Shiprocket quote for a verified shop and destination before showing a delivery charge." });
+    }
+    return Object.freeze({checkPincode,validateCoupon,getCoinBalance,estimateDeliveryFees,quoteShiprocketDelivery});
   }
   window.MFCustomerV2CheckoutRules=Object.freeze({create});
 })();
