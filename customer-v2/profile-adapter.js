@@ -18,7 +18,7 @@
       const phone = String(input.phone || "").replace(/\D/g, "").slice(-10);
       const date_of_birth = String(input.date_of_birth || "").trim();
       if (!full_name) throw new Error("Enter your full name.");
-      const dobMatch = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(date_of_birth);
+      const dobMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date_of_birth);
       const dobYear = dobMatch ? Number(dobMatch[1]) : 0;
       const dobMonth = dobMatch ? Number(dobMatch[2]) : 0;
       const dobDay = dobMatch ? Number(dobMatch[3]) : 0;
