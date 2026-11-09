@@ -31,13 +31,16 @@
     if (!isHome && !["cart","prescriptions","people","checkout"].includes(selected)) {
       $("#module-title").textContent = modules[selected][0];
       $("#module-description").textContent = modules[selected][1];
-      $("#module-status").textContent = accountViews.has(selected) ? "Connecting to your secure account…" : "Feature migration in progress";
+      $("#module-status").textContent = accountViews.has(selected) ? "Connecting to your secure account…" : (selected === "shops" ? "Loading verified healthcare partners…" : "Feature migration in progress");
       const related = Object.entries(modules).filter(([name]) => name !== selected && name !== "home").slice(0, 6);
       $("#module-links").replaceChildren(...related.map(([name, details]) => {
         const button = document.createElement("button");
         button.type = "button"; button.dataset.go = name; button.textContent = details[0]; return button;
       }));
     }
+    const shopsPanel = $("[data-shops-panel]");
+    if (shopsPanel) shopsPanel.hidden = selected !== "shops";
+    if (selected === "shops" && window.MFCustomerV2Shops) window.MFCustomerV2Shops.load();
     if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
     if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
