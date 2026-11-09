@@ -11,7 +11,7 @@
   if (!panel || !search || !refresh || !locate || !status || !list) return;
   let rows = [], position = null, loading = false, sequence = 0;
 
-  const distanceKm = (a, b) => {
+  const hasCoordinates = shop => shop.latitude != null && shop.longitude != null && String(shop.latitude).trim() !== "" && String(shop.longitude).trim() !== "" && hasCoordinates(shop);\n  const distanceKm = (a, b) => {
     const rad = value => value * Math.PI / 180;
     const dLat = rad(Number(b.latitude) - Number(a.latitude));
     const dLon = rad(Number(b.longitude) - Number(a.longitude));
@@ -28,7 +28,7 @@
   function filtered() {
     const query = search.value.trim().toLowerCase();
     return rows.map(shop => {
-      const km = position && Number.isFinite(Number(shop.latitude)) && Number.isFinite(Number(shop.longitude))
+      const km = position && hasCoordinates(shop)
         ? distanceKm(position, shop) : null;
       return { ...shop, _distance: km };
     }).filter(shop => !query || [
