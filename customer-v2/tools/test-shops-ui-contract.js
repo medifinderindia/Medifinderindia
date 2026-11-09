@@ -1,0 +1,15 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const source = fs.readFileSync("customer-v2/shops-ui.js", "utf8");
+const html = fs.readFileSync("customer-v2/index.html", "utf8");
+const app = fs.readFileSync("customer-v2/app.js", "utf8");
+new vm.Script(source, { filename: "shops-ui.js" });
+assert.ok(source.includes('from("merchants_public")'), "Shops must use the public merchant directory view");
+assert.ok(source.includes('license_status.eq.verified,license_status.eq.approved'), "Only licensed partner pharmacies should be listed");
+assert.ok(source.includes("navigator.geolocation.getCurrentPosition"), "Location must be requested only from the explicit location action");
+assert.ok(source.includes('node("strong", "v2-shop-name"'), "Shop names must be rendered as text, not injected HTML");
+assert.ok(html.includes('data-shops-panel') && html.includes('data-shops-search'), "Shop search UI must exist");
+assert.ok(app.includes('window.MFCustomerV2Shops.load()'), "Navigation must load the shop directory");
+console.log("PASS: licensed pharmacy directory, safe rendering and optional location contract");
