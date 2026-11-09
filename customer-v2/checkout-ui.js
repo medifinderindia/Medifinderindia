@@ -148,7 +148,8 @@
       try { localStorage.removeItem("medi_cart"); } catch (_) {}
       if (window.MFCustomerV2CartUI) window.MFCustomerV2CartUI.refresh();
       const total = data.total_amount == null ? "confirmed by server" : money(data.total_amount);
-      completedOrderId = String(data.order_id);\n      message(orderResult, "Order placed successfully · " + data.order_id + " · Cash on Delivery · Total " + total);
+      completedOrderId = String(data.order_id);
+      message(orderResult, "Order placed successfully · " + data.order_id + " · Cash on Delivery · Total " + total);
       message(status, "Your order was accepted by MediFinder. Track its status in My Orders.");
       placeButton.textContent = "Order placed · " + data.order_id;
       placeButton.disabled = true;
