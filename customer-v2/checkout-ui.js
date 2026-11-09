@@ -120,6 +120,8 @@
       message(orderResult, "A cart product has an invalid catalogue ID. Remove it and add the product again.", true); return;
     }
     if (rpcItems.length > 20) { message(orderResult, "A single order can contain up to 20 different products.", true); return; }
+    if (typeof window.confirm === "function" &&
+        !window.confirm("This is a Preview environment connected to the live MediFinder backend. Confirm only if you intend to create a real Cash on Delivery order.")) return;
     placing = true; placeButton.disabled = true; placeButton.textContent = "Placing secure COD order…";
     message(orderResult, "Checking live stock, current prices, pharmacy approval and delivery charges…");
     try {
