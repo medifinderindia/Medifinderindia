@@ -2,12 +2,16 @@
   "use strict";
   const PROFILE_FIELDS = "id,email,full_name,phone,date_of_birth,terms_accepted,terms_accepted_at,avatar_url";
   function create(client, user) {
-    if (!client || !user || !user.id || !user.email) throw new Error("Sign in is required to edit your profile.");
-    const uid = user.id, email = user.email;
+    if (!client || !user || !user.id) throw new Error("Sign in is required to edit your profile.");
+    const uid = user.id, email = String(user.email || "").trim();
     async function getProfile() {
-      const { data, error } = await client.from("profiles").select(PROFILE_FIELDS).eq("email", email).maybeSingle();
-      if (error) throw error;
-      return data || null;
+      const byId = await client.from("profiles").select(PROFILE_FIELDS).eq("id", uid).maybeSingle();
+      if (byId.error) throw byId.error;
+      if (byId.data) return byId.data;
+      if (!email) return null;
+      const byEmail = await client.from("profiles").select(PROFILE_FIELDS).eq("email", email).maybeSingle();
+      if (byEmail.error) throw byEmail.error;
+      return byEmail.data || null;
     }
     async function saveProfile(input) {
       const full_name = String(input.full_name || "").trim().slice(0, 100);
@@ -24,9 +28,11 @@
       const today = new Date(); today.setHours(0,0,0,0);
       if (!validDob || dobDate > today || dobYear < 1900) throw new Error("Enter a valid date of birth.");
       if (input.terms_accepted !== true) throw new Error("Please accept the Terms & Conditions.");
+      const existing = await getProfile();
+      if (!existing) throw new Error("Your profile record could not be found for this account. Please contact support.");
       const { data, error } = await client.from("profiles")
         .update({ full_name, phone, date_of_birth, terms_accepted: true, terms_accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("email", email).select(PROFILE_FIELDS).maybeSingle();
+        .eq("id", existing.id).select(PROFILE_FIELDS).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Your profile record could not be updated. Please contact support.");
       return data;
@@ -41,8 +47,13 @@
       const { data } = client.storage.from("avatars").getPublicUrl(path);
       const avatar_url = data && data.publicUrl;
       if (!avatar_url) throw new Error("Could not create the profile image URL.");
+      const existing = await getProfile();
+      if (!existing) {
+        try { await client.storage.from("avatars").remove([path]); } catch (_) {}
+        throw new Error("Your profile record could not be found for this account.");
+      }
       const { data: updated, error } = await client.from("profiles").update({ avatar_url, updated_at: new Date().toISOString() })
-        .eq("email", email).select(PROFILE_FIELDS).maybeSingle();
+        .eq("id", existing.id).select(PROFILE_FIELDS).maybeSingle();
       if (error || !updated) {
         try { await client.storage.from("avatars").remove([path]); } catch (_) {}
         throw error || new Error("Profile image could not be linked to your account.");
