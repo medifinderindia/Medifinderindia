@@ -261,7 +261,7 @@
             if(!tests.data||!tests.data.length)hint.textContent="No approved lab tests are currently available.";
           } catch(e){hint.textContent=e.message||"Could not load approved lab tests.";}
           form.addEventListener("submit",async event=>{
-            event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";
+            event.preventDefault();if(!window.confirm("This will create a real MediFinder lab booking request in your account. Continue?"))return;submit.disabled=true;submit.textContent="Submitting…";
             try{
               const data=Object.fromEntries(new FormData(form).entries());
               if(!/^[6-9]\d{9}$/.test(String(data.patient_phone||"")))throw new Error("Enter a valid 10-digit Indian mobile number.");
@@ -317,7 +317,7 @@
             if(!rates.data||!rates.data.length)total.textContent="No verified nurse profiles and rates are currently active. Booking is unavailable until an approved nurse and rate are added by the admin.";
           }catch(e){total.textContent=e.message||"Could not load verified nurse rates.";}
           rateSelect.addEventListener("change",()=>{const opt=rateSelect.options[rateSelect.selectedIndex];total.textContent="Rate: "+opt.textContent+". Final total is calculated securely when you submit."});
-          form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Submitting…";try{
+          form.addEventListener("submit",async event=>{event.preventDefault();if(!window.confirm("This will send a real nurse booking request to MediFinder. Continue?"))return;submit.disabled=true;submit.textContent="Submitting…";try{
             const d=Object.fromEntries(new FormData(form).entries()),opt=rateSelect.options[rateSelect.selectedIndex];
             if(!opt||!opt.value)throw new Error("Select an active verified nurse rate.");
             if(!/^[6-9]\d{9}$/.test(d.contact_no)||!/^[1-9]\d{5}$/.test(d.addr_pincode))throw new Error("Enter a valid 10-digit mobile and 6-digit PIN.");
@@ -345,7 +345,7 @@
           const vehicle=el("label","v2-profile-field","Vehicle type"),select=el("select");select.name="vehicle_type";select.required=true;["non_ac","ac","icu"].forEach(v=>{const o=el("option","",v.replace("_"," ").toUpperCase());o.value=v;select.append(o);});vehicle.append(select);form.append(vehicle);
           const quote=el("p","v2-profile-address","Fare requires a verified rate card and a nearby driver with a fresh location update.");form.append(quote);
           const submit=el("button","v2-profile-save","Check fare and request ambulance");submit.type="submit";form.append(submit);panel.append(form);
-          form.addEventListener("submit",async event=>{event.preventDefault();submit.disabled=true;submit.textContent="Checking availability…";try{
+          form.addEventListener("submit",async event=>{event.preventDefault();if(!window.confirm("This will create a real ambulance request and may contact available partners. Continue?"))return;submit.disabled=true;submit.textContent="Checking availability…";try{
             const d=Object.fromEntries(new FormData(form).entries()),coords=["pickup_lat","pickup_lon","drop_lat","drop_lon"].map(k=>Number(d[k]));
             if(!/^[6-9]\d{9}$/.test(d.contact_phone)||coords.some(v=>!Number.isFinite(v)))throw new Error("Enter a valid phone number and all map coordinates.");
             const result=await client.rpc("create_customer_ambulance_booking",{p_patient_name:d.patient_name,p_contact_phone:d.contact_phone,p_pickup_address:d.pickup_address,p_pickup_lat:coords[0],p_pickup_lon:coords[1],p_drop_address:d.drop_address,p_drop_lat:coords[2],p_drop_lon:coords[3],p_vehicle_type:d.vehicle_type});
