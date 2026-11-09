@@ -94,7 +94,8 @@
     refresh.disabled = true; status.textContent = "Loading licensed partner pharmacies…";
     try {
       const result = await client.from("merchants_public")
-        .select("id,shop_name,merchant_name,merchant_avatar,avatar_url,pincode,city,district,state,address,resolved_address,latitude,longitude,cod_available,business_category,about_shop,phone")
+        .select("id,shop_name,merchant_name,merchant_avatar,avatar_url,license_status,pincode,city,district,state,address,resolved_address,latitude,longitude,cod_available,business_category,about_shop,phone")
+        .or("license_status.eq.verified,license_status.eq.approved")
         .limit(150);
       if (result.error) throw result.error;
       if (current !== sequence) return;
