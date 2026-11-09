@@ -86,19 +86,19 @@
           <label class="v2-checkout-pin">Delivery PIN code<input data-checkout-pincode inputmode="numeric" maxlength="6" pattern="[1-9][0-9]{5}" placeholder="Enter 6-digit PIN"></label>
           <button type="button" class="v2-checkout-continue" data-check-pincode>Check delivery availability</button><p class="v2-checkout-hint" data-pincode-result>Enter a PIN code and verify it. Errors will not be treated as available.</p>
         </section>
-        <section class="v2-checkout-panel"><h2>Delivery speed</h2>
-          <div class="v2-checkout-speed-options">
-            <label class="v2-checkout-speed"><input type="radio" name="checkout-speed" value="manual" checked><span><strong>Standard</strong><small>Delivery ETA confirmed after partner allocation</small></span><b>Fee to be confirmed</b></label>
-            <label class="v2-checkout-speed"><input type="radio" name="checkout-speed" value="sameday" disabled><span><strong>Same Day</strong><small>Live partner capacity not connected</small></span><b>Unavailable</b></label>
-            <label class="v2-checkout-speed"><input type="radio" name="checkout-speed" value="express" disabled><span><strong>30 Minutes</strong><small>Live partner capacity not connected</small></span><b>Unavailable</b></label>
-          </div>
-          <p class="v2-checkout-hint" data-speed-result>Verify your PIN code to check whether faster delivery options can be selected. Availability is not guaranteed until the order is confirmed.</p>
+        <section class="v2-checkout-panel"><h2>Delivery method</h2>
+          <p class="v2-checkout-hint">Standard partner delivery. The final delivery fee and estimated arrival are confirmed by the server after stock and service-zone checks.</p>
         </section>
-        <section class="v2-checkout-panel"><h2>Coupon code</h2><div class="v2-checkout-coupon"><input data-checkout-coupon placeholder="Enter coupon code" maxlength="40" autocomplete="off"><button type="button" data-apply-coupon>Apply</button></div><p class="v2-checkout-hint" data-coupon-result role="status"></p></section>
-        <section class="v2-checkout-panel"><h2>Tablet Coin</h2><p data-coin-balance>Loading balance…</p><label class="v2-people-check"><input type="checkbox" data-use-coins> Use available coins (1 coin = ₹1)</label><p class="v2-checkout-hint" data-coin-result></p></section>
+        <section class="v2-checkout-panel"><h2>Offers & Tablet Coin</h2>
+          <p class="v2-checkout-hint">Coupon and Tablet Coin redemption will be enabled only after server-side discount validation is connected. No preview discount is deducted from your real order.</p>
+        </section>
+        <section class="v2-checkout-panel"><h2>Payment method</h2>
+          <strong>Cash on Delivery</strong>
+          <p class="v2-checkout-hint">Your order is created only after the server confirms current product prices, stock, prescription approval (if required), delivery zone and total amount.</p>
+        </section>
         <section class="v2-checkout-panel"><h2>Order summary</h2><div data-checkout-summary></div></section>
-        <p class="v2-checkout-hint">Coupon and Tablet Coin values are preview calculations only. Delivery selection is not an order confirmation.</p>
-        <button class="v2-checkout-disabled" type="button" disabled>Place order unavailable in preview</button>
+        <p class="v2-checkout-hint" data-order-result role="status" aria-live="polite"></p>
+        <button class="v2-checkout-continue" type="button" data-place-cod-order disabled>Place Cash on Delivery order</button>
       </section>
 
       <section class="view" id="view-prescriptions" data-view="prescriptions">
