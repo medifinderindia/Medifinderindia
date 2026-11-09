@@ -19,6 +19,7 @@ assert.ok(source.includes('rpc("create_customer_cod_order"'), "Checkout must cal
 assert.ok(source.includes("p_request_id"), "Checkout must pass an idempotency request ID");
 assert.ok(source.includes("acceptedPrescriptionPath"), "Prescription medicines must require an accepted pharmacy prescription");
 assert.ok(source.includes("completedOrderId"), "A confirmed order must not be submitted twice from the same checkout view");
+assert.ok(source.includes("This is a Preview environment connected to the live MediFinder backend"), "Preview must require explicit confirmation before creating a real COD order");
 assert.ok(rulesSource.includes('.or("pin.eq."+p+",pincode.eq."+p)'), "Delivery zone lookup must support both legacy PIN columns");
 assert.ok(!html.includes("Place order unavailable in preview"), "Checkout must not retain the old disabled preview-only order button");
 assert.ok(!html.includes("data-apply-coupon"), "Inactive coupon preview controls must not be presented as functional");
