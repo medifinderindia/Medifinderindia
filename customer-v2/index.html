@@ -170,6 +170,17 @@
         <p id="module-description" class="module-description">This module is part of the V2 migration plan.</p>
         <div class="module-panel"><span class="module-symbol">✚</span><h2 id="module-status">Feature migration in progress</h2><p>All existing functionality will be connected to the current secure backend before this panel can replace the live customer page.</p></div>
         <div class="module-links" id="module-links"></div>
+        <section class="v2-shops-panel" data-shops-panel hidden>
+          <div class="v2-shops-toolbar">
+            <input type="search" data-shops-search placeholder="Search shop, town or PIN code" aria-label="Search approved healthcare shops">
+            <button type="button" data-shops-refresh>Refresh</button>
+          </div>
+          <div class="v2-shops-toolbar">
+            <button type="button" data-shops-location>Use my location</button>
+            <span class="v2-shops-status" data-shops-status role="status" aria-live="polite">Loading approved healthcare partners…</span>
+          </div>
+          <div class="v2-shops-list" data-shops-list></div>
+        </section>
         <p class="preview-note">Preview only — do not use this page to place real orders, make payments, or book services.</p>
       </section>
     </main>
@@ -199,6 +210,7 @@
   <script src="./profile-adapter.js"></script>
   <script src="./account-hub.js"></script>
   <script src="./integration.js"></script>
+  <script src="./shops-ui.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
