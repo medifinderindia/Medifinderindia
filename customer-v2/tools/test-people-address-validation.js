@@ -26,6 +26,14 @@ const people = context.window.MFCustomerV2People.create(client, { id: "user-1", 
   assert.equal(saved.pincode, "733140", "PIN should normalize to 6 digits");
   assert.equal(saved.user_id, "user-1");
 
+  const phoneOnlyPeople = context.window.MFCustomerV2People.create(client, { id: "phone-user-2", phone: "+919876543210" });
+  assert.deepEqual(await phoneOnlyPeople.listPatients(), [], "phone-only accounts should still reach checkout without an email lookup");
+  const phoneAddress = await phoneOnlyPeople.saveAddress({
+    name: "Phone Customer", phone: "9876543210", address1: "Station Road",
+    city: "Gangarampur", state: "West Bengal", pincode: "733140"
+  });
+  assert.equal(phoneAddress.user_id, "phone-user-2", "phone-only account address must be linked by auth user ID");
+
   await assert.rejects(
     () => people.saveAddress({ name: "Test", phone: "12345", address1: "Road", city: "Town", pincode: "733140" }),
     /valid 10-digit Indian phone/
