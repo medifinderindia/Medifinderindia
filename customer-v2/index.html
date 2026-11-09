@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#d52f49">
   <title>MediFinder India — Customer Panel V2 Preview</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./premium-ui.css">
   <link rel="stylesheet" href="./product-cards.css">
   <link rel="stylesheet" href="./catalogue-ui.css">
   <link rel="stylesheet" href="./cart-ui.css">
@@ -31,6 +32,12 @@
           <div><span class="eyebrow">YOUR HEALTH, IN SAFE HANDS</span><h1>Hello there <span>✦</span></h1><p>What healthcare service do you need today?</p></div>
           <div class="welcome-art" aria-hidden="true">✚</div>
         </div>
+        <div class="home-location-row">
+          <button class="location-chip" type="button" data-go="people" aria-label="Manage delivery address">
+            <i>⌖</i><span><small>DELIVER TO</small>Set your delivery address</span><b>›</b>
+          </button>
+          <button class="track-shortcut" type="button" data-go="orders">Track order&nbsp; ›</button>
+        </div>
         <label class="searchbar"><span>⌕</span><input type="search" placeholder="Search medicines, products, services..." aria-label="Search medicines, products, services" data-catalogue-search autocomplete="off"><kbd>⌘ K</kbd></label>
         <div class="section-heading"><div><span class="eyebrow">QUICK ACCESS</span><h2>Healthcare services</h2></div><span class="muted">Explore</span></div>
         <div class="service-grid">
@@ -40,6 +47,10 @@
           <button class="service-card" data-go="shops"><span class="service-icon sky">⌖</span><b>Nearby shops</b><small>Find pharmacies</small></button>
           <button class="service-card" data-go="prescriptions"><span class="service-icon amber">▤</span><b>Prescription</b><small>Upload & manage</small></button>
           <button class="service-card" data-go="coins"><span class="service-icon gold">◇</span><b>Tablet Coin</b><small>Daily check-in & rewards</small></button>
+        </div>
+        <div class="emergency-strip">
+          <div class="emergency-copy"><span class="emergency-symbol">✚</span><span><b>Need urgent medical help?</b><small>For immediate emergencies, call India's emergency number.</small></span></div>
+          <a class="emergency-call" href="tel:112" aria-label="Call emergency number 112">Call 112</a>
         </div>
         <div class="section-heading"><div><span class="eyebrow">YOUR ACCOUNT</span><h2>Keep everything together</h2></div></div>
         <div class="shortcut-list">
