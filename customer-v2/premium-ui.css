@@ -57,3 +57,24 @@ body{margin:0;background:var(--mf-bg);color:var(--mf-ink);font-family:Inter,"Plu
 button,a,input{touch-action:manipulation}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid rgba(214,51,74,.24);outline-offset:2px}
 @media(min-width:560px){#main-content{padding-left:22px;padding-right:22px}.service-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.welcome{min-height:160px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+
+.v2-shops-panel{margin:16px 0 24px;padding:14px;border:1px solid var(--line);border-radius:18px;background:#fff}
+.v2-shops-toolbar{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.v2-shops-toolbar input{flex:1;min-width:0;min-height:42px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:12px}
+.v2-shops-toolbar button{min-height:40px;padding:0 13px;border:0;border-radius:10px;background:#fff0f2;color:#b4233d;font-size:11px;font-weight:800}
+.v2-shops-status{font-size:10px;line-height:1.45;color:var(--muted)}
+.v2-shops-list{display:grid;gap:10px}
+.v2-shop-card{display:flex;gap:11px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.v2-shop-avatar{width:54px;height:54px;flex:none;object-fit:cover;border-radius:13px;background:#fff1f3}
+.v2-shop-avatar-placeholder{display:grid;place-items:center;color:#bd344d;font-weight:900}
+.v2-shop-details{min-width:0;display:grid;gap:5px;flex:1}
+.v2-shop-name{font-size:13px;color:var(--ink)}
+.v2-shop-area,.v2-shop-category,.v2-shop-distance,.v2-shop-cod{font-size:10px;color:var(--muted);line-height:1.4}
+.v2-shop-address{margin:0;font-size:10px;color:var(--muted);line-height:1.45}
+.v2-shop-cod{color:#16865d;font-weight:750}
+.v2-shop-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:3px}
+.v2-shop-actions a{font-size:11px;font-weight:800;color:var(--red);text-decoration:none}
+.v2-shops-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px}
+.v2-checkout-continue:disabled{opacity:.55;cursor:not-allowed}
+@media(min-width:700px){.v2-shops-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
