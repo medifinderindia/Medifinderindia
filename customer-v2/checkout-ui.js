@@ -11,7 +11,7 @@
   const pinResult = $("[data-pincode-result]");
   const placeButton = $("[data-place-cod-order]");
   const orderResult = $("[data-order-result]");
-  let rules = null, currentUser = null, selectedPatient = "self";
+  let rules = null, currentUser = null, completedOrderId = "", selectedPatient = "self";
   let selectedAddress = "", addresses = [], patients = [], serviceability = null, loading = false, placing = false;
   const money = value => "₹" + (Number(value) || 0).toFixed(2);
   const cart = () => window.MFCustomerV2Cart
@@ -53,7 +53,7 @@
     const note = document.createElement("p"); note.className = "v2-checkout-hint";
     note.textContent = "Final product prices, stock, service-zone delivery fee and payable total are recalculated securely by MediFinder when you place the COD order.";
     summary.append(note);
-    placeButton.disabled = placing || !rules || !selectedAddress || !serviceability || !serviceability.available;
+    placeButton.disabled = placing || !!completedOrderId || !rules || !selectedAddress || !serviceability || !serviceability.available;
   }
   async function checkPin() {
     serviceability = null;
@@ -103,7 +103,7 @@
     return data.prescription_url;
   }
   async function placeCODOrder() {
-    if (placing) return;
+    if (placing || completedOrderId) return;
     const client = window.supabaseClient;
     const state = cart();
     const address = addresses.find(item => String(item.id) === String(selectedAddress));
@@ -148,7 +148,7 @@
       try { localStorage.removeItem("medi_cart"); } catch (_) {}
       if (window.MFCustomerV2CartUI) window.MFCustomerV2CartUI.refresh();
       const total = data.total_amount == null ? "confirmed by server" : money(data.total_amount);
-      message(orderResult, "Order placed successfully · " + data.order_id + " · Cash on Delivery · Total " + total);
+      completedOrderId = String(data.order_id);\n      message(orderResult, "Order placed successfully · " + data.order_id + " · Cash on Delivery · Total " + total);
       message(status, "Your order was accepted by MediFinder. Track its status in My Orders.");
       placeButton.textContent = "Order placed · " + data.order_id;
       placeButton.disabled = true;
