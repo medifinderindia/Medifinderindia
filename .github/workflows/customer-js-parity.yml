@@ -38,6 +38,15 @@ jobs:
       - name: Test V2 checkout DOM selector contract
         run: node customer-v2/tools/test-checkout-ui-contract.js
 
+      - name: Check V2 shop directory syntax
+        run: node --check customer-v2/shops-ui.js
+
+      - name: Test V2 licensed shop directory contract
+        run: node customer-v2/tools/test-shops-ui-contract.js
+
+      - name: Check V2 app navigation syntax
+        run: node --check customer-v2/app.js
+
       - name: Check V2 people adapter syntax
         run: node --check customer-v2/people-adapter.js
 
