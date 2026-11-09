@@ -75,7 +75,7 @@
         call.href = "tel:" + String(shop.phone).replace(/[^+0-9]/g, "");
         actions.append(call);
       }
-      const mapQuery = Number.isFinite(Number(shop.latitude)) && Number.isFinite(Number(shop.longitude))
+      const mapQuery = hasCoordinates(shop)
         ? shop.latitude + "," + shop.longitude : address || [shop.shop_name, shop.city, shop.pincode].filter(Boolean).join(" ");
       if (mapQuery) {
         const map = node("a", "", "Directions");
