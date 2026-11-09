@@ -47,7 +47,7 @@
     list.replaceChildren();
     const results = filtered();
     if (!results.length) {
-      list.append(node("p", "v2-shops-empty", rows.length ? "No approved shops match your search." : "No approved healthcare partners are listed right now."));
+      list.append(node("p", "v2-shops-empty", rows.length ? "No licensed partner pharmacies match your search." : "No licensed partner pharmacies are listed right now."));
       return;
     }
     const fragment = document.createDocumentFragment();
@@ -91,7 +91,7 @@
     const client = window.supabaseClient;
     if (!client) { status.textContent = "Secure database connection is unavailable. Please retry."; return; }
     loading = true; const current = ++sequence;
-    refresh.disabled = true; status.textContent = "Loading approved healthcare partners…";
+    refresh.disabled = true; status.textContent = "Loading licensed partner pharmacies…";
     try {
       const result = await client.from("merchants_public")
         .select("id,shop_name,merchant_name,merchant_avatar,avatar_url,pincode,city,district,state,address,resolved_address,latitude,longitude,cod_available,business_category,about_shop,phone")
@@ -99,7 +99,7 @@
       if (result.error) throw result.error;
       if (current !== sequence) return;
       rows = Array.isArray(result.data) ? result.data : [];
-      status.textContent = rows.length + " approved healthcare partner" + (rows.length === 1 ? "" : "s") + " found" + (position ? " · sorted by distance" : " · add location to sort nearby shops first");
+      status.textContent = rows.length + " licensed partner pharmacy" + (rows.length === 1 ? "" : "s") + " found" + (position ? " · sorted by distance" : " · add location to sort nearby shops first");
       render();
     } catch (error) {
       if (current !== sequence) return;
