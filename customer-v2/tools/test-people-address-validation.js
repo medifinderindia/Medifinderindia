@@ -27,7 +27,7 @@ const people = context.window.MFCustomerV2People.create(client, { id: "user-1", 
   assert.equal(saved.user_id, "user-1");
 
   const phoneOnlyPeople = context.window.MFCustomerV2People.create(client, { id: "phone-user-2", phone: "+919876543210" });
-  assert.deepEqual(await phoneOnlyPeople.listPatients(), [], "phone-only accounts should still reach checkout without an email lookup");
+  assert.equal((await phoneOnlyPeople.listPatients()).length, 0, "phone-only accounts should still reach checkout without an email lookup");
   const phoneAddress = await phoneOnlyPeople.saveAddress({
     name: "Phone Customer", phone: "9876543210", address1: "Station Road",
     city: "Gangarampur", state: "West Bengal", pincode: "733140"
