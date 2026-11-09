@@ -2,16 +2,18 @@
   "use strict";
 
   function create(client, user) {
-    if (!client || !user || !user.id || !user.email) throw new Error("Sign in is required to manage patients and addresses.");
-    const email = user.email;
+    if (!client || !user || !user.id) throw new Error("Sign in is required to manage patients and addresses.");
+    const email = String(user.email || "").trim();
     const uid = user.id;
 
     async function listPatients() {
+      if (!email) return [];
       const { data, error } = await client.from("patients").select("*").eq("user_email", email).order("name", { ascending: true });
       if (error) throw error;
       return data || [];
     }
     async function savePatient(input) {
+      if (!email) throw new Error("Family patient profiles require an email-linked account. You can still save delivery addresses with phone login.");
       const name = String(input.name || "").trim();
       const age = Number(input.age);
       const gender = String(input.gender || "").trim();
@@ -26,6 +28,7 @@
       return result.data;
     }
     async function deletePatient(id) {
+      if (!email) throw new Error("Family patient profiles require an email-linked account.");
       const { error } = await client.from("patients").delete().eq("id", id).eq("user_email", email);
       if (error) throw error;
     }
