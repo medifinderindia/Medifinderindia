@@ -53,6 +53,10 @@
     const fragment = document.createDocumentFragment();
     results.forEach(shop => {
       const card = node("article", "v2-shop-card");
+      card.setAttribute("data-shop-card", String(shop.id));
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", "View " + (shop.shop_name || shop.merchant_name || "pharmacy") + " details");
       const imageUrl = shop.avatar_url || shop.merchant_avatar || "";
       if (imageUrl) {
         const image = node("img", "v2-shop-avatar");
@@ -82,7 +86,10 @@
         map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mapQuery);
         map.target = "_blank"; map.rel = "noopener noreferrer"; actions.append(map);
       }
-      details.append(actions); card.append(details); fragment.append(card);
+      const view = node("button", "v2-shop-view", "View shop & products");
+      view.type = "button";
+      view.addEventListener("click", () => window.MFCustomerV2ShopDetail && window.MFCustomerV2ShopDetail.open(shop));
+      details.append(actions, view); card.append(details); fragment.append(card);
     });
     list.append(fragment);
   }
@@ -121,6 +128,7 @@
       status.textContent = error.code === 1 ? "Location permission was not granted. You can still search by town or PIN code." : "Location could not be detected. Check GPS and try again.";
     }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 });
   }
+  list.addEventListener("keydown", event => { if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-shop-card]")) { event.preventDefault(); const shop = rows.find(item => String(item.id) === event.target.getAttribute("data-shop-card")); if (shop && window.MFCustomerV2ShopDetail) window.MFCustomerV2ShopDetail.open(shop); } });
   search.addEventListener("input", render);
   refresh.addEventListener("click", load);
   locate.addEventListener("click", useLocation);
