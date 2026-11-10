@@ -1,0 +1,16 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const source = fs.readFileSync("customer-v2/account-hub.js","utf8");
+const css = fs.readFileSync("customer-v2/premium-ui.css","utf8");
+new vm.Script(source,{filename:"account-hub.js"});
+assert.ok(source.includes("function orderProgress(row)"),"Order progress renderer exists");
+assert.ok(source.includes('"arrived_at_store"'),"Pharmacy arrival stage is represented");
+assert.ok(source.includes('"picked_up"'),"Pickup stage is represented");
+assert.ok(source.includes('"shipped"'),"Shipping stage is represented");
+assert.ok(source.includes('"delivered"'),"Delivery completion stage is represented");
+assert.ok(source.includes('current === "cancelled"'),"Cancelled orders are handled separately");
+assert.ok(source.includes('item.append(orderProgress(row))'),"Progress appears in order cards");
+assert.ok(css.includes(".v2-order-steps"),"Order progress styles exist");
+console.log("PASS: customer order progress and tracking contract");
