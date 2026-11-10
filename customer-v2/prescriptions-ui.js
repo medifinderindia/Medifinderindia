@@ -7,6 +7,7 @@
   const name = root.querySelector("[data-prescription-file-name]");
   const note = root.querySelector(".v2-prescription-note");
   const archive = root.querySelector(".v2-prescription-archive");
+  let uploading = false;
   const client = () => window.supabaseClient;
   const accepted = selected => {
     if (!selected) return "Choose a prescription image or PDF.";
@@ -26,7 +27,7 @@
   function status(text) { if (note) note.textContent = text; }
   async function loadArchive() {
     const supabase = client();
-    if (!supabase || !window.MFCustomerV2Auth) return;
+    if (!supabase || !window.MFCustomerV2Auth || !archive) return;
     const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(supabase);
     if (!auth.authenticated) throw new Error("Please sign in to view your saved prescriptions.");
     const result = await supabase.from("prescription_orders").select("id,prescription_url,status,created_at").eq("user_id",auth.user.id).order("created_at",{ascending:false}).limit(30);
@@ -62,7 +63,9 @@
     if (invalid) { status(invalid); return; }
     const supabase = client();
     if (!supabase || !window.MFCustomerV2Auth) { status("Secure account connection is unavailable."); return; }
-    upload.disabled = true; upload.textContent = "Uploading…";
+    if (uploading) return;
+    uploading = true; upload.disabled = true; upload.textContent = "Uploading…";
+    let uploadedPath = "";
     try {
       const auth = await window.MFCustomerV2Auth.requireAuthenticatedUser(supabase);
       if (!auth.authenticated || !auth.user || !auth.user.id) throw new Error("Please sign in before uploading.");
@@ -72,8 +75,9 @@
       const path = userId + "/" + Date.now() + "-" + crypto.randomUUID() + "." + ext;
       const put = await supabase.storage.from("customer-prescriptions").upload(path,selected,{contentType:selected.type,cacheControl:"3600",upsert:false});
       if (put.error) throw put.error;
+      uploadedPath = path;
       const metadata = auth.user.user_metadata || {};
-      const profile = await supabase.from("profiles").select("full_name,phone,address").eq("email",auth.user.email).maybeSingle();
+      const profile = await supabase.from("profiles").select("full_name,phone,address").eq("id",userId).maybeSingle();
       if (profile.error) throw profile.error;
       const row = {
         user_id:userId,
@@ -87,15 +91,20 @@
       };
       const saved = await supabase.from("prescription_orders").insert(row).select("id").single();
       if (saved.error) {
-        await supabase.storage.from("customer-prescriptions").remove([path]);
         throw saved.error;
       }
       if (camera) camera.value = ""; if (file) file.value = "";
       if (name) name.textContent = "Prescription uploaded securely.";
       status("Prescription submitted. A MediFinder partner must review it before any medicine order is confirmed.");
       await loadArchive();
-    } catch (error) { status(error.message || "Could not upload prescription."); }
-    finally { upload.disabled = false; upload.textContent = "Upload securely"; }
+    } catch (error) {
+      if (uploadedPath) {
+        const cleanup = await supabase.storage.from("customer-prescriptions").remove([uploadedPath]);
+        if (cleanup.error) status("Upload did not finish saving. A secure file cleanup may still be pending. " + (error.message || ""));
+        else status(error.message || "Could not save prescription details.");
+      } else status(error.message || "Could not upload prescription.");
+    }
+    finally { uploading = false; upload.disabled = false; upload.textContent = "Upload securely"; }
   });
   loadArchive().catch(error => status(error.message || "Could not load saved prescriptions."));
 })();
