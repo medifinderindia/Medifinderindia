@@ -44,6 +44,9 @@ jobs:
       - name: Test V2 product detail navigation contract
         run: node customer-v2/tools/test-product-detail-contract.js
 
+      - name: Test V2 order progress contract
+        run: node customer-v2/tools/test-order-progress-contract.js
+
       - name: Check V2 shop detail syntax
         run: node --check customer-v2/shop-detail-ui.js
 
