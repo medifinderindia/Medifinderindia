@@ -164,6 +164,26 @@
         </section>
       </section>
 
+
+      <section class="view" id="view-product" data-view="product">
+        <button class="back-link" type="button" data-product-back>‹ Back to products</button>
+        <div class="v2-detail-layout">
+          <div class="v2-detail-media"><img data-detail-image alt="" loading="lazy"><span data-detail-image-fallback hidden>MediFinder</span></div>
+          <div class="v2-detail-copy">
+            <span class="eyebrow" data-detail-category>HEALTHCARE PRODUCT</span>
+            <h1 data-detail-name>Product details</h1>
+            <p class="v2-detail-maker" data-detail-maker></p>
+            <div class="v2-detail-price"><strong data-detail-price></strong><del data-detail-mrp hidden></del><span data-detail-discount hidden></span></div>
+            <p class="v2-detail-stock" data-detail-stock></p>
+            <p class="v2-detail-description" data-detail-description></p>
+            <dl class="v2-detail-facts"><div><dt>Composition</dt><dd data-detail-composition>Not provided</dd></div><div><dt>Strength</dt><dd data-detail-strength>Not provided</dd></div><div><dt>Dosage form</dt><dd data-detail-form>Not provided</dd></div></dl>
+            <p class="v2-detail-rx" data-detail-rx hidden>Prescription required. A valid prescription may be requested before order confirmation.</p>
+            <button class="v2-detail-add" type="button" data-detail-add>Add to cart</button>
+            <p class="v2-detail-status" data-detail-status role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
       <section class="view" id="view-module" data-view="module" aria-live="polite">
         <button class="back-link" data-go="home">‹ Back to Home</button>
         <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
@@ -196,6 +216,7 @@
   <script src="./auth-session.js"></script>
   <script src="./catalogue-adapter.js"></script>
   <script src="./product-cards.js"></script>
+  <script src="./product-detail-ui.js"></script>
   <script src="./catalogue-search.js"></script>
   <script src="./wishlist-adapter.js"></script>
   <script src="./legacy-actions.js"></script>
