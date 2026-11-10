@@ -133,7 +133,7 @@
 
   async function render(root, products, options = {}) {
     const current = ++generation;
-    const grid = root.querySelector("[data-home-products]");
+    const grid = root.querySelector(options.gridSelector || "[data-home-products]");
     if (!grid) throw new Error("Home product grid element is missing.");
     const rows = Array.isArray(products) ? products : [];
     grid.replaceChildren();
