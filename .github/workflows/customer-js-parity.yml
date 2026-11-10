@@ -104,6 +104,29 @@ jobs:
       - name: Test V2 legacy action bridge
         run: node customer-v2/tools/test-legacy-actions.js
 
+      - name: Test V2 lab booking backend contract
+        run: node customer-v2/tools/test-lab-booking-contract.js
+
+      - name: Test V2 nurse and ambulance booking backend contracts
+        run: node customer-v2/tools/test-service-booking-contracts.js
+
+      - name: Test V2 service booking input validation
+        run: node customer-v2/tools/test-service-validation.js
+
+      - name: Test V2 daily coin check-in contract
+        run: node customer-v2/tools/test-daily-coin-checkin.js
+
+      - name: Test V2 delivery capability contract
+        run: node customer-v2/tools/test-delivery-capability.js
+
+      - name: Test V2 delivery capacity contract
+        run: node customer-v2/tools/test-delivery-capacity-contract.js
+
+      - name: Test V2 account order tracking and notifications
+        run: |
+          node customer-v2/tools/test-account-order-tracking.js
+          node customer-v2/tools/test-account-notifications.js
+
       - name: Upload audit report
         uses: actions/upload-artifact@v4
         with:
