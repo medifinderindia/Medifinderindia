@@ -1,0 +1,14 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const source = fs.readFileSync("customer-v2/prescriptions-ui.js","utf8");
+const html = fs.readFileSync("customer-v2/index.html","utf8");
+new vm.Script(source,{filename:"prescriptions-ui.js"});
+assert.ok(source.includes('eq("id",userId)'),"Phone/email-independent profile lookup uses auth user ID");
+assert.ok(source.includes("let uploadedPath = \"\""),"Uploaded path is tracked for rollback");
+assert.ok(source.includes('storage.from("customer-prescriptions").remove([uploadedPath])'),"Failed metadata save cleans uploaded private file");
+assert.ok(source.includes("if (uploading) return"),"Duplicate upload clicks are prevented");
+assert.ok(source.includes("if (!supabase || !window.MFCustomerV2Auth || !archive) return"),"Archive absence is handled safely");
+assert.ok(html.includes('accept="image/jpeg,image/png,image/webp" capture="environment" data-prescription-camera'),"Camera accepts only supported private-bucket formats");
+console.log("PASS: private prescription upload and archive contract");
