@@ -1,0 +1,15 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const html = fs.readFileSync("customer-v2/index.html", "utf8");
+const app = fs.readFileSync("customer-v2/app.js", "utf8");
+const integration = fs.readFileSync("customer-v2/integration.js", "utf8");
+const source = fs.readFileSync("customer-v2/product-detail-ui.js", "utf8");
+new vm.Script(source, { filename: "product-detail-ui.js" });
+assert.ok(html.includes('data-view="product"'), "Product detail view must exist");
+assert.ok(html.includes('data-detail-add'), "Product detail must expose Add to Cart");
+assert.ok(app.includes('selected === "product" ? "product"'), "App navigation must activate product detail view");
+assert.ok(integration.includes("MFCustomerV2ProductDetail.open(product)"), "Catalogue actions must open V2 product details");
+assert.ok(source.includes("textContent"), "Product details must be rendered as safe text");
+console.log("PASS: customer V2 product detail view and navigation contract");
