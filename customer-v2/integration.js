@@ -57,10 +57,14 @@
       const navigateToProductDetail = typeof window.navigateToProductDetail === "function"
         ? window.navigateToProductDetail : null;
       if (window.MFCustomerV2LegacyActions && addToCart && navigateToProductDetail) {
-        window.MFCustomerV2Actions = window.MFCustomerV2LegacyActions.createLegacyActions({
-          addToCart,
-          navigateToProductDetail,
-          wishlist
+        const legacy = window.MFCustomerV2LegacyActions.createLegacyActions({ addToCart, navigateToProductDetail, wishlist });
+        window.MFCustomerV2Actions = Object.freeze({
+          onAddToCart: legacy.onAddToCart,
+          onWishlist: legacy.onWishlist,
+          onProductOpen(product) {
+            if (window.MFCustomerV2ProductDetail) return window.MFCustomerV2ProductDetail.open(product);
+            return legacy.onProductOpen(product);
+          }
         });
       } else {
         const cartStore = window.MFCustomerV2Cart
@@ -71,8 +75,8 @@
             if (window.MFCustomerV2CartUI) window.MFCustomerV2CartUI.refresh();
             return result;
           },
-          onProductOpen() {
-            if (status) status.textContent = "Product details will be connected to the existing verified product-detail flow during migration.";
+          onProductOpen(product) {
+            if (window.MFCustomerV2ProductDetail) window.MFCustomerV2ProductDetail.open(product);
           },
           onWishlist: wishlist ? (product) => wishlist.toggle(product.id) : null
         }) : undefined;
