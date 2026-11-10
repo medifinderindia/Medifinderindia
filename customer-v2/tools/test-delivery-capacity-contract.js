@@ -2,8 +2,9 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const rules=fs.readFileSync("customer-v2/checkout-rules.js","utf8"),cap=fs.readFileSync("customer-v2/delivery-capability.js","utf8"),ui=fs.readFileSync("customer-v2/checkout-ui.js","utf8");
 for(const [p,s] of [["rules",rules],["capability",cap],["checkout",ui]])new vm.Script(s,{filename:p});
-assert.ok(rules.includes('action: "rate_verified"'));
-assert.ok(cap.includes('rpc("get_customer_delivery_capability"'));
-assert.ok(ui.includes('await updateSpeedOptions()'));
+assert.ok(rules.includes('action: "rate_verified"'),"Checkout must request a live verified courier quote");
+assert.ok(cap.includes('rpc("get_customer_delivery_capability"'),"Delivery capability must use the server-side partner-capacity RPC");
+assert.ok(ui.includes("rules.checkPincode(pin.value)"),"Checkout must verify the saved address PIN before allowing order placement");
+assert.ok(ui.includes("serviceability.available"),"Checkout must fail closed unless PIN serviceability is confirmed");
 assert.ok(!rules.includes('\\\\d'));
-console.log("PASS: live Shiprocket quote and partner-capacity RPC contracts");
+console.log("PASS: checkout PIN verification, live courier quote and partner-capacity RPC contracts");
