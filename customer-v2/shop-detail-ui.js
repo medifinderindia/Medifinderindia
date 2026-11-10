@@ -43,7 +43,7 @@
       directions.href = mapQuery ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mapQuery) : "";
     }
     if (window.MFCustomerV2App) window.MFCustomerV2App.openView("shop");
-    loadProducts();
+    else loadProducts();
   }
   async function loadProducts() {
     const sequence = requestSequence;
