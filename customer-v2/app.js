@@ -25,7 +25,7 @@
   function openView(key) {
     const selected = modules[key] ? key : "home";
     const isHome = selected === "home";
-    const targetView = isHome ? "home" : (selected === "product" ? "product" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : (selected === "checkout" ? "checkout" : "module")))));
+    const targetView = isHome ? "home" : (selected === "product" ? "product" : (selected === "shop" ? "shop" : (selected === "cart" ? "cart" : (selected === "prescriptions" ? "prescriptions" : (selected === "people" ? "people" : (selected === "checkout" ? "checkout" : "module"))))));
     views.forEach(view => view.classList.toggle("active", view.dataset.view === targetView));
     navItems.forEach(item => item.classList.toggle("active", item.dataset.go === selected || (!isHome && item.dataset.go === ({shops:"shops",cart:"cart",orders:"orders",profile:"profile"}[selected] || ""))));
     if (!isHome && !["cart","prescriptions","people","checkout"].includes(selected)) {
@@ -42,6 +42,7 @@
     if (shopsPanel) shopsPanel.hidden = selected !== "shops";
     if (selected === "shops" && window.MFCustomerV2Shops) window.MFCustomerV2Shops.load();
     if (selected === "product" && window.MFCustomerV2ProductDetail) window.MFCustomerV2ProductDetail.refresh();
+    if (selected === "shop" && window.MFCustomerV2ShopDetail) window.MFCustomerV2ShopDetail.refresh();
     if (selected === "people" && window.MFCustomerV2PeopleUI) window.MFCustomerV2PeopleUI.load();
     if (selected === "checkout" && window.MFCustomerV2Checkout) window.MFCustomerV2Checkout.load();
     if (accountViews.has(selected) && window.MFCustomerV2AccountHub) window.MFCustomerV2AccountHub.load(selected);
@@ -50,7 +51,7 @@
   }
   document.addEventListener("click",event=>{const trigger=event.target.closest("[data-go]");if(!trigger)return;event.preventDefault();openView(trigger.dataset.go);});
   window.addEventListener("hashchange",()=>openView(location.hash.slice(1)||"home"));
-  document.addEventListener("click", event => { if (event.target.closest("[data-product-back]")) openView("home"); });
+  document.addEventListener("click", event => { if (event.target.closest("[data-product-back]")) openView("home"); if (event.target.closest("[data-shop-back]")) openView("shops"); });
   window.MFCustomerV2App=Object.freeze({openView});
   openView(modules[location.hash.slice(1)]?location.hash.slice(1):"home");
 })();
