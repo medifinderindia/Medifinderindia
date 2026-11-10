@@ -1,0 +1,18 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const html = fs.readFileSync("customer-v2/index.html","utf8");
+const app = fs.readFileSync("customer-v2/app.js","utf8");
+const shops = fs.readFileSync("customer-v2/shops-ui.js","utf8");
+const detail = fs.readFileSync("customer-v2/shop-detail-ui.js","utf8");
+const cards = fs.readFileSync("customer-v2/product-cards.js","utf8");
+new vm.Script(detail,{filename:"shop-detail-ui.js"});
+assert.ok(html.includes('data-view="shop"'),"Shop detail view exists");
+assert.ok(html.includes('data-shop-products'),"Shop catalogue grid exists");
+assert.ok(app.includes('selected === "shop" ? "shop"'),"App routes to shop detail view");
+assert.ok(shops.includes("MFCustomerV2ShopDetail.open(shop)"),"Shop cards open details");
+assert.ok(detail.includes('license_status || "").toLowerCase()'),"Only verified/approved shops open");
+assert.ok(detail.includes("merchantId: currentShop.id"),"Shop products are filtered by merchant id");
+assert.ok(cards.includes('options.gridSelector || "[data-home-products]"'),"Product renderer supports shop grid");
+console.log("PASS: verified shop detail and catalogue contract");
