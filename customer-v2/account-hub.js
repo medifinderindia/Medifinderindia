@@ -31,6 +31,36 @@
     if (meta) item.append(el("small", "", meta));
     return item;
   }
+  const ORDER_STEPS = [
+    ["pending", "Order placed"], ["accepted", "Accepted by pharmacy"],
+    ["arrived_at_store", "At pharmacy"], ["picked_up", "Picked up"],
+    ["shipped", "Out for delivery"], ["delivered", "Delivered"]
+  ];
+  function orderProgress(row) {
+    const raw = String(row.status || "pending").toLowerCase().trim().replace(/[ -]+/g, "_");
+    const aliases = { confirmed: "accepted", processing: "accepted", ready_for_pickup: "arrived_at_store", picked: "picked_up", dispatched: "shipped", out_for_delivery: "shipped", completed: "delivered", cancelled: "cancelled", canceled: "cancelled" };
+    const current = aliases[raw] || raw;
+    const wrap = el("div", "v2-order-progress");
+    const heading = el("div", "v2-order-progress-heading");
+    heading.append(el("strong", "", current === "cancelled" ? "Order cancelled" : "Order progress"));
+    heading.append(el("span", "v2-order-current", String(row.status || "Pending").replace(/_/g, " ")));
+    wrap.append(heading);
+    if (current === "cancelled") {
+      wrap.append(el("p", "v2-order-cancelled", "This order is cancelled. Contact support if you need help."));
+      return wrap;
+    }
+    const index = ORDER_STEPS.findIndex(step => step[0] === current);
+    const list = el("ol", "v2-order-steps");
+    ORDER_STEPS.forEach((step, i) => {
+      const li = el("li", i < index ? "is-complete" : (i === index ? "is-current" : ""));
+      li.append(el("span", "v2-order-step-dot", i < index ? "✓" : String(i + 1)));
+      li.append(el("span", "v2-order-step-label", step[1]));
+      list.append(li);
+    });
+    if (index < 0) wrap.append(el("p", "v2-order-unknown", "The pharmacy has not shared a detailed delivery stage yet."));
+    else wrap.append(list);
+    return wrap;
+  }
   function renderRows(host, rows, kind) {
     host.replaceChildren();
     if (!rows.length) {
@@ -44,6 +74,7 @@
         const amount = row.total_amount ?? row.total ?? row.grand_total;
         const item = card(kind + " " + id, "Status: " + (row.status || "Pending"), (amount == null ? "" : "Total: " + money(amount) + " · ") + (row.created_at ? new Date(row.created_at).toLocaleString() : "Date unavailable"));
         if (row._order_kind !== "prescription") {
+          item.append(orderProgress(row));
           const track = el("button", "v2-account-action", "Track delivery"); track.type = "button";
           const timeline = el("div", "v2-order-timeline");
           track.addEventListener("click", async () => {
