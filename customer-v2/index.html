@@ -185,6 +185,18 @@
         </div>
       </section>
 
+
+      <section class="view" id="view-shop" data-view="shop">
+        <button class="back-link" type="button" data-shop-back>‹ Back to pharmacies</button>
+        <section class="v2-shop-detail-head"><div class="v2-shop-detail-avatar" data-shop-detail-avatar>MF</div><div><span class="eyebrow">VERIFIED HEALTHCARE PARTNER</span><h1 data-shop-detail-name>Pharmacy details</h1><p data-shop-detail-area></p><span class="v2-shop-verified">✓ Verified partner</span></div></section>
+        <p class="v2-shop-detail-about" data-shop-detail-about></p>
+        <div class="v2-shop-detail-actions"><a data-shop-call hidden>Call pharmacy</a><a data-shop-directions hidden target="_blank" rel="noopener noreferrer">Get directions</a></div>
+        <section class="v2-shop-detail-facts"><div><small>Address</small><p data-shop-detail-address></p></div><div><small>Business type</small><p data-shop-detail-category></p></div><div><small>Delivery</small><p data-shop-detail-cod></p></div></section>
+        <div class="section-heading"><div><span class="eyebrow">SHOP CATALOGUE</span><h2>Available products</h2></div></div>
+        <p class="v2-shop-products-status" data-shop-products-status role="status" aria-live="polite">Loading approved products…</p>
+        <div class="v2-products-grid" data-shop-products></div>
+      </section>
+
       <section class="view" id="view-module" data-view="module" aria-live="polite">
         <button class="back-link" data-go="home">‹ Back to Home</button>
         <span class="eyebrow">MEDIFINDER INDIA</span><h1 id="module-title">Customer service</h1>
@@ -233,6 +245,7 @@
   <script src="./account-hub.js"></script>
   <script src="./integration.js"></script>
   <script src="./shops-ui.js"></script>
+  <script src="./shop-detail-ui.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
