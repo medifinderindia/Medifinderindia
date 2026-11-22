@@ -478,93 +478,98 @@ function mfApplySmartImage(img) {
     if (!realSrc || realSrc.indexOf(MF_IMG_PLACEHOLDER) !== -1) return;
     img.dataset.mfSmart = '1';
     img.classList.add('mf-smart-img');
-    // Let Chromium/WebView perform one native image request only.
-    if (!img.hasAttribute('loading')) img.loading = 'lazy';
-    img.decoding = 'async';
+
     if (img.complete && img.naturalWidth > 0) {
-        img.classList.add('mf-img-ready');
-    } else {
-        img.addEventListener('load', () => img.classList.add('mf-img-ready'), { once: true });
-        img.addEventListener('error', () => img.classList.add('mf-img-ready'), { once: true });
+        img.classList.add('mf-img-ready'); // already cached/instant — no placeholder flash
+        return;
     }
+
+    img.src = MF_IMG_PLACEHOLDER;
+    const preloader = new Image();
+    preloader.onload = () => {
+        img.style.opacity = '0';
+        setTimeout(() => {
+            img.src = realSrc;
+            img.classList.add('mf-img-ready');
+            requestAnimationFrame(() => { img.style.opacity = '1'; });
+        }, 140);
+    };
+    preloader.onerror = () => {
+        img.src = MF_IMG_PLACEHOLDER;
+        img.classList.add('mf-img-ready');
+    };
+    preloader.src = realSrc;
 }
 
-let mfSmartImageObserver = null;
 function mfScanForSmartImages(root) {
-    (root || document).querySelectorAll(MF_SMART_IMG_SELECTORS).forEach(img => {
-        if (img.dataset.mfSmart === '1') return;
-        if (mfSmartImageObserver) mfSmartImageObserver.observe(img);
-        else mfApplySmartImage(img);
-    });
+    (root || document).querySelectorAll(MF_SMART_IMG_SELECTORS).forEach(mfApplySmartImage);
 }
 
 function initMfSmartImageSystem() {
-    if ('IntersectionObserver' in window) {
-        mfSmartImageObserver = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
-                if (!entry.isIntersecting) return;
-                mfSmartImageObserver.unobserve(entry.target);
-                mfApplySmartImage(entry.target);
-            });
-        }, { root: null, rootMargin: '280px 0px', threshold: 0.01 });
-    }
     mfScanForSmartImages(document);
-    const mfImgObserver = new MutationObserver(mutations => {
-        mutations.forEach(m => m.addedNodes.forEach(node => {
-            if (node.nodeType !== 1) return;
-            if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) {
-                if (mfSmartImageObserver) mfSmartImageObserver.observe(node);
-                else mfApplySmartImage(node);
-            }
-            if (node.querySelectorAll) mfScanForSmartImages(node);
-        }));
+    const mfImgObserver = new MutationObserver((mutations) => {
+        mutations.forEach(m => {
+            m.addedNodes.forEach(node => {
+                if (node.nodeType !== 1) return;
+                if (node.matches && node.matches(MF_SMART_IMG_SELECTORS)) mfApplySmartImage(node);
+                if (node.querySelectorAll) mfScanForSmartImages(node);
+            });
+        });
     });
     mfImgObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+
     function runInitStep(label, fn) {
-        try {
-            const result = fn();
-            if (result && typeof result.catch === 'function') {
-                result.catch(err => console.error(`[init] ${label} failed:`, err));
-            }
-        } catch (err) { console.error(`[init] ${label} failed:`, err); }
-    }
-    function scheduleInitStep(label, fn, delay = 1200) {
-        const task = () => runInitStep(label, fn);
-        if (typeof window.requestIdleCallback === 'function') {
-            window.requestIdleCallback(task, { timeout: delay });
-        } else {
-            window.setTimeout(task, delay);
-        }
+        try { fn(); } catch (err) { console.error(`[init] ${label} failed:`, err); }
     }
 
-    // Initialize only the visible section. Hidden tabs must not perform
-    // database reads, DOM scans or realtime setup while Home is opening.
-    const initializedPages = new Set();
-    function initPageModules(page) {
-        if (!page || initializedPages.has(page)) return;
-        initializedPages.add(page);
-        if (page === 'cart') runInitStep('setupCartPageModules', setupCartPageModules);
-        else if (page === 'order') runInitStep('setupOrdersPageModules', setupOrdersPageModules);
-        else if (page === 'profile') runInitStep('setupProfilePageModules', setupProfilePageModules);
-        else if (page === 'shops') runInitStep('setupMapPageModules', setupMapPageModules);
-    }
-    document.addEventListener('mf:page-enter', event => {
-        initPageModules(event.detail && event.detail.page);
-    });
-
-    // Essential Home and global controls first.
     runInitStep('renderPrescriptionWidgetState', renderPrescriptionWidgetState);
+
+    // Resume the "waiting for pharmacy" live status if the user left and came
+    // back while a broadcast prescription order is still pending acceptance.
     runInitStep('watchPendingPrescriptionOrder', () => {
-        const pendingRxId = localStorage.getItem('medi_pending_rx_id');
-        if (pendingRxId) watchPendingPrescriptionOrder(pendingRxId);
+        const _pendingRxId = localStorage.getItem('medi_pending_rx_id');
+        if (_pendingRxId) watchPendingPrescriptionOrder(_pendingRxId);
     });
+
+    runInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates);
     runInitStep('autoFillSavedUserDataOnAuth', autoFillSavedUserDataOnAuth);
+    runInitStep('retryPendingOrderSync', retryPendingOrderSync);
     runInitStep('setupGlobalNotificationHub', setupGlobalNotificationHub);
+    runInitStep('setupHomePageModules', setupHomePageModules);
+    runInitStep('setupCartPageModules', setupCartPageModules);
+    runInitStep('setupOrdersPageModules', setupOrdersPageModules);
+    runInitStep('setupProfilePageModules', setupProfilePageModules);
+    runInitStep('setupMapPageModules', () => { if (document.getElementById('map')) setupMapPageModules(); });
+
     runInitStep('setupGlobalCloseButtonListeners', setupGlobalCloseButtonListeners);
+    runInitStep('runBackgroundPillAlarmEngine interval', () => setInterval(runBackgroundPillAlarmEngine, 10000));
     runInitStep('setupServiceWorkerNotifications', setupServiceWorkerNotifications);
+
+    runInitStep('initLiveOfferAndBroadcastStream', () => {
+        if (supabase && document.getElementById('user-app-banner')) {
+            initLiveOfferAndBroadcastStream();
+        }
+    });
+
+    runInitStep('language init', () => {
+        const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
+        triggerGlobalAppLanguageTranslation(savedLang);
+        updateSearchPlaceholder(savedLang);
+    });
+
+    runInitStep('initAutoSlider', initAutoSlider);
+    runInitStep('loadSponsoredProducts', () => {
+        loadSponsoredProducts().then(() => {
+            const newSlides = document.querySelectorAll('#home-slider .slide');
+            if (newSlides.length > 0) initAutoSlider();
+        }).catch(() => {});
+        if (supabase && document.getElementById('home-slider')) {
+            initSponsoredRealtime();
+        }
+    });
     runInitStep('initModalRatingStars', initModalRatingStars);
     runInitStep('initScrollToTop', initScrollToTop);
     runInitStep('initHomeStickyScroll', initHomeStickyScroll);
@@ -572,40 +577,24 @@ document.addEventListener("DOMContentLoaded", () => {
     runInitStep('initVoiceSearch', initVoiceSearch);
     runInitStep('initServicesMenu', initServicesMenu);
     runInitStep('updateProductCount', updateProductCount);
+
+    // Live "Cart (N)" bottom-nav badge — synced with the cart on every load.
     runInitStep('updateCartNavBadge', updateCartNavBadge);
+
     runInitStep('home header greeting', () => {
         renderHomeHeaderGreeting();
         updateHomeHeaderVisibility((window.location.hash || '').replace('#', '') || 'home');
         setInterval(renderHomeHeaderGreeting, 5 * 60 * 1000);
     });
-    runInitStep('mfHideBootLoader', () => mfHideBootLoader(true));
 
-    // Keep first paint interactive; run heavier Home work after it is visible.
-    scheduleInitStep('setupHomePageModules', setupHomePageModules, 1200);
-    scheduleInitStep('detectLiveUserGPSCoordinates', detectLiveUserGPSCoordinates, 3000);
-    scheduleInitStep('retryPendingOrderSync', retryPendingOrderSync, 3500);
-    scheduleInitStep('runBackgroundPillAlarmEngine interval', () => {
-        runBackgroundPillAlarmEngine();
-        setInterval(runBackgroundPillAlarmEngine, 30000);
-    }, 4000);
-    scheduleInitStep('live offer and broadcast stream', () => {
-        if (supabase && document.getElementById('user-app-banner')) initLiveOfferAndBroadcastStream();
-    }, 2500);
-    scheduleInitStep('language init', () => {
-        const savedLang = localStorage.getItem('medi_active_language_env') || 'en';
-        triggerGlobalAppLanguageTranslation(savedLang);
-        updateSearchPlaceholder(savedLang);
-    }, 2200);
-    scheduleInitStep('initAutoSlider', initAutoSlider, 2200);
-    scheduleInitStep('loadSponsoredProducts', () => {
-        loadSponsoredProducts().then(() => {
-            if (document.querySelectorAll('#home-slider .slide').length > 0) initAutoSlider();
-        }).catch(() => {});
-        if (supabase && document.getElementById('home-slider')) initSponsoredRealtime();
-    }, 3500);
-    scheduleInitStep('setupPagePrefetch', setupPagePrefetch, 4500);
-    scheduleInitStep('initMfSmartImageSystem', initMfSmartImageSystem, 3500);
-    initPageModules((document.querySelector('.app-page.active') || {}).dataset?.page || 'home');
+    // Prefetch adjacent pages for instant tab switching
+    runInitStep('setupPagePrefetch', setupPagePrefetch);
+
+    // Smart loading system: scan existing product images + watch for
+    // dynamically-inserted ones; hide the boot loader now that the page's
+    // own setup is done (window 'load' above still covers slower assets).
+    runInitStep('initMfSmartImageSystem', initMfSmartImageSystem);
+    runInitStep('mfHideBootLoader', mfHideBootLoader);
 });
 
 window.addEventListener('pageshow', (event) => {
@@ -717,13 +706,18 @@ function detectLiveUserGPSCoordinates() {
         userLiveLng = pos.coords.longitude;
         renderGPSAccuracyIndicator(pos.coords.accuracy);
 
-        const activePage = document.querySelector('.app-page.active')?.dataset?.page || 'home';
-        // Hidden SPA tabs must not trigger their data refresh work.
-        if (activePage === 'cart' && document.getElementById('cart-items-container') && typeof refreshDeliveryDistanceAndBill === 'function') {
+        if (document.getElementById('order-list')) {
+            setupOrdersPageModules();
+        }
+        // Real GPS fix just landed — recompute the cart's distance-based
+        // delivery fee against it instead of the fallback coordinates.
+        if (document.getElementById('cart-items-container') && typeof refreshDeliveryDistanceAndBill === 'function') {
             refreshDeliveryDistanceAndBill();
             if (typeof refreshShiprocketRateAndBill === 'function') refreshShiprocketRateAndBill();
         }
-        if (activePage === 'home' && document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
+        // Same idea for the home page's "20 Min" express badges — they were
+        // first computed against the fallback coords, so recheck them now.
+        if (document.getElementById('main-products-grid') && typeof refreshExpressDeliveryBadges === 'function') {
             refreshExpressDeliveryBadges();
         }
     }, GEO_OPTIONS_ONE_SHOT, true); // true = silent: no "location denied" toast on page load
@@ -2266,81 +2260,22 @@ function pdEsc(s) { return String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt
         try { history.replaceState(null, '', location.pathname + '#home'); } catch (e) {}
     }
 
-    // 1) Share product through the native Android share chooser, or Web Share on browsers.
+    // 1) Share button: link carries the product id (old link had only #product-detail => blank page)
     document.addEventListener('click', function (e) {
         var btn = e.target.closest && e.target.closest('#pd-share-btn');
         if (!btn) return;
-        e.preventDefault();
         e.stopImmediatePropagation();
-
+        e.preventDefault();
         var d = null;
         try { d = JSON.parse(localStorage.getItem('currentProduct') || 'null'); } catch (x) {}
         if (!d || !d.id) { toast('Product not ready to share yet', 'warning'); return; }
-
         var url = location.origin + '/home.html?product=' + encodeURIComponent(d.id);
-        var name = d.name || d.product_name || document.querySelector('#pd-crumb-name')?.textContent?.trim() || 'MediFinder product';
-        var price = d.price ?? d.selling_price ?? d.unit_price;
-        var description = d.description || d.product_description || d.short_description || '';
-        var rating = d.rating || d.average_rating || '';
-        var reviews = d.review_count || d.total_reviews || d.reviews_count || '';
-        var merchant = d.merchant_name || d.store_name || d.shop_name || '';
-        var category = d.category || '';
-        // Use visible detail text as fallback for fields that are loaded after the product object.
-        var detailText = '';
-        try {
-            var main = document.querySelector('#page-product-detail');
-            detailText = main ? main.innerText : '';
-            if (!merchant) {
-                var sold = detailText.match(/Sold by\\s+([^\\n]+)/i);
-                if (sold) merchant = sold[1].replace(/Verified.*/i, '').trim();
-            }
-            if (!rating) {
-                var rate = detailText.match(/([0-5](?:\\.\\d)?)\\s*\\(\\s*\\d+\\s*\\)/);
-                if (rate) rating = rate[1];
-            }
-        } catch (x) {}
-        var image = d.img || d.image_url || d.product_image || '';
-        if (image && image.startsWith('//')) image = location.protocol + image;
-        if (image && image.startsWith('/')) image = location.origin + image;
-        var lines = ['🩺 ' + name, 'MediFinder India · Search · Connect · Care'];
-        if (price !== undefined && price !== null && price !== '') lines.push('Price: ₹' + price);
-        if (category) lines.push('Category: ' + category);
-        if (merchant) lines.push('Seller: ' + merchant);
-        if (rating) lines.push('Rating: ⭐ ' + rating + (reviews ? ' (' + reviews + ' reviews)' : ''));
-        if (description) lines.push(description.toString().slice(0, 450));
-        lines.push('View product: ' + url);
-        var text = lines.join('\\n');
-        var title = name + ' | MediFinder India';
-
-        // Native Android app: force the Android system share drawer instead of copying the URL.
-        if (window.MFAndroid && typeof window.MFAndroid.shareText === 'function') {
-            try {
-                window.MFAndroid.shareText(title, text, url);
-                return;
-            } catch (x) {}
-        }
-
-        // Browsers that support file sharing: attach the product image along with the product details.
+        var data = { title: d.name || 'MediFinder product', text: 'Check out ' + (d.name || 'this product') + ' on MediFinder India', url: url };
         (async function () {
             try {
-                if (navigator.share) {
-                    if (image && navigator.canShare && window.File && window.fetch) {
-                        try {
-                            var response = await fetch(image, { mode: 'cors', credentials: 'omit' });
-                            if (response.ok) {
-                                var blob = await response.blob();
-                                var ext = (blob.type || '').includes('png') ? 'png' : 'jpg';
-                                var file = new File([blob], 'medifinder-product.' + ext, { type: blob.type || 'image/jpeg' });
-                                var payload = { title: title, text: text, url: url, files: [file] };
-                                if (navigator.canShare({ files: [file] })) { await navigator.share(payload); return; }
-                            }
-                        } catch (x) {}
-                    }
-                    await navigator.share({ title: title, text: text, url: url });
-                } else {
-                    toast('Sharing is not supported on this browser. Open the product in the MediFinder app to share.', 'warning');
-                }
-            } catch (err) { /* User cancelled the share drawer. */ }
+                if (navigator.share) await navigator.share(data);
+                else { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success'); }
+            } catch (err) { /* cancelled */ }
         })();
     }, true);
 
@@ -3744,7 +3679,7 @@ function renderShopLocationMap(lat, lng, name, addr) {
     if (!el || typeof L === 'undefined') return;
     if (__sdMap) { try { __sdMap.remove(); } catch (e) {} __sdMap = null; }
     __sdMap = L.map(el, { scrollWheelZoom: false }).setView([lat, lng], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(__sdMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(__sdMap);
     L.marker([lat, lng]).addTo(__sdMap).bindPopup(`<b>${pdEsc(name)}</b><br>${pdEsc(addr)}`).openPopup();
     if (typeof userLiveLat !== 'undefined' && userLiveLat && typeof userLiveLng !== 'undefined' && userLiveLng) {
         L.circleMarker([userLiveLat, userLiveLng], { radius: 8, color: '#1e90ff', fillColor: '#1e90ff', fillOpacity: 0.9 }).addTo(__sdMap).bindTooltip('You');
@@ -6829,9 +6764,9 @@ async function renderTrackingLiveMap(mapContainer, shopLat, shopLng, riderId, st
         // Same fix as the main map page — CartoDB's free tiles now need an
         // API key and were rendering as a blank "API KEY REQUIRED" tile.
         // OpenStreetMap's standard tile server is free, keyless, and real.
-        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors · HOT style'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
         const shopIcon = L.divIcon({ html: '<div style="background:#D6334A;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(214,51,74,0.4);"><i class="fa-solid fa-shop" style="color:#fff;font-size:12px;"></i></div>', className: 'custom-div-icon', iconSize: [26, 26] });
         window._trackingMapState.map = map;
@@ -7234,9 +7169,9 @@ async function setupMapPageModules() {
 
     let map = L.map('map', { zoomControl: false }).setView([userLiveLat, userLiveLng], 13);
     window.__shopsLeafletMap = map; // exposed for SPA tab-switch invalidateSize()
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors · HOT style'
+        attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
     setTimeout(() => map.invalidateSize(), 100);
 
@@ -7279,18 +7214,13 @@ async function setupMapPageModules() {
 
     window.__mfRefreshShops = (force) => {
         if (!allPharmaciesCache.length || activeSearchToken) return;
-        const movedKm = lastRankLat === null ? Infinity : haversineKm(lastRankLat, lastRankLng, userLiveLat, userLiveLng);
-        if (!force && movedKm < 0.3) return;
+        if (!force && lastRankLat !== null && haversineKm(lastRankLat, lastRankLng, userLiveLat, userLiveLng) < 0.3) return;
         rankNearby();
         plotShopMarkers(pharmacyDatabaseHub);
-        // IMPORTANT: live GPS updates may refresh nearby shop ranking, but must
-        // never call fitBounds automatically. Doing so repeatedly zoomed the map
-        // out every time the device moved. Only an explicit forced refresh
-        // (initial accurate GPS fix) may frame the user and nearby pharmacies.
-        if (force && pharmacyDatabaseHub.length) {
+        if (pharmacyDatabaseHub.length) {
             const bounds = L.latLngBounds(pharmacyDatabaseHub.map(s => [s.lat, s.lng]));
             bounds.extend([userLiveLat, userLiveLng]);
-            map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15, animate: true });
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
         }
         renderAllShops(pharmacyDatabaseHub);
     };
@@ -7346,8 +7276,6 @@ async function setupMapPageModules() {
         userLiveLng = pos.coords.longitude;
         renderGPSAccuracyIndicator(pos.coords.accuracy);
         humanMarker.setLatLng([userLiveLat, userLiveLng]);
-        // Keep the map's current zoom/center while GPS streams. Do not auto-fit
-        // the user and shops on every watchPosition callback.
         try { window.__mfRefreshShops && window.__mfRefreshShops(false); } catch (e) {}
         if (operationalRoutingControl && activeShopMarker) {
             const dest = activeShopMarker.getLatLng();
@@ -7362,8 +7290,7 @@ async function setupMapPageModules() {
     const liveLocBtn = document.getElementById('live-location-btn');
     if (liveLocBtn) {
         liveLocBtn.addEventListener('click', () => {
-            // Explicit user action: center on current location and zoom in.
-            map.setView([userLiveLat, userLiveLng], 16, { animate: true });
+            map.setView([userLiveLat, userLiveLng], 16);
             humanMarker.setLatLng([userLiveLat, userLiveLng]);
             humanMarker.openPopup();
         });
@@ -11641,7 +11568,7 @@ function initTrackMap(){
   const el = $("ab_trackMap");
   if (!el || !userLiveLat) return;
   trackMapObj = L.map(el, { zoomControl:false, attributionControl:false }).setView([userLiveLat, userLiveLng], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(trackMapObj);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(trackMapObj);
   const pickupIcon = L.divIcon({ className:'', html:'<div style="background:#0E9A8B;width:14px;height:14px;border-radius:50%;border:2px solid #fff;"></div>' });
   trackPickupMarker = L.marker([userLiveLat, userLiveLng], { icon: pickupIcon }).addTo(trackMapObj).bindPopup("Pickup (You)");
 }
@@ -11840,7 +11767,7 @@ async function initLive(b){
   if (!livePickup) { el.innerHTML = '<div class="mb-map-empty">Map not available for this address</div>'; $("ab_lvEtaTrip").textContent = "—"; }
   else {
     liveMap = L.map(el, { zoomControl:false, attributionControl:false }).setView(livePickup, 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png").addTo(liveMap);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(liveMap);
     L.marker(livePickup, { icon: L.divIcon({ className:"", html:'<div class="mb-pin pickup"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
     if (liveDrop) {
       L.marker(liveDrop, { icon: L.divIcon({ className:"", html:'<div class="mb-pin drop"></div>', iconSize:[18,18], iconAnchor:[9,9] }) }).addTo(liveMap);
@@ -11934,7 +11861,7 @@ const earnTasks = [
   { id:"prescription_order",icon:"💊", title:"Prescription Order",       desc:"Order medicines by uploading a doctor's prescription.",          reward:5,  auto:true },
   { id:"review",            icon:"⭐", title:"Rate & Review",            desc:"Leave a review on a delivered product or service.",             reward:5,  auto:true },
   { id:"milestone_5",       icon:"🏆", title:"Loyalty Milestone",        desc:"One-time bonus on your 5th delivered order.",                   reward:30, auto:true },
-  { id:"daily_checkin",     icon:"📅", title:"Daily Check-in",           desc:"Tap once a day to collect a small bonus.",                       reward:1,  auto:false },
+  { id:"daily_checkin",     icon:"📅", title:"Daily Check-in",           desc:"Tap once a day to collect a small bonus.",                       reward:2,  auto:false },
   { id:"profile_complete",  icon:"✅", title:"Complete Your Profile",    desc:"One-time bonus for adding your address and verified phone.",    reward:10, auto:false },
 ];
 
