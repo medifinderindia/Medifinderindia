@@ -49,7 +49,7 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-regular-400.woff2">
     <!-- stylesheets load without blocking first paint; the boot loader covers the page until the 2 big ones are applied -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
-    <link rel="stylesheet" href="user.min.css?v=20261102-home-freeze-fix5" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
+    <link rel="stylesheet" href="user.min.css?v=cf1c1307" media="print" onload="this.media='all';window.__mfCssN=(window.__mfCssN||0)+1">
     <link rel="stylesheet" href="offer.css?v=bc7fa165" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="campaign-page.css?v=1f620f89">
     <link rel="stylesheet" href="btn-loading.css?v=dddee0db" media="print" onload="this.media='all'">
@@ -57,12 +57,11 @@
     <noscript>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
         <link rel="stylesheet" href="user.min.css?v=cf1c1307">
-<link rel="stylesheet" href="profile-information.css?v=20261030-profile-info">
         <link rel="stylesheet" href="offer.css?v=bc7fa165">
         <link rel="stylesheet" href="btn-loading.css?v=dddee0db">
         <link rel="stylesheet" href="ux-final.css?v=482f4e74">
     </noscript>
-    <script src="btn-loading.js?v=20261030a"></script>
+    <script src="btn-loading.js?v=135bec08"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" media="print" onload="this.media='all'">
     <script src="permission-every.js?v=c0db5117"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.4/dist/umd/supabase.js" defer></script>
@@ -1230,12 +1229,7 @@
             </div>
         </div>
 
-        <div class="menu-card-item mf-complete-info-card" id="mf-complete-info-card" role="button" tabindex="0" aria-label="Complete your information">
-  <div class="menu-icon" style="background:#ffe6eb;color:#d6334a;"><i class="fa-solid fa-user-pen"></i></div>
-  <div class="menu-text"><h3>Complete Your Information</h3><p id="mf-complete-info-subtitle">Add your name, phone number and date of birth to complete your profile.</p></div>
-  <i class="fa-solid fa-chevron-right" style="color:#d6334a;"></i>
-</div>
-<div class="profile-menu-list">
+        <div class="profile-menu-list">
 
             <!-- MY BOX - Prescription History -->
             <div class="menu-card-item" id="my-box-btn" style="background: linear-gradient(135deg, #fff5f5, #ffe8e8); border: 1px solid #ffcdd2;">
@@ -2212,31 +2206,6 @@
 
 </div>
 
-<style>
-.mf-info-page{background:#f4f6fa;overflow-y:auto;padding-bottom:110px}.mf-info-main{max-width:680px;margin:0 auto;padding:16px;box-sizing:border-box}.mf-info-header{display:flex;align-items:center;gap:14px;margin:2px 0 18px}.mf-info-header>button{width:42px;height:42px;border:1px solid #e7eaf0;background:#fff;border-radius:14px;color:#d6334a;font-size:18px;box-shadow:0 5px 16px #202b4410}.mf-info-header h1{font-size:22px;color:#252c3a;margin:0}.mf-info-header p{font-size:12px;color:#7b8494;margin:4px 0 0}.mf-info-card{background:#fff;border:1px solid #edf0f5;border-radius:22px;padding:20px;box-shadow:0 12px 35px #17233b0b}.mf-info-avatar-row{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid #f0f1f5}.mf-info-avatar-row img{width:62px;height:62px;border-radius:50%;object-fit:cover;border:3px solid #ffe2e7}.mf-info-avatar-row h2{font-size:16px;margin:0;color:#252c3a}.mf-info-avatar-row p{font-size:12px;color:#858d9b;margin:5px 0 0}.mf-info-avatar-row button{margin-left:auto;border:0;border-radius:12px;width:40px;height:40px;color:#d6334a;background:#fff0f3;font-size:17px}.mf-info-card form>label:not(.mf-info-terms){display:block;font-size:13px;font-weight:700;color:#303747;margin:15px 0 7px}.mf-info-card form>label span,.mf-info-terms b{color:#d6334a}.mf-info-card input:not([type=checkbox]){width:100%;height:48px;box-sizing:border-box;padding:0 13px;border:1px solid #e2e6ed;border-radius:12px;background:#fbfcfe;color:#252c3a;font-size:14px;outline:none}.mf-info-card input:focus{border-color:#d6334a;box-shadow:0 0 0 3px #d6334a18}.mf-info-card input[readonly]{background:#f1f3f7;color:#788191}.mf-info-age{font-size:12px;color:#277f65;background:#eaf8f2;border-radius:10px;padding:10px 12px;margin-top:8px}.mf-info-terms{display:flex;gap:10px;align-items:flex-start;margin:20px 0 10px;font-size:12px;line-height:1.6;color:#596273}.mf-info-terms input{margin-top:3px;accent-color:#d6334a;width:17px;height:17px;flex-shrink:0}.mf-info-terms a{color:#c52d45;font-weight:700}.mf-info-note{font-size:11px;line-height:1.5;color:#8b93a1;margin:10px 0 16px}.mf-info-card #mf-info-save{width:100%;height:50px;border:0;border-radius:14px;background:linear-gradient(120deg,#d6334a,#f04a4d);color:#fff;font-size:14px;font-weight:800;box-shadow:0 8px 18px #d6334a2b}.mf-info-card #mf-info-save:disabled{opacity:.65}.mf-info-card #mf-info-status{font-size:12px;color:#267b5c;margin:12px 0 0;min-height:16px;overflow-wrap:anywhere}.mf-complete-info-card{cursor:pointer;border:1px solid #ffe0e5!important;background:linear-gradient(110deg,#fff,#fff5f7)!important}.mf-complete-info-card:focus{outline:2px solid #d6334a;outline-offset:2px}#tc_earnGrid .card[role=button]:focus{outline:2px solid #d6334a;outline-offset:2px}
-@media(min-width:700px){.mf-info-main{padding:30px 22px}.mf-info-card{padding:28px}.mf-info-header h1{font-size:25px}}
-</style>
-
-<div id="page-my-information" class="app-page mf-info-page" data-page="my-information">
-  <main class="mf-info-main">
-    <header class="mf-info-header"><button type="button" id="mf-info-back" aria-label="Back to profile"><i class="fa-solid fa-arrow-left"></i></button><div><h1>My Information</h1><p>Complete your profile securely</p></div></header>
-    <section class="mf-info-card">
-      <div class="mf-info-avatar-row"><img id="mf-info-avatar" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Profile photo"><div><h2>Personal details</h2><p>Keep your information up to date.</p></div><button type="button" id="mf-info-photo-btn" aria-label="Change profile photo"><i class="fa-solid fa-camera"></i></button></div>
-      <form id="mf-info-form" novalidate>
-        <label for="mf-info-name">Full name <span>*</span></label><input id="mf-info-name" name="full_name" type="text" autocomplete="name" maxlength="100" required placeholder="Enter your full name">
-        <label for="mf-info-phone">Phone number <span>*</span></label><input id="mf-info-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" required placeholder="10-digit mobile number">
-        <label for="mf-info-dob">Date of birth <span>*</span></label><input id="mf-info-dob" name="date_of_birth" type="date" required>
-        <div class="mf-info-age" id="mf-info-age" aria-live="polite">Your age will appear here.</div>
-        <label for="mf-info-email">Email address</label><input id="mf-info-email" type="email" readonly placeholder="Your account email">
-        <label class="mf-info-terms"><input id="mf-info-terms" type="checkbox" required><span>I have read and agree to the <a href="#" id="mf-info-terms-link">Terms &amp; Conditions</a> and Privacy Policy. <b>*</b></span></label>
-        <p class="mf-info-note">Your date of birth is used to calculate your age. Only enter accurate information.</p>
-        <button type="submit" id="mf-info-save"><i class="fa-solid fa-check"></i> Save Information</button>
-        <p id="mf-info-status" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-  </main>
-</div>
-
 <div id="page-tablet-coin" class="app-page pg-coin">
 <main class="main-content-scrollable">
 
@@ -2348,29 +2317,11 @@
     </nav>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
     <script src="prod-utils.js?v=00ded7fb" defer></script>
-    <script src="user.min.js?v=20261102-home-freeze-fix5" defer></script>
+    <script src="user.min.js?v=e88773c1" defer></script>
     <script src="ux-final.js?v=346553eb" defer></script>
 <script src="offer.js?v=ee17ca87" defer></script>
 <script src="campaign-page.js?v=78f5e57d" defer></script>
 <script src="app-settings.js?v=dfe01d34" defer></script>
 <script src="push-notifications.js?v=81cb258c" defer></script>
-<script>
-(function(){
-'use strict';const $=id=>document.getElementById(id),avatar='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';let user=null;
-function ageOf(v){if(!v)return null;const d=new Date(v+'T00:00:00'),n=new Date();if(Number.isNaN(d.getTime())||d>n)return null;let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0&&a<=120?a:null}
-function ageUI(){const a=ageOf($('mf-info-dob')?.value);if($('mf-info-age'))$('mf-info-age').textContent=a===null?'Select a valid date of birth to calculate your age.':'Age: '+a+' years';return a}
-function complete(p){return !!(p&&String(p.full_name||'').trim().length>=2&&String(p.phone||'').replace(/\D/g,'').length>=10&&p.date_of_birth&&p.terms_accepted===true)}
-async function getUser(){if(!window.supabase?.auth)return null;const {data,error}=await window.supabase.auth.getSession();if(error)throw error;user=data?.session?.user||null;return user}
-async function refreshCard(){const c=$('mf-complete-info-card');if(!c||!window.supabase)return;try{const u=user||await getUser();if(!u){c.style.display='';return}const [{data:p},{data:claims}]=await Promise.all([window.supabase.from('profiles').select('full_name,phone,date_of_birth,terms_accepted').eq('id',u.id).maybeSingle(),window.supabase.from('coin_transactions').select('id').eq('user_id',u.id).eq('type','profile_complete').limit(1)]);const done=complete(p)&&Array.isArray(claims)&&claims.length>0;c.style.display=done?'none':'';if($('mf-complete-info-subtitle'))$('mf-complete-info-subtitle').textContent=complete(p)?'Your information is complete. Your profile reward is ready in Tablet Coin.':'Add your name, phone number and date of birth to complete your profile.'}catch(e){c.style.display=''}}
-async function loadInfo(){const s=$('mf-info-status');try{const u=await getUser();if(!u){s.textContent='Please sign in to update your information.';return}const {data:p,error}=await window.supabase.from('profiles').select('id,email,phone,full_name,date_of_birth,terms_accepted,avatar_url').eq('id',u.id).maybeSingle();if(error)throw error;const d=p||{};$('mf-info-name').value=d.full_name||u.user_metadata?.full_name||u.user_metadata?.name||localStorage.getItem('medi_profile_name')||'';$('mf-info-phone').value=d.phone||u.phone||'';$('mf-info-dob').value=d.date_of_birth||'';$('mf-info-email').value=d.email||u.email||'';$('mf-info-terms').checked=d.terms_accepted===true;$('mf-info-avatar').src=d.avatar_url||localStorage.getItem('medi_saved_profile_image')||avatar;ageUI();await refreshCard();s.textContent=''}catch(e){s.textContent='Could not load information. Please try again.';console.error(e)}}
-function openInfo(){window.navigateTo?.('my-information');loadInfo()}
-function navPatch(){if(typeof window.navigateTo!=='function'||window.navigateTo.__mfInfoWrapped)return;const orig=window.navigateTo;const fn=function(page,...args){if(page==='my-information'){document.querySelectorAll('.app-page').forEach(x=>x.classList.remove('active'));$('page-my-information')?.classList.add('active');document.querySelectorAll('#bottom-nav .nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page==='profile'));document.querySelectorAll('#home-only-header,.home-only-header').forEach(x=>x.style.display='none');loadInfo();return}if(page==='profile'&&$('page-my-information')?.classList.contains('active')){$('page-my-information').classList.remove('active');$('page-profile')?.classList.add('active');document.querySelectorAll('#bottom-nav .nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page==='profile'));refreshCard();return}return orig.call(this,page,...args)};fn.__mfInfoWrapped=true;window.navigateTo=fn}
-function bind(){ $('mf-info-back')?.addEventListener('click',()=>window.navigateTo('profile'));$('mf-complete-info-card')?.addEventListener('click',openInfo);$('mf-complete-info-card')?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openInfo()}});$('edit-profile-btn')?.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openInfo()},true);$('mf-info-dob')?.addEventListener('change',ageUI);$('mf-info-photo-btn')?.addEventListener('click',()=>$('upload-photo')?.click());$('mf-info-terms-link')?.addEventListener('click',e=>{e.preventDefault();$('terms-trigger')?.click()});$('upload-photo')?.addEventListener('change',()=>setTimeout(()=>{if($('profile-pic')?.src)$('mf-info-avatar').src=$('profile-pic').src},700));
-$('mf-info-form')?.addEventListener('submit',async e=>{e.preventDefault();const b=$('mf-info-save'),s=$('mf-info-status'),name=$('mf-info-name').value.trim(),phone=$('mf-info-phone').value.trim(),digits=phone.replace(/\D/g,''),dob=$('mf-info-dob').value,a=ageUI();if(name.length<2){s.textContent='Please enter your full name.';return}if(digits.length<10||digits.length>15){s.textContent='Please enter a valid phone number.';return}if(a===null){s.textContent='Please select a valid date of birth.';return}if(!$('mf-info-terms').checked){s.textContent='Please accept Terms & Conditions to continue.';return}b.disabled=true;b.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Saving…';s.textContent='';try{const u=await getUser();if(!u)throw Error('Please sign in again and retry.');const row={id:u.id,email:u.email||$('mf-info-email').value.trim()||null,full_name:name,phone,date_of_birth:dob,terms_accepted:true,terms_accepted_at:new Date().toISOString(),updated_at:new Date().toISOString()};const {error}=await window.supabase.from('profiles').upsert(row,{onConflict:'id'});if(error)throw error;localStorage.setItem('medi_profile_name',name);document.querySelectorAll('#user-name').forEach(x=>x.textContent=name);try{const {error:r}=await window.supabase.rpc('claim_profile_complete_bonus');if(r&&!/already claimed/i.test(r.message||''))console.warn('Profile reward:',r.message)}catch(r){console.warn('Profile reward:',r)}await refreshCard();s.textContent='Information saved successfully.';if(typeof window.showToast==='function')window.showToast('Your information has been saved.','success');setTimeout(()=>window.navigateTo('profile'),600)}catch(err){s.textContent=err?.message||'Could not save your information. Please try again.'}finally{b.disabled=false;b.innerHTML='<i class="fa-solid fa-check"></i> Save Information'}})}
-function patchCoins(){const c=Array.from(document.querySelectorAll('#tc_earnGrid .card')).find(x=>/Complete Your Profile/i.test(x.textContent||''));if(c){c.querySelector('[data-id="profile_complete"]')?.remove();c.style.cursor='pointer';c.setAttribute('role','button');c.onclick=openInfo}const d=Array.from(document.querySelectorAll('#tc_earnGrid .card')).find(x=>/Daily Check-in/i.test(x.textContent||''));if(d&&d.querySelector('.reward-row'))d.querySelector('.reward-row').textContent='🪙 +1 Tablet Coin'}
-function init(){navPatch();bind();const g=$('tc_earnGrid');if(g)new MutationObserver(patchCoins).observe(g,{childList:true,subtree:true});patchCoins();refreshCard();window.supabase?.auth?.onAuthStateChange(()=>{user=null;setTimeout(refreshCard,0)})}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-})();
-</script>
 </body>
 </html>
