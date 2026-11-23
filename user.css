@@ -3696,7 +3696,12 @@ header {
     transition: opacity 0.4s ease;
 }
 #mf-boot-loader.mf-loader-hidden { opacity: 0; pointer-events: none; }
-/* Removed animated placeholder pulse to reduce continuous WebView paint work. */ 50% { opacity: 1; } }
+/* Subtle pulse on the favicon placeholder while a product/list image is
+   still loading in the background (see mfApplySmartImage in user.js). */
+.mf-smart-img:not(.mf-img-ready) {
+    animation: mfImgPulse 1.1s ease-in-out infinite;
+}
+@keyframes mfImgPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
 :root{
   --maroon-deep:#b71c1c; --maroon:#D6334A; --maroon-bright:#ff4747;
@@ -7650,13 +7655,3 @@ html[data-theme="dark"] picture {
 .bottom-nav{background:rgba(255,255,255,.98)}
 .notification-dropdown{background:rgba(255,255,255,.99)}
 #page-product-detail .pd-sticky-actions{background:rgba(255,255,255,.98)}
-
-
-/* Low-end Android WebView paint-cost override for Home product thumbnails. */
-.product-card .img-container img {
-    filter: none !important;
-    transition: none !important;
-}
-.product-card:hover .img-container img {
-    transform: none !important;
-}
