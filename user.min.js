@@ -5954,28 +5954,98 @@ function setupOrdersHelpButton() { document.getElementById('orders-help-btn')?.r
 }
 
 function openOrdersHelpSheet(order) {
-    document.getElementById('orders-help-modal')?.remove();
-    const orderId = order ? (order.order_id || order.id || '') : '';
-    const whatsappMsg = encodeURIComponent("Hi, I need help with my Medifinder India order.\nOrder ID: " + orderId + "\nProblem: ");
-    const modal = document.createElement('div');
-    modal.id = 'orders-help-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:flex-end;justify-content:center;';
-    modal.innerHTML = `
-        <div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 26px;width:100%;max-width:420px;box-sizing:border-box;">
-            <h3 style="margin:0 0 4px;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> Order Help</h3>
-            <p style="margin:0 0 16px;font-size:0.8rem;color:#747d8c;">Order ID: <b>${mfEsc(orderId || '—')}</b></p>
-            <a href="mailto:medifinderindia@gmail.com?subject=${encodeURIComponent('Help with order ' + orderId)}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
-                <i class="fa-solid fa-envelope" style="color:#1c82aa;width:20px;text-align:center;"></i> Email Medifinder Support
-            </a>
-            <a href="https://api.whatsapp.com/send?phone=919382262825&text=${whatsappMsg}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:16px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
-                <i class="fa-brands fa-whatsapp" style="color:#25D366;width:20px;text-align:center;"></i> Chat on WhatsApp
-            </a>
-            <button type="button" id="orders-help-close" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;font-weight:600;cursor:pointer;">Close</button>
-        </div>`;
-    document.body.appendChild(modal);
-    const close = () => modal.remove();
-    modal.querySelector('#orders-help-close').addEventListener('click', close);
-    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+ const id=order?(order.order_id||order.id||''):'', status=String(order?.status||'').toLowerCase(), delivered=status==='delivered';
+ document.getElementById('orders-help-modal')?.remove();
+ const modal=document.createElement('div');modal.id='orders-help-modal';modal.style.cssText='position:fixed;inset:0;background:#f4f6fb;z-index:10020;display:flex;justify-content:center;';
+ const items=[
+ ['contact','fa-phone-volume','#5b6ee1','Change phone no. / email ID','Update contact details for this order'],
+ ['address','fa-location-dot','#159c88','Change delivery address','Request a delivery address change'],
+ ['date','fa-calendar-check','#d18a22','Change received date','Choose a preferred delivery date'],
+ ['cancelreturn',delivered?'fa-rotate-left':'fa-ban','#d94c63',delivered?'Return order':'Cancel order / Return',delivered?'Start a return request':'Cancel before merchant acceptance or review return help'],
+ ['chat','fa-robot','#7654cf','Chat with Mediguide','Chat in Bengali, English or Hindi']
+ ];
+ let buttons='';
+ items.forEach(x=>{buttons+='<button type="button" data-help-action="'+x[0]+'" style="width:100%;display:flex;align-items:center;gap:13px;text-align:left;padding:15px;border:1px solid #e9edf5;border-radius:15px;background:#fff;color:#263248;font-weight:700;font-size:.86rem;box-shadow:0 5px 18px rgba(26,42,74,.05);cursor:pointer;margin-bottom:11px;"><span style="width:42px;height:42px;flex:0 0 42px;border-radius:13px;background:'+x[2]+'18;color:'+x[2]+';display:grid;place-items:center;font-size:1.05rem;"><i class="fa-solid '+x[1]+'"></i></span><span style="flex:1;"><span style="display:block;">'+x[3]+'</span><small style="display:block;margin-top:4px;color:#8a94a6;font-weight:500;font-size:.72rem;">'+x[4]+'</small></span><i class="fa-solid fa-chevron-right" style="color:#aab2c0;"></i></button>';});
+ modal.innerHTML='<div id="mf-help-home" style="width:100%;max-width:520px;height:100%;overflow-y:auto;background:#f4f6fb;"><header style="position:sticky;top:0;z-index:2;background:linear-gradient(120deg,#a91635,#e33d58 58%,#f07a58);padding:18px;color:#fff;box-shadow:0 5px 18px #a9163528;"><button id="mf-help-close" style="border:0;background:#ffffff24;color:#fff;border-radius:10px;padding:8px 11px;"><i class="fa-solid fa-arrow-left"></i></button><div style="margin-top:15px;display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;border-radius:14px;background:#ffffff24;display:grid;place-items:center;font-size:1.2rem;"><i class="fa-solid fa-headset"></i></div><div><h2 style="margin:0;font-size:1.15rem;">Order Help Centre</h2><p style="margin:4px 0 0;font-size:.76rem;opacity:.9;">Medifinder India · Order '+mfEsc(id)+'</p></div></div></header><main style="padding:18px;"><div style="padding:14px 15px;border-radius:14px;background:#fff;border:1px solid #e9edf5;margin-bottom:13px;"><div style="font-size:.72rem;color:#8590a3;font-weight:700;">CURRENT ORDER</div><div style="margin-top:5px;font-weight:800;color:#27334a;">'+mfEsc(getOrderDisplayStatus(order))+'</div><div style="font-size:.75rem;color:#8993a4;margin-top:3px;">Order ID: '+mfEsc(id)+'</div></div>'+buttons+'<p style="text-align:center;color:#9aa3b2;font-size:.7rem;margin:8px 0 12px;">Medifinder India Customer Support</p></main></div>';
+ document.body.appendChild(modal);
+ modal.querySelector('#mf-help-close').onclick=()=>modal.remove();
+ modal.querySelectorAll('[data-help-action]').forEach(b=>b.onclick=()=>{const k=b.dataset.helpAction;if(k==='chat')openMediguideChat(order,modal);else if(k==='cancelreturn')openOrderCancelReturnHelp(order,modal);else openOrderChangePage(order,k,modal);});
+}
+function mfHelpHeader(title,id){return '<header style="position:sticky;top:0;z-index:3;background:linear-gradient(120deg,#a91635,#e33d58 58%,#f07a58);padding:14px 17px;color:#fff;display:flex;align-items:center;gap:12px;box-shadow:0 5px 18px #a9163528;"><button type="button" data-help-back style="border:0;background:#ffffff24;color:#fff;border-radius:10px;padding:9px 11px;"><i class="fa-solid fa-arrow-left"></i></button><div><b style="font-size:.98rem;">'+title+'</b><div style="font-size:.7rem;opacity:.85;margin-top:3px;">Order '+mfEsc(id)+'</div></div></header>';}
+function openOrderChangePage(order,kind,parent){
+ const id=order.order_id||order.id||'',cfg={
+ contact:{title:'Change phone / email',fields:'<label class="mf-help-label">New phone number</label><input id="mf-help-phone" type="tel" value="'+mfEsc(order.customer_phone||'')+'" placeholder="Enter new phone number" class="mf-help-input"><label class="mf-help-label">New email ID</label><input id="mf-help-email" type="email" value="'+mfEsc(order.customer_email||order.email||'')+'" placeholder="Enter new email address" class="mf-help-input">'},
+ address:{title:'Change delivery address',fields:'<label class="mf-help-label">New delivery address</label><textarea id="mf-help-address" class="mf-help-input" rows="4" placeholder="House / Flat, Street, Area, Landmark, City, PIN code">'+mfEsc(order.customer_address||order.delivery_address||order.address||'')+'</textarea><label class="mf-help-label">Landmark (optional)</label><input id="mf-help-landmark" class="mf-help-input" placeholder="Nearby landmark">'},
+ date:{title:'Change received date',fields:'<label class="mf-help-label">Preferred delivery date</label><input id="mf-help-date" type="date" class="mf-help-input" min="'+new Date().toISOString().slice(0,10)+'"><label class="mf-help-label">Preferred time (optional)</label><select id="mf-help-time" class="mf-help-input"><option value="">Any time</option><option>Morning (9 AM–12 PM)</option><option>Afternoon (12 PM–4 PM)</option><option>Evening (4 PM–8 PM)</option></select>'}
+ }[kind];
+ parent.querySelector('#mf-help-home')?.remove();
+ const page=document.createElement('div');page.id='mf-help-change-page';page.style.cssText='width:100%;max-width:520px;height:100%;overflow-y:auto;background:#f4f6fb;';
+ page.innerHTML=mfHelpHeader(cfg.title,id)+'<main style="padding:20px 17px;"><div style="background:#fff;border:1px solid #e9edf5;border-radius:17px;padding:17px;box-shadow:0 6px 20px rgba(26,42,74,.04);"><div style="font-size:.8rem;color:#67748a;margin-bottom:15px;">Enter the updated details for this order.</div>'+cfg.fields+'<div style="background:#fff8e8;border:1px solid #f6e3b7;border-radius:12px;padding:12px;margin-top:15px;color:#8b671e;font-size:.75rem;line-height:1.5;"><i class="fa-solid fa-circle-info"></i> Courier partner update is not connected yet. This is a request preview only; your live order will not change.</div><button type="button" id="mf-help-submit" style="width:100%;margin-top:16px;border:0;border-radius:12px;padding:14px;background:linear-gradient(110deg,#a91635,#e34c62);color:#fff;font-weight:800;box-shadow:0 7px 16px #a9163530;">Review request</button></div></main>';
+ parent.appendChild(page);page.querySelector('[data-help-back]').onclick=()=>{page.remove();openOrdersHelpSheet(order);};
+ page.querySelector('#mf-help-submit').onclick=()=>showToast('Request preview only. Courier update API is not connected yet; no changes were made.','error');
+}
+function openOrderCancelReturnHelp(order,parent){
+ const id=order.order_id||order.id||'',s=String(order.status||'').toLowerCase(),delivered=s==='delivered';
+ parent.querySelector('#mf-help-home')?.remove();
+ const page=document.createElement('div');page.style.cssText='width:100%;max-width:520px;height:100%;overflow-y:auto;background:#f4f6fb;';
+ page.innerHTML=mfHelpHeader(delivered?'Return order':'Cancel order / Return',id)+'<main style="padding:18px;"><div style="background:#fff;border:1px solid #e9edf5;border-radius:16px;padding:16px;color:#46536a;font-size:.82rem;line-height:1.6;">'+(delivered?'Your order is marked delivered. You can review return eligibility and start a return request below.':'Cancellation is available only until the merchant accepts the order. Once accepted, the cancellation window closes.')+'</div><div style="display:grid;gap:10px;margin-top:14px;">'+(!delivered&&s==='pending'?'<button id="mf-help-cancel-now" style="padding:14px;border:0;border-radius:13px;background:#d83f58;color:#fff;font-weight:800;">Cancel this order</button>':'')+(delivered?'<button id="mf-help-return-now" style="padding:14px;border:0;border-radius:13px;background:linear-gradient(110deg,#a91635,#e34c62);color:#fff;font-weight:800;">Open Return / Exchange</button>':'')+'<button data-help-back style="padding:13px;border:1px solid #e1e6ee;border-radius:13px;background:#fff;color:#4d5a70;font-weight:700;">Back to Help</button></div></main>';
+ parent.appendChild(page);page.querySelector('[data-help-back]').onclick=()=>{page.remove();openOrdersHelpSheet(order);};
+ page.querySelector('#mf-help-cancel-now')?.addEventListener('click',()=>window.handleCancelOrderFlow(id,order.status));
+ page.querySelector('#mf-help-return-now')?.addEventListener('click',()=>{parent.remove();document.getElementById('order-detail-modal')?.remove();window.openOrderDetailModal(id).then(()=>setTimeout(()=>document.getElementById('od-return-btn')?.click(),700));});
+}
+function openMediguideChat(order,parent){
+ const id=order.order_id||order.id||'',s=String(order.status||'').toLowerCase();
+ parent.querySelector('#mf-help-home')?.remove();
+ const page=document.createElement('div');page.style.cssText='width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;background:#e9edf2;';
+ page.innerHTML='<header style="background:linear-gradient(110deg,#a91635,#df405a);color:#fff;padding:13px 15px;display:flex;align-items:center;gap:11px;box-shadow:0 3px 12px #0002;"><button type="button" data-help-back style="border:0;background:#ffffff24;color:#fff;border-radius:10px;padding:9px 11px;"><i class="fa-solid fa-arrow-left"></i></button><div style="width:37px;height:37px;border-radius:50%;background:#ffffff25;display:grid;place-items:center;"><i class="fa-solid fa-robot"></i></div><div style="flex:1;"><b>Mediguide</b><div style="font-size:.68rem;opacity:.85;">Order assistant · '+mfEsc(id)+'</div></div><span style="font-size:.68rem;background:#ffffff20;border-radius:20px;padding:5px 8px;">● Online</span></header><div id="mf-mg-messages" style="flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:10px;background-color:#e9edf2;background-image:radial-gradient(#d6dde6 .7px,transparent .7px);background-size:14px 14px;"></div><div id="mf-mg-stage" style="background:#fff;padding:12px;border-top:1px solid #e0e5ec;"></div>';
+ parent.appendChild(page);
+ const messages=page.querySelector('#mf-mg-messages'),stage=page.querySelector('#mf-mg-stage');
+ const tr={
+ bn:{choose:'তোমার পছন্দের ভাষা বেছে নাও।',how:'কীভাবে সাহায্য করতে পারি? নিচের প্রশ্ন বেছে নাও অথবা নিজের প্রশ্ন লিখো।',ph:'এখানে মেসেজ লেখো…',topics:['অর্ডারের বর্তমান অবস্থা','কখন Ship হবে?','কবে Delivery হবে?','কুরিয়ার ও Tracking তথ্য','ডেলিভারি দেরি হচ্ছে','ফোন / ঠিকানা পরিবর্তন','Payment ও Refund','Cancel / Return','Prescription / Medicine help','অন্য প্রশ্ন'],a:[
+ 'তোমার অর্ডারের বর্তমান Status: '+getOrderDisplayStatus(order)+'. Order ID: '+id,
+ 'Merchant Accept করার পর order processing ও shipment update দেখা যাবে। Courier/AWB তথ্য পাওয়া গেলে Track Order-এ দেখাবে।',
+ Number(order.eta_minutes)>0?'সিস্টেমে আনুমানিক '+order.eta_minutes+' মিনিট দেখানো হয়েছে। সময় বদলাতে পারে; Live Track দেখো।':'এই অর্ডারের নির্ভরযোগ্য Delivery ETA এখন পাওয়া যাচ্ছে না। Courier tracking-এর সর্বশেষ scan দেখো।',
+ order.courier_tracking?'Courier: '+(order.courier_name||order.courier_provider||'Delivery partner')+' · AWB: '+order.courier_tracking+'. Track Order খুলে বিস্তারিত দেখো।':'এখনও Courier/AWB Tracking নম্বর পাওয়া যায়নি। Shipment তৈরি হলে আপডেট হবে।',
+ 'Delivery দেরি হলে Track Order-এর সর্বশেষ scan দেখো। Tracking update না এলে Order Help থেকে Medifinder Support-এ যোগাযোগ করো.',
+ 'Help Centre → Change phone no. / email ID অথবা Change delivery address বেছে নাও। Courier API যুক্ত না হওয়া পর্যন্ত পরিবর্তন কার্যকর হবে না.',
+ 'Payment status Order Details / Bill Details-এ দেখো। Refund timing payment provider ও order review-এর ওপর নির্ভর করে.',
+ s==='pending'?'Merchant Accept করার আগে Cancel করা যায়। Merchant Accept করলেই cancellation window বন্ধ হয়.':'Your order cancellation window has been closed. Merchant ইতিমধ্যে order accept করেছে.',
+ 'ওষুধের ডোজ বা ব্যবহার বিষয়ে অনুমান কোরো না। প্যাকেটের নির্দেশনা বা চিকিৎসকের পরামর্শ অনুসরণ করো।',
+ 'তোমার প্রশ্নটি আরেকটু বিস্তারিত লিখো। নিশ্চিত তথ্য না থাকলে Medifinder Support-এর সঙ্গে যোগাযোগ করো.'
+ ]},
+ en:{choose:'Please choose your preferred language.',how:'How can I help you? Choose a question below or type your own message.',ph:'Type a message…',topics:['My order status','When will it ship?','When will it arrive?','Courier & tracking details','Delivery is delayed','Change phone / address','Payment & refund','Cancel / return','Prescription / medicine help','Other question'],a:[
+ 'Your current order status is '+getOrderDisplayStatus(order)+'. Order ID: '+id,
+ 'Shipment updates appear after the merchant accepts and processes your order. Courier/AWB details appear in Track Order when available.',
+ Number(order.eta_minutes)>0?'The system currently estimates '+order.eta_minutes+' minutes. This may change; check Live Track.':'A reliable delivery ETA is not available yet. Check the latest courier scan.',
+ order.courier_tracking?'Courier: '+(order.courier_name||order.courier_provider||'Delivery partner')+' · AWB: '+order.courier_tracking+'. Open Track Order for details.':'A courier/AWB number is not available yet. It should appear after shipment creation.',
+ 'For a delayed delivery, check the latest scan in Track Order. If tracking has not updated, contact Medifinder Support from Order Help.',
+ 'Open Help Centre → Change phone no. / email ID or Change delivery address. The change will not take effect until the courier update API is connected.',
+ 'Check Payment Status in Order Details / Bill Details. Refund timing depends on the payment provider and order review.',
+ s==='pending'?'You can cancel before the merchant accepts the order. The cancellation window closes as soon as the merchant accepts it.':'Your order cancellation window has been closed. The merchant has accepted this order.',
+ 'Do not guess medicine dosage or usage. Follow the pack instructions or your clinician’s advice. This chat is for order-related assistance.',
+ 'Please describe your question in more detail. For anything not confirmed by order information, contact Medifinder Support.'
+ ]},
+ hi:{choose:'कृपया अपनी पसंद की भाषा चुनें।',how:'मैं आपकी कैसे मदद कर सकता हूँ? नीचे सवाल चुनें या अपना सवाल लिखें।',ph:'मैसेज लिखें…',topics:['मेरे ऑर्डर की स्थिति','कब शिप होगा?','कब डिलीवर होगा?','कूरियर और ट्रैकिंग','डिलीवरी में देरी','फोन / पता बदलें','भुगतान और रिफंड','रद्द / रिटर्न','प्रिस्क्रिप्शन / दवा सहायता','अन्य सवाल'],a:[
+ 'आपके ऑर्डर की वर्तमान स्थिति '+getOrderDisplayStatus(order)+' है। Order ID: '+id,
+ 'मर्चेंट के ऑर्डर स्वीकार और प्रोसेस करने के बाद शिपमेंट अपडेट दिखेंगे। Courier/AWB जानकारी Track Order में मिलेगी.',
+ Number(order.eta_minutes)>0?'सिस्टम में लगभग '+order.eta_minutes+' मिनट का अनुमान है। यह बदल सकता है; Live Track देखें।':'इस ऑर्डर का सटीक डिलीवरी समय अभी उपलब्ध नहीं है। कूरियर का नवीनतम अपडेट देखें।',
+ order.courier_tracking?'Courier: '+(order.courier_name||order.courier_provider||'Delivery partner')+' · AWB: '+order.courier_tracking+'। Track Order खोलें।':'अभी Courier/AWB नंबर उपलब्ध नहीं है। शिपमेंट बनने के बाद दिखेगा।',
+ 'देरी होने पर Track Order में नवीनतम अपडेट देखें। अपडेट न मिले तो Order Help से Medifinder Support से संपर्क करें।',
+ 'Help Centre → Change phone no. / email ID या Change delivery address चुनें। Courier API जुड़ने तक बदलाव लागू नहीं होगा।',
+ 'Payment Status, Order Details / Bill Details में देखें। Refund का समय भुगतान सेवा और जाँच पर निर्भर करता है।',
+ s==='pending'?'मर्चेंट के स्वीकार करने से पहले ऑर्डर रद्द किया जा सकता है। स्वीकार होते ही रद्द करने की अवधि बंद हो जाती है।':'आपके ऑर्डर की cancellation window बंद हो गई है। मर्चेंट ऑर्डर स्वीकार कर चुका है।',
+ 'दवा की खुराक या उपयोग का अनुमान न लगाएँ। पैक के निर्देश या डॉक्टर की सलाह मानें। यह चैट ऑर्डर सहायता के लिए है।',
+ 'कृपया अपना सवाल थोड़ा विस्तार से लिखें। पुष्टि की गई जानकारी से बाहर के लिए Medifinder Support से संपर्क करें।'
+ ]}
+ };
+ let lang=null,started=false;
+ function bubble(text,me){const el=document.createElement('div');el.style.cssText='max-width:86%;align-self:'+(me?'flex-end':'flex-start')+';background:'+(me?'#d9fdd3':'#fff')+';color:#263248;padding:10px 12px;border-radius:'+(me?'13px 4px 13px 13px':'4px 13px 13px 13px')+';box-shadow:0 2px 5px #26324812;font-size:.82rem;line-height:1.5;white-space:pre-wrap;';el.textContent=text;messages.appendChild(el);messages.scrollTop=messages.scrollHeight;}
+ function showTopics(){const t=tr[lang];stage.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;">'+t.topics.map((x,i)=>'<button data-topic="'+i+'" style="padding:9px 8px;border:1px solid #e3e8ef;border-radius:12px;background:#f8fafc;color:#43516a;font-size:.72rem;text-align:left;">'+x+'</button>').join('')+'</div><form id="mf-mg-form" style="display:flex;gap:7px;"><input id="mf-mg-input" placeholder="'+t.ph+'" style="flex:1;min-width:0;border:1px solid #dfe5ed;border-radius:22px;padding:11px 14px;outline:none;"><button style="border:0;border-radius:22px;padding:0 17px;background:#c52e4b;color:#fff;font-weight:800;">Send</button></form>';stage.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>{const n=Number(b.dataset.topic);bubble(t.topics[n],true);bubble(t.a[n],false);});stage.querySelector('#mf-mg-form').onsubmit=e=>{e.preventDefault();const inp=stage.querySelector('#mf-mg-input'),v=inp.value.trim();if(!v)return;bubble(v,true);const q=v.toLowerCase();let n=9;if(/status|অবস্থা|কোথায়|स्थिति|कहाँ/.test(q))n=0;else if(/ship|dispatch|শিপ|पठ|भेज/.test(q))n=1;else if(/deliver|কবে|ডেলিভারি|डिलीवर|पहुँच/.test(q))n=2;else if(/track|awb|courier|ট্র্যাক|কুরিয়ার|कूरियर/.test(q))n=3;else if(/late|delay|দেরি|देरी/.test(q))n=4;else if(/phone|email|address|ঠিকানা|ফোন|पता|फोन/.test(q))n=5;else if(/payment|refund|পেমেন্ট|রিফান্ড|भुगतान/.test(q))n=6;else if(/cancel|return|রিটার্ন|বাতিল|रिटर्न/.test(q))n=7;else if(/medicine|dose|ওষুধ|ডোজ|दवा/.test(q))n=8;bubble(t.a[n],false);};}
+ function showLanguage(){bubble(tr.en.choose,false);stage.innerHTML='<div style="font-weight:700;font-size:.82rem;color:#46536a;margin-bottom:9px;">Select your language</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"><button data-lang="bn" style="padding:12px;border:1px solid #e6eaf0;border-radius:12px;background:#fff;font-weight:700;">বাংলা</button><button data-lang="en" style="padding:12px;border:1px solid #e6eaf0;border-radius:12px;background:#fff;font-weight:700;">English</button><button data-lang="hi" style="padding:12px;border:1px solid #e6eaf0;border-radius:12px;background:#fff;font-weight:700;">हिन्दी</button></div>';stage.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{lang=b.dataset.lang;bubble(b.textContent,true);bubble(tr[lang].how,false);showTopics();});}
+ bubble('Hi',true);bubble('Hi! Welcome to Mediguide. Type Hi below and tap Send to begin.',false);
+ stage.innerHTML='<form id="mf-mg-start" style="display:flex;gap:7px;"><input id="mf-mg-start-input" placeholder="Type Hi to start…" style="flex:1;min-width:0;border:1px solid #dfe5ed;border-radius:22px;padding:11px 14px;outline:none;"><button style="border:0;border-radius:22px;padding:0 17px;background:#c52e4b;color:#fff;font-weight:800;">Send</button></form>';
+ stage.querySelector('#mf-mg-start').onsubmit=e=>{e.preventDefault();const v=stage.querySelector('#mf-mg-start-input').value.trim();if(!v)return;bubble(v,true);if(!started){started=true;showLanguage();}};
+ page.querySelector('[data-help-back]').onclick=()=>{page.remove();openOrdersHelpSheet(order);};
 }
 
 let userOrdersChannel = null;
@@ -6499,12 +6569,7 @@ window.openOrderDetailModal = async function (orderId) {
           </div>
 
           <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">
-            <div id="od-mediguide-card" style="background:#fff;border:1px solid #e8eef3;border-radius:14px;padding:15px;margin-bottom:14px;">
- <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span style="width:36px;height:36px;border-radius:11px;background:#e8f6fb;color:#1c82aa;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-robot"></i></span><div><b style="font-size:0.9rem;color:#2f3542;">Chat with Mediguide</b><p style="margin:2px 0 0;font-size:0.7rem;color:#8a94a3;">Order-specific assistance · ${id}</p></div></div>
- <label for="od-mg-language" style="display:block;font-size:0.75rem;color:#57606f;margin-bottom:5px;">Choose language</label>
- <select id="od-mg-language" style="width:100%;padding:10px;border:1px solid #dfe6ec;border-radius:9px;background:#fff;margin-bottom:10px;"><option value="bn">বাংলা</option><option value="en">English</option><option value="hi">हिन्दी</option></select>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;"><button type="button" data-mg-topic="status">আমার Order Status</button><button type="button" data-mg-topic="ship">কখন Ship হবে?</button><button type="button" data-mg-topic="delivery">কবে Delivery হবে?</button><button type="button" data-mg-topic="track">Tracking Help</button><button type="button" data-mg-topic="cancel" style="grid-column:1/-1;">Cancel নিয়ম</button></div>
- <div id="od-mg-answer" aria-live="polite" style="margin-top:10px;padding:11px;border-radius:9px;background:#f4f8fb;color:#526171;font-size:0.78rem;line-height:1.5;">প্রশ্ন বেছে নাও।</div></div><h4 style="margin:0 0 10px;font-size:0.85rem;color:#2f3542;">Items</h4>
+            <h4 style="margin:0 0 10px;font-size:0.85rem;color:#2f3542;">Items</h4>
             ${itemsListHtml}
           </div>
 
@@ -6561,8 +6626,6 @@ window.openOrderDetailModal = async function (orderId) {
         }
         const helpBtn = document.getElementById('od-help-btn');
         if (helpBtn) helpBtn.addEventListener('click', () => openOrdersHelpSheet(order));
-        const mgLanguage = document.getElementById('od-mg-language');
-        if (mgLanguage) { mgLanguage.addEventListener('change', () => renderOrderMediguide(order)); renderOrderMediguide(order); }
         if (canCancel) {
             const cancelBtn = document.getElementById('od-cancel-btn');
             if (cancelBtn) cancelBtn.addEventListener('click', () => window.handleCancelOrderFlow(id, order.status));
