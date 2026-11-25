@@ -6332,6 +6332,19 @@ window.buyAgainFromOrder = async function (orderId, btn) {
     }
 };
 
+function getOrderMediguideAnswer(order, topic, lang) {
+ const status=getOrderDisplayStatus(order), raw=String(order.status||'').toLowerCase(), eta=Number(order.eta_minutes||0), courier=order.courier_name||order.courier_provider||'delivery partner', id=order.order_id||order.id;
+ const a={
+ bn:{status:'তোমার অর্ডারের বর্তমান স্ট্যাটাস: '+status+'। Order ID: '+id,ship:raw==='pending'?'Merchant এখনও অর্ডার Accept করেনি। Accept করার পর প্রস্তুতি ও শিপমেন্টের আপডেট দেখাবে।':raw==='accepted'?'Merchant অর্ডার Accept করেছে। Courier-এর হাতে দেওয়ার পর Tracking আপডেট হবে।':'Order Status ও Track অংশে সর্বশেষ আপডেট দেখো।',delivery:eta>0?'সিস্টেমে আনুমানিক '+eta+' মিনিট দেখানো হয়েছে। সময় বদলাতে পারে; Track দেখো।':'নির্দিষ্ট Delivery Date/Time এখনও পাওয়া যাচ্ছে না। Courier Tracking-এ আপডেট এলে সময় বোঝা যাবে।',track:order.courier_tracking?'Courier: '+courier+'। Tracking/AWB: '+order.courier_tracking+'। Track বাটনে বিস্তারিত দেখো।':'এখনও Courier Tracking/AWB নম্বর পাওয়া যায়নি। Shipment তৈরি হলে আপডেট আসবে।',cancel:raw==='pending'?'Merchant Accept করার আগে Cancel করা যাবে। Merchant Accept করলেই Cancellation Window বন্ধ হবে।':'Your order cancellation window has been closed. Merchant অর্ডার Accept করেছে।'},
+ en:{status:'Your current order status is '+status+'. Order ID: '+id,ship:raw==='pending'?'The merchant has not accepted this order yet. Preparation and shipment updates will appear after acceptance.':raw==='accepted'?'The merchant accepted your order. Tracking will update after the parcel is handed to the courier.':'Check Order Status and Track for the latest update.',delivery:eta>0?'The system currently shows an estimated '+eta+' minutes. This may change; check Track.':'An exact delivery date/time is not available yet. Check courier tracking for the latest scan.',track:order.courier_tracking?'Courier: '+courier+'. Tracking/AWB: '+order.courier_tracking+'. Open Track for details.':'A courier tracking/AWB number is not available yet. It will appear after shipment creation.',cancel:raw==='pending'?'You can cancel before the merchant accepts the order. Cancellation closes as soon as the merchant accepts it.':'Your order cancellation window has been closed. The merchant has already accepted this order.'},
+ hi:{status:'आपके ऑर्डर की वर्तमान स्थिति: '+status+'। Order ID: '+id,ship:raw==='pending'?'मर्चेंट ने अभी ऑर्डर स्वीकार नहीं किया है। स्वीकार करने के बाद तैयारी और शिपमेंट अपडेट दिखेंगे।':raw==='accepted'?'मर्चेंट ने ऑर्डर स्वीकार कर लिया है। कूरियर को सौंपने के बाद ट्रैकिंग अपडेट होगा।':'नवीनतम जानकारी के लिए Order Status और Track देखें।',delivery:eta>0?'सिस्टम में लगभग '+eta+' मिनट दिख रहे हैं। यह बदल सकता है; Track देखें।':'अभी सटीक डिलीवरी तारीख/समय उपलब्ध नहीं है। कूरियर ट्रैकिंग देखें।',track:order.courier_tracking?'Courier: '+courier+'। Tracking/AWB: '+order.courier_tracking+'। विवरण के लिए Track दबाएँ।':'अभी कूरियर Tracking/AWB नंबर उपलब्ध नहीं है। शिपमेंट बनने पर दिखेगा।',cancel:raw==='pending'?'मर्चेंट के ऑर्डर स्वीकार करने से पहले आप Cancel कर सकते हैं। स्वीकार होते ही Cancellation Window बंद होगी।':'आपके ऑर्डर की cancellation window बंद हो गई है। मर्चेंट ऑर्डर स्वीकार कर चुका है。'}};
+ return (a[lang]||a.en)[topic]||a.en.status;
+}
+function renderOrderMediguide(order){
+ const card=document.getElementById('od-mediguide-card');if(!card)return;const lang=card.querySelector('#od-mg-language').value;
+ const labels={bn:{status:'আমার Order Status',ship:'কখন Ship হবে?',delivery:'কবে Delivery হবে?',track:'Tracking Help',cancel:'Cancel নিয়ম',placeholder:'প্রশ্ন বেছে নাও।'},en:{status:'My order status',ship:'When will it ship?',delivery:'When will it arrive?',track:'Tracking help',cancel:'Cancellation rules',placeholder:'Choose a question.'},hi:{status:'मेरे ऑर्डर की स्थिति',ship:'कब शिप होगा?',delivery:'कब डिलीवर होगा?',track:'ट्रैकिंग सहायता',cancel:'रद्द करने के नियम',placeholder:'एक सवाल चुनें।'}};const l=labels[lang]||labels.en;
+ card.querySelectorAll('[data-mg-topic]').forEach(btn=>{btn.textContent=l[btn.dataset.mgTopic]||btn.dataset.mgTopic;btn.onclick=()=>{card.querySelector('#od-mg-answer').textContent=getOrderMediguideAnswer(order,btn.dataset.mgTopic,lang);};});card.querySelector('#od-mg-answer').textContent=l.placeholder;
+}
 window.openOrderDetailModal = async function (orderId) {
     try {
         document.getElementById('order-detail-modal')?.remove();
@@ -6430,6 +6443,7 @@ window.openOrderDetailModal = async function (orderId) {
             ${(s === 'delivered' && !isRx) ? `<button type="button" id="od-reorder-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Buy Again</button>` : ''}
             ${showInvoice ? `<button type="button" id="od-invoice-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ''}
             ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#1E9E6B;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
+            <button type="button" id="od-help-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-circle-question"></i> Help</button>
             ${canCancel ? `<button type="button" id="od-cancel-btn" style="flex:1;min-width:100px;background:#ff4d4d;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancel</button>` : ''}
             ${canReturnOrExchange && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> ${returnInfo.eligible && returnInfo.exchangeEligible ? 'Return / Exchange' : (returnInfo.eligible ? 'Return' : 'Exchange')}</button>` : ''}
           </div>
@@ -6484,7 +6498,12 @@ window.openOrderDetailModal = async function (orderId) {
           </div>
 
           <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">
-            <h4 style="margin:0 0 10px;font-size:0.85rem;color:#2f3542;">Items</h4>
+            <div id="od-mediguide-card" style="background:#fff;border:1px solid #e8eef3;border-radius:14px;padding:15px;margin-bottom:14px;">
+ <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;"><span style="width:36px;height:36px;border-radius:11px;background:#e8f6fb;color:#1c82aa;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-robot"></i></span><div><b style="font-size:0.9rem;color:#2f3542;">Chat with Mediguide</b><p style="margin:2px 0 0;font-size:0.7rem;color:#8a94a3;">Order-specific assistance · ${id}</p></div></div>
+ <label for="od-mg-language" style="display:block;font-size:0.75rem;color:#57606f;margin-bottom:5px;">Choose language</label>
+ <select id="od-mg-language" style="width:100%;padding:10px;border:1px solid #dfe6ec;border-radius:9px;background:#fff;margin-bottom:10px;"><option value="bn">বাংলা</option><option value="en">English</option><option value="hi">हिन्दी</option></select>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;"><button type="button" data-mg-topic="status">আমার Order Status</button><button type="button" data-mg-topic="ship">কখন Ship হবে?</button><button type="button" data-mg-topic="delivery">কবে Delivery হবে?</button><button type="button" data-mg-topic="track">Tracking Help</button><button type="button" data-mg-topic="cancel" style="grid-column:1/-1;">Cancel নিয়ম</button></div>
+ <div id="od-mg-answer" aria-live="polite" style="margin-top:10px;padding:11px;border-radius:9px;background:#f4f8fb;color:#526171;font-size:0.78rem;line-height:1.5;">প্রশ্ন বেছে নাও।</div></div><h4 style="margin:0 0 10px;font-size:0.85rem;color:#2f3542;">Items</h4>
             ${itemsListHtml}
           </div>
 
@@ -6539,6 +6558,10 @@ window.openOrderDetailModal = async function (orderId) {
             const otpBtn = document.getElementById('od-otp-btn');
             if (otpBtn) otpBtn.addEventListener('click', () => window.openDeliveryBoyVerificationModal(id, isRx));
         }
+        const helpBtn = document.getElementById('od-help-btn');
+        if (helpBtn) helpBtn.addEventListener('click', () => openOrdersHelpSheet(order));
+        const mgLanguage = document.getElementById('od-mg-language');
+        if (mgLanguage) { mgLanguage.addEventListener('change', () => renderOrderMediguide(order)); renderOrderMediguide(order); }
         if (canCancel) {
             const cancelBtn = document.getElementById('od-cancel-btn');
             if (cancelBtn) cancelBtn.addEventListener('click', () => window.handleCancelOrderFlow(id, order.status));
