@@ -227,7 +227,8 @@ function renderOrder(o,m){
  const payment=String(pick(o.payment_mode,o.payment_method,'COD')).replace(/_/g,' ').toUpperCase();
  const status=String(pick(o.status,'Pending')).toUpperCase();
  const payStatus=pick(o.payment_status);
- const customer=pick(o.customer_name,o.user_name,'Customer');
+ const patientName=pick(o.patient_name,o.customer_name,o.user_name,'Patient');
+ const customer=patientName;
  const phone=pick(o.customer_phone,o.user_phone);
  const address=pick(o.delivery_address,o.customer_address,o.address);
  const shopName=pick(m?.shop_name,m?.merchant_name,o.pharmacy_name,'Partner Pharmacy');
@@ -301,6 +302,9 @@ function renderOrder(o,m){
      <div class="total-row grand"><span>PAYABLE AMOUNT</span><span>${money(total)}</span></div>`,
    total,
    bottom1:`Payment Mode: <b>${esc(payment)}</b><br>Order Status: <b>${esc(status)}</b>${o.delivery_speed?('<br>Delivery Type: '+esc(cap(o.delivery_speed==='manual'?'Standard':o.delivery_speed))):''}${o.courier_name?'<br>Courier: '+esc(o.courier_name):''}${o.courier_tracking?'<br>Tracking: '+esc(o.courier_tracking):''}`,
+   trackingId:String(o.courier_tracking||''),
+   courierName:String(o.courier_name||o.delivery_partner||o.courier_provider||''),
+   trackingUrl:'https://www.shiprocket.in/shipment-tracking/',
    bottom2:'Sold by the pharmacy named above; MediFinder India acts as the marketplace platform. Medicines once delivered are returnable only as per the return policy. For support, use the Help Desk in the MediFinder India app.',
    signFor:'For '+esc(shopName)
  });
@@ -434,6 +438,12 @@ function shell(c){
        <div class="qr-note">Scan to view full invoice details</div>
      </div>
    </div>
+   ${type==='order'&&c.trackingId?`<div class="section" style="padding:12px 14px;background:#fff8f8">
+     <b style="font-size:12px">Shipment Tracking</b>
+     <p style="font-size:10px;margin:6px 0">Delivery Partner: <b>${esc(c.courierName||'Shiprocket courier partner')}</b><br>Tracking / AWB ID: <b>${esc(c.trackingId)}</b></p>
+     <a href="${esc(c.trackingUrl)}" target="_blank" rel="noopener" style="display:inline-block;background:#D6334A;color:#fff;text-decoration:none;padding:9px 14px;border-radius:7px;font-size:11px;font-weight:bold">Track Shipment</a>
+     <p style="font-size:9px;color:#555;margin-top:6px">Open courier tracking portal and enter the AWB / Tracking ID above.</p>
+   </div>`:''}
    <div class="section"><div class="section-title">${esc(c.itemsTitle)}</div><div class="items-wrap">${c.itemsHtml}</div></div>
    <div class="section summary-grid"><div class="tax-table">${c.leftSummary}</div><div class="totals">${c.totalsHtml}</div></div>
    <div class="amount-words"><b>Amount in Words:</b> ${amountWords(c.total)}</div>
@@ -442,7 +452,18 @@ function shell(c){
      <div class="bottom-box"><h4>Terms & Support</h4><p>${c.bottom2}</p></div>
      <div class="bottom-box"><h4>Authorised Signatory</h4>${canVerify?`<div class="vseal pending" id="vseal"><b>NOT VERIFIED YET</b><span>Pending verification by<br>${esc(ROLE[type])}</span><em>${esc(vid)}</em></div>`:''}<img class="sigimg" id="sigimg" alt="" style="display:none"><div class="sign" style="margin-top:14px">${c.signFor}</div></div>
    </div>
-   <div class="footer">Thank you for choosing <b>MediFinder India</b> · Your Health in Safe Hands</div>
+   <div class="footer" style="line-height:1.8">
+     <div style="display:flex;justify-content:center;align-items:center;gap:7px;margin-bottom:6px">
+       <img src="favicon.png" alt="Medifinder India logo" width="26" height="26" style="width:26px;height:26px;object-fit:contain">
+       <b>MEDIFINDER INDIA</b>
+     </div>
+     <div style="margin-bottom:5px">
+       <a href="https://www.facebook.com/profile.php?id=61590844315430" target="_blank" rel="noopener">Facebook</a> ·
+       <a href="https://www.youtube.com/@medifinderindia" target="_blank" rel="noopener">YouTube</a> ·
+       <a href="https://www.instagram.com/medifinderindia.com_/" target="_blank" rel="noopener">Instagram</a>
+     </div>
+     Thank you for choosing <b>MediFinder India</b><br><b>Your Health in Safe Hand</b>
+   </div>
  </div></div>`;
 }
 
