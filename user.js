@@ -5950,28 +5950,7 @@ async function setupOrdersPageModules() {
     setupOrdersHelpButton();
 }
 
-function setupOrdersHelpButton() {
-    const ordersPage = document.getElementById('page-order') || document.getElementById('order-list')?.closest('.app-page');
-    if (!ordersPage) return;
-    if (document.getElementById('orders-help-btn')) { _ordersHelpButtonBound = true; return; }
-
-    // Make sure the page can host an absolutely-positioned corner button
-    // without disturbing its existing layout.
-    const computedPos = window.getComputedStyle(ordersPage).position;
-    if (computedPos === 'static') ordersPage.style.position = 'relative';
-
-    const helpBtn = document.createElement('button');
-    helpBtn.id = 'orders-help-btn';
-    helpBtn.type = 'button';
-    helpBtn.setAttribute('aria-label', 'Help');
-    helpBtn.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
-    helpBtn.style.cssText = 'position:absolute;top:14px;right:14px;z-index:40;width:38px;height:38px;border-radius:50%;border:none;background:#1c82aa;color:#fff;font-size:1rem;box-shadow:0 3px 10px rgba(28,130,170,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;';
-    ordersPage.insertBefore(helpBtn, ordersPage.firstChild);
-
-    if (!_ordersHelpButtonBound) {
-        helpBtn.addEventListener('click', openOrdersHelpSheet);
-        _ordersHelpButtonBound = true;
-    }
+function setupOrdersHelpButton() { document.getElementById('orders-help-btn')?.remove(); // Help belongs inside order details only.
 }
 
 function openOrdersHelpSheet() {
@@ -6142,68 +6121,30 @@ function renderOrdersUI() {
 }
 
 window.handleCancelOrderFlow = function(orderId, pipelineStatus) {
-    // Prescription orders route to their own, much simpler cancel path — they
-    // live in `prescription_orders`, not `orders`, and can only be cancelled
-    // before a pharmacy accepts.
-    if (String(orderId).startsWith('RX-')) {
-        const rxId = orderId.replace(/^RX-/, '');
-        if ((pipelineStatus || '').toLowerCase() !== 'pending') {
-            showToast("This prescription has already been accepted and can't be cancelled here.", "error");
-            return;
-        }
-        showConfirmationModal("Cancel this prescription order?", async () => {
-            let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
-            activeOrdersList = activeOrdersList.filter(o => (o.order_id || o.id) !== orderId);
-            localStorage.setItem('medi_active_orders', JSON.stringify(activeOrdersList));
-            if (supabase) {
-                try { await supabase.from('prescription_orders').update({ status: 'cancelled' }).eq('id', rxId); }
-                catch (e) { showToast('Cancel failed: ' + (e.message || e), 'error'); }
-            }
-            showToast("Prescription order cancelled.", "info");
-            document.getElementById('order-detail-modal')?.remove();
-            refreshOrdersFromServer();
-        });
-        return;
-    }
-    const ps = (pipelineStatus || '').toLowerCase();
-    if (ps === "shipped" || ps === "broadcasted" || ps === "picked_up" || ps === "delivered") {
-        showToast("This order is out for delivery and cannot be canceled.", "error");
-        return;
-    }
-    showConfirmationModal("Are you sure you want to cancel this order?", async () => {
-        let activeOrdersList = JSON.parse(localStorage.getItem('medi_active_orders')) || [];
-        const targetOrder = activeOrdersList.find(o => (o.order_id || o.id) === orderId);
-        activeOrdersList = activeOrdersList.filter(o => (o.order_id || o.id) !== orderId);
-        localStorage.setItem('medi_active_orders', JSON.stringify(activeOrdersList));
-
-        if (supabase) {
-            try {
-                const { error: updateErr } = await supabase.from('orders')
-                    .update({ status: 'cancelled', cancellation_reason: 'Cancelled by user' })
-                    .eq('order_id', orderId);
-                if (updateErr) showToast('Order status update error: ' + (updateErr.message || updateErr), 'error');
-
-                // This row is what actually makes the cancellation show up on the admin
-                // refund panel (adminuser.js reads from the 'cancelled_orders' table).
-                const { error: cancelInsertErr } = await supabase.from('cancelled_orders').insert([{
-                    order_id: orderId,
-                    customer: targetOrder?.customer_name || '',
-                    total_amount: targetOrder?.total_amount || targetOrder?.total_bill || 0,
-                    reason: 'Cancelled by user',
-                    payment: targetOrder?.payment_mode || 'Online',
-                    status: 'Pending'
-                }]);
-                if (cancelInsertErr) showToast('Cancelled-order record save error: ' + (cancelInsertErr.message || cancelInsertErr), 'error');
-                const cancelUid = await getCurrentAuthUserId();
-                pushUserNotification(cancelUid, 'cancelled', 'Order Cancelled', `Your order ${orderId} has been cancelled.`, orderId);
-            } catch (e) {
-                showToast('Cancellation sync error: ' + (e.message || e), 'error');
-            }
-        }
-        showToast("Order canceled successfully.", "success");
-        document.getElementById('order-detail-modal')?.remove();
-        setupOrdersPageModules();
-    });
+ const ps=(pipelineStatus||'').toLowerCase();
+ if(ps!=='pending'){showToast('Your order cancellation window has been closed. The merchant has already accepted this order.','error');return;}
+ showConfirmationModal("Cancel this order?",async()=>{
+  if(!supabase){showToast('Unable to cancel right now. Please try again.','error');return;}
+  try{
+   if(String(orderId).startsWith('RX-')){
+    const rxId=orderId.replace(/^RX-/,'');
+    const result=await supabase.from('prescription_orders').update({status:'cancelled'}).eq('id',rxId).eq('status','pending').select('id');
+    if(result.error)throw result.error;
+    if(!result.data||!result.data.length){showToast('Your order cancellation window has been closed. The pharmacy has already accepted this order.','error');refreshOrdersFromServer();return;}
+   }else{
+    const result=await supabase.from('orders').update({status:'cancelled',cancellation_reason:'Cancelled by user'}).eq('order_id',orderId).eq('status','pending').select('order_id,customer_name,total_amount,total_bill,payment_mode');
+    if(result.error)throw result.error;
+    if(!result.data||!result.data.length){showToast('Your order cancellation window has been closed. The merchant has already accepted this order.','error');refreshOrdersFromServer();return;}
+    const target=result.data[0];
+    const inserted=await supabase.from('cancelled_orders').insert([{order_id:orderId,customer:target.customer_name||'',total_amount:target.total_amount||target.total_bill||0,reason:'Cancelled by user',payment:target.payment_mode||'Online',status:'Pending'}]);
+    if(inserted.error)console.warn('Cancelled-order record save error:',inserted.error.message||inserted.error);
+    pushUserNotification(await getCurrentAuthUserId(),'cancelled','Order Cancelled','Your order '+orderId+' has been cancelled.',orderId);
+   }
+   const active=(JSON.parse(localStorage.getItem('medi_active_orders'))||[]).filter(o=>(o.order_id||o.id)!==orderId);
+   localStorage.setItem('medi_active_orders',JSON.stringify(active));
+   showToast('Order cancelled successfully.','success');document.getElementById('order-detail-modal')?.remove();refreshOrdersFromServer();
+  }catch(e){showToast('Cancellation failed: '+(e.message||e),'error');}
+ });
 };
 
 window.handleReturnOrder = async function (orderId) {
@@ -6445,7 +6386,7 @@ window.openOrderDetailModal = async function (orderId) {
 
         const shopName = !isRx && order.merchant_id ? await getMerchantNameCached(order.merchant_id) : '';
 
-        const canCancel = isRx ? (s === 'pending') : !['shipped', 'broadcasted', 'picked_up', 'delivered', 'cancelled'].includes(s);
+        const canCancel = s === 'pending';
         // OTP is only for MediFinder rider deliveries (Express / Same-day). Standard (courier) orders have no OTP.
         const showOtp = !['cancelled', 'delivered'].includes(s) && (isRx || __orderIsPersonalRider(order));
         const showTrack = s !== 'cancelled';
