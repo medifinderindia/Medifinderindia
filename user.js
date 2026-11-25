@@ -979,10 +979,8 @@ window.markNotificationRead = async function(id) {
             try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch (e) {}
         }
     }
-    const currentPage = window.location.pathname.split('/').pop();
-    if (currentPage && currentPage !== 'userhome.html') {
-        navigateTo('home');
-    }
+    // Keep the customer on the Notifications page after reading an item.
+    // Reading a notification must not trigger an automatic Home navigation.
 };
 
 window.deleteUserNotification = async function(id, event) {
@@ -4373,15 +4371,16 @@ async function refreshDeliverySpeedAvailability(pincode) {
 }
 
 window.selectCartSavedAddress = async function(id) {
-    await window.selectSavedAddressAsActive(id);
     const a = savedAddresses.find(x => x.id === id);
-    if (a) {
-        showSavedAddress({ id: a.id, name: a.name, phone: a.phone, house: a.address1, area: a.address2 || '', city: a.city, pincode: a.pincode, landmark: a.landmark || '', tag: a.tag || 'Home', isDefault: !!a.is_default });
-        renderCartAddressList(savedAddresses, a.id);
-        refreshDeliverySpeedAvailability(a.pincode);
-        refreshShiprocketRateAndBill();
-        refreshDeliveryDistanceAndBill();
-    }
+    if (!a) return;
+    const activeAddress = { id: a.id, name: a.name, phone: a.phone, house: a.address1, area: a.address2 || '', city: a.city, pincode: a.pincode, landmark: a.landmark || '', tag: a.tag || 'Home', isDefault: !!a.is_default };
+    showSavedAddress(activeAddress);
+    renderCartAddressList(savedAddresses, a.id);
+    refreshDeliverySpeedAvailability(a.pincode);
+    refreshShiprocketRateAndBill();
+    refreshDeliveryDistanceAndBill();
+    // Save the selection in the background; never block the first tap on a network check.
+    window.selectSavedAddressAsActive(id).catch(() => {});
 };
 
 function showSavedAddress(addr) {
