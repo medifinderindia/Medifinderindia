@@ -98,8 +98,9 @@
       setState(c, 'bl-err', ICON_ERR + '<span class="bl-lbl">Failed — Retry</span>');
       c.stateT = setTimeout(function () { restore(c); }, ERR_MS);
     } else {
-      setState(c, 'bl-ok', ICON_OK + '<span class="bl-lbl">' + esc(okText(b)) + '</span>');
-      c.stateT = setTimeout(function () { restore(c); }, OK_MS);
+      // No success badge/text (e.g. "Saved") after a normal action.
+      // Keep the loading state for slow requests and the error state for failures.
+      restore(c);
     }
   }
 
