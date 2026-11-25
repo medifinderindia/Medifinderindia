@@ -5366,6 +5366,15 @@ async function processFinalOrderPayload() {
                 }
                 try { refreshOrdersFromServer(); } catch (e) {}
                 pushUserNotification(currentUserId, 'order_placed', 'Order Placed', `Your order ${orderId} has been placed successfully.`, orderId);
+                // Send confirmation only after Supabase confirms the order row exists.
+                try {
+                    const { error: emailError } = await supabase.functions.invoke('send-order-email', {
+                        body: { order_id: orderId }
+                    });
+                    if (emailError) console.warn('[Medifinder email] Order confirmation invocation:', emailError.message || emailError);
+                } catch (emailErr) {
+                    console.warn('[Medifinder email] Order confirmation invocation failed:', emailErr);
+                }
                 // Snapshot real product data onto each order line so the invoice shows
                 // true manufacturer / batch / expiry / HSN / GST even if the listing changes later.
                 let medMap = {};
