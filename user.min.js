@@ -5953,18 +5953,19 @@ async function setupOrdersPageModules() {
 function setupOrdersHelpButton() { document.getElementById('orders-help-btn')?.remove(); // Help belongs inside order details only.
 }
 
-function openOrdersHelpSheet() {
+function openOrdersHelpSheet(order) {
     document.getElementById('orders-help-modal')?.remove();
-    const whatsappMsg = encodeURIComponent("Hi, I am medifinderina's user\nI need help\nProblem: ");
+    const orderId = order ? (order.order_id || order.id || '') : '';
+    const whatsappMsg = encodeURIComponent("Hi, I need help with my Medifinder India order.\nOrder ID: " + orderId + "\nProblem: ");
     const modal = document.createElement('div');
     modal.id = 'orders-help-modal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:flex-end;justify-content:center;';
     modal.innerHTML = `
         <div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 26px;width:100%;max-width:420px;box-sizing:border-box;">
-            <h3 style="margin:0 0 4px;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> Need help with an order?</h3>
-            <p style="margin:0 0 16px;font-size:0.8rem;color:#747d8c;">Reach out to MediFinder India support any time.</p>
-            <a href="mailto:medifinderindia@gmail.com" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
-                <i class="fa-solid fa-envelope" style="color:#1c82aa;width:20px;text-align:center;"></i> medifinderindia@gmail.com
+            <h3 style="margin:0 0 4px;font-size:1.05rem;color:#2f3542;"><i class="fa-solid fa-headset" style="color:#1c82aa;"></i> Order Help</h3>
+            <p style="margin:0 0 16px;font-size:0.8rem;color:#747d8c;">Order ID: <b>${mfEsc(orderId || '—')}</b></p>
+            <a href="mailto:medifinderindia@gmail.com?subject=${encodeURIComponent('Help with order ' + orderId)}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
+                <i class="fa-solid fa-envelope" style="color:#1c82aa;width:20px;text-align:center;"></i> Email Medifinder Support
             </a>
             <a href="https://api.whatsapp.com/send?phone=919382262825&text=${whatsappMsg}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #eef2f5;border-radius:12px;margin-bottom:16px;text-decoration:none;color:#2f3542;font-weight:600;font-size:0.85rem;">
                 <i class="fa-brands fa-whatsapp" style="color:#25D366;width:20px;text-align:center;"></i> Chat on WhatsApp
@@ -6443,12 +6444,12 @@ window.openOrderDetailModal = async function (orderId) {
             ${(s === 'delivered' && !isRx) ? `<button type="button" id="od-reorder-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Buy Again</button>` : ''}
             ${showInvoice ? `<button type="button" id="od-invoice-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ''}
             ${showOtp ? `<button type="button" id="od-otp-btn" style="flex:1;min-width:100px;background:#1E9E6B;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">View OTP</button>` : ''}
-            <button type="button" id="od-help-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-circle-question"></i> Help</button>
+            ${!['delivered', 'cancelled'].includes(s) ? '<button type="button" id="od-help-btn" style="flex:1;min-width:100px;background:#57606f;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-circle-question"></i> Help</button>' : ''}
             ${canCancel ? `<button type="button" id="od-cancel-btn" style="flex:1;min-width:100px;background:#ff4d4d;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancel</button>` : ''}
             ${canReturnOrExchange && !existingReturn ? `<button type="button" id="od-return-btn" style="flex:1;min-width:100px;background:#D6334A;color:#fff;border:none;padding:10px;border-radius:10px;font-size:0.8rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> ${returnInfo.eligible && returnInfo.exchangeEligible ? 'Return / Exchange' : (returnInfo.eligible ? 'Return' : 'Exchange')}</button>` : ''}
           </div>
 
-          ${s === 'cancelled' ? `<div style="background:#fff5f5;border:1px solid #ffd6d6;color:#D6334A;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> This order was cancelled.</div>` : ''}
+          ${s === 'cancelled' ? `<div style="background:#fff5f5;border:1px solid #ffd6d6;color:#D6334A;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> This order was cancelled.</div>` : (s !== 'pending' ? `<div style="background:#fff9db;border:1px solid #ffe8a1;color:#8a6500;border-radius:12px;padding:11px 13px;margin-bottom:14px;font-size:0.78rem;font-weight:600;">Your order cancellation window has been closed.</div>` : '')}
 
           ${existingReturn ? (() => {
               const retTimeline = buildReturnStatusTimeline(existingReturn);
