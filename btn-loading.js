@@ -39,7 +39,7 @@
     if (/delete|remove/.test(t)) return 'Deleted';
     if (/send|push|broadcast/.test(t)) return 'Sent';
     if (/approve|verify|accept/.test(t)) return 'Done';
-    return 'Saved';
+    return 'Done';
   }
 
   var ICON_OK  = '<svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path class="bl-tick" d="M7.5 12.5l3 3 6-6.5"/></svg>';
