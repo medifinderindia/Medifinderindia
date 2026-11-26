@@ -1915,6 +1915,8 @@ const Actions = {
     const raw=o._raw||{};
     await supabase.from("cancelled_orders").insert([{order_id:o.id,customer:o.customer||"",total_amount:o.total||0,reason:reason,payment:o.payment||"Online",status:"Pending",cancelled_by:"admin"}]);
     if(raw.merchant_id) await supabase.from("merchant_notifications").insert({merchant_id:raw.merchant_id,title:"Order rejected by Admin",message:"Order "+o.id+" was rejected by Admin. Reason: "+reason,type:"error",category:"order"});
+    const customerUserId = raw.user_id || raw.customer_id;
+    if(customerUserId) await supabase.from("notifications").insert({user_id:customerUserId,type:"order_rejected",title:"Order rejected by MediFinder India",message:"Your order "+o.id+" was rejected. Reason: "+reason});
     await logAdminAction("Rejected order "+o.id+" — "+reason);
     closeModal(); await refreshLiveData(); render(); toast("Order rejected and customer/merchant records updated","danger");
   },
