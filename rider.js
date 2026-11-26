@@ -2178,7 +2178,7 @@ async function saveRiderProfileToDatabase() {
     }
 }
 
-const MF_LANG_NAMES = { en: 'English', bn: 'বাংলা', hi: 'हिंदी', ne: 'नेपाली', sat: 'ᱥᱟᱱᱛᱟᱲᱤ', ur: 'اردو' };
+const MF_LANG_NAMES = { en: 'English', bn: 'বাংলা', hi: 'हिंदी', ne: 'नेपाली', sat: 'Santali', rjb: 'Rajbanshi', or: 'ଓଡ଼ିଆ', te: 'తెలుగు', mr: 'मराठी', ta: 'தமிழ்', gu: 'ગુજરાતી', kn: 'ಕನ್ನಡ', ml: 'മലയാളം', pa: 'ਪੰਜਾਬੀ', ur: 'اردو' };
 
 function mfSetGoogCookie(lang) {
     const val = lang === 'en' ? '' : '/en/' + lang;
@@ -2211,9 +2211,9 @@ function mfApplyGoogle(lang, tries) {
 }
 
 function setAppLanguage(lang) {
-    const prev = localStorage.getItem("app_language") || "en";
     localStorage.setItem("app_language", lang);
-    applyInstantTranslation(lang);
+    if (window.MFSetLanguage) window.MFSetLanguage(lang);
+    else applyInstantTranslation(lang);
     showToast(`Language changed to ${MF_LANG_NAMES[lang] || lang}`, "info");
     closeSubPage('languagePage');
 }
