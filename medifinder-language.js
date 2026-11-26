@@ -6,7 +6,8 @@
     ['or','ଓଡ଼ିଆ'],['te','తెలుగు'],['mr','मराठी'],['ta','தமிழ்'],['gu','ગુજરાતી'],
     ['kn','ಕನ್ನಡ'],['ml','മലയാളം'],['pa','ਪੰਜਾਬੀ'],['ur','اردو']
   ];
-  const GOOGLE = { rjb:'bn' };
+  // Santali and Rajbanshi are not consistently available in Google's widget; Bengali is the closest fallback.
+  const GOOGLE = { rjb:'bn', sat:'bn' };
   const KEY = 'mf_app_language';
   const read = () => {
     try { return localStorage.getItem(KEY) || localStorage.getItem('medi_active_language_env') || localStorage.getItem('app_language') || 'en'; }
@@ -47,7 +48,7 @@
         if (!window.google || !google.translate) return;
         new google.translate.TranslateElement({
           pageLanguage: 'en',
-          includedLanguages: 'bn,hi,sat,or,te,mr,ta,gu,kn,ml,pa,ur,ne',
+          includedLanguages: 'bn,hi,or,te,mr,ta,gu,kn,ml,pa,ur,ne',
           autoDisplay: false
         }, 'mf-google-translate');
         setTimeout(() => applyWidget(read()), 350);
@@ -76,6 +77,8 @@
   window.MFSetLanguage = setLanguage;
   window.MFGetLanguage = read;
   function makePicker() {
+    // Merchant has its own Language control inside Settings; never add a picker to its header.
+    if (/marchent\.html$/i.test(location.pathname)) return;
     if (document.getElementById('language-select') || document.querySelector('[data-mf-language-picker]')) return;
     const host = document.querySelector('.topbar-actions') || document.querySelector('.sidebar-foot') || document.body;
     if (!host) return;
@@ -95,8 +98,13 @@
     setCookie(lang);
     makePicker();
     if (lang !== 'en') loadWidget(lang);
-    const observer = new MutationObserver(() => {
+    let applyTimer = null;
+    const observer = new MutationObserver((records) => {
       if (!document.querySelector('[data-mf-language-picker]')) makePicker();
+      if (read() !== 'en' && records.some(record => !record.target.closest?.('#mf-google-translate, .goog-te-banner-frame'))) {
+        clearTimeout(applyTimer);
+        applyTimer = setTimeout(() => applyWidget(read()), 700);
+      }
     });
     observer.observe(document.body, { childList:true, subtree:true });
   }
