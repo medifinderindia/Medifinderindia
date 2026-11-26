@@ -1827,7 +1827,7 @@ const Actions = {
     const { error } = await supabase.rpc('approve_merchant_license', { merchant_id_input: m.id });
     if(error){ Object.assign(m, prev); render(); toast("Approve failed: "+error.message,"danger"); return; }
     Promise.all([
-      supabase.from('merchants').update({ kyc_status:'approved', kyc_rejection_reason:'' }).eq('id', m.id),
+      supabase.from('merchants').update({ kyc_status:'approved', kyc_rejection_reason:'', signature_status: m.signature ? 'verified' : 'not_submitted', signature_reviewed_at: m.signature ? new Date().toISOString() : null }).eq('id', m.id),
       supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'Shop verified', message:'Your shop & drug licence have been verified. You are now live on MediFinder India.', type:'success', category:'kyc' })
     ]).catch(e=>console.warn("[admin] merchant approve follow-up", e));
   },
@@ -1839,7 +1839,7 @@ const Actions = {
   },
   "merchant-reject-confirm": async (el)=>{ const m=DATA.merchants.find(x=>x.id===Number(el.dataset.id)); if(!m) return;
     const reason = $("#mRejectReason").value.trim() || "Not specified";
-    const { error } = await supabase.from('merchants').update({ status:'suspended', license_status:'unverified', kyc_status:'rejected', kyc_rejection_reason:reason }).eq('id', m.id);
+    const { error } = await supabase.from('merchants').update({ status:'suspended', license_status:'unverified', kyc_status:'rejected', kyc_rejection_reason:reason, signature_status: m.signature ? 'rejected' : 'not_submitted', signature_reviewed_at: m.signature ? new Date().toISOString() : null }).eq('id', m.id);
     if(error){ toast("Reject failed: "+error.message,"danger"); return; }
     await supabase.from('merchant_kyc').update({ verified:false, status:'rejected', rejection_reason:reason }).eq('merchant_id', m.id);
     await supabase.from('merchant_notifications').insert({ merchant_id:m.id, title:'KYC rejected', message:reason, type:'error', category:'kyc' });
