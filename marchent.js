@@ -4572,7 +4572,7 @@ console.log("marchent.js v15 loaded");
       try { await DB.saveSettings({ [key]: next }); btn.classList.toggle('on', next); showToast('Preference saved'); }
       catch (err) { console.error(err); showToast('Could not save', 'error'); }
     }));
-    document.getElementById('langSelect')?.addEventListener('change', async (e) => { const selected = MF_LANG_OPTIONS.find(x => x[0] === e.target.value); if (!selected) return; await DB.saveSettings({ language: selected[1] }); window.MFSetLanguage?.(selected[0]); showToast('Language updated'); });
+    document.getElementById('langSelect')?.addEventListener('change', async (e) => { const selected = MF_LANG_OPTIONS.find(x => x[0] === e.target.value); if (!selected) return; try { await DB.saveSettings({ language: selected[1] }); window.MFSetLanguage?.(selected[0]); showToast('Language updated'); } catch (err) { showToast(err.message || 'Could not save language', 'error'); } });
     document.getElementById('logoutBtn')?.addEventListener('click', confirmLogout);
     document.getElementById('changePwBtn')?.addEventListener('click', openPasswordSheet);
     document.getElementById('deleteAccBtn')?.addEventListener('click', openDeleteAccountSheet);
