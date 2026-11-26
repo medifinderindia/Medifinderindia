@@ -76,7 +76,7 @@
   window.MFSetLanguage = setLanguage;
   window.MFGetLanguage = read;
   function makePicker() {
-    if (document.querySelector('[data-mf-language-picker]')) return;
+    if (document.getElementById('language-select') || document.querySelector('[data-mf-language-picker]')) return;
     const host = document.querySelector('.topbar-actions') || document.querySelector('.sidebar-foot') || document.body;
     if (!host) return;
     const select = document.createElement('select');
