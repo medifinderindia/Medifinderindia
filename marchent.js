@@ -2027,19 +2027,24 @@ console.log("marchent.js v15 loaded");
   }
 
   function openCancelSheet(order, onDone) {
-    const reasons = ['Out of stock', 'Prescription invalid / unclear', 'Shop is closed', 'Cannot deliver to this address', 'Other'];
+    const reasons = ['Out of stock', 'Prescription invalid / unclear', 'Shop is closed', 'Cannot deliver to this address', 'Product damaged / quality issue', 'Delivery service unavailable', 'Payment verification issue', 'Other — write your reason'];
     openSheet('Reject order', `
       <form id="cancelForm">
-        <label class="field"><span>Reason</span><select name="reason">${reasons.map(r => `<option>${r}</option>`).join('')}</select></label>
-        <label class="field"><span>Note to customer <span class="field-hint">(optional)</span></span><textarea name="note" rows="2" maxlength="200"></textarea></label>
+        <label class="field"><span>Reason *</span><select name="reason" required>${reasons.map((r,i) => `<option value="${i}">${r}</option>`).join('')}</select></label>
+        <label class="field" id="cancelOtherWrap" hidden><span>Write your reason *</span><textarea name="other" rows="3" maxlength="500" placeholder="Explain why this order is being rejected"></textarea></label>
+        <label class="field"><span>Additional note to customer <span class="field-hint">(optional)</span></span><textarea name="note" rows="2" maxlength="200"></textarea></label>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Back</button><button class="btn btn-danger" id="cancelGo">Reject order</button></div>
       </form>`, {
       onOpen: (sh) => {
         const form = sh.el.querySelector('#cancelForm');
+        const otherWrap = form.querySelector('#cancelOtherWrap');
+        form.reason.addEventListener('change', () => { otherWrap.hidden = form.reason.value !== '7'; form.other.required = form.reason.value === '7'; });
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
+          const reason = form.reason.value === '7' ? form.other.value.trim() : reasons[Number(form.reason.value)];
+          if (!reason || (form.reason.value === '7' && reason.length < 5)) { showToast('Please enter a clear rejection reason', 'error'); return; }
           const btn = form.querySelector('#cancelGo'); BtnState.start(btn, 'Rejecting…');
-          try { await DB.cancelOrder(order, form.reason.value, form.note.value.trim()); await BtnState.ok(btn, 'Order Rejected'); sh.close(); showToast('Order rejected'); onDone(); }
+          try { await DB.cancelOrder(order, reason, form.note.value.trim()); await BtnState.ok(btn, 'Order Rejected'); sh.close(); showToast('Order rejected'); onDone(); }
           catch (err) { console.error(err); BtnState.fail(btn, 'Failed — Retry'); showToast('Could not update this order', 'error'); }
         });
       }
