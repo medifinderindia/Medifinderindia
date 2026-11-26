@@ -996,3 +996,12 @@ html[data-theme="dark"] .search-box input{background:#1a202a;color:var(--ink-900
 html[data-theme="dark"] .field input:disabled,html[data-theme="dark"] .field select:disabled,html[data-theme="dark"] .field textarea:disabled{background:#141922;color:#707a89;}
 html[data-theme="dark"] .field input:-webkit-autofill{-webkit-box-shadow:0 0 0 100px #1a202a inset;-webkit-text-fill-color:var(--ink-900);}
 html[data-theme="dark"] .field select option{background:#1a202a;color:var(--ink-900);}
+
+/* Merchant profile refinements: use the full mobile sheet and keep actions at its bottom */
+.sheet-body .personal-information-form{display:flex;flex-direction:column;min-height:calc(100dvh - 112px);padding-bottom:calc(12px + env(safe-area-inset-bottom,0));}
+.sheet-body .personal-information-form .field{width:100%;margin-bottom:18px;}
+.sheet-body .personal-information-form input,.sheet-body .personal-information-form textarea{width:100%;box-sizing:border-box;font-size:15px;}
+.sheet-body .personal-information-form textarea{min-height:120px;line-height:1.5;}
+.sheet-body .personal-information-form .modal-actions{margin-top:auto;padding-top:24px;position:sticky;bottom:0;background:var(--white);padding-bottom:8px;z-index:1;}
+.signature-form .signature-status-row{display:flex;justify-content:flex-start;margin-bottom:10px;}
+.signature-form .signature-actions{position:sticky;bottom:0;background:var(--white);padding:12px 0 calc(8px + env(safe-area-inset-bottom,0));}
