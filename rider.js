@@ -376,7 +376,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const savedLang = localStorage.getItem("app_language") || "en";
-    applyInstantTranslation(savedLang);
+    if (window.MFSetLanguage) window.MFSetLanguage(savedLang);
+    else applyInstantTranslation(savedLang);
 
     await loadCurrentRiderProfileStatus();
 
