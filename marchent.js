@@ -4440,6 +4440,8 @@ console.log("marchent.js v15 loaded");
 
   PAGES.settings = async () => {
     const s = await DB.getSettings();
+    const savedLang = MF_LANG_OPTIONS.find(x => x[1] === s.language)?.[0];
+    if (savedLang && window.MFGetLanguage?.() !== savedLang) window.MFSetLanguage?.(savedLang);
     return `
     <div class="page-head"><h1>Settings</h1></div>
     <div class="card panel">
