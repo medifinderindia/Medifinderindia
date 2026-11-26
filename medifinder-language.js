@@ -67,6 +67,10 @@
     if (!LANGS.some(item => item[0] === lang)) return;
     write(lang);
     setCookie(lang);
+    if (lang !== 'en') {
+      loadWidget(lang);
+      setTimeout(() => applyWidget(lang), 1200);
+    }
     if (lang === 'en') {
       const translated = document.documentElement.classList.contains('translated-ltr') || document.documentElement.classList.contains('translated-rtl');
       if (translated) { location.reload(); return; }
@@ -77,9 +81,9 @@
   window.MFSetLanguage = setLanguage;
   window.MFGetLanguage = read;
   function makePicker() {
-    // Merchant has its own Language control inside Settings; never add a picker to its header.
-    if (/marchent\.html$/i.test(location.pathname)) return;
+    // Language is selected from each panel's own Settings; do not inject a header dropdown.
     if (document.getElementById('language-select') || document.querySelector('[data-mf-language-picker]')) return;
+    if (document.querySelector('.sidebar-merchant-info') || /marchent/i.test(location.pathname)) return;
     const host = document.querySelector('.topbar-actions') || document.querySelector('.sidebar-foot') || document.body;
     if (!host) return;
     const select = document.createElement('select');
