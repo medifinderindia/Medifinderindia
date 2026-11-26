@@ -3697,19 +3697,54 @@ function renderShopDetail(m, totalOrders) {
     const bannerImg = document.getElementById('sd-banner-img');
     const logoImg = document.getElementById('sd-logo-img');
     const logoSrc = m.merchant_avatar || m.avatar_url || '';
-    if (bannerImg) bannerImg.src = m.shop_banner_url || logoSrc || '';
+    const bannerSrc = m.shop_banner_url || logoSrc || '';
+    if (bannerImg) {
+        bannerImg.onerror = function () { this.style.display = 'none'; };
+        if (bannerSrc) { bannerImg.src = bannerSrc; bannerImg.style.display = 'block'; }
+        else { bannerImg.removeAttribute('src'); bannerImg.style.display = 'none'; }
+    }
     if (logoImg) {
+        logoImg.onerror = function () { this.style.display = 'none'; };
         if (logoSrc) { logoImg.src = logoSrc; logoImg.style.display = 'block'; }
-        else { logoImg.style.display = 'none'; }
+        else { logoImg.removeAttribute('src'); logoImg.style.display = 'none'; }
     }
 
-    const statusBadge = document.getElementById('sd-status-badge');
-    const isActive = ['active', 'approved'].includes(String(m.status || '').toLowerCase());
-    if (statusBadge) {
-        statusBadge.textContent = isActive ? 'Open' : 'Closed';
-        statusBadge.className = 'sd-status-badge ' + (isActive ? 'sd-open' : 'sd-closed');
+    // Shop availability is independent of KYC/account approval.
+    const manualStatus = String(m.manual_shop_status || 'auto').toLowerCase();
+    const openTime = m.opening_time || '';
+    const closeTime = m.closing_time || '';
+    let shopOpen = null;
+    if (manualStatus === 'open') shopOpen = true;
+    else if (manualStatus === 'closed') shopOpen = false;
+    else if (openTime && closeTime) {
+        try {
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+            }).formatToParts(new Date());
+            const part = type => Number((parts.find(x => x.type === type) || {}).value || 0);
+            const nowMins = part('hour') * 60 + part('minute');
+            const [oh, om] = openTime.slice(0, 5).split(':').map(Number);
+            const [ch, cm] = closeTime.slice(0, 5).split(':').map(Number);
+            const openMins = oh * 60 + om, closeMins = ch * 60 + cm;
+            shopOpen = openMins <= closeMins
+                ? nowMins >= openMins && nowMins < closeMins
+                : nowMins >= openMins || nowMins < closeMins;
+        } catch (e) { shopOpen = null; }
     }
-    setText('sd-hours', m.opening_hours || 'Timing not available');
+    const statusBadge = document.getElementById('sd-status-badge');
+    if (statusBadge) {
+        statusBadge.textContent = shopOpen === true ? 'Open' : shopOpen === false ? 'Closed' : 'Hours not set';
+        statusBadge.className = 'sd-status-badge ' + (shopOpen === true ? 'sd-open' : shopOpen === false ? 'sd-closed' : 'sd-status-unknown');
+    }
+    const formatShopTime = value => {
+        if (!value) return '';
+        const [h, min] = value.slice(0, 5).split(':').map(Number);
+        const d = new Date(2000, 0, 1, h, min);
+        return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+    setText('sd-hours', openTime && closeTime
+        ? formatShopTime(openTime) + ' – ' + formatShopTime(closeTime)
+        : 'Timing not available');
 
     // Rating — no dedicated shop-rating column exists; shown as "New" (same
     // convention as a product with no reviews yet) rather than a fake number.
