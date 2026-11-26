@@ -4473,7 +4473,8 @@ console.log("marchent.js v15 loaded");
     </div>`;
   };
   const themeOptsHtml = () => `<div class="theme-seg" role="group" aria-label="Theme"><button type="button" data-theme-opt="light">Light</button><button type="button" data-theme-opt="dark">Dark</button></div>`;
-  const languageSelect = (cur) => `<select id="langSelect" class="filter-chip" style="height:36px">${['English', 'Bengali', 'Hindi'].map(l => `<option${cur === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const MF_LANG_OPTIONS = [['en','English'],['bn','Bengali'],['hi','Hindi'],['sat','Santali'],['rjb','Rajbanshi'],['or','Odia'],['te','Telugu'],['mr','Marathi'],['ta','Tamil'],['gu','Gujarati'],['kn','Kannada'],['ml','Malayalam'],['pa','Punjabi'],['ur','Urdu']];
+  const languageSelect = (cur) => { const code = MF_LANG_OPTIONS.find(x => x[1] === cur)?.[0] || cur || 'en'; return `<select id="langSelect" class="filter-chip" style="height:36px">${MF_LANG_OPTIONS.map(([c,l]) => `<option value="${c}"${code === c ? ' selected' : ''}>${l}</option>`).join('')}</select>`; };
   function settingsSwitch(key, label, val) {
     return `<div class="settings-row"><div class="settings-row-label">${label}</div><button class="switch${val ? ' on' : ''}" data-setting="${key}" aria-label="${label}"></button></div>`;
   }
@@ -4569,7 +4570,7 @@ console.log("marchent.js v15 loaded");
       try { await DB.saveSettings({ [key]: next }); btn.classList.toggle('on', next); showToast('Preference saved'); }
       catch (err) { console.error(err); showToast('Could not save', 'error'); }
     }));
-    document.getElementById('langSelect')?.addEventListener('change', async (e) => { await DB.saveSettings({ language: e.target.value }); showToast('Language updated'); });
+    document.getElementById('langSelect')?.addEventListener('change', async (e) => { const selected = MF_LANG_OPTIONS.find(x => x[0] === e.target.value); if (!selected) return; await DB.saveSettings({ language: selected[1] }); window.MFSetLanguage?.(selected[0]); showToast('Language updated'); });
     document.getElementById('logoutBtn')?.addEventListener('click', confirmLogout);
     document.getElementById('changePwBtn')?.addEventListener('click', openPasswordSheet);
     document.getElementById('deleteAccBtn')?.addEventListener('click', openDeleteAccountSheet);
@@ -4729,8 +4730,8 @@ console.log("marchent.js v15 loaded");
   }
   function openLanguageSheet() {
     const cur = loadSettings().language;
-    openSheet('Language', `<div>${['English', 'Bengali', 'Hindi'].map(l => `<label class="radio-card"><input type="radio" name="lang" value="${l}"${l === cur ? ' checked' : ''}><span class="radio-card-body"><b>${l}</b></span></label>`).join('')}</div>`, {
-      onOpen: (sh) => sh.el.addEventListener('change', async (e) => { await DB.saveSettings({ language: e.target.value }); sh.close(); showToast('Language updated'); render(true); })
+    openSheet('Language', `<div>${MF_LANG_OPTIONS.map(([code,label]) => `<label class="radio-card"><input type="radio" name="lang" value="${code}"${(MF_LANG_OPTIONS.find(x => x[1] === cur)?.[0] || 'en') === code ? ' checked' : ''}><span class="radio-card-body"><b>${label}</b></span></label>`).join('')}</div>`, {
+      onOpen: (sh) => sh.el.addEventListener('change', async (e) => { const selected = MF_LANG_OPTIONS.find(x => x[0] === e.target.value); if (!selected) return; await DB.saveSettings({ language: selected[1] }); window.MFSetLanguage?.(selected[0]); sh.close(); showToast('Language updated'); render(true); })
     });
   }
   AFTER.profile = () => {
