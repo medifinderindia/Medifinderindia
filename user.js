@@ -5378,7 +5378,7 @@ async function processFinalOrderPayload() {
                 // true manufacturer / batch / expiry / HSN / GST even if the listing changes later.
                 let medMap = {};
                 try {
-                    const medIds = currentCart.map(i => i.id).filter(id => id && /^[0-9a-f-]{32,36}$/i.test(String(id)));
+                    const medIds = currentCart.map(i => i.id).filter(id => id != null && /^\d+$/.test(String(id)));
                     if (medIds.length) {
                         const medRes = await Promise.race([
                             supabase.from('medicines').select('*').in('id', medIds),
@@ -5391,7 +5391,7 @@ async function processFinalOrderPayload() {
                     const med = medMap[String(item.id)] || null;
                     return {
                     order_id: orderId,
-                    medicine_id: med ? med.id : null,
+                    medicine_id: med ? med.id : (/^\d+$/.test(String(item.id)) ? Number(item.id) : null),
                     manufacturer: med ? (med.manufacturer || med.brand_name || null) : null,
                     batch_number: med ? (med.batch_number || med.lot_number || null) : null,
                     expiry_date: med ? (med.expiry_date || null) : null,
@@ -5462,22 +5462,7 @@ async function processFinalOrderPayload() {
                         }
                     }
                 }
-                for (const item of currentCart) {
-                    if (item.id && item.qty) {
-                        try {
-                            const { error: rpcErr } = await supabase.rpc('decrement_stock', { med_id: item.id, qty: item.qty });
-                            if (rpcErr) throw rpcErr;
-                        } catch (e) {
-                            try {
-                                const { data: currMed } = await supabase.from('medicines').select('stock_qty').eq('id', item.id).single();
-                                if (currMed) {
-                                    const newQty = Math.max(0, currMed.stock_qty - item.qty);
-                                    await supabase.from('medicines').update({ stock_qty: newQty }).eq('id', item.id);
-                                }
-                            } catch (e2) {}
-                        }
-                    }
-                }
+                // Stock is deducted atomically by the database when the order is shipped.
                 const notifiedMerchants = new Set();
                 for (const item of currentCart) {
                     const mid = item.merchantId || primaryMerchantId;
