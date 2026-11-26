@@ -413,6 +413,7 @@ console.log("marchent.js v15 loaded");
       signatureChangeReason: r.signature_change_reason || '',
       // own profile photo first; if none, fall back to the shop photo uploaded in KYC (Shop photo with signboard)
       photo: r.avatar_url || r.merchant_avatar || ((r.business_proof_type === 'Shop photo with signboard' && r.business_proof_img && !/\.pdf(\?|#|$)/i.test(r.business_proof_img)) ? r.business_proof_img : ''),
+      shopBanner: r.shop_banner_url || '',
       phone: r.phone || '',
       email: r.email || email || '',
       address: {
@@ -668,6 +669,17 @@ console.log("marchent.js v15 loaded");
       if (error) throw error;
       const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
       return DB.updateMerchant({ avatar_url: url });
+    },
+    uploadShopBanner: async (file) => {
+      if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) throw new Error('Choose a PNG, JPG or WebP image');
+      if (file.size > 5 * 1024 * 1024) throw new Error('Banner must be under 5 MB');
+      const mid = await requireMerchantId();
+      const ext = file.type.includes('png') ? 'png' : file.type.includes('webp') ? 'webp' : 'jpg';
+      const path = `merchant-${mid}/shop-banner-${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+      return DB.updateMerchant({ shop_banner_url: url });
     },
     /* Optional signature image printed on order receipts. Public bucket (receipts are public); PNG/JPG/WebP, max 2 MB. */
     uploadSignature: async (file, changeReason) => {
@@ -4651,6 +4663,7 @@ console.log("marchent.js v15 loaded");
       <div class="profile-row card" data-profile-action="personal">${icon('user')}<span class="profile-row-label">Personal Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="contact">${icon('phone')}<span class="profile-row-label">Contact Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="shop-hours">${icon('clock')}<span class="profile-row-label">Shop Hours &amp; Availability</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="shop-banner">${icon('image')}<span class="profile-row-label">Shop Banner Photo</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="signature">${icon('edit')}<span class="profile-row-label">Receipt Signature</span><span class="pill ${m.signatureStatus === 'verified' ? 'pill-green' : m.signatureStatus === 'rejected' ? 'pill-red' : m.signature ? 'pill-amber' : 'pill-gray'}">${m.signatureStatus === 'verified' ? 'Verified' : m.signatureStatus === 'rejected' ? 'Rejected' : m.signature ? 'Pending verification' : 'Not uploaded'}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="language">${icon('globe')}<span class="profile-row-label">Language</span><span class="cell-muted" style="font-size:12.5px">${esc(loadSettings().language)}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>
@@ -4685,6 +4698,19 @@ console.log("marchent.js v15 loaded");
       })
     });
   }
+  function openShopBannerSheet() {
+    const m = state.merchant || {};
+    openSheet('Shop banner photo', `<div>
+      <p class="cell-muted" style="font-size:12px;margin:0 0 12px">Upload a clear shop-front or pharmacy banner image. JPG, PNG or WebP, maximum 5 MB.</p>
+      ${m.shopBanner ? `<img src="${esc(m.shopBanner)}" alt="Current shop banner" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin-bottom:12px">` : '<div class="cell-muted" style="padding:24px;text-align:center;background:var(--surface-2);border-radius:12px;margin-bottom:12px">No shop banner uploaded yet</div>'}
+      <label class="btn btn-primary" style="display:flex;justify-content:center;cursor:pointer">Choose banner image<input id="shopBannerInput" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+    </div>`, { onOpen: sh => sh.el.querySelector('#shopBannerInput').addEventListener('change', async e => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      try { state.merchant = await DB.uploadShopBanner(file); sh.close(); showToast('Shop banner updated'); render(true); }
+      catch (err) { console.error(err); showToast(err.message || 'Could not upload banner', 'error'); }
+    })});
+  }
+
   function openShopHoursSheet() {
     const m = state.merchant || {};
     const timeValue = value => String(value || '').slice(0, 5);
@@ -4779,6 +4805,7 @@ console.log("marchent.js v15 loaded");
       if (a === 'personal') openPersonalSheet();
       else if (a === 'contact') openContactSheet();
       else if (a === 'shop-hours') openShopHoursSheet();
+      else if (a === 'shop-banner') openShopBannerSheet();
       else if (a === 'language') openLanguageSheet();
       else if (a === 'signature') openSignatureSheet();
       else if (a === 'notifications') openNotificationsSheet();
