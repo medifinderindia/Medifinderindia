@@ -5375,6 +5375,7 @@ header {
 }
 #page-shop-detail .sd-status-badge.sd-open { background: #e6f9ee; color: #1a9c4a; }
 #page-shop-detail .sd-status-badge.sd-closed { background: #fdecec; color: #D6334A; }
+#page-shop-detail .sd-status-badge.sd-status-unknown { background: #fff4df; color: #9a6700; }
 
 #page-shop-detail .sd-owner-line {
     margin: 2px 0 8px;
