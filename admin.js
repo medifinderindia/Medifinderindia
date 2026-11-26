@@ -1155,6 +1155,7 @@ VIEWS.orders = () => {
       {key:"date",label:"Placed"},
       {key:"_actions",label:"",sortable:false,render:r=>`<div class="actions-cell">
           <button class="btn sm" data-act="order-view" data-id="${r.id}">View</button>
+          ${['pending','accepted'].includes(r.status) ? `<button class="btn sm danger" data-act="order-reject" data-id="${r.id}">Reject</button>` : ''}
         </div>`},
     ], rows, {emptyText:"No orders in this filter."})}
   </div></div>`;
@@ -1898,6 +1899,25 @@ const Actions = {
     if(error){ if(r0) r0.status=prev; render(); toast("Activate failed: "+error.message,"danger"); }
   },
 
+  "order-reject": (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id); if(!o) return;
+    const reasons=["Out of stock","Prescription invalid / unclear","Shop is closed","Cannot deliver to this address","Product damaged / quality issue","Delivery service unavailable","Payment verification issue","Other — write your reason"];
+    openModal("Reject order "+o.id, `<div class="field"><label>Reason *</label><select id="adminOrderRejectReason">${reasons.map((r,i)=>`<option value="${i}">${r}</option>`).join("")}</select></div><div class="field" id="adminOrderOtherWrap" hidden><label>Write your reason *</label><textarea id="adminOrderRejectOther" rows="3" maxlength="500" placeholder="Explain why this order is being rejected"></textarea></div><div class="field"><label>Additional note (optional)</label><textarea id="adminOrderRejectNote" rows="2" maxlength="200"></textarea></div>`,
+      `<button class="btn" data-close-modal>Back</button><button class="btn danger" data-act="order-reject-confirm" data-id="${o.id}">Reject order</button>`);
+    const sel=$("#adminOrderRejectReason"), wrap=$("#adminOrderOtherWrap"); sel.addEventListener("change",()=>{wrap.hidden=sel.value!=="7";});
+  },
+  "order-reject-confirm": async (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id); if(!o) return;
+    const reasons=["Out of stock","Prescription invalid / unclear","Shop is closed","Cannot deliver to this address","Product damaged / quality issue","Delivery service unavailable","Payment verification issue","Other — write your reason"];
+    const sel=$("#adminOrderRejectReason"), reason=sel.value==="7"?$("#adminOrderRejectOther").value.trim():reasons[Number(sel.value)];
+    if(!reason || (sel.value==="7" && reason.length<5)){toast("Please enter a clear rejection reason","danger");return;}
+    const note=$("#adminOrderRejectNote").value.trim();
+    const {error}=await supabase.from("orders").update({status:"cancelled",cancellation_reason:reason,cancellation_note:note}).eq("order_id",o.id).in("status",["pending","accepted"]);
+    if(error){toast("Reject failed: "+error.message,"danger");return;}
+    const raw=o._raw||{};
+    await supabase.from("cancelled_orders").insert([{order_id:o.id,customer:o.customer||"",total_amount:o.total||0,reason:reason,payment:o.payment||"Online",status:"Pending",cancelled_by:"admin"}]);
+    if(raw.merchant_id) await supabase.from("merchant_notifications").insert({merchant_id:raw.merchant_id,title:"Order rejected by Admin",message:"Order "+o.id+" was rejected by Admin. Reason: "+reason,type:"error",category:"order"});
+    await logAdminAction("Rejected order "+o.id+" — "+reason);
+    closeModal(); await refreshLiveData(); render(); toast("Order rejected and customer/merchant records updated","danger");
+  },
   "order-view": (el)=>{ const o=DATA.orders.find(x=>x.id===el.dataset.id);
     const timeline = ["pending","accepted","shipped","picked_up","delivered"];
     const idx = timeline.indexOf(o.status==="broadcasted"?"shipped":o.status);
