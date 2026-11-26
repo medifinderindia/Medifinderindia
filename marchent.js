@@ -4701,15 +4701,29 @@ console.log("marchent.js v15 loaded");
   }
   function openShopBannerSheet() {
     const m = state.merchant || {};
-    openSheet('Shop banner photo', `<div>
-      <p class="cell-muted" style="font-size:12px;margin:0 0 12px">Upload a clear shop-front or pharmacy banner image. JPG, PNG or WebP, maximum 5 MB.</p>
-      ${m.shopBanner ? `<img src="${esc(m.shopBanner)}" alt="Current shop banner" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin-bottom:12px">` : '<div class="cell-muted" style="padding:24px;text-align:center;background:var(--surface-2);border-radius:12px;margin-bottom:12px">No shop banner uploaded yet</div>'}
-      <label class="btn btn-primary" style="display:flex;justify-content:center;cursor:pointer">Choose banner image<input id="shopBannerInput" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-    </div>`, { onOpen: sh => sh.el.querySelector('#shopBannerInput').addEventListener('change', async e => {
-      const file = e.target.files && e.target.files[0]; if (!file) return;
-      try { state.merchant = await DB.uploadShopBanner(file); sh.close(); showToast('Shop banner updated'); render(true); }
-      catch (err) { console.error(err); showToast(err.message || 'Could not upload banner', 'error'); }
-    })});
+    openSheet('Shop banner photo', `<div class="mf-banner-manager">
+      <div style="background:linear-gradient(135deg,#fff1f3,#fff 70%);border:1px solid #ffe0e5;border-radius:16px;padding:14px;margin-bottom:14px">
+        <strong style="display:block;color:#a9253c;font-size:15px">Make your pharmacy stand out</strong>
+        <span style="display:block;color:#687385;font-size:12px;margin-top:5px">Use a clear shop-front photo or branded pharmacy banner. Recommended landscape image.</span>
+      </div>
+      <div style="position:relative;border-radius:15px;overflow:hidden;background:#f1f3f6;min-height:130px;margin-bottom:13px">
+        ${m.shopBanner ? `<img src="${esc(m.shopBanner)}" alt="Current shop banner" style="display:block;width:100%;height:155px;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;height:155px;align-items:center;justify-content:center;color:#778293;font-size:13px">Banner preview unavailable</div>` : '<div style="height:155px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#7b8492;gap:8px"><span style="font-size:30px">▧</span><strong>No banner uploaded yet</strong></div>'}
+      </div>
+      <input id="shopBannerInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      <button type="button" class="btn btn-primary" id="shopBannerChoose" style="width:100%;display:flex;justify-content:center;align-items:center;gap:8px;padding:13px;border-radius:12px">Choose banner image</button>
+      <p style="font-size:11px;color:#8490a0;text-align:center;margin:9px 0 0">JPG, PNG or WebP · Maximum 5 MB</p>
+    </div>`, { onOpen: sh => {
+      const input = sh.el.querySelector('#shopBannerInput');
+      sh.el.querySelector('#shopBannerChoose').addEventListener('click', () => input.click());
+      input.addEventListener('change', async e => {
+        const file = e.target.files && e.target.files[0]; if (!file) return;
+        const btn = sh.el.querySelector('#shopBannerChoose');
+        if (!/^image\/(png|jpe?g|webp)$/i.test(file.type) || file.size > 5*1024*1024) { showToast('Choose JPG, PNG or WebP under 5 MB', 'error'); input.value=''; return; }
+        btn.disabled = true; btn.textContent = 'Uploading…'; btn.style.opacity = '.65';
+        try { state.merchant = await DB.uploadShopBanner(file); sh.close(); showToast('Shop banner updated'); render(true); }
+        catch (err) { console.error(err); btn.disabled=false; btn.textContent='Try upload again'; btn.style.opacity='1'; showToast(err.message || 'Could not upload banner', 'error'); }
+      });
+    }});
   }
 
   function openShopHoursSheet() {
