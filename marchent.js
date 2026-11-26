@@ -408,6 +408,7 @@ console.log("marchent.js v15 loaded");
       openingTime: r.opening_time || '',
       closingTime: r.closing_time || '',
       manualShopStatus: r.manual_shop_status || 'auto',
+      weeklyHours: r.weekly_hours || {},
       signature: r.signature_url || '',
       signatureStatus: r.signature_status || (r.signature_url ? 'pending_review' : 'not_submitted'),
       signatureChangeReason: r.signature_change_reason || '',
@@ -4713,34 +4714,48 @@ console.log("marchent.js v15 loaded");
 
   function openShopHoursSheet() {
     const m = state.merchant || {};
-    const timeValue = value => String(value || '').slice(0, 5);
+    const days = [['mon','Monday'],['tue','Tuesday'],['wed','Wednesday'],['thu','Thursday'],['fri','Friday'],['sat','Saturday'],['sun','Sunday']];
+    const saved = m.weeklyHours || {};
+    const rows = days.map(([key,label]) => {
+      const h = saved[key] || {open:m.openingTime || '',close:m.closingTime || '',closed:false};
+      return `<div class="mf-hours-day" data-day="${key}" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center;padding:11px 0;border-bottom:1px solid #edf0f4">
+        <strong style="font-size:13px;color:#263247">${label}</strong>
+        <input class="mf-day-open" type="time" value="${esc(String(h.open || '').slice(0,5))}" aria-label="${label} opening time" style="min-width:0;width:100%;padding:9px;border:1px solid #dfe4ea;border-radius:10px">
+        <input class="mf-day-close" type="time" value="${esc(String(h.close || '').slice(0,5))}" aria-label="${label} closing time" style="min-width:0;width:100%;padding:9px;border:1px solid #dfe4ea;border-radius:10px">
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap"><input class="mf-day-closed" type="checkbox" ${h.closed ? 'checked' : ''}> Off</label>
+      </div>`;
+    }).join('');
     openSheet('Shop hours & availability', `<form id="shopHoursForm">
-      <p class="cell-muted" style="font-size:12px;margin:0 0 12px">Set your daily opening hours. Automatic mode follows India time (IST). Manual Open/Closed overrides the schedule.</p>
-      <label class="field"><span>Opening time</span><input type="time" name="opening" value="${esc(timeValue(m.openingTime))}"></label>
-      <label class="field"><span>Closing time</span><input type="time" name="closing" value="${esc(timeValue(m.closingTime))}"></label>
-      <label class="field"><span>Availability mode</span><select name="mode">
-        <option value="auto" ${(m.manualShopStatus || 'auto') === 'auto' ? 'selected' : ''}>Automatic (based on hours)</option>
-        <option value="open" ${m.manualShopStatus === 'open' ? 'selected' : ''}>Manually Open</option>
-        <option value="closed" ${m.manualShopStatus === 'closed' ? 'selected' : ''}>Manually Closed</option>
+      <div style="background:linear-gradient(135deg,#fff4f5,#fff);border:1px solid #ffe0e4;border-radius:14px;padding:13px;margin-bottom:14px">
+        <strong style="font-size:14px;color:#b82d45">Weekly shop schedule</strong>
+        <p style="font-size:12px;color:#687385;margin:5px 0 0">Set different opening and closing times for each day. All times use India Standard Time (IST).</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;color:#778293;font-size:10px;font-weight:700;padding:0 0 5px"><span>DAY</span><span>OPENS</span><span>CLOSES</span><span>OFF</span></div>
+      ${rows}
+      <label class="field" style="margin-top:16px"><span>Availability override</span><select name="mode" style="width:100%;padding:12px;border:1px solid #dfe4ea;border-radius:12px;background:#fff">
+        <option value="auto" ${(m.manualShopStatus || 'auto') === 'auto' ? 'selected' : ''}>Automatic — follow weekly schedule</option>
+        <option value="open" ${m.manualShopStatus === 'open' ? 'selected' : ''}>Manually Open — override schedule</option>
+        <option value="closed" ${m.manualShopStatus === 'closed' ? 'selected' : ''}>Manually Closed — override schedule</option>
       </select></label>
-      <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary">Save</button></div>
+      <div style="display:flex;gap:10px;margin-top:16px"><button type="button" class="btn btn-ghost" data-sheet-close style="flex:1">Cancel</button><button class="btn btn-primary" style="flex:1">Save weekly hours</button></div>
     </form>`, {
       onOpen: sh => sh.el.querySelector('#shopHoursForm').addEventListener('submit', async e => {
         e.preventDefault();
-        const form = e.target;
-        const opening = form.opening.value, closing = form.closing.value;
-        if ((opening && !closing) || (!opening && closing)) { showToast('Enter both opening and closing times', 'error'); return; }
+        const form = e.target, weekly = {};
+        let invalid = false;
+        form.querySelectorAll('.mf-hours-day').forEach(row => {
+          const open = row.querySelector('.mf-day-open').value;
+          const close = row.querySelector('.mf-day-close').value;
+          const closed = row.querySelector('.mf-day-closed').checked;
+          if (!closed && ((open && !close) || (!open && close))) invalid = true;
+          weekly[row.dataset.day] = {open:open || '',close:close || '',closed};
+        });
+        if (invalid) { showToast('For each working day, enter both opening and closing times', 'error'); return; }
         const btn = submitBtn(e, form); BtnState.start(btn);
         try {
-          state.merchant = await DB.updateMerchant({
-            opening_time: opening || null,
-            closing_time: closing || null,
-            manual_shop_status: form.mode.value
-          });
-          await BtnState.ok(btn); sh.close(); showToast('Shop hours saved'); render(true);
-        } catch (err) {
-          console.error(err); BtnState.fail(btn); showToast('Could not save shop hours', 'error');
-        }
+          state.merchant = await DB.updateMerchant({weekly_hours:weekly,manual_shop_status:form.mode.value});
+          await BtnState.ok(btn); sh.close(); showToast('Weekly shop hours saved'); render(true);
+        } catch (err) { console.error(err); BtnState.fail(btn); showToast('Could not save shop hours', 'error'); }
       })
     });
   }
