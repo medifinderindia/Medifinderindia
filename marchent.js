@@ -406,6 +406,8 @@ console.log("marchent.js v15 loaded");
       category: r.business_category || '',
       about: r.about_shop || '',
       signature: r.signature_url || '',
+      signatureStatus: r.signature_status || (r.signature_url ? 'pending_review' : 'not_submitted'),
+      signatureChangeReason: r.signature_change_reason || '',
       // own profile photo first; if none, fall back to the shop photo uploaded in KYC (Shop photo with signboard)
       photo: r.avatar_url || r.merchant_avatar || ((r.business_proof_type === 'Shop photo with signboard' && r.business_proof_img && !/\.pdf(\?|#|$)/i.test(r.business_proof_img)) ? r.business_proof_img : ''),
       phone: r.phone || '',
@@ -665,7 +667,7 @@ console.log("marchent.js v15 loaded");
       return DB.updateMerchant({ avatar_url: url });
     },
     /* Optional signature image printed on order receipts. Public bucket (receipts are public); PNG/JPG/WebP, max 2 MB. */
-    uploadSignature: async (file) => {
+    uploadSignature: async (file, changeReason) => {
       if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) throw new Error('Please choose a PNG, JPG or WebP image');
       if (file.size > 2 * 1024 * 1024) throw new Error('Signature image must be under 2 MB');
       const mid = await requireMerchantId();
@@ -674,9 +676,9 @@ console.log("marchent.js v15 loaded");
       const { error } = await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: false });
       if (error) throw error;
       const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
-      return DB.updateMerchant({ signature_url: url });
+      return DB.updateMerchant({ signature_url: url, signature_status: 'pending_review', signature_change_reason: String(changeReason || '').trim(), signature_reviewed_at: null });
     },
-    removeSignature: async () => DB.updateMerchant({ signature_url: null }),
+    removeSignature: async () => DB.updateMerchant({ signature_url: null, signature_status: 'not_submitted', signature_change_reason: null, signature_reviewed_at: null }),
     changePassword: async (password) => {
       const { error } = await sb.auth.updateUser({ password });
       if (error) throw error;
@@ -1447,11 +1449,10 @@ console.log("marchent.js v15 loaded");
     { route: 'payments', label: 'Payments', icon: 'wallet' },
     { route: 'analytics', label: 'Analytics', icon: 'chart' },
     { route: 'notifications', label: 'Notifications', icon: 'bell', badge: 'notif' },
-    { route: 'faq', label: 'FAQ', icon: 'help' },
     { route: 'support', label: 'Support', icon: 'help' },
     { route: 'settings', label: 'Settings', icon: 'settings' }
   ];
-  const BOTTOM_MAIN = ['dashboard', 'orders', 'inventory', 'prescription', 'faq'];
+  const BOTTOM_MAIN = ['dashboard', 'orders', 'inventory', 'prescription'];
   const DRAWER_ROUTES = ['categories', 'promotions', 'customers', 'returns', 'delivery', 'payments', 'analytics', 'notifications', 'support', 'settings'];
   const BOTTOM_ICON_OVERRIDE = { dashboard: 'home' };
   const ROUTE_TITLE = Object.fromEntries(NAV_FULL.map(n => [n.route, n.label]));
@@ -4639,7 +4640,7 @@ console.log("marchent.js v15 loaded");
     <div class="profile-list">
       <div class="profile-row card" data-profile-action="personal">${icon('user')}<span class="profile-row-label">Personal Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="contact">${icon('phone')}<span class="profile-row-label">Contact Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
-      <div class="profile-row card" data-profile-action="signature">${icon('edit')}<span class="profile-row-label">Receipt Signature</span><span class="cell-muted" style="font-size:12.5px">${m.signature ? 'Added' : 'Optional'}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="signature">${icon('edit')}<span class="profile-row-label">Receipt Signature</span><span class="pill ${m.signatureStatus === 'verified' ? 'pill-green' : m.signatureStatus === 'rejected' ? 'pill-red' : m.signature ? 'pill-amber' : 'pill-gray'}">${m.signatureStatus === 'verified' ? 'Verified' : m.signatureStatus === 'rejected' ? 'Rejected' : m.signature ? 'Pending verification' : 'Not uploaded'}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="language">${icon('globe')}<span class="profile-row-label">Language</span><span class="cell-muted" style="font-size:12.5px">${esc(loadSettings().language)}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>
 
@@ -4649,6 +4650,7 @@ console.log("marchent.js v15 loaded");
     <div class="nav-section-label">SUPPORT</div>
     <div class="profile-list">
       <div class="profile-row card" data-profile-action="notifications">${icon('bell')}<span class="profile-row-label">Notifications</span>${unread ? `<span class="nav-badge inline">${unread}</span>` : ''}<span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="faq">${icon('help')}<span class="profile-row-label">FAQs</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="support">${icon('help')}<span class="profile-row-label">Help &amp; Support</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <a class="profile-row card" href="${esc(TERMS_URL)}">${icon('doc2')}<span class="profile-row-label">Terms &amp; Conditions</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
       <a class="profile-row card" href="${esc(PRIVACY_URL)}">${icon('lock')}<span class="profile-row-label">Privacy Policy</span><span class="profile-row-chevron">${icon('chevronR')}</span></a>
@@ -4659,7 +4661,7 @@ console.log("marchent.js v15 loaded");
 
   function openPersonalSheet() {
     const m = state.merchant;
-    openSheet('Personal information', `<form id="persForm">
+    openSheet('Personal information', `<form id="persForm" class="personal-information-form">
       <label class="field"><span>Owner name</span><input type="text" name="owner" required maxlength="80" value="${esc(m.ownerName)}"></label>
       <label class="field"><span>About your shop</span><textarea name="about" rows="3" maxlength="300">${esc(m.about)}</textarea></label>
       <p class="cell-muted" style="font-size:12px;margin-bottom:8px">Shop name, address and documents are part of KYC and can’t be edited here.</p>
@@ -4686,38 +4688,36 @@ console.log("marchent.js v15 loaded");
       })
     });
   }
+
   function openSignatureSheet() {
     const m = state.merchant;
-    openSheet('Receipt signature', `<form id="sigForm">
-      <p class="cell-muted" style="font-size:13px;margin:0 0 10px">Optional. Your signature is printed on the order receipts you issue. Sign on white paper and upload a clear PNG, JPG or WebP photo (max 2 MB).</p>
-      <div id="sigPreviewBox" style="border:1px dashed #cfd5dd;border-radius:12px;padding:12px;background:#fff;text-align:center;margin-bottom:12px;min-height:80px">
-        ${m.signature ? `<img id="sigPreview" src="${esc(m.signature)}" alt="Your signature" style="max-width:100%;max-height:120px;object-fit:contain">` : `<span class="cell-muted" id="sigEmpty" style="font-size:13px;line-height:80px">No signature added</span>`}
-      </div>
-      <label class="field"><span>${m.signature ? 'Replace signature' : 'Signature image'}</span><input type="file" name="sig" accept="image/png,image/jpeg,image/webp"></label>
-      <div class="modal-actions">
-        ${m.signature ? '<button type="button" class="btn btn-ghost" id="sigRemove">Remove</button>' : '<button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button>'}
-        <button class="btn btn-primary" id="sigSave">Save</button>
-      </div></form>`, {
+    const hasSignature = !!m.signature;
+    const status = m.signatureStatus || (hasSignature ? 'pending_review' : 'not_submitted');
+    const statusLabel = status === 'verified' ? 'Verified' : status === 'rejected' ? 'Rejected — upload a corrected signature' : hasSignature ? 'Pending admin verification' : 'Not uploaded';
+    const statusClass = status === 'verified' ? 'pill-green' : status === 'rejected' ? 'pill-red' : hasSignature ? 'pill-amber' : 'pill-gray';
+    const preview = hasSignature ? '<img id="sigPreview" src="' + esc(m.signature) + '" alt="Current receipt signature" style="max-width:100%;max-height:140px;object-fit:contain">' : '<span class="cell-muted" id="sigEmpty" style="font-size:13px;line-height:90px">No signature uploaded yet</span>';
+    const reasonField = hasSignature ? '<label class="field"><span>Reason for changing signature <b style="color:var(--red-600)">*</b></span><textarea name="reason" rows="3" maxlength="500" required placeholder="Explain why you need to change your signature"></textarea></label>' : '';
+    openSheet('Receipt signature', '<form id="sigForm" class="signature-form"><div class="signature-status-row"><span class="pill ' + statusClass + '">' + statusLabel + '</span></div><p class="cell-muted" style="font-size:13px;margin:0 0 12px">Upload a clear signature on white paper. PNG, JPG or WebP, maximum 2 MB. Your signature is printed on customer receipts.</p><div id="sigPreviewBox" style="border:1px dashed #cfd5dd;border-radius:12px;padding:12px;background:#fff;text-align:center;margin-bottom:12px;min-height:100px">' + preview + '</div>' + reasonField + '<label class="field"><span>' + (hasSignature ? 'Upload new signature' : 'Signature image') + '</span><input type="file" name="sig" accept="image/png,image/jpeg,image/webp" required></label><div class="modal-actions signature-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary" id="sigSave">' + (hasSignature ? 'Submit change request' : 'Upload signature') + '</button></div></form>', {
       onOpen: (sh) => {
         const form = sh.el.querySelector('#sigForm');
         form.sig.addEventListener('change', () => {
           const f = form.sig.files && form.sig.files[0]; if (!f) return;
           const box = sh.el.querySelector('#sigPreviewBox');
           box.innerHTML = ''; const im = document.createElement('img'); im.alt = 'Signature preview';
-          im.style.cssText = 'max-width:100%;max-height:120px;object-fit:contain'; im.src = URL.createObjectURL(f); box.appendChild(im);
-        });
-        sh.el.querySelector('#sigRemove')?.addEventListener('click', async () => {
-          const ok = await confirmDialog('Remove signature?', 'New receipts will be issued without a signature.'); if (!ok) return;
-          try { state.merchant = await DB.removeSignature(); sh.close(); showToast('Signature removed'); render(true); }
-          catch (err) { console.error(err); showToast('Could not remove the signature', 'error'); }
+          im.style.cssText = 'max-width:100%;max-height:140px;object-fit:contain'; im.src = URL.createObjectURL(f); box.appendChild(im);
         });
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
           const f = form.sig.files && form.sig.files[0];
           if (!f) { showToast('Choose a signature image first', 'error'); return; }
-          const btn = sh.el.querySelector('#sigSave'); BtnState.start(btn);
-          try { state.merchant = await DB.uploadSignature(f); await BtnState.ok(btn); sh.close(); showToast('Signature saved'); render(true); }
-          catch (err) { console.error(err); BtnState.fail(btn); showToast(err.message || 'Could not save the signature', 'error'); }
+          const reason = hasSignature ? String(form.reason.value || '').trim() : '';
+          if (hasSignature && reason.length < 8) { showToast('Please provide a clear reason (at least 8 characters)', 'error'); form.reason.focus(); return; }
+          const btn = sh.el.querySelector('#sigSave'); BtnState.start(btn, 'Uploading…');
+          try {
+            state.merchant = await DB.uploadSignature(f, reason);
+            await BtnState.ok(btn, 'Submitted for review'); sh.close();
+            showToast('Signature change submitted for verification'); render(true);
+          } catch (err) { console.error(err); BtnState.fail(btn); showToast(err.message || 'Could not upload the signature', 'error'); }
         });
       }
     });
@@ -4737,6 +4737,7 @@ console.log("marchent.js v15 loaded");
       else if (a === 'signature') openSignatureSheet();
       else if (a === 'notifications') openNotificationsSheet();
       else if (a === 'support') openSupportSheet();
+      else if (a === 'faq') navigate('faq');
       else if (a === 'logout') confirmLogout();
       else if (a === 'delete-account') openDeleteAccountSheet();
     }));
