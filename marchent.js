@@ -405,6 +405,9 @@ console.log("marchent.js v15 loaded");
       ownerName: r.owner_name || '',
       category: r.business_category || '',
       about: r.about_shop || '',
+      openingTime: r.opening_time || '',
+      closingTime: r.closing_time || '',
+      manualShopStatus: r.manual_shop_status || 'auto',
       signature: r.signature_url || '',
       signatureStatus: r.signature_status || (r.signature_url ? 'pending_review' : 'not_submitted'),
       signatureChangeReason: r.signature_change_reason || '',
@@ -4647,6 +4650,7 @@ console.log("marchent.js v15 loaded");
     <div class="profile-list">
       <div class="profile-row card" data-profile-action="personal">${icon('user')}<span class="profile-row-label">Personal Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="contact">${icon('phone')}<span class="profile-row-label">Contact Information</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
+      <div class="profile-row card" data-profile-action="shop-hours">${icon('clock')}<span class="profile-row-label">Shop Hours &amp; Availability</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="signature">${icon('edit')}<span class="profile-row-label">Receipt Signature</span><span class="pill ${m.signatureStatus === 'verified' ? 'pill-green' : m.signatureStatus === 'rejected' ? 'pill-red' : m.signature ? 'pill-amber' : 'pill-gray'}">${m.signatureStatus === 'verified' ? 'Verified' : m.signatureStatus === 'rejected' ? 'Rejected' : m.signature ? 'Pending verification' : 'Not uploaded'}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
       <div class="profile-row card" data-profile-action="language">${icon('globe')}<span class="profile-row-label">Language</span><span class="cell-muted" style="font-size:12.5px">${esc(loadSettings().language)}</span><span class="profile-row-chevron">${icon('chevronR')}</span></div>
     </div>
@@ -4681,6 +4685,40 @@ console.log("marchent.js v15 loaded");
       })
     });
   }
+  function openShopHoursSheet() {
+    const m = state.merchant || {};
+    const timeValue = value => String(value || '').slice(0, 5);
+    openSheet('Shop hours & availability', `<form id="shopHoursForm">
+      <p class="cell-muted" style="font-size:12px;margin:0 0 12px">Set your daily opening hours. Automatic mode follows India time (IST). Manual Open/Closed overrides the schedule.</p>
+      <label class="field"><span>Opening time</span><input type="time" name="opening" value="${esc(timeValue(m.openingTime))}"></label>
+      <label class="field"><span>Closing time</span><input type="time" name="closing" value="${esc(timeValue(m.closingTime))}"></label>
+      <label class="field"><span>Availability mode</span><select name="mode">
+        <option value="auto" ${(m.manualShopStatus || 'auto') === 'auto' ? 'selected' : ''}>Automatic (based on hours)</option>
+        <option value="open" ${m.manualShopStatus === 'open' ? 'selected' : ''}>Manually Open</option>
+        <option value="closed" ${m.manualShopStatus === 'closed' ? 'selected' : ''}>Manually Closed</option>
+      </select></label>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" data-sheet-close>Cancel</button><button class="btn btn-primary">Save</button></div>
+    </form>`, {
+      onOpen: sh => sh.el.querySelector('#shopHoursForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const form = e.target;
+        const opening = form.opening.value, closing = form.closing.value;
+        if ((opening && !closing) || (!opening && closing)) { showToast('Enter both opening and closing times', 'error'); return; }
+        const btn = submitBtn(e, form); BtnState.start(btn);
+        try {
+          state.merchant = await DB.updateMerchant({
+            opening_time: opening || null,
+            closing_time: closing || null,
+            manual_shop_status: form.mode.value
+          });
+          await BtnState.ok(btn); sh.close(); showToast('Shop hours saved'); render(true);
+        } catch (err) {
+          console.error(err); BtnState.fail(btn); showToast('Could not save shop hours', 'error');
+        }
+      })
+    });
+  }
+
   function openContactSheet() {
     const m = state.merchant;
     openSheet('Contact information', `<form id="contForm">
@@ -4740,6 +4778,7 @@ console.log("marchent.js v15 loaded");
       const a = el.dataset.profileAction;
       if (a === 'personal') openPersonalSheet();
       else if (a === 'contact') openContactSheet();
+      else if (a === 'shop-hours') openShopHoursSheet();
       else if (a === 'language') openLanguageSheet();
       else if (a === 'signature') openSignatureSheet();
       else if (a === 'notifications') openNotificationsSheet();
