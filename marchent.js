@@ -938,10 +938,7 @@ console.log("marchent.js v15 loaded");
       }));
       const { error: e2 } = await sb.from('order_items').insert(itemRows);
       if (e2) console.warn('order_items insert failed', e2);
-      for (const l of lines) {           // reserve stock for the medicines the pharmacy added
-        const { error: e3 } = await sb.rpc('decrement_stock', { med_id: l.id, qty: l.qty });
-        if (e3) console.warn('stock update failed for', l.name, e3);
-      }
+      // Stock is deducted atomically by the database when this order is shipped.
       productsCache = null; invalidateOrders();
       await notifyMerchant('Prescription Order Created', `Order ${code} created for ${rx.customer} — ₹${subtotal.toFixed(2)}.`, 'order', order.id);
       await notifyCustomer(rx, { title: 'Prescription accepted', message: `${m.shop_name || 'A pharmacy'} accepted your prescription. Order ${code} total ₹${subtotal.toFixed(2)}.`, orderCode: code, type: 'prescription' });
