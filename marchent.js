@@ -687,9 +687,9 @@ console.log("marchent.js v15 loaded");
       const mid = await requireMerchantId();
       const cur = await loadMerchantRow(true);
       const docs = {};
-      for (const kind of ['license', 'business', 'gst', 'trade', 'fssai', 'pharmacist', 'invoice', 'extra', 'identity', 'bank']) {
-        if (files && files[kind]) docs[kind] = await uploadKycDoc(kind, files[kind]);
-      }
+      const uploadKinds = ['license', 'business', 'gst', 'trade', 'fssai', 'pharmacist', 'invoice', 'extra', 'identity', 'bank'];
+      const uploaded = await Promise.all(uploadKinds.filter(kind => files && files[kind]).map(async kind => [kind, await uploadKycDoc(kind, files[kind])]));
+      uploaded.forEach(([kind, url]) => { docs[kind] = url; });
       const gps = String(d.address.gps || '').split(',').map(x => parseFloat(x));
       const cat = catInfo(d.category), dd = d.docs || {};
       const hasLic = cat.drug && String(d.license.number || '').trim() !== '';
@@ -712,12 +712,11 @@ console.log("marchent.js v15 loaded");
         fssai_no: cat.fssai ? ((dd.fssai && dd.fssai.number) || null) : null, fssai_expiry: cat.fssai ? ((dd.fssai && dd.fssai.expiry) || null) : null, fssai_img: fssaiImg,
         id_proof_type: d.identity.idType, id_proof_number: d.identity.idNumber, id_proof_img: docs.identity || d.identity.doc || '',
         bank_no: d.bank.accountNumber, ifsc_code: String(d.bank.ifsc || '').toUpperCase(), upi_id: d.bank.upi || '', bank_image: docs.bank || d.bank.doc || '',
-        bank_account_holder: d.ownerName,
-        kyc_status: 'pending_review', kyc_submitted_at: new Date().toISOString(), kyc_rejection_reason: ''
+        bank_account_holder: d.ownerName
       };
       if (gps.length === 2 && gps.every(Number.isFinite)) { patch.latitude = gps[0]; patch.longitude = gps[1]; }
-      if (String(cur.license_status || '').toLowerCase() !== 'verified') patch.license_status = 'pending';
-      if (String(cur.bank_status || '').toLowerCase() !== 'verified') patch.bank_status = 'pending';
+      // Verification/status columns are admin-controlled by database triggers.
+      // Submit only merchant-editable KYC details; the merchant_kyc queue below records the review request.
       const { error } = await sb.from('merchants').update(patch).eq('id', mid);
       if (error) throw error;
       // keep the admin review queue (merchant_kyc) in step
