@@ -1,7 +1,7 @@
 const SB = process.env.SUPABASE_URL || 'https://rnpbglinkpsikeszcjcl.supabase.co';
 const KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_Ogc4JOrhQXAl9zRTDU0y3g_oGnitfuZ';
 const SITE = 'https://medifinderindia.com';
-const COLS = 'id,product_name,name,brand_name,generic_name,category,sub_category,pack_size,manufacturer,mrp,selling_price,unit_price,stock_qty,description,image_url,is_rx,updated_at';
+const COLS = 'id,product_name,name,brand_name,generic_name,category,sub_category,pack_size,manufacturer,mrp,selling_price,unit_price,stock_qty,description,image_url,image_url_2,image_url_3,image_url_4,is_rx,updated_at';
 const STATIC_LASTMOD = '2026-10-12'; // bump this date when static pages change
 const STATIC_PAGES = [['/', '1.0', 'weekly'], ['/products', '0.9', 'daily'], ['/about', '0.8', 'monthly'], ['/grievance', '0.5', 'monthly'], ['/contact', '0.7', 'monthly'], ['/faq', '0.7', 'monthly'], ['/terms', '0.5', 'monthly'], ['/privacy', '0.5', 'monthly'], ['/refund', '0.5', 'monthly']];
 
@@ -10,6 +10,7 @@ const slug = s => String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/
 const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
 const money = n => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const nameOf = m => m.product_name || m.name || 'Product';
+const imagesOf = m => [...new Set([m.image_url, m.image_url_2, m.image_url_3, m.image_url_4].filter(v => typeof v === 'string' && /^https?:\\/\\//i.test(v.trim())).map(v => v.trim()))];
 const priceOf = m => num(m.selling_price) || num(m.unit_price) || num(m.mrp);
 const urlOf = m => '/product/' + m.id + '-' + slug(nameOf(m));
 const trunc = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
@@ -103,7 +104,7 @@ function productPage(m, list) {
   const desc = trunc(m.description, 155) || `Buy ${name}${m.pack_size ? ' (' + m.pack_size + ')' : ''} at ${money(p)} on MediFinder India from a licensed partner pharmacy in West Bengal.`;
   const rows = [['Brand', m.brand_name], ['Manufacturer', m.manufacturer], ['Generic / type', m.generic_name], ['Pack size', m.pack_size], ['Category', m.category], ['Sub-category', m.sub_category]].filter(r => r[1]);
   const ld = [crumbLd([['Home', '/'], ['Products', '/products'], ...(m.category ? [[m.category, '/category/' + cs]] : []), [name, path]]),
-  { '@context': 'https://schema.org', '@type': 'Product', name, image: m.image_url ? [m.image_url] : undefined, description: trunc(m.description, 500) || undefined, brand: m.brand_name ? { '@type': 'Brand', name: m.brand_name } : undefined, category: m.category || undefined, sku: String(m.id), url: SITE + path, offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.toFixed(2), availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: SITE + path, seller: { '@type': 'Organization', name: 'MediFinder India partner pharmacy' } } }];
+  { '@context': 'https://schema.org', '@type': 'Product', name, image: imagesOf(m).length ? imagesOf(m) : undefined, description: trunc(m.description, 500) || undefined, brand: m.brand_name ? { '@type': 'Brand', name: m.brand_name } : undefined, category: m.category || undefined, sku: String(m.id), url: SITE + path, offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.toFixed(2), availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: SITE + path, seller: { '@type': 'Organization', name: 'MediFinder India partner pharmacy' } } }];
   const body = `<div class="crumbs"><a href="/">Home</a> › <a href="/products">Products</a>${m.category ? ' › <a href="/category/' + cs + '">' + esc(m.category) + '</a>' : ''} › ${esc(name)}</div>
 <div class="pd"><div class="pic">${m.image_url ? `<img src="${esc(m.image_url)}" alt="${esc(name)}">` : ''}</div><div><h1>${esc(name)}</h1>${m.brand_name ? `<div class="sub">by ${esc(m.brand_name)}</div>` : ''}
 <div class="big">${money(p)}${off ? ` <s style="font-size:15px;color:#9ca3af;font-weight:500">${money(mrp)}</s><span class="off">${off}% off</span>` : ''}</div><span class="tag ${inStock ? '' : 'no'}">${inStock ? 'In stock' : 'Out of stock'}</span>
@@ -112,7 +113,7 @@ ${m.description ? `<p>${esc(m.description).replace(/\n+/g, '<br>')}</p>` : ''}
 <a class="btn" href="/auth.html">Order on MediFinder India</a>
 <div class="note">Sold and dispensed by a licensed partner pharmacy or seller; MediFinder India is the platform that connects you. Price and availability depend on your location. This page is not medical advice; consult a doctor or pharmacist.</div></div></div>`;
   const more = list.filter(x => x.id !== m.id && x.category === m.category).slice(0, 8);
-  return layout({ title: name + (m.pack_size ? ' ' + m.pack_size : ''), desc, path, ld, image: m.image_url, body: body + (more.length ? `<h2 style="margin:26px 0 12px">More in ${esc(m.category)}</h2><div class="grid">${more.map(card).join('')}</div>` : '') });
+  return layout({ title: name + (m.pack_size ? ' ' + m.pack_size : ''), desc, path, ld, image: imagesOf(m)[0], body: body + (more.length ? `<h2 style="margin:26px 0 12px">More in ${esc(m.category)}</h2><div class="grid">${more.map(card).join('')}</div>` : '') });
 }
 
 function notFound(res) {
@@ -127,9 +128,9 @@ module.exports = async (req, res) => {
       const list = await listAll(), cs = cats(list), day = d => String(d || '').slice(0, 10) || new Date().toISOString().slice(0, 10), today = new Date().toISOString().slice(0, 10);
       const rows = STATIC_PAGES.map(s => [s[0], STATIC_LASTMOD, s[2], s[1]])
         .concat(cs.map(c => ['/category/' + c.slug, today, 'daily', '0.7']))
-        .concat(list.map(m => [urlOf(m), day(m.updated_at), 'weekly', '0.6']));
+        .concat(list.map(m => [urlOf(m), day(m.updated_at), 'weekly', '0.6', m]));
       res.setHeader('Content-Type', 'application/xml; charset=utf-8'); res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
-      return res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + rows.map(x => `  <url><loc>${SITE}${esc(x[0])}</loc><lastmod>${x[1]}</lastmod><changefreq>${x[2]}</changefreq><priority>${x[3]}</priority></url>`).join('\n') + '\n</urlset>\n');
+      return res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n' + rows.map(x => { const m = x[4]; const imageTags = m ? imagesOf(m).map(src => `<image:image><image:loc>${esc(src)}</image:loc><image:title>${esc(nameOf(m))}</image:title></image:image>`).join('') : ''; return `  <url><loc>${SITE}${esc(x[0])}</loc><lastmod>${x[1]}</lastmod><changefreq>${x[2]}</changefreq><priority>${x[3]}</priority>${imageTags}</url>`; }).join('\n') + '\n</urlset>\n');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
     if (r === 'products' || r === 'category') {
