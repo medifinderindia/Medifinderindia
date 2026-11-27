@@ -10,7 +10,7 @@ const slug = s => String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/
 const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
 const money = n => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const nameOf = m => m.product_name || m.name || 'Product';
-const imagesOf = m => [...new Set([m.image_url, m.image_url_2, m.image_url_3, m.image_url_4].filter(v => typeof v === 'string' && /^https?:\\/\\//i.test(v.trim())).map(v => v.trim()))];
+const imagesOf = m => [...new Set([m.image_url, m.image_url_2, m.image_url_3, m.image_url_4].filter(v => typeof v === 'string' && /^https?:\/\//i.test(v.trim())).map(v => v.trim()))];
 const priceOf = m => num(m.selling_price) || num(m.unit_price) || num(m.mrp);
 const urlOf = m => '/product/' + m.id + '-' + slug(nameOf(m));
 const trunc = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
@@ -104,7 +104,7 @@ function productPage(m, list) {
   const desc = trunc(m.description, 155) || `Buy ${name}${m.pack_size ? ' (' + m.pack_size + ')' : ''} at ${money(p)} on MediFinder India from a licensed partner pharmacy in West Bengal.`;
   const rows = [['Brand', m.brand_name], ['Manufacturer', m.manufacturer], ['Generic / type', m.generic_name], ['Pack size', m.pack_size], ['Category', m.category], ['Sub-category', m.sub_category]].filter(r => r[1]);
   const ld = [crumbLd([['Home', '/'], ['Products', '/products'], ...(m.category ? [[m.category, '/category/' + cs]] : []), [name, path]]),
-  { '@context': 'https://schema.org', '@type': 'Product', name, image: imagesOf(m).length ? imagesOf(m) : undefined, description: trunc(m.description, 500) || undefined, brand: m.brand_name ? { '@type': 'Brand', name: m.brand_name } : undefined, category: m.category || undefined, sku: String(m.id), url: SITE + path, offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.toFixed(2), availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: SITE + path, seller: { '@type': 'Organization', name: 'MediFinder India partner pharmacy' } } }];
+  { '@context': 'https://schema.org', '@type': 'Product', name, image: imagesOf(m).length ? imagesOf(m) : undefined, description: trunc(m.description, 500) || undefined, brand: m.brand_name ? { '@type': 'Brand', name: m.brand_name } : undefined, category: m.category || undefined, sku: String(m.id), url: SITE + path, offers: p > 0 ? { '@type': 'Offer', priceCurrency: 'INR', price: p.toFixed(2), availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition', url: SITE + path } : undefined }];
   const body = `<div class="crumbs"><a href="/">Home</a> › <a href="/products">Products</a>${m.category ? ' › <a href="/category/' + cs + '">' + esc(m.category) + '</a>' : ''} › ${esc(name)}</div>
 <div class="pd"><div class="pic">${m.image_url ? `<img src="${esc(m.image_url)}" alt="${esc(name)}">` : ''}</div><div><h1>${esc(name)}</h1>${m.brand_name ? `<div class="sub">by ${esc(m.brand_name)}</div>` : ''}
 <div class="big">${money(p)}${off ? ` <s style="font-size:15px;color:#9ca3af;font-weight:500">${money(mrp)}</s><span class="off">${off}% off</span>` : ''}</div><span class="tag ${inStock ? '' : 'no'}">${inStock ? 'In stock' : 'Out of stock'}</span>
