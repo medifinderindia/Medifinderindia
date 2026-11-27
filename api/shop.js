@@ -94,7 +94,16 @@ function listPage(list, cs, cur) {
   const desc = c ? `Buy ${c.name} products online in West Bengal from licensed partner pharmacies on MediFinder India. ${items.length} products available.` : 'Browse medicines, health and household products from licensed partner pharmacies on MediFinder India. Search. Connect. Care.';
   const ld = [crumbLd(c ? [['Home', '/'], ['Products', '/products'], [c.name, path]] : [['Home', '/'], ['Products', '/products']]),
   { '@context': 'https://schema.org', '@type': 'CollectionPage', name: h1, url: SITE + path, hasPart: undefined, mainEntity: { '@type': 'ItemList', itemListElement: items.slice(0, 50).map((m, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + urlOf(m), name: nameOf(m) })) } }];
-  const body = `<div class="crumbs"><a href="/">Home</a> › <a href="/products">Products</a>${c ? ' › ' + esc(c.name) : ''}</div><h1>${esc(h1)}</h1><p class="sub">${items.length} product${items.length === 1 ? '' : 's'} from licensed partner pharmacies. Order in the MediFinder India app.</p>${chips(cs, cur)}${items.length ? `<div class="grid">${items.map(card).join('')}</div>` : '<div class="empty">No products listed yet. Please check back soon.</div>'}`;
+  const categoryIntro = c ? {
+    tablet: 'Explore tablets listed by participating pharmacy partners on MediFinder India. Check product details, availability and pricing, and follow prescription requirements where applicable. Availability and delivery depend on your location.',
+    capsule: 'Browse capsule medicines from participating pharmacy partners. Review product information and prescription requirements before ordering. Stock, pricing and delivery availability may vary by location.',
+    syrup: 'Find syrup products listed by participating pharmacies. Check the product details, usage instructions and prescription requirements, and confirm availability for your area.',
+    'detergent-and-laundry': 'Browse laundry and cleaning essentials available from participating sellers. Product listings, prices and stock may vary by location.',
+    diapers: 'Explore baby and adult diaper products listed by participating sellers. Review sizes, pack details and availability before placing an order.',
+    'household-items': 'Discover household essentials listed by participating sellers on MediFinder India. Check product details and availability in your delivery area.',
+    'tissue-and-paper': 'Browse tissue and paper essentials from participating sellers. Compare product and pack details and check local availability.'
+  }[cur] || 'Browse products in this category from participating MediFinder India sellers. Check listing details, pricing and availability in your area.' : '';
+  const body = `<div class="crumbs"><a href="/">Home</a> › <a href="/products">Products</a>${c ? ' › ' + esc(c.name) : ''}</div><h1>${esc(h1)}</h1><p class="sub">${c ? esc(categoryIntro) : 'Browse medicines, health and household products from participating partner pharmacies and sellers on MediFinder India.'}</p><p class="sub">${items.length} product${items.length === 1 ? '' : 's'} listed.</p>${chips(cs, cur)}${items.length ? `<div class="grid">${items.map(card).join('')}</div>` : '<div class="empty">No products listed yet. Please check back soon.</div>'}`;
   return layout({ title, desc, path, body, ld, image: items[0] && items[0].image_url });
 }
 
